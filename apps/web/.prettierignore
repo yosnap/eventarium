@@ -1,0 +1,5 @@
+.angular
+dist
+node_modules
+public/assets
+src/app/core/api/generated
