@@ -14,7 +14,7 @@ App Angular única (público + admin) con arquitectura por features, cliente API
 
 ## Requirements
 - Functional: rutas públicas (`/`, placeholder de evento) con SSR y rutas admin (`/admin/login`, `/admin`, `/admin/branding` solo lectura) con guard; `ThemingService` carga `/api/v1/tenant/branding` en el arranque y aplica colores, fuentes, logo y `template_key`; `TemplateRegistry` con `classic` y `minimal`; `AuthService` con login/refresh/logout; interceptores de auth y errores; SSR reenvía el host original a la API; textos externalizados.
-- Non-functional: Angular última estable (21 LTS si 22 da fricción), standalone, Signals, `OnPush`, zone.js por defecto; Tailwind v4 con `@theme` sobre CSS vars; sin Angular Material; Transloco; Vitest; ESLint (angular-eslint + reglas a11y) + Prettier; `axe-core` en tests con **0 violaciones de cualquier impacto**; checklist manual WCAG 2.1 AA por pantalla (`docs/accesibilidad.md`); tipos generados con `ng-openapi-gen` desde `openapi.json` versionado; ficheros ≤ 300 líneas; SSR solo en rutas públicas.
+- Non-functional: **Angular 21 LTS** (validación #2), standalone, <!-- Updated: Validation Session 1 - Angular 21 --> Signals, `OnPush`, zone.js por defecto; Tailwind v4 con `@theme` sobre CSS vars; sin Angular Material; Transloco; Vitest; ESLint (angular-eslint + reglas a11y) + Prettier; `axe-core` en tests con **0 violaciones de cualquier impacto**; checklist manual WCAG 2.1 AA por pantalla (`docs/accesibilidad.md`); tipos generados con `ng-openapi-gen` desde `openapi.json` versionado; ficheros ≤ 300 líneas; SSR solo en rutas públicas.
 
 ## Architecture
 ```
@@ -50,7 +50,7 @@ apps/web/src/
 - Modify: `Makefile` (`web`, `api-types` = generar desde `apps/api/openapi.json` exportado por `make api-openapi`)
 
 ## Implementation Steps
-1. `pnpm dlx @angular/cli@latest new web --standalone --style=css --ssr` en `apps/`; añadir Tailwind v4, angular-eslint, Prettier, Transloco, Vitest, `axe-core`/`vitest-axe`, `ng-openapi-gen`; fijar versiones.
+1. `pnpm dlx @angular/cli@21 new web --standalone --style=css --ssr` en `apps/`; añadir Tailwind v4, angular-eslint, Prettier, Transloco, Vitest, `axe-core`/`vitest-axe`, `ng-openapi-gen`; fijar versiones.
 2. `tokens.css` + `tailwind.css` con `@theme`; verificar que `bg-primary` responde al cambio de variable.
 3. `make api-openapi` (backend exporta `apps/api/openapi.json`, versionado) y `make api-types` (genera desde ese fichero, mismo comando en local y CI).
 4. `core/theming` con `TransferState`, inyección de `<style>` en SSR y manejo de error visible.
@@ -75,6 +75,5 @@ apps/web/src/
 
 ## Risk Assessment
 - Tailwind v4 con Angular CLI: integración PostCSS varía por versión → consultar docs vigentes al implementar; fallback a Tailwind v3.
-- Angular 22 muy reciente rompe dependencias → usar 21 LTS; señal: peer deps incompatibles.
-- Cookie `HttpOnly` con SSR y CORS entre `web` y `api` en dominios distintos → en desarrollo servir ambos bajo el mismo host vía Caddy o proxy del dev server (`proxy.conf.json`) para que la cookie sea first-party; documentar.
+- Cookie `HttpOnly` requiere mismo host → en desarrollo se accede siempre por `http://localhost:8080` (Caddy de la fase 1), nunca por `:4200` directo; documentar en `docs/desarrollo.md`.
 - Deriva de tipos API ↔ front → `openapi.json` versionado y `git diff --exit-code` en CI tras regenerar.

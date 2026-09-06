@@ -25,13 +25,15 @@ Fuentes de decisión: `docs/prd.md` §6-7 y `docs/investigacion.md` §3-4. Revis
 | Área | Decisión (PRD) | Cómo se materializa en esta fase |
 |---|---|---|
 | Multi-tenant | Tabla compartida + `organization_id` + RLS de PostgreSQL | Dos roles de BD creados por script de init (fuera de Alembic): `app_user` (sin `BYPASSRLS`, uso de la API) y `app_maintainer` (`BYPASSRLS`, uso exclusivo de migraciones, seed y operaciones de superadmin/alta de organización). RLS `FORCE` en todas las tablas de dominio, incluida `users`. Contexto fijado con `SET LOCAL app.organization_id` en un único punto; **fail-closed** si no hay contexto |
+| Topología | Web y API bajo el **mismo host**: Caddy sirve `/` (Angular SSR), `/api/*` (FastAPI) y `/media/*` (proxy al bucket) | También en desarrollo (Caddy en el Compose de dev apuntando al dev server de Angular y a uvicorn). Sin CORS en producción; cookie de refresh first-party; una sola cabecera `X-Forwarded-Host` |
+| Superadmin | CLI + endpoints mínimos | `python -m app.cli` y módulo `admin` (`POST/GET /api/v1/admin/organizations`, `POST …/{id}/domains`) protegido por `is_superadmin`, único lugar de la API que usa `engine_maintenance` |
 | Resolución de organización | Por `Host` exacto contra `organization_domains` | Sin fallback en producción; `token.org` debe coincidir con la organización resuelta (403 si no); cabecera `X-Organization-Slug` y `DEFAULT_ORGANIZATION_SLUG` solo con `APP_ENV=development`; `X-Forwarded-Host` aceptado solo desde el proxy de confianza |
 | Roles | Por defecto con campos predefinidos + personalizados | **Clonación**: `system_roles.py` define plantillas en código; al crear una organización se clonan como filas con `organization_id NOT NULL` y campos `is_locked`. Regla anti-escalada: solo se conceden permisos que el actor posee |
 | Almacenamiento | SeaweedFS por defecto tras `StorageProvider` S3 | `aioboto3`; claves con namespace `orgs/{organization_id}/…`; validación de tipo (png/jpg/webp), tamaño y `Content-Type`; públicos servidos vía `S3_PUBLIC_BASE_URL` (proxy Caddy), sin depender de bucket policy |
 | Tareas async | Taskiq + Redis | `RedisStreamBroker` (durable, con reintentos) + result backend; worker en Compose |
 | Auth | PyJWT (HS256 fijado) + Argon2 | Access token en memoria; **refresh en cookie `HttpOnly` `Secure` `SameSite=Lax`** con rotación y revocación en Redis con TTL; Redis caído → 503 (fail-closed) |
 | Permisos | Catálogo fijo en código | `core/permissions.py` (Enum) + `role_permissions` |
-| Frontend | Angular última estable, standalone + Signals, SSR solo en rutas públicas, Tailwind v4 sobre CSS vars, Transloco, Vitest | Dos shells (público/admin), `ThemingService`, `TemplateRegistry`; SSR reenvía `X-Forwarded-Host` |
+| Frontend | **Angular 21 LTS**, standalone + Signals, SSR solo en rutas públicas, Tailwind v4 sobre CSS vars, Transloco, Vitest | Dos shells (público/admin), `ThemingService`, `TemplateRegistry`; SSR reenvía `X-Forwarded-Host` |
 | Accesibilidad | WCAG 2.1 AA en toda la app | 0 violaciones axe de cualquier impacto + checklist manual WCAG por fase (`docs/accesibilidad.md`) |
 | Seguridad de la cadena | ASVS L2 (PRD §6) | `.dockerignore`, secretos solo en runtime, `pip-audit` + `pnpm audit`, gitleaks, lockfiles congelados, imágenes etiquetadas por SHA |
 | Licencia | MIT | `LICENSE` en la raíz |
@@ -69,7 +71,7 @@ ia-week/
 │   ├── api/                      # FastAPI
 │   │   ├── app/
 │   │   │   ├── core/             # config, database, security, storage, tenant, permissions, deps, tasks
-│   │   │   ├── modules/          # health, auth, tenant, organizations, users, roles
+│   │   │   ├── modules/          # health, auth, tenant, organizations, users, roles, admin
 │   │   │   ├── shared/           # errors, pagination, dynamic_fields
 │   │   │   ├── seed/
 │   │   │   ├── cli.py
@@ -87,7 +89,7 @@ ia-week/
 │           ├── features/         # public/*, admin/*
 │           └── shared/ui/
 ├── infra/
-│   ├── docker-compose.yml        # desarrollo: postgres, seaweedfs, redis
+│   ├── docker-compose.yml        # desarrollo: postgres, seaweedfs, redis, caddy (mismo host /, /api, /media)
 │   ├── docker-compose.prod.yml   # producción: + migrate, api, worker, web, caddy
 │   ├── postgres/init/            # 01-roles.sql (app_user, app_maintainer, default privileges)
 │   ├── caddy/Caddyfile
@@ -109,7 +111,8 @@ Eventos, sesiones, inscripciones, entradas/QR, patrocinadores, pagos, contabilid
 
 - [ ] `docker compose -f infra/docker-compose.yml up -d` deja PostgreSQL (con roles `app_user`/`app_maintainer`), SeaweedFS (con bucket `media`) y Redis healthy
 - [ ] `GET /api/v1/health` responde `{"database":"ok","storage":"ok","redis":"ok"}`
-- [ ] `alembic upgrade head` + `make db-seed` (idempotente, ejecutable dos veces) crean organización demo, dominio `localhost`, roles clonados con campos predefinidos y usuario owner
+- [ ] `alembic upgrade head` + `make db-seed` (idempotente, ejecutable dos veces) crean organización demo, dominio `localhost`, roles clonados con campos predefinidos y usuario owner con contraseña generada (o `SEED_OWNER_PASSWORD`) mostrada por consola
+- [ ] Superadmin: `python -m app.cli create-organization` y `POST /api/v1/admin/organizations` (solo `is_superadmin`) crean organización + dominio; un usuario normal → 403
 - [ ] Login JWT funciona con refresh en cookie `HttpOnly`; endpoint protegido → 401 sin token, 403 sin permiso, 403 si `token.org` ≠ organización del host
 - [ ] Tests de aislamiento: con RLS activa, una sesión fijada en A no lee ni escribe filas de B (incluida `users`) aunque el repositorio omita el filtro; sin contexto fijado no se lee nada
 - [ ] No es posible crear un rol con permisos que el actor no posee, ni escalar a `owner`
@@ -147,6 +150,26 @@ Eventos, sesiones, inscripciones, entradas/QR, patrocinadores, pagos, contabilid
 ### Whole-Plan Consistency Sweep
 - Decisiones delta: (a) sin GUC de bypass → rol `app_maintainer`; (b) clonación de roles con `organization_id NOT NULL`; (c) `users` con RLS; (d) refresh en cookie HttpOnly; (e) fail-closed en tenant, RLS y Redis; (f) secuencia 1→2→3→4→5; (g) WCAG: 0 violaciones axe + checklist manual; (h) `RedisStreamBroker`; (i) roles y privilegios en `infra/postgres/init`; (j) `X-Forwarded-Host` desde proxy de confianza.
 - Barrido realizado sobre `plan.md` y las cinco fases: eliminadas las menciones a `app.bypass`, a `organization_id NULL` en roles/campos, al paralelismo 3‖4, al fallback `localStorage`, al "timeout 2 s → tokens por defecto" silencioso, a "axe sin violaciones críticas" y a la migración `0001_roles_de_base_de_datos`.
+- Contradicciones sin resolver: **ninguna**.
+
+## Validation Log
+
+### Session 1 — 2026-09-06
+Verificación previa: omitida (Red Team Review con evidencia ya aplicado; sin etiquetas `[UNVERIFIED]`). Preguntas: 7.
+
+| # | Pregunta | Decisión | Propagado a |
+|---|---|---|---|
+| 1 | Topología web/API | Mismo host: Caddy sirve `/`, `/api/*` y `/media/*`, también en desarrollo | plan.md, Fases 1, 2, 4, 5 |
+| 2 | Versión de Angular | 21 LTS | plan.md, Fase 4 |
+| 3 | Acceso de superadmin en fase 0 | CLI + endpoints API mínimos protegidos por `is_superadmin` | plan.md, Fase 3 |
+| 4 | Credenciales del owner en el seed | Contraseña generada (o `SEED_OWNER_PASSWORD`) y mostrada por consola | Fase 3 |
+| 5 | Servir media pública | Proxy `/media/*` en Caddy al bucket, sin bucket policy | Fases 1, 5 |
+| 6 | Alcance de endpoints de superadmin | Mínimo: crear/listar organizaciones y añadir dominios; sin UI | Fase 3 |
+| 7 | Versión de Python | 3.12 | sin cambios |
+
+### Whole-Plan Consistency Sweep
+- Delta: (a) Caddy pasa a formar parte del Compose de desarrollo; (b) CORS solo en desarrollo si se accede sin Caddy; cookie sin `Domain`, `Path=/api/v1/auth`; (c) nuevo módulo `admin` como único consumidor de `engine_maintenance` en la API (el test estático de la fase 3 lo permite solo ahí); (d) Angular fijado en 21 LTS; (e) seed sin contraseña fija.
+- Barrido sobre `plan.md` y las cinco fases: eliminadas las menciones a "Angular última estable (21 LTS si 22 da fricción)", al `proxy.conf.json` alternativo, a `Domain` derivado del host en la cookie y a "solo CLI" para superadmin.
 - Contradicciones sin resolver: **ninguna**.
 
 <!-- slug: fase-0-scaffolding -->
