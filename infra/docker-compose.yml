@@ -1,0 +1,115 @@
+# Entorno de desarrollo: solo dependencias + Caddy.
+# La API, el worker y el frontend se ejecutan en local con hot reload y se sirven
+# a través de Caddy en http://localhost:${WEB_PORT} para que web y API compartan host
+# (cookie de refresh first-party, sin CORS, X-Forwarded-Host probado en local).
+name: ia-week
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_SUPERUSER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:?falta POSTGRES_SUPERUSER_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-ia_week}
+      POSTGRES_APP_USER_PASSWORD: ${POSTGRES_APP_USER_PASSWORD:?falta POSTGRES_APP_USER_PASSWORD}
+      POSTGRES_MAINTAINER_PASSWORD: ${POSTGRES_MAINTAINER_PASSWORD:?falta POSTGRES_MAINTAINER_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+      - ./postgres/sql:/opt/postgres-sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_SUPERUSER:-postgres} -d ${POSTGRES_DB:-ia_week}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  seaweedfs:
+    image: chrislusf/seaweedfs:3.97
+    restart: unless-stopped
+    command: >
+      server -dir=/data -master.volumeSizeLimitMB=256
+      -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json
+      -volume.max=10 -ip=seaweedfs
+    ports:
+      - "${S3_PORT:-8333}:8333"
+      - "${SEAWEEDFS_MASTER_PORT:-9333}:9333"
+    volumes:
+      - seaweedfs-data:/data
+      - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+    healthcheck:
+      # -ip=seaweedfs hace que los servicios escuchen en esa dirección, no en localhost.
+      # Se comprueba el puerto S3, que es el que consume la API.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://seaweedfs:8333/status || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  # Crea el bucket una vez. No se aplica bucket policy: el acceso público de lectura
+  # lo concede la identidad anónima de s3.json y en producción lo sirve Caddy en /media/*.
+  storage-init:
+    image: amazon/aws-cli:2.31.9
+    depends_on:
+      seaweedfs:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:?falta S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:?falta S3_SECRET_KEY}
+      AWS_DEFAULT_REGION: ${S3_REGION:-us-east-1}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        for intento in 1 2 3 4 5 6 7 8 9 10; do
+          if aws --endpoint-url http://seaweedfs:8333 s3api head-bucket --bucket ${S3_BUCKET:-media} 2>/dev/null; then
+            echo "bucket ${S3_BUCKET:-media} ya existe"; exit 0
+          fi
+          if aws --endpoint-url http://seaweedfs:8333 s3api create-bucket --bucket ${S3_BUCKET:-media}; then
+            echo "bucket ${S3_BUCKET:-media} creado"; exit 0
+          fi
+          echo "reintento $$intento…"; sleep 3
+        done
+        echo "no se pudo crear el bucket" >&2; exit 1
+    restart: "no"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    depends_on:
+      seaweedfs:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    environment:
+      API_UPSTREAM: ${API_UPSTREAM:-host.docker.internal:8000}
+      WEB_UPSTREAM: ${WEB_UPSTREAM:-host.docker.internal:4200}
+      S3_UPSTREAM: ${S3_UPSTREAM:-seaweedfs:8333}
+    volumes:
+      - ./caddy/Caddyfile.dev:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  postgres-data:
+  seaweedfs-data:
+  redis-data:
+  caddy-data:
+  caddy-config:
