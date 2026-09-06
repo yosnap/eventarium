@@ -5,8 +5,7 @@ import { authGuard } from './core/auth/auth.guard';
 export const routes: Routes = [
   {
     path: 'admin/login',
-    loadComponent: () =>
-      import('./features/admin/login/login-page').then((m) => m.LoginPage),
+    loadComponent: () => import('./features/admin/login/login-page').then((m) => m.LoginPage),
   },
   {
     path: 'admin',
@@ -31,8 +30,7 @@ export const routes: Routes = [
     children: [
       {
         path: '',
-        loadComponent: () =>
-          import('./features/public/home/home-page').then((m) => m.HomePage),
+        loadComponent: () => import('./features/public/home/home-page').then((m) => m.HomePage),
       },
     ],
   },

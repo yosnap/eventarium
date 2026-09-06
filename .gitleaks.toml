@@ -19,6 +19,9 @@ paths = [
   # que sustituir al desplegar («cambiame_…», «CAMBIAR_…»).
   '''infra/env/\.env\.example''',
   '''infra/seaweedfs/s3\.json\.example''',
+  # Credenciales efímeras de integración continua: pertenecen a contenedores que solo
+  # existen durante el job, se generan en el propio workflow y no dan acceso a nada.
+  '''\.github/workflows/ci\.yml''',
 ]
 regexes = [
   '''cambiame_[a-z_]+''',
