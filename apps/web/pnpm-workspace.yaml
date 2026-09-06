@@ -1,0 +1,12 @@
+# Ajustes de pnpm 11 (ya no se leen desde package.json ni .npmrc).
+#
+# pnpm no ejecuta los scripts de instalación de las dependencias y, por defecto,
+# convierte ese hecho en un error. Aquí se acepta como advertencia: ninguna de las
+# cuatro necesita ejecutar código en la instalación (esbuild y lmdb traen binarios
+# precompilados) y no ejecutarlos reduce la superficie de la cadena de suministro.
+strictDepBuilds: false
+onlyBuiltDependencies:
+  - '@parcel/watcher'
+  - esbuild
+  - lmdb
+  - msgpackr-extract

@@ -1,0 +1,98 @@
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Component, Type, provideZonelessChangeDetection } from '@angular/core';
+import { beforeEach, describe, expect, it } from 'vitest';
+
+import { Alert } from './alert';
+import { Button } from './button';
+import { Card } from './card';
+import { Input } from './input';
+import { esperarSinViolacionesDeAccesibilidad } from '../../../testing/axe';
+
+/**
+ * Anfitrión que proyecta texto en el botón, como se usa en la aplicación real. Un
+ * botón vacío no tendría nombre accesible, y probarlo así no diría nada útil.
+ */
+@Component({
+  selector: 'app-anfitrion-boton',
+  imports: [Button],
+  template: `<app-button>Guardar cambios</app-button>`,
+})
+class AnfitrionBoton {}
+
+describe('componentes compartidos', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+  });
+
+  /**
+   * Monta un componente. Las entradas obligatorias se fijan antes de la primera
+   * detección de cambios: si no, Angular falla al evaluar la plantilla.
+   */
+  async function montar<T>(
+    componente: Type<T>,
+    entradas: Record<string, unknown> = {},
+  ): Promise<ComponentFixture<T>> {
+    const fixture = TestBed.createComponent(componente);
+    for (const [nombre, valor] of Object.entries(entradas)) {
+      fixture.componentRef.setInput(nombre, valor);
+    }
+    await fixture.whenStable();
+    return fixture;
+  }
+
+  it('el botón con texto no tiene violaciones de accesibilidad', async () => {
+    const fixture = await montar(AnfitrionBoton);
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('el botón marca aria-busy mientras carga', async () => {
+    const fixture = await montar(Button);
+    fixture.componentRef.setInput('loading', true);
+    await fixture.whenStable();
+
+    const boton = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
+    expect(boton.getAttribute('aria-busy')).toBe('true');
+    expect(boton.disabled).toBe(true);
+  });
+
+  it('la alerta de error usa role="alert" y el resto role="status"', async () => {
+    const fixture = await montar(Alert);
+    fixture.componentRef.setInput('tone', 'error');
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('[role="alert"]')).not.toBeNull();
+
+    fixture.componentRef.setInput('tone', 'info');
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('[role="status"]')).not.toBeNull();
+  });
+
+  it('la tarjeta con título es una región etiquetada y accesible', async () => {
+    const fixture = await montar(Card);
+    fixture.componentRef.setInput('heading', 'Resumen');
+    await fixture.whenStable();
+
+    const seccion = fixture.nativeElement.querySelector('section') as HTMLElement;
+    const idTitulo = seccion.getAttribute('aria-labelledby');
+    expect(idTitulo).toBeTruthy();
+    expect(fixture.nativeElement.querySelector(`#${idTitulo}`)?.textContent).toContain('Resumen');
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('el campo enlaza etiqueta y mensaje de error', async () => {
+    const fixture = await montar(Input, {
+      label: 'Correo electrónico',
+      error: 'Escribe tu correo.',
+    });
+
+    const campo = fixture.nativeElement.querySelector('input') as HTMLInputElement;
+    const etiqueta = fixture.nativeElement.querySelector('label') as HTMLLabelElement;
+    expect(etiqueta.getAttribute('for')).toBe(campo.id);
+    expect(campo.getAttribute('aria-invalid')).toBe('true');
+
+    const idError = campo.getAttribute('aria-describedby');
+    expect(fixture.nativeElement.querySelector(`#${idError}`)?.textContent).toContain(
+      'Escribe tu correo.',
+    );
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+});
