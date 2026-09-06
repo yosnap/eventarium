@@ -31,7 +31,11 @@ import { Button } from '../../shared/ui/button';
         <nav [attr.aria-label]="t('admin.navegacion')">
           <ul>
             <li>
-              <a routerLink="/admin" routerLinkActive="activo" [routerLinkActiveOptions]="{ exact: true }">
+              <a
+                routerLink="/admin"
+                routerLinkActive="activo"
+                [routerLinkActiveOptions]="{ exact: true }"
+              >
                 {{ t('admin.escritorio') }}
               </a>
             </li>

@@ -50,7 +50,19 @@ plans/        Planes de implementación por fase
 | [`docs/modelo-de-datos.md`](docs/modelo-de-datos.md) | Esquema y RLS |
 | [`docs/accesibilidad.md`](docs/accesibilidad.md) | Checklist WCAG 2.1 AA |
 | [`docs/despliegue.md`](docs/despliegue.md) | Despliegue, backups y rollback |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Flujo de trabajo y checklist de PR |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Flujo de ramas, versionado y checklist de PR |
+
+## Estado
+
+Fase 0 (scaffolding) completa: entorno, backend multi-organización con Row-Level
+Security, frontend con theming por organización, integración continua y documentación.
+Sin funcionalidad de negocio todavía: eventos, inscripciones, entradas, patrocinadores y
+pagos llegan en las fases siguientes del [PRD](docs/prd.md).
+
+## Contribuir
+
+`main` solo se alcanza por pull request y cada fase tiene su versión menor. El flujo
+completo está en [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Notas de infraestructura
 

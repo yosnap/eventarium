@@ -1,7 +1,7 @@
 ---
 title: "Fase 0 — Scaffolding de la plataforma de eventos"
 description: "Monorepo FastAPI + Angular, PostgreSQL con RLS multi-organización, SeaweedFS, Redis/Taskiq, theming dinámico, CI y docs de desarrollo. Cimientos sin funcionalidad de negocio."
-status: in-progress
+status: completed
 priority: P1
 effort: "7-10d"
 tags: [scaffolding, fastapi, angular, postgresql, rls, seaweedfs, multi-tenant]
@@ -58,8 +58,8 @@ Fuentes de decisión: `docs/prd.md` §6-7 y `docs/investigacion.md` §3-4. Revis
 | 1 | [Fase 1: Monorepo y entorno](./phase-01-monorepo-y-entorno.md) | Completed |
 | 2 | [Fase 2: Backend FastAPI base](./phase-02-backend-fastapi-base.md) | Completed |
 | 3 | [Fase 3: Multi-tenant con RLS y modelos base](./phase-03-multi-tenant-rls-y-modelos-base.md) | Completed |
-| 4 | [Fase 4: Frontend Angular y theming](./phase-04-frontend-angular-y-theming.md) | Pending |
-| 5 | [Fase 5: Documentación y CI](./phase-05-documentacion-y-ci.md) | Pending |
+| 4 | [Fase 4: Frontend Angular y theming](./phase-04-frontend-angular-y-theming.md) | Completed |
+| 5 | [Fase 5: Documentación y CI](./phase-05-documentacion-y-ci.md) | Completed |
 
 Dependencias: **estrictamente secuencial** 1 → 2 → 3 → 4 → 5. La fase 4 necesita el contrato real de branding, el seed y el login de la fase 3; no se ejecuta en paralelo.
 
@@ -109,18 +109,18 @@ Eventos, sesiones, inscripciones, entradas/QR, patrocinadores, pagos, contabilid
 
 ## Success Criteria
 
-- [ ] `docker compose -f infra/docker-compose.yml up -d` deja PostgreSQL (con roles `app_user`/`app_maintainer`), SeaweedFS (con bucket `media`) y Redis healthy
-- [ ] `GET /api/v1/health` responde `{"database":"ok","storage":"ok","redis":"ok"}`
-- [ ] `alembic upgrade head` + `make db-seed` (idempotente, ejecutable dos veces) crean organización demo, dominio `localhost`, roles clonados con campos predefinidos y usuario owner con contraseña generada (o `SEED_OWNER_PASSWORD`) mostrada por consola
-- [ ] Superadmin: `python -m app.cli create-organization` y `POST /api/v1/admin/organizations` (solo `is_superadmin`) crean organización + dominio; un usuario normal → 403
-- [ ] Login JWT funciona con refresh en cookie `HttpOnly`; endpoint protegido → 401 sin token, 403 sin permiso, 403 si `token.org` ≠ organización del host
-- [ ] Tests de aislamiento: con RLS activa, una sesión fijada en A no lee ni escribe filas de B (incluida `users`) aunque el repositorio omita el filtro; sin contexto fijado no se lee nada
-- [ ] No es posible crear un rol con permisos que el actor no posee, ni escalar a `owner`
-- [ ] `GET /api/v1/tenant/branding` devuelve el branding de la organización resuelta por host; host desconocido → 404
-- [ ] Angular muestra layout público con colores/logo del branding y layout admin tras login; cambiar colores en BD cambia la UI sin rebuild; SSR resuelve la organización correcta tras Caddy
-- [ ] CI: `ruff`, `mypy`, `pytest` (contra Postgres real), `pip-audit`, `pnpm audit`, gitleaks, `ng lint`, `ng test`, `ng build`, tipos OpenAPI sin diff, 0 violaciones axe
-- [ ] Ningún fichero fuente supera 1000 líneas (objetivo ≤ 300)
-- [ ] `docs/desarrollo.md` permite levantar el entorno sin ayuda; `docs/accesibilidad.md` con checklist WCAG completado para la fase
+- [x] `docker compose -f infra/docker-compose.yml up -d` deja PostgreSQL (con roles `app_user`/`app_maintainer`), SeaweedFS (con bucket `media`) y Redis healthy
+- [x] `GET /api/v1/health` responde `{"database":"ok","storage":"ok","redis":"ok"}`
+- [x] `alembic upgrade head` + `make db-seed` (idempotente, ejecutable dos veces) crean organización demo, dominio `localhost`, roles clonados con campos predefinidos y usuario owner con contraseña generada (o `SEED_OWNER_PASSWORD`) mostrada por consola
+- [x] Superadmin: `python -m app.cli create-organization` y `POST /api/v1/admin/organizations` (solo `is_superadmin`) crean organización + dominio; un usuario normal → 403
+- [x] Login JWT funciona con refresh en cookie `HttpOnly`; endpoint protegido → 401 sin token, 403 sin permiso, 403 si `token.org` ≠ organización del host
+- [x] Tests de aislamiento: con RLS activa, una sesión fijada en A no lee ni escribe filas de B (incluida `users`) aunque el repositorio omita el filtro; sin contexto fijado no se lee nada
+- [x] No es posible crear un rol con permisos que el actor no posee, ni escalar a `owner`
+- [x] `GET /api/v1/tenant/branding` devuelve el branding de la organización resuelta por host; host desconocido → 404
+- [x] Angular muestra layout público con colores/logo del branding y layout admin tras login; cambiar colores en BD cambia la UI sin rebuild; SSR resuelve la organización correcta tras Caddy
+- [x] CI: `ruff`, `mypy`, `pytest` (contra Postgres real), `pip-audit`, `pnpm audit`, gitleaks, `ng lint`, `ng test`, `ng build`, tipos OpenAPI sin diff, 0 violaciones axe
+- [x] Ningún fichero fuente supera 1000 líneas (objetivo ≤ 300)
+- [x] `docs/desarrollo.md` permite levantar el entorno sin ayuda; `docs/accesibilidad.md` con checklist WCAG completado para la fase
 
 ## Red Team Review
 

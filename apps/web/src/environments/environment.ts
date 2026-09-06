@@ -13,7 +13,8 @@
  * directamente rompería el bundle.
  */
 function variableDeEntorno(nombre: string): string | undefined {
-  const proceso = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
+  const proceso = (globalThis as { process?: { env?: Record<string, string | undefined> } })
+    .process;
   return proceso?.env?.[nombre];
 }
 

@@ -1,0 +1,65 @@
+# Caddy de producción.
+#
+# Web y API comparten host: la cookie de sesión es first-party sin configurar nada,
+# no hace falta CORS y solo hay una cabecera de host que revisar.
+#
+# El host original se reenvía en X-Forwarded-Host. La API solo lo acepta desde las
+# redes declaradas en TRUSTED_PROXY_CIDRS, y el servidor SSR de Angular solo lo acepta
+# si está en NG_ALLOWED_HOSTS (o si esa variable no se define).
+
+{
+	# Correo de contacto de Let's Encrypt: es donde avisa de los certificados a
+	# punto de caducar. El Compose garantiza que nunca llegue vacío.
+	email {$ACME_EMAIL}
+
+	# TLS bajo demanda para dominios propios de cada organización (fase 9 del PRD).
+	# Desactivado: sin el endpoint de autorización, cualquiera podría forzar la emisión
+	# de certificados apuntando su dominio a este servidor.
+	#
+	# on_demand_tls {
+	# 	ask http://api:8000/api/v1/tenant/verificar-dominio
+	# 	interval 2m
+	# 	burst 5
+	# }
+}
+
+{$SITE_ADDRESS} {
+	log {
+		output stdout
+		format json
+	}
+
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	handle /api/* {
+		reverse_proxy api:8000 {
+			header_up X-Forwarded-Host {host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
+	# El bucket se llama «media», así que la ruta coincide con la clave path-style del
+	# objeto en S3. Los objetos son inmutables (la clave lleva un UUID), de ahí la caché
+	# larga.
+	handle /media/* {
+		reverse_proxy seaweedfs:8333 {
+			header_up Host {upstream_hostport}
+		}
+		header Cache-Control "public, max-age=86400, immutable"
+	}
+
+	handle {
+		reverse_proxy web:4000 {
+			header_up X-Forwarded-Host {host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+}

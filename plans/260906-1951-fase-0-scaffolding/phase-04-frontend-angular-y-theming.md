@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: "Fase 4: Frontend Angular y theming"
-status: pending
+status: completed
 priority: P1
 effort: "2-3d"
 dependencies: [2, 3]
@@ -65,13 +65,13 @@ apps/web/src/
 13. `Dockerfile` y target `make web`.
 
 ## Success Criteria
-- [ ] Cambiar `colors.primary` en BD y recargar cambia el color sin rebuild; sin flash de tema por defecto en SSR
-- [ ] `template_key` `classic` ↔ `minimal` cambia el layout público
-- [ ] `/admin` sin sesión → `/admin/login`; login del seed → dashboard; refresh funciona solo con cookie, `localStorage` vacío
-- [ ] SSR tras Caddy con dos hosts distintos devuelve el branding de cada organización
-- [ ] Logo servido desde `S3_PUBLIC_BASE_URL`
-- [ ] `ng lint`, `ng test`, `ng build` en verde; **0 violaciones axe** en shells y `shared/ui`; checklist WCAG AA completado
-- [ ] Todos los textos visibles vienen de `es-ES.json`
+- [x] Cambiar `colors.primary` en BD y recargar cambia el color sin rebuild; sin flash de tema por defecto en SSR
+- [x] `template_key` `classic` ↔ `minimal` cambia el layout público
+- [x] `/admin` sin sesión → `/admin/login`; login del seed → dashboard; refresh funciona solo con cookie, `localStorage` vacío
+- [x] SSR tras Caddy con dos hosts distintos devuelve el branding de cada organización
+- [x] Logo servido desde `S3_PUBLIC_BASE_URL`
+- [x] `ng lint`, `ng test`, `ng build` en verde; **0 violaciones axe** en shells y `shared/ui`; checklist WCAG AA completado
+- [x] Todos los textos visibles vienen de `es-ES.json`
 
 ## Risk Assessment
 - Tailwind v4 con Angular CLI: integración PostCSS varía por versión → consultar docs vigentes al implementar; fallback a Tailwind v3.
