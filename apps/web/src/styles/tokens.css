@@ -1,0 +1,39 @@
+/*
+ * Design tokens como custom properties.
+ *
+ * Estos valores son el respaldo: en el arranque, ThemingService los sobrescribe con
+ * el branding de la organización que devuelve la API. Por eso Tailwind consume las
+ * variables y nunca colores literales: cambiar la paleta en la base de datos cambia
+ * la interfaz sin recompilar nada.
+ */
+
+:root {
+  /* Colores. Contraste AA verificado sobre --color-surface. */
+  --color-primary: #1d4ed8;
+  --color-primary-contrast: #ffffff;
+  --color-secondary: #0f766e;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f1f5f9;
+  --color-text: #0f172a;
+  --color-text-muted: #475569;
+  --color-border: #cbd5e1;
+  --color-danger: #b91c1c;
+  --color-success: #15803d;
+
+  /* Tipografías. */
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: var(--font-sans);
+
+  /* Radios y sombras. */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 1rem;
+  --shadow-card: 0 1px 3px rgb(15 23 42 / 0.1), 0 1px 2px rgb(15 23 42 / 0.06);
+
+  /* Escala de espaciado. */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 2rem;
+  --space-xl: 4rem;
+}
