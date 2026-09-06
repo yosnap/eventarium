@@ -1,0 +1,40 @@
+# Entorno y secretos
+.env
+.env.*
+!.env.example
+infra/env/.env
+infra/seaweedfs/s3.json
+*.pem
+*.key
+*.p12
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+dist/
+build/
+*.egg-info/
+
+# Node
+node_modules/
+.angular/
+.pnpm-store/
+coverage/
+apps/web/dist/
+
+# Datos locales
+infra/data/
+
+# IDE y sistema
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db

@@ -1,0 +1,18 @@
+{
+  "identities": [
+    {
+      "name": "app",
+      "credentials": [
+        {
+          "accessKey": "CAMBIAR_ACCESS_KEY",
+          "secretKey": "CAMBIAR_SECRET_KEY"
+        }
+      ],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    },
+    {
+      "name": "anonymous",
+      "actions": ["Read:media"]
+    }
+  ]
+}
