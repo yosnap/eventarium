@@ -1,0 +1,34 @@
+# Configuración de gitleaks.
+#
+# Se parte del conjunto de reglas por defecto y solo se excluyen rutas cuyo contenido
+# es, por definición, un marcador de posición. Nunca se excluye una ruta para silenciar
+# un secreto real: si aparece uno, se rota y se elimina del historial.
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+description = "Clave o secreto genérico"
+regex = '''(?i)(?:key|api|token|secret|client|passwd|password|auth|access)(?:[0-9a-z\-_\t .]{0,20})(?:[\s|']|[\s|"]){0,3}(?:=|>|:{1,3}=|\|\||:|<=|=>|:=|\?=|,)(?:'|\"|\s|=|\x60){0,5}([0-9a-z\-_.=]{10,150})(?:['|\"|\n|\r|\s|\x60|;|\\]|$)'''
+keywords = ["key", "api", "token", "secret", "client", "passwd", "password", "auth", "access"]
+
+[rules.allowlist]
+paths = [
+  # Plantillas de configuración: todos sus valores son marcadores de posición que hay
+  # que sustituir al desplegar («cambiame_…», «CAMBIAR_…»).
+  '''infra/env/\.env\.example''',
+  '''infra/seaweedfs/s3\.json\.example''',
+]
+regexes = [
+  '''cambiame_[a-z_]+''',
+  '''CAMBIAR_[A-Z_]+''',
+]
+
+[allowlist]
+description = "Rutas sin secretos por construcción"
+paths = [
+  '''(.*?)(png|jpg|jpeg|webp|gif|ico|svg|pdf)$''',
+  '''apps/web/pnpm-lock\.yaml''',
+  '''apps/api/uv\.lock''',
+]

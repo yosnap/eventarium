@@ -1,0 +1,36 @@
+# Caddy de desarrollo: web y API bajo el mismo host (http://localhost:8080).
+# Así la cookie de refresh es first-party desde el primer día, no hay CORS y
+# X-Forwarded-Host se prueba en local igual que en producción.
+{
+	admin off
+	auto_https off
+}
+
+:8080 {
+	log
+
+	# API
+	handle /api/* {
+		reverse_proxy {$API_UPSTREAM} {
+			header_up X-Forwarded-Host {host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
+	# Media pública: el bucket se llama "media", así que la ruta coincide con la
+	# clave path-style del objeto en S3 (http://s3/media/orgs/<id>/…).
+	handle /media/* {
+		reverse_proxy {$S3_UPSTREAM} {
+			header_up Host {upstream_hostport}
+		}
+		header Cache-Control "public, max-age=300"
+	}
+
+	# Resto: dev server de Angular (incluye websocket de HMR).
+	handle {
+		reverse_proxy {$WEB_UPSTREAM} {
+			header_up X-Forwarded-Host {host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+}
