@@ -23,7 +23,11 @@ interface UsuarioActual {
   template: `
     <ng-container *transloco="let t">
       @if (usuario(); as persona) {
-        <h1>{{ t('admin.escritorioPagina.bienvenida', { nombre: persona.full_name || persona.email }) }}</h1>
+        <h1>
+          {{
+            t('admin.escritorioPagina.bienvenida', { nombre: persona.full_name || persona.email })
+          }}
+        </h1>
         <p>{{ t('admin.escritorioPagina.resumen') }}</p>
 
         <div class="tarjetas">
@@ -42,7 +46,9 @@ interface UsuarioActual {
           <app-card [heading]="t('admin.escritorioPagina.permisos')">
             <ul>
               @for (permiso of persona.permissions; track permiso) {
-                <li><code>{{ permiso }}</code></li>
+                <li>
+                  <code>{{ permiso }}</code>
+                </li>
               }
             </ul>
           </app-card>
@@ -80,8 +86,6 @@ export class DashboardPage {
   }
 
   private async cargar(): Promise<void> {
-    this.usuario.set(
-      await firstValueFrom(this.http.get<UsuarioActual>(this.api.url('/users/me'))),
-    );
+    this.usuario.set(await firstValueFrom(this.http.get<UsuarioActual>(this.api.url('/users/me'))));
   }
 }
