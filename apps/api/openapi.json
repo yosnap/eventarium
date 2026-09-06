@@ -1,0 +1,1950 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "API de la plataforma de eventos IA Week",
+    "description": "API multi-organización para el registro y la gestión de eventos. La organización se resuelve por el host de la petición.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "salud"
+        ],
+        "summary": "Estado del servicio",
+        "description": "Comprueba base de datos, almacenamiento de objetos y Redis.",
+        "operationId": "health_api_v1_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "autenticación"
+        ],
+        "summary": "Iniciar sesión",
+        "description": "Devuelve un access token y fija la cookie de refresco.",
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "autenticación"
+        ],
+        "summary": "Renovar la sesión",
+        "description": "Rota el refresh token de la cookie y devuelve un access token nuevo.",
+        "operationId": "refresh_api_v1_auth_refresh_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "autenticación"
+        ],
+        "summary": "Cerrar sesión",
+        "description": "Revoca la familia de tokens y borra la cookie.",
+        "operationId": "logout_api_v1_auth_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/v1/tenant/branding": {
+      "get": {
+        "tags": [
+          "tenant"
+        ],
+        "summary": "Identidad visual de la organización",
+        "description": "Devuelve colores, tipografías, logotipo y plantilla de la organización asociada al host de la petición. Host desconocido → 404.",
+        "operationId": "branding_api_v1_tenant_branding_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandingResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me": {
+      "get": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Datos de la organización actual",
+        "operationId": "get_me_api_v1_organizations_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Actualizar la organización actual",
+        "operationId": "update_me_api_v1_organizations_me_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganizationUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me/branding": {
+      "get": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Identidad visual de la organización",
+        "operationId": "get_branding_api_v1_organizations_me_branding_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandingAdminResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Actualizar la identidad visual",
+        "operationId": "update_branding_api_v1_organizations_me_branding_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrandingUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandingAdminResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me/branding/logo": {
+      "put": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Subir el logotipo",
+        "description": "Acepta PNG, JPEG o WebP de hasta 5 MB. El tipo se comprueba por contenido.",
+        "operationId": "upload_logo_api_v1_organizations_me_branding_logo_put",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_logo_api_v1_organizations_me_branding_logo_put"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandingAdminResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me/members": {
+      "get": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Miembros de la organización",
+        "operationId": "list_members_api_v1_organizations_me_members_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Elementos por página",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Elementos por página"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Elementos omitidos",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Elementos omitidos"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_MemberResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Añadir un miembro",
+        "operationId": "create_member_api_v1_organizations_me_members_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me": {
+      "get": {
+        "tags": [
+          "usuarios"
+        ],
+        "summary": "Usuario autenticado",
+        "description": "Devuelve el usuario, sus roles y sus permisos en la organización actual.",
+        "operationId": "get_me_api_v1_users_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentUserResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/roles": {
+      "get": {
+        "tags": [
+          "roles"
+        ],
+        "summary": "Listar roles",
+        "operationId": "list_roles_api_v1_roles_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RoleResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Roles Api V1 Roles Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "roles"
+        ],
+        "summary": "Crear un rol",
+        "description": "Crea un rol propio de la organización, opcionalmente clonando una plantilla del sistema. No se pueden conceder permisos que el actor no posea.",
+        "operationId": "create_role_api_v1_roles_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/roles/{role_id}": {
+      "get": {
+        "tags": [
+          "roles"
+        ],
+        "summary": "Obtener un rol",
+        "operationId": "get_role_api_v1_roles__role_id__get",
+        "parameters": [
+          {
+            "name": "role_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Role Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "roles"
+        ],
+        "summary": "Actualizar un rol",
+        "operationId": "update_role_api_v1_roles__role_id__patch",
+        "parameters": [
+          {
+            "name": "role_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Role Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "roles"
+        ],
+        "summary": "Eliminar un rol",
+        "description": "Solo roles creados por la organización; los del sistema devuelven 409.",
+        "operationId": "delete_role_api_v1_roles__role_id__delete",
+        "parameters": [
+          {
+            "name": "role_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Role Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/organizations": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Listar organizaciones de la instalación",
+        "operationId": "list_organizations_api_v1_admin_organizations_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OrganizationResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Organizations Api V1 Admin Organizations Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Crear una organización",
+        "description": "Crea la organización con su dominio principal, branding y roles clonados.",
+        "operationId": "create_organization_api_v1_admin_organizations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganizationCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/organizations/{organization_id}/domains": {
+      "post": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Añadir un dominio a una organización",
+        "operationId": "add_domain_api_v1_admin_organizations__organization_id__domains_post",
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Listar los dominios de una organización",
+        "operationId": "list_domains_api_v1_admin_organizations__organization_id__domains_get",
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DomainResponse"
+                  },
+                  "title": "Response List Domains Api V1 Admin Organizations  Organization Id  Domains Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Body_upload_logo_api_v1_organizations_me_branding_logo_put": {
+        "properties": {
+          "fichero": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Fichero",
+            "description": "Imagen del logotipo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fichero"
+        ],
+        "title": "Body_upload_logo_api_v1_organizations_me_branding_logo_put"
+      },
+      "BrandingAdminResponse": {
+        "properties": {
+          "template_key": {
+            "type": "string",
+            "title": "Template Key"
+          },
+          "colors": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Colors"
+          },
+          "fonts": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Fonts"
+          },
+          "social_links": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Social Links"
+          },
+          "organizer_blurb": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organizer Blurb"
+          },
+          "logo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Url"
+          },
+          "favicon_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favicon Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "template_key",
+          "colors",
+          "fonts",
+          "social_links"
+        ],
+        "title": "BrandingAdminResponse",
+        "description": "Branding tal y como lo ve el panel de administración."
+      },
+      "BrandingResponse": {
+        "properties": {
+          "organization_id": {
+            "type": "string",
+            "title": "Organization Id"
+          },
+          "organization_name": {
+            "type": "string",
+            "title": "Organization Name"
+          },
+          "organization_slug": {
+            "type": "string",
+            "title": "Organization Slug"
+          },
+          "template_key": {
+            "type": "string",
+            "title": "Template Key",
+            "description": "Plantilla de la página pública: classic | minimal"
+          },
+          "colors": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Colors"
+          },
+          "fonts": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Fonts"
+          },
+          "social_links": {
+            "items": {
+              "$ref": "#/components/schemas/SocialLink"
+            },
+            "type": "array",
+            "title": "Social Links"
+          },
+          "organizer_blurb": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organizer Blurb"
+          },
+          "logo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Url"
+          },
+          "favicon_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favicon Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "organization_id",
+          "organization_name",
+          "organization_slug",
+          "template_key",
+          "colors",
+          "fonts",
+          "social_links"
+        ],
+        "title": "BrandingResponse",
+        "description": "Identidad visual de la organización resuelta por host."
+      },
+      "BrandingUpdate": {
+        "properties": {
+          "template_key": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Template Key",
+            "default": "classic"
+          },
+          "colors": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Colors"
+          },
+          "fonts": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Fonts"
+          },
+          "social_links": {
+            "items": {
+              "$ref": "#/components/schemas/SocialLinkInput"
+            },
+            "type": "array",
+            "title": "Social Links"
+          },
+          "organizer_blurb": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organizer Blurb"
+          }
+        },
+        "type": "object",
+        "title": "BrandingUpdate",
+        "description": "Identidad visual editable desde el panel."
+      },
+      "CurrentUserResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "is_superadmin": {
+            "type": "boolean",
+            "title": "Is Superadmin"
+          },
+          "organization_id": {
+            "type": "string",
+            "title": "Organization Id"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Roles"
+          },
+          "permissions": {
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            },
+            "type": "array",
+            "title": "Permissions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "full_name",
+          "is_superadmin",
+          "organization_id",
+          "roles",
+          "permissions"
+        ],
+        "title": "CurrentUserResponse",
+        "description": "Usuario autenticado en el contexto de la organización actual."
+      },
+      "DomainCreate": {
+        "properties": {
+          "host": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 3,
+            "title": "Host"
+          },
+          "is_primary": {
+            "type": "boolean",
+            "title": "Is Primary",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "host"
+        ],
+        "title": "DomainCreate",
+        "description": "Alta de dominio (solo superadmin)."
+      },
+      "DomainResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "host": {
+            "type": "string",
+            "title": "Host"
+          },
+          "is_primary": {
+            "type": "boolean",
+            "title": "Is Primary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "host",
+          "is_primary"
+        ],
+        "title": "DomainResponse",
+        "description": "Dominio asociado a una organización."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "database": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "error"
+            ],
+            "title": "Database"
+          },
+          "storage": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "error"
+            ],
+            "title": "Storage"
+          },
+          "redis": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "error"
+            ],
+            "title": "Redis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "database",
+          "storage",
+          "redis"
+        ],
+        "title": "HealthResponse",
+        "description": "Estado de cada dependencia."
+      },
+      "LoginRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email",
+            "description": "Correo electrónico del usuario"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Password",
+            "description": "Contraseña"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "description": "Credenciales de acceso."
+      },
+      "LoginResponse": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "bearer"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In",
+            "description": "Segundos de validez del access token"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserSummary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "expires_in",
+          "user"
+        ],
+        "title": "LoginResponse",
+        "description": "Respuesta del login."
+      },
+      "MemberCreate": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "full_name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Full Name"
+          },
+          "role_id": {
+            "type": "string",
+            "title": "Role Id"
+          },
+          "profile_data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Profile Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "full_name",
+          "role_id"
+        ],
+        "title": "MemberCreate",
+        "description": "Alta de un miembro por correo electrónico."
+      },
+      "MemberResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "role_id": {
+            "type": "string",
+            "title": "Role Id"
+          },
+          "role_key": {
+            "type": "string",
+            "title": "Role Key"
+          },
+          "profile_data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Profile Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "email",
+          "full_name",
+          "role_id",
+          "role_key",
+          "profile_data"
+        ],
+        "title": "MemberResponse",
+        "description": "Miembro de la organización."
+      },
+      "OrganizationCreate": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 2,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "title": "Slug"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "host": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 3,
+            "title": "Host"
+          },
+          "legal_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legal Name"
+          },
+          "contact_email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "email"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "name",
+          "host"
+        ],
+        "title": "OrganizationCreate",
+        "description": "Alta de organización (solo superadmin)."
+      },
+      "OrganizationResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "legal_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legal Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "website": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Website"
+          },
+          "contact_email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "email"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Email"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "is_active"
+        ],
+        "title": "OrganizationResponse",
+        "description": "Datos de la organización actual."
+      },
+      "OrganizationUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "legal_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legal Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "website": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Website"
+          },
+          "contact_email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "email"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Email"
+          }
+        },
+        "type": "object",
+        "title": "OrganizationUpdate",
+        "description": "Campos editables de la organización."
+      },
+      "Page_MemberResponse_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MemberResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[MemberResponse]"
+      },
+      "Permission": {
+        "type": "string",
+        "enum": [
+          "organizations:read",
+          "organizations:write",
+          "branding:write",
+          "roles:read",
+          "roles:write",
+          "members:read",
+          "members:write",
+          "users:read"
+        ],
+        "title": "Permission",
+        "description": "Permisos disponibles en la fase 0."
+      },
+      "ProfileFieldInput": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]+(?:[-_][a-z0-9]+)*$",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "field_type": {
+            "type": "string",
+            "pattern": "text|textarea|url|email|phone|date|select|boolean",
+            "title": "Field Type",
+            "default": "text"
+          },
+          "options": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Options"
+          },
+          "is_required": {
+            "type": "boolean",
+            "title": "Is Required",
+            "default": false
+          },
+          "sort_order": {
+            "type": "integer",
+            "title": "Sort Order",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label"
+        ],
+        "title": "ProfileFieldInput",
+        "description": "Campo de perfil definido por la organización."
+      },
+      "ProfileFieldResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]+(?:[-_][a-z0-9]+)*$",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "field_type": {
+            "type": "string",
+            "pattern": "text|textarea|url|email|phone|date|select|boolean",
+            "title": "Field Type",
+            "default": "text"
+          },
+          "options": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Options"
+          },
+          "is_required": {
+            "type": "boolean",
+            "title": "Is Required",
+            "default": false
+          },
+          "sort_order": {
+            "type": "integer",
+            "title": "Sort Order",
+            "default": 0
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "is_locked": {
+            "type": "boolean",
+            "title": "Is Locked"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "id",
+          "is_locked"
+        ],
+        "title": "ProfileFieldResponse",
+        "description": "Campo de perfil tal y como se devuelve."
+      },
+      "RoleCreate": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 2,
+            "pattern": "^[a-z0-9]+(?:[-_][a-z0-9]+)*$",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "from_template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Template"
+          },
+          "permissions": {
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            },
+            "type": "array",
+            "title": "Permissions"
+          },
+          "profile_fields": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileFieldInput"
+            },
+            "type": "array",
+            "title": "Profile Fields"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name"
+        ],
+        "title": "RoleCreate",
+        "description": "Alta de rol.\n\nCon `from_template` se clona una plantilla del sistema; en otro caso se crea uno\na medida (por ejemplo «presentador» o «cantante»)."
+      },
+      "RoleResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "is_system": {
+            "type": "boolean",
+            "title": "Is System"
+          },
+          "system_template_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "System Template Key"
+          },
+          "permissions": {
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            },
+            "type": "array",
+            "title": "Permissions"
+          },
+          "profile_fields": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileFieldResponse"
+            },
+            "type": "array",
+            "title": "Profile Fields"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "name",
+          "is_system",
+          "permissions",
+          "profile_fields"
+        ],
+        "title": "RoleResponse",
+        "description": "Rol con sus permisos y campos."
+      },
+      "RoleUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "permissions": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Permission"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Permissions"
+          },
+          "profile_fields": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ProfileFieldInput"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Fields"
+          }
+        },
+        "type": "object",
+        "title": "RoleUpdate",
+        "description": "Edición de un rol existente."
+      },
+      "SocialLink": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Identificador de la red: x, linkedin, instagram…"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "url"
+        ],
+        "title": "SocialLink",
+        "description": "Enlace a una red social del organizador."
+      },
+      "SocialLinkInput": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Kind"
+          },
+          "url": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "pattern": "^https?://",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "url"
+        ],
+        "title": "SocialLinkInput",
+        "description": "Enlace social del organizador."
+      },
+      "TokenResponse": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "bearer"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In",
+            "description": "Segundos de validez del access token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "expires_in"
+        ],
+        "title": "TokenResponse",
+        "description": "Access token. El refresh viaja en una cookie `HttpOnly` y no se expone aquí."
+      },
+      "UserSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "is_superadmin": {
+            "type": "boolean",
+            "title": "Is Superadmin"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "full_name",
+          "is_superadmin"
+        ],
+        "title": "UserSummary",
+        "description": "Datos mínimos del usuario autenticado."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "comun": {
+    "saltarAlContenido": "Saltar al contenido principal",
+    "cargando": "Cargando…",
+    "cerrar": "Cerrar",
+    "volver": "Volver",
+    "guardar": "Guardar",
+    "cancelar": "Cancelar"
+  },
+  "errores": {
+    "sitioNoDisponible": "Sitio no disponible",
+    "sitioNoDisponibleDetalle": "No hemos podido cargar la configuración de este sitio. Vuelve a intentarlo en unos minutos.",
+    "reintentar": "Reintentar"
+  },
+  "publico": {
+    "navegacion": "Navegación principal",
+    "inicio": "Inicio",
+    "eventos": "Eventos",
+    "accesoPanel": "Acceso al panel",
+    "organizadoPor": "Organizado por {{nombre}}",
+    "proximamente": "Próximamente",
+    "proximamenteDetalle": "Estamos preparando la próxima edición. Vuelve pronto para ver el programa y las inscripciones.",
+    "redesSociales": "Redes sociales del organizador",
+    "piePagina": "Pie de página"
+  },
+  "admin": {
+    "titulo": "Panel de administración",
+    "navegacion": "Navegación del panel",
+    "escritorio": "Escritorio",
+    "identidadVisual": "Identidad visual",
+    "cerrarSesion": "Cerrar sesión",
+    "sesionDe": "Sesión de {{nombre}}",
+    "login": {
+      "titulo": "Acceso al panel",
+      "email": "Correo electrónico",
+      "password": "Contraseña",
+      "entrar": "Entrar",
+      "entrando": "Comprobando credenciales…",
+      "error": "No hemos podido iniciar sesión.",
+      "emailRequerido": "Escribe tu correo electrónico.",
+      "passwordRequerido": "Escribe tu contraseña."
+    },
+    "escritorioPagina": {
+      "bienvenida": "Hola, {{nombre}}",
+      "resumen": "Desde aquí gestionarás tu organización y tus eventos.",
+      "organizacion": "Organización",
+      "rolesAsignados": "Roles asignados",
+      "permisos": "Permisos"
+    },
+    "branding": {
+      "titulo": "Identidad visual",
+      "descripcion": "Así se ve tu marca en la web pública. De momento es solo lectura.",
+      "plantilla": "Plantilla",
+      "colores": "Colores",
+      "tipografias": "Tipografías",
+      "logotipo": "Logotipo",
+      "sinLogotipo": "Todavía no has subido ningún logotipo.",
+      "contrasteInsuficiente": "El contraste entre «{{primero}}» y «{{segundo}}» es {{ratio}}:1, por debajo del mínimo 4,5:1 que exige la accesibilidad."
+    }
+  }
+}
