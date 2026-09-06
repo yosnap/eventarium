@@ -1,7 +1,7 @@
 ---
 title: "Fase 0 — Scaffolding de la plataforma de eventos"
 description: "Monorepo FastAPI + Angular, PostgreSQL con RLS multi-organización, SeaweedFS, Redis/Taskiq, theming dinámico, CI y docs de desarrollo. Cimientos sin funcionalidad de negocio."
-status: pending
+status: in-progress
 priority: P1
 effort: "7-10d"
 tags: [scaffolding, fastapi, angular, postgresql, rls, seaweedfs, multi-tenant]
@@ -55,9 +55,9 @@ Fuentes de decisión: `docs/prd.md` §6-7 y `docs/investigacion.md` §3-4. Revis
 
 | # | Phase | Status |
 |---|-------|--------|
-| 1 | [Fase 1: Monorepo y entorno](./phase-01-monorepo-y-entorno.md) | Pending |
-| 2 | [Fase 2: Backend FastAPI base](./phase-02-backend-fastapi-base.md) | Pending |
-| 3 | [Fase 3: Multi-tenant con RLS y modelos base](./phase-03-multi-tenant-rls-y-modelos-base.md) | Pending |
+| 1 | [Fase 1: Monorepo y entorno](./phase-01-monorepo-y-entorno.md) | Completed |
+| 2 | [Fase 2: Backend FastAPI base](./phase-02-backend-fastapi-base.md) | Completed |
+| 3 | [Fase 3: Multi-tenant con RLS y modelos base](./phase-03-multi-tenant-rls-y-modelos-base.md) | Completed |
 | 4 | [Fase 4: Frontend Angular y theming](./phase-04-frontend-angular-y-theming.md) | Pending |
 | 5 | [Fase 5: Documentación y CI](./phase-05-documentacion-y-ci.md) | Pending |
 

@@ -1,7 +1,7 @@
 ---
 phase: 3
 title: "Fase 3: Multi-tenant con RLS y modelos base"
-status: pending
+status: completed
 priority: P1
 effort: "2-3d"
 dependencies: [2]
@@ -66,14 +66,14 @@ organization_members     id, organization_id, user_id, role_id, profile_data JSO
 13. Tests (BD real, `TRUNCATE` entre tests): CRUD por módulo; campos dinámicos; anti-escalada (crear rol con permiso no poseído → 403; asignar `owner` sin ser `owner` → 403; auto-modificación de rol → 403); **aislamiento RLS**: dos organizaciones, sesión fijada en A, `unsafe_select_all` devuelve solo A en cada tabla incluida `users`; INSERT con `organization_id` de B falla; sin contexto → 0 filas; dos sesiones consecutivas del pool no heredan contexto; `pg_roles` confirma `app_user` sin `BYPASSRLS`.
 
 ## Success Criteria
-- [ ] `alembic upgrade head` crea esquema y políticas; `downgrade` limpio
-- [ ] `make db-seed` dos veces seguidas deja los mismos datos; login del owner OK
-- [ ] `test_rls_isolation.py` en verde en CI, incluida `users`
-- [ ] `test_authorization.py` en verde (3 reglas anti-escalada)
-- [ ] Crear rol "presentador" con campos propios y alta de miembro con `profile_data` válido; rechazar inválido
-- [ ] Borrar `speaker` → 409; añadir campo a `speaker` → OK; borrar campo bloqueado → 409
-- [ ] `GET /tenant/branding` con host `localhost` devuelve branding demo con URL de logo funcional; host desconocido → 404
-- [ ] `POST /api/v1/admin/organizations` con superadmin crea organización + dominio + roles clonados; con usuario normal → 403; sin token → 401
+- [x] `alembic upgrade head` crea esquema y políticas; `downgrade` limpio
+- [x] `make db-seed` dos veces seguidas deja los mismos datos; login del owner OK
+- [x] `test_rls_isolation.py` en verde en CI, incluida `users`
+- [x] `test_authorization.py` en verde (3 reglas anti-escalada)
+- [x] Crear rol "presentador" con campos propios y alta de miembro con `profile_data` válido; rechazar inválido
+- [x] Borrar `speaker` → 409; añadir campo a `speaker` → OK; borrar campo bloqueado → 409
+- [x] `GET /tenant/branding` con host `localhost` devuelve branding demo con URL de logo funcional; host desconocido → 404
+- [x] `POST /api/v1/admin/organizations` con superadmin crea organización + dominio + roles clonados; con usuario normal → 403; sin token → 401
 
 ## Risk Assessment
 - Política de `users` con subconsulta a `organization_members` (que también tiene RLS) → la subconsulta se evalúa bajo el mismo contexto, coherente; verificar rendimiento con índice `(organization_id, user_id)`; señal: `EXPLAIN` con seq scan; respuesta: índice.

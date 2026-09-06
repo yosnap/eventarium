@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: "Fase 2: Backend FastAPI base"
-status: pending
+status: completed
 priority: P1
 effort: "2d"
 dependencies: [1]
@@ -71,13 +71,13 @@ apps/api/app/
 12. `Dockerfile` multi-stage; verificar con `docker history` que no hay `.env`.
 
 ## Success Criteria
-- [ ] `uv run uvicorn app.main:app --reload` arranca; `/docs` visible
-- [ ] `/api/v1/health` → `database`, `storage`, `redis` en `ok`
-- [ ] Login devuelve access + cookie `HttpOnly` de refresh; refresh rota; reutilización invalida la familia; 401/403 según tabla de tests
-- [ ] Host desconocido → 404; `X-Forwarded-Host` solo desde proxy confiable; `token.org` ≠ organización → 403
-- [ ] `uv run taskiq worker app.core.tasks:broker` ejecuta `ping` y reintenta al fallar
-- [ ] `ruff check`, `ruff format --check`, `mypy app`, `pytest`, `pip-audit` en verde
-- [ ] `alembic upgrade head` / `downgrade base` funcionan con `DATABASE_MIGRATIONS_URL`
+- [x] `uv run uvicorn app.main:app --reload` arranca; `/docs` visible
+- [x] `/api/v1/health` → `database`, `storage`, `redis` en `ok`
+- [x] Login devuelve access + cookie `HttpOnly` de refresh; refresh rota; reutilización invalida la familia; 401/403 según tabla de tests
+- [x] Host desconocido → 404; `X-Forwarded-Host` solo desde proxy confiable; `token.org` ≠ organización → 403
+- [x] `uv run taskiq worker app.core.tasks:broker` ejecuta `ping` y reintenta al fallar
+- [x] `ruff check`, `ruff format --check`, `mypy app`, `pytest`, `pip-audit` en verde
+- [x] `alembic upgrade head` / `downgrade base` funcionan con `DATABASE_MIGRATIONS_URL`
 
 ## Risk Assessment
 - `SET LOCAL` fuera de transacción no tiene efecto → `get_db` abre la transacción explícitamente; test que verifica `current_setting` dentro de la sesión y que dos sesiones consecutivas del pool no comparten contexto.

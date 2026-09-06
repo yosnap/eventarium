@@ -1,7 +1,7 @@
 ---
 phase: 1
 title: "Fase 1: Monorepo y entorno"
-status: pending
+status: completed
 priority: P1
 effort: "0.5-1d"
 dependencies: []
@@ -39,12 +39,12 @@ Estructura del monorepo, licencia, entorno Docker de dependencias (PostgreSQL 16
 7. Verificar en limpio: `docker compose down -v && up -d`, todos healthy, `psql` como `app_user` no puede `CREATE TABLE`, bucket `media` listado vía `aws s3 ls --endpoint-url`; anotar en el README si `PutBucketPolicy` está soportado.
 
 ## Success Criteria
-- [ ] Compose levanta los cuatro servicios (postgres, seaweedfs, redis, caddy) healthy desde cero en < 2 min
-- [ ] `http://localhost:8080/api/v1/health` y `http://localhost:8080/media/<objeto>` responden a través de Caddy cuando api y web están arrancados
-- [ ] Roles `app_user` (sin `BYPASSRLS`, sin `CREATE`) y `app_maintainer` existen; `ALTER DEFAULT PRIVILEGES` verificado con `\ddp`
-- [ ] Bucket `media` existe tras el arranque; capacidad de bucket policy documentada
-- [ ] `.env.example` completo, sin valores reales; `.dockerignore` presentes
-- [ ] `make help` lista los targets
+- [x] Compose levanta los cuatro servicios (postgres, seaweedfs, redis, caddy) healthy desde cero en < 2 min
+- [x] `http://localhost:8080/api/v1/health` y `http://localhost:8080/media/<objeto>` responden a través de Caddy cuando api y web están arrancados
+- [x] Roles `app_user` (sin `BYPASSRLS`, sin `CREATE`) y `app_maintainer` existen; `ALTER DEFAULT PRIVILEGES` verificado con `\ddp`
+- [x] Bucket `media` existe tras el arranque; capacidad de bucket policy documentada
+- [x] `.env.example` completo, sin valores reales; `.dockerignore` presentes
+- [x] `make help` lista los targets
 
 ## Risk Assessment
 - Puertos ocupados → variables de puerto; identificar el proceso (`lsof -i :PORT`), no incrementar a ciegas.
