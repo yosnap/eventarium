@@ -51,7 +51,9 @@ jobs:
       # y un healthcheck sobre el puerto S3, así que se levanta a mano y se espera.
       - name: Levantar SeaweedFS
         run: |
-          docker run -d --name seaweedfs -p 8333:8333 -p 9333:9333 \
+          # --network host: con -ip=127.0.0.1 el proceso escucha en el localhost del
+          # contenedor, que no es alcanzable a través de un puerto publicado.
+          docker run -d --name seaweedfs --network host \
             chrislusf/seaweedfs:3.97 \
             server -dir=/data -s3 -s3.port=8333 -ip=127.0.0.1
           for intento in $(seq 1 40); do
@@ -206,6 +208,8 @@ jobs:
         with:
           fetch-depth: 0
 
+      # La acción exige GITHUB_TOKEN para poder analizar pull requests.
       - uses: gitleaks/gitleaks-action@v2
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: .gitleaks.toml
