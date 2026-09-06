@@ -10,9 +10,22 @@ from typing import Literal
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# infra/env/.env vive fuera del paquete: apps/api/app/core/config.py → raíz del repo.
-REPO_ROOT = Path(__file__).resolve().parents[4]
-ENV_FILE = REPO_ROOT / "infra" / "env" / ".env"
+
+def _localizar_env() -> Path | None:
+    """Busca `infra/env/.env` subiendo desde este fichero.
+
+    En desarrollo el fichero vive en la raíz del repositorio, fuera del paquete. En un
+    contenedor no existe —la configuración llega por variables de entorno— y la ruta es
+    además más corta, así que no se puede asumir una profundidad fija.
+    """
+    for directorio in Path(__file__).resolve().parents:
+        candidato = directorio / "infra" / "env" / ".env"
+        if candidato.is_file():
+            return candidato
+    return None
+
+
+ENV_FILE = _localizar_env()
 
 Environment = Literal["development", "test", "production"]
 
