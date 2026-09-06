@@ -1,7 +1,7 @@
 ---
 phase: 5
 title: "Fase 5: Documentación y CI"
-status: pending
+status: completed
 priority: P1
 effort: "1-1.5d"
 dependencies: [1, 2, 3, 4]
@@ -41,11 +41,11 @@ Puertas de calidad automatizadas en GitHub Actions (incluidas auditoría de depe
 11. Verificar enlaces y comandos; actualizar `README.md`.
 
 ## Success Criteria
-- [ ] CI en verde en un PR de prueba; falla ante: rotura de RLS, lint, tipos, a11y, tipos generados desactualizados, dependencia vulnerable, secreto en el diff
-- [ ] `docker compose -f infra/docker-compose.prod.yml up` ejecuta `migrate` y sirve web y api tras Caddy en `localhost`; `/media/*` funciona
-- [ ] Ciclo backup → restore probado y documentado
-- [ ] Una persona ajena levanta el entorno siguiendo solo `docs/desarrollo.md` (protocolo: sin preguntas al equipo, anotando bloqueos)
-- [ ] Diagramas Mermaid renderizan en GitHub; ningún doc > 800 líneas
+- [x] CI en verde en un PR de prueba; falla ante: rotura de RLS, lint, tipos, a11y, tipos generados desactualizados, dependencia vulnerable, secreto en el diff
+- [x] `docker compose -f infra/docker-compose.prod.yml up` ejecuta `migrate` y sirve web y api tras Caddy en `localhost`; `/media/*` funciona
+- [x] Ciclo backup → restore probado y documentado
+- [x] Una persona ajena levanta el entorno siguiendo solo `docs/desarrollo.md` (protocolo: sin preguntas al equipo, anotando bloqueos)
+- [x] Diagramas Mermaid renderizan en GitHub; ningún doc > 800 líneas
 
 ## Risk Assessment
 - SeaweedFS en CI inestable → contenedor con espera activa y reintentos; si persiste, cachear imagen y aislar en job propio.
