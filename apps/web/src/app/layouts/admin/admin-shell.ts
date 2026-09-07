@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 
-import { AuthService } from '../../core/auth/auth.service';
+import { AuthService, displayName } from '../../core/auth/auth.service';
 import { ThemingService } from '../../core/theming/theming.service';
 import { Button } from '../../shared/ui/button';
 
@@ -19,7 +19,7 @@ import { Button } from '../../shared/ui/button';
         <p class="marca">{{ theming.organizationName() }} · {{ t('admin.titulo') }}</p>
         <div class="sesion">
           @if (auth.currentUser(); as usuario) {
-            <span>{{ t('admin.sesionDe', { nombre: usuario.full_name || usuario.email }) }}</span>
+            <span>{{ t('admin.sesionDe', { nombre: nombreDe(usuario) }) }}</span>
           }
           <app-button variant="secundario" (pulsado)="cerrarSesion()">
             {{ t('admin.cerrarSesion') }}
@@ -117,6 +117,7 @@ import { Button } from '../../shared/ui/button';
 export class AdminShell {
   protected readonly auth = inject(AuthService);
   protected readonly theming = inject(ThemingService);
+  protected readonly nombreDe = displayName;
   private readonly router = inject(Router);
 
   protected async cerrarSesion(): Promise<void> {

@@ -17,6 +17,10 @@ export type { LogoutApiV1AuthLogoutPost$Params as LogoutApiV1AuthLogoutPost$Para
 export { logoutApiV1AuthLogoutPost as logoutApiV1AuthLogoutPost } from './fn/autenticacion/logout-api-v-1-auth-logout-post';
 export type { BrandingApiV1TenantBrandingGet$Params as BrandingApiV1TenantBrandingGet$Params } from './fn/tenant/branding-api-v-1-tenant-branding-get';
 export { brandingApiV1TenantBrandingGet as brandingApiV1TenantBrandingGet } from './fn/tenant/branding-api-v-1-tenant-branding-get';
+export type { CheckSlugApiV1OrganizationsCheckSlugGet$Params as CheckSlugApiV1OrganizationsCheckSlugGet$Params } from './fn/organizaciones/check-slug-api-v-1-organizations-check-slug-get';
+export { checkSlugApiV1OrganizationsCheckSlugGet as checkSlugApiV1OrganizationsCheckSlugGet } from './fn/organizaciones/check-slug-api-v-1-organizations-check-slug-get';
+export type { CreateOrganizationApiV1OrganizationsPost$Params as CreateOrganizationApiV1OrganizationsPost$Params } from './fn/organizaciones/create-organization-api-v-1-organizations-post';
+export { createOrganizationApiV1OrganizationsPost as createOrganizationApiV1OrganizationsPost } from './fn/organizaciones/create-organization-api-v-1-organizations-post';
 export type { GetMeApiV1OrganizationsMeGet$Params as GetMeApiV1OrganizationsMeGet$Params } from './fn/organizaciones/get-me-api-v-1-organizations-me-get';
 export { getMeApiV1OrganizationsMeGet as getMeApiV1OrganizationsMeGet } from './fn/organizaciones/get-me-api-v-1-organizations-me-get';
 export type { UpdateMeApiV1OrganizationsMePatch$Params as UpdateMeApiV1OrganizationsMePatch$Params } from './fn/organizaciones/update-me-api-v-1-organizations-me-patch';

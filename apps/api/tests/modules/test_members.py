@@ -26,7 +26,8 @@ async def test_alta_de_miembro_con_perfil_valido(
         headers=cabeceras,
         json={
             "email": "ponente@example.com",
-            "full_name": "Ana Ponente",
+            "first_name": "Ana Ponente",
+            "last_name": "Prueba",
             "role_id": rol,
             "profile_data": {
                 "bio": "Ingeniera de datos",
@@ -50,7 +51,12 @@ async def test_falta_un_campo_obligatorio_del_rol(
     respuesta = await cliente.post(
         MIEMBROS,
         headers=cabeceras,
-        json={"email": "sin-bio@example.com", "full_name": "Sin Bio", "role_id": rol},
+        json={
+            "email": "sin-bio@example.com",
+            "first_name": "Sin Bio",
+            "last_name": "Prueba",
+            "role_id": rol,
+        },
     )
     assert respuesta.status_code == 422
 
@@ -66,7 +72,8 @@ async def test_url_mal_formada_en_un_campo_de_tipo_url(
         headers=cabeceras,
         json={
             "email": "mala-url@example.com",
-            "full_name": "Mala URL",
+            "first_name": "Mala URL",
+            "last_name": "Prueba",
             "role_id": rol,
             "profile_data": {"bio": "Hola", "web": "no-es-una-url"},
         },
@@ -85,7 +92,8 @@ async def test_campo_no_definido_para_el_rol(
         headers=cabeceras,
         json={
             "email": "curiosa@example.com",
-            "full_name": "Curiosa",
+            "first_name": "Curiosa",
+            "last_name": "Prueba",
             "role_id": rol,
             "profile_data": {"campo_inventado": "valor"},
         },
@@ -105,7 +113,8 @@ async def test_opcion_no_valida_en_un_campo_de_seleccion(
         headers=cabeceras,
         json={
             "email": "voluntaria@example.com",
-            "full_name": "Voluntaria",
+            "first_name": "Voluntaria",
+            "last_name": "Prueba",
             "role_id": rol,
             "profile_data": {"talla_camiseta": "XXXXL"},
         },
@@ -118,7 +127,12 @@ async def test_no_se_puede_repetir_persona_y_rol(
 ) -> None:
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     rol = await _rol(cliente, cabeceras, "attendee")
-    datos = {"email": "repetida@example.com", "full_name": "Repetida", "role_id": rol}
+    datos = {
+        "email": "repetida@example.com",
+        "first_name": "Repetida",
+        "last_name": "Prueba",
+        "role_id": rol,
+    }
 
     assert (await cliente.post(MIEMBROS, headers=cabeceras, json=datos)).status_code == 201
     assert (await cliente.post(MIEMBROS, headers=cabeceras, json=datos)).status_code == 409
@@ -149,7 +163,8 @@ async def test_no_se_puede_usar_un_rol_de_otra_organizacion(
         headers=cabeceras,
         json={
             "email": "intrusa@example.com",
-            "full_name": "Intrusa",
+            "first_name": "Intrusa",
+            "last_name": "Prueba",
             "role_id": str(otra_organizacion.owner_role_id),
         },
     )

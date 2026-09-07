@@ -45,7 +45,8 @@ describe('shells', () => {
             currentUser: signal({
               id: '1',
               email: 'persona@example.com',
-              full_name: 'Persona de prueba',
+              first_name: 'Persona',
+              last_name: 'De prueba',
               is_superadmin: false,
             }),
             isAuthenticated: signal(true),

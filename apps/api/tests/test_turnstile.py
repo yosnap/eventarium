@@ -54,8 +54,18 @@ def test_arranque_permite_produccion_con_turnstile_activo(monkeypatch) -> None:
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("TURNSTILE_ENABLED", "true")
     monkeypatch.setenv("DEFAULT_ORGANIZATION_SLUG", "")
+    monkeypatch.setenv("DOMINIO_BASE", "ejemplo.org")
     Settings()  # no debe lanzar
 
 
 def test_error_de_token_invalido_es_422() -> None:
     assert InvalidTurnstileTokenError("x").status_code == 422
+
+
+def test_arranque_falla_en_produccion_sin_dominio_base(monkeypatch) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("TURNSTILE_ENABLED", "true")
+    monkeypatch.setenv("DEFAULT_ORGANIZATION_SLUG", "")
+    monkeypatch.setenv("DOMINIO_BASE", "")
+    with pytest.raises(ValueError, match="DOMINIO_BASE"):
+        Settings()
