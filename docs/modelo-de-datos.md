@@ -47,12 +47,14 @@ erDiagram
     uuid id PK
     text email UK
     text password_hash
-    text full_name
+    text first_name
+    text last_name
     text avatar_object_key
     text locale
     bool is_active
     bool is_superadmin
     timestamptz email_verified_at
+    timestamptz verification_warning_sent_at
   }
   user_social_links {
     uuid id PK
@@ -177,6 +179,9 @@ la visibilidad: la fila solo será legible cuando exista la membresía.
 | `0002_esquema_base` | Tablas, índices y constraints; verifica que `ALTER DEFAULT PRIVILEGES` concedió acceso a `app_user` |
 | `0003_politicas_rls` | Funciones de contexto y resolución, y políticas de todas las tablas |
 | `0004_correo_y_verificacion` | `users.email_verified_at` + índice parcial; tres funciones `SECURITY DEFINER` para el registro público (ver más abajo) |
+| `0005_nombre_y_apellidos` | Sustituye `users.full_name` por `first_name` y `last_name` (con backfill por `split_part`); `app_create_unverified_user` pasa a 3 argumentos, sin nombre |
+| `0006_autoservicio_organizaciones` | Tres funciones `SECURITY DEFINER` para el alta de organización desde el propio registro público (ver más abajo) |
+| `0007_barrido_no_verificados` | `users.verification_warning_sent_at`, para el barrido de cuentas sin verificar |
 
 Se ejecutan siempre con `DATABASE_MIGRATIONS_URL` (rol `app_maintainer`). Con el rol de
 la API fallarían, y eso es deliberado. El ciclo `upgrade head` → `downgrade base` →
@@ -196,9 +201,31 @@ la API:
 | Función | Uso |
 |---|---|
 | `app_find_user_by_email(email)` | Comprobar si ya existe una cuenta (registro, reenvío de verificación) |
-| `app_create_unverified_user(id, email, hash, nombre)` | Crear la cuenta con `email_verified_at = NULL` |
+| `app_create_unverified_user(id, email, hash)` | Crear la cuenta con `email_verified_at = NULL` |
 | `app_verify_user_email(user_id)` | Marcar el correo como verificado; devuelve si cambió algo |
 
 `app_create_unverified_user` fija a mano `locale` e `is_superadmin`: son columnas
 `NOT NULL` sin `server_default` (su valor por defecto solo existe en el ORM), así que un
-`INSERT` en SQL crudo tiene que darlos explícitamente.
+`INSERT` en SQL crudo tiene que darlos explícitamente. Ya no recibe nombre: el registro
+público solo pide correo y contraseña. `first_name`/`last_name` quedan `NULL` hasta que
+la persona crea una organización o (fase 3 del PRD) se inscribe en un evento, momento en
+el que un evento u organización se lo exige.
+
+### Alta de organización y RLS: tres funciones `SECURITY DEFINER` más
+
+Verificar el correo no da todavía organización: el token de acceso que emite
+`verify-email` es un JWT «puente» con `organization_id` nulo, solo para poder llamar al
+endpoint de alta de organización sin loguear de nuevo. Sin organización no hay contexto
+RLS, así que crear la fila de `organizations`, comprobar la disponibilidad de un slug y
+leer los propios datos de usuario no pueden pasar por las políticas normales. Se resuelve
+con el mismo patrón que `app_resolve_organization` y las funciones de la fase anterior:
+
+| Función | Uso |
+|---|---|
+| `app_create_organization_row(id, slug, name)` | Insertar la fila de `organizations`, antes de que exista ningún contexto RLS que la haga visible |
+| `app_check_slug_available(slug)` | Comprobación pública (sin autenticar) de si un slug está libre, usada por el formulario en vivo |
+| `app_find_user_by_id(id)` | Leer el propio usuario (email, verificación) para la dependencia `require_verified_user`, sin que exista aún membresía alguna |
+
+Tras `app_create_organization_row`, el resto del alta (clonar roles, crear el dominio y
+el branding por defecto, dar de alta a la persona como `owner`) ya ocurre con contexto
+RLS normal, fijado por `set_organization_context` con la organización recién creada.

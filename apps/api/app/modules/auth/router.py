@@ -18,6 +18,7 @@ from app.core.ratelimit import (
     limit_per_host,
     limit_per_ip,
 )
+from app.core.security import create_access_token
 from app.core.tenant import ResolvedOrganization
 from app.core.turnstile import require_turnstile
 from app.modules.auth import service
@@ -150,8 +151,13 @@ async def register(
     dependencies=[limit_per_ip("verificar-correo", VERIFICACION_CORREO_POR_IP)],
 )
 async def verify_email(token: str, session: DbDep) -> VerifyEmailResponse:
-    await service.verify_email(session, token=token)
-    return VerifyEmailResponse(message="Correo verificado correctamente.")
+    settings = get_settings()
+    user_id = await service.verify_email(session, token=token)
+    return VerifyEmailResponse(
+        message="Correo verificado correctamente.",
+        access_token=create_access_token(user_id, None, is_superadmin=False),
+        expires_in=settings.access_token_ttl_minutes * 60,
+    )
 
 
 @router.post(

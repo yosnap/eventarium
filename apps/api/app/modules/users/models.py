@@ -42,6 +42,11 @@ class User(Base, TimestampMixin):
     email_verified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Cuándo se envió el aviso de cuenta sin verificar (fase 2). Nulo hasta entonces;
+    # sin esta columna el barrido horario reenviaría el aviso en cada pasada.
+    verification_warning_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     social_links: Mapped[list[UserSocialLink]] = relationship(
         back_populates="user", cascade="all, delete-orphan", lazy="selectin"

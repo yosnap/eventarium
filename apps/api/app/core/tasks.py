@@ -8,8 +8,11 @@ no puede desaparecer sin rastro.
 from __future__ import annotations
 
 from taskiq import TaskiqEvents, TaskiqState
+from taskiq.schedule_sources import LabelScheduleSource
+from taskiq.scheduler.scheduler import TaskiqScheduler
 from taskiq_redis import RedisAsyncResultBackend, RedisStreamBroker
 
+from app.core.cleanup import sweep_unverified_accounts
 from app.core.config import get_settings
 from app.core.email import get_email_provider
 
@@ -21,6 +24,11 @@ result_backend: RedisAsyncResultBackend[object] = RedisAsyncResultBackend(
 )
 
 broker = RedisStreamBroker(url=_settings.redis_url).with_result_backend(result_backend)
+
+# `TaskiqScheduler` corre en su propio proceso (`taskiq scheduler app.core.tasks:scheduler`),
+# distinto de `taskiq worker`. `LabelScheduleSource` lee el `schedule=[...]` declarado
+# en cada tarea con `@broker.task`, no hace falta registrarlas aparte.
+scheduler = TaskiqScheduler(broker=broker, sources=[LabelScheduleSource(broker)])
 
 
 @broker.on_event(TaskiqEvents.WORKER_STARTUP)
@@ -49,3 +57,9 @@ async def send_verification_email(to_email: str, token: str) -> None:
             "El enlace caduca en 24 horas. Si no has sido tú, ignora este mensaje."
         ),
     )
+
+
+@broker.task(schedule=[{"cron": "0 * * * *"}])
+async def sweep_unverified_accounts_task() -> None:
+    """Cada hora: aviso a los 5 días, borrado a los 7 (`core/cleanup.py`)."""
+    await sweep_unverified_accounts()

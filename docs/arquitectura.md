@@ -135,6 +135,22 @@ usado se asume robo y se revoca la familia entera. El estado vive en Redis con T
 si Redis no responde se devuelve 503 — nunca se acepta un token sin poder comprobar su
 revocación.
 
+### Token puente entre verificar el correo y crear la organización
+
+Verificar el correo no implica tener organización todavía. `verify-email` emite un
+access token normal pero con `organization_id = null` («puente»), solo para poder llamar
+al alta de organización sin volver a loguear. El frontend lo guarda en un signal
+separado del token de sesión (`bridgeToken`, no `token`), precisamente para que el guard
+de autenticación no trate a alguien que solo tiene el puente como si tuviera una sesión
+completa.
+
+Tras crear la organización **no hay auto-login**: cada organización vive en su propio
+subdominio (`{slug}.{dominio_base}`), y ni una cookie `Set-Cookie` emitida en el host
+donde corre `/crear-organizacion` ni un token en memoria sobreviven una navegación a otro
+origen. La respuesta del alta no lleva ningún token; el frontend enlaza a
+`https://{host}/admin/login` para que la persona inicie sesión ya en el subdominio de su
+organización.
+
 ## Permisos y anti-escalada
 
 El catálogo de permisos vive en código (`core/permissions.py`), no en base de datos: así
@@ -169,6 +185,14 @@ SeaweedFS 3.97 `PutBucketPolicy` existe pero rechaza políticas estándar de AWS
 
 Taskiq sobre `RedisStreamBroker`, no sobre una lista: Redis Streams confirma los
 mensajes y permite reintentos, así que una tarea no desaparece si el worker se reinicia.
+
+Las tareas programadas por cron (`@broker.task(schedule=[...])`) no las ejecuta el
+`worker`: desde Taskiq 0.12 el planificador (`TaskiqScheduler` + `LabelScheduleSource`)
+es un **proceso aparte**, arrancado con `taskiq scheduler app.core.tasks:scheduler`. El
+`worker` solo consume la cola; sin el proceso `scheduler` corriendo, ninguna tarea con
+`schedule` se dispara jamás, aunque el worker esté sano. Hoy hay una: el barrido horario
+de cuentas sin verificar (`core/cleanup.sweep_unverified_accounts`), que avisa a los 5
+días y borra a los 7.
 
 ## Frontend
 

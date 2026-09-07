@@ -5,6 +5,7 @@ export type { BodyUploadLogoApiV1OrganizationsMeBrandingLogoPut } from './models
 export type { BrandingAdminResponse } from './models/branding-admin-response';
 export type { BrandingResponse } from './models/branding-response';
 export type { BrandingUpdate } from './models/branding-update';
+export type { CheckSlugResponse } from './models/check-slug-response';
 export type { CurrentUserResponse } from './models/current-user-response';
 export type { DomainCreate } from './models/domain-create';
 export type { DomainResponse } from './models/domain-response';
@@ -27,6 +28,8 @@ export type { ResendVerificationRequest } from './models/resend-verification-req
 export type { RoleCreate } from './models/role-create';
 export type { RoleResponse } from './models/role-response';
 export type { RoleUpdate } from './models/role-update';
+export type { SelfServiceOrganizationCreate } from './models/self-service-organization-create';
+export type { SelfServiceOrganizationResponse } from './models/self-service-organization-response';
 export type { SocialLink } from './models/social-link';
 export type { SocialLinkInput } from './models/social-link-input';
 export type { TokenResponse } from './models/token-response';

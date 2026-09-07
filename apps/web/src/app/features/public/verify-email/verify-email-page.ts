@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
 import { ApiError } from '../../../core/api/error.interceptor';
@@ -23,7 +23,7 @@ type Estado = 'comprobando' | 'exito' | 'error';
 @Component({
   selector: 'app-verify-email-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input, TurnstileWidget],
+  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, Input, TurnstileWidget],
   template: `
     <ng-container *transloco="let t">
       <main id="contenido" class="pagina">
@@ -36,6 +36,9 @@ type Estado = 'comprobando' | 'exito' | 'error';
               @case ('exito') {
                 <app-alert tone="exito" [title]="t('verificarCorreo.exitoTitulo')">
                   {{ t('verificarCorreo.exitoDetalle') }}
+                  <p>
+                    <a routerLink="/crear-organizacion">{{ t('verificarCorreo.continuar') }}</a>
+                  </p>
                 </app-alert>
               }
               @case ('error') {
@@ -95,6 +98,7 @@ type Estado = 'comprobando' | 'exito' | 'error';
 export class VerifyEmailPage {
   private readonly auth = inject(AuthService);
   private readonly ruta = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly transloco = inject(TranslocoService);
 
   protected readonly estado = signal<Estado>('comprobando');
@@ -117,6 +121,10 @@ export class VerifyEmailPage {
     try {
       await this.auth.verifyEmail(token);
       this.estado.set('exito');
+      // Breve pausa para que el mensaje de éxito sea legible antes de continuar:
+      // desaparecer la pantalla al instante no daría tiempo a leerlo, y menos aún a
+      // quien usa un lector de pantalla.
+      setTimeout(() => void this.router.navigateByUrl('/crear-organizacion'), 1500);
     } catch {
       this.estado.set('error');
     }
