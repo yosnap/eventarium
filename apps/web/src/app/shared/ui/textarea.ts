@@ -22,7 +22,7 @@ import {
     <div class="campo" [class.flotando]="flotando()">
       <div class="control">
         <textarea
-          [id]="idCampo"
+          [id]="idCampo()"
           [rows]="rows()"
           [attr.aria-invalid]="error() ? 'true' : null"
           [attr.aria-describedby]="descripcionId()"
@@ -30,12 +30,12 @@ import {
           (focus)="enFoco.set(true)"
           (blur)="enFoco.set(false); blurred.emit()"
           >{{ value() }}</textarea>
-        <label [for]="idCampo">{{ label() }}</label>
+        <label [for]="idCampo()">{{ label() }}</label>
       </div>
       @if (error()) {
-        <p [id]="idError" class="error">{{ error() }}</p>
+        <p [id]="idError()" class="error">{{ error() }}</p>
       } @else if (hint()) {
-        <p [id]="idAyuda" class="ayuda">{{ hint() }}</p>
+        <p [id]="idAyuda()" class="ayuda">{{ hint() }}</p>
       }
     </div>
   `,
@@ -108,20 +108,23 @@ export class Textarea {
   readonly rows = input(4);
   readonly error = input<string | null>(null);
   readonly hint = input<string | null>(null);
+  /** Id estable para enlazar desde fuera (p. ej. un resumen de errores). Si se omite,
+   * se genera uno automático. */
+  readonly fieldId = input<string | null>(null);
   readonly value = model('');
   readonly blurred = output<void>();
 
   private static contador = 0;
   private readonly indice = Textarea.contador++;
-  protected readonly idCampo = `area-${this.indice}`;
-  protected readonly idError = `area-${this.indice}-error`;
-  protected readonly idAyuda = `area-${this.indice}-ayuda`;
+  protected readonly idCampo = computed(() => this.fieldId() ?? `area-${this.indice}`);
+  protected readonly idError = computed(() => `${this.idCampo()}-error`);
+  protected readonly idAyuda = computed(() => `${this.idCampo()}-ayuda`);
 
   protected readonly enFoco = signal(false);
   protected readonly flotando = computed(() => this.enFoco() || this.value().length > 0);
   protected readonly descripcionId = computed(() => {
-    if (this.error()) return this.idError;
-    if (this.hint()) return this.idAyuda;
+    if (this.error()) return this.idError();
+    if (this.hint()) return this.idAyuda();
     return null;
   });
 
