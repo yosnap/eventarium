@@ -79,7 +79,8 @@ Revisado el 2026-09-07 sobre `/registro` y `/verificar-correo`.
 | 2.1.1 | Teclado | Recorrido completo con tabulador en ambas pantallas: campos, envío, enlace a «ya tienes cuenta» | ✅ |
 | 3.3.1 | Identificación de errores | Errores de campo con `aria-describedby`/`aria-invalid` (mismo patrón que `admin/login`) | ✅ |
 | 4.1.3 | Mensajes de estado | El resultado de la verificación (éxito, enlace caducado) se anuncia con `aria-live="assertive"`: no ocurre por ninguna interacción del usuario, así que sin esto un lector de pantalla no se entera de que la comprobación terminó | ✅ |
-| — | Cobertura automática | `register-page.spec.ts` y `verify-email-page.spec.ts`: cero violaciones de axe en los tres estados de cada pantalla (formulario, éxito, error) | ✅ |
+| 1.4.1 | Uso del color | El indicador de fuerza de contraseña (`shared/ui/password-strength.ts`) no depende solo del color de la barra: cada requisito lleva además un texto «cumplido»/«pendiente». Sin `aria-live` a propósito: anunciar en cada pulsación sería disruptivo | ✅ |
+| — | Cobertura automática | `register-page.spec.ts` y `verify-email-page.spec.ts`: cero violaciones de axe en los tres estados de cada pantalla (formulario, éxito, error), incluido el formulario con el indicador de fuerza visible | ✅ |
 
 **Turnstile (widget de terceros, fuera del alcance de axe): pendiente de verificación
 manual con lector de pantalla real.** El desarrollo corre con `TURNSTILE_ENABLED=false`

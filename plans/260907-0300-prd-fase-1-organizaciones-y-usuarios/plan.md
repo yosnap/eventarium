@@ -170,7 +170,7 @@ en la fase 0.
 | 2 | Turnstile en el registro | Sí, obligatorio en producción, desactivable por variable en desarrollo y tests |
 | 3 | Elección de subdominio | El usuario lo elige; se sugiere a partir del nombre y se comprueba disponibilidad en vivo |
 | 4 | Varias organizaciones por persona | Sí; el panel muestra un selector cuando la persona pertenece a más de una |
-| 5 | Política de contraseñas | Mínimo 8 caracteres, comprobadas contra una lista de las más filtradas (k-anonymity, sin enviar la contraseña en claro) |
+| 5 | Política de contraseñas | Mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial, comprobadas además contra una lista de las más filtradas (k-anonymity, sin enviar la contraseña en claro). Revisada el 2026-09-07 durante la implementación de la fase 1: se añadió la exigencia de composición, alineada con el patrón de validación en vivo adoptado del proyecto de referencia `securitycoet` |
 | 6 | Cuenta creada y correo nunca verificado | Correo de aviso a los 5 días; la cuenta se borra a los 7 días por tarea programada, liberando el correo y cualquier subdominio que hubiera reservado |
 | 7 | Recuperación de contraseña | Entra en esta fase (fase de trabajo 5): mismo mecanismo de token de un solo uso que la verificación de correo, con las mismas protecciones anti-enumeración |
 

@@ -19,7 +19,7 @@ RESEND = "/api/v1/auth/resend-verification"
 
 DATOS_REGISTRO = {
     "email": "nueva-persona@example.com",
-    "password": "una-contraseña-larga-y-no-filtrada-1",
+    "password": "Una-Contraseña-Larga-1!",
     "full_name": "Persona Nueva",
     "turnstile_token": "token-de-prueba",
 }
@@ -162,6 +162,14 @@ async def test_contrasena_filtrada_rechaza_el_registro(
         respuesta = await cliente.post(
             REGISTER, json=DATOS_REGISTRO, headers={"Host": organizacion.host}
         )
+    assert respuesta.status_code == 422
+
+
+async def test_contrasena_sin_complejidad_rechaza_el_registro(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    datos = {**DATOS_REGISTRO, "password": "sin-mayuscula-ni-simbolo-1"}
+    respuesta = await cliente.post(REGISTER, json=datos, headers={"Host": organizacion.host})
     assert respuesta.status_code == 422
 
 

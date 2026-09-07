@@ -8,19 +8,35 @@ import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
+import { PasswordStrength, isPasswordValid } from '../../../shared/ui/password-strength';
 import { TurnstileWidget } from '../../../shared/ui/turnstile-widget';
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+type Campo = 'fullName' | 'email' | 'password';
 
 /**
  * Alta de una cuenta. CSR, como `admin/login`: es un flujo transaccional, no
  * contenido público indexable.
  *
- * La respuesta es siempre la misma exista o no ya la cuenta (anti-enumeración), así
- * que tras enviar el formulario se muestra el mismo mensaje de éxito en ambos casos.
+ * Cada campo se valida al perder el foco (no en cada pulsación, que interrumpiría
+ * mientras se escribe, ni solo al enviar). La respuesta del servidor es siempre la
+ * misma exista o no ya la cuenta (anti-enumeración), así que tras enviar el
+ * formulario se muestra el mismo mensaje de éxito en ambos casos.
  */
 @Component({
   selector: 'app-register-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, Input, TurnstileWidget],
+  imports: [
+    TranslocoDirective,
+    RouterLink,
+    Alert,
+    Button,
+    Card,
+    Input,
+    PasswordStrength,
+    TurnstileWidget,
+  ],
   template: `
     <ng-container *transloco="let t">
       <main id="contenido" class="pagina">
@@ -35,26 +51,29 @@ import { TurnstileWidget } from '../../../shared/ui/turnstile-widget';
                 [label]="t('registro.nombre')"
                 autocomplete="name"
                 [required]="true"
-                [error]="errorNombre()"
+                [error]="errores().fullName"
                 [(value)]="fullName"
+                (blurred)="validar('fullName')"
               />
               <app-input
                 [label]="t('registro.email')"
                 type="email"
                 autocomplete="email"
                 [required]="true"
-                [error]="errorEmail()"
+                [error]="errores().email"
                 [(value)]="email"
+                (blurred)="validar('email')"
               />
               <app-input
                 [label]="t('registro.password')"
                 type="password"
                 autocomplete="new-password"
                 [required]="true"
-                [error]="errorPassword()"
+                [error]="errores().password"
                 [(value)]="password"
+                (blurred)="validar('password')"
               />
-              <p class="ayuda">{{ t('registro.passwordAyuda') }}</p>
+              <app-password-strength [password]="password()" />
 
               <app-turnstile-widget (resuelto)="turnstileToken.set($event)" />
 
@@ -90,11 +109,6 @@ import { TurnstileWidget } from '../../../shared/ui/turnstile-widget';
       display: grid;
       gap: var(--space-md);
     }
-    .ayuda {
-      margin: calc(var(--space-md) * -1) 0 0;
-      font-size: 0.875rem;
-      color: var(--color-text-muted, inherit);
-    }
   `,
 })
 export class RegisterPage {
@@ -108,24 +122,46 @@ export class RegisterPage {
   protected readonly enviando = signal(false);
   protected readonly enviado = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly errorNombre = signal<string | null>(null);
-  protected readonly errorEmail = signal<string | null>(null);
-  protected readonly errorPassword = signal<string | null>(null);
+  protected readonly errores = signal<Record<Campo, string | null>>({
+    fullName: null,
+    email: null,
+    password: null,
+  });
+
+  private errorDe(campo: Campo): string | null {
+    switch (campo) {
+      case 'fullName':
+        return this.fullName().trim() ? null : this.transloco.translate('registro.nombreRequerido');
+      case 'email': {
+        const valor = this.email().trim();
+        if (!valor) return this.transloco.translate('registro.emailRequerido');
+        return EMAIL_RE.test(valor) ? null : this.transloco.translate('registro.emailInvalido');
+      }
+      case 'password': {
+        const valor = this.password();
+        if (valor.length < 8) return this.transloco.translate('registro.passwordRequerida');
+        return isPasswordValid(valor)
+          ? null
+          : this.transloco.translate('registro.passwordSinComplejidad');
+      }
+    }
+  }
+
+  protected validar(campo: Campo): void {
+    this.errores.update((actuales) => ({ ...actuales, [campo]: this.errorDe(campo) }));
+  }
 
   protected async enviar(evento: Event): Promise<void> {
     evento.preventDefault();
     this.error.set(null);
 
-    this.errorNombre.set(
-      this.fullName().trim() ? null : this.transloco.translate('registro.nombreRequerido'),
-    );
-    this.errorEmail.set(
-      this.email().trim() ? null : this.transloco.translate('registro.emailRequerido'),
-    );
-    this.errorPassword.set(
-      this.password().length >= 8 ? null : this.transloco.translate('registro.passwordRequerida'),
-    );
-    if (this.errorNombre() || this.errorEmail() || this.errorPassword()) {
+    const nuevosErrores: Record<Campo, string | null> = {
+      fullName: this.errorDe('fullName'),
+      email: this.errorDe('email'),
+      password: this.errorDe('password'),
+    };
+    this.errores.set(nuevosErrores);
+    if (Object.values(nuevosErrores).some((mensaje) => mensaje)) {
       return;
     }
 

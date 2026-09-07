@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, model } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, model, output } from '@angular/core';
 
 /**
  * Campo de formulario con etiqueta y mensaje de error asociados.
@@ -21,6 +21,7 @@ import { ChangeDetectionStrategy, Component, input, model } from '@angular/core'
         [attr.aria-invalid]="error() ? 'true' : null"
         [attr.aria-describedby]="error() ? idError : null"
         (input)="alEscribir($event)"
+        (blur)="blurred.emit()"
       />
       @if (error()) {
         <p [id]="idError" class="error">{{ error() }}</p>
@@ -58,6 +59,9 @@ export class Input {
   readonly required = input(false);
   readonly error = input<string | null>(null);
   readonly value = model('');
+  /** Se emite al perder el foco, para validar en el momento en que tiene sentido: ni
+   * en cada pulsación (interrumpiría mientras se escribe) ni solo al enviar. */
+  readonly blurred = output<void>();
 
   private static contador = 0;
   private readonly indice = Input.contador++;

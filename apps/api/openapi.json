@@ -1774,7 +1774,7 @@
             "maxLength": 256,
             "minLength": 8,
             "title": "Password",
-            "description": "Contraseña, mínimo 8 caracteres"
+            "description": "Contraseña: mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial"
           },
           "full_name": {
             "type": "string",

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+from app.core.security import password_meets_complexity
 
 
 class LoginRequest(BaseModel):
@@ -40,10 +42,24 @@ class RegisterRequest(BaseModel):
 
     email: EmailStr = Field(description="Correo electrónico del usuario")
     password: str = Field(
-        min_length=8, max_length=256, description="Contraseña, mínimo 8 caracteres"
+        min_length=8,
+        max_length=256,
+        description=(
+            "Contraseña: mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial"
+        ),
     )
     full_name: str = Field(min_length=1, max_length=200, description="Nombre completo")
     turnstile_token: str = Field(description="Token del widget de Turnstile")
+
+    @field_validator("password")
+    @classmethod
+    def _validar_complejidad(cls, valor: str) -> str:
+        if not password_meets_complexity(valor):
+            raise ValueError(
+                "La contraseña debe tener mínimo 8 caracteres, una mayúscula, una "
+                "minúscula, un número y un carácter especial."
+            )
+        return valor
 
 
 class ResendVerificationRequest(BaseModel):

@@ -61,9 +61,13 @@ del plan («una persona ajena se registra sin ayuda») es inalcanzable.
 
 - Functional:
   - `POST /api/v1/auth/register` (email, contraseña, verificación de Turnstile): crea
-    el usuario con `email_verified_at=null`, valida la contraseña contra la lista de
-    filtradas (fail-open si el servicio no responde), encola el correo de verificación,
-    y devuelve siempre la misma respuesta genérica exista ya el correo o no.
+    el usuario con `email_verified_at=null`, exige la política de composición
+    (mínimo 8 caracteres, mayúscula, minúscula, número y carácter especial —
+    `core/security.py:password_meets_complexity`, validada también en el cliente con
+    el mismo criterio antes de enviar) y valida la contraseña contra la lista de
+    filtradas (fail-open si el servicio no responde), encola el correo de
+    verificación, y devuelve siempre la misma respuesta genérica exista ya el correo
+    o no.
   - `GET /api/v1/auth/verify-email?token=…`: verifica y consume el token una sola vez;
     fija `email_verified_at`.
   - `POST /api/v1/auth/resend-verification` (email, token de Turnstile): misma
@@ -177,6 +181,8 @@ del plan («una persona ajena se registra sin ayuda») es inalcanzable.
       se ha renderizado. Queda documentado como pendiente explícito en
       `docs/accesibilidad.md`, a completar antes de activar Turnstile en producción.
 - [x] `pytest` en verde incluyendo los casos de fallo de Redis y de Turnstile
+- [x] Una contraseña sin mayúscula, minúscula, número o carácter especial rechaza el
+      registro (422), tanto en cliente (indicador de fuerza en vivo) como en servidor
 
 ## Nota de implementación: tres funciones `SECURITY DEFINER` no previstas en el plan
 
@@ -196,6 +202,24 @@ mínimo, `REVOKE ALL FROM PUBLIC` + `GRANT EXECUTE TO app_user`) en vez de dar
 `app_verify_user_email`, en la migración `0004_correo_y_verificacion`. Detalle en
 `docs/modelo-de-datos.md`. No se preguntó porque la corrección deriva directamente del
 código de RLS ya existente, no de una decisión de producto nueva.
+
+## Nota de implementación: política de contraseña con composición
+
+El usuario pidió adaptar el patrón de validación de formularios de otro proyecto
+(`securitycoet`) a los campos de este: validación en vivo al perder el foco (no en
+cada pulsación ni solo al enviar) y un indicador de fuerza de contraseña con checklist
+de requisitos. Al llevarlo, salió a la luz que su política de contraseña (mayúscula +
+minúscula + número + carácter especial) no coincidía con la decisión #5 original del
+plan (solo longitud mínima + lista de filtradas). Se preguntó explícitamente y el
+usuario decidió adoptar también la política de complejidad, no solo el estilo visual:
+la decisión #5 de `plan.md` queda actualizada en consecuencia.
+
+Implementación: `core/security.py:password_meets_complexity` (servidor, fuente de
+verdad) y `shared/ui/password-strength.ts` (cliente, mismo criterio, para no aceptar
+en el formulario lo que el servidor rechazaría después). El indicador de fuerza no
+depende solo del color para comunicar el estado (1.4.1): cada requisito lleva texto de
+«cumplido»/«pendiente» además del icono. No lleva `aria-live`: anunciar en cada
+pulsación sería disruptivo para un lector de pantalla.
 
 ## Risk Assessment
 
