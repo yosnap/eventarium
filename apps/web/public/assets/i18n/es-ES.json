@@ -121,17 +121,63 @@
       "resumen": "Desde aquí gestionarás tu organización y tus eventos.",
       "organizacion": "Organización",
       "rolesAsignados": "Roles asignados",
-      "permisos": "Permisos"
+      "permisos": "Permisos",
+      "proximamenteTitulo": "Los eventos llegan en una fase futura",
+      "proximamenteDetalle": "Mientras tanto, personaliza los datos de tu organización y su identidad visual.",
+      "irAOrganizacion": "Editar organización →",
+      "irABranding": "Editar identidad visual →"
+    },
+    "organizacion": {
+      "titulo": "Organización",
+      "descripcion": "Datos generales de tu organización.",
+      "nombre": "Nombre",
+      "nombreLegal": "Razón social",
+      "descripcionCampo": "Descripción",
+      "web": "Sitio web",
+      "correoContacto": "Correo de contacto",
+      "nombreRequerido": "Escribe el nombre de la organización.",
+      "correoInvalido": "Escribe un correo electrónico válido.",
+      "guardando": "Guardando…",
+      "guardado": "Cambios guardados.",
+      "error": "No hemos podido guardar los cambios."
     },
     "branding": {
       "titulo": "Identidad visual",
-      "descripcion": "Así se ve tu marca en la web pública. De momento es solo lectura.",
+      "descripcion": "Así se ve tu marca en la web pública.",
       "plantilla": "Plantilla",
       "colores": "Colores",
       "tipografias": "Tipografías",
       "logotipo": "Logotipo",
       "sinLogotipo": "Todavía no has subido ningún logotipo.",
-      "contrasteInsuficiente": "El contraste entre «{{primero}}» y «{{segundo}}» es {{ratio}}:1, por debajo del mínimo 4,5:1 que exige la accesibilidad."
+      "subirLogo": "Subir logotipo (PNG, JPEG o WebP, hasta 5 MB)",
+      "logoNoValido": "Solo se aceptan imágenes PNG, JPEG o WebP.",
+      "logoDemasiadoGrande": "El logotipo no puede superar los 5 MB.",
+      "redesSociales": "Redes sociales",
+      "tipoDeRed": "Red",
+      "urlDeRed": "Enlace",
+      "anadirRed": "Añadir red social",
+      "quitarRed": "Quitar",
+      "resumenOrganizador": "Resumen del organizador",
+      "guardando": "Guardando…",
+      "guardado": "Cambios guardados.",
+      "error": "No hemos podido guardar los cambios.",
+      "contrasteInsuficiente": "El contraste entre «{{primero}}» y «{{segundo}}» es {{ratio}}:1, por debajo del mínimo 4,5:1 que exige la accesibilidad.",
+      "colorClaves": {
+        "primary": "Primario",
+        "primary-contrast": "Texto sobre primario",
+        "secondary": "Secundario",
+        "surface": "Fondo",
+        "surface-muted": "Fondo atenuado",
+        "text": "Texto",
+        "text-muted": "Texto atenuado",
+        "border": "Bordes",
+        "danger": "Error",
+        "success": "Éxito"
+      },
+      "fuenteClaves": {
+        "sans": "Tipografía general",
+        "heading": "Tipografía de títulos"
+      }
     }
   }
 }

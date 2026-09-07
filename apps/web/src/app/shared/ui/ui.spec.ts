@@ -7,6 +7,7 @@ import { Alert } from './alert';
 import { Button } from './button';
 import { Card } from './card';
 import { Input } from './input';
+import { Textarea } from './textarea';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../testing/axe';
 import es from '../../../../public/assets/i18n/es-ES.json';
 
@@ -139,6 +140,24 @@ describe('componentes compartidos', () => {
     await fixture.whenStable();
     expect(fixture.nativeElement.textContent).not.toContain('Mínimo 8 caracteres.');
     expect(fixture.nativeElement.textContent).toContain('Contraseña demasiado corta.');
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('el área de texto enlaza etiqueta y mensaje de error', async () => {
+    const fixture = await montar(Textarea, {
+      label: 'Descripción',
+      error: 'Escribe una descripción.',
+    });
+
+    const campo = fixture.nativeElement.querySelector('textarea') as HTMLTextAreaElement;
+    const etiqueta = fixture.nativeElement.querySelector('label') as HTMLLabelElement;
+    expect(etiqueta.getAttribute('for')).toBe(campo.id);
+    expect(campo.getAttribute('aria-invalid')).toBe('true');
+
+    const idError = campo.getAttribute('aria-describedby');
+    expect(fixture.nativeElement.querySelector(`#${idError}`)?.textContent).toContain(
+      'Escribe una descripción.',
+    );
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 });
