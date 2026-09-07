@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
@@ -161,3 +162,24 @@ class CheckPublicSlugResponse(BaseModel):
     """Disponibilidad de un identificador de ponente."""
 
     available: bool
+
+
+class PublicSpeakerHistoryItem(BaseModel):
+    """Una participación del historial público de un ponente."""
+
+    event_slug: str
+    event_title: str
+    session_id: str
+    session_title: str
+    starts_at: datetime
+    role_key: str
+
+
+class PublicSpeakerProfile(BaseModel):
+    """Perfil público de un ponente tal y como lo ve cualquier visitante."""
+
+    display_name: str
+    public_slug: str
+    fields: dict[str, Any]
+    social_links: list[SocialLinkResponse]
+    history: list[PublicSpeakerHistoryItem]

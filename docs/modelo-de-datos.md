@@ -16,6 +16,13 @@ erDiagram
   roles ||--o{ organization_members : "asigna"
   users ||--o{ organization_members : "pertenece"
   users ||--o{ user_social_links : "perfil"
+  organizations ||--o{ events : "publica"
+  events ||--o{ event_sessions : "agenda"
+  organizations ||--o{ event_members : "roster"
+  organization_members ||--o{ event_members : "participa en"
+  event_members ||--o{ event_session_participants : "asignado a"
+  event_sessions ||--o{ event_session_participants : "tiene"
+  users ||--o| speaker_public_profiles : "activa"
 
   organizations {
     uuid id PK
@@ -95,6 +102,63 @@ erDiagram
     uuid role_id FK
     jsonb profile_data
   }
+  events {
+    uuid id PK
+    uuid organization_id FK
+    text slug UK
+    text title
+    text summary
+    text description
+    text cover_object_key
+    text status
+    text visibility
+    text timezone
+    timestamptz starts_at
+    timestamptz ends_at
+    text location_mode
+    text location_name
+    text location_address
+    text online_url
+    int capacity
+    text registration_mode
+    bool email_verification_required
+  }
+  event_sessions {
+    uuid id PK
+    uuid event_id FK
+    uuid organization_id FK
+    text session_type
+    text title
+    text description
+    timestamptz starts_at
+    timestamptz ends_at
+    text room
+    text video_platform
+    text video_url
+    jsonb materials
+    int sort_order
+  }
+  event_members {
+    uuid id PK
+    uuid event_id FK
+    uuid organization_id FK
+    uuid organization_member_id FK
+  }
+  event_session_participants {
+    uuid id PK
+    uuid session_id FK
+    uuid event_member_id FK
+    uuid organization_id FK
+    text role_key
+    int sort_order
+  }
+  speaker_public_profiles {
+    uuid id PK
+    uuid organization_id FK
+    uuid user_id FK
+    text public_slug UK
+    uuid source_organization_member_id FK
+  }
 ```
 
 Todas las tablas llevan `created_at` y `updated_at` con zona horaria.
@@ -143,7 +207,61 @@ en lugar de ignorarse: un dato que no corresponde a ningún campo suele ser un e
 cliente, y aceptarlo dejaría basura que nadie volvería a mirar.
 
 Ese `profile_data` se reutiliza entre ediciones del evento; el historial de
-participación llegará con `event_members` en la fase 2 del PRD.
+participación se resuelve con `event_members`/`event_session_participants`, ver
+más abajo.
+
+### Eventos, agenda, roster y perfil público de ponente (fase 2 del PRD)
+
+Cinco tablas nuevas: `events`, `event_sessions`, `event_members`,
+`event_session_participants`, `speaker_public_profiles`. Todas llevan
+`organization_id` **denormalizado**, igual que `role_permissions` lo lleva pese a
+tener `role_id` — es lo que permite a la política RLS filtrar en la propia tabla,
+sin subconsultas.
+
+**FK compuestas contra `(id, organization_id)` del padre, no simples contra `id`.**
+La integridad referencial de PostgreSQL no pasa por RLS: una FK simple no
+impediría que una fila hija con `organization_id` propio apuntara al recurso de
+otra organización. Cada tabla hija (`event_sessions.event_id`,
+`event_members.event_id`, `event_members.organization_member_id`,
+`event_session_participants.session_id`,
+`event_session_participants.event_member_id`,
+`speaker_public_profiles.source_organization_member_id`) usa una FK compuesta, así
+que la propia base de datos garantiza que el padre referenciado pertenece a la
+misma organización. `organization_members` ganó un `UNIQUE(id, organization_id)`
+propio para ser el objetivo de esas FK.
+
+**Identidad del ponente: por persona, no por membresía.** `is_public`/`public_slug`
+no viven en `organization_members` (una fila por *rol*: la misma persona puede
+tener varias, y el slug quedaría fragmentado o duplicado entre ellas). Viven en
+`speaker_public_profiles`, una fila por `(organization_id, user_id)`, con
+`source_organization_member_id` indicando de qué membresía en concreto se toma la
+biografía a publicar. El historial de sesiones (`speakers_repository`) se resuelve
+por `user_id` a través de **todas** las membresías de esa persona en la
+organización, no solo la que activó el perfil.
+
+**Rol libre por asignación, no un catálogo cerrado.** `role_key` en
+`event_session_participants` es texto libre (p. ej. "speaker", "moderator"),
+independiente del rol de la persona en la organización: cada organización puede
+llamarlo como necesite. `UNIQUE(session_id, event_member_id, role_key)` permite que
+la misma persona aparezca varias veces en la misma sesión con roles distintos (p.
+ej. ponente y moderadora a la vez), pero nunca duplicada con el mismo rol.
+
+**Sin `ondelete` en `event_session_participants.event_member_id`** (`RESTRICT` por
+defecto): quitar a alguien del roster de un evento mientras tiene participaciones
+activas se rechaza a nivel de base de datos como último cinturón de seguridad — el
+servicio ya lo comprueba antes y responde 409 legible, esto es la red por si algo
+se salta esa capa.
+
+**Validación de `video_url` y `materials` por esquema y dominio.**
+`validate_video_url`/`validate_materials`
+(`apps/api/app/modules/events/schemas.py`) exigen `https` siempre y, si la
+plataforma declarada es conocida (`youtube`, `vimeo`, `twitch`), un dominio de su
+lista (`youtube.com`/`youtu.be`, `vimeo.com`, `twitch.tv`); para `other` basta con
+`https`. Sin esto, una sesión podría embeber un `iframe`/enlace controlado por
+terceros desde el propio dominio de la organización. Se aplica tanto al alta
+(`EventSessionCreate`) como a la edición — un `PATCH` parcial que solo toca uno de
+los dos campos se revalida en `service.update_session` contra el valor ya
+guardado del otro, no solo campo a campo.
 
 ### Permisos como texto validado en código
 
@@ -156,11 +274,19 @@ lugar de romper la sesión de quien lo tuviera.
 | Tabla | Política |
 |---|---|
 | `organizations` | `id = app_current_organization()` |
-| `organization_domains`, `organization_branding`, `organization_members`, `roles`, `role_permissions`, `role_profile_fields` | `organization_id = app_current_organization()` |
+| `organization_domains`, `organization_branding`, `organization_members`, `roles`, `role_permissions`, `role_profile_fields`, `events`, `event_sessions`, `event_members`, `event_session_participants`, `speaker_public_profiles` | `organization_id = app_current_organization()` |
 | `users` | Uno mismo (`id = app_current_user()`) o quien comparta organización |
 | `user_social_links` | Según la visibilidad de su usuario |
 
 Todas con `ENABLE` + `FORCE ROW LEVEL SECURITY`.
+
+RLS aísla por **organización**, no por si un evento está publicado: un borrador de
+la propia organización sigue siendo visible bajo RLS para cualquiera que resuelva
+el host correcto (incluido el contexto anónimo de los endpoints públicos, que solo
+fija `app.organization_id`, sin usuario). El filtro `status = 'published' AND
+visibility = 'public'` de las páginas públicas (`public_router.py`) es por tanto
+explícito en cada consulta, nunca delegado a RLS — ver
+`docs/arquitectura.md` § Páginas públicas con datos.
 
 `users` tiene además una política solo de `INSERT` que permite crear la fila cuando hay
 contexto de organización: dar de alta a alguien crea primero el usuario y después la

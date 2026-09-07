@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Annotated, Any, Literal
+from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -16,10 +17,46 @@ RegistrationMode = Literal["free", "approval", "paid"]
 SessionType = Literal["talk", "break", "service", "other"]
 VideoPlatform = Literal["youtube", "vimeo", "twitch", "other"]
 
+# Dominios admitidos por plataforma declarada. Para «other» basta con `https`: no
+# hay una plataforma conocida que restringir, pero el enlace igualmente no puede
+# sustituirse por un `iframe`/enlace desde un dominio arbitrario sin cifrar.
+_DOMINIOS_POR_PLATAFORMA: dict[str, tuple[str, ...]] = {
+    "youtube": ("youtube.com", "youtu.be"),
+    "vimeo": ("vimeo.com",),
+    "twitch": ("twitch.tv",),
+}
+
 
 def _validar_rango_de_fechas(starts_at: datetime, ends_at: datetime) -> None:
     if ends_at <= starts_at:
         raise ValueError("La fecha de fin debe ser posterior a la de inicio.")
+
+
+def validate_video_url(platform: str | None, url: str | None) -> None:
+    """`video_url` exige `https` y, si la plataforma es conocida, un dominio de su
+    lista — para no acabar sirviendo un `iframe`/enlace controlado por terceros
+    desde el propio dominio de la organización."""
+    if url is None:
+        return
+    if not url.startswith("https://"):
+        raise ValueError("El enlace del vídeo debe usar https.")
+    dominios = _DOMINIOS_POR_PLATAFORMA.get(platform or "")
+    if dominios is None:
+        return
+    host = (urlparse(url).hostname or "").lower()
+    if not any(host == dominio or host.endswith(f".{dominio}") for dominio in dominios):
+        raise ValueError(
+            f"El enlace del vídeo debe pertenecer a {' o '.join(dominios)} "
+            f"para la plataforma «{platform}»."
+        )
+
+
+def validate_materials(materials: list[dict[str, Any]]) -> None:
+    """Cada material con `url` exige `https`, mismo motivo que `video_url`."""
+    for material in materials:
+        url = material.get("url")
+        if url is not None and not str(url).startswith("https://"):
+            raise ValueError("El enlace de cada material debe usar https.")
 
 
 class EventCreate(BaseModel):
@@ -114,6 +151,8 @@ class EventSessionCreate(BaseModel):
     @model_validator(mode="after")
     def _validar_fechas(self) -> EventSessionCreate:
         _validar_rango_de_fechas(self.starts_at, self.ends_at)
+        validate_video_url(self.video_platform, self.video_url)
+        validate_materials(self.materials)
         return self
 
 
@@ -210,3 +249,74 @@ class SessionParticipantResponse(BaseModel):
     last_name: str | None
     role_key: str
     sort_order: int
+
+
+class PublicParticipant(BaseModel):
+    """Participante tal y como se muestra en las páginas públicas.
+
+    Nunca lleva el correo — a diferencia de `SessionParticipantResponse`, que es
+    para el panel de administración. `public_slug` solo está presente si esa
+    persona activó su perfil público; si no, es `None` y la página no enlaza a
+    ningún sitio.
+    """
+
+    display_name: str
+    role_key: str
+    public_slug: str | None
+
+
+class PublicEventSummary(BaseModel):
+    """Evento tal y como aparece en el listado público."""
+
+    slug: str
+    title: str
+    summary: str | None
+    cover_url: str | None
+    timezone: str
+    starts_at: datetime
+    ends_at: datetime
+    location_mode: LocationMode
+    location_name: str | None
+
+
+class PublicEventSession(BaseModel):
+    """Sesión de la agenda tal y como se muestra en la página pública del evento."""
+
+    id: str
+    session_type: SessionType
+    title: str
+    description: str | None
+    starts_at: datetime
+    ends_at: datetime
+    room: str | None
+    video_platform: VideoPlatform | None
+    video_url: str | None
+    materials: list[dict[str, Any]]
+    participants: list[PublicParticipant]
+
+
+class PublicSessionDetail(PublicEventSession):
+    """La misma sesión, con el enlace a su evento padre para la página propia."""
+
+    event_slug: str
+    event_title: str
+
+
+class PublicEventDetail(BaseModel):
+    """Evento publicado con su agenda completa, para la página pública de detalle."""
+
+    slug: str
+    title: str
+    summary: str | None
+    description: str | None
+    cover_url: str | None
+    timezone: str
+    starts_at: datetime
+    ends_at: datetime
+    location_mode: LocationMode
+    location_name: str | None
+    location_address: str | None
+    online_url: str | None
+    capacity: int | None
+    registration_mode: RegistrationMode
+    sessions: list[PublicEventSession]

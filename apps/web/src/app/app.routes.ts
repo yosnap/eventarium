@@ -119,6 +119,25 @@ export const routes: Routes = [
         path: '',
         loadComponent: () => import('./features/public/home/home-page').then((m) => m.HomePage),
       },
+      {
+        path: 'eventos',
+        loadComponent: () =>
+          import('./features/public/events/events-list-page').then((m) => m.EventsListPage),
+      },
+      {
+        path: 'eventos/:slug',
+        loadComponent: () => import('./features/public/events/event-page').then((m) => m.EventPage),
+      },
+      {
+        path: 'eventos/:slug/sesiones/:sessionId',
+        loadComponent: () =>
+          import('./features/public/events/session-page').then((m) => m.SessionPage),
+      },
+      {
+        path: 'ponentes/:publicSlug',
+        loadComponent: () =>
+          import('./features/public/events/speaker-page').then((m) => m.SpeakerPage),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

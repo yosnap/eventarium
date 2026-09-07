@@ -1,7 +1,7 @@
 ---
 title: "PRD Fase 2 — Eventos, agenda y ponentes"
 description: "Eventos con agenda multi-día, sesiones tipadas (charla, descanso, servicio, otro), ponentes con perfil público e historial entre ediciones, y página pública del evento con SSR y OG tags."
-status: pending
+status: done
 priority: P1
 effort: "8-10.5d"
 tags: [eventos, agenda, sesiones, ponentes, ssr]
@@ -180,37 +180,37 @@ resolver con una tarea de reconciliación en el arranque.
 
 ## Success Criteria
 
-- [ ] Un `owner`/`organizer` crea un evento, le añade una agenda multi-día con
+- [x] Un `owner`/`organizer` crea un evento, le añade una agenda multi-día con
       sesiones de los cuatro tipos, y lo publica
-- [ ] Una organización de la fase 1 ya existente (sin recrear) tiene `EVENTS_WRITE`
+- [x] Una organización de la fase 1 ya existente (sin recrear) tiene `EVENTS_WRITE`
       en su rol `owner` tras aplicar la migración de esta fase, sin intervención
       manual
-- [ ] Una sesión admite varios ponentes y una misma persona con varios roles a la
+- [x] Una sesión admite varios ponentes y una misma persona con varios roles a la
       vez en la misma sesión (p. ej. ponente y moderador)
-- [ ] El perfil de ponente solo publica la lista blanca fija de campos, nunca
+- [x] El perfil de ponente solo publica la lista blanca fija de campos, nunca
       `profile_data` completo — un campo a medida sensible (p. ej. teléfono, DNI)
       añadido a un rol no aparece en la respuesta pública, con test explícito
-- [ ] Un ponente activa **su propio** perfil público en autoservicio, sin depender
+- [x] Un ponente activa **su propio** perfil público en autoservicio, sin depender
       de que un tercero lo haga por él, con un slug propio comprobado por
       disponibilidad en vivo
-- [ ] El historial de un ponente muestra sus sesiones en **todas las membresías**
+- [x] El historial de un ponente muestra sus sesiones en **todas las membresías**
       de esa persona y en **todas** las ediciones `published` + `public` de la
       organización (nunca `hidden`/`private`, aunque estén publicadas)
-- [ ] Un evento en borrador o con visibilidad oculta/privada no aparece en el
+- [x] Un evento en borrador o con visibilidad oculta/privada no aparece en el
       listado público ni resuelve su página de detalle ni la de ninguna de sus
       sesiones (404 uniforme)
-- [ ] Dos organizaciones no ven los eventos, sesiones ni ponentes de la otra: tests
+- [x] Dos organizaciones no ven los eventos, sesiones ni ponentes de la otra: tests
       de aislamiento explícitos sobre las cinco tablas nuevas, incluida una prueba
       de que no se puede **escribir** una fila hija apuntando al recurso padre de
       otra organización (no solo que no se lea)
-- [ ] La página pública del evento lleva etiquetas OG correctas (título, descripción,
+- [x] La página pública del evento lleva etiquetas OG correctas (título, descripción,
       imagen de portada) y responde con SSR, verificado con una petición con
       `X-Forwarded-Host` y sin ejecutar JavaScript en el cliente
-- [ ] `alembic upgrade head` → `downgrade` → `upgrade head` limpio, sin duplicar ni
+- [x] `alembic upgrade head` → `downgrade` → `upgrade head` limpio, sin duplicar ni
       perder filas de permisos
-- [ ] Cero violaciones de axe en las pantallas nuevas; checklist WCAG completado
-- [ ] CI en verde; ningún fichero supera las 1000 líneas
-- [ ] `docs/` actualizado: arquitectura, modelo de datos y accesibilidad reflejan lo
+- [x] Cero violaciones de axe en las pantallas nuevas; checklist WCAG completado
+- [x] CI en verde; ningún fichero supera las 1000 líneas
+- [x] `docs/` actualizado: arquitectura, modelo de datos y accesibilidad reflejan lo
       nuevo
 
 ## Red Team Review
