@@ -17,6 +17,7 @@ export interface EventSessionResponse {
   sort_order: number;
   starts_at: string;
   title: string;
+  updated_at: string;
   video_platform: ('youtube' | 'vimeo' | 'twitch' | 'other' | null);
   video_url: (string | null);
 }

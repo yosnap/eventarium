@@ -340,6 +340,19 @@
       },
       "enlaces": {
         "titulo": "Enlaces sociales"
+      },
+      "perfilPublico": {
+        "titulo": "Perfil público de ponente",
+        "descripcion": "Publica tu biografía y tu historial de ponencias con tu propia URL. Solo tú puedes activarlo o desactivarlo.",
+        "membresia": "Tomar la biografía de",
+        "slug": "Identificador público (slug)",
+        "slugAyuda": "Aparecerá en tu URL pública, p. ej. «tu-organizacion.com/ponentes/mi-slug».",
+        "slugVacio": "Escribe un identificador.",
+        "slugNoDisponible": "Ese identificador ya está en uso.",
+        "activar": "Activar perfil público",
+        "actualizar": "Guardar cambios",
+        "desactivar": "Desactivar",
+        "exito": "Perfil público actualizado."
       }
     },
     "events": {
@@ -410,6 +423,21 @@
         "materiales": "Materiales",
         "materialesAyuda": "Un enlace por línea.",
         "camposRequeridos": "Rellena el título y las fechas de la sesión.",
+        "error": "No hemos podido completar la operación.",
+        "participantes": {
+          "gestionar": "Participantes",
+          "sinRoster": "Añade primero a alguien al evento en «Participantes del evento».",
+          "rolesAyuda": "Uno o varios roles separados por comas, p. ej. «ponente, moderador». Vacío para quitarla de esta sesión.",
+          "guardar": "Guardar participantes",
+          "error": "No hemos podido guardar los participantes."
+        }
+      },
+      "roster": {
+        "titulo": "Participantes del evento",
+        "sinPersonas": "Todavía no has añadido a nadie al evento.",
+        "elegirPersona": "Elige a alguien de la organización…",
+        "anadir": "Añadir al evento",
+        "quitar": "Quitar",
         "error": "No hemos podido completar la operación."
       }
     }

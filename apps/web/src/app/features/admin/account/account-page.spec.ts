@@ -27,6 +27,12 @@ function authFalso(overrides: Partial<AuthService> = {}): Partial<AuthService> {
     updateMe: vi.fn().mockResolvedValue(undefined),
     changeEmail: vi.fn().mockResolvedValue(undefined),
     changePassword: vi.fn().mockResolvedValue(undefined),
+    getPublicProfile: vi.fn().mockResolvedValue({
+      profile: { active: false, public_slug: null, source_organization_member_id: null },
+      eligible_memberships: [],
+    }),
+    updatePublicProfile: vi.fn(),
+    checkPublicSlug: vi.fn(),
     ...overrides,
   };
 }
@@ -112,6 +118,39 @@ describe('AccountPage', () => {
     await fixture.whenStable();
 
     expect(fixture.nativeElement.textContent).toContain('no válida');
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('activa el perfil público cuando hay una membresía publicable', async () => {
+    configurar(
+      authFalso({
+        getPublicProfile: vi.fn().mockResolvedValue({
+          profile: { active: false, public_slug: null, source_organization_member_id: null },
+          eligible_memberships: [
+            { organization_member_id: 'm1', role_key: 'speaker', role_name: 'Ponente' },
+          ],
+        }),
+        updatePublicProfile: vi.fn().mockResolvedValue({
+          profile: { active: true, public_slug: 'mi-slug', source_organization_member_id: 'm1' },
+          eligible_memberships: [],
+        }),
+      }),
+    );
+    const fixture = TestBed.createComponent(AccountPage);
+    await fixture.whenStable();
+    const auth = TestBed.inject(AuthService);
+
+    const formularios = fixture.nativeElement.querySelectorAll('form');
+    const formularioPerfilPublico = formularios[formularios.length - 1] as HTMLFormElement;
+    const campoSlug = formularioPerfilPublico.querySelector('input') as HTMLInputElement;
+    campoSlug.value = 'mi-slug';
+    campoSlug.dispatchEvent(new Event('input'));
+
+    formularioPerfilPublico.dispatchEvent(new Event('submit'));
+    await fixture.whenStable();
+
+    expect(auth.updatePublicProfile).toHaveBeenCalledWith('mi-slug', 'm1');
+    expect(fixture.nativeElement.textContent).toContain('Perfil público actualizado');
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 });

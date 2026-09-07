@@ -77,6 +77,10 @@ describe('EventForm', () => {
     http.expectOne((peticion) => peticion.url === '/api/v1/events/e1').flush(eventoDetalle());
     await avanzar(fixture);
     http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/sessions').flush([]);
+    http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/members').flush([]);
+    http
+      .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/members')
+      .flush({ items: [], total: 0, limit: 200, offset: 0 });
     await avanzar(fixture);
 
     expect((fixture.nativeElement.querySelector('#evento-titulo') as HTMLInputElement).value).toBe(

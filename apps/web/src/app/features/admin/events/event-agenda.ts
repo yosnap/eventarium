@@ -14,6 +14,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
+import { displayName } from '../../../core/auth/auth.service';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
@@ -34,6 +35,34 @@ interface EventSession {
   readonly video_url: string | null;
   readonly materials: readonly { url?: string }[];
   readonly sort_order: number;
+  readonly updated_at: string;
+}
+
+interface Persona {
+  readonly first_name: string | null;
+  readonly last_name: string | null;
+  readonly email: string;
+}
+
+interface RosterMember extends Persona {
+  readonly id: string;
+  readonly organization_member_id: string;
+  readonly role_key: string;
+}
+
+interface OrganizationMemberOption extends Persona {
+  readonly id: string;
+  readonly role_key: string;
+}
+
+interface SessionParticipant extends Persona {
+  readonly id: string;
+  readonly event_member_id: string;
+  readonly role_key: string;
+}
+
+interface Page<T> {
+  readonly items: readonly T[];
 }
 
 interface DiaDeAgenda {
@@ -76,6 +105,51 @@ function vacio(): {
   imports: [TranslocoDirective, DatePipe, Alert, Button, Card, Input],
   template: `
     <ng-container *transloco="let t">
+      <app-card [heading]="t('admin.events.roster.titulo')">
+        @if (rosterError(); as mensaje) {
+          <app-alert tone="error">{{ mensaje }}</app-alert>
+        }
+        @if (roster().length === 0) {
+          <p>{{ t('admin.events.roster.sinPersonas') }}</p>
+        } @else {
+          <ul class="roster">
+            @for (persona of roster(); track persona.id) {
+              <li>
+                <span
+                  >{{ nombreDe(persona) }} · <code>{{ persona.role_key }}</code></span
+                >
+                <app-button variant="peligro" type="button" (pulsado)="quitarDelRoster(persona.id)">
+                  {{ t('admin.events.roster.quitar') }}
+                </app-button>
+              </li>
+            }
+          </ul>
+        }
+        <div class="anadir-roster">
+          <label for="roster-anadir" class="sr-only">
+            {{ t('admin.events.roster.elegirPersona') }}
+          </label>
+          <select
+            id="roster-anadir"
+            [value]="miembroAAnadir()"
+            (change)="alCambiarMiembroAAnadir($event)"
+          >
+            <option value="">{{ t('admin.events.roster.elegirPersona') }}</option>
+            @for (miembro of miembrosDisponibles(); track miembro.id) {
+              <option [value]="miembro.id">{{ nombreDe(miembro) }} ({{ miembro.role_key }})</option>
+            }
+          </select>
+          <app-button
+            type="button"
+            [disabled]="!miembroAAnadir()"
+            [loading]="anadiendoAlRoster()"
+            (pulsado)="anadirAlRoster()"
+          >
+            {{ t('admin.events.roster.anadir') }}
+          </app-button>
+        </div>
+      </app-card>
+
       <app-card [heading]="t('admin.events.agenda.titulo')">
         @if (error(); as mensaje) {
           <app-alert tone="error">{{ mensaje }}</app-alert>
@@ -106,11 +180,46 @@ function vacio(): {
                       <app-button variant="secundario" type="button" (pulsado)="editar(sesion)">
                         {{ t('admin.events.agenda.editar') }}
                       </app-button>
+                      <app-button
+                        variant="secundario"
+                        type="button"
+                        (pulsado)="alternarParticipantes(sesion)"
+                      >
+                        {{ t('admin.events.agenda.participantes.gestionar') }}
+                      </app-button>
                       <app-button variant="peligro" type="button" (pulsado)="borrar(sesion.id)">
                         {{ t('admin.events.agenda.eliminar') }}
                       </app-button>
                     </div>
                   </div>
+
+                  @if (editandoParticipantesId() === sesion.id) {
+                    <div class="participantes-editor">
+                      @if (roster().length === 0) {
+                        <p>{{ t('admin.events.agenda.participantes.sinRoster') }}</p>
+                      } @else {
+                        @for (persona of roster(); track persona.id) {
+                          <app-input
+                            [fieldId]="'participante-' + sesion.id + '-' + persona.id"
+                            [label]="nombreDe(persona)"
+                            [hint]="t('admin.events.agenda.participantes.rolesAyuda')"
+                            [value]="rolesDePersona()[persona.id] ?? ''"
+                            (valueChange)="fijarRolesDePersona(persona.id, $event)"
+                          />
+                        }
+                      }
+                      @if (participantesError(); as mensaje) {
+                        <app-alert tone="error">{{ mensaje }}</app-alert>
+                      }
+                      <app-button
+                        type="button"
+                        [loading]="guardandoParticipantes()"
+                        (pulsado)="guardarParticipantes(sesion)"
+                      >
+                        {{ t('admin.events.agenda.participantes.guardar') }}
+                      </app-button>
+                    </div>
+                  }
                 </li>
               }
             </ul>
@@ -223,6 +332,56 @@ function vacio(): {
     h3 {
       margin: var(--space-md) 0 var(--space-xs);
     }
+    .roster {
+      list-style: none;
+      margin: 0 0 var(--space-md);
+      padding: 0;
+      display: grid;
+      gap: var(--space-sm);
+    }
+    .roster li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--space-md);
+      border-bottom: 1px solid var(--color-border);
+      padding-bottom: var(--space-sm);
+    }
+    .anadir-roster {
+      display: flex;
+      gap: var(--space-sm);
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .anadir-roster select {
+      flex: 1;
+      min-width: 12rem;
+      padding: 0.625rem 0.75rem;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background-color: var(--color-surface);
+      color: var(--color-text);
+      font: inherit;
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .participantes-editor {
+      display: grid;
+      gap: var(--space-sm);
+      margin-top: var(--space-sm);
+      padding: var(--space-sm) var(--space-md);
+      background-color: var(--color-surface-muted, rgba(0, 0, 0, 0.03));
+      border-radius: var(--radius-md);
+    }
     .sesiones {
       list-style: none;
       margin: 0;
@@ -299,6 +458,22 @@ export class EventAgenda implements OnInit {
   protected readonly formError = signal<string | null>(null);
   protected readonly sesiones = signal<EventSession[]>([]);
   protected readonly editandoId = signal<string | null>(null);
+  protected readonly nombreDe = displayName;
+
+  protected readonly roster = signal<RosterMember[]>([]);
+  protected readonly rosterError = signal<string | null>(null);
+  protected readonly organizationMembers = signal<OrganizationMemberOption[]>([]);
+  protected readonly miembroAAnadir = signal('');
+  protected readonly anadiendoAlRoster = signal(false);
+  protected readonly miembrosDisponibles = computed(() => {
+    const yaEnRoster = new Set(this.roster().map((m) => m.organization_member_id));
+    return this.organizationMembers().filter((m) => !yaEnRoster.has(m.id));
+  });
+
+  protected readonly editandoParticipantesId = signal<string | null>(null);
+  protected readonly rolesDePersona = signal<Record<string, string>>({});
+  protected readonly guardandoParticipantes = signal(false);
+  protected readonly participantesError = signal<string | null>(null);
 
   private readonly valoresIniciales = vacio();
   protected readonly tipo = signal(this.valoresIniciales.session_type);
@@ -325,6 +500,166 @@ export class EventAgenda implements OnInit {
 
   ngOnInit(): void {
     void this.cargar();
+    void this.cargarRoster();
+    void this.cargarMiembrosDeLaOrganizacion();
+  }
+
+  private async cargarRoster(): Promise<void> {
+    try {
+      const roster = await firstValueFrom(
+        this.http.get<RosterMember[]>(this.api.url(`/events/${this.eventId()}/members`)),
+      );
+      this.roster.set([...roster]);
+    } catch (error) {
+      this.rosterError.set(
+        error instanceof ApiError
+          ? error.message
+          : this.transloco.translate('admin.events.roster.error'),
+      );
+    }
+  }
+
+  private async cargarMiembrosDeLaOrganizacion(): Promise<void> {
+    try {
+      const pagina = await firstValueFrom(
+        this.http.get<Page<OrganizationMemberOption>>(this.api.url('/organizations/me/members'), {
+          params: { limit: 200, offset: 0 },
+        }),
+      );
+      this.organizationMembers.set([...pagina.items]);
+    } catch (error) {
+      this.rosterError.set(
+        error instanceof ApiError
+          ? error.message
+          : this.transloco.translate('admin.events.roster.error'),
+      );
+    }
+  }
+
+  protected alCambiarMiembroAAnadir(evento: Event): void {
+    this.miembroAAnadir.set((evento.target as HTMLSelectElement).value);
+  }
+
+  protected async anadirAlRoster(): Promise<void> {
+    const organizationMemberId = this.miembroAAnadir();
+    if (!organizationMemberId) {
+      return;
+    }
+    this.rosterError.set(null);
+    this.anadiendoAlRoster.set(true);
+    try {
+      await firstValueFrom(
+        this.http.post(this.api.url(`/events/${this.eventId()}/members`), {
+          organization_member_id: organizationMemberId,
+        }),
+      );
+      this.miembroAAnadir.set('');
+      await this.cargarRoster();
+    } catch (error) {
+      this.rosterError.set(
+        error instanceof ApiError
+          ? error.message
+          : this.transloco.translate('admin.events.roster.error'),
+      );
+    } finally {
+      this.anadiendoAlRoster.set(false);
+    }
+  }
+
+  protected async quitarDelRoster(eventMemberId: string): Promise<void> {
+    this.rosterError.set(null);
+    try {
+      await firstValueFrom(
+        this.http.delete(this.api.url(`/events/${this.eventId()}/members/${eventMemberId}`)),
+      );
+      await this.cargarRoster();
+    } catch (error) {
+      this.rosterError.set(
+        error instanceof ApiError
+          ? error.message
+          : this.transloco.translate('admin.events.roster.error'),
+      );
+    }
+  }
+
+  protected async alternarParticipantes(sesion: EventSession): Promise<void> {
+    if (this.editandoParticipantesId() === sesion.id) {
+      this.editandoParticipantesId.set(null);
+      return;
+    }
+    this.participantesError.set(null);
+    this.editandoParticipantesId.set(sesion.id);
+    try {
+      const participantes = await firstValueFrom(
+        this.http.get<SessionParticipant[]>(
+          this.api.url(`/events/${this.eventId()}/sessions/${sesion.id}/participants`),
+        ),
+      );
+      const porPersona = new Map<string, string[]>();
+      for (const participante of participantes) {
+        const lista = porPersona.get(participante.event_member_id) ?? [];
+        lista.push(participante.role_key);
+        porPersona.set(participante.event_member_id, lista);
+      }
+      this.rolesDePersona.set(
+        Object.fromEntries([...porPersona.entries()].map(([id, roles]) => [id, roles.join(', ')])),
+      );
+    } catch (error) {
+      this.participantesError.set(
+        error instanceof ApiError
+          ? error.message
+          : this.transloco.translate('admin.events.agenda.participantes.error'),
+      );
+    }
+  }
+
+  protected fijarRolesDePersona(eventMemberId: string, valor: string): void {
+    this.rolesDePersona.set({ ...this.rolesDePersona(), [eventMemberId]: valor });
+  }
+
+  private participantesComoLista(): { event_member_id: string; role_key: string }[] {
+    const entradas: { event_member_id: string; role_key: string }[] = [];
+    for (const [eventMemberId, valor] of Object.entries(this.rolesDePersona())) {
+      const roles = valor
+        .split(',')
+        .map((rol) => rol.trim())
+        .filter((rol) => rol.length > 0);
+      for (const role_key of new Set(roles)) {
+        entradas.push({ event_member_id: eventMemberId, role_key });
+      }
+    }
+    return entradas;
+  }
+
+  protected async guardarParticipantes(sesion: EventSession): Promise<void> {
+    this.participantesError.set(null);
+    this.guardandoParticipantes.set(true);
+    try {
+      await firstValueFrom(
+        this.http.put(
+          this.api.url(`/events/${this.eventId()}/sessions/${sesion.id}/participants`),
+          {
+            expected_updated_at: sesion.updated_at,
+            participants: this.participantesComoLista(),
+          },
+        ),
+      );
+      this.editandoParticipantesId.set(null);
+      await this.cargar();
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        // La agenda cambió desde que se abrió el editor: se recarga en vez de
+        // reintentar a ciegas, para no pisar el trabajo de otra persona.
+        await this.cargar();
+      }
+      this.participantesError.set(
+        error instanceof ApiError
+          ? error.message
+          : this.transloco.translate('admin.events.agenda.participantes.error'),
+      );
+    } finally {
+      this.guardandoParticipantes.set(false);
+    }
   }
 
   protected capitaliza(valor: string): string {

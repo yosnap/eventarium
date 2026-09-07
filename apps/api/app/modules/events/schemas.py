@@ -152,3 +152,61 @@ class EventSessionResponse(BaseModel):
     video_url: str | None
     materials: list[dict[str, Any]]
     sort_order: int
+    # Necesario para el control de concurrencia optimista del `PUT` de
+    # participantes: el cliente lo envía de vuelta como `expected_updated_at`.
+    updated_at: datetime
+
+
+class EventMemberCreate(BaseModel):
+    """Alta de una persona en el roster de un evento.
+
+    Se elige entre los miembros ya existentes de la organización (cualquier rol) —
+    el alta de la propia membresía sigue siendo cosa de `admin/members`.
+    """
+
+    organization_member_id: str
+
+
+class EventMemberResponse(BaseModel):
+    """Persona del roster de un evento, con los datos que hacen falta para
+    mostrarla en el selector de participantes de una sesión."""
+
+    id: str
+    organization_member_id: str
+    user_id: str
+    email: str
+    first_name: str | None
+    last_name: str | None
+    role_key: str
+
+
+class SessionParticipantEntry(BaseModel):
+    """Una asignación dentro del reemplazo completo de participantes de una sesión."""
+
+    event_member_id: str
+    role_key: Annotated[str, Field(min_length=1, max_length=60)]
+
+
+class SessionParticipantsUpdate(BaseModel):
+    """Reemplazo completo de la lista de participantes de una sesión.
+
+    `expected_updated_at` es el `updated_at` de la sesión que el cliente tenía
+    cargado: si no coincide con el actual, la petición falla con 409 en vez de
+    sobrescribir en silencio el trabajo de otra persona.
+    """
+
+    expected_updated_at: datetime
+    participants: list[SessionParticipantEntry]
+
+
+class SessionParticipantResponse(BaseModel):
+    """Participación de una persona en una sesión, con su rol libre."""
+
+    id: str
+    event_member_id: str
+    user_id: str
+    email: str
+    first_name: str | None
+    last_name: str | None
+    role_key: str
+    sort_order: int
