@@ -261,11 +261,19 @@ async def register_user(
     existe todavía en el registro; por eso la búsqueda y la creación usan las
     funciones `SECURITY DEFINER` de alcance mínimo `app_find_user_by_email` y
     `app_create_unverified_user`, en vez de exponer la tabla sin contexto.
+
+    El hash de la contraseña se calcula **siempre**, exista ya la cuenta o no: es el
+    coste dominante de la petición (Argon2id es deliberadamente lento) y, si solo se
+    calculara al crear la cuenta, el tiempo de respuesta delataría por sí mismo si el
+    correo ya estaba registrado — el mismo motivo por el que `authenticate()` verifica
+    un hash ficticio cuando el usuario no existe.
     """
     if await _password_filtrada(password):
         raise ValidationDomainError(
             "Esta contraseña aparece en filtraciones conocidas. Elige otra."
         )
+
+    password_hash = hash_password(password)
 
     existente = (
         await session.execute(
@@ -282,7 +290,7 @@ async def register_user(
             {
                 "id": user_id,
                 "email": email,
-                "hash": hash_password(password),
+                "hash": password_hash,
                 "nombre": full_name,
             },
         )

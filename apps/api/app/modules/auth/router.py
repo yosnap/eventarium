@@ -14,6 +14,7 @@ from app.core.ratelimit import (
     REENVIO_VERIFICACION_POR_IP,
     REFRESH_POR_IP,
     REGISTRO_POR_IP,
+    VERIFICACION_CORREO_POR_IP,
     limit_per_host,
     limit_per_ip,
 )
@@ -147,6 +148,7 @@ async def register(
     summary="Verificar el correo",
     description="Consume el token del enlace de verificación y marca el correo como verificado.",
     response_model=VerifyEmailResponse,
+    dependencies=[limit_per_ip("verificar-correo", VERIFICACION_CORREO_POR_IP)],
 )
 async def verify_email(token: str, session: DbDep) -> VerifyEmailResponse:
     await service.verify_email(session, token=token)
