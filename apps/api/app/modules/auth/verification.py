@@ -1,18 +1,21 @@
-"""Tokens de un solo uso para verificación de correo.
+"""Tokens de un solo uso para verificación de correo, cambio de correo y recuperación.
 
 Reutiliza el patrón de Redis+TTL de los refresh tokens: token opaco, de él solo se
 guarda su huella, y «un solo uso» se implementa borrando la clave al consumirla
 (`GETDEL`, atómico: evita una carrera entre comprobar y borrar). Cada token lleva su
 **propósito** en la clave, así que un token de verificación de correo nunca sirve para
-otro fin, aunque una fase posterior (cambio de correo, recuperación de contraseña)
-comparta el mismo mecanismo.
+otro fin, aunque el cambio de correo y la recuperación de contraseña compartan el
+mismo mecanismo.
+
+El valor guardado es una cadena arbitraria, no necesariamente un `user_id`: el cambio
+de correo necesita llevar también el correo nuevo (`"{user_id}:{correo_nuevo}"`), así
+que cada llamador decide cómo codificar y decodificar su propio payload.
 """
 
 from __future__ import annotations
 
 import hashlib
 import secrets
-import uuid
 from datetime import timedelta
 
 from app.core.redis_client import require_redis
@@ -20,6 +23,8 @@ from app.core.redis_client import require_redis
 TTL_TOKEN = timedelta(hours=24)
 
 PROPOSITO_VERIFICACION_CORREO = "email_verify"
+PROPOSITO_CAMBIO_CORREO = "email_change"
+PROPOSITO_RECUPERAR_CONTRASENA = "password_reset"
 
 _CLAVE = "verify:{proposito}:{huella}"
 
@@ -28,23 +33,21 @@ def _huella(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-async def generate_token(proposito: str, user_id: uuid.UUID) -> str:
+async def generate_token(proposito: str, payload: str) -> str:
     """Genera y guarda un token opaco de un solo uso para el propósito indicado."""
     token = secrets.token_urlsafe(32)
     redis = await require_redis()
     await redis.set(
         _CLAVE.format(proposito=proposito, huella=_huella(token)),
-        str(user_id),
+        payload,
         ex=TTL_TOKEN,
     )
     return token
 
 
-async def consume_token(proposito: str, token: str) -> uuid.UUID | None:
+async def consume_token(proposito: str, token: str) -> str | None:
     """Consume el token si existe y no ha caducado. `None` si no es válido."""
     redis = await require_redis()
     clave = _CLAVE.format(proposito=proposito, huella=_huella(token))
     bruto = await redis.getdel(clave)
-    if bruto is None:
-        return None
-    return uuid.UUID(bruto)
+    return str(bruto) if bruto is not None else None

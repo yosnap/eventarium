@@ -25,6 +25,27 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'recuperar-contrasena',
+    loadComponent: () =>
+      import('./features/public/forgot-password/forgot-password-page').then(
+        (m) => m.ForgotPasswordPage,
+      ),
+  },
+  {
+    path: 'recuperar-contrasena/nueva',
+    loadComponent: () =>
+      import('./features/public/forgot-password/reset-password-page').then(
+        (m) => m.ResetPasswordPage,
+      ),
+  },
+  {
+    path: 'cuenta/confirmar-correo',
+    loadComponent: () =>
+      import('./features/public/confirm-email-change/confirm-email-change-page').then(
+        (m) => m.ConfirmEmailChangePage,
+      ),
+  },
+  {
     path: 'admin',
     loadComponent: () => import('./layouts/admin/admin-shell').then((m) => m.AdminShell),
     canActivate: [authGuard],
@@ -61,6 +82,11 @@ export const routes: Routes = [
         path: 'members/nuevo',
         loadComponent: () =>
           import('./features/admin/members/member-form').then((m) => m.MemberForm),
+      },
+      {
+        path: 'account',
+        loadComponent: () =>
+          import('./features/admin/account/account-page').then((m) => m.AccountPage),
       },
       {
         // Catálogo interno de componentes: no forma parte del producto, pero vive

@@ -33,18 +33,28 @@ from app.core.security import (
     hash_refresh_token,
     verify_password,
 )
-from app.core.tasks import send_verification_email
+from app.core.tasks import (
+    send_email_change_confirmation,
+    send_email_change_warning,
+    send_password_reset_email,
+    send_verification_email,
+)
 from app.modules.auth.verification import (
+    PROPOSITO_CAMBIO_CORREO,
+    PROPOSITO_RECUPERAR_CONTRASENA,
     PROPOSITO_VERIFICACION_CORREO,
     consume_token,
     generate_token,
 )
-from app.shared.errors import AuthenticationError, ValidationDomainError
+from app.shared.errors import AuthenticationError, ConflictError, ValidationDomainError
 from app.shared.identifiers import new_uuid7
 
 CLAVE_ACTIVO = "refresh:activo:{}"
 CLAVE_USADO = "refresh:usado:{}"
 CLAVE_FAMILIA = "refresh:familia:{}"
+# Índice inverso familia→usuario: sin él, revocar «todas las sesiones de un usuario»
+# (cambio de correo, de contraseña, recuperación) obligaría a recorrer Redis entero.
+CLAVE_FAMILIAS_USUARIO = "refresh:familias_usuario:{}"
 
 PWNED_PASSWORDS_URL = "https://api.pwnedpasswords.com/range/{prefijo}"
 
@@ -141,11 +151,13 @@ async def issue_tokens(
         tuberia.set(CLAVE_ACTIVO.format(huella), datos, ex=ttl)
         tuberia.sadd(CLAVE_FAMILIA.format(familia), huella)
         tuberia.expire(CLAVE_FAMILIA.format(familia), ttl)
+        tuberia.sadd(CLAVE_FAMILIAS_USUARIO.format(usuario.id), familia)
+        tuberia.expire(CLAVE_FAMILIAS_USUARIO.format(usuario.id), ttl)
         await tuberia.execute()
 
     return IssuedTokens(
         access_token=create_access_token(
-            usuario.id, organization_id, is_superadmin=usuario.is_superadmin
+            usuario.id, organization_id, is_superadmin=usuario.is_superadmin, family=familia
         ),
         refresh_token=refresh,
         expires_in=settings.access_token_ttl_minutes * 60,
@@ -163,6 +175,27 @@ async def _revoke_family(familia: str) -> None:
             tuberia.delete(CLAVE_USADO.format(huella))
         tuberia.delete(clave)
         await tuberia.execute()
+
+
+async def revoke_all_families(user_id: uuid.UUID, *, except_family: str | None = None) -> None:
+    """Revoca todas las sesiones del usuario, salvo la familia indicada si se pasa.
+
+    Se usa al cambiar la contraseña, confirmar un cambio de correo o completar una
+    recuperación: una sesión robada no debe sobrevivir a ninguno de esos tres cambios.
+    """
+    redis = await require_redis()
+    clave = CLAVE_FAMILIAS_USUARIO.format(user_id)
+    familias: set[str] = await redis.smembers(clave)  # type: ignore[misc]
+    for familia in familias:
+        if familia == except_family:
+            continue
+        await _revoke_family(familia)
+
+    if except_family and except_family in familias:
+        await redis.delete(clave)
+        await redis.sadd(clave, except_family)  # type: ignore[misc]
+    else:
+        await redis.delete(clave)
 
 
 async def rotate_refresh_token(
@@ -302,7 +335,7 @@ async def register_user(session: AsyncSession, *, email: str, password: str) -> 
         # `UNIQUE` de la base de datos es la única fuente de verdad. Misma respuesta.
         return
 
-    token = await generate_token(PROPOSITO_VERIFICACION_CORREO, user_id)
+    token = await generate_token(PROPOSITO_VERIFICACION_CORREO, str(user_id))
     await send_verification_email.kiq(email, token)
 
 
@@ -312,9 +345,10 @@ async def verify_email(session: AsyncSession, *, token: str) -> uuid.UUID:
     El llamador usa el id para emitir el token puente sin organización (fase 2:
     autoservicio de creación de organizaciones).
     """
-    user_id = await consume_token(PROPOSITO_VERIFICACION_CORREO, token)
-    if user_id is None:
+    bruto = await consume_token(PROPOSITO_VERIFICACION_CORREO, token)
+    if bruto is None:
         raise ValidationDomainError("El enlace de verificación no es válido o ha caducado.")
+    user_id = uuid.UUID(bruto)
     await session.execute(text("SELECT app_verify_user_email(:id)"), {"id": user_id})
     return user_id
 
@@ -332,5 +366,143 @@ async def resend_verification(session: AsyncSession, *, email: str) -> None:
         )
     ).first()
     if fila is not None and fila[1] is None:
-        token = await generate_token(PROPOSITO_VERIFICACION_CORREO, fila[0])
+        token = await generate_token(PROPOSITO_VERIFICACION_CORREO, str(fila[0]))
         await send_verification_email.kiq(email, token)
+
+
+async def change_email_request(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    current_email: str,
+    new_email: str,
+    password: str,
+) -> None:
+    """Solicita un cambio de correo: exige la contraseña actual y avisa al correo viejo.
+
+    El cambio no se aplica todavía — solo tras confirmar con el token que llega al
+    correo **nuevo**. Un 409 genérico si el correo ya está en uso, sin distinguir si es
+    de una cuenta verificada o no, por el mismo motivo anti-enumeración que el registro.
+    El aviso al correo actual se envía ya en este momento, no al confirmar: con una
+    sesión robada, el dueño legítimo tiene que enterarse antes de que sea tarde.
+    """
+    fila = (
+        await session.execute(
+            text("SELECT password_hash FROM users WHERE id = :id"), {"id": user_id}
+        )
+    ).first()
+    if fila is None or not verify_password(password, fila[0]):
+        raise AuthenticationError("La contraseña actual no es correcta.")
+
+    nuevo = new_email.strip().lower()
+    if nuevo == current_email.strip().lower():
+        raise ValidationDomainError("El correo nuevo es igual al actual.")
+
+    en_uso = (
+        await session.execute(
+            text("SELECT id FROM app_find_user_by_email(:email)"), {"email": nuevo}
+        )
+    ).first()
+    if en_uso is not None:
+        raise ConflictError("Ese correo ya está en uso.")
+
+    token = await generate_token(PROPOSITO_CAMBIO_CORREO, f"{user_id}:{nuevo}")
+    await send_email_change_warning.kiq(current_email, nuevo)
+    await send_email_change_confirmation.kiq(nuevo, token)
+
+
+async def change_email_confirm(session: AsyncSession, *, token: str) -> uuid.UUID:
+    """Confirma un cambio de correo pendiente y revoca las demás sesiones.
+
+    Vuelve a comprobar la disponibilidad del correo nuevo: pudo haberlo tomado otra
+    cuenta en las 24 horas de validez del token.
+    """
+    bruto = await consume_token(PROPOSITO_CAMBIO_CORREO, token)
+    if bruto is None:
+        raise ValidationDomainError("El enlace de cambio de correo no es válido o ha caducado.")
+    id_bruto, _, nuevo_correo = bruto.partition(":")
+    user_id = uuid.UUID(id_bruto)
+
+    en_uso = (
+        await session.execute(
+            text("SELECT id FROM app_find_user_by_email(:email)"), {"email": nuevo_correo}
+        )
+    ).first()
+    if en_uso is not None and en_uso[0] != user_id:
+        raise ConflictError("Ese correo ya está en uso.")
+
+    # Quien confirma no tiene por qué llevar una sesión con contexto de organización
+    # (`app_current_user()` vacío): igual que `app_verify_user_email`, hace falta una
+    # función `SECURITY DEFINER` de alcance mínimo en vez de un UPDATE bajo RLS normal.
+    await session.execute(
+        text("SELECT app_change_user_email(:id, :email)"), {"id": user_id, "email": nuevo_correo}
+    )
+    await revoke_all_families(user_id)
+    return user_id
+
+
+async def change_password(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    current_password: str,
+    new_password: str,
+    keep_family: str | None,
+) -> None:
+    """Cambia la contraseña. Exige la actual y revoca las demás sesiones."""
+    fila = (
+        await session.execute(
+            text("SELECT password_hash FROM users WHERE id = :id"), {"id": user_id}
+        )
+    ).first()
+    if fila is None or not verify_password(current_password, fila[0]):
+        raise AuthenticationError("La contraseña actual no es correcta.")
+    if await _password_filtrada(new_password):
+        raise ValidationDomainError(
+            "Esta contraseña aparece en filtraciones conocidas. Elige otra."
+        )
+
+    await session.execute(
+        text("UPDATE users SET password_hash = :hash WHERE id = :id"),
+        {"hash": hash_password(new_password), "id": user_id},
+    )
+    await revoke_all_families(user_id, except_family=keep_family)
+
+
+async def forgot_password(session: AsyncSession, *, email: str) -> None:
+    """Encola el correo de recuperación si la cuenta existe. Respuesta anti-enumeración."""
+    fila = (
+        await session.execute(
+            text("SELECT id FROM app_find_user_by_email(:email)"), {"email": email}
+        )
+    ).first()
+    if fila is not None:
+        token = await generate_token(PROPOSITO_RECUPERAR_CONTRASENA, str(fila[0]))
+        await send_password_reset_email.kiq(email, token)
+
+
+async def reset_password(session: AsyncSession, *, token: str, new_password: str) -> None:
+    """Consume el token de recuperación, aplica la contraseña y revoca las sesiones.
+
+    Fija `email_verified_at` si estaba nulo: un miembro invitado (fase 4) se crea sin
+    contraseña y nunca pasa por `/auth/register`, así que recibir y usar este enlace en
+    su bandeja prueba la propiedad del correo igual que `verify-email`.
+    """
+    bruto = await consume_token(PROPOSITO_RECUPERAR_CONTRASENA, token)
+    if bruto is None:
+        raise ValidationDomainError("El enlace de recuperación no es válido o ha caducado.")
+    user_id = uuid.UUID(bruto)
+
+    if await _password_filtrada(new_password):
+        raise ValidationDomainError(
+            "Esta contraseña aparece en filtraciones conocidas. Elige otra."
+        )
+
+    # Igual que en `change_email_confirm`: quien recupera no lleva sesión, así que el
+    # UPDATE necesita la función `SECURITY DEFINER`, no RLS normal.
+    await session.execute(
+        text("SELECT app_set_user_password(:id, :hash)"),
+        {"id": user_id, "hash": hash_password(new_password)},
+    )
+    await session.execute(text("SELECT app_verify_user_email(:id)"), {"id": user_id})
+    await revoke_all_families(user_id)

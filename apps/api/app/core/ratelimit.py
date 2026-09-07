@@ -40,6 +40,12 @@ CREAR_ORGANIZACION_POR_IP = 10
 # check-slug es solo ayuda de UX (debounce en el cliente), pero necesita su propio
 # tope: sin Turnstile ni cuenta detrás, es el candidato más fácil a escaneo.
 CHECK_SLUG_POR_IP = 30
+# Mismo riesgo de *email bombing* que el reenvío de verificación: reutilizable y
+# encola correo, con Turnstile obligatorio delante.
+FORGOT_PASSWORD_POR_IP = 3
+# El token tiene 256 bits de entropía, pero el endpoint necesita su propio tope, igual
+# que verify-email.
+RESET_PASSWORD_POR_IP = 20
 
 VENTANA_SEGUNDOS = 60
 

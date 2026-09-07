@@ -1,7 +1,7 @@
 ---
 phase: 5
 title: "Fase 5: Cuenta propia, recuperación y cierre de fase"
-status: pending
+status: done
 priority: P1
 effort: "3-3.5d"
 dependencies: [4]
@@ -150,24 +150,24 @@ extremo a extremo del flujo completo de registro.
 
 ## Success Criteria
 
-- [ ] Cambiar el correo exige la contraseña actual, avisa al correo antiguo, y
+- [x] Cambiar el correo exige la contraseña actual, avisa al correo antiguo, y
       verificar el nuevo antes de aplicarlo; confirmar revoca las demás sesiones
-- [ ] Cambiar la contraseña exige la actual y revoca las demás sesiones
-- [ ] Recuperar una contraseña olvidada exige Turnstile, funciona sin exponer si el
+- [x] Cambiar la contraseña exige la actual y revoca las demás sesiones
+- [x] Recuperar una contraseña olvidada exige Turnstile, funciona sin exponer si el
       correo existe, y revoca las sesiones al completarse
-- [ ] Un miembro invitado sin correo verificado que completa la recuperación de
+- [x] Un miembro invitado sin correo verificado que completa la recuperación de
       contraseña queda verificado y puede crear su propia organización después
-- [ ] Un token de un propósito no es válido en el endpoint de otro propósito
-- [ ] La pantalla de token caducado (verificación o recuperación) anuncia el error con
+- [x] Un token de un propósito no es válido en el endpoint de otro propósito
+- [x] La pantalla de token caducado (verificación o recuperación) anuncia el error con
       `aria-live` y ofrece un botón directo para solicitar uno nuevo
-- [ ] Los enlaces sociales se gestionan desde el panel
-- [ ] `app_user_organizations` no devuelve organizaciones ajenas (test explícito)
-- [ ] El selector de organización usa enlaces `<a href>` reales y cambia de
+- [x] Los enlaces sociales se gestionan desde el panel
+- [x] `app_user_organizations` no devuelve organizaciones ajenas (test explícito)
+- [x] El selector de organización usa enlaces `<a href>` reales y cambia de
       organización navegando al subdominio correcto
-- [ ] El flujo de extremo a extremo del plan completo se ha ejecutado una vez,
+- [x] El flujo de extremo a extremo del plan completo se ha ejecutado una vez,
       incluida la recuperación de contraseña, y documentado — no solo declarado
-- [ ] `docs/` refleja el estado real del código
-- [ ] Cero violaciones de axe; checklist WCAG de la fase 1 del PRD completo
+- [x] `docs/` refleja el estado real del código
+- [x] Cero violaciones de axe; checklist WCAG de la fase 1 del PRD completo
 
 ## Risk Assessment
 

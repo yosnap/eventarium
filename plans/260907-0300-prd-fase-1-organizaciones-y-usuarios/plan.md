@@ -1,7 +1,7 @@
 ---
 title: "PRD Fase 1 — Organizaciones y usuarios"
 description: "Registro libre de organizadores con subdominio automático, panel de organización, branding editable, roles con campos de perfil, miembros y cuenta propia. Primera funcionalidad de negocio sobre los cimientos de la fase 0."
-status: pending
+status: done
 priority: P1
 effort: "8-12d"
 tags: [registro, organizaciones, branding, roles, miembros, email]
@@ -129,38 +129,38 @@ en la fase 0.
 
 ## Success Criteria
 
-- [ ] Una persona ajena al proyecto se registra, verifica el correo, crea su
+- [x] Una persona ajena al proyecto se registra, verifica el correo, crea su
       organización y llega a su panel sin ayuda ni intervención en base de datos
-- [ ] La organización creada responde en su subdominio con su propio branding
-- [ ] Un correo no verificado no puede crear organización (403)
-- [ ] Una cuenta creada y nunca verificada recibe aviso a los 5 días y se borra a los 7,
+- [x] La organización creada responde en su subdominio con su propio branding
+- [x] Un correo no verificado no puede crear organización (403)
+- [x] Una cuenta creada y nunca verificada recibe aviso a los 5 días y se borra a los 7,
       liberando el correo
-- [ ] El router de autoservicio de organizaciones no importa `get_maintenance_db`
+- [x] El router de autoservicio de organizaciones no importa `get_maintenance_db`
       (comprobación estática, igual que ya existe para `modules/admin`)
-- [ ] Dos organizaciones creadas por personas distintas no se ven entre sí: los tests de
+- [x] Dos organizaciones creadas por personas distintas no se ven entre sí: los tests de
       aislamiento siguen en verde y se amplían a las tablas nuevas
-- [ ] No se puede reclamar un subdominio ya usado ni uno de la lista de reservados, ni
+- [x] No se puede reclamar un subdominio ya usado ni uno de la lista de reservados, ni
       en la creación ni en la comprobación previa
-- [ ] Registro y reenvío de verificación responden igual exista o no la cuenta
-- [ ] Cambiar el correo exige la contraseña actual y un token propio, distinto del de
+- [x] Registro y reenvío de verificación responden igual exista o no la cuenta
+- [x] Cambiar el correo exige la contraseña actual y un token propio, distinto del de
       verificación de alta
-- [ ] Cambiar la contraseña exige la actual y revoca las demás sesiones
-- [ ] Recuperar una contraseña olvidada funciona sin exponer si el correo existe
-- [ ] El branding editado desde el panel se refleja en la web pública sin recompilar
-- [ ] Un rol a medida con campos propios se crea, se asigna y sus campos se piden al dar
+- [x] Cambiar la contraseña exige la actual y revoca las demás sesiones
+- [x] Recuperar una contraseña olvidada funciona sin exponer si el correo existe
+- [x] El branding editado desde el panel se refleja en la web pública sin recompilar
+- [x] Un rol a medida con campos propios se crea, se asigna y sus campos se piden al dar
       de alta a alguien con ese rol
-- [ ] Las reglas anti-escalada siguen cubiertas por tests y se aplican también en la UI
-- [ ] Turnstile activo en producción y verificado en el registro, el reenvío de
+- [x] Las reglas anti-escalada siguen cubiertas por tests y se aplican también en la UI
+- [x] Turnstile activo en producción y verificado en el registro, el reenvío de
       verificación, la creación de organización y la recuperación de contraseña; el
       arranque falla si la variable de desactivación está activa en producción
-- [ ] Un miembro invitado sin correo verificado queda verificado al completar una
+- [x] Un miembro invitado sin correo verificado queda verificado al completar una
       recuperación de contraseña
-- [ ] Cambiar el correo avisa a la dirección antigua antes de aplicarse
-- [ ] Las páginas web de registro, verificación, creación de organización y
+- [x] Cambiar el correo avisa a la dirección antigua antes de aplicarse
+- [x] Las páginas web de registro, verificación, creación de organización y
       recuperación de contraseña existen y completan el flujo sin intervención manual
-- [ ] Cero violaciones de axe en las pantallas nuevas; checklist WCAG completado
-- [ ] CI en verde; ningún fichero supera las 1000 líneas
-- [ ] `docs/` actualizado: arquitectura, modelo de datos y desarrollo reflejan lo nuevo
+- [x] Cero violaciones de axe en las pantallas nuevas; checklist WCAG completado
+- [x] CI en verde; ningún fichero supera las 1000 líneas
+- [x] `docs/` actualizado: arquitectura, modelo de datos y desarrollo reflejan lo nuevo
 
 ## Decisiones tomadas — Sesión de validación 2026-09-07
 

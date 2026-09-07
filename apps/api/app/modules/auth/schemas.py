@@ -75,6 +75,36 @@ class GenericMessageResponse(BaseModel):
     message: str
 
 
+class ForgotPasswordRequest(BaseModel):
+    """Datos para pedir la recuperación de una contraseña olvidada."""
+
+    email: EmailStr = Field(description="Correo electrónico de la cuenta")
+    turnstile_token: str = Field(description="Token del widget de Turnstile")
+
+
+class ResetPasswordRequest(BaseModel):
+    """Datos para completar la recuperación con el token recibido por correo."""
+
+    token: str = Field(description="Token del enlace de recuperación")
+    new_password: str = Field(
+        min_length=8,
+        max_length=256,
+        description=(
+            "Contraseña: mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial"
+        ),
+    )
+
+    @field_validator("new_password")
+    @classmethod
+    def _validar_complejidad(cls, valor: str) -> str:
+        if not password_meets_complexity(valor):
+            raise ValueError(
+                "La contraseña debe tener mínimo 8 caracteres, una mayúscula, una "
+                "minúscula, un número y un carácter especial."
+            )
+        return valor
+
+
 class VerifyEmailResponse(BaseModel):
     """Respuesta de la verificación de correo.
 

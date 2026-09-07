@@ -63,3 +63,55 @@ async def send_verification_email(to_email: str, token: str) -> None:
 async def sweep_unverified_accounts_task() -> None:
     """Cada hora: aviso a los 5 días, borrado a los 7 (`core/cleanup.py`)."""
     await sweep_unverified_accounts()
+
+
+@broker.task(retry_on_error=True, max_retries=5)
+async def send_password_reset_email(to_email: str, token: str) -> None:
+    """Envía el enlace de recuperación de contraseña."""
+    settings = get_settings()
+    enlace = f"{settings.web_base_url}/recuperar-contrasena/nueva?token={token}"
+    await get_email_provider().send(
+        to=to_email,
+        subject="Recupera tu contraseña",
+        body=(
+            "Hola,\n\n"
+            "Alguien ha pedido restablecer la contraseña de esta cuenta. Si has sido "
+            "tú, elige una nueva desde este enlace:\n"
+            f"{enlace}\n\n"
+            "El enlace caduca en 24 horas. Si no has sido tú, ignora este mensaje: tu "
+            "contraseña actual sigue siendo válida."
+        ),
+    )
+
+
+@broker.task(retry_on_error=True, max_retries=5)
+async def send_email_change_warning(to_email: str, new_email: str) -> None:
+    """Avisa al correo **actual** de que se ha solicitado cambiarlo. Sin enlace ni token."""
+    await get_email_provider().send(
+        to=to_email,
+        subject="Se ha solicitado cambiar el correo de tu cuenta",
+        body=(
+            "Hola,\n\n"
+            f"Alguien ha solicitado cambiar el correo de esta cuenta a {new_email}. El "
+            "cambio no se aplicará hasta que se confirme desde esa dirección.\n\n"
+            "Si no has sido tú, cambia tu contraseña cuanto antes: alguien con acceso "
+            "a tu sesión está intentando llevarse la cuenta a otro correo."
+        ),
+    )
+
+
+@broker.task(retry_on_error=True, max_retries=5)
+async def send_email_change_confirmation(to_email: str, token: str) -> None:
+    """Envía el enlace de confirmación al correo **nuevo**."""
+    settings = get_settings()
+    enlace = f"{settings.web_base_url}/cuenta/confirmar-correo?token={token}"
+    await get_email_provider().send(
+        to=to_email,
+        subject="Confirma tu nuevo correo",
+        body=(
+            "Hola,\n\n"
+            "Confirma que quieres usar este correo para tu cuenta:\n"
+            f"{enlace}\n\n"
+            "El enlace caduca en 24 horas. Si no has sido tú, ignora este mensaje."
+        ),
+    )

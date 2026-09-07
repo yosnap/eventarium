@@ -73,7 +73,7 @@ async def test_verificar_token_marca_el_correo_y_el_segundo_intento_falla(
         )
     ).first()
     assert fila is not None
-    token = await generate_token(PROPOSITO_VERIFICACION_CORREO, fila[0])
+    token = await generate_token(PROPOSITO_VERIFICACION_CORREO, str(fila[0]))
 
     primera = await cliente.get(
         VERIFY, params={"token": token}, headers={"Host": organizacion.host}
@@ -128,7 +128,7 @@ async def test_reenvio_de_cuenta_ya_verificada_no_encola_correo(
             {"email": DATOS_REGISTRO["email"]},
         )
     ).first()
-    token = await generate_token(PROPOSITO_VERIFICACION_CORREO, fila[0])
+    token = await generate_token(PROPOSITO_VERIFICACION_CORREO, str(fila[0]))
     await cliente.get(VERIFY, params={"token": token}, headers={"Host": organizacion.host})
     _correo_encolado_sincrono.reset_mock()
 
