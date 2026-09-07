@@ -434,9 +434,16 @@ async def change_email_confirm(session: AsyncSession, *, token: str) -> uuid.UUI
     # Quien confirma no tiene por qué llevar una sesión con contexto de organización
     # (`app_current_user()` vacío): igual que `app_verify_user_email`, hace falta una
     # función `SECURITY DEFINER` de alcance mínimo en vez de un UPDATE bajo RLS normal.
-    await session.execute(
-        text("SELECT app_change_user_email(:id, :email)"), {"id": user_id, "email": nuevo_correo}
-    )
+    try:
+        await session.execute(
+            text("SELECT app_change_user_email(:id, :email)"),
+            {"id": user_id, "email": nuevo_correo},
+        )
+    except IntegrityError as exc:
+        # La comprobación de arriba no cierra la carrera: otra confirmación pudo
+        # tomar el mismo correo entre el `SELECT` y este `UPDATE`. El `UNIQUE` de
+        # `users.email` es la única fuente de verdad ante esa carrera estrecha.
+        raise ConflictError("Ese correo ya está en uso.") from exc
     await revoke_all_families(user_id)
     return user_id
 
