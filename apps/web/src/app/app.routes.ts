@@ -84,6 +84,19 @@ export const routes: Routes = [
           import('./features/admin/members/member-form').then((m) => m.MemberForm),
       },
       {
+        path: 'events',
+        loadComponent: () =>
+          import('./features/admin/events/events-page').then((m) => m.EventsPage),
+      },
+      {
+        path: 'events/nuevo',
+        loadComponent: () => import('./features/admin/events/event-form').then((m) => m.EventForm),
+      },
+      {
+        path: 'events/:id',
+        loadComponent: () => import('./features/admin/events/event-form').then((m) => m.EventForm),
+      },
+      {
         path: 'account',
         loadComponent: () =>
           import('./features/admin/account/account-page').then((m) => m.AccountPage),
