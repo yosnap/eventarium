@@ -115,6 +115,31 @@ comprobar el contrato de los endpoints (`GET/PATCH /organizations/me`,
 `GET/PUT /organizations/me/branding`, `PUT .../branding/logo`) directamente. Queda
 pendiente el recorrido manual antes de dar la fase por cerrada de cara a producción.
 
+## Checklist manual — Fase 4 (roles, campos de perfil y miembros)
+
+Revisado el 2026-09-07 sobre `admin/roles`, `admin/roles/:id` (crear y editar),
+`admin/members` y `admin/members/nuevo`.
+
+| # | Criterio WCAG 2.1 AA | Cómo se ha comprobado | Resultado |
+|---|---|---|---|
+| 1.3.1 | Información y relaciones | Cada control de campo dinámico (`shared/ui/dynamic-field.ts`) enlaza etiqueta, ayuda y error igual que `app-input`/`app-textarea`, sea cual sea su tipo (texto, selector, casilla…) | ✅ |
+| 2.4.3 | Orden del foco | El resumen de errores (`shared/ui/error-summary.ts`) enlaza cada entrada al campo real con `href="#id"`, no a un elemento decorativo — encontrado y corregido un fallo real donde `[id]` en `app-input`/`app-textarea` se reflejaba también como atributo nativo en el elemento anfitrión, produciendo un `id` duplicado en el DOM que rompía el enlace; el `input` pasó a llamarse `fieldId` para evitar la colisión con el atributo global `id` | ✅ |
+| 3.3.1 | Identificación de errores | Con varios errores a la vez (varios campos de perfil obligatorios sin rellenar), aparece el resumen enlazado además del error inline en cada campo — antes de esta fase solo existía el error inline | ✅ |
+| 4.1.2 | Nombre, función, valor | Los permisos que el actor no posee se muestran deshabilitados con el motivo en `title`, en vez de ocultarse — decisión que resuelve la contradicción entre el `Requirements` y el `Risk Assessment` del plan de esta fase a favor de mostrar y explicar, no ocultar | ✅ |
+| — | Cobertura automática | 6 ficheros de test nuevos (roles, miembros, `dynamic-field`, `error-summary`, validación de campos dinámicos): cero violaciones de axe en listado, creación, edición y con el resumen de errores visible | ✅ |
+
+**Hallazgo real corregido durante la verificación manual, no solo en las pruebas**:
+los selectores nativos (`<select>`) que reciben su valor inicial de una respuesta de la
+API en vez de la propia interacción de la persona (tipo de campo al empezar un rol
+desde plantilla, plantilla de identidad visual) mostraban visualmente la primera
+opción de la lista en vez de la que correspondía, aunque el dato interno fuera
+correcto — un `<select [value]="…">` con `<option>` generadas por `@for` no garantiza
+que el navegador aplique el valor si las opciones aún no existen en ese ciclo de
+detección de cambios. Se sustituyó por `[selected]` en cada `<option>`, más fiable
+para listas de opciones dinámicas. Verificado leyendo `select.value` desde la consola
+del navegador antes y después de la corrección, sobre un rol creado a partir de la
+plantilla «Voluntariado».
+
 ## Al añadir una pantalla
 
 1. Externaliza todos los textos a `es-ES.json`.

@@ -45,6 +45,24 @@ export const routes: Routes = [
           import('./features/admin/branding/branding-page').then((m) => m.BrandingPage),
       },
       {
+        path: 'roles',
+        loadComponent: () => import('./features/admin/roles/roles-page').then((m) => m.RolesPage),
+      },
+      {
+        path: 'roles/:id',
+        loadComponent: () => import('./features/admin/roles/role-form').then((m) => m.RoleForm),
+      },
+      {
+        path: 'members',
+        loadComponent: () =>
+          import('./features/admin/members/members-page').then((m) => m.MembersPage),
+      },
+      {
+        path: 'members/nuevo',
+        loadComponent: () =>
+          import('./features/admin/members/member-form').then((m) => m.MemberForm),
+      },
+      {
         // Catálogo interno de componentes: no forma parte del producto, pero vive
         // dentro del panel (autenticado) para revisarlos en el mismo contexto donde
         // se usan, en vez de una ruta pública sin enlace desde ningún sitio.

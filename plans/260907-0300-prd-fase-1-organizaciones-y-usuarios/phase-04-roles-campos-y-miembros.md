@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: "Fase 4: Roles, campos de perfil y miembros"
-status: pending
+status: done
 priority: P1
 effort: "2.5-3d"
 dependencies: [3]
@@ -76,15 +76,56 @@ reglas anti-escalada y sus tests: aquí se expone sin abrir ninguna vía que las
    de errores aparece con varios fallos simultáneos y cada entrada enlaza al campo.
 7. Checklist de accesibilidad para las cuatro pantallas nuevas.
 
+## Nota de implementación (2026-09-07)
+
+- **Permisos que el actor no posee**: el `Requirements` de esta fase pedía «el
+  formulario de permisos solo muestra los permisos que el actor posee», pero el
+  `Risk Assessment` pedía lo contrario («mostrar permisos que el actor no posee como
+  deshabilitados sin explicar por qué → añadir el motivo en un `title`»). Se resolvió
+  a favor de mostrar **todos** los permisos, deshabilitando los que el actor no tiene
+  con el motivo en `title` — ocultar una opción sin explicar por qué es más confuso
+  que verla deshabilitada, y la API los rechazaría igual si se forzaran.
+- **«Empezar desde plantilla»** no llama a ningún endpoint nuevo: los cinco roles del
+  sistema ya están clonados en la organización desde que se creó (fase 2), así que sus
+  permisos y campos ya vienen en la misma respuesta de `GET /roles` que alimenta el
+  listado. Elegir una plantilla solo rellena el formulario con esos valores como vista
+  previa — la fusión real la sigue haciendo `from_template` en el `POST`.
+- **Campos bloqueados en la vista previa de plantilla**: `create_role` nunca bloquea
+  campos en un rol nuevo (`_añadir_campos(..., bloqueados=False)`), aunque el rol del
+  sistema del que se copian sí los tenga bloqueados. La vista previa del cliente
+  fuerza `bloqueado: false` en los campos copiados desde una plantilla — verificado
+  contra la API real: crear un rol desde la plantilla «Voluntariado» devuelve sus tres
+  campos con `is_locked: false`, no `true`.
+- **Fallo real encontrado y corregido durante la verificación manual** (no solo en las
+  pruebas automáticas): pasar `[id]="…"` a `app-input`/`app-textarea` también fijaba
+  ese `id` como atributo nativo en el elemento anfitrión del componente, duplicando el
+  `id` en el DOM (una vez en `<app-input id="…">`, otra en su `<input id="…">`
+  interno) — el resumen de errores enlazaba entonces al elemento equivocado. El
+  `input` se renombró a `fieldId` en los tres componentes (`Input`, `Textarea`,
+  `DynamicField`) para evitar la colisión con el atributo global `id`.
+- **Segundo fallo real encontrado**: los `<select>` nativos cuyo valor se fija desde
+  una respuesta de la API (no desde la propia interacción de la persona) mostraban
+  visualmente la primera opción de la lista en vez de la correspondiente, aunque el
+  dato interno fuera correcto — un `[value]` en el `<select>` no garantiza que el
+  navegador lo aplique si las `<option>` generadas por `@for` aún no existen en ese
+  ciclo. Corregido con `[selected]` por opción en los cuatro selectores afectados
+  (tipo de campo y plantilla en `role-form.ts`, plantilla en `branding-page.ts`,
+  selector en `dynamic-field.ts`).
+
 ## Success Criteria
 
-- [ ] Crear un rol a medida con campos propios, asignarlo a alguien y ver esos campos
-      pedidos en el alta
-- [ ] Editar un rol del sistema: se pueden añadir campos, no borrar los bloqueados
-- [ ] Borrar un rol del sistema muestra el error de forma legible, no una excepción
-- [ ] La lista de miembros muestra rol y datos de perfil
-- [ ] Ningún control de permisos que el actor no posee aparece habilitado
-- [ ] Cero violaciones de axe
+- [x] Crear un rol a medida con campos propios, asignarlo a alguien y ver esos campos
+      pedidos en el alta (verificado contra la API real: rol «Ponente» con `bio`
+      obligatoria, alta de miembro con `profile_data` validado)
+- [x] Editar un rol del sistema: se pueden añadir campos, no borrar los bloqueados
+      (`update_role` rechaza con 409 si falta un campo bloqueado; cubierto por los
+      tests de la fase 0, no repetido aquí)
+- [x] Borrar un rol del sistema muestra el error de forma legible, no una excepción
+      (verificado: 409 con `detail` legible, mostrado en la alerta de la página)
+- [x] La lista de miembros muestra rol y datos de perfil
+- [x] Ningún control de permisos que el actor no posee aparece habilitado (verificado
+      con un actor con 3 de los 8 permisos: los otros 5 quedan deshabilitados)
+- [x] Cero violaciones de axe
 
 ## Risk Assessment
 

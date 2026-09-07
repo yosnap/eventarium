@@ -50,6 +50,16 @@ import { Button } from '../../shared/ui/button';
               </a>
             </li>
             <li>
+              <a routerLink="/admin/roles" routerLinkActive="activo">
+                {{ t('admin.rolesNav') }}
+              </a>
+            </li>
+            <li>
+              <a routerLink="/admin/members" routerLinkActive="activo">
+                {{ t('admin.miembrosNav') }}
+              </a>
+            </li>
+            <li>
               <a routerLink="/admin/estilo" routerLinkActive="activo">
                 {{ t('admin.catalogoDeComponentes') }}
               </a>
