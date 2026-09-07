@@ -104,6 +104,7 @@
     "navegacion": "Navegación del panel",
     "escritorio": "Escritorio",
     "identidadVisual": "Identidad visual",
+    "catalogoDeComponentes": "Catálogo de componentes",
     "cerrarSesion": "Cerrar sesión",
     "sesionDe": "Sesión de {{nombre}}",
     "login": {
