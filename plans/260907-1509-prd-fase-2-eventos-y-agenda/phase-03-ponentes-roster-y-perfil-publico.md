@@ -1,7 +1,7 @@
 ---
 phase: 3
 title: "Fase 3: Ponentes — roster, asignación y perfil público"
-status: pending
+status: done
 priority: P1
 effort: "2-2.5d"
 dependencies: [2]
