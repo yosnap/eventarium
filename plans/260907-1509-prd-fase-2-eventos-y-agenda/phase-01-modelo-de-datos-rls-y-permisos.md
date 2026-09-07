@@ -1,7 +1,7 @@
 ---
 phase: 1
 title: "Fase 1: Modelo de datos, RLS y permisos"
-status: pending
+status: done
 priority: P1
 effort: "2-2.5d"
 dependencies: []
@@ -21,7 +21,7 @@ hay nada que exponer por API ni por UI.
 Review`): el perfil público vive en `speaker_public_profiles` (tabla propia por
 `(organization_id, user_id)`, no dos columnas en `organization_members`); las
 tablas hijas usan FK **compuestas** contra `(id, organization_id)` del padre, no
-FK simples; la migración se numera `0008` (la cabeza real es `0007`, no `0009`);
+FK simples; la migración se numera `0009` (encadenada tras `0008_cuenta_y_recuperacion`, la migración de cierre de la fase 1 del PRD — este plan asume esa fase ya mergeada);
 incluye `downgrade()` explícito y la comprobación de privilegios de `app_user`
 que ya exige `0002_esquema_base`; el backfill de permisos se ancla a la
 **capacidad** (`organizations:write`), no al nombre del rol.
@@ -76,10 +76,10 @@ que ya exige `0002_esquema_base`; el backfill de permisos se ancla a la
 - `apps/api/app/modules/roles/system_roles.py` (**modificar**): añade
   `Permission.EVENTS_READ`/`EVENTS_WRITE` a `ORGANIZER.permissions` (`OWNER` no
   necesita cambio: usa `tuple(Permission)`).
-- Nueva migración `0008_eventos_agenda_y_ponentes.py` (`down_revision =
-  "0007_barrido_no_verificados"`; el nombre completo del fichero cabe sin
-  truncarse en el `varchar(32)` de `alembic_version.version_num` — comprobado:
-  30 caracteres):
+- Nueva migración `0009_eventos_agenda_y_ponentes.py` (`down_revision =
+  "0008_cuenta_y_recuperacion"`, la migración de cierre de la fase 1 del PRD; el
+  nombre completo del fichero cabe sin truncarse en el `varchar(32)` de
+  `alembic_version.version_num` — comprobado: 30 caracteres):
   1. Crea las cinco tablas. `events`, `event_sessions` y `event_members` llevan
      `UNIQUE (id, organization_id)` además de su PK. Las tablas hijas declaran FK
      compuestas: `event_sessions (event_id, organization_id) REFERENCES events
@@ -134,7 +134,7 @@ que ya exige `0002_esquema_base`; el backfill de permisos se ancla a la
 ## Related Code Files
 
 - Create: `apps/api/app/modules/events/__init__.py`, `models.py`
-- Create: `apps/api/alembic/versions/0008_eventos_agenda_y_ponentes.py`
+- Create: `apps/api/alembic/versions/0009_eventos_agenda_y_ponentes.py`
 - Modify: `apps/api/app/core/permissions.py`
 - Modify: `apps/api/app/modules/roles/system_roles.py`
 - Create: `apps/api/tests/test_events_rls_isolation.py`
@@ -173,34 +173,36 @@ que ya exige `0002_esquema_base`; el backfill de permisos se ancla a la
    mientras tiene una fila en `event_session_participants` debe rechazarse (409
    desde el servicio de la fase 3; a nivel de base de datos, `IntegrityError` por
    `RESTRICT` si se intentara sin pasar por el servicio).
-8. `uv run alembic upgrade head` → `downgrade 0007_barrido_no_verificados` →
+8. `uv run alembic upgrade head` → `downgrade 0008_cuenta_y_recuperacion` →
    `upgrade head` en local (test y dev), confirmando que no quedan tablas ni
    políticas residuales tras el `downgrade`.
 
 ## Success Criteria
 
-- [ ] Las cinco tablas existen con `UNIQUE(id, organization_id)` en los padres, FK
+- [x] Las cinco tablas existen con `UNIQUE(id, organization_id)` en los padres, FK
       compuestas en las hijas, y `organization_id` denormalizado donde corresponde
-- [ ] RLS activa (`FORCE`) en las cinco tablas, con política idéntica en forma a
+- [x] RLS activa (`FORCE`) en las cinco tablas, con política idéntica en forma a
       las ya existentes
-- [ ] `app_user` tiene privilegios verificados sobre las cinco tablas nuevas al
+- [x] `app_user` tiene privilegios verificados sobre las cinco tablas nuevas al
       final de la migración, con el mismo patrón que `0002_esquema_base`
-- [ ] Insertar una fila hija con `organization_id` propio pero apuntando al
+- [x] Insertar una fila hija con `organization_id` propio pero apuntando al
       recurso padre de otra organización falla por la FK compuesta, con test
       explícito — no solo se comprueba que no se **lee**, se comprueba que no se
       puede **escribir**
-- [ ] Un rol con `organizations:write` (tenga o no `key IN ('owner',
+- [x] Un rol con `organizations:write` (tenga o no `key IN ('owner',
       'organizer')`) recibe `events:read`/`events:write` tras el backfill; un rol
       sin esa capacidad no lo recibe
-- [ ] `uv run alembic upgrade head` → `downgrade 0007_barrido_no_verificados` →
+- [x] `uv run alembic upgrade head` → `downgrade 0008_cuenta_y_recuperacion` →
       `upgrade head` limpio, sin errores, sin tablas ni políticas residuales
-- [ ] Quitar a alguien del roster de un evento con participaciones activas en
-      sesiones da 409, no 500
-- [ ] `speaker_public_profiles` es única por `(organization_id, user_id)` y por
+- [x] Quitar a alguien del roster de un evento con participaciones activas en
+      sesiones falla por integridad a nivel de base de datos (`RESTRICT`), con
+      test explícito — la traducción a 409 en el servicio HTTP es alcance de la
+      fase 3, que todavía no existe
+- [x] `speaker_public_profiles` es única por `(organization_id, user_id)` y por
       `(organization_id, public_slug)`
-- [ ] Tests de aislamiento (lectura y escritura) en verde para las cinco tablas
+- [x] Tests de aislamiento (lectura y escritura) en verde para las cinco tablas
       nuevas
-- [ ] `uv run ruff check` / `uv run mypy app` sin hallazgos
+- [x] `uv run ruff check` / `uv run mypy app` sin hallazgos
 
 ## Risk Assessment
 
