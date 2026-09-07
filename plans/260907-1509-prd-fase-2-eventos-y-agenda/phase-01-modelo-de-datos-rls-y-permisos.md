@@ -188,7 +188,14 @@ que ya exige `0002_esquema_base`; el backfill de permisos se ancla a la
 - [x] Insertar una fila hija con `organization_id` propio pero apuntando al
       recurso padre de otra organización falla por la FK compuesta, con test
       explícito — no solo se comprueba que no se **lee**, se comprueba que no se
-      puede **escribir**
+      puede **escribir**. Cubre también `organization_member_id`
+      (`event_members`) y `source_organization_member_id`
+      (`speaker_public_profiles`): tras `ak-review-pr` en la PR #13 se detectó que
+      esas dos columnas eran FK simples, no compuestas, dejando el mismo agujero
+      de aislamiento que las FK de `event_id`/`session_id` cierran. Se añadió
+      `UNIQUE(id, organization_id)` a `organization_members` (tabla de la fase 1)
+      y se convirtieron ambas FK a compuestas, con test explícito de escritura
+      cruzada para cada una
 - [x] Un rol con `organizations:write` (tenga o no `key IN ('owner',
       'organizer')`) recibe `events:read`/`events:write` tras el backfill; un rol
       sin esa capacidad no lo recibe

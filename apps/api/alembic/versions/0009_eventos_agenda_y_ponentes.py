@@ -10,6 +10,13 @@ organización. RLS con el mismo patrón que `0003_politicas_rls`. Backfill de
 (no solo `owner`/`organizer` por nombre: un rol a medida con esa misma capacidad
 también lo necesita).
 
+`organization_members` gana aquí un `UNIQUE(id, organization_id)` (no lo tenía:
+la tabla es de la fase 1) para que `event_members.organization_member_id` y
+`speaker_public_profiles.source_organization_member_id` también puedan ser FK
+compuestas — sin eso, nada a nivel de base de datos impedía enlazar una fila
+propia con un miembro de **otra** organización, el mismo agujero que las FK
+compuestas de `event_id`/`session_id` cierran para el resto de relaciones.
+
 Revision ID: 0009_eventos_agenda_y_ponentes
 Revises: 0008_cuenta_y_recuperacion
 """
@@ -38,10 +45,20 @@ TABLAS_NUEVAS = (
 
 
 def upgrade() -> None:
+    _preparar_organization_members()
     _crear_tablas()
     _verificar_privilegios_de_app_user()
     _activar_rls()
     _backfill_permisos_de_eventos()
+
+
+def _preparar_organization_members() -> None:
+    """Objetivo de las FK compuestas de `event_members` y `speaker_public_profiles`."""
+    op.create_unique_constraint(
+        "uq_organization_members_id_organization_id",
+        "organization_members",
+        ["id", "organization_id"],
+    )
 
 
 def _crear_tablas() -> None:
@@ -155,9 +172,9 @@ def _crear_tablas() -> None:
             ondelete="CASCADE",
         ),
         sa.ForeignKeyConstraint(
-            ["organization_member_id"],
-            ["organization_members.id"],
-            name=op.f("fk_event_members_organization_member_id_organization_members"),
+            ["organization_member_id", "organization_id"],
+            ["organization_members.id", "organization_members.organization_id"],
+            name="fk_event_members_organization_member_id_organization_id",
             ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_event_members")),
@@ -261,11 +278,9 @@ def _crear_tablas() -> None:
             ondelete="CASCADE",
         ),
         sa.ForeignKeyConstraint(
-            ["source_organization_member_id"],
-            ["organization_members.id"],
-            name=op.f(
-                "fk_speaker_public_profiles_source_organization_member_id_organization_members"
-            ),
+            ["source_organization_member_id", "organization_id"],
+            ["organization_members.id", "organization_members.organization_id"],
+            name="fk_speaker_public_profiles_source_organization_member_id_org_id",
             ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_speaker_public_profiles")),
@@ -399,3 +414,7 @@ def downgrade() -> None:
 
     op.drop_index(op.f("ix_events_organization_id"), table_name="events")
     op.drop_table("events")
+
+    op.drop_constraint(
+        "uq_organization_members_id_organization_id", "organization_members", type_="unique"
+    )

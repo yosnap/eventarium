@@ -35,12 +35,20 @@ AHORA = datetime.now(UTC)
 class DatosDePrueba:
     """IDs de un evento, sesión, miembro y participante ya creados para una org."""
 
-    __slots__ = ("event_id", "session_id", "event_member_id")
+    __slots__ = ("event_id", "session_id", "event_member_id", "organization_member_id")
 
-    def __init__(self, *, event_id: uuid.UUID, session_id: uuid.UUID, event_member_id: uuid.UUID):
+    def __init__(
+        self,
+        *,
+        event_id: uuid.UUID,
+        session_id: uuid.UUID,
+        event_member_id: uuid.UUID,
+        organization_member_id: uuid.UUID,
+    ):
         self.event_id = event_id
         self.session_id = session_id
         self.event_member_id = event_member_id
+        self.organization_member_id = organization_member_id
 
 
 async def _crear_datos_de_prueba(organizacion: OrganizacionDePrueba) -> DatosDePrueba:
@@ -105,7 +113,10 @@ async def _crear_datos_de_prueba(organizacion: OrganizacionDePrueba) -> DatosDeP
 
         await session.commit()
         return DatosDePrueba(
-            event_id=evento.id, session_id=sesion.id, event_member_id=miembro_evento.id
+            event_id=evento.id,
+            session_id=sesion.id,
+            event_member_id=miembro_evento.id,
+            organization_member_id=miembro_id,
         )
 
 
@@ -188,6 +199,50 @@ async def test_no_se_puede_asignar_un_miembro_ajeno_al_roster(
                         event_member_id=datos_ajenos.event_member_id,
                         organization_id=organizacion.id,
                         role_key="moderator",
+                    )
+                )
+                await session.flush()
+
+
+async def test_no_se_puede_fichar_a_un_miembro_ajeno_en_el_roster_de_un_evento(
+    organizacion: OrganizacionDePrueba, otra_organizacion: OrganizacionDePrueba
+) -> None:
+    """La FK compuesta rechaza un `event_member` cuyo `organization_member_id` es
+    de otra organización, aunque el `event_id` sí sea propio."""
+    datos_propios = await _crear_datos_de_prueba(organizacion)
+    datos_ajenos = await _crear_datos_de_prueba(otra_organizacion)
+
+    with pytest.raises(DBAPIError):
+        async with SessionApp() as session:
+            async with session.begin():
+                await set_organization_context(session, organizacion.id)
+                session.add(
+                    EventMember(
+                        event_id=datos_propios.event_id,
+                        organization_id=organizacion.id,
+                        organization_member_id=datos_ajenos.organization_member_id,
+                    )
+                )
+                await session.flush()
+
+
+async def test_no_se_puede_publicar_un_perfil_con_membresia_ajena(
+    organizacion: OrganizacionDePrueba, otra_organizacion: OrganizacionDePrueba
+) -> None:
+    """La FK compuesta rechaza un `speaker_public_profile` cuya membresía de
+    origen (`source_organization_member_id`) es de otra organización."""
+    datos_ajenos = await _crear_datos_de_prueba(otra_organizacion)
+
+    with pytest.raises(DBAPIError):
+        async with SessionApp() as session:
+            async with session.begin():
+                await set_organization_context(session, organizacion.id)
+                session.add(
+                    SpeakerPublicProfile(
+                        organization_id=organizacion.id,
+                        user_id=organizacion.owner_id,
+                        public_slug="ponente-intruso",
+                        source_organization_member_id=datos_ajenos.organization_member_id,
                     )
                 )
                 await session.flush()

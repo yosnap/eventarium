@@ -133,6 +133,15 @@ class EventMember(Base, TimestampMixin):
             name="fk_event_members_event_id_organization_id",
             ondelete="CASCADE",
         ),
+        # Compuesta contra `(id, organization_id)` de `organization_members`, no
+        # simple contra `id`: evita que una fila propia enlace con un miembro de
+        # otra organización (la integridad referencial no pasa por RLS).
+        ForeignKeyConstraint(
+            ["organization_member_id", "organization_id"],
+            ["organization_members.id", "organization_members.organization_id"],
+            name="fk_event_members_organization_member_id_organization_id",
+            ondelete="CASCADE",
+        ),
         UniqueConstraint(
             "event_id", "organization_member_id", name="uq_event_members_event_id_member_id"
         ),
@@ -143,10 +152,7 @@ class EventMember(Base, TimestampMixin):
     event_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False, index=True)
     organization_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
     organization_member_id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True),
-        ForeignKey("organization_members.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
+        PgUUID(as_uuid=True), nullable=False, index=True
     )
 
     event: Mapped[Event] = relationship(back_populates="members")
@@ -237,6 +243,15 @@ class SpeakerPublicProfile(Base, TimestampMixin):
             "public_slug",
             name="uq_speaker_public_profiles_organization_id_public_slug",
         ),
+        # Compuesta contra `(id, organization_id)` de `organization_members`: la
+        # membresía de origen de la biografía debe pertenecer a esta misma
+        # organización, no a una ajena (la integridad referencial no pasa por RLS).
+        ForeignKeyConstraint(
+            ["source_organization_member_id", "organization_id"],
+            ["organization_members.id", "organization_members.organization_id"],
+            name="fk_speaker_public_profiles_source_organization_member_id_org_id",
+            ondelete="CASCADE",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=new_uuid7)
@@ -251,7 +266,5 @@ class SpeakerPublicProfile(Base, TimestampMixin):
     )
     public_slug: Mapped[str] = mapped_column(String(80), nullable=False)
     source_organization_member_id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True),
-        ForeignKey("organization_members.id", ondelete="CASCADE"),
-        nullable=False,
+        PgUUID(as_uuid=True), nullable=False
     )
