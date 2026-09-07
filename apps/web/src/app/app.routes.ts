@@ -25,13 +25,6 @@ export const routes: Routes = [
       ),
   },
   {
-    // Catálogo interno de componentes: sin enlace desde ningún sitio, solo para
-    // revisarlos juntos mientras se diseña. No forma parte del producto.
-    path: 'estilo',
-    loadComponent: () =>
-      import('./features/dev/style-guide/style-guide-page').then((m) => m.StyleGuidePage),
-  },
-  {
     path: 'admin',
     loadComponent: () => import('./layouts/admin/admin-shell').then((m) => m.AdminShell),
     canActivate: [authGuard],
@@ -50,6 +43,14 @@ export const routes: Routes = [
         path: 'branding',
         loadComponent: () =>
           import('./features/admin/branding/branding-page').then((m) => m.BrandingPage),
+      },
+      {
+        // Catálogo interno de componentes: no forma parte del producto, pero vive
+        // dentro del panel (autenticado) para revisarlos en el mismo contexto donde
+        // se usan, en vez de una ruta pública sin enlace desde ningún sitio.
+        path: 'estilo',
+        loadComponent: () =>
+          import('./features/dev/style-guide/style-guide-page').then((m) => m.StyleGuidePage),
       },
     ],
   },

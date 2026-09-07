@@ -10,9 +10,13 @@ import { Textarea } from '../../../shared/ui/textarea';
 
 /**
  * Catálogo interno de `shared/ui`, para verlos y probarlos juntos mientras se
- * diseñan. No es una pantalla de producto: no lleva enlace desde ningún sitio ni
- * necesita entrar en el checklist de accesibilidad de `docs/accesibilidad.md` (esa
+ * diseñan. No es una pantalla de producto: vive dentro de `admin/estilo` (autenticado)
+ * y no necesita entrar en el checklist de accesibilidad de `docs/accesibilidad.md` (esa
  * cobertura ya la tienen los componentes en sus propios tests).
+ *
+ * Sin `<main>` propio a propósito: `AdminShell` ya pone el suyo alrededor de
+ * `<router-outlet>`, y dos landmarks `main` en la misma página confundirían a un
+ * lector de pantalla.
  */
 @Component({
   selector: 'app-style-guide-page',
@@ -20,7 +24,7 @@ import { Textarea } from '../../../shared/ui/textarea';
   imports: [TranslocoDirective, Alert, Button, Card, Input, PasswordStrength, Textarea],
   template: `
     <ng-container *transloco="let t">
-      <main class="pagina">
+      <div class="pagina">
         <h1>Catálogo de componentes</h1>
         <p>Uso interno: no forma parte del producto.</p>
 
@@ -76,7 +80,7 @@ import { Textarea } from '../../../shared/ui/textarea';
             />
           </div>
         </section>
-      </main>
+      </div>
     </ng-container>
   `,
   styles: `
