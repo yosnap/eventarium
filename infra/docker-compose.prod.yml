@@ -1,5 +1,9 @@
 # Despliegue de producción.
 #
+# **Sin proxy propio**: el enrutado y el TLS los pone EasyPanel (Traefik). Este fichero
+# solo define los servicios; el dominio se apunta a `web` y se enrutan `/api` a `api` y
+# `/media` a `seaweedfs`. Ver docs/despliegue.md.
+#
 # Las imágenes se referencian por SHA (IMAGE_TAG), nunca por `latest`: un rollback
 # debe volver exactamente al artefacto que estaba corriendo.
 #
@@ -53,6 +57,9 @@ services:
     volumes:
       - seaweedfs-data:/data
       - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+    # EasyPanel enruta /media aquí para servir los objetos públicos.
+    expose:
+      - "8333"
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://seaweedfs:8333/status || exit 1"]
       interval: 10s
@@ -103,35 +110,14 @@ services:
       PORT: 4000
       API_INTERNAL_URL: http://api:8000
       # Dominios que el SSR acepta en Host y X-Forwarded-Host. Sin definir, acepta
-      # cualquiera y la validación queda en Caddy y en la resolución por host de la API.
+      # cualquiera y la validación queda en el proxy de EasyPanel y en la resolución
+      # por host de la API.
       NG_ALLOWED_HOSTS: ${NG_ALLOWED_HOSTS:-}
     expose:
       - "4000"
 
-  caddy:
-    image: caddy:2.10-alpine
-    restart: unless-stopped
-    depends_on:
-      api:
-        condition: service_started
-      web:
-        condition: service_started
-    environment:
-      SITE_ADDRESS: ${SITE_ADDRESS:?falta SITE_ADDRESS}
-      # Caddy no arranca con un correo vacío, y una variable definida pero vacía
-      # anula el valor por defecto del Caddyfile: se resuelve aquí.
-      ACME_EMAIL: ${ACME_EMAIL:-admin@localhost}
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
 
 volumes:
   postgres-data:
   redis-data:
   seaweedfs-data:
-  caddy-data:
-  caddy-config:
