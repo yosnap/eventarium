@@ -11,13 +11,26 @@ from app.core.deps import DbDep, get_current_organization
 from app.core.ratelimit import (
     LOGIN_POR_HOST,
     LOGIN_POR_IP,
+    REENVIO_VERIFICACION_POR_IP,
     REFRESH_POR_IP,
+    REGISTRO_POR_IP,
+    VERIFICACION_CORREO_POR_IP,
     limit_per_host,
     limit_per_ip,
 )
 from app.core.tenant import ResolvedOrganization
+from app.core.turnstile import require_turnstile
 from app.modules.auth import service
-from app.modules.auth.schemas import LoginRequest, LoginResponse, TokenResponse, UserSummary
+from app.modules.auth.schemas import (
+    GenericMessageResponse,
+    LoginRequest,
+    LoginResponse,
+    RegisterRequest,
+    ResendVerificationRequest,
+    TokenResponse,
+    UserSummary,
+    VerifyEmailResponse,
+)
 from app.shared.errors import AuthenticationError
 
 router = APIRouter(prefix="/auth", tags=["autenticación"])
@@ -105,6 +118,62 @@ async def refresh(request: Request, response: Response, session: DbDep) -> Token
     tokens, _ = await service.rotate_refresh_token(session, cookie)
     _fijar_cookie(response, tokens.refresh_token)
     return TokenResponse(access_token=tokens.access_token, expires_in=tokens.expires_in)
+
+
+@router.post(
+    "/register",
+    summary="Registrar una cuenta",
+    description=(
+        "Crea una cuenta con el correo sin verificar y encola el enlace de "
+        "verificación. Responde siempre igual, exista ya la cuenta o no."
+    ),
+    response_model=GenericMessageResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[limit_per_ip("registro", REGISTRO_POR_IP)],
+)
+async def register(
+    datos: RegisterRequest, request: Request, session: DbDep
+) -> GenericMessageResponse:
+    await require_turnstile(request, datos.turnstile_token)
+    await service.register_user(
+        session, email=str(datos.email), password=datos.password, full_name=datos.full_name
+    )
+    return GenericMessageResponse(
+        message="Si el correo no está ya registrado, recibirás un enlace de verificación."
+    )
+
+
+@router.get(
+    "/verify-email",
+    summary="Verificar el correo",
+    description="Consume el token del enlace de verificación y marca el correo como verificado.",
+    response_model=VerifyEmailResponse,
+    dependencies=[limit_per_ip("verificar-correo", VERIFICACION_CORREO_POR_IP)],
+)
+async def verify_email(token: str, session: DbDep) -> VerifyEmailResponse:
+    await service.verify_email(session, token=token)
+    return VerifyEmailResponse(message="Correo verificado correctamente.")
+
+
+@router.post(
+    "/resend-verification",
+    summary="Reenviar el correo de verificación",
+    description=(
+        "Encola un nuevo enlace solo si la cuenta existe y no está verificada. "
+        "Responde siempre igual."
+    ),
+    response_model=GenericMessageResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[limit_per_ip("reenvio-verificacion", REENVIO_VERIFICACION_POR_IP)],
+)
+async def resend_verification(
+    datos: ResendVerificationRequest, request: Request, session: DbDep
+) -> GenericMessageResponse:
+    await require_turnstile(request, datos.turnstile_token)
+    await service.resend_verification(session, email=str(datos.email))
+    return GenericMessageResponse(
+        message="Si la cuenta existe y no está verificada, recibirás un nuevo enlace."
+    )
 
 
 @router.post(

@@ -8,6 +8,16 @@ export const routes: Routes = [
     loadComponent: () => import('./features/admin/login/login-page').then((m) => m.LoginPage),
   },
   {
+    path: 'registro',
+    loadComponent: () =>
+      import('./features/public/register/register-page').then((m) => m.RegisterPage),
+  },
+  {
+    path: 'verificar-correo',
+    loadComponent: () =>
+      import('./features/public/verify-email/verify-email-page').then((m) => m.VerifyEmailPage),
+  },
+  {
     path: 'admin',
     loadComponent: () => import('./layouts/admin/admin-shell').then((m) => m.AdminShell),
     canActivate: [authGuard],

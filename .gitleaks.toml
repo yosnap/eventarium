@@ -22,6 +22,11 @@ paths = [
   # Credenciales efímeras de integración continua: pertenecen a contenedores que solo
   # existen durante el job, se generan en el propio workflow y no dan acceso a nada.
   '''\.github/workflows/ci\.yml''',
+  # Contraseñas de prueba de la suite de auth: nunca protegen nada real, la API solo
+  # lee credenciales de infra/env/.env (fuera del repositorio). Sin esta excepción,
+  # una contraseña de prueba con forma de "password": "…" dispara la regla
+  # `generic-api-key` por su proximidad a la palabra clave, no por ser un secreto.
+  '''apps/api/tests/.*\.py$''',
 ]
 regexes = [
   '''cambiame_[a-z_]+''',

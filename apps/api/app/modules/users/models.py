@@ -8,8 +8,9 @@ usuario o quien comparta organización con él.
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
-from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -31,6 +32,11 @@ class User(Base, TimestampMixin):
     locale: Mapped[str] = mapped_column(String(10), nullable=False, default="es-ES")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_superadmin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Nulo hasta que la persona verifica su correo. No se reutiliza `is_active`: esa
+    # columna ya gatea el login y los miembros invitados se crean activos sin verificar.
+    email_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     social_links: Mapped[list[UserSocialLink]] = relationship(
         back_populates="user", cascade="all, delete-orphan", lazy="selectin"

@@ -302,3 +302,9 @@ Todas están documentadas en `infra/env/.env.example`. Las que solo aplican a pr
 | `NG_ALLOWED_HOSTS` | Hosts que acepta el SSR; vacío = cualquiera |
 | `API_INTERNAL_URL` | URL de la API en la red interna, para el SSR |
 | `GITHUB_REPOSITORY` | Origen de las imágenes en GHCR |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_USE_TLS`, `SMTP_FROM` | Proveedor de correo real para la verificación de cuentas. Mailpit solo existe en desarrollo |
+| `TURNSTILE_ENABLED`, `TURNSTILE_SECRET_KEY` | Anti-bot en el registro y el reenvío de verificación. **`TURNSTILE_ENABLED` no puede ser `false` en producción**: el arranque de la API falla si lo es |
+
+La clave pública de Turnstile (`turnstileSiteKey`) no es un secreto de la API: se
+compila en el bundle del frontend (`apps/web/src/environments/environment.ts`) antes de
+construir la imagen de producción.

@@ -23,6 +23,54 @@
     "redesSociales": "Redes sociales del organizador",
     "piePagina": "Pie de página"
   },
+  "registro": {
+    "titulo": "Crear una cuenta",
+    "nombre": "Nombre completo",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "crearCuenta": "Crear cuenta",
+    "creando": "Creando la cuenta…",
+    "nombreRequerido": "Escribe tu nombre.",
+    "emailRequerido": "Escribe tu correo electrónico.",
+    "emailInvalido": "Escribe un correo electrónico válido.",
+    "passwordRequerida": "Escribe una contraseña de al menos 8 caracteres.",
+    "passwordSinComplejidad": "La contraseña debe tener mayúscula, minúscula, número y carácter especial.",
+    "error": "No hemos podido completar el registro.",
+    "exitoTitulo": "Revisa tu correo",
+    "exitoDetalle": "Si el correo no estaba ya registrado, te hemos enviado un enlace de verificación. Revisa también la carpeta de spam.",
+    "yaTengoCuenta": "¿Ya tienes cuenta? Accede al panel",
+    "requisitoCumplido": "cumplido",
+    "requisitoPendiente": "pendiente",
+    "requisitos": {
+      "longitud": "Al menos 8 caracteres",
+      "mayuscula": "Una mayúscula",
+      "minuscula": "Una minúscula",
+      "numero": "Un número",
+      "especial": "Un carácter especial (!@#$%^&*…)"
+    },
+    "fuerza": {
+      "titulo": "Fuerza de la contraseña",
+      "muyDebil": "Muy débil",
+      "debil": "Débil",
+      "aceptable": "Aceptable",
+      "buena": "Buena",
+      "fuerte": "Fuerte"
+    }
+  },
+  "verificarCorreo": {
+    "titulo": "Verificación de correo",
+    "verificando": "Comprobando el enlace…",
+    "exitoTitulo": "Correo verificado",
+    "exitoDetalle": "Ya puedes continuar con la creación de tu organización.",
+    "errorTitulo": "El enlace no es válido o ha caducado",
+    "errorDetalle": "Pide un enlace nuevo indicando tu correo.",
+    "email": "Correo electrónico",
+    "emailRequerido": "Escribe tu correo electrónico.",
+    "reenviar": "Reenviar enlace",
+    "reenviando": "Reenviando…",
+    "reenviadoTitulo": "Enlace reenviado",
+    "reenviadoDetalle": "Si la cuenta existe y no está verificada, recibirás un nuevo enlace."
+  },
   "admin": {
     "titulo": "Panel de administración",
     "navegacion": "Navegación del panel",

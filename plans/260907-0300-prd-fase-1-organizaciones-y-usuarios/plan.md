@@ -61,7 +61,7 @@ justamente lo que el subdominio automático vuelve valioso para un atacante.
 
 | # | Fase | Versión | Rama | Estado |
 |---|---|---|---|---|
-| 1 | [Correo y verificación](./phase-01-correo-y-verificacion.md) | 0.7.0 | `feat/0.7.0-correo-y-verificacion` | Pending |
+| 1 | [Correo y verificación](./phase-01-correo-y-verificacion.md) | 0.7.0 | `feat/0.7.0-correo-y-verificacion` | Done |
 | 2 | [Registro y alta de organización](./phase-02-registro-y-alta-de-organizacion.md) | 0.8.0 | `feat/0.8.0-registro-y-alta-de-organizacion` | Pending |
 | 3 | [Panel de organización y branding](./phase-03-panel-de-organizacion-y-branding.md) | 0.9.0 | `feat/0.9.0-panel-de-organizacion-y-branding` | Pending |
 | 4 | [Roles, campos de perfil y miembros](./phase-04-roles-campos-y-miembros.md) | 0.10.0 | `feat/0.10.0-roles-campos-y-miembros` | Pending |
@@ -170,7 +170,7 @@ en la fase 0.
 | 2 | Turnstile en el registro | Sí, obligatorio en producción, desactivable por variable en desarrollo y tests |
 | 3 | Elección de subdominio | El usuario lo elige; se sugiere a partir del nombre y se comprueba disponibilidad en vivo |
 | 4 | Varias organizaciones por persona | Sí; el panel muestra un selector cuando la persona pertenece a más de una |
-| 5 | Política de contraseñas | Mínimo 8 caracteres, comprobadas contra una lista de las más filtradas (k-anonymity, sin enviar la contraseña en claro) |
+| 5 | Política de contraseñas | Mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial, comprobadas además contra una lista de las más filtradas (k-anonymity, sin enviar la contraseña en claro). Revisada el 2026-09-07 durante la implementación de la fase 1: se añadió la exigencia de composición, alineada con el patrón de validación en vivo adoptado del proyecto de referencia `securitycoet` |
 | 6 | Cuenta creada y correo nunca verificado | Correo de aviso a los 5 días; la cuenta se borra a los 7 días por tarea programada, liberando el correo y cualquier subdominio que hubiera reservado |
 | 7 | Recuperación de contraseña | Entra en esta fase (fase de trabajo 5): mismo mecanismo de token de un solo uso que la verificación de correo, con las mismas protecciones anti-enumeración |
 
