@@ -2,12 +2,31 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 from app.core.permissions import Permission
 from app.core.security import password_meets_complexity
+from app.modules.organizations.schemas import SLUG_PATTERN
+
+# Lista blanca fija de `profile_data` que se sirve en el perfil público de un
+# ponente. Nunca se vuelca `profile_data` completo: un campo a medida que una
+# organización haya añadido a un rol (teléfono, DNI, disponibilidad…) no está
+# pensado para publicarse y se descarta explícitamente aunque exista.
+PUBLIC_PROFILE_FIELDS: tuple[str, ...] = (
+    "bio",
+    "titular",
+    "empresa",
+    "curriculum",
+    "web",
+    "contacto",
+)
+
+
+def filter_public_profile_fields(profile_data: dict[str, Any]) -> dict[str, Any]:
+    """Aplica la lista blanca fija sobre `profile_data`."""
+    return {clave: valor for clave, valor in profile_data.items() if clave in PUBLIC_PROFILE_FIELDS}
 
 
 class CurrentUserResponse(BaseModel):
@@ -93,3 +112,52 @@ class OrganizationMembershipResponse(BaseModel):
     slug: str
     name: str
     host: str | None
+
+
+class PublicProfileUpdate(BaseModel):
+    """Activa, cambia o desactiva el perfil público de ponente (autoservicio).
+
+    `public_slug: null` desactiva el perfil (borra la fila de
+    `speaker_public_profiles`); un valor no nulo lo activa o lo actualiza, y en
+    ese caso `source_organization_member_id` es obligatorio.
+    """
+
+    public_slug: Annotated[str, Field(min_length=2, max_length=80, pattern=SLUG_PATTERN)] | None
+    source_organization_member_id: str | None = None
+
+    @model_validator(mode="after")
+    def _validar_consistencia(self) -> PublicProfileUpdate:
+        if self.public_slug is not None and self.source_organization_member_id is None:
+            raise ValueError(
+                "Falta indicar de qué membresía tomar la biografía (source_organization_member_id)."
+            )
+        return self
+
+
+class PublicProfileResponse(BaseModel):
+    """Estado actual del perfil público propio."""
+
+    active: bool
+    public_slug: str | None
+    source_organization_member_id: str | None
+
+
+class EligibleMembershipResponse(BaseModel):
+    """Membresía propia cuyo rol declara al menos un campo publicable."""
+
+    organization_member_id: str
+    role_key: str
+    role_name: str
+
+
+class PublicProfileStateResponse(BaseModel):
+    """Estado del perfil público más las membresías desde las que se puede activar."""
+
+    profile: PublicProfileResponse
+    eligible_memberships: list[EligibleMembershipResponse]
+
+
+class CheckPublicSlugResponse(BaseModel):
+    """Disponibilidad de un identificador de ponente."""
+
+    available: bool

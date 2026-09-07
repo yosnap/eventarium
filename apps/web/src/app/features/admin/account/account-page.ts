@@ -2,7 +2,12 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
 import { ApiError } from '../../../core/api/error.interceptor';
-import { AuthService, EnlaceSocial, displayName } from '../../../core/auth/auth.service';
+import {
+  AuthService,
+  EnlaceSocial,
+  MembresiaPublicable,
+  displayName,
+} from '../../../core/auth/auth.service';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
@@ -126,6 +131,69 @@ const TIPOS_DE_ENLACE = ['twitter', 'linkedin', 'instagram', 'web'] as const;
           }
         }
       </app-card>
+
+      @if (cargandoPerfilPublico()) {
+        <app-card [heading]="t('admin.cuenta.perfilPublico.titulo')">
+          <p>{{ t('comun.cargando') }}</p>
+        </app-card>
+      } @else if (membresiasPublicables().length > 0) {
+        <app-card [heading]="t('admin.cuenta.perfilPublico.titulo')">
+          <p>{{ t('admin.cuenta.perfilPublico.descripcion') }}</p>
+          <form (submit)="guardarPerfilPublico($event)" novalidate>
+            <div class="campo-select">
+              <label for="perfil-publico-membresia">
+                {{ t('admin.cuenta.perfilPublico.membresia') }}
+              </label>
+              <select
+                id="perfil-publico-membresia"
+                [value]="membresiaElegida()"
+                (change)="alCambiarMembresia($event)"
+              >
+                @for (
+                  membresia of membresiasPublicables();
+                  track membresia.organization_member_id
+                ) {
+                  <option [value]="membresia.organization_member_id">
+                    {{ membresia.role_name }}
+                  </option>
+                }
+              </select>
+            </div>
+            <app-input
+              [label]="t('admin.cuenta.perfilPublico.slug')"
+              [hint]="t('admin.cuenta.perfilPublico.slugAyuda')"
+              [error]="errorDeSlug()"
+              [(value)]="slugPublico"
+              (blurred)="comprobarSlug()"
+            />
+            @if (errorPerfilPublico(); as mensaje) {
+              <app-alert tone="error">{{ mensaje }}</app-alert>
+            }
+            @if (exitoPerfilPublico()) {
+              <app-alert tone="exito">{{ t('admin.cuenta.perfilPublico.exito') }}</app-alert>
+            }
+            <div class="acciones-perfil-publico">
+              <app-button type="submit" [loading]="guardandoPerfilPublico()">
+                {{
+                  perfilActivo()
+                    ? t('admin.cuenta.perfilPublico.actualizar')
+                    : t('admin.cuenta.perfilPublico.activar')
+                }}
+              </app-button>
+              @if (perfilActivo()) {
+                <app-button
+                  variant="peligro"
+                  type="button"
+                  [loading]="guardandoPerfilPublico()"
+                  (pulsado)="desactivarPerfilPublico()"
+                >
+                  {{ t('admin.cuenta.perfilPublico.desactivar') }}
+                </app-button>
+              }
+            </div>
+          </form>
+        </app-card>
+      }
     </ng-container>
   `,
   styles: `
@@ -148,6 +216,25 @@ const TIPOS_DE_ENLACE = ['twitter', 'linkedin', 'instagram', 'web'] as const;
       display: grid;
       gap: var(--space-md);
       max-width: 26rem;
+    }
+    .campo-select {
+      display: grid;
+      gap: var(--space-xs);
+      max-width: 26rem;
+    }
+    .campo-select select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 0.625rem 0.75rem;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background-color: var(--color-surface);
+      color: var(--color-text);
+      font: inherit;
+    }
+    .acciones-perfil-publico {
+      display: flex;
+      gap: var(--space-md);
     }
   `,
 })
@@ -181,9 +268,20 @@ export class AccountPage {
     Object.fromEntries(TIPOS_DE_ENLACE.map((tipo) => [tipo, ''])),
   );
 
+  protected readonly cargandoPerfilPublico = signal(true);
+  protected readonly membresiasPublicables = signal<MembresiaPublicable[]>([]);
+  protected readonly perfilActivo = signal(false);
+  protected readonly membresiaElegida = signal('');
+  protected readonly slugPublico = signal('');
+  protected readonly errorDeSlug = signal<string | null>(null);
+  protected readonly guardandoPerfilPublico = signal(false);
+  protected readonly exitoPerfilPublico = signal(false);
+  protected readonly errorPerfilPublico = signal<string | null>(null);
+
   constructor() {
     void this.cargarPerfil();
     void this.cargarEnlaces();
+    void this.cargarPerfilPublico();
   }
 
   private async cargarPerfil(): Promise<void> {
@@ -275,6 +373,96 @@ export class AccountPage {
       );
     } finally {
       this.guardandoContrasena.set(false);
+    }
+  }
+
+  private async cargarPerfilPublico(): Promise<void> {
+    try {
+      const estado = await this.auth.getPublicProfile();
+      this.membresiasPublicables.set([...estado.eligible_memberships]);
+      this.perfilActivo.set(estado.profile.active);
+      this.slugPublico.set(estado.profile.public_slug ?? '');
+      this.membresiaElegida.set(
+        estado.profile.source_organization_member_id ??
+          estado.eligible_memberships[0]?.organization_member_id ??
+          '',
+      );
+    } catch (error) {
+      this.errorPerfilPublico.set(
+        error instanceof ApiError ? error.message : this.transloco.translate('admin.cuenta.error'),
+      );
+    } finally {
+      this.cargandoPerfilPublico.set(false);
+    }
+  }
+
+  protected alCambiarMembresia(evento: Event): void {
+    this.membresiaElegida.set((evento.target as HTMLSelectElement).value);
+  }
+
+  protected async comprobarSlug(): Promise<void> {
+    const slug = this.slugPublico().trim();
+    if (!slug) {
+      this.errorDeSlug.set(null);
+      return;
+    }
+    try {
+      const disponible = await this.auth.checkPublicSlug(slug);
+      this.errorDeSlug.set(
+        disponible || slug === this.slugPublicoActivo
+          ? null
+          : this.transloco.translate('admin.cuenta.perfilPublico.slugNoDisponible'),
+      );
+    } catch {
+      // Ayuda de UX en vivo: si falla, la validación real ocurre igualmente al guardar.
+      this.errorDeSlug.set(null);
+    }
+  }
+
+  private get slugPublicoActivo(): string {
+    return this.perfilActivo() ? this.slugPublico() : '';
+  }
+
+  protected async guardarPerfilPublico(evento: Event): Promise<void> {
+    evento.preventDefault();
+    this.errorPerfilPublico.set(null);
+    this.exitoPerfilPublico.set(false);
+
+    const slug = this.slugPublico().trim();
+    if (!slug || !this.membresiaElegida()) {
+      this.errorPerfilPublico.set(this.transloco.translate('admin.cuenta.perfilPublico.slugVacio'));
+      return;
+    }
+
+    this.guardandoPerfilPublico.set(true);
+    try {
+      const estado = await this.auth.updatePublicProfile(slug, this.membresiaElegida());
+      this.perfilActivo.set(estado.profile.active);
+      this.slugPublico.set(estado.profile.public_slug ?? '');
+      this.exitoPerfilPublico.set(true);
+    } catch (error) {
+      this.errorPerfilPublico.set(
+        error instanceof ApiError ? error.message : this.transloco.translate('admin.cuenta.error'),
+      );
+    } finally {
+      this.guardandoPerfilPublico.set(false);
+    }
+  }
+
+  protected async desactivarPerfilPublico(): Promise<void> {
+    this.errorPerfilPublico.set(null);
+    this.exitoPerfilPublico.set(false);
+    this.guardandoPerfilPublico.set(true);
+    try {
+      const estado = await this.auth.updatePublicProfile(null);
+      this.perfilActivo.set(estado.profile.active);
+      this.slugPublico.set('');
+    } catch (error) {
+      this.errorPerfilPublico.set(
+        error instanceof ApiError ? error.message : this.transloco.translate('admin.cuenta.error'),
+      );
+    } finally {
+      this.guardandoPerfilPublico.set(false);
     }
   }
 

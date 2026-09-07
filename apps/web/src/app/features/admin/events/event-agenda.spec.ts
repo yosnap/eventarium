@@ -32,6 +32,14 @@ async function avanzar(fixture: ComponentFixture<unknown>): Promise<void> {
   fixture.detectChanges();
 }
 
+/** El roster y los miembros de la organización se piden en paralelo a la agenda. */
+function flushRoster(http: HttpTestingController): void {
+  http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/members').flush([]);
+  http
+    .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/members')
+    .flush({ items: [], total: 0, limit: 200, offset: 0 });
+}
+
 describe('EventAgenda', () => {
   let http: HttpTestingController;
 
@@ -62,6 +70,7 @@ describe('EventAgenda', () => {
     fixture.componentRef.setInput('eventId', 'e1');
     await avanzar(fixture);
     http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/sessions').flush(sesiones());
+    flushRoster(http);
     await avanzar(fixture);
 
     expect(fixture.nativeElement.textContent).toContain('Charla de apertura');
@@ -73,6 +82,7 @@ describe('EventAgenda', () => {
     fixture.componentRef.setInput('eventId', 'e1');
     await avanzar(fixture);
     http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/sessions').flush([]);
+    flushRoster(http);
     await avanzar(fixture);
 
     const titulo = fixture.nativeElement.querySelector('#sesion-titulo') as HTMLInputElement;

@@ -50,6 +50,21 @@ export interface OrganizacionDeLaPersona {
   readonly host: string | null;
 }
 
+export interface MembresiaPublicable {
+  readonly organization_member_id: string;
+  readonly role_key: string;
+  readonly role_name: string;
+}
+
+export interface EstadoDePerfilPublico {
+  readonly profile: {
+    readonly active: boolean;
+    readonly public_slug: string | null;
+    readonly source_organization_member_id: string | null;
+  };
+  readonly eligible_memberships: readonly MembresiaPublicable[];
+}
+
 /**
  * Sesión del panel de administración.
  *
@@ -258,6 +273,36 @@ export class AuthService {
 
   async deleteSocialLink(kind: string): Promise<void> {
     await firstValueFrom(this.http.delete(this.api.url(`/users/me/social-links/${kind}`)));
+  }
+
+  async getPublicProfile(): Promise<EstadoDePerfilPublico> {
+    return firstValueFrom(
+      this.http.get<EstadoDePerfilPublico>(this.api.url('/users/me/public-profile')),
+    );
+  }
+
+  /** `publicSlug: null` desactiva el perfil. Activarlo exige la membresía de origen. */
+  async updatePublicProfile(
+    publicSlug: string | null,
+    sourceOrganizationMemberId?: string,
+  ): Promise<EstadoDePerfilPublico> {
+    return firstValueFrom(
+      this.http.patch<EstadoDePerfilPublico>(this.api.url('/users/me/public-profile'), {
+        public_slug: publicSlug,
+        ...(sourceOrganizationMemberId
+          ? { source_organization_member_id: sourceOrganizationMemberId }
+          : {}),
+      }),
+    );
+  }
+
+  async checkPublicSlug(slug: string): Promise<boolean> {
+    const respuesta = await firstValueFrom(
+      this.http.get<{ available: boolean }>(this.api.url('/users/me/public-profile/check-slug'), {
+        params: { slug },
+      }),
+    );
+    return respuesta.available;
   }
 
   async listMyOrganizations(): Promise<OrganizacionDeLaPersona[]> {
