@@ -63,9 +63,7 @@ async def test_un_rol_a_medida_con_organizations_write_recibe_events(
     organizacion: OrganizacionDePrueba,
 ) -> None:
     """Ancla por capacidad: no hace falta llamarse `owner` ni `organizer`."""
-    role_id = await crear_rol(
-        organizacion, key="gestor", permisos=[Permission.ORGANIZATIONS_WRITE]
-    )
+    role_id = await crear_rol(organizacion, key="gestor", permisos=[Permission.ORGANIZATIONS_WRITE])
 
     await _ejecutar_backfill()
 

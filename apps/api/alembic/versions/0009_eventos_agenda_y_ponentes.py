@@ -67,10 +67,16 @@ def _crear_tablas() -> None:
         sa.Column("registration_mode", sa.String(length=20), nullable=False),
         sa.Column("email_verification_required", sa.Boolean(), nullable=False),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.Column(
-            "updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.ForeignKeyConstraint(
             ["organization_id"],
@@ -100,10 +106,16 @@ def _crear_tablas() -> None:
         sa.Column("materials", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("sort_order", sa.Integer(), nullable=False),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.Column(
-            "updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.ForeignKeyConstraint(
             ["event_id", "organization_id"],
@@ -125,10 +137,16 @@ def _crear_tablas() -> None:
         sa.Column("organization_id", sa.UUID(), nullable=False),
         sa.Column("organization_member_id", sa.UUID(), nullable=False),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.Column(
-            "updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.ForeignKeyConstraint(
             ["event_id", "organization_id"],
@@ -165,10 +183,16 @@ def _crear_tablas() -> None:
         sa.Column("role_key", sa.String(length=60), nullable=False),
         sa.Column("sort_order", sa.Integer(), nullable=False),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.Column(
-            "updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.ForeignKeyConstraint(
             ["session_id", "organization_id"],
@@ -213,10 +237,16 @@ def _crear_tablas() -> None:
         sa.Column("public_slug", sa.String(length=80), nullable=False),
         sa.Column("source_organization_member_id", sa.UUID(), nullable=False),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.Column(
-            "updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.ForeignKeyConstraint(
             ["organization_id"],
@@ -345,9 +375,7 @@ def downgrade() -> None:
         op.execute(f"ALTER TABLE {tabla} NO FORCE ROW LEVEL SECURITY")
         op.execute(f"ALTER TABLE {tabla} DISABLE ROW LEVEL SECURITY")
 
-    op.drop_index(
-        op.f("ix_speaker_public_profiles_user_id"), table_name="speaker_public_profiles"
-    )
+    op.drop_index(op.f("ix_speaker_public_profiles_user_id"), table_name="speaker_public_profiles")
     op.drop_index(
         op.f("ix_speaker_public_profiles_organization_id"), table_name="speaker_public_profiles"
     )
@@ -362,9 +390,7 @@ def downgrade() -> None:
     )
     op.drop_table("event_session_participants")
 
-    op.drop_index(
-        op.f("ix_event_members_organization_member_id"), table_name="event_members"
-    )
+    op.drop_index(op.f("ix_event_members_organization_member_id"), table_name="event_members")
     op.drop_index(op.f("ix_event_members_event_id"), table_name="event_members")
     op.drop_table("event_members")
 

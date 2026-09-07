@@ -73,9 +73,7 @@ class Event(Base, TimestampMixin):
     capacity: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # free | approval | paid
     registration_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="free")
-    email_verification_required: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True
-    )
+    email_verification_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     sessions: Mapped[list[EventSession]] = relationship(
         back_populates="event", cascade="all, delete-orphan", lazy="selectin"
