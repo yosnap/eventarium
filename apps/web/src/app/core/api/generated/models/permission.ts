@@ -5,5 +5,5 @@
 /**
  * Permisos disponibles en la fase 0.
  */
-export type Permission = 'organizations:read' | 'organizations:write' | 'branding:write' | 'roles:read' | 'roles:write' | 'members:read' | 'members:write' | 'users:read';
+export type Permission = 'organizations:read' | 'organizations:write' | 'branding:write' | 'roles:read' | 'roles:write' | 'members:read' | 'members:write' | 'users:read' | 'events:read' | 'events:write';
 

@@ -2302,7 +2302,9 @@
           "roles:write",
           "members:read",
           "members:write",
-          "users:read"
+          "users:read",
+          "events:read",
+          "events:write"
         ],
         "title": "Permission",
         "description": "Permisos disponibles en la fase 0."

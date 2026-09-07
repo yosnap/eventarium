@@ -14,5 +14,7 @@ export const PERMISSION: Permission[] = [
   'roles:write',
   'members:read',
   'members:write',
-  'users:read'
+  'users:read',
+  'events:read',
+  'events:write'
 ];
