@@ -63,7 +63,7 @@ justamente lo que el subdominio automático vuelve valioso para un atacante.
 |---|---|---|---|---|
 | 1 | [Correo y verificación](./phase-01-correo-y-verificacion.md) | 0.7.0 | `feat/0.7.0-correo-y-verificacion` | Done |
 | 2 | [Registro y alta de organización](./phase-02-registro-y-alta-de-organizacion.md) | 0.8.0 | `feat/0.8.0-registro-y-alta-de-organizacion` | Done |
-| 3 | [Panel de organización y branding](./phase-03-panel-de-organizacion-y-branding.md) | 0.9.0 | `feat/0.9.0-panel-de-organizacion-y-branding` | Pending |
+| 3 | [Panel de organización y branding](./phase-03-panel-de-organizacion-y-branding.md) | 0.9.0 | `feat/0.9.0-panel-de-organizacion-y-branding` | Done |
 | 4 | [Roles, campos de perfil y miembros](./phase-04-roles-campos-y-miembros.md) | 0.10.0 | `feat/0.10.0-roles-campos-y-miembros` | Pending |
 | 5 | [Cuenta propia, recuperación y cierre de fase](./phase-05-cuenta-propia-y-cierre.md) | 0.11.0 | `feat/0.11.0-cuenta-propia-y-cierre` | Pending |
 

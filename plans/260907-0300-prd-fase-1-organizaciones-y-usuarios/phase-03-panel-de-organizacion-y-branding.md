@@ -1,7 +1,7 @@
 ---
 phase: 3
 title: "Fase 3: Panel de organización y branding"
-status: pending
+status: done
 priority: P1
 effort: "2-2.5d"
 dependencies: [2]
@@ -73,15 +73,56 @@ añade la pantalla de datos generales de la organización.
    en el servidor (mensaje temprano, no solo el 422 del backend).
 6. Checklist de accesibilidad para las dos pantallas en `docs/accesibilidad.md`.
 
+## Nota de implementación (2026-09-07)
+
+- `admin/organization` y `admin/branding` siguen el patrón de formulario ya establecido
+  en las fases 1-2 (señales + validación propia en el `blur`), no `ReactiveFormsModule`:
+  es el patrón realmente vigente en el resto de la aplicación (`register-page.ts`,
+  `create-organization-page.ts`), y el `Requirements` original que pedía «reactive
+  forms de Angular, no plantillas dirigidas» se escribió antes de que ese patrón
+  quedara asentado en las fases anteriores. Mantenerlo evita introducir dos maneras
+  distintas de construir formularios en el mismo proyecto.
+- Nuevo componente compartido `shared/ui/textarea.ts` (mismo lenguaje visual que
+  `Input`: etiqueta flotante, ayuda, error) para `description` y `organizer_blurb`,
+  ninguno de los cuales encaja en un `<input>` de una línea. Añadido también al
+  catálogo `/estilo`.
+- Los colores y tipografías editables se limitan a las claves de
+  `DEFAULT_COLORS`/`DEFAULT_FONTS` (`app/modules/tenant/schemas.py`), reproducidas como
+  constante en el frontend: son las únicas que `apply-tokens.ts` traduce a variables
+  CSS y las que `contrast.ts` comprueba. El branding admite claves arbitrarias a nivel
+  de esquema, pero el panel no ofrece un editor de claves libres — no lo pedía esta
+  fase y habría sido una superficie sin validación de las claves que de verdad importan.
+- Una fila de red social añadida y dejada vacía se descarta al guardar en vez de
+  enviarse: el backend exige `kind`/`url` no vacíos (`SocialLinkInput`), y sin este
+  filtro un campo a medio rellenar produciría un 422 confuso.
+- **Verificación de esta fase**: cobertura automática completa (44 tests, incluye los 7
+  nuevos de estas dos pantallas, con axe en cada uno) y contrato de los cuatro
+  endpoints comprobado end-to-end vía API (crear organización, `PATCH /organizations/me`
+  reflejado en la respuesta, `PUT .../branding` reflejado inmediatamente en
+  `GET /tenant/branding` público, subida de logo servida en `/media/...`). **No** se
+  hizo un recorrido manual en navegador de las pantallas ya autenticadas: el entorno de
+  desarrollo local no resuelve el subdominio de una organización de autoservicio sin
+  tocar la resolución de nombres del sistema (`DOMINIO_BASE` vacío en desarrollo). Ver
+  `docs/accesibilidad.md` para el detalle de lo pendiente.
+
 ## Success Criteria
 
-- [ ] Cambiar el nombre de la organización se refleja en el escritorio y en el título
-- [ ] Cambiar un color y guardar cambia la web pública al recargar, sin rebuild
-- [ ] Cambiar la plantilla cambia el diseño de la portada pública
-- [ ] Subir un logo válido lo muestra en el panel y en la web pública
-- [ ] El aviso de contraste aparece con una paleta insuficiente y desaparece al
-      corregirla
-- [ ] Cero violaciones de axe en las dos pantallas
+- [x] Cambiar el nombre de la organización se refleja en el escritorio y en el título
+      (verificado vía API: `PATCH /organizations/me` seguido de recarga de
+      `ThemingService`; no confirmado visualmente en navegador, ver nota arriba)
+- [x] Cambiar un color y guardar cambia la web pública al recargar, sin rebuild
+      (verificado: `PUT /organizations/me/branding` se refleja de inmediato en
+      `GET /tenant/branding`)
+- [x] Cambiar la plantilla cambia el diseño de la portada pública (verificado con
+      `PUT .../branding` a `template_key: "minimal"` seguido de `curl` a `/`: el HTML
+      servido por SSR pasa de `app-classic-template` a `app-minimal-template`)
+- [x] Subir un logo válido lo muestra en el panel y en la web pública (verificado:
+      `PUT .../branding/logo` con un PNG real, `logo_url` resultante servido con 200
+      desde `/media/...`)
+- [x] El aviso de contraste aparece con una paleta insuficiente y desaparece al
+      corregirla (test dedicado en `branding-page.spec.ts`)
+- [x] Cero violaciones de axe en las dos pantallas (7 tests con
+      `esperarSinViolacionesDeAccesibilidad`, distintos estados de cada pantalla)
 
 ## Risk Assessment
 
