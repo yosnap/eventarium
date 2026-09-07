@@ -139,18 +139,20 @@ en la fase 0.
 - [ ] CI en verde; ningún fichero supera las 1000 líneas
 - [ ] `docs/` actualizado: arquitectura, modelo de datos y desarrollo reflejan lo nuevo
 
-## Decisiones a validar antes de empezar
+## Decisiones tomadas — Sesión de validación 2026-09-07
 
-Estas afectan al alcance y conviene cerrarlas antes de la fase de trabajo 1:
-
-| # | Pregunta | Opción por defecto si no se decide |
+| # | Pregunta | Decisión |
 |---|---|---|
-| 1 | ¿Proveedor de correo en desarrollo? | Contenedor local que captura los envíos (Mailpit), sin salir a Internet |
-| 2 | ¿Turnstile en el registro? El PRD lo exige en formularios públicos | Sí en producción, desactivable por variable en desarrollo |
-| 3 | ¿El usuario elige su subdominio o se deriva del nombre? | Lo elige, con sugerencia a partir del nombre y comprobación de disponibilidad |
-| 4 | ¿Puede una persona tener varias organizaciones? | Sí; el panel incluye un selector de organización |
-| 5 | ¿Política de contraseñas? | Mínimo 12 caracteres, comprobadas contra una lista de las más filtradas |
-| 6 | ¿Qué pasa con una organización abandonada sin verificar? | Se elimina a los 7 días por tarea programada, liberando el subdominio |
+| 1 | Proveedor de correo en desarrollo | Mailpit en `infra/docker-compose.yml`, sin salir a Internet |
+| 2 | Turnstile en el registro | Sí, obligatorio en producción, desactivable por variable en desarrollo y tests |
+| 3 | Elección de subdominio | El usuario lo elige; se sugiere a partir del nombre y se comprueba disponibilidad en vivo |
+| 4 | Varias organizaciones por persona | Sí; el panel muestra un selector cuando la persona pertenece a más de una |
+| 5 | Política de contraseñas | Mínimo 8 caracteres, comprobadas contra una lista de las más filtradas (k-anonymity, sin enviar la contraseña en claro) |
+| 6 | Organización creada y nunca verificada | Correo de aviso a los 5 días; se borra a los 7 días por tarea programada, liberando el subdominio |
+
+Sin contradicciones con las decisiones de la fase 0 (verificado: EasyPanel, subdominio
+por organización, `TRUSTED_PROXY_CIDRS`, cookie first-party sin `Domain` — ninguna
+choca con lo decidido aquí).
 
 ## Riesgos
 

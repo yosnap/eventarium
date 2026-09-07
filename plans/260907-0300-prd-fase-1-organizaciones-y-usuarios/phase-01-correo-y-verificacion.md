@@ -16,12 +16,12 @@ registro de la fase 2 la necesita para verificar la propiedad del correo antes d
 una organización. Solo lo mínimo para verificar: proveedor, plantilla y cola. Las
 plantillas de inscripción (confirmación, aprobación, entrada QR) siguen en su fase.
 
-## Decisión a validar antes de implementar
+## Decisión validada — Sesión 2026-09-07
 
-Proveedor de correo en desarrollo: por defecto, un contenedor que captura los envíos
-sin salir a Internet (Mailpit o equivalente), añadido a `infra/docker-compose.yml`. En
-producción, un proveedor real tras la interfaz `EmailProvider` (SMTP genérico o API,
-a decidir con el usuario si no es SMTP).
+Proveedor de correo en desarrollo: **Mailpit**, añadido a `infra/docker-compose.yml`,
+sin salir a Internet. En producción, un proveedor real tras la interfaz
+`EmailProvider` (SMTP genérico; si el usuario decide una API concreta en su lugar, se
+ajusta en esta misma fase sin afectar al resto del plan).
 
 ## Requirements
 
