@@ -1,5 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
@@ -21,7 +22,7 @@ interface UsuarioActual {
 @Component({
   selector: 'app-dashboard-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Card],
+  imports: [TranslocoDirective, RouterLink, Card],
   template: `
     <ng-container *transloco="let t">
       @if (usuario(); as persona) {
@@ -29,6 +30,16 @@ interface UsuarioActual {
           {{ t('admin.escritorioPagina.bienvenida', { nombre: nombreDe(persona) }) }}
         </h1>
         <p>{{ t('admin.escritorioPagina.resumen') }}</p>
+
+        <app-card [heading]="t('admin.escritorioPagina.proximamenteTitulo')">
+          <p>{{ t('admin.escritorioPagina.proximamenteDetalle') }}</p>
+          <p class="enlaces">
+            <a routerLink="/admin/organization">{{
+              t('admin.escritorioPagina.irAOrganizacion')
+            }}</a>
+            <a routerLink="/admin/branding">{{ t('admin.escritorioPagina.irABranding') }}</a>
+          </p>
+        </app-card>
 
         <div class="tarjetas">
           <app-card [heading]="t('admin.escritorioPagina.organizacion')">
@@ -71,6 +82,11 @@ interface UsuarioActual {
     ul {
       margin: 0;
       padding-left: 1.25rem;
+    }
+    .enlaces {
+      display: flex;
+      gap: var(--space-md);
+      margin-bottom: 0;
     }
   `,
 })

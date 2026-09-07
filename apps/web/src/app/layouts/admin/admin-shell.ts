@@ -40,6 +40,11 @@ import { Button } from '../../shared/ui/button';
               </a>
             </li>
             <li>
+              <a routerLink="/admin/organization" routerLinkActive="activo">
+                {{ t('admin.organizacion.titulo') }}
+              </a>
+            </li>
+            <li>
               <a routerLink="/admin/branding" routerLinkActive="activo">
                 {{ t('admin.identidadVisual') }}
               </a>

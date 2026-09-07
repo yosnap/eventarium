@@ -172,7 +172,7 @@ import { TranslocoService } from '@jsverse/transloco';
 })
 export class Input {
   readonly label = input.required<string>();
-  readonly type = input<'text' | 'email' | 'password'>('text');
+  readonly type = input<'text' | 'email' | 'password' | 'url'>('text');
   readonly autocomplete = input<string | null>(null);
   readonly required = input(false);
   readonly error = input<string | null>(null);

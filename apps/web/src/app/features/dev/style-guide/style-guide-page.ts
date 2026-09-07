@@ -6,6 +6,7 @@ import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
 import { PasswordStrength } from '../../../shared/ui/password-strength';
+import { Textarea } from '../../../shared/ui/textarea';
 
 /**
  * Catálogo interno de `shared/ui`, para verlos y probarlos juntos mientras se
@@ -16,7 +17,7 @@ import { PasswordStrength } from '../../../shared/ui/password-strength';
 @Component({
   selector: 'app-style-guide-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input, PasswordStrength],
+  imports: [TranslocoDirective, Alert, Button, Card, Input, PasswordStrength, Textarea],
   template: `
     <ng-container *transloco="let t">
       <main class="pagina">
@@ -68,6 +69,11 @@ import { PasswordStrength } from '../../../shared/ui/password-strength';
               hint="Mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial."
             />
             <app-password-strength [password]="password()" />
+            <app-textarea
+              label="Descripción"
+              [(value)]="descripcion"
+              hint="Campo de varias líneas."
+            />
           </div>
         </section>
       </main>
@@ -114,4 +120,5 @@ export class StyleGuidePage {
   protected readonly correo = signal('');
   protected readonly conError = signal('valor con error');
   protected readonly password = signal('');
+  protected readonly descripcion = signal('');
 }

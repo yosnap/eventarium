@@ -92,6 +92,29 @@ como un control identificable, es alcanzable y operable por teclado, y no bloque
 envío del formulario cuando el desafío se completa correctamente. Esta fila se marca
 como pendiente, no como comprobada, hasta que esa verificación ocurra.
 
+## Checklist manual — Fase 3 (panel de organización y branding)
+
+Revisado el 2026-09-07 sobre `admin/organization` (nueva) y `admin/branding` (pasa de
+solo lectura a formulario de edición completo: plantilla, logo, colores, tipografías,
+redes sociales y resumen del organizador).
+
+| # | Criterio WCAG 2.1 AA | Cómo se ha comprobado | Resultado |
+|---|---|---|---|
+| 1.3.1 | Información y relaciones | Los nuevos campos usan `app-input`/`app-textarea` (mismo patrón de etiqueta+error+ayuda que el resto del panel); cada muestra de color editable lleva `aria-label` propio, distinto del campo de texto hermano | ✅ |
+| 1.4.3 | Contraste mínimo | El aviso de `checkBrandingContrast` se calcula ahora sobre los valores **en edición**, no solo sobre lo ya publicado — se comprueba con test que aparece y desaparece al corregir un color | ✅ |
+| 3.3.1 | Identificación de errores | El nombre de la organización y el logotipo con tipo no permitido muestran su error junto al campo, sin depender del color | ✅ |
+| 3.3.2 | Etiquetas o instrucciones | Selector de plantilla y campo de fichero llevan `<label for>` explícito, no solo el título de la tarjeta | ✅ |
+| — | Cobertura automática | `organization-page.spec.ts` (3 tests) y `branding-page.spec.ts` (4 tests): cero violaciones de axe al cargar, tras guardar con éxito, y con el aviso de contraste visible | ✅ |
+
+**Pendiente de esta fase**: recorrido manual con solo teclado y con lector de pantalla
+real sobre estas dos pantallas — el entorno de desarrollo local no tenía forma de
+navegar al subdominio de una organización de autoservicio sin modificar la resolución
+de nombres del sistema (`DOMINIO_BASE` vacío en desarrollo, ver `docs/despliegue.md`),
+así que la verificación de esta fase se apoyó en la cobertura automática de axe y en
+comprobar el contrato de los endpoints (`GET/PATCH /organizations/me`,
+`GET/PUT /organizations/me/branding`, `PUT .../branding/logo`) directamente. Queda
+pendiente el recorrido manual antes de dar la fase por cerrada de cara a producción.
+
 ## Al añadir una pantalla
 
 1. Externaliza todos los textos a `es-ES.json`.
