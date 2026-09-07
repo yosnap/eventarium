@@ -71,6 +71,11 @@ import { Button } from '../../shared/ui/button';
               </a>
             </li>
             <li>
+              <a routerLink="/admin/events" routerLinkActive="activo">
+                {{ t('admin.eventsNav') }}
+              </a>
+            </li>
+            <li>
               <a routerLink="/admin/account" routerLinkActive="activo">
                 {{ t('admin.cuenta.titulo') }}
               </a>

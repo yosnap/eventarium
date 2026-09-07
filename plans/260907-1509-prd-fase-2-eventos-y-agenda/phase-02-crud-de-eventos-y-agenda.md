@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: "Fase 2: CRUD de eventos y agenda en el panel"
-status: pending
+status: done
 priority: P1
 effort: "2-2.5d"
 dependencies: [1]
@@ -114,18 +114,18 @@ CI para cualquier cambio de API.
 
 ## Success Criteria
 
-- [ ] Un evento se crea, se edita y se publica desde el panel
-- [ ] El slug es único por organización; repetirlo da 409, no un error genérico
-- [ ] Una sesión fuera del rango de fechas del evento se rechaza con 422
-- [ ] La agenda agrupa las sesiones por día automáticamente a partir de su horario
-- [ ] Sin `EVENTS_WRITE` no se puede crear ni editar (403); sin `EVENTS_READ` no se
+- [x] Un evento se crea, se edita y se publica desde el panel
+- [x] El slug es único por organización; repetirlo da 409, no un error genérico
+- [x] Una sesión fuera del rango de fechas del evento se rechaza con 422
+- [x] La agenda agrupa las sesiones por día automáticamente a partir de su horario
+- [x] Sin `EVENTS_WRITE` no se puede crear ni editar (403); sin `EVENTS_READ` no se
       puede ni listar
-- [ ] El objeto de la portada anterior se borra solo tras confirmar la
+- [x] El objeto de la portada anterior se borra solo tras confirmar la
       transacción; un fallo posterior al `flush()` deja la fila apuntando al
       objeto todavía existente, nunca a uno ya borrado
-- [ ] `apps/api/openapi.json` y el cliente TypeScript generado están al día con
+- [x] `apps/api/openapi.json` y el cliente TypeScript generado están al día con
       los endpoints nuevos
-- [ ] Cero violaciones de axe en listado, formulario y editor de agenda
+- [x] Cero violaciones de axe en listado, formulario y editor de agenda
 
 ## Risk Assessment
 
@@ -141,3 +141,10 @@ CI para cualquier cambio de API.
   en una página indexada) rota ante cualquier fallo posterior en la misma
   transacción → orden invertido, cubierto por un test que fuerza un fallo tras el
   `flush()`.
+- Verificación manual en navegador (2026-09-07): se detectó que `slice(0, 16)`
+  sobre el ISO en UTC que devuelve la API, usado directamente como valor de un
+  `<input type="datetime-local">`, deja el campo en UTC en vez de en la hora
+  local del navegador — desincronizado del valor que sí se convierte de local a
+  UTC al guardar. Corregido con un helper `isoAValorLocal()` (y el agrupado por
+  día de la agenda, que tenía el mismo problema) en
+  `apps/web/src/app/features/admin/events/datetime-local.ts`.
