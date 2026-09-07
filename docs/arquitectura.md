@@ -151,6 +151,36 @@ origen. La respuesta del alta no lleva ningún token; el frontend enlaza a
 `https://{host}/admin/login` para que la persona inicie sesión ya en el subdominio de su
 organización.
 
+### Cuenta propia: cambio de correo, contraseña y recuperación
+
+Cambio de correo, cambio de contraseña y recuperación de contraseña comparten el
+mismo mecanismo de tokens de un solo uso que `verify-email` (Redis + TTL, `GETDEL`
+atómico), diferenciados por **propósito** en la clave: `email_verify`, `email_change`,
+`password_reset`. Un token de un propósito nunca es válido en el endpoint de otro.
+
+Confirmar un cambio de correo o completar una recuperación ocurre sin sesión propia
+(quien llega por el enlace de correo no tiene `app.user_id` fijado), el mismo problema
+del huevo y la gallina que `verify-email`. Se resuelve igual: dos funciones
+`SECURITY DEFINER` de alcance mínimo, `app_change_user_email(uuid, text)` y
+`app_set_user_password(uuid, text)`, en vez de dar `BYPASSRLS` a esos flujos.
+
+`GET /users/me/organizations` (selector de organización del panel) tiene el problema
+inverso: el contexto RLS lo fija el *host*, no la persona, así que no hay forma de
+listar "mis organizaciones" con una consulta normal sin saber antes en qué host
+preguntar. `app_user_organizations(p_user_id uuid)` resuelve esto devolviendo filas
+solo cuando `p_user_id` coincide con `app.user_id` de la sesión — el parámetro no
+permite consultar por un id arbitrario, es una comprobación adicional dentro de la
+propia función, no una confianza ciega en quien la llama.
+
+**Revocar todas las sesiones salvo la actual** (cambio de contraseña) necesita saber
+la familia de refresh token de la petición en curso. La cookie de refresh tiene
+`Path=/api/v1/auth`, así que endpoints fuera de ese prefijo (`/users/me/*`) nunca la
+reciben. Por eso el access token JWT lleva también la familia (`"fam"` en el payload,
+`AccessTokenClaims.family`): se fija al emitir el token (`issue_tokens`) y viaja de
+vuelta en cada petición autenticada sin depender de la cookie. Redis mantiene además
+un índice inverso familia→usuario (`refresh:familias_usuario:{user_id}`) para poder
+revocar todas las familias de una persona sin recorrer Redis entero.
+
 ## Permisos y anti-escalada
 
 El catálogo de permisos vive en código (`core/permissions.py`), no en base de datos: así

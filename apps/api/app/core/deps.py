@@ -84,7 +84,15 @@ async def get_token_claims(request: Request) -> AccessTokenClaims:
 class CurrentUser:
     """Usuario autenticado en el contexto de la organización de la petición."""
 
-    __slots__ = ("id", "email", "first_name", "last_name", "is_superadmin", "organization_id")
+    __slots__ = (
+        "id",
+        "email",
+        "first_name",
+        "last_name",
+        "is_superadmin",
+        "organization_id",
+        "refresh_family",
+    )
 
     def __init__(
         self,
@@ -95,6 +103,7 @@ class CurrentUser:
         last_name: str | None,
         is_superadmin: bool,
         organization_id: uuid.UUID,
+        refresh_family: str | None = None,
     ) -> None:
         self.id = id
         self.email = email
@@ -102,6 +111,7 @@ class CurrentUser:
         self.last_name = last_name
         self.is_superadmin = is_superadmin
         self.organization_id = organization_id
+        self.refresh_family = refresh_family
 
 
 async def get_current_user(
@@ -140,6 +150,7 @@ async def get_current_user(
         last_name=fila[3],
         is_superadmin=fila[4],
         organization_id=organizacion.id,
+        refresh_family=claims.family,
     )
 
 

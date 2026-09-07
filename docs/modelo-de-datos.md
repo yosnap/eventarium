@@ -182,6 +182,7 @@ la visibilidad: la fila solo será legible cuando exista la membresía.
 | `0005_nombre_y_apellidos` | Sustituye `users.full_name` por `first_name` y `last_name` (con backfill por `split_part`); `app_create_unverified_user` pasa a 3 argumentos, sin nombre |
 | `0006_autoservicio_organizaciones` | Tres funciones `SECURITY DEFINER` para el alta de organización desde el propio registro público (ver más abajo) |
 | `0007_barrido_no_verificados` | `users.verification_warning_sent_at`, para el barrido de cuentas sin verificar |
+| `0008_cuenta_y_recuperacion` | Tres funciones `SECURITY DEFINER` para cuenta propia y recuperación de contraseña (ver más abajo) |
 
 Se ejecutan siempre con `DATABASE_MIGRATIONS_URL` (rol `app_maintainer`). Con el rol de
 la API fallarían, y eso es deliberado. El ciclo `upgrade head` → `downgrade base` →
@@ -225,6 +226,19 @@ con el mismo patrón que `app_resolve_organization` y las funciones de la fase a
 | `app_create_organization_row(id, slug, name)` | Insertar la fila de `organizations`, antes de que exista ningún contexto RLS que la haga visible |
 | `app_check_slug_available(slug)` | Comprobación pública (sin autenticar) de si un slug está libre, usada por el formulario en vivo |
 | `app_find_user_by_id(id)` | Leer el propio usuario (email, verificación) para la dependencia `require_verified_user`, sin que exista aún membresía alguna |
+
+### Cuenta propia y recuperación: tres funciones `SECURITY DEFINER` más
+
+Confirmar un cambio de correo o completar una recuperación de contraseña llega por un
+enlace de correo, sin sesión ni contexto RLS (igual que el registro público). Listar
+"mis organizaciones" tiene el problema inverso: el contexto lo fija el host, no la
+persona. Mismo patrón que las funciones anteriores:
+
+| Función | Uso |
+|---|---|
+| `app_change_user_email(user_id, new_email)` | Aplicar un cambio de correo ya confirmado por token; devuelve si cambió algo |
+| `app_set_user_password(user_id, password_hash)` | Aplicar una contraseña nueva (cambio autenticado con RLS normal; recuperación, sin sesión) |
+| `app_user_organizations(p_user_id)` | Listar las organizaciones de una persona con independencia del host; solo responde si `p_user_id` coincide con `app.user_id` de la sesión |
 
 Tras `app_create_organization_row`, el resto del alta (clonar roles, crear el dominio y
 el branding por defecto, dar de alta a la persona como `owner`) ya ocurre con contexto
