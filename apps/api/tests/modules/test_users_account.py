@@ -194,9 +194,7 @@ async def test_change_password_revoca_las_demas_sesiones_pero_conserva_la_actual
     assert otra_sesion.status_code == 401, "las demás sesiones deben quedar revocadas"
 
 
-async def test_social_links_crud(
-    cliente: AsyncClient, organizacion: OrganizacionDePrueba
-) -> None:
+async def test_social_links_crud(cliente: AsyncClient, organizacion: OrganizacionDePrueba) -> None:
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
 
     vacio = await cliente.get(SOCIAL_LINKS, headers=cabeceras)

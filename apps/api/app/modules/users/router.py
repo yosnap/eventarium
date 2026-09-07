@@ -101,9 +101,7 @@ async def change_email(
         "correo nuevo."
     ),
 )
-async def change_email_confirm(
-    datos: ChangeEmailConfirmRequest, session: DbDep
-) -> dict[str, str]:
+async def change_email_confirm(datos: ChangeEmailConfirmRequest, session: DbDep) -> dict[str, str]:
     await auth_service.change_email_confirm(session, token=datos.token)
     return {"message": "Correo actualizado correctamente."}
 
@@ -133,9 +131,9 @@ async def change_password(
 )
 async def list_social_links(usuario: CurrentUserDep, session: DbDep) -> list[SocialLinkResponse]:
     filas = await session.scalars(
-        select(UserSocialLink).where(UserSocialLink.user_id == usuario.id).order_by(
-            UserSocialLink.kind
-        )
+        select(UserSocialLink)
+        .where(UserSocialLink.user_id == usuario.id)
+        .order_by(UserSocialLink.kind)
     )
     return [SocialLinkResponse.model_validate(fila) for fila in filas]
 
