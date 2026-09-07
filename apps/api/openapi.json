@@ -1126,9 +1126,27 @@
             "format": "email",
             "title": "Email"
           },
-          "full_name": {
-            "type": "string",
-            "title": "Full Name"
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
           },
           "is_superadmin": {
             "type": "boolean",
@@ -1157,7 +1175,8 @@
         "required": [
           "id",
           "email",
-          "full_name",
+          "first_name",
+          "last_name",
           "is_superadmin",
           "organization_id",
           "roles",
@@ -1334,11 +1353,17 @@
             "format": "email",
             "title": "Email"
           },
-          "full_name": {
+          "first_name": {
             "type": "string",
-            "maxLength": 200,
+            "maxLength": 100,
             "minLength": 1,
-            "title": "Full Name"
+            "title": "First Name"
+          },
+          "last_name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Last Name"
           },
           "role_id": {
             "type": "string",
@@ -1353,7 +1378,8 @@
         "type": "object",
         "required": [
           "email",
-          "full_name",
+          "first_name",
+          "last_name",
           "role_id"
         ],
         "title": "MemberCreate",
@@ -1374,9 +1400,27 @@
             "format": "email",
             "title": "Email"
           },
-          "full_name": {
-            "type": "string",
-            "title": "Full Name"
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
           },
           "role_id": {
             "type": "string",
@@ -1397,7 +1441,8 @@
           "id",
           "user_id",
           "email",
-          "full_name",
+          "first_name",
+          "last_name",
           "role_id",
           "role_key",
           "profile_data"
@@ -1776,13 +1821,6 @@
             "title": "Password",
             "description": "Contraseña: mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial"
           },
-          "full_name": {
-            "type": "string",
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Full Name",
-            "description": "Nombre completo"
-          },
           "turnstile_token": {
             "type": "string",
             "title": "Turnstile Token",
@@ -1793,7 +1831,6 @@
         "required": [
           "email",
           "password",
-          "full_name",
           "turnstile_token"
         ],
         "title": "RegisterRequest",
@@ -2087,9 +2124,27 @@
             "format": "email",
             "title": "Email"
           },
-          "full_name": {
-            "type": "string",
-            "title": "Full Name"
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
           },
           "is_superadmin": {
             "type": "boolean",
@@ -2100,7 +2155,8 @@
         "required": [
           "id",
           "email",
-          "full_name",
+          "first_name",
+          "last_name",
           "is_superadmin"
         ],
         "title": "UserSummary",

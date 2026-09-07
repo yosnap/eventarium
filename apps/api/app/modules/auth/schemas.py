@@ -27,7 +27,8 @@ class UserSummary(BaseModel):
 
     id: str
     email: EmailStr
-    full_name: str
+    first_name: str | None
+    last_name: str | None
     is_superadmin: bool
 
 
@@ -48,7 +49,6 @@ class RegisterRequest(BaseModel):
             "Contraseña: mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial"
         ),
     )
-    full_name: str = Field(min_length=1, max_length=200, description="Nombre completo")
     turnstile_token: str = Field(description="Token del widget de Turnstile")
 
     @field_validator("password")

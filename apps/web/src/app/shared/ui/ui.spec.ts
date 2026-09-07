@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Component, Type, provideZonelessChangeDetection } from '@angular/core';
+import { TranslocoTestingModule } from '@jsverse/transloco';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { Alert } from './alert';
@@ -7,6 +8,7 @@ import { Button } from './button';
 import { Card } from './card';
 import { Input } from './input';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../testing/axe';
+import es from '../../../../public/assets/i18n/es-ES.json';
 
 /**
  * Anfitrión que proyecta texto en el botón, como se usa en la aplicación real. Un
@@ -21,7 +23,15 @@ class AnfitrionBoton {}
 
 describe('componentes compartidos', () => {
   beforeEach(() => {
-    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    TestBed.configureTestingModule({
+      imports: [
+        TranslocoTestingModule.forRoot({
+          langs: { 'es-ES': es },
+          translocoConfig: { availableLangs: ['es-ES'], defaultLang: 'es-ES' },
+        }),
+      ],
+      providers: [provideZonelessChangeDetection()],
+    });
   });
 
   /**
@@ -93,6 +103,42 @@ describe('componentes compartidos', () => {
     expect(fixture.nativeElement.querySelector(`#${idError}`)?.textContent).toContain(
       'Escribe tu correo.',
     );
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('el campo de contraseña alterna a texto plano con el botón de mostrar', async () => {
+    const fixture = await montar(Input, { label: 'Contraseña', type: 'password' });
+
+    const campo = fixture.nativeElement.querySelector('input') as HTMLInputElement;
+    const boton = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
+    expect(campo.type).toBe('password');
+    const etiquetaOculto = boton.getAttribute('aria-label');
+
+    boton.click();
+    await fixture.whenStable();
+    expect(campo.type).toBe('text');
+    // La etiqueta cambia entre «mostrar» y «ocultar»: el texto exacto depende de que
+    // las traducciones ya estén cargadas en el momento de la comprobación, algo que
+    // este test no controla; comprobar que cambia es la aserción robusta.
+    expect(boton.getAttribute('aria-label')).not.toBe(etiquetaOculto);
+
+    boton.click();
+    await fixture.whenStable();
+    expect(campo.type).toBe('password');
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('el campo muestra la ayuda solo mientras no hay error', async () => {
+    const fixture = await montar(Input, { label: 'Contraseña', hint: 'Mínimo 8 caracteres.' });
+
+    const campo = fixture.nativeElement.querySelector('input') as HTMLInputElement;
+    expect(fixture.nativeElement.textContent).toContain('Mínimo 8 caracteres.');
+    expect(campo.getAttribute('aria-describedby')).toBeTruthy();
+
+    fixture.componentRef.setInput('error', 'Contraseña demasiado corta.');
+    await fixture.whenStable();
+    expect(fixture.nativeElement.textContent).not.toContain('Mínimo 8 caracteres.');
+    expect(fixture.nativeElement.textContent).toContain('Contraseña demasiado corta.');
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 });

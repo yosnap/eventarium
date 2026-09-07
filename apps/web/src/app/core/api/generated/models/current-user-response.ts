@@ -8,9 +8,10 @@ import { Permission } from '../models/permission';
  */
 export interface CurrentUserResponse {
   email: string;
-  full_name: string;
+  first_name: (string | null);
   id: string;
   is_superadmin: boolean;
+  last_name: (string | null);
   organization_id: string;
   permissions: Array<Permission>;
   roles: Array<string>;

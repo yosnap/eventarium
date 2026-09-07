@@ -98,7 +98,8 @@ async def login(
         user=UserSummary(
             id=str(usuario.id),
             email=usuario.email,
-            full_name=usuario.full_name,
+            first_name=usuario.first_name,
+            last_name=usuario.last_name,
             is_superadmin=usuario.is_superadmin,
         ),
     )
@@ -135,9 +136,7 @@ async def register(
     datos: RegisterRequest, request: Request, session: DbDep
 ) -> GenericMessageResponse:
     await require_turnstile(request, datos.turnstile_token)
-    await service.register_user(
-        session, email=str(datos.email), password=datos.password, full_name=datos.full_name
-    )
+    await service.register_user(session, email=str(datos.email), password=datos.password)
     return GenericMessageResponse(
         message="Si el correo no está ya registrado, recibirás un enlace de verificación."
     )

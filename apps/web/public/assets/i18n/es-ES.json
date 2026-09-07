@@ -5,7 +5,9 @@
     "cerrar": "Cerrar",
     "volver": "Volver",
     "guardar": "Guardar",
-    "cancelar": "Cancelar"
+    "cancelar": "Cancelar",
+    "mostrarPassword": "Mostrar la contraseña",
+    "ocultarPassword": "Ocultar la contraseña"
   },
   "errores": {
     "sitioNoDisponible": "Sitio no disponible",
@@ -25,16 +27,19 @@
   },
   "registro": {
     "titulo": "Crear una cuenta",
-    "nombre": "Nombre completo",
     "email": "Correo electrónico",
     "password": "Contraseña",
+    "passwordAyuda": "Mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial.",
+    "confirmarPassword": "Repite la contraseña",
+    "confirmarPasswordAyuda": "Escribe la misma contraseña para confirmarla.",
     "crearCuenta": "Crear cuenta",
     "creando": "Creando la cuenta…",
-    "nombreRequerido": "Escribe tu nombre.",
     "emailRequerido": "Escribe tu correo electrónico.",
     "emailInvalido": "Escribe un correo electrónico válido.",
     "passwordRequerida": "Escribe una contraseña de al menos 8 caracteres.",
     "passwordSinComplejidad": "La contraseña debe tener mayúscula, minúscula, número y carácter especial.",
+    "confirmarPasswordRequerida": "Repite la contraseña.",
+    "passwordsNoCoinciden": "Las contraseñas no coinciden.",
     "error": "No hemos podido completar el registro.",
     "exitoTitulo": "Revisa tu correo",
     "exitoDetalle": "Si el correo no estaba ya registrado, te hemos enviado un enlace de verificación. Revisa también la carpeta de spam.",

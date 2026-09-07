@@ -27,7 +27,12 @@ class User(Base, TimestampMixin):
     email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True)
     # Nulo cuando la cuenta se creó por invitación y aún no tiene contraseña.
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    full_name: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    # Nulos hasta que hacen falta: el registro no los pide (un nombre completo en un
+    # único campo es ambiguo para repartir en nombre/apellidos después). Se exigen más
+    # tarde, en el punto donde de verdad hacen falta — crear una organización, fase 2;
+    # inscribirse a un evento, fase 3 — no en el alta de la cuenta.
+    first_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    last_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     avatar_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     locale: Mapped[str] = mapped_column(String(10), nullable=False, default="es-ES")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
