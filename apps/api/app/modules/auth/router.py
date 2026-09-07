@@ -189,8 +189,7 @@ async def resend_verification(
     "/forgot-password",
     summary="Pedir la recuperación de una contraseña olvidada",
     description=(
-        "Encola un enlace de recuperación solo si la cuenta existe. Responde "
-        "siempre igual."
+        "Encola un enlace de recuperación solo si la cuenta existe. Responde siempre igual."
     ),
     response_model=GenericMessageResponse,
     status_code=status.HTTP_202_ACCEPTED,
