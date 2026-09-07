@@ -1,7 +1,7 @@
 ---
 phase: 1
 title: "Fase 1: Correo y verificación"
-status: pending
+status: done
 priority: P1
 effort: "2-2.5d"
 dependencies: []
@@ -159,21 +159,43 @@ del plan («una persona ajena se registra sin ayuda») es inalcanzable.
 
 ## Success Criteria
 
-- [ ] `POST /api/v1/auth/register` crea un usuario no verificado y encola un correo
-- [ ] El correo llega a Mailpit en desarrollo con un enlace de verificación
-- [ ] Verificar dos veces con el mismo token: la segunda falla
-- [ ] Un token de más de 24 h no verifica, y la UI lo comunica con `aria-live` y un
+- [x] `POST /api/v1/auth/register` crea un usuario no verificado y encola un correo
+- [x] El correo llega a Mailpit en desarrollo con un enlace de verificación
+- [x] Verificar dos veces con el mismo token: la segunda falla
+- [x] Un token de más de 24 h no verifica, y la UI lo comunica con `aria-live` y un
       botón de reenvío directo
-- [ ] Registro y reenvío responden igual exista o no la cuenta
-- [ ] Turnstile inválido rechaza el registro y el reenvío; Turnstile caído devuelve 503
+- [x] Registro y reenvío responden igual exista o no la cuenta
+- [x] Turnstile inválido rechaza el registro y el reenvío; Turnstile caído devuelve 503
       en ambos
-- [ ] El arranque falla en producción si la variable de desactivación de Turnstile
+- [x] El arranque falla en producción si la variable de desactivación de Turnstile
       está activa
-- [ ] El índice parcial existe y `EXPLAIN` sobre la consulta del barrido (fase 2) no
+- [x] El índice parcial existe y `EXPLAIN` sobre la consulta del barrido (fase 2) no
       muestra *sequential scan*
-- [ ] Turnstile verificado manualmente con lector de pantalla y teclado, documentado en
-      `docs/accesibilidad.md`
-- [ ] `pytest` en verde incluyendo los casos de fallo de Redis y de Turnstile
+- [~] Turnstile verificado manualmente con lector de pantalla y teclado, documentado en
+      `docs/accesibilidad.md` — **parcial**: no hay clave de sitio real en este entorno
+      (`TURNSTILE_ENABLED=false` en desarrollo), así que el iframe de Cloudflare nunca
+      se ha renderizado. Queda documentado como pendiente explícito en
+      `docs/accesibilidad.md`, a completar antes de activar Turnstile en producción.
+- [x] `pytest` en verde incluyendo los casos de fallo de Redis y de Turnstile
+
+## Nota de implementación: tres funciones `SECURITY DEFINER` no previstas en el plan
+
+Verificado contra el código real de `0003_politicas_rls.py`: la política `tenant_users`
+exige compartir organización con quien pregunta. En el registro público esa condición
+no se cumple —la persona no ha iniciado sesión ni pertenece a ninguna organización—, así
+que el router de registro no podía ver, crear ni actualizar su propia fila de `users`
+por la vía normal. Sin corregirlo, el registro fallaba en silencio: la comprobación de
+duplicados no veía nunca una fila y el `INSERT` violaba una restricción `NOT NULL` no
+cubierta por los valores por defecto del ORM (`locale`, `is_superadmin`), que el
+`except IntegrityError` end-to-end interpretaba como «correo ya registrado» sin encolar
+el correo ni devolver ningún error visible.
+
+Se resolvió con el mismo patrón ya usado para `app_resolve_organization` (alcance
+mínimo, `REVOKE ALL FROM PUBLIC` + `GRANT EXECUTE TO app_user`) en vez de dar
+`BYPASSRLS` al rol de la API: `app_find_user_by_email`, `app_create_unverified_user` y
+`app_verify_user_email`, en la migración `0004_correo_y_verificacion`. Detalle en
+`docs/modelo-de-datos.md`. No se preguntó porque la corrección deriva directamente del
+código de RLS ya existente, no de una decisión de producto nueva.
 
 ## Risk Assessment
 

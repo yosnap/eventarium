@@ -28,6 +28,10 @@ LOGIN_POR_IP = 5
 LOGIN_POR_HOST = 20
 REFRESH_POR_IP = 30
 PUBLICO_POR_IP = 120
+# El registro es de un solo uso por persona: algo más permisivo que el login.
+REGISTRO_POR_IP = 10
+# El reenvío es reutilizable y encola correo: más estricto, además de exigir Turnstile.
+REENVIO_VERIFICACION_POR_IP = 3
 
 VENTANA_SEGUNDOS = 60
 

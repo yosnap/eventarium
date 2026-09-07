@@ -52,6 +52,7 @@ erDiagram
     text locale
     bool is_active
     bool is_superadmin
+    timestamptz email_verified_at
   }
   user_social_links {
     uuid id PK
@@ -175,7 +176,29 @@ la visibilidad: la fila solo será legible cuando exista la membresía.
 | `0001_verificar_roles` | Comprueba que existen `app_user` y `app_maintainer` y que el primero **no** tiene `BYPASSRLS`. Falla pronto y con mensaje claro si el entorno no está preparado |
 | `0002_esquema_base` | Tablas, índices y constraints; verifica que `ALTER DEFAULT PRIVILEGES` concedió acceso a `app_user` |
 | `0003_politicas_rls` | Funciones de contexto y resolución, y políticas de todas las tablas |
+| `0004_correo_y_verificacion` | `users.email_verified_at` + índice parcial; tres funciones `SECURITY DEFINER` para el registro público (ver más abajo) |
 
 Se ejecutan siempre con `DATABASE_MIGRATIONS_URL` (rol `app_maintainer`). Con el rol de
 la API fallarían, y eso es deliberado. El ciclo `upgrade head` → `downgrade base` →
 `upgrade head` está probado.
+
+### Registro público y RLS: tres funciones `SECURITY DEFINER` más
+
+La política `tenant_users` exige compartir organización con quien pregunta (o ser uno
+mismo, vía `app_current_user()`). En el registro público eso no se cumple todavía: la
+persona no ha iniciado sesión y no pertenece a ninguna organización, así que no puede
+ver, crear ni actualizar su propia fila por la vía normal.
+
+Se resuelve con el mismo patrón que `app_resolve_organization` (alcance mínimo,
+`REVOKE ALL FROM PUBLIC` + `GRANT EXECUTE TO app_user`), no dando `BYPASSRLS` al rol de
+la API:
+
+| Función | Uso |
+|---|---|
+| `app_find_user_by_email(email)` | Comprobar si ya existe una cuenta (registro, reenvío de verificación) |
+| `app_create_unverified_user(id, email, hash, nombre)` | Crear la cuenta con `email_verified_at = NULL` |
+| `app_verify_user_email(user_id)` | Marcar el correo como verificado; devuelve si cambió algo |
+
+`app_create_unverified_user` fija a mano `locale` e `is_superadmin`: son columnas
+`NOT NULL` sin `server_default` (su valor por defecto solo existe en el ORM), así que un
+`INSERT` en SQL crudo tiene que darlos explícitamente.

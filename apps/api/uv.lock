@@ -115,6 +115,15 @@ wheels = [
 ]
 
 [[package]]
+name = "aiosmtplib"
+version = "5.1.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b9/25/d36d056e62a1dc3dd51ce76e7647c62966702193dc91eafa7fd4e1006a91/aiosmtplib-5.1.2.tar.gz", hash = "sha256:04a0ea3c678f5b719f998f290dce010ca512e1385836d3944206299df03b060f", size = 71031, upload-time = "2026-06-20T15:00:48.269Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d5/ec/c5a415cd1309eaac28ad3c599458194d25ba07189bb07a1bac2c6713c17e/aiosmtplib-5.1.2-py3-none-any.whl", hash = "sha256:070d467cc329dafd0af59108ba5d217d973cba10309910fed359a2a7bfb52d7a", size = 28394, upload-time = "2026-06-20T15:00:47.299Z" },
+]
+
+[[package]]
 name = "alembic"
 version = "1.19.2"
 source = { registry = "https://pypi.org/simple" }
@@ -541,14 +550,16 @@ wheels = [
 
 [[package]]
 name = "ia-week-api"
-version = "0.5.2"
+version = "0.7.0"
 source = { editable = "." }
 dependencies = [
     { name = "aioboto3" },
+    { name = "aiosmtplib" },
     { name = "alembic" },
     { name = "argon2-cffi" },
     { name = "asyncpg" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "pydantic", extra = ["email"] },
     { name = "pydantic-settings" },
     { name = "pyjwt" },
@@ -565,7 +576,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "httpx" },
     { name = "mypy" },
     { name = "pip-audit" },
     { name = "pytest" },
@@ -577,10 +587,12 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aioboto3", specifier = ">=13.2,<16.0" },
+    { name = "aiosmtplib", specifier = ">=5.1.2,<6.0" },
     { name = "alembic", specifier = ">=1.14,<2.0" },
     { name = "argon2-cffi", specifier = ">=23.1,<26.0" },
     { name = "asyncpg", specifier = ">=0.30,<0.31" },
     { name = "fastapi", specifier = ">=0.115,<1.0" },
+    { name = "httpx", specifier = ">=0.28,<1.0" },
     { name = "pydantic", extras = ["email"], specifier = ">=2.9,<3.0" },
     { name = "pydantic-settings", specifier = ">=2.6,<3.0" },
     { name = "pyjwt", specifier = ">=2.13,<3.0" },
@@ -597,7 +609,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "httpx", specifier = ">=0.28,<1.0" },
     { name = "mypy", specifier = ">=1.13,<2.0" },
     { name = "pip-audit", specifier = ">=2.7,<3.0" },
     { name = "pytest", specifier = ">=9.0.3,<10.0" },

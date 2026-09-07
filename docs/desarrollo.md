@@ -83,6 +83,25 @@ make stop     # libera los puertos sin tocar los contenedores
 make down     # para las dependencias en Docker
 ```
 
+## Correo de verificación (Mailpit)
+
+En desarrollo el correo saliente (registro, verificación) no sale a Internet: lo
+atrapa [Mailpit](https://mailpit.axllent.org/), levantado por `make up`. Lee los
+correos en su interfaz web, nunca llegan a una bandeja real:
+
+```
+http://localhost:8025
+```
+
+## Turnstile
+
+`TURNSTILE_ENABLED=false` en desarrollo y tests: el widget no se renderiza y el
+registro no exige verificación anti-bot. Para probarlo activado, pon
+`TURNSTILE_ENABLED=true` y una `TURNSTILE_SECRET_KEY` de pruebas de Cloudflare en el
+`.env`, y `turnstileSiteKey`/`turnstileEnabled` en
+`apps/web/src/environments/environment.development.ts`. **No puede desactivarse en
+producción**: el arranque de la API falla si lo intentas.
+
 ## Accede siempre por http://localhost:8080
 
 Caddy sirve la web, la API y los ficheros bajo el mismo host. Entrar directamente por
