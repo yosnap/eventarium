@@ -1,7 +1,11 @@
 # Despliegue
 
-Producción con `infra/docker-compose.prod.yml`: PostgreSQL, Redis, SeaweedFS, la API,
-el worker, el frontend SSR y Caddy delante de todo.
+Producción con **EasyPanel**. `infra/docker-compose.prod.yml` define los servicios
+—PostgreSQL, Redis, SeaweedFS, la API, el worker y el frontend SSR— y EasyPanel pone el
+proxy (Traefik), el TLS y el enrutado.
+
+Caddy es **solo para desarrollo**: en local resuelve el requisito de un único host sin
+depender de nada externo.
 
 ## Principios
 
@@ -12,53 +16,143 @@ el worker, el frontend SSR y Caddy delante de todo.
   varias réplicas, dos migraciones simultáneas competirían por el mismo esquema.
 - **Los secretos solo existen en tiempo de ejecución.** Están en `infra/env/.env` en el
   servidor, nunca dentro de una imagen. La publicación de imágenes lo verifica.
+- **Un solo dominio, enrutado por rutas.** No es un capricho: la sesión se sostiene en
+  una cookie first-party. Si `web` y `api` viven en subdominios distintos, el navegador
+  deja de enviarla y habría que abrir CORS y ampliar el alcance de la cookie.
 
-## Primer despliegue
+## Primer despliegue con EasyPanel
 
-```bash
-git clone https://github.com/yosnap/eventarium.git && cd eventarium
-make setup
-```
+### 1. Crear el proyecto y los servicios
 
-Edita `infra/env/.env` con los valores de producción y añade:
+En EasyPanel, crea un proyecto y dentro estos servicios:
+
+| Servicio | Tipo | Imagen o plantilla | Puerto interno |
+|---|---|---|---|
+| `postgres` | Plantilla PostgreSQL 16 | — | 5432 |
+| `redis` | Plantilla Redis 7 | — | 6379 |
+| `seaweedfs` | App | `chrislusf/seaweedfs:3.97` | 8333 |
+| `api` | App | `ghcr.io/yosnap/eventarium/api:sha-<commit>` | 8000 |
+| `worker` | App | la misma imagen que `api` | — |
+| `scheduler` | App | la misma imagen que `api` | — |
+| `web` | App | `ghcr.io/yosnap/eventarium/web:sha-<commit>` | 4000 |
+
+Comandos de arranque:
+
+- `seaweedfs`: `server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json -ip=seaweedfs`
+- `worker`: `taskiq worker app.core.tasks:broker`
+- `scheduler`: `taskiq scheduler app.core.tasks:scheduler`. Es un proceso aparte del
+  `worker` (desde Taskiq 0.12 uno consume la cola y el otro dispara las tareas con
+  `schedule`): sin este servicio, el barrido de cuentas sin verificar no se ejecuta nunca,
+  aunque el `worker` esté sano.
+- `api` y `web` usan el comando por defecto de su imagen.
+
+### 2. Enrutar el dominio por rutas
+
+Apunta el dominio al servicio `web` y añade las reglas por ruta:
+
+| Ruta | Servicio | Puerto |
+|---|---|---|
+| `/` | `web` | 4000 |
+| `/api` | `api` | 8000 |
+| `/media` | `seaweedfs` | 8333 |
+
+Las tres rutas **tienen que estar en el mismo dominio**. Es la base del diseño de
+sesión: la cookie de refresco es first-party y no lleva atributo `Domain`.
+
+Deja que EasyPanel gestione el certificado TLS.
+
+### 3. Variables de entorno
+
+En cada servicio que las necesite (`api`, `worker`, `scheduler` y `migrate`):
 
 ```bash
 APP_ENV=production
-SITE_ADDRESS=eventos.tu-dominio.org      # dominio que sirve Caddy
-ACME_EMAIL=admin@tu-dominio.org          # avisos de Let's Encrypt
-IMAGE_TAG=sha-<commit>                   # imagen a desplegar
+DATABASE_URL=postgresql+asyncpg://app_user:<contraseña>@postgres:5432/eventarium
+DATABASE_MIGRATIONS_URL=postgresql+asyncpg://app_maintainer:<contraseña>@postgres:5432/eventarium
+REDIS_URL=redis://redis:6379/0
+S3_ENDPOINT=http://seaweedfs:8333
+S3_ACCESS_KEY=<clave>
+S3_SECRET_KEY=<secreto>
+S3_BUCKET=media
 S3_PUBLIC_BASE_URL=https://eventos.tu-dominio.org/media
 WEB_BASE_URL=https://eventos.tu-dominio.org
-DEFAULT_ORGANIZATION_SLUG=               # debe quedar vacío; la API lo rechaza si no
-TRUSTED_PROXY_CIDRS=172.16.0.0/12        # red interna de Docker, no 0.0.0.0/0
+JWT_SECRET=<openssl rand -base64 48>
+DEFAULT_ORGANIZATION_SLUG=
+TRUSTED_PROXY_CIDRS=10.0.0.0/8,172.16.0.0/12
+DOMINIO_BASE=tu-dominio.org
 ```
 
-`TRUSTED_PROXY_CIDRS` decide desde dónde se acepta `X-Forwarded-Host`. Abrirlo a
-`0.0.0.0/0` permitiría a cualquiera elegir organización con una cabecera.
-
-Ajusta `infra/seaweedfs/s3.json` con las mismas credenciales que el `.env` y arranca:
+Y en `web`:
 
 ```bash
-docker compose --env-file infra/env/.env -f infra/docker-compose.prod.yml up -d
+PORT=4000
+API_INTERNAL_URL=http://api:8000
+NG_ALLOWED_HOSTS=tu-dominio.org,*.tu-dominio.org
 ```
 
-Compose ejecuta `migrate` y, cuando termina, levanta `api`, `worker`, `web` y `caddy`.
-Caddy pide el certificado TLS solo al arrancar con un dominio público apuntando al
-servidor.
+Dos que suelen dar problemas:
 
-Crea el superadministrador y la primera organización:
+- **`TRUSTED_PROXY_CIDRS`** decide desde dónde se acepta `X-Forwarded-Host`, que es lo
+  que determina la organización. Tiene que cubrir la red del proxy de EasyPanel y nada
+  más: abrirlo a `0.0.0.0/0` permitiría a cualquiera elegir organización con una
+  cabecera. Comprueba el rango real con `docker network inspect` en el servidor.
+- **`DEFAULT_ORGANIZATION_SLUG`** debe quedar vacío. La API se niega a arrancar en
+  producción si tiene valor: es un atajo de desarrollo que saltaría la resolución por
+  host.
+- **`DOMINIO_BASE`** es el dominio bajo el que se registra el subdominio de cada
+  organización nueva (`{slug}.{DOMINIO_BASE}`). La API se niega a arrancar en producción
+  si está vacío: sin él, el alta libre de organización no sabría qué host asignar.
+
+### 4. Roles de base de datos y migraciones
+
+Los roles se crean **antes** de la primera migración. Desde una consola en el servidor,
+con `infra/postgres/sql/roles.sql` disponible:
 
 ```bash
-docker compose -f infra/docker-compose.prod.yml run --rm api \
+POSTGRES_APP_USER_PASSWORD=... POSTGRES_MAINTAINER_PASSWORD=... \
+  infra/scripts/ensure-roles.sh "postgresql://postgres:<contraseña>@localhost:5432/eventarium"
+```
+
+Después, migra con la imagen de la API:
+
+```bash
+docker run --rm --network <red-del-proyecto> --env-file .env \
+  ghcr.io/yosnap/eventarium/api:sha-<commit> alembic upgrade head
+```
+
+En EasyPanel esto se automatiza como *pre-deploy command* del servicio `api`. Que sea
+un paso aparte es deliberado: si `api` y `worker` migraran al arrancar, dos réplicas
+competirían por el mismo esquema.
+
+### 5. Primeros datos
+
+```bash
+docker run --rm --network <red-del-proyecto> --env-file .env \
+  ghcr.io/yosnap/eventarium/api:sha-<commit> \
   python -m app.cli create-superadmin admin@tu-dominio.org
-docker compose -f infra/docker-compose.prod.yml run --rm api \
+
+docker run --rm --network <red-del-proyecto> --env-file .env \
+  ghcr.io/yosnap/eventarium/api:sha-<commit> \
   python -m app.cli create-organization mi-org "Mi Organización" eventos.tu-dominio.org
 ```
 
 Comprueba `https://eventos.tu-dominio.org/api/v1/health`: los tres valores deben ser
 `ok`.
 
+## Despliegue con Docker Compose (alternativa)
+
+`infra/docker-compose.prod.yml` sirve tal cual si prefieres no usar EasyPanel, pero
+**no incluye proxy**: tendrás que poner uno delante que enrute `/`, `/api` y `/media` al
+mismo dominio. El `Caddyfile` de desarrollo (`infra/caddy/Caddyfile.dev`) muestra el
+enrutado que hace falta.
+
 ## Actualización
+
+En EasyPanel: cambia la etiqueta de imagen de `api`, `worker`, `scheduler` y `web` a
+`sha-<commit-nuevo>` y despliega. El *pre-deploy command* de `api` ejecuta la migración
+antes de levantar la versión nueva.
+
+Con Docker Compose:
 
 ```bash
 # 1. Fijar la nueva imagen
@@ -78,9 +172,12 @@ Haz una copia de seguridad **antes** de una actualización con migraciones (abaj
 
 ## Rollback
 
+En EasyPanel: vuelve a poner la etiqueta anterior en `api`, `worker`, `scheduler` y `web`
+y despliega. Con Compose:
+
 ```bash
 sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=sha-<commit-anterior>/' infra/env/.env
-docker compose --env-file infra/env/.env -f infra/docker-compose.prod.yml up -d --force-recreate api worker web
+docker compose --env-file infra/env/.env -f infra/docker-compose.prod.yml up -d --force-recreate api worker scheduler web
 ```
 
 Si la versión nueva traía una migración incompatible, revierte también el esquema:
@@ -172,15 +269,40 @@ POSTGRES_APP_USER_PASSWORD=... POSTGRES_MAINTAINER_PASSWORD=... \
 # y actualiza DATABASE_URL y DATABASE_MIGRATIONS_URL en infra/env/.env
 ```
 
-## Dominios propios por organización
+## Varias organizaciones: un subdominio para cada una
 
-El bloque `on_demand_tls` del `Caddyfile` está escrito pero **desactivado**. Sin un
-endpoint de autorización, cualquiera podría forzar la emisión de certificados apuntando
-su dominio a este servidor. Se activará en la fase 9 del PRD, junto con el endpoint que
-compruebe que el dominio está registrado en `organization_domains`.
+Cada organización vive en su propio subdominio del dominio de la instalación:
+`iawic.tu-dominio.org`, `otra.tu-dominio.org`. La API resuelve la organización por el
+host exacto de la petición, contrastado contra `organization_domains`.
 
-Mientras tanto, para servir varios dominios hay que añadirlos al `Caddyfile` y, si se
-define `NG_ALLOWED_HOSTS`, también ahí.
+Se eligió así frente a repartir por ruta (`/o/mi-org`) porque no toca la resolución por
+host, que ya está implementada y cubierta por tests de aislamiento, y porque deja el
+branding y las cookies limpiamente separados por organización.
+
+Lo que hay que preparar en el despliegue:
+
+1. **DNS comodín**: un registro `*.tu-dominio.org` apuntando al servidor.
+2. **Certificado comodín** para `*.tu-dominio.org` en EasyPanel, o TLS bajo demanda.
+3. **`NG_ALLOWED_HOSTS`**: incluir el comodín, por ejemplo
+   `tu-dominio.org,*.tu-dominio.org`. El SSR valida `Host` y `X-Forwarded-Host` contra
+   esta lista.
+
+Al dar de alta una organización se registra su subdominio, ya sea por CLI:
+
+```bash
+python -m app.cli create-organization mi-org "Mi Organización" mi-org.tu-dominio.org
+```
+
+o por el alta libre desde la propia aplicación (`POST /organizations`, tras verificar el
+correo): la persona elige nombre y slug, la API compone el host como
+`{slug}.{DOMINIO_BASE}` y registra el dominio igual que el CLI. Por eso `DOMINIO_BASE`
+(arriba) es obligatorio en producción.
+
+Quien quiera una instalación aparte hace fork del repositorio y la despliega.
+
+El TLS bajo demanda para dominios de terceros (fase 9 del PRD) no está implementado:
+sin un endpoint que compruebe que el dominio está registrado, cualquiera podría forzar
+la emisión de certificados apuntando su dominio al servidor.
 
 ## Variables de entorno
 
@@ -188,8 +310,14 @@ Todas están documentadas en `infra/env/.env.example`. Las que solo aplican a pr
 
 | Variable | Para qué |
 |---|---|
-| `IMAGE_TAG` | Imagen a desplegar (`sha-<commit>`) |
-| `SITE_ADDRESS` | Dominio que sirve Caddy |
-| `ACME_EMAIL` | Contacto para Let's Encrypt |
+| `IMAGE_TAG` | Imagen a desplegar (`sha-<commit>`), solo con Docker Compose |
 | `NG_ALLOWED_HOSTS` | Hosts que acepta el SSR; vacío = cualquiera |
+| `API_INTERNAL_URL` | URL de la API en la red interna, para el SSR |
 | `GITHUB_REPOSITORY` | Origen de las imágenes en GHCR |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_USE_TLS`, `SMTP_FROM` | Proveedor de correo real para la verificación de cuentas. Mailpit solo existe en desarrollo |
+| `TURNSTILE_ENABLED`, `TURNSTILE_SECRET_KEY` | Anti-bot en el registro, el reenvío de verificación y el alta de organización. **`TURNSTILE_ENABLED` no puede ser `false` en producción**: el arranque de la API falla si lo es |
+| `DOMINIO_BASE` | Dominio bajo el que se registra el subdominio de cada organización nueva. **Obligatorio en producción**: el arranque de la API falla si está vacío |
+
+La clave pública de Turnstile (`turnstileSiteKey`) no es un secreto de la API: se
+compila en el bundle del frontend (`apps/web/src/environments/environment.ts`) antes de
+construir la imagen de producción.

@@ -98,7 +98,8 @@ def add_domain(
 @app.command("create-superadmin")
 def create_superadmin(
     email: str = typer.Argument(..., help="Correo del superadministrador."),
-    full_name: str = typer.Option("Superadministrador", help="Nombre visible."),
+    first_name: str = typer.Option("Super", help="Nombre."),
+    last_name: str = typer.Option("Administrador", help="Apellidos."),
     password: str | None = typer.Option(
         None, help="Contraseña. Si se omite, se genera una y se muestra."
     ),
@@ -113,7 +114,8 @@ def create_superadmin(
             if usuario is None:
                 usuario = User(
                     email=correo,
-                    full_name=full_name,
+                    first_name=first_name,
+                    last_name=last_name,
                     password_hash=hash_password(secreto),
                     is_active=True,
                     is_superadmin=True,

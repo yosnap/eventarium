@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import secrets
 import uuid
 from dataclasses import dataclass
@@ -23,6 +24,27 @@ from app.core.config import get_settings
 from app.shared.errors import AuthenticationError
 
 _hasher = PasswordHasher()
+
+# Política de contraseña del registro público: longitud mínima + composición
+# (mayúscula, minúscula, número, carácter especial). El mismo conjunto de caracteres
+# especiales que valida el widget del frontend (`shared/ui/password-strength.ts`),
+# para que un cliente no acepte una contraseña que el servidor rechazaría después.
+PASSWORD_MIN_LENGTH = 8
+_PASSWORD_ESPECIAL = re.compile(r'[!@#$%^&*(),.?":{}|<>]')
+_PASSWORD_MAYUSCULA = re.compile(r"[A-Z]")
+_PASSWORD_MINUSCULA = re.compile(r"[a-z]")
+_PASSWORD_NUMERO = re.compile(r"[0-9]")
+
+
+def password_meets_complexity(password: str) -> bool:
+    """Longitud mínima + mayúscula + minúscula + número + carácter especial."""
+    return (
+        len(password) >= PASSWORD_MIN_LENGTH
+        and bool(_PASSWORD_MAYUSCULA.search(password))
+        and bool(_PASSWORD_MINUSCULA.search(password))
+        and bool(_PASSWORD_NUMERO.search(password))
+        and bool(_PASSWORD_ESPECIAL.search(password))
+    )
 
 
 def hash_password(password: str) -> str:
@@ -56,6 +78,12 @@ class AccessTokenClaims:
     organization_id: uuid.UUID | None
     jti: str
     is_superadmin: bool
+    # Familia del refresh token con el que se emitió este access token. La cookie de
+    # refresh tiene `Path=/api/v1/auth`, así que un endpoint fuera de ese prefijo (p.
+    # ej. `/users/me/change-password`) nunca la recibe; llevar la familia en el propio
+    # access token es lo único que permite a esos endpoints revocar «todas las
+    # sesiones salvo la actual» sin depender de la cookie.
+    family: str | None = None
 
 
 def create_access_token(
@@ -63,6 +91,7 @@ def create_access_token(
     organization_id: uuid.UUID | None,
     *,
     is_superadmin: bool = False,
+    family: str | None = None,
 ) -> str:
     """Emite un access token para un usuario en una organización concreta."""
     settings = get_settings()
@@ -71,6 +100,7 @@ def create_access_token(
         "sub": str(user_id),
         "org": str(organization_id) if organization_id else None,
         "sa": is_superadmin,
+        "fam": family,
         "type": "access",
         "jti": uuid.uuid4().hex,
         "iat": int(ahora.timestamp()),
@@ -106,6 +136,7 @@ def decode_access_token(token: str) -> AccessTokenClaims:
             organization_id=uuid.UUID(str(org)) if org else None,
             jti=str(payload.get("jti", "")),
             is_superadmin=bool(payload.get("sa", False)),
+            family=payload.get("fam") or None,
         )
     except (ValueError, KeyError) as exc:
         raise AuthenticationError("Token con contenido no válido.") from exc

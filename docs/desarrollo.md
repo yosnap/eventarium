@@ -56,13 +56,51 @@ make db-seed     # organización de demostración; muestra la contraseña del pr
 Guarda esa contraseña: solo se muestra una vez. Para regenerarla,
 `make db-seed` con `--reset-password`, o define `SEED_OWNER_PASSWORD` en el `.env`.
 
-Y en tres terminales:
+Y para arrancar la aplicación:
 
 ```bash
-make api      # FastAPI en :8000
-make web      # Angular en :4200
-make worker   # worker de Taskiq
+make dev      # dependencias + API + worker + frontend, todo en una terminal
 ```
+
+Los tres procesos comparten terminal con los logs prefijados (`[api]`, `[web]`,
+`[worker]`) y `Ctrl+C` los para todos. Si prefieres una terminal por proceso:
+
+```bash
+make api      # solo la API, en :8000
+make web      # solo el frontend, en :4200
+make worker   # solo el worker de tareas
+```
+
+Cualquiera de esos comandos **libera antes su puerto**. Un dev server olvidado de una
+sesión anterior lo deja ocupado, y la salida habitual —arrancar en otro puerto— acaba
+con varios procesos zombis y una sesión rota, porque la cookie deja de coincidir con el
+host. Solo se cierran procesos que escuchan en los puertos del proyecto, nunca por
+nombre: un `pkill node` se llevaría por delante trabajo ajeno.
+
+```bash
+make status   # qué hay escuchando en 8000, 4200 y 8080
+make stop     # libera los puertos sin tocar los contenedores
+make down     # para las dependencias en Docker
+```
+
+## Correo de verificación (Mailpit)
+
+En desarrollo el correo saliente (registro, verificación) no sale a Internet: lo
+atrapa [Mailpit](https://mailpit.axllent.org/), levantado por `make up`. Lee los
+correos en su interfaz web, nunca llegan a una bandeja real:
+
+```
+http://localhost:8025
+```
+
+## Turnstile
+
+`TURNSTILE_ENABLED=false` en desarrollo y tests: el widget no se renderiza y el
+registro no exige verificación anti-bot. Para probarlo activado, pon
+`TURNSTILE_ENABLED=true` y una `TURNSTILE_SECRET_KEY` de pruebas de Cloudflare en el
+`.env`, y `turnstileSiteKey`/`turnstileEnabled` en
+`apps/web/src/environments/environment.development.ts`. **No puede desactivarse en
+producción**: el arranque de la API falla si lo intentas.
 
 ## Accede siempre por http://localhost:8080
 

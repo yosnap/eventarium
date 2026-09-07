@@ -77,6 +77,22 @@ class Settings(BaseSettings):
     # Límites de subida.
     max_image_bytes: int = Field(default=5 * 1024 * 1024, gt=0)
 
+    # Correo saliente (Mailpit en desarrollo, SMTP genérico en producción).
+    smtp_host: str = "localhost"
+    smtp_port: int = 1025
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_use_tls: bool = False
+    smtp_from: str = "no-responder@example.com"
+
+    # Turnstile: obligatorio en producción, desactivable en desarrollo y tests.
+    turnstile_enabled: bool = True
+    turnstile_secret_key: str = ""
+
+    # Dominio de la instalación: cada organización recibe {slug}.{dominio_base}.
+    # Vacío en desarrollo (se resuelve por localhost); obligatorio en producción.
+    dominio_base: str = ""
+
     @field_validator("jwt_secret")
     @classmethod
     def _validar_secreto(cls, valor: str) -> str:
@@ -95,6 +111,16 @@ class Settings(BaseSettings):
             raise ValueError(
                 "DEFAULT_ORGANIZATION_SLUG debe estar vacío en producción: la organización "
                 "se resuelve siempre por Host."
+            )
+        if self.app_env == "production" and not self.turnstile_enabled:
+            raise ValueError(
+                "TURNSTILE_ENABLED no puede estar desactivado en producción: desprotegería "
+                "el registro y el reenvío de verificación frente a scripts automatizados."
+            )
+        if self.app_env == "production" and not self.dominio_base:
+            raise ValueError(
+                "DOMINIO_BASE no puede estar vacío en producción: cada organización "
+                "necesita saber bajo qué dominio registrar su subdominio."
             )
         return self
 

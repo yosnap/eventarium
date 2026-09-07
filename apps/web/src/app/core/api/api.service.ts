@@ -46,6 +46,19 @@ export class ApiService {
     return cabeceras;
   }
 
+  /**
+   * Nombre de host actual, sin puerto: lo usa el embed de Twitch, que exige
+   * declarar en `parent` el dominio que lo aloja (si no coincide, Twitch se
+   * niega a cargar el reproductor, tanto en SSR como ya hidratado en el
+   * navegador).
+   */
+  currentHost(): string {
+    if (this.isServer) {
+      return this.hostDeLaUrl()?.split(':')[0] ?? 'localhost';
+    }
+    return typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+  }
+
   private hostDeLaUrl(): string | null {
     const host = this.peticion?.headers.get('host');
     if (host) {

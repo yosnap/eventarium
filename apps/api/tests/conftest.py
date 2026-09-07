@@ -186,7 +186,8 @@ async def crear_organizacion(
         correo = f"owner@{slug}.com"
         usuario = User(
             email=correo,
-            full_name="Propietario",
+            first_name="Propietario",
+            last_name="De prueba",
             password_hash=hash_password(owner_password),
             is_active=True,
         )
@@ -267,6 +268,62 @@ async def crear_rol(
         return rol.id
 
 
+class MiembroDePrueba:
+    """Identificadores de una persona dada de alta con un rol, para tests que
+    necesitan su `organization_member_id`/`user_id` además de sus credenciales
+    (roster de eventos, perfil público de ponente…)."""
+
+    __slots__ = ("user_id", "member_id", "email", "password")
+
+    def __init__(
+        self, *, user_id: uuid.UUID, member_id: uuid.UUID, email: str, password: str
+    ) -> None:
+        self.user_id = user_id
+        self.member_id = member_id
+        self.email = email
+        self.password = password
+
+
+async def crear_miembro(
+    organizacion: OrganizacionDePrueba,
+    role_key: str,
+    *,
+    password: str = "otra-contraseña-de-prueba",
+    email: str | None = None,
+) -> MiembroDePrueba:
+    """Da de alta a alguien con el rol indicado, saltándose la API.
+
+    `email` permite dar de alta a dos personas con el **mismo** rol en un test
+    (el correo por defecto es fijo por `role_key`, así que colisionaría)."""
+    async with SessionMaintenance() as session:
+        rol = await session.scalar(
+            select(Role).where(Role.organization_id == organizacion.id, Role.key == role_key)
+        )
+        assert rol is not None, f"no existe el rol {role_key}"
+        correo = email or f"{role_key}@{organizacion.slug}.com"
+        usuario = User(
+            email=correo,
+            first_name="Persona",
+            last_name=role_key,
+            password_hash=hash_password(password),
+            is_active=True,
+        )
+        session.add(usuario)
+        await session.flush()
+        miembro = OrganizationMember(
+            organization_id=organizacion.id,
+            user_id=usuario.id,
+            role_id=rol.id,
+            profile_data={},
+        )
+        session.add(miembro)
+        await session.flush()
+        await session.commit()
+        return MiembroDePrueba(
+            user_id=usuario.id, member_id=miembro.id, email=correo, password=password
+        )
+
+
 async def crear_usuario_con_rol(
     organizacion: OrganizacionDePrueba,
     role_key: str,
@@ -274,30 +331,22 @@ async def crear_usuario_con_rol(
     password: str = "otra-contraseña-de-prueba",
 ) -> tuple[str, str]:
     """Da de alta a alguien con el rol indicado. Devuelve (correo, contraseña)."""
-    async with SessionMaintenance() as session:
-        rol = await session.scalar(
-            select(Role).where(Role.organization_id == organizacion.id, Role.key == role_key)
-        )
-        assert rol is not None, f"no existe el rol {role_key}"
-        correo = f"{role_key}@{organizacion.slug}.com"
-        usuario = User(
-            email=correo,
-            full_name=f"Persona {role_key}",
-            password_hash=hash_password(password),
-            is_active=True,
-        )
-        session.add(usuario)
-        await session.flush()
-        session.add(
-            OrganizationMember(
-                organization_id=organizacion.id,
-                user_id=usuario.id,
-                role_id=rol.id,
-                profile_data={},
-            )
-        )
-        await session.commit()
-        return correo, password
+    miembro = await crear_miembro(organizacion, role_key, password=password)
+    return miembro.email, miembro.password
+
+
+async def iniciar_sesion_con(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, email: str, password: str
+) -> tuple[str, dict[str, str]]:
+    """Login con unas credenciales concretas, p. ej. las de un `MiembroDePrueba`."""
+    respuesta = await cliente.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": password},
+        headers={"Host": organizacion.host},
+    )
+    assert respuesta.status_code == 200, respuesta.text
+    token = respuesta.json()["access_token"]
+    return token, {"Host": organizacion.host, "Authorization": f"Bearer {token}"}
 
 
 async def iniciar_sesion_como(
@@ -316,11 +365,14 @@ async def iniciar_sesion_como(
 
 
 __all__ = [
+    "MiembroDePrueba",
     "OrganizacionDePrueba",
+    "crear_miembro",
     "crear_organizacion",
     "crear_rol",
     "crear_usuario_con_rol",
     "iniciar_sesion",
     "iniciar_sesion_como",
+    "iniciar_sesion_con",
     "set_organization_context",
 ]

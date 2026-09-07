@@ -135,6 +135,52 @@ usado se asume robo y se revoca la familia entera. El estado vive en Redis con T
 si Redis no responde se devuelve 503 — nunca se acepta un token sin poder comprobar su
 revocación.
 
+### Token puente entre verificar el correo y crear la organización
+
+Verificar el correo no implica tener organización todavía. `verify-email` emite un
+access token normal pero con `organization_id = null` («puente»), solo para poder llamar
+al alta de organización sin volver a loguear. El frontend lo guarda en un signal
+separado del token de sesión (`bridgeToken`, no `token`), precisamente para que el guard
+de autenticación no trate a alguien que solo tiene el puente como si tuviera una sesión
+completa.
+
+Tras crear la organización **no hay auto-login**: cada organización vive en su propio
+subdominio (`{slug}.{dominio_base}`), y ni una cookie `Set-Cookie` emitida en el host
+donde corre `/crear-organizacion` ni un token en memoria sobreviven una navegación a otro
+origen. La respuesta del alta no lleva ningún token; el frontend enlaza a
+`https://{host}/admin/login` para que la persona inicie sesión ya en el subdominio de su
+organización.
+
+### Cuenta propia: cambio de correo, contraseña y recuperación
+
+Cambio de correo, cambio de contraseña y recuperación de contraseña comparten el
+mismo mecanismo de tokens de un solo uso que `verify-email` (Redis + TTL, `GETDEL`
+atómico), diferenciados por **propósito** en la clave: `email_verify`, `email_change`,
+`password_reset`. Un token de un propósito nunca es válido en el endpoint de otro.
+
+Confirmar un cambio de correo o completar una recuperación ocurre sin sesión propia
+(quien llega por el enlace de correo no tiene `app.user_id` fijado), el mismo problema
+del huevo y la gallina que `verify-email`. Se resuelve igual: dos funciones
+`SECURITY DEFINER` de alcance mínimo, `app_change_user_email(uuid, text)` y
+`app_set_user_password(uuid, text)`, en vez de dar `BYPASSRLS` a esos flujos.
+
+`GET /users/me/organizations` (selector de organización del panel) tiene el problema
+inverso: el contexto RLS lo fija el *host*, no la persona, así que no hay forma de
+listar "mis organizaciones" con una consulta normal sin saber antes en qué host
+preguntar. `app_user_organizations(p_user_id uuid)` resuelve esto devolviendo filas
+solo cuando `p_user_id` coincide con `app.user_id` de la sesión — el parámetro no
+permite consultar por un id arbitrario, es una comprobación adicional dentro de la
+propia función, no una confianza ciega en quien la llama.
+
+**Revocar todas las sesiones salvo la actual** (cambio de contraseña) necesita saber
+la familia de refresh token de la petición en curso. La cookie de refresh tiene
+`Path=/api/v1/auth`, así que endpoints fuera de ese prefijo (`/users/me/*`) nunca la
+reciben. Por eso el access token JWT lleva también la familia (`"fam"` en el payload,
+`AccessTokenClaims.family`): se fija al emitir el token (`issue_tokens`) y viaja de
+vuelta en cada petición autenticada sin depender de la cookie. Redis mantiene además
+un índice inverso familia→usuario (`refresh:familias_usuario:{user_id}`) para poder
+revocar todas las familias de una persona sin recorrer Redis entero.
+
 ## Permisos y anti-escalada
 
 El catálogo de permisos vive en código (`core/permissions.py`), no en base de datos: así
@@ -170,6 +216,14 @@ SeaweedFS 3.97 `PutBucketPolicy` existe pero rechaza políticas estándar de AWS
 Taskiq sobre `RedisStreamBroker`, no sobre una lista: Redis Streams confirma los
 mensajes y permite reintentos, así que una tarea no desaparece si el worker se reinicia.
 
+Las tareas programadas por cron (`@broker.task(schedule=[...])`) no las ejecuta el
+`worker`: desde Taskiq 0.12 el planificador (`TaskiqScheduler` + `LabelScheduleSource`)
+es un **proceso aparte**, arrancado con `taskiq scheduler app.core.tasks:scheduler`. El
+`worker` solo consume la cola; sin el proceso `scheduler` corriendo, ninguna tarea con
+`schedule` se dispara jamás, aunque el worker esté sano. Hoy hay una: el barrido horario
+de cuentas sin verificar (`core/cleanup.sweep_unverified_accounts`), que avisa a los 5
+días y borra a los 7.
+
 ## Frontend
 
 Una sola aplicación Angular 21 sirve la web pública y el panel.
@@ -186,20 +240,66 @@ Si la API no responde, la aplicación muestra «sitio no disponible» en lugar d
 paleta por defecto: enseñar una marca que no es la de la organización sería peor que
 admitir el fallo.
 
+### Páginas públicas con datos: SSR real, no solo plantilla
+
+Las páginas públicas de evento, sesión y ponente (`features/public/events/`) piden
+datos a la API durante el renderizado en servidor, siguiendo el mismo patrón que
+`ThemingService` — no el de `home-page.ts`, que solo espera un `import()` dinámico
+sin ninguna petición HTTP y por tanto serviría un hueco vacío (o, peor, datos de otra
+organización por el atajo de desarrollo) si se copiara sin más para una página con
+datos reales.
+
+1. La petición usa `ApiService.url()` + `ApiService.serverForwardHeaders()`, para
+   que en SSR lleve el `X-Forwarded-Host` real de la visita en vez del `Host`
+   interno del contenedor.
+2. La carga se registra con `PendingTasks.run(...)` dentro de `ngOnInit`: en modo
+   zoneless, sin esto el renderizado en servidor no esperaría a la petición
+   asíncrona y serializaría la página con el estado inicial vacío.
+3. El resultado se guarda en `TransferState` con una clave propia por página
+   (`makeStateKey`), para que el cliente no repita la petición al hidratar.
+4. Un 404 de la API marca un estado "no encontrado" en el componente, que
+   `NotFoundStatusService` (`core/ssr/not-found-status.service.ts`) traduce al
+   código de estado HTTP real de la respuesta SSR mediante el token `RESPONSE_INIT`
+   de `@angular/core` — `null` fuera de un renderizado en servidor real (build,
+   CSR, SSG, extracción de rutas), así que `mark()` es un no-op seguro en
+   cualquier otro contexto. No hace falta ninguna lógica adicional en
+   `server.ts`: el motor de `@angular/ssr` ya construye la `Response` final a
+   partir de ese mismo objeto antes de que `writeResponseToNodeResponse` la
+   escriba.
+5. Las etiquetas Open Graph (`og:title`, `og:description`, `og:image`) se fijan con
+   `SeoMetaService` (`core/seo/meta.service.ts`), primer uso de `Meta`/`Title` de
+   `@angular/platform-browser` en el proyecto.
+
+El vídeo embebido (`features/public/events/video-embed.ts`) resuelve la URL del
+reproductor oficial de cada plataforma (`youtube-nocookie.com`, `player.vimeo.com`,
+`player.twitch.tv`) a partir del `video_url` guardado; para «otro» plantea un enlace
+directo en vez de un `iframe` genérico que podría no cargar. El `src` de ese
+`iframe` se marca con `DomSanitizer.bypassSecurityTrustResourceUrl`: es seguro
+porque siempre se construye desde ese prefijo propio fijo, nunca a partir de la URL
+cruda que guardó quien edita la sesión — esa URL ya pasó, además, la validación de
+dominio por plataforma del backend (`validate_video_url`, ver
+`docs/modelo-de-datos.md`).
+
 ## Estructura
 
 ```
 apps/api/app/
 ├── core/      config, database, security, storage, tenant, permissions, deps, tasks
-├── modules/   health, auth, tenant, organizations, users, roles, admin
+├── modules/   health, auth, tenant, organizations, users, roles, admin, events
 ├── shared/    errors, pagination, dynamic_fields, identifiers
 └── seed/
 
 apps/web/src/app/
-├── core/      api, auth, theming, tenant, i18n
+├── core/      api, auth, theming, tenant, i18n, seo, ssr
 ├── layouts/   public, admin
-├── features/  public/*, admin/*
+├── features/  public/* (incluida public/events), admin/*
 └── shared/ui/
 ```
+
+`modules/events` reúne eventos, agenda, roster de participantes y perfil público de
+ponente: `router.py` (administración, autenticado), `public_router.py` (lecturas sin
+autenticar bajo `/public/...`, con `limit_per_ip` en los cuatro endpoints) y
+`speakers_repository.py` (historial de un ponente, compartido por ambos routers con
+el filtro de publicación como parámetro explícito).
 
 Regla: ningún fichero fuente supera las 1000 líneas, con 300 como objetivo.

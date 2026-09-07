@@ -94,6 +94,13 @@ class OrganizationMember(Base, TimestampMixin):
             "role_id",
             name="uq_organization_members_organization_id_user_id_role_id",
         ),
+        # Objetivo de las FK compuestas de `event_members.organization_member_id` y
+        # `speaker_public_profiles.source_organization_member_id`: sin esto, nada a
+        # nivel de base de datos impediría que una fila propia referenciara a un
+        # miembro de otra organización (la integridad referencial no pasa por RLS).
+        UniqueConstraint(
+            "id", "organization_id", name="uq_organization_members_id_organization_id"
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=new_uuid7)

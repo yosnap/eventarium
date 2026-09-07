@@ -9,15 +9,33 @@ from fastapi import APIRouter, Depends, Request, Response, status
 from app.core.config import get_settings
 from app.core.deps import DbDep, get_current_organization
 from app.core.ratelimit import (
+    FORGOT_PASSWORD_POR_IP,
     LOGIN_POR_HOST,
     LOGIN_POR_IP,
+    REENVIO_VERIFICACION_POR_IP,
     REFRESH_POR_IP,
+    REGISTRO_POR_IP,
+    RESET_PASSWORD_POR_IP,
+    VERIFICACION_CORREO_POR_IP,
     limit_per_host,
     limit_per_ip,
 )
+from app.core.security import create_access_token
 from app.core.tenant import ResolvedOrganization
+from app.core.turnstile import require_turnstile
 from app.modules.auth import service
-from app.modules.auth.schemas import LoginRequest, LoginResponse, TokenResponse, UserSummary
+from app.modules.auth.schemas import (
+    ForgotPasswordRequest,
+    GenericMessageResponse,
+    LoginRequest,
+    LoginResponse,
+    RegisterRequest,
+    ResendVerificationRequest,
+    ResetPasswordRequest,
+    TokenResponse,
+    UserSummary,
+    VerifyEmailResponse,
+)
 from app.shared.errors import AuthenticationError
 
 router = APIRouter(prefix="/auth", tags=["autenticación"])
@@ -85,7 +103,8 @@ async def login(
         user=UserSummary(
             id=str(usuario.id),
             email=usuario.email,
-            full_name=usuario.full_name,
+            first_name=usuario.first_name,
+            last_name=usuario.last_name,
             is_superadmin=usuario.is_superadmin,
         ),
     )
@@ -105,6 +124,100 @@ async def refresh(request: Request, response: Response, session: DbDep) -> Token
     tokens, _ = await service.rotate_refresh_token(session, cookie)
     _fijar_cookie(response, tokens.refresh_token)
     return TokenResponse(access_token=tokens.access_token, expires_in=tokens.expires_in)
+
+
+@router.post(
+    "/register",
+    summary="Registrar una cuenta",
+    description=(
+        "Crea una cuenta con el correo sin verificar y encola el enlace de "
+        "verificación. Responde siempre igual, exista ya la cuenta o no."
+    ),
+    response_model=GenericMessageResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[limit_per_ip("registro", REGISTRO_POR_IP)],
+)
+async def register(
+    datos: RegisterRequest, request: Request, session: DbDep
+) -> GenericMessageResponse:
+    await require_turnstile(request, datos.turnstile_token)
+    await service.register_user(session, email=str(datos.email), password=datos.password)
+    return GenericMessageResponse(
+        message="Si el correo no está ya registrado, recibirás un enlace de verificación."
+    )
+
+
+@router.get(
+    "/verify-email",
+    summary="Verificar el correo",
+    description="Consume el token del enlace de verificación y marca el correo como verificado.",
+    response_model=VerifyEmailResponse,
+    dependencies=[limit_per_ip("verificar-correo", VERIFICACION_CORREO_POR_IP)],
+)
+async def verify_email(token: str, session: DbDep) -> VerifyEmailResponse:
+    settings = get_settings()
+    user_id = await service.verify_email(session, token=token)
+    return VerifyEmailResponse(
+        message="Correo verificado correctamente.",
+        access_token=create_access_token(user_id, None, is_superadmin=False),
+        expires_in=settings.access_token_ttl_minutes * 60,
+    )
+
+
+@router.post(
+    "/resend-verification",
+    summary="Reenviar el correo de verificación",
+    description=(
+        "Encola un nuevo enlace solo si la cuenta existe y no está verificada. "
+        "Responde siempre igual."
+    ),
+    response_model=GenericMessageResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[limit_per_ip("reenvio-verificacion", REENVIO_VERIFICACION_POR_IP)],
+)
+async def resend_verification(
+    datos: ResendVerificationRequest, request: Request, session: DbDep
+) -> GenericMessageResponse:
+    await require_turnstile(request, datos.turnstile_token)
+    await service.resend_verification(session, email=str(datos.email))
+    return GenericMessageResponse(
+        message="Si la cuenta existe y no está verificada, recibirás un nuevo enlace."
+    )
+
+
+@router.post(
+    "/forgot-password",
+    summary="Pedir la recuperación de una contraseña olvidada",
+    description=(
+        "Encola un enlace de recuperación solo si la cuenta existe. Responde siempre igual."
+    ),
+    response_model=GenericMessageResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[limit_per_ip("forgot-password", FORGOT_PASSWORD_POR_IP)],
+)
+async def forgot_password(
+    datos: ForgotPasswordRequest, request: Request, session: DbDep
+) -> GenericMessageResponse:
+    await require_turnstile(request, datos.turnstile_token)
+    await service.forgot_password(session, email=str(datos.email))
+    return GenericMessageResponse(
+        message="Si la cuenta existe, recibirás un enlace para elegir una contraseña nueva."
+    )
+
+
+@router.post(
+    "/reset-password",
+    summary="Completar la recuperación de contraseña",
+    description=(
+        "Consume el token del enlace de recuperación, aplica la contraseña nueva y "
+        "revoca las demás sesiones."
+    ),
+    response_model=GenericMessageResponse,
+    dependencies=[limit_per_ip("reset-password", RESET_PASSWORD_POR_IP)],
+)
+async def reset_password(datos: ResetPasswordRequest, session: DbDep) -> GenericMessageResponse:
+    await service.reset_password(session, token=datos.token, new_password=datos.new_password)
+    return GenericMessageResponse(message="Contraseña actualizada correctamente.")
 
 
 @router.post(

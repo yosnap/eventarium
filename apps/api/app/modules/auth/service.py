@@ -12,12 +12,16 @@ Modelo de refresh tokens (rotación con detección de reutilización):
 
 from __future__ import annotations
 
+import hashlib
 import json
+import logging
 import uuid
 from dataclasses import dataclass
 from datetime import timedelta
 
+import httpx
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -25,14 +29,36 @@ from app.core.redis_client import require_redis
 from app.core.security import (
     create_access_token,
     generate_refresh_token,
+    hash_password,
     hash_refresh_token,
     verify_password,
 )
-from app.shared.errors import AuthenticationError
+from app.core.tasks import (
+    send_email_change_confirmation,
+    send_email_change_warning,
+    send_password_reset_email,
+    send_verification_email,
+)
+from app.modules.auth.verification import (
+    PROPOSITO_CAMBIO_CORREO,
+    PROPOSITO_RECUPERAR_CONTRASENA,
+    PROPOSITO_VERIFICACION_CORREO,
+    consume_token,
+    generate_token,
+)
+from app.shared.errors import AuthenticationError, ConflictError, ValidationDomainError
+from app.shared.identifiers import new_uuid7
 
 CLAVE_ACTIVO = "refresh:activo:{}"
 CLAVE_USADO = "refresh:usado:{}"
 CLAVE_FAMILIA = "refresh:familia:{}"
+# Índice inverso familia→usuario: sin él, revocar «todas las sesiones de un usuario»
+# (cambio de correo, de contraseña, recuperación) obligaría a recorrer Redis entero.
+CLAVE_FAMILIAS_USUARIO = "refresh:familias_usuario:{}"
+
+PWNED_PASSWORDS_URL = "https://api.pwnedpasswords.com/range/{prefijo}"
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,7 +67,8 @@ class AuthenticatedUser:
 
     id: uuid.UUID
     email: str
-    full_name: str
+    first_name: str | None
+    last_name: str | None
     is_superadmin: bool
 
 
@@ -74,7 +101,8 @@ async def authenticate(
     fila = (
         await session.execute(
             text(
-                "SELECT u.id, u.email, u.full_name, u.password_hash, u.is_active, u.is_superadmin "
+                "SELECT u.id, u.email, u.first_name, u.last_name, u.password_hash, "
+                "       u.is_active, u.is_superadmin "
                 "FROM users u "
                 "WHERE lower(u.email) = lower(:email) "
                 "  AND EXISTS (SELECT 1 FROM organization_members m "
@@ -89,10 +117,12 @@ async def authenticate(
         # Se verifica igualmente un hash ficticio para no filtrar por tiempo de respuesta.
         verify_password(password, None)
         raise credenciales_invalidas
-    if not fila[4] or not verify_password(password, fila[3]):
+    if not fila[5] or not verify_password(password, fila[4]):
         raise credenciales_invalidas
 
-    return AuthenticatedUser(id=fila[0], email=fila[1], full_name=fila[2], is_superadmin=fila[5])
+    return AuthenticatedUser(
+        id=fila[0], email=fila[1], first_name=fila[2], last_name=fila[3], is_superadmin=fila[6]
+    )
 
 
 async def issue_tokens(
@@ -121,11 +151,13 @@ async def issue_tokens(
         tuberia.set(CLAVE_ACTIVO.format(huella), datos, ex=ttl)
         tuberia.sadd(CLAVE_FAMILIA.format(familia), huella)
         tuberia.expire(CLAVE_FAMILIA.format(familia), ttl)
+        tuberia.sadd(CLAVE_FAMILIAS_USUARIO.format(usuario.id), familia)
+        tuberia.expire(CLAVE_FAMILIAS_USUARIO.format(usuario.id), ttl)
         await tuberia.execute()
 
     return IssuedTokens(
         access_token=create_access_token(
-            usuario.id, organization_id, is_superadmin=usuario.is_superadmin
+            usuario.id, organization_id, is_superadmin=usuario.is_superadmin, family=familia
         ),
         refresh_token=refresh,
         expires_in=settings.access_token_ttl_minutes * 60,
@@ -143,6 +175,27 @@ async def _revoke_family(familia: str) -> None:
             tuberia.delete(CLAVE_USADO.format(huella))
         tuberia.delete(clave)
         await tuberia.execute()
+
+
+async def revoke_all_families(user_id: uuid.UUID, *, except_family: str | None = None) -> None:
+    """Revoca todas las sesiones del usuario, salvo la familia indicada si se pasa.
+
+    Se usa al cambiar la contraseña, confirmar un cambio de correo o completar una
+    recuperación: una sesión robada no debe sobrevivir a ninguno de esos tres cambios.
+    """
+    redis = await require_redis()
+    clave = CLAVE_FAMILIAS_USUARIO.format(user_id)
+    familias: set[str] = await redis.smembers(clave)  # type: ignore[misc]
+    for familia in familias:
+        if familia == except_family:
+            continue
+        await _revoke_family(familia)
+
+    if except_family and except_family in familias:
+        await redis.delete(clave)
+        await redis.sadd(clave, except_family)  # type: ignore[misc]
+    else:
+        await redis.delete(clave)
 
 
 async def rotate_refresh_token(
@@ -174,7 +227,7 @@ async def rotate_refresh_token(
     fila = (
         await session.execute(
             text(
-                "SELECT u.id, u.email, u.full_name, u.is_superadmin "
+                "SELECT u.id, u.email, u.first_name, u.last_name, u.is_superadmin "
                 "FROM users u "
                 "WHERE u.id = :id AND u.is_active "
                 "  AND EXISTS (SELECT 1 FROM organization_members m "
@@ -193,7 +246,9 @@ async def rotate_refresh_token(
         tuberia.set(CLAVE_USADO.format(huella), familia, ex=ttl)
         await tuberia.execute()
 
-    usuario = AuthenticatedUser(id=fila[0], email=fila[1], full_name=fila[2], is_superadmin=fila[3])
+    usuario = AuthenticatedUser(
+        id=fila[0], email=fila[1], first_name=fila[2], last_name=fila[3], is_superadmin=fila[4]
+    )
     tokens = await issue_tokens(usuario, organization_id, family_id=familia)
     return tokens, organization_id
 
@@ -209,3 +264,252 @@ async def revoke_refresh_token(refresh_token: str) -> None:
     familia_usada = await redis.get(CLAVE_USADO.format(huella))
     if familia_usada:
         await _revoke_family(familia_usada)
+
+
+async def _password_filtrada(password: str) -> bool:
+    """Comprueba la contraseña contra HaveIBeenPwned con k-anonymity.
+
+    Solo viaja el prefijo de 5 caracteres del hash SHA-1; la contraseña en claro nunca
+    sale del proceso. **Fail-open**: si el servicio no responde, el registro continúa
+    y se registra un aviso — no es un control de sesión crítico como el refresh token.
+    """
+    huella = hashlib.sha1(password.encode("utf-8")).hexdigest().upper()  # noqa: S324
+    prefijo, sufijo = huella[:5], huella[5:]
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as cliente:
+            respuesta = await cliente.get(PWNED_PASSWORDS_URL.format(prefijo=prefijo))
+            respuesta.raise_for_status()
+    except httpx.HTTPError:
+        logger.warning("Servicio de contraseñas filtradas no disponible; se continúa (fail-open).")
+        return False
+    for linea in respuesta.text.splitlines():
+        candidato, _, _ = linea.partition(":")
+        if candidato == sufijo:
+            return True
+    return False
+
+
+async def register_user(session: AsyncSession, *, email: str, password: str) -> None:
+    """Registra una cuenta y encola el correo de verificación.
+
+    Siempre se comporta igual exista o no la cuenta ya: la respuesta al llamador no
+    debe permitir averiguar qué correos están registrados. La visibilidad normal de
+    `users` bajo RLS exige compartir organización con quien pregunta, algo que no
+    existe todavía en el registro; por eso la búsqueda y la creación usan las
+    funciones `SECURITY DEFINER` de alcance mínimo `app_find_user_by_email` y
+    `app_create_unverified_user`, en vez de exponer la tabla sin contexto.
+
+    El hash de la contraseña se calcula **siempre**, exista ya la cuenta o no: es el
+    coste dominante de la petición (Argon2id es deliberadamente lento) y, si solo se
+    calculara al crear la cuenta, el tiempo de respuesta delataría por sí mismo si el
+    correo ya estaba registrado — el mismo motivo por el que `authenticate()` verifica
+    un hash ficticio cuando el usuario no existe.
+    """
+    if await _password_filtrada(password):
+        raise ValidationDomainError(
+            "Esta contraseña aparece en filtraciones conocidas. Elige otra."
+        )
+
+    password_hash = hash_password(password)
+
+    existente = (
+        await session.execute(
+            text("SELECT id FROM app_find_user_by_email(:email)"), {"email": email}
+        )
+    ).first()
+    if existente is not None:
+        return
+
+    user_id = new_uuid7()
+    try:
+        await session.execute(
+            text("SELECT app_create_unverified_user(:id, :email, :hash)"),
+            {
+                "id": user_id,
+                "email": email,
+                "hash": password_hash,
+            },
+        )
+    except IntegrityError:
+        # Condición de carrera con otro registro simultáneo del mismo correo: el
+        # `UNIQUE` de la base de datos es la única fuente de verdad. Misma respuesta.
+        return
+
+    token = await generate_token(PROPOSITO_VERIFICACION_CORREO, str(user_id))
+    await send_verification_email.kiq(email, token)
+
+
+async def verify_email(session: AsyncSession, *, token: str) -> uuid.UUID:
+    """Verifica un token, marca el correo como verificado y devuelve el `user_id`.
+
+    El llamador usa el id para emitir el token puente sin organización (fase 2:
+    autoservicio de creación de organizaciones).
+    """
+    bruto = await consume_token(PROPOSITO_VERIFICACION_CORREO, token)
+    if bruto is None:
+        raise ValidationDomainError("El enlace de verificación no es válido o ha caducado.")
+    user_id = uuid.UUID(bruto)
+    await session.execute(text("SELECT app_verify_user_email(:id)"), {"id": user_id})
+    return user_id
+
+
+async def resend_verification(session: AsyncSession, *, email: str) -> None:
+    """Reencola el correo de verificación si la cuenta existe y no está verificada.
+
+    Misma respuesta siempre, se cumpla o no la condición: no revela qué correos
+    existen ni cuáles ya están verificados.
+    """
+    fila = (
+        await session.execute(
+            text("SELECT id, email_verified_at FROM app_find_user_by_email(:email)"),
+            {"email": email},
+        )
+    ).first()
+    if fila is not None and fila[1] is None:
+        token = await generate_token(PROPOSITO_VERIFICACION_CORREO, str(fila[0]))
+        await send_verification_email.kiq(email, token)
+
+
+async def change_email_request(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    current_email: str,
+    new_email: str,
+    password: str,
+) -> None:
+    """Solicita un cambio de correo: exige la contraseña actual y avisa al correo viejo.
+
+    El cambio no se aplica todavía — solo tras confirmar con el token que llega al
+    correo **nuevo**. Un 409 genérico si el correo ya está en uso, sin distinguir si es
+    de una cuenta verificada o no, por el mismo motivo anti-enumeración que el registro.
+    El aviso al correo actual se envía ya en este momento, no al confirmar: con una
+    sesión robada, el dueño legítimo tiene que enterarse antes de que sea tarde.
+    """
+    fila = (
+        await session.execute(
+            text("SELECT password_hash FROM users WHERE id = :id"), {"id": user_id}
+        )
+    ).first()
+    if fila is None or not verify_password(password, fila[0]):
+        raise AuthenticationError("La contraseña actual no es correcta.")
+
+    nuevo = new_email.strip().lower()
+    if nuevo == current_email.strip().lower():
+        raise ValidationDomainError("El correo nuevo es igual al actual.")
+
+    en_uso = (
+        await session.execute(
+            text("SELECT id FROM app_find_user_by_email(:email)"), {"email": nuevo}
+        )
+    ).first()
+    if en_uso is not None:
+        raise ConflictError("Ese correo ya está en uso.")
+
+    token = await generate_token(PROPOSITO_CAMBIO_CORREO, f"{user_id}:{nuevo}")
+    await send_email_change_warning.kiq(current_email, nuevo)
+    await send_email_change_confirmation.kiq(nuevo, token)
+
+
+async def change_email_confirm(session: AsyncSession, *, token: str) -> uuid.UUID:
+    """Confirma un cambio de correo pendiente y revoca las demás sesiones.
+
+    Vuelve a comprobar la disponibilidad del correo nuevo: pudo haberlo tomado otra
+    cuenta en las 24 horas de validez del token.
+    """
+    bruto = await consume_token(PROPOSITO_CAMBIO_CORREO, token)
+    if bruto is None:
+        raise ValidationDomainError("El enlace de cambio de correo no es válido o ha caducado.")
+    id_bruto, _, nuevo_correo = bruto.partition(":")
+    user_id = uuid.UUID(id_bruto)
+
+    en_uso = (
+        await session.execute(
+            text("SELECT id FROM app_find_user_by_email(:email)"), {"email": nuevo_correo}
+        )
+    ).first()
+    if en_uso is not None and en_uso[0] != user_id:
+        raise ConflictError("Ese correo ya está en uso.")
+
+    # Quien confirma no tiene por qué llevar una sesión con contexto de organización
+    # (`app_current_user()` vacío): igual que `app_verify_user_email`, hace falta una
+    # función `SECURITY DEFINER` de alcance mínimo en vez de un UPDATE bajo RLS normal.
+    try:
+        await session.execute(
+            text("SELECT app_change_user_email(:id, :email)"),
+            {"id": user_id, "email": nuevo_correo},
+        )
+    except IntegrityError as exc:
+        # La comprobación de arriba no cierra la carrera: otra confirmación pudo
+        # tomar el mismo correo entre el `SELECT` y este `UPDATE`. El `UNIQUE` de
+        # `users.email` es la única fuente de verdad ante esa carrera estrecha.
+        raise ConflictError("Ese correo ya está en uso.") from exc
+    await revoke_all_families(user_id)
+    return user_id
+
+
+async def change_password(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    current_password: str,
+    new_password: str,
+    keep_family: str | None,
+) -> None:
+    """Cambia la contraseña. Exige la actual y revoca las demás sesiones."""
+    fila = (
+        await session.execute(
+            text("SELECT password_hash FROM users WHERE id = :id"), {"id": user_id}
+        )
+    ).first()
+    if fila is None or not verify_password(current_password, fila[0]):
+        raise AuthenticationError("La contraseña actual no es correcta.")
+    if await _password_filtrada(new_password):
+        raise ValidationDomainError(
+            "Esta contraseña aparece en filtraciones conocidas. Elige otra."
+        )
+
+    await session.execute(
+        text("UPDATE users SET password_hash = :hash WHERE id = :id"),
+        {"hash": hash_password(new_password), "id": user_id},
+    )
+    await revoke_all_families(user_id, except_family=keep_family)
+
+
+async def forgot_password(session: AsyncSession, *, email: str) -> None:
+    """Encola el correo de recuperación si la cuenta existe. Respuesta anti-enumeración."""
+    fila = (
+        await session.execute(
+            text("SELECT id FROM app_find_user_by_email(:email)"), {"email": email}
+        )
+    ).first()
+    if fila is not None:
+        token = await generate_token(PROPOSITO_RECUPERAR_CONTRASENA, str(fila[0]))
+        await send_password_reset_email.kiq(email, token)
+
+
+async def reset_password(session: AsyncSession, *, token: str, new_password: str) -> None:
+    """Consume el token de recuperación, aplica la contraseña y revoca las sesiones.
+
+    Fija `email_verified_at` si estaba nulo: un miembro invitado (fase 4) se crea sin
+    contraseña y nunca pasa por `/auth/register`, así que recibir y usar este enlace en
+    su bandeja prueba la propiedad del correo igual que `verify-email`.
+    """
+    bruto = await consume_token(PROPOSITO_RECUPERAR_CONTRASENA, token)
+    if bruto is None:
+        raise ValidationDomainError("El enlace de recuperación no es válido o ha caducado.")
+    user_id = uuid.UUID(bruto)
+
+    if await _password_filtrada(new_password):
+        raise ValidationDomainError(
+            "Esta contraseña aparece en filtraciones conocidas. Elige otra."
+        )
+
+    # Igual que en `change_email_confirm`: quien recupera no lleva sesión, así que el
+    # UPDATE necesita la función `SECURITY DEFINER`, no RLS normal.
+    await session.execute(
+        text("SELECT app_set_user_password(:id, :hash)"),
+        {"id": user_id, "hash": hash_password(new_password)},
+    )
+    await session.execute(text("SELECT app_verify_user_email(:id)"), {"id": user_id})
+    await revoke_all_families(user_id)

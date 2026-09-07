@@ -14,8 +14,11 @@ from app.core.redis_client import close_redis
 from app.core.storage import get_storage
 from app.modules.admin.router import router as admin_router
 from app.modules.auth.router import router as auth_router
+from app.modules.events.public_router import router as events_public_router
+from app.modules.events.router import router as events_router
 from app.modules.health.router import router as health_router
 from app.modules.organizations.router import router as organizations_router
+from app.modules.organizations.self_service import router as organizations_self_service_router
 from app.modules.roles.router import router as roles_router
 from app.modules.tenant.router import router as tenant_router
 from app.modules.users.router import router as users_router
@@ -74,10 +77,13 @@ def create_app() -> FastAPI:
     api.include_router(health_router)
     api.include_router(auth_router)
     api.include_router(tenant_router)
+    api.include_router(organizations_self_service_router)
     api.include_router(organizations_router)
     api.include_router(users_router)
     api.include_router(roles_router)
     api.include_router(admin_router)
+    api.include_router(events_router)
+    api.include_router(events_public_router)
     app.include_router(api)
 
     return app

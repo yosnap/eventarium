@@ -57,6 +57,12 @@ async def get_db(
     return session
 
 
+# Reutilizable por los endpoints públicos (sin autenticar): necesitan el `id` de la
+# organización resuelta por host, pero no un usuario — `get_db` ya deja el contexto
+# RLS listo con solo esta dependencia, sin pasar por `get_current_user`.
+OrganizationDep = Annotated[ResolvedOrganization, Depends(get_current_organization)]
+
+
 async def get_maintenance_db() -> AsyncIterator[AsyncSession]:
     """Sesión con el rol `app_maintainer` (BYPASSRLS).
 
@@ -84,22 +90,34 @@ async def get_token_claims(request: Request) -> AccessTokenClaims:
 class CurrentUser:
     """Usuario autenticado en el contexto de la organización de la petición."""
 
-    __slots__ = ("id", "email", "full_name", "is_superadmin", "organization_id")
+    __slots__ = (
+        "id",
+        "email",
+        "first_name",
+        "last_name",
+        "is_superadmin",
+        "organization_id",
+        "refresh_family",
+    )
 
     def __init__(
         self,
         *,
         id: uuid.UUID,
         email: str,
-        full_name: str,
+        first_name: str | None,
+        last_name: str | None,
         is_superadmin: bool,
         organization_id: uuid.UUID,
+        refresh_family: str | None = None,
     ) -> None:
         self.id = id
         self.email = email
-        self.full_name = full_name
+        self.first_name = first_name
+        self.last_name = last_name
         self.is_superadmin = is_superadmin
         self.organization_id = organization_id
+        self.refresh_family = refresh_family
 
 
 async def get_current_user(
@@ -121,19 +139,24 @@ async def get_current_user(
 
     fila = (
         await session.execute(
-            text("SELECT id, email, full_name, is_superadmin, is_active FROM users WHERE id = :id"),
+            text(
+                "SELECT id, email, first_name, last_name, is_superadmin, is_active "
+                "FROM users WHERE id = :id"
+            ),
             {"id": claims.user_id},
         )
     ).first()
-    if fila is None or not fila[4]:
+    if fila is None or not fila[5]:
         raise AuthenticationError("El usuario ya no existe o está desactivado.")
 
     return CurrentUser(
         id=fila[0],
         email=fila[1],
-        full_name=fila[2],
-        is_superadmin=fila[3],
+        first_name=fila[2],
+        last_name=fila[3],
+        is_superadmin=fila[4],
         organization_id=organizacion.id,
+        refresh_family=claims.family,
     )
 
 
@@ -197,18 +220,64 @@ async def require_superadmin(
     """
     fila = (
         await session.execute(
-            text("SELECT id, email, full_name, is_superadmin, is_active FROM users WHERE id = :id"),
+            text(
+                "SELECT id, email, first_name, last_name, is_superadmin, is_active "
+                "FROM users WHERE id = :id"
+            ),
             {"id": claims.user_id},
         )
     ).first()
-    if fila is None or not fila[4]:
+    if fila is None or not fila[5]:
         raise AuthenticationError("El usuario ya no existe o está desactivado.")
-    if not fila[3]:
+    if not fila[4]:
         raise PermissionDeniedError("Se requieren privilegios de superadministrador.")
     return CurrentUser(
         id=fila[0],
         email=fila[1],
-        full_name=fila[2],
+        first_name=fila[2],
+        last_name=fila[3],
         is_superadmin=True,
         organization_id=claims.organization_id or uuid.UUID(int=0),
     )
+
+
+class VerifiedUser:
+    """Persona con el correo verificado, sin organización todavía.
+
+    Distinto de `CurrentUser`: ese exige que el token pertenezca a la organización del
+    host de la petición, algo que no tiene sentido para quien acaba de verificar su
+    correo y aún no ha creado ninguna. Solo lo usa el autoservicio de creación de
+    organizaciones.
+    """
+
+    __slots__ = ("id", "email")
+
+    def __init__(self, *, id: uuid.UUID, email: str) -> None:
+        self.id = id
+        self.email = email
+
+
+async def require_verified_user(
+    claims: Annotated[AccessTokenClaims, Depends(get_token_claims)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> VerifiedUser:
+    """Exige un token válido de una persona con el correo ya verificado.
+
+    La visibilidad normal de `users` bajo RLS exige compartir organización con quien
+    pregunta; por eso usa `app_find_user_by_id`, la misma función `SECURITY DEFINER`
+    de alcance mínimo que el registro (fase 1) usa por correo.
+    """
+    fila = (
+        await session.execute(
+            text("SELECT id, email, email_verified_at FROM app_find_user_by_id(:id)"),
+            {"id": claims.user_id},
+        )
+    ).first()
+    if fila is None:
+        raise AuthenticationError("El usuario ya no existe.")
+    if fila[2] is None:
+        raise PermissionDeniedError("El correo todavía no está verificado.")
+    return VerifiedUser(id=fila[0], email=fila[1])
+
+
+VerifiedUserDep = Annotated[VerifiedUser, Depends(require_verified_user)]

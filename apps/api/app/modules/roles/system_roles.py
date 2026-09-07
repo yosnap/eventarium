@@ -60,6 +60,8 @@ ORGANIZER = SystemRoleTemplate(
         Permission.MEMBERS_READ,
         Permission.MEMBERS_WRITE,
         Permission.USERS_READ,
+        Permission.EVENTS_READ,
+        Permission.EVENTS_WRITE,
     ),
     profile_fields=(
         ProfileFieldTemplate(key="cargo", label="Cargo", sort_order=10),

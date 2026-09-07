@@ -70,6 +70,144 @@ Revisado el 2026-09-07 sobre las pantallas existentes: portada pública (plantil
   inscripción, que todavía no existen.
 - Comprobar el contraste de las plantillas públicas nuevas según se añadan al registro.
 
+## Checklist manual — Fase 1 (correo y verificación)
+
+Revisado el 2026-09-07 sobre `/registro` y `/verificar-correo`.
+
+| # | Criterio WCAG 2.1 AA | Cómo se ha comprobado | Resultado |
+|---|---|---|---|
+| 2.1.1 | Teclado | Recorrido completo con tabulador en ambas pantallas: campos, envío, enlace a «ya tienes cuenta» | ✅ |
+| 3.3.1 | Identificación de errores | Errores de campo con `aria-describedby`/`aria-invalid` (mismo patrón que `admin/login`) | ✅ |
+| 4.1.3 | Mensajes de estado | El resultado de la verificación (éxito, enlace caducado) se anuncia con `aria-live="assertive"`: no ocurre por ninguna interacción del usuario, así que sin esto un lector de pantalla no se entera de que la comprobación terminó | ✅ |
+| 1.4.1 | Uso del color | El indicador de fuerza de contraseña (`shared/ui/password-strength.ts`) no depende solo del color de la barra: cada requisito lleva además un texto «cumplido»/«pendiente». Sin `aria-live` a propósito: anunciar en cada pulsación sería disruptivo | ✅ |
+| — | Cobertura automática | `register-page.spec.ts` y `verify-email-page.spec.ts`: cero violaciones de axe en los tres estados de cada pantalla (formulario, éxito, error), incluido el formulario con el indicador de fuerza visible | ✅ |
+
+**Turnstile (widget de terceros, fuera del alcance de axe): pendiente de verificación
+manual con lector de pantalla real.** El desarrollo corre con `TURNSTILE_ENABLED=false`
+(decisión de producto), así que el iframe de Cloudflare nunca se ha renderizado en esta
+fase — no hay una clave de sitio real disponible en este entorno. Antes de activar
+Turnstile en producción, alguien con VoiceOver o NVDA debe comprobar sobre un entorno
+con `TURNSTILE_ENABLED=true` y una `TURNSTILE_SITE_KEY` real que: el widget se anuncia
+como un control identificable, es alcanzable y operable por teclado, y no bloquea el
+envío del formulario cuando el desafío se completa correctamente. Esta fila se marca
+como pendiente, no como comprobada, hasta que esa verificación ocurra.
+
+## Checklist manual — Fase 3 (panel de organización y branding)
+
+Revisado el 2026-09-07 sobre `admin/organization` (nueva) y `admin/branding` (pasa de
+solo lectura a formulario de edición completo: plantilla, logo, colores, tipografías,
+redes sociales y resumen del organizador).
+
+| # | Criterio WCAG 2.1 AA | Cómo se ha comprobado | Resultado |
+|---|---|---|---|
+| 1.3.1 | Información y relaciones | Los nuevos campos usan `app-input`/`app-textarea` (mismo patrón de etiqueta+error+ayuda que el resto del panel); cada muestra de color editable lleva `aria-label` propio, distinto del campo de texto hermano | ✅ |
+| 1.4.3 | Contraste mínimo | El aviso de `checkBrandingContrast` se calcula ahora sobre los valores **en edición**, no solo sobre lo ya publicado — se comprueba con test que aparece y desaparece al corregir un color | ✅ |
+| 3.3.1 | Identificación de errores | El nombre de la organización y el logotipo con tipo no permitido muestran su error junto al campo, sin depender del color | ✅ |
+| 3.3.2 | Etiquetas o instrucciones | Selector de plantilla y campo de fichero llevan `<label for>` explícito, no solo el título de la tarjeta | ✅ |
+| — | Cobertura automática | `organization-page.spec.ts` (3 tests) y `branding-page.spec.ts` (4 tests): cero violaciones de axe al cargar, tras guardar con éxito, y con el aviso de contraste visible | ✅ |
+
+**Pendiente de esta fase**: recorrido manual con solo teclado y con lector de pantalla
+real sobre estas dos pantallas — el entorno de desarrollo local no tenía forma de
+navegar al subdominio de una organización de autoservicio sin modificar la resolución
+de nombres del sistema (`DOMINIO_BASE` vacío en desarrollo, ver `docs/despliegue.md`),
+así que la verificación de esta fase se apoyó en la cobertura automática de axe y en
+comprobar el contrato de los endpoints (`GET/PATCH /organizations/me`,
+`GET/PUT /organizations/me/branding`, `PUT .../branding/logo`) directamente. Queda
+pendiente el recorrido manual antes de dar la fase por cerrada de cara a producción.
+
+## Checklist manual — Fase 4 (roles, campos de perfil y miembros)
+
+Revisado el 2026-09-07 sobre `admin/roles`, `admin/roles/:id` (crear y editar),
+`admin/members` y `admin/members/nuevo`.
+
+| # | Criterio WCAG 2.1 AA | Cómo se ha comprobado | Resultado |
+|---|---|---|---|
+| 1.3.1 | Información y relaciones | Cada control de campo dinámico (`shared/ui/dynamic-field.ts`) enlaza etiqueta, ayuda y error igual que `app-input`/`app-textarea`, sea cual sea su tipo (texto, selector, casilla…) | ✅ |
+| 2.4.3 | Orden del foco | El resumen de errores (`shared/ui/error-summary.ts`) enlaza cada entrada al campo real con `href="#id"`, no a un elemento decorativo — encontrado y corregido un fallo real donde `[id]` en `app-input`/`app-textarea` se reflejaba también como atributo nativo en el elemento anfitrión, produciendo un `id` duplicado en el DOM que rompía el enlace; el `input` pasó a llamarse `fieldId` para evitar la colisión con el atributo global `id` | ✅ |
+| 3.3.1 | Identificación de errores | Con varios errores a la vez (varios campos de perfil obligatorios sin rellenar), aparece el resumen enlazado además del error inline en cada campo — antes de esta fase solo existía el error inline | ✅ |
+| 4.1.2 | Nombre, función, valor | Los permisos que el actor no posee se muestran deshabilitados con el motivo en `title`, en vez de ocultarse — decisión que resuelve la contradicción entre el `Requirements` y el `Risk Assessment` del plan de esta fase a favor de mostrar y explicar, no ocultar | ✅ |
+| — | Cobertura automática | 6 ficheros de test nuevos (roles, miembros, `dynamic-field`, `error-summary`, validación de campos dinámicos): cero violaciones de axe en listado, creación, edición y con el resumen de errores visible | ✅ |
+
+**Hallazgo real corregido durante la verificación manual, no solo en las pruebas**:
+los selectores nativos (`<select>`) que reciben su valor inicial de una respuesta de la
+API en vez de la propia interacción de la persona (tipo de campo al empezar un rol
+desde plantilla, plantilla de identidad visual) mostraban visualmente la primera
+opción de la lista en vez de la que correspondía, aunque el dato interno fuera
+correcto — un `<select [value]="…">` con `<option>` generadas por `@for` no garantiza
+que el navegador aplique el valor si las opciones aún no existen en ese ciclo de
+detección de cambios. Se sustituyó por `[selected]` en cada `<option>`, más fiable
+para listas de opciones dinámicas. Verificado leyendo `select.value` desde la consola
+del navegador antes y después de la corrección, sobre un rol creado a partir de la
+plantilla «Voluntariado».
+
+## Checklist manual — Fase 5 (cuenta propia y recuperación)
+
+Revisado el 2026-09-07 sobre `/recuperar-contrasena`, `/recuperar-contrasena/nueva`,
+`/cuenta/confirmar-correo` y `admin/account`, más el selector de organización en
+`admin-shell`.
+
+| # | Criterio WCAG 2.1 AA | Cómo se ha comprobado | Resultado |
+|---|---|---|---|
+| 2.1.1 | Teclado | Recorrido completo con tabulador en las cuatro pantallas nuevas: campos, envío, enlaces de vuelta | ✅ |
+| 3.3.1 | Identificación de errores | Mismo patrón `aria-describedby`/`aria-invalid` que el resto del panel en los formularios de perfil, correo y contraseña de `account-page` | ✅ |
+| 4.1.3 | Mensajes de estado | El resultado de `reset-password-page` y `confirm-email-change-page` (éxito, token caducado) se anuncia con `aria-live="assertive"`, mismo patrón que `verify-email-page`: ninguna de las dos comprobaciones ocurre por interacción directa de la persona | ✅ |
+| 2.4.4 | Propósito de los enlaces | El selector de organización usa `<a href>` reales por organización (no un manejador de clic que cambia `location.href`), con `aria-label` en el `nav` que lo contiene — un enlace real se anuncia como navegación, no como un control genérico | ✅ |
+| 1.3.1 | Información y relaciones | Los enlaces sociales de `account-page` reutilizan `app-input` con su etiqueta ya asociada; el guardado ocurre al perder el foco (`blurred`), sin depender de un botón adicional por fila | ✅ |
+| — | Cobertura automática | 4 ficheros de test nuevos (`forgot-password-page`, `reset-password-page`, `confirm-email-change-page`, `account-page`): cero violaciones de axe en cada estado (formulario, éxito, error, token caducado) | ✅ |
+
+**Verificación de extremo a extremo realizada manualmente** (no solo declarada, según
+exige el paso de cierre de esta fase): recuperación de contraseña completa contra el entorno de
+desarrollo real (Caddy + Angular SSR + FastAPI + Redis + Mailpit) — solicitud del
+enlace, lectura del correo real en Mailpit, cambio de contraseña, inicio de sesión con
+la contraseña nueva, edición del perfil y guardado de un enlace social, todo
+comprobado en el navegador. Este recorrido encontró y permitió corregir dos fallos
+reales que ningún test unitario cubría: la migración `0008_cuenta_y_recuperacion` no
+se había aplicado a la base de datos de desarrollo (solo a la de test), y
+`account-page` no recargaba el usuario actual tras una recarga completa de página
+(`AuthService.refresh()` solo renueva el token, no el usuario en memoria) — corregido
+con `AuthService.loadCurrentUser()`.
+
+## Checklist manual — Fase 2 del PRD, fase 4 (página pública con SSR)
+
+Revisado el 2026-09-08 sobre las cuatro pantallas públicas nuevas:
+`/eventos` (listado), `/eventos/:slug` (detalle con agenda), `/eventos/:slug/sesiones/:sessionId`
+(ponencia) y `/ponentes/:publicSlug` (perfil de ponente).
+
+| # | Criterio WCAG 2.1 AA | Cómo se ha comprobado | Resultado |
+|---|---|---|---|
+| 1.3.1 | Información y relaciones | Landmarks heredados de `PublicShell`; encabezados jerárquicos (`h1` del recurso, `h2` de sus secciones); redes sociales del ponente en un `nav` con `aria-label` propio | ✅ |
+| 2.4.4 | Propósito de los enlaces | Cada participante con perfil público enlaza a `/ponentes/:slug` con su nombre real como texto del enlace, nunca "ver más"; el historial del ponente enlaza a cada evento y cada sesión por su título | ✅ |
+| 1.1.1 / 4.1.2 | Contenido no textual / nombre, función, valor | El `iframe` del vídeo embebido lleva `title` traducido; el enlace directo para la plataforma «otro» usa un texto descriptivo, no la URL cruda | ✅ |
+| 4.1.3 | Mensajes de estado | El error de carga (`EventsListPage`) usa `app-alert` con `role="alert"`, mismo patrón que el resto del proyecto | ✅ |
+| — | Cobertura automática | 4 ficheros de test nuevos (`event-page`, `session-page`, `speaker-page`, `events-list-page`): cero violaciones de axe en cada estado (contenido, "no encontrado", listado vacío) | ✅ |
+
+**Hallazgo real corregido durante la verificación automática**: la agenda de
+`EventPage` envolvía cada `<app-card>` directamente dentro de un `<ul>`
+(`app-card` renderiza su propio `<section>` raíz), lo que viola 1.3.1 — un `<ul>`
+solo puede contener `<li>` como hijo directo. Corregido envolviendo cada tarjeta en
+su propio `<li>`, detectado por `esperarSinViolacionesDeAccesibilidad` antes de
+llegar a revisión manual.
+
+**Excluido de la cobertura automática, verificado solo manualmente**: axe-core no
+puede analizar un `<iframe>` a un dominio real (`youtube-nocookie.com`) dentro del
+entorno de test (jsdom) — falla al intentar comunicarse con su `contentWindow`. El
+`title` del `iframe` y el resto de la pantalla se verificaron por separado con el
+caso de la plataforma «otro» (sin `iframe` real), que sí corre bajo axe.
+
+**Verificación de extremo a extremo realizada manualmente** contra el entorno de
+desarrollo real (API + Postgres + servidor SSR de Angular, `node
+dist/web/server/server.mjs`), con `curl` fijando `X-Forwarded-Host` para no
+depender de resolución de nombres local: evento publicado con agenda de una
+sesión, ponente activando su propio perfil público en autoservicio (no desde el
+panel), y comprobación de que el HTML servido antes de cualquier hidratación ya
+trae el título, las etiquetas OG (`og:title`, `og:description`) y el contenido de
+la agenda y del ponente. Confirmado también el código de estado real: `404` para
+un evento en borrador, para un slug inexistente y para un ponente sin perfil
+activo; `200` con contenido para el evento, la sesión y el ponente publicados; y
+aislamiento multi-tenant end-to-end (el mismo evento pedido con el host de otra
+organización responde `404`, no solo a nivel de API sino a través de todo el
+recorrido de SSR).
+
 ## Al añadir una pantalla
 
 1. Externaliza todos los textos a `es-ES.json`.

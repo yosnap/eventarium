@@ -8,6 +8,29 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 SLUG_PATTERN = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
 
+# Subdominios que no puede reclamar el autoservicio: colisionarían con la propia
+# instalación o con nombres que alguien podría dar por hecho que están reservados al
+# operador. Se aplica igual en `check-slug` que en la creación: la comprobación previa
+# no puede prometer disponibilidad que la creación real luego rechace.
+RESERVED_SLUGS = frozenset(
+    {
+        "www",
+        "api",
+        "admin",
+        "mail",
+        "app",
+        "media",
+        "static",
+        "assets",
+        "docs",
+        "status",
+        "support",
+        "help",
+        "blog",
+        "cdn",
+    }
+)
+
 
 class OrganizationResponse(BaseModel):
     """Datos de la organización actual."""
@@ -69,7 +92,8 @@ class MemberResponse(BaseModel):
     id: str
     user_id: str
     email: EmailStr
-    full_name: str
+    first_name: str | None
+    last_name: str | None
     role_id: str
     role_key: str
     profile_data: dict[str, Any]
@@ -79,7 +103,8 @@ class MemberCreate(BaseModel):
     """Alta de un miembro por correo electrónico."""
 
     email: EmailStr
-    full_name: Annotated[str, Field(min_length=1, max_length=200)]
+    first_name: Annotated[str, Field(min_length=1, max_length=100)]
+    last_name: Annotated[str, Field(min_length=1, max_length=100)]
     role_id: str
     profile_data: dict[str, Any] = Field(default_factory=dict)
 
@@ -92,6 +117,37 @@ class OrganizationCreate(BaseModel):
     host: Annotated[str, Field(min_length=3, max_length=255)]
     legal_name: Annotated[str, Field(max_length=200)] | None = None
     contact_email: EmailStr | None = None
+
+
+class SelfServiceOrganizationCreate(BaseModel):
+    """Alta de organización por autoservicio (persona ya verificada)."""
+
+    name: Annotated[str, Field(min_length=1, max_length=160)]
+    slug: Annotated[str, Field(min_length=2, max_length=60, pattern=SLUG_PATTERN)]
+    first_name: Annotated[str, Field(min_length=1, max_length=100)]
+    last_name: Annotated[str, Field(min_length=1, max_length=100)]
+    turnstile_token: str = Field(description="Token del widget de Turnstile")
+
+
+class SelfServiceOrganizationResponse(BaseModel):
+    """Organización recién creada.
+
+    Sin token de sesión: el subdominio nuevo es un origen distinto de donde se ha
+    llamado a este endpoint (normalmente el dominio principal de la instalación), así
+    que ninguna cookie ni token en memoria viajaría con la persona hasta allí. El
+    cliente redirige a `host` y la persona entra con su correo y contraseña, esta vez
+    con éxito porque ya pertenece a una organización.
+    """
+
+    id: str
+    slug: str
+    host: str
+
+
+class CheckSlugResponse(BaseModel):
+    """Disponibilidad de un identificador de organización."""
+
+    available: bool
 
 
 class DomainCreate(BaseModel):

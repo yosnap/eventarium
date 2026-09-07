@@ -1,12 +1,17 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Component, Type, provideZonelessChangeDetection } from '@angular/core';
+import { TranslocoTestingModule } from '@jsverse/transloco';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { Alert } from './alert';
 import { Button } from './button';
 import { Card } from './card';
+import { DynamicField } from './dynamic-field';
+import { ErrorSummary } from './error-summary';
 import { Input } from './input';
+import { Textarea } from './textarea';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../testing/axe';
+import es from '../../../../public/assets/i18n/es-ES.json';
 
 /**
  * Anfitrión que proyecta texto en el botón, como se usa en la aplicación real. Un
@@ -21,7 +26,15 @@ class AnfitrionBoton {}
 
 describe('componentes compartidos', () => {
   beforeEach(() => {
-    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    TestBed.configureTestingModule({
+      imports: [
+        TranslocoTestingModule.forRoot({
+          langs: { 'es-ES': es },
+          translocoConfig: { availableLangs: ['es-ES'], defaultLang: 'es-ES' },
+        }),
+      ],
+      providers: [provideZonelessChangeDetection()],
+    });
   });
 
   /**
@@ -93,6 +106,133 @@ describe('componentes compartidos', () => {
     expect(fixture.nativeElement.querySelector(`#${idError}`)?.textContent).toContain(
       'Escribe tu correo.',
     );
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('el campo de contraseña alterna a texto plano con el botón de mostrar', async () => {
+    const fixture = await montar(Input, { label: 'Contraseña', type: 'password' });
+
+    const campo = fixture.nativeElement.querySelector('input') as HTMLInputElement;
+    const boton = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
+    expect(campo.type).toBe('password');
+    const etiquetaOculto = boton.getAttribute('aria-label');
+
+    boton.click();
+    await fixture.whenStable();
+    expect(campo.type).toBe('text');
+    // La etiqueta cambia entre «mostrar» y «ocultar»: el texto exacto depende de que
+    // las traducciones ya estén cargadas en el momento de la comprobación, algo que
+    // este test no controla; comprobar que cambia es la aserción robusta.
+    expect(boton.getAttribute('aria-label')).not.toBe(etiquetaOculto);
+
+    boton.click();
+    await fixture.whenStable();
+    expect(campo.type).toBe('password');
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('el campo muestra la ayuda solo mientras no hay error', async () => {
+    const fixture = await montar(Input, { label: 'Contraseña', hint: 'Mínimo 8 caracteres.' });
+
+    const campo = fixture.nativeElement.querySelector('input') as HTMLInputElement;
+    expect(fixture.nativeElement.textContent).toContain('Mínimo 8 caracteres.');
+    expect(campo.getAttribute('aria-describedby')).toBeTruthy();
+
+    fixture.componentRef.setInput('error', 'Contraseña demasiado corta.');
+    await fixture.whenStable();
+    expect(fixture.nativeElement.textContent).not.toContain('Mínimo 8 caracteres.');
+    expect(fixture.nativeElement.textContent).toContain('Contraseña demasiado corta.');
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('el área de texto enlaza etiqueta y mensaje de error', async () => {
+    const fixture = await montar(Textarea, {
+      label: 'Descripción',
+      error: 'Escribe una descripción.',
+    });
+
+    const campo = fixture.nativeElement.querySelector('textarea') as HTMLTextAreaElement;
+    const etiqueta = fixture.nativeElement.querySelector('label') as HTMLLabelElement;
+    expect(etiqueta.getAttribute('for')).toBe(campo.id);
+    expect(campo.getAttribute('aria-invalid')).toBe('true');
+
+    const idError = campo.getAttribute('aria-describedby');
+    expect(fixture.nativeElement.querySelector(`#${idError}`)?.textContent).toContain(
+      'Escribe una descripción.',
+    );
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('el campo dinámico de tipo texto usa un app-input', async () => {
+    const fixture = await montar(DynamicField, {
+      field: {
+        key: 'cargo',
+        label: 'Cargo',
+        field_type: 'text',
+        options: null,
+        is_required: false,
+      },
+    });
+    expect(fixture.nativeElement.querySelector('app-input')).not.toBeNull();
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('el campo dinámico de tipo selector enlaza etiqueta y opciones', async () => {
+    const fixture = await montar(DynamicField, {
+      field: {
+        key: 'talla',
+        label: 'Talla',
+        field_type: 'select',
+        options: { choices: ['S', 'M', 'L'] },
+        is_required: true,
+      },
+    });
+
+    const select = fixture.nativeElement.querySelector('select') as HTMLSelectElement;
+    const etiqueta = fixture.nativeElement.querySelector('label') as HTMLLabelElement;
+    expect(etiqueta.getAttribute('for')).toBe(select.id);
+    expect(select.querySelectorAll('option').length).toBe(4); // placeholder + 3 opciones
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('el campo dinámico de tipo booleano usa una casilla', async () => {
+    const fixture = await montar(DynamicField, {
+      field: {
+        key: 'activo',
+        label: 'Activo',
+        field_type: 'boolean',
+        options: null,
+        is_required: false,
+      },
+      value: true,
+    });
+
+    const casilla = fixture.nativeElement.querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement;
+    expect(casilla.checked).toBe(true);
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('el resumen de errores no aparece con un único error', async () => {
+    const fixture = await montar(ErrorSummary, {
+      errores: [{ campoId: 'campo-1', mensaje: 'Error único.' }],
+    });
+    expect(fixture.nativeElement.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it('el resumen de errores enlaza cada entrada a su campo con más de un error', async () => {
+    const fixture = await montar(ErrorSummary, {
+      errores: [
+        { campoId: 'campo-1', mensaje: 'Primer error.' },
+        { campoId: 'campo-2', mensaje: 'Segundo error.' },
+      ],
+      titulo: 'Corrige lo siguiente:',
+    });
+
+    const enlaces = Array.from(fixture.nativeElement.querySelectorAll('a')) as HTMLAnchorElement[];
+    expect(enlaces.map((enlace) => enlace.getAttribute('href'))).toEqual(['#campo-1', '#campo-2']);
+    expect(fixture.nativeElement.querySelector('[role="alert"]')).not.toBeNull();
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 });

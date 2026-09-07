@@ -1,16 +1,19 @@
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../../../core/api/api.service';
+import { displayName } from '../../../core/auth/auth.service';
 import { ThemingService } from '../../../core/theming/theming.service';
 import { Card } from '../../../shared/ui/card';
 
 interface UsuarioActual {
   readonly id: string;
   readonly email: string;
-  readonly full_name: string;
+  readonly first_name: string | null;
+  readonly last_name: string | null;
   readonly roles: readonly string[];
   readonly permissions: readonly string[];
 }
@@ -19,16 +22,24 @@ interface UsuarioActual {
 @Component({
   selector: 'app-dashboard-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Card],
+  imports: [TranslocoDirective, RouterLink, Card],
   template: `
     <ng-container *transloco="let t">
       @if (usuario(); as persona) {
         <h1>
-          {{
-            t('admin.escritorioPagina.bienvenida', { nombre: persona.full_name || persona.email })
-          }}
+          {{ t('admin.escritorioPagina.bienvenida', { nombre: nombreDe(persona) }) }}
         </h1>
         <p>{{ t('admin.escritorioPagina.resumen') }}</p>
+
+        <app-card [heading]="t('admin.escritorioPagina.proximamenteTitulo')">
+          <p>{{ t('admin.escritorioPagina.proximamenteDetalle') }}</p>
+          <p class="enlaces">
+            <a routerLink="/admin/organization">{{
+              t('admin.escritorioPagina.irAOrganizacion')
+            }}</a>
+            <a routerLink="/admin/branding">{{ t('admin.escritorioPagina.irABranding') }}</a>
+          </p>
+        </app-card>
 
         <div class="tarjetas">
           <app-card [heading]="t('admin.escritorioPagina.organizacion')">
@@ -72,6 +83,11 @@ interface UsuarioActual {
       margin: 0;
       padding-left: 1.25rem;
     }
+    .enlaces {
+      display: flex;
+      gap: var(--space-md);
+      margin-bottom: 0;
+    }
   `,
 })
 export class DashboardPage {
@@ -80,6 +96,7 @@ export class DashboardPage {
   protected readonly theming = inject(ThemingService);
 
   protected readonly usuario = signal<UsuarioActual | null>(null);
+  protected readonly nombreDe = displayName;
 
   constructor() {
     void this.cargar();

@@ -28,6 +28,24 @@ LOGIN_POR_IP = 5
 LOGIN_POR_HOST = 20
 REFRESH_POR_IP = 30
 PUBLICO_POR_IP = 120
+# El registro es de un solo uso por persona: algo más permisivo que el login.
+REGISTRO_POR_IP = 10
+# El reenvío es reutilizable y encola correo: más estricto, además de exigir Turnstile.
+REENVIO_VERIFICACION_POR_IP = 3
+# El token tiene 256 bits de entropía (no es adivinable), pero el endpoint sigue
+# necesitando un tope propio para no quedar como el único público sin ninguno.
+VERIFICACION_CORREO_POR_IP = 20
+# Creación de organización: de un solo uso legítimo por persona, como el registro.
+CREAR_ORGANIZACION_POR_IP = 10
+# check-slug es solo ayuda de UX (debounce en el cliente), pero necesita su propio
+# tope: sin Turnstile ni cuenta detrás, es el candidato más fácil a escaneo.
+CHECK_SLUG_POR_IP = 30
+# Mismo riesgo de *email bombing* que el reenvío de verificación: reutilizable y
+# encola correo, con Turnstile obligatorio delante.
+FORGOT_PASSWORD_POR_IP = 3
+# El token tiene 256 bits de entropía, pero el endpoint necesita su propio tope, igual
+# que verify-email.
+RESET_PASSWORD_POR_IP = 20
 
 VENTANA_SEGUNDOS = 60
 
