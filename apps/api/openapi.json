@@ -996,6 +996,110 @@
         }
       }
     },
+    "/api/v1/users/me/public-profile": {
+      "get": {
+        "tags": [
+          "usuarios"
+        ],
+        "summary": "Estado del perfil público propio",
+        "operationId": "get_public_profile_api_v1_users_me_public_profile_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProfileStateResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "usuarios"
+        ],
+        "summary": "Activar, cambiar o desactivar el perfil público propio",
+        "description": "Autoservicio puro: nadie más que la propia persona puede activar o desactivar su perfil público, sin permiso especial más allá de estar autenticado. `public_slug: null` desactiva el perfil.",
+        "operationId": "update_public_profile_api_v1_users_me_public_profile_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicProfileUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProfileStateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/public-profile/check-slug": {
+      "get": {
+        "tags": [
+          "usuarios"
+        ],
+        "summary": "Comprobar disponibilidad de un identificador de ponente",
+        "description": "Ayuda de UX en vivo, mismo espíritu que el `check-slug` de organizaciones pero sin `SECURITY DEFINER`: quien pregunta ya tiene contexto de organización (autenticado), así que una consulta normal bajo RLS basta.",
+        "operationId": "check_public_slug_api_v1_users_me_public_profile_check_slug_get",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckPublicSlugResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users/me/organizations": {
       "get": {
         "tags": [
@@ -1842,6 +1946,266 @@
           }
         }
       }
+    },
+    "/api/v1/events/{event_id}/members": {
+      "get": {
+        "tags": [
+          "eventos"
+        ],
+        "summary": "Listar el roster de un evento",
+        "operationId": "list_event_members_api_v1_events__event_id__members_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EventMemberResponse"
+                  },
+                  "title": "Response List Event Members Api V1 Events  Event Id  Members Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "eventos"
+        ],
+        "summary": "Añadir una persona al roster del evento",
+        "operationId": "add_event_member_api_v1_events__event_id__members_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventMemberCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventMemberResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/members/{event_member_id}": {
+      "delete": {
+        "tags": [
+          "eventos"
+        ],
+        "summary": "Quitar una persona del roster del evento",
+        "description": "Falla con 409 si la persona tiene participaciones activas en la agenda de este evento — hay que quitarla primero de las sesiones.",
+        "operationId": "remove_event_member_api_v1_events__event_id__members__event_member_id__delete",
+        "parameters": [
+          {
+            "name": "event_member_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Member Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/sessions/{session_id}/participants": {
+      "get": {
+        "tags": [
+          "eventos"
+        ],
+        "summary": "Listar los participantes de una sesión",
+        "operationId": "list_session_participants_api_v1_events__event_id__sessions__session_id__participants_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SessionParticipantResponse"
+                  },
+                  "title": "Response List Session Participants Api V1 Events  Event Id  Sessions  Session Id  Participants Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "eventos"
+        ],
+        "summary": "Reemplazar los participantes de una sesión",
+        "description": "Reemplaza la lista completa en una sola petición. Lleva control de concurrencia optimista: `expected_updated_at` debe coincidir con el `updated_at` actual de la sesión, si no la petición falla con 409.",
+        "operationId": "replace_session_participants_api_v1_events__event_id__sessions__session_id__participants_put",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionParticipantsUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SessionParticipantResponse"
+                  },
+                  "title": "Response Replace Session Participants Api V1 Events  Event Id  Sessions  Session Id  Participants Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2137,6 +2501,20 @@
         "title": "ChangePasswordRequest",
         "description": "Cambio de contraseña: exige la actual."
       },
+      "CheckPublicSlugResponse": {
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          }
+        },
+        "type": "object",
+        "required": [
+          "available"
+        ],
+        "title": "CheckPublicSlugResponse",
+        "description": "Disponibilidad de un identificador de ponente."
+      },
       "CheckSlugResponse": {
         "properties": {
           "available": {
@@ -2265,6 +2643,30 @@
         ],
         "title": "DomainResponse",
         "description": "Dominio asociado a una organización."
+      },
+      "EligibleMembershipResponse": {
+        "properties": {
+          "organization_member_id": {
+            "type": "string",
+            "title": "Organization Member Id"
+          },
+          "role_key": {
+            "type": "string",
+            "title": "Role Key"
+          },
+          "role_name": {
+            "type": "string",
+            "title": "Role Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "organization_member_id",
+          "role_key",
+          "role_name"
+        ],
+        "title": "EligibleMembershipResponse",
+        "description": "Membresía propia cuyo rol declara al menos un campo publicable."
       },
       "EventCreate": {
         "properties": {
@@ -2423,6 +2825,78 @@
         ],
         "title": "EventCreate",
         "description": "Alta de un evento."
+      },
+      "EventMemberCreate": {
+        "properties": {
+          "organization_member_id": {
+            "type": "string",
+            "title": "Organization Member Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "organization_member_id"
+        ],
+        "title": "EventMemberCreate",
+        "description": "Alta de una persona en el roster de un evento.\n\nSe elige entre los miembros ya existentes de la organización (cualquier rol) —\nel alta de la propia membresía sigue siendo cosa de `admin/members`."
+      },
+      "EventMemberResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "organization_member_id": {
+            "type": "string",
+            "title": "Organization Member Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
+          "role_key": {
+            "type": "string",
+            "title": "Role Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "organization_member_id",
+          "user_id",
+          "email",
+          "first_name",
+          "last_name",
+          "role_key"
+        ],
+        "title": "EventMemberResponse",
+        "description": "Persona del roster de un evento, con los datos que hacen falta para\nmostrarla en el selector de participantes de una sesión."
       },
       "EventResponse": {
         "properties": {
@@ -2789,6 +3263,11 @@
           "sort_order": {
             "type": "integer",
             "title": "Sort Order"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
           }
         },
         "type": "object",
@@ -2803,7 +3282,8 @@
           "video_platform",
           "video_url",
           "materials",
-          "sort_order"
+          "sort_order",
+          "updated_at"
         ],
         "title": "EventSessionResponse",
         "description": "Sesión de agenda tal y como la ve el panel de administración."
@@ -3816,6 +4296,100 @@
         "title": "ProfileFieldResponse",
         "description": "Campo de perfil tal y como se devuelve."
       },
+      "PublicProfileResponse": {
+        "properties": {
+          "active": {
+            "type": "boolean",
+            "title": "Active"
+          },
+          "public_slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Slug"
+          },
+          "source_organization_member_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Organization Member Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "active",
+          "public_slug",
+          "source_organization_member_id"
+        ],
+        "title": "PublicProfileResponse",
+        "description": "Estado actual del perfil público propio."
+      },
+      "PublicProfileStateResponse": {
+        "properties": {
+          "profile": {
+            "$ref": "#/components/schemas/PublicProfileResponse"
+          },
+          "eligible_memberships": {
+            "items": {
+              "$ref": "#/components/schemas/EligibleMembershipResponse"
+            },
+            "type": "array",
+            "title": "Eligible Memberships"
+          }
+        },
+        "type": "object",
+        "required": [
+          "profile",
+          "eligible_memberships"
+        ],
+        "title": "PublicProfileStateResponse",
+        "description": "Estado del perfil público más las membresías desde las que se puede activar."
+      },
+      "PublicProfileUpdate": {
+        "properties": {
+          "public_slug": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80,
+                "minLength": 2,
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Slug"
+          },
+          "source_organization_member_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Organization Member Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "public_slug"
+        ],
+        "title": "PublicProfileUpdate",
+        "description": "Activa, cambia o desactiva el perfil público de ponente (autoservicio).\n\n`public_slug: null` desactiva el perfil (borra la fila de\n`speaker_public_profiles`); un valor no nulo lo activa o lo actualiza, y en\nese caso `source_organization_member_id` es obligatorio."
+      },
       "RegisterRequest": {
         "properties": {
           "email": {
@@ -4144,6 +4718,113 @@
         ],
         "title": "SelfServiceOrganizationResponse",
         "description": "Organización recién creada.\n\nSin token de sesión: el subdominio nuevo es un origen distinto de donde se ha\nllamado a este endpoint (normalmente el dominio principal de la instalación), así\nque ninguna cookie ni token en memoria viajaría con la persona hasta allí. El\ncliente redirige a `host` y la persona entra con su correo y contraseña, esta vez\ncon éxito porque ya pertenece a una organización."
+      },
+      "SessionParticipantEntry": {
+        "properties": {
+          "event_member_id": {
+            "type": "string",
+            "title": "Event Member Id"
+          },
+          "role_key": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Role Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_member_id",
+          "role_key"
+        ],
+        "title": "SessionParticipantEntry",
+        "description": "Una asignación dentro del reemplazo completo de participantes de una sesión."
+      },
+      "SessionParticipantResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "event_member_id": {
+            "type": "string",
+            "title": "Event Member Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
+          "role_key": {
+            "type": "string",
+            "title": "Role Key"
+          },
+          "sort_order": {
+            "type": "integer",
+            "title": "Sort Order"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "event_member_id",
+          "user_id",
+          "email",
+          "first_name",
+          "last_name",
+          "role_key",
+          "sort_order"
+        ],
+        "title": "SessionParticipantResponse",
+        "description": "Participación de una persona en una sesión, con su rol libre."
+      },
+      "SessionParticipantsUpdate": {
+        "properties": {
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expected Updated At"
+          },
+          "participants": {
+            "items": {
+              "$ref": "#/components/schemas/SessionParticipantEntry"
+            },
+            "type": "array",
+            "title": "Participants"
+          }
+        },
+        "type": "object",
+        "required": [
+          "expected_updated_at",
+          "participants"
+        ],
+        "title": "SessionParticipantsUpdate",
+        "description": "Reemplazo completo de la lista de participantes de una sesión.\n\n`expected_updated_at` es el `updated_at` de la sesión que el cliente tenía\ncargado: si no coincide con el actual, la petición falla con 409 en vez de\nsobrescribir en silencio el trabajo de otra persona."
       },
       "SocialLink": {
         "properties": {

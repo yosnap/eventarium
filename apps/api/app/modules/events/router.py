@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, UploadFile, status
 
@@ -11,15 +11,19 @@ from app.core.deps import CurrentUserDep, DbDep, require_permission
 from app.core.permissions import Permission
 from app.core.storage import build_object_key, get_storage, validate_upload
 from app.modules.events import repository, service
-from app.modules.events.models import Event, EventSession
+from app.modules.events.models import Event, EventMember, EventSession
 from app.modules.events.schemas import (
     EventCreate,
+    EventMemberCreate,
+    EventMemberResponse,
     EventResponse,
     EventSessionCreate,
     EventSessionResponse,
     EventSessionUpdate,
     EventStatus,
     EventUpdate,
+    SessionParticipantResponse,
+    SessionParticipantsUpdate,
 )
 from app.shared.errors import NotFoundError
 from app.shared.pagination import Page, PageParams, page_params
@@ -64,6 +68,34 @@ def _session_response(sesion: EventSession) -> EventSessionResponse:
         video_url=sesion.video_url,
         materials=sesion.materials,
         sort_order=sesion.sort_order,
+        updated_at=sesion.updated_at,
+    )
+
+
+def _event_member_response(fila: Any) -> EventMemberResponse:
+    miembro, miembro_org, persona, rol = fila
+    return EventMemberResponse(
+        id=str(miembro.id),
+        organization_member_id=str(miembro_org.id),
+        user_id=str(persona.id),
+        email=persona.email,
+        first_name=persona.first_name,
+        last_name=persona.last_name,
+        role_key=rol.key,
+    )
+
+
+def _session_participant_response(fila: Any) -> SessionParticipantResponse:
+    participante, miembro, miembro_org, persona = fila
+    return SessionParticipantResponse(
+        id=str(participante.id),
+        event_member_id=str(miembro.id),
+        user_id=str(persona.id),
+        email=persona.email,
+        first_name=persona.first_name,
+        last_name=persona.last_name,
+        role_key=participante.role_key,
+        sort_order=participante.sort_order,
     )
 
 
@@ -260,3 +292,122 @@ async def delete_session(
         event_id=evento.id,
         session_id=uuid.UUID(session_id),
     )
+
+
+@router.get(
+    "/{event_id}/members",
+    summary="Listar el roster de un evento",
+    response_model=list[EventMemberResponse],
+    dependencies=[require_permission(Permission.EVENTS_READ)],
+)
+async def list_event_members(
+    evento: Annotated[Event, Depends(_obtener_evento_o_404)], session: DbDep
+) -> list[EventMemberResponse]:
+    consulta = repository.event_members_query(evento.organization_id, evento.id)
+    filas = (await session.execute(consulta)).all()
+    return [_event_member_response(fila) for fila in filas]
+
+
+@router.post(
+    "/{event_id}/members",
+    summary="Añadir una persona al roster del evento",
+    status_code=status.HTTP_201_CREATED,
+    response_model=EventMemberResponse,
+    dependencies=[require_permission(Permission.EVENTS_WRITE)],
+)
+async def add_event_member(
+    datos: EventMemberCreate,
+    evento: Annotated[Event, Depends(_obtener_evento_o_404)],
+    usuario: CurrentUserDep,
+    session: DbDep,
+) -> EventMemberResponse:
+    miembro = await service.add_event_member(
+        session,
+        organization_id=usuario.organization_id,
+        event_id=evento.id,
+        organization_member_id=uuid.UUID(datos.organization_member_id),
+    )
+    consulta = repository.event_members_query(evento.organization_id, evento.id).where(
+        EventMember.id == miembro.id
+    )
+    fila = (await session.execute(consulta)).one()
+    return _event_member_response(fila)
+
+
+@router.delete(
+    "/{event_id}/members/{event_member_id}",
+    summary="Quitar una persona del roster del evento",
+    description=(
+        "Falla con 409 si la persona tiene participaciones activas en la agenda de "
+        "este evento — hay que quitarla primero de las sesiones."
+    ),
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[require_permission(Permission.EVENTS_WRITE)],
+)
+async def remove_event_member(
+    evento: Annotated[Event, Depends(_obtener_evento_o_404)],
+    usuario: CurrentUserDep,
+    session: DbDep,
+    event_member_id: str,
+) -> None:
+    await service.remove_event_member(
+        session,
+        organization_id=usuario.organization_id,
+        event_id=evento.id,
+        event_member_id=uuid.UUID(event_member_id),
+    )
+
+
+@router.get(
+    "/{event_id}/sessions/{session_id}/participants",
+    summary="Listar los participantes de una sesión",
+    response_model=list[SessionParticipantResponse],
+    dependencies=[require_permission(Permission.EVENTS_READ)],
+)
+async def list_session_participants(
+    evento: Annotated[Event, Depends(_obtener_evento_o_404)],
+    session: DbDep,
+    session_id: str,
+) -> list[SessionParticipantResponse]:
+    sesion = await repository.get_event_session(
+        session, evento.organization_id, evento.id, uuid.UUID(session_id)
+    )
+    if sesion is None:
+        raise NotFoundError("La sesión no existe.")
+    consulta = repository.session_participants_query(evento.organization_id, sesion.id)
+    filas = (await session.execute(consulta)).all()
+    return [_session_participant_response(fila) for fila in filas]
+
+
+@router.put(
+    "/{event_id}/sessions/{session_id}/participants",
+    summary="Reemplazar los participantes de una sesión",
+    description=(
+        "Reemplaza la lista completa en una sola petición. Lleva control de "
+        "concurrencia optimista: `expected_updated_at` debe coincidir con el "
+        "`updated_at` actual de la sesión, si no la petición falla con 409."
+    ),
+    response_model=list[SessionParticipantResponse],
+    dependencies=[require_permission(Permission.EVENTS_WRITE)],
+)
+async def replace_session_participants(
+    datos: SessionParticipantsUpdate,
+    evento: Annotated[Event, Depends(_obtener_evento_o_404)],
+    usuario: CurrentUserDep,
+    session: DbDep,
+    session_id: str,
+) -> list[SessionParticipantResponse]:
+    sesion = await service.replace_session_participants(
+        session,
+        organization_id=usuario.organization_id,
+        event_id=evento.id,
+        session_id=uuid.UUID(session_id),
+        expected_updated_at=datos.expected_updated_at,
+        entries=[
+            {"event_member_id": uuid.UUID(p.event_member_id), "role_key": p.role_key}
+            for p in datos.participants
+        ],
+    )
+    consulta = repository.session_participants_query(evento.organization_id, sesion.id)
+    filas = (await session.execute(consulta)).all()
+    return [_session_participant_response(fila) for fila in filas]
