@@ -49,6 +49,11 @@ import { Button } from '../../shared/ui/button';
                 {{ t('admin.identidadVisual') }}
               </a>
             </li>
+            <li>
+              <a routerLink="/admin/estilo" routerLinkActive="activo">
+                {{ t('admin.catalogoDeComponentes') }}
+              </a>
+            </li>
           </ul>
         </nav>
 
