@@ -27,6 +27,7 @@ import { ThemingService } from '../../core/theming/theming.service';
         </a>
         <nav [attr.aria-label]="t('publico.navegacion')">
           <a routerLink="/">{{ t('publico.inicio') }}</a>
+          <a routerLink="/eventos">{{ t('publico.eventos.listadoTitulo') }}</a>
           <a routerLink="/admin">{{ t('publico.accesoPanel') }}</a>
         </nav>
       </header>

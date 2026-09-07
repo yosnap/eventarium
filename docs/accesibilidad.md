@@ -167,6 +167,47 @@ se había aplicado a la base de datos de desarrollo (solo a la de test), y
 (`AuthService.refresh()` solo renueva el token, no el usuario en memoria) — corregido
 con `AuthService.loadCurrentUser()`.
 
+## Checklist manual — Fase 2 del PRD, fase 4 (página pública con SSR)
+
+Revisado el 2026-09-08 sobre las cuatro pantallas públicas nuevas:
+`/eventos` (listado), `/eventos/:slug` (detalle con agenda), `/eventos/:slug/sesiones/:sessionId`
+(ponencia) y `/ponentes/:publicSlug` (perfil de ponente).
+
+| # | Criterio WCAG 2.1 AA | Cómo se ha comprobado | Resultado |
+|---|---|---|---|
+| 1.3.1 | Información y relaciones | Landmarks heredados de `PublicShell`; encabezados jerárquicos (`h1` del recurso, `h2` de sus secciones); redes sociales del ponente en un `nav` con `aria-label` propio | ✅ |
+| 2.4.4 | Propósito de los enlaces | Cada participante con perfil público enlaza a `/ponentes/:slug` con su nombre real como texto del enlace, nunca "ver más"; el historial del ponente enlaza a cada evento y cada sesión por su título | ✅ |
+| 1.1.1 / 4.1.2 | Contenido no textual / nombre, función, valor | El `iframe` del vídeo embebido lleva `title` traducido; el enlace directo para la plataforma «otro» usa un texto descriptivo, no la URL cruda | ✅ |
+| 4.1.3 | Mensajes de estado | El error de carga (`EventsListPage`) usa `app-alert` con `role="alert"`, mismo patrón que el resto del proyecto | ✅ |
+| — | Cobertura automática | 4 ficheros de test nuevos (`event-page`, `session-page`, `speaker-page`, `events-list-page`): cero violaciones de axe en cada estado (contenido, "no encontrado", listado vacío) | ✅ |
+
+**Hallazgo real corregido durante la verificación automática**: la agenda de
+`EventPage` envolvía cada `<app-card>` directamente dentro de un `<ul>`
+(`app-card` renderiza su propio `<section>` raíz), lo que viola 1.3.1 — un `<ul>`
+solo puede contener `<li>` como hijo directo. Corregido envolviendo cada tarjeta en
+su propio `<li>`, detectado por `esperarSinViolacionesDeAccesibilidad` antes de
+llegar a revisión manual.
+
+**Excluido de la cobertura automática, verificado solo manualmente**: axe-core no
+puede analizar un `<iframe>` a un dominio real (`youtube-nocookie.com`) dentro del
+entorno de test (jsdom) — falla al intentar comunicarse con su `contentWindow`. El
+`title` del `iframe` y el resto de la pantalla se verificaron por separado con el
+caso de la plataforma «otro» (sin `iframe` real), que sí corre bajo axe.
+
+**Verificación de extremo a extremo realizada manualmente** contra el entorno de
+desarrollo real (API + Postgres + servidor SSR de Angular, `node
+dist/web/server/server.mjs`), con `curl` fijando `X-Forwarded-Host` para no
+depender de resolución de nombres local: evento publicado con agenda de una
+sesión, ponente activando su propio perfil público en autoservicio (no desde el
+panel), y comprobación de que el HTML servido antes de cualquier hidratación ya
+trae el título, las etiquetas OG (`og:title`, `og:description`) y el contenido de
+la agenda y del ponente. Confirmado también el código de estado real: `404` para
+un evento en borrador, para un slug inexistente y para un ponente sin perfil
+activo; `200` con contenido para el evento, la sesión y el ponente publicados; y
+aislamiento multi-tenant end-to-end (el mismo evento pedido con el host de otra
+organización responde `404`, no solo a nivel de API sino a través de todo el
+recorrido de SSR).
+
 ## Al añadir una pantalla
 
 1. Externaliza todos los textos a `es-ES.json`.
