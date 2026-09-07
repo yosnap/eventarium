@@ -103,11 +103,7 @@ function vacio(): {
                       </span>
                     </div>
                     <div class="acciones">
-                      <app-button
-                        variant="secundario"
-                        type="button"
-                        (pulsado)="editar(sesion)"
-                      >
+                      <app-button variant="secundario" type="button" (pulsado)="editar(sesion)">
                         {{ t('admin.events.agenda.editar') }}
                       </app-button>
                       <app-button variant="peligro" type="button" (pulsado)="borrar(sesion.id)">
@@ -134,7 +130,9 @@ function vacio(): {
             <label for="sesion-tipo">{{ t('admin.events.agenda.tipo') }}</label>
             <select id="sesion-tipo" [value]="tipo()" (change)="alCambiarTipo($event)">
               @for (opcion of tiposDisponibles; track opcion) {
-                <option [value]="opcion">{{ t('admin.events.agenda.tipo' + capitaliza(opcion)) }}</option>
+                <option [value]="opcion">
+                  {{ t('admin.events.agenda.tipo' + capitaliza(opcion)) }}
+                </option>
               }
             </select>
           </div>
@@ -159,7 +157,11 @@ function vacio(): {
             [required]="true"
             [(value)]="fin"
           />
-          <app-input fieldId="sesion-sala" [label]="t('admin.events.agenda.sala')" [(value)]="sala" />
+          <app-input
+            fieldId="sesion-sala"
+            [label]="t('admin.events.agenda.sala')"
+            [(value)]="sala"
+          />
 
           <div class="campo-select">
             <label for="sesion-video">{{ t('admin.events.agenda.plataformaVideo') }}</label>

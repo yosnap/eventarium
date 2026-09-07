@@ -61,9 +61,7 @@ describe('EventAgenda', () => {
     const fixture = TestBed.createComponent(EventAgenda);
     fixture.componentRef.setInput('eventId', 'e1');
     await avanzar(fixture);
-    http
-      .expectOne((peticion) => peticion.url === '/api/v1/events/e1/sessions')
-      .flush(sesiones());
+    http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/sessions').flush(sesiones());
     await avanzar(fixture);
 
     expect(fixture.nativeElement.textContent).toContain('Charla de apertura');

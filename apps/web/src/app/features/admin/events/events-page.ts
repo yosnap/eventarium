@@ -73,7 +73,9 @@ interface Page<T> {
             <tbody>
               @for (evento of eventos(); track evento.id) {
                 <tr>
-                  <td><a [routerLink]="[evento.id]">{{ evento.title }}</a></td>
+                  <td>
+                    <a [routerLink]="[evento.id]">{{ evento.title }}</a>
+                  </td>
                   <td>
                     <code>{{ t('admin.events.estado' + estadoClave(evento.status)) }}</code>
                   </td>

@@ -76,14 +76,12 @@ describe('EventForm', () => {
     await avanzar(fixture);
     http.expectOne((peticion) => peticion.url === '/api/v1/events/e1').flush(eventoDetalle());
     await avanzar(fixture);
-    http
-      .expectOne((peticion) => peticion.url === '/api/v1/events/e1/sessions')
-      .flush([]);
+    http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/sessions').flush([]);
     await avanzar(fixture);
 
-    expect(
-      (fixture.nativeElement.querySelector('#evento-titulo') as HTMLInputElement).value,
-    ).toBe('IA Week in Cascais 2026');
+    expect((fixture.nativeElement.querySelector('#evento-titulo') as HTMLInputElement).value).toBe(
+      'IA Week in Cascais 2026',
+    );
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 });

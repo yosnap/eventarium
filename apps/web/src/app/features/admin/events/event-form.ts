@@ -39,20 +39,15 @@ type CampoBase = 'slug' | 'title' | 'startsAt' | 'endsAt';
 @Component({
   selector: 'app-event-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    TranslocoDirective,
-    RouterLink,
-    Alert,
-    Button,
-    Card,
-    ErrorSummary,
-    Input,
-    EventAgenda,
-  ],
+  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, ErrorSummary, Input, EventAgenda],
   template: `
     <ng-container *transloco="let t">
       <h1>
-        {{ esEdicion() ? t('admin.events.formulario.tituloEditar') : t('admin.events.formulario.tituloCrear') }}
+        {{
+          esEdicion()
+            ? t('admin.events.formulario.tituloEditar')
+            : t('admin.events.formulario.tituloCrear')
+        }}
       </h1>
 
       @if (cargando()) {
@@ -175,7 +170,11 @@ type CampoBase = 'slug' | 'title' | 'startsAt' | 'endsAt';
               }}</app-button>
             </a>
             <app-button type="submit" [loading]="guardando()">
-              {{ guardando() ? t('admin.events.formulario.guardando') : t('admin.events.formulario.guardar') }}
+              {{
+                guardando()
+                  ? t('admin.events.formulario.guardando')
+                  : t('admin.events.formulario.guardar')
+              }}
             </app-button>
           </div>
         </form>
