@@ -37,7 +37,9 @@ import { Card } from '../../../shared/ui/card';
       @if (theming.branding(); as branding) {
         <div class="tarjetas">
           <app-card [heading]="t('admin.branding.plantilla')">
-            <p><code>{{ branding.template_key }}</code></p>
+            <p>
+              <code>{{ branding.template_key }}</code>
+            </p>
           </app-card>
 
           <app-card [heading]="t('admin.branding.logotipo')">
@@ -52,7 +54,11 @@ import { Card } from '../../../shared/ui/card';
             <ul class="colores">
               @for (color of colores(); track color.clave) {
                 <li>
-                  <span class="muestra" [style.background-color]="color.valor" aria-hidden="true"></span>
+                  <span
+                    class="muestra"
+                    [style.background-color]="color.valor"
+                    aria-hidden="true"
+                  ></span>
                   <code>{{ color.clave }}</code>
                   <span>{{ color.valor }}</span>
                 </li>
@@ -63,7 +69,10 @@ import { Card } from '../../../shared/ui/card';
           <app-card [heading]="t('admin.branding.tipografias')">
             <ul>
               @for (fuente of fuentes(); track fuente.clave) {
-                <li><code>{{ fuente.clave }}</code>: {{ fuente.valor }}</li>
+                <li>
+                  <code>{{ fuente.clave }}</code
+                  >: {{ fuente.valor }}
+                </li>
               }
             </ul>
           </app-card>

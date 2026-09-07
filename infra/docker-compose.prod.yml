@@ -1,0 +1,137 @@
+# Despliegue de producción.
+#
+# Las imágenes se referencian por SHA (IMAGE_TAG), nunca por `latest`: un rollback
+# debe volver exactamente al artefacto que estaba corriendo.
+#
+# `migrate` es un servicio de un solo uso que corre antes que `api` y `worker`. Ni la
+# API ni el worker migran por su cuenta: con varias réplicas, dos migraciones
+# simultáneas competirían por el mismo esquema.
+name: eventarium
+
+x-imagen-api: &imagen-api
+  image: ghcr.io/${GITHUB_REPOSITORY:-yosnap/eventarium}/api:${IMAGE_TAG:?falta IMAGE_TAG}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_SUPERUSER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:?falta POSTGRES_SUPERUSER_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-ia_week}
+      POSTGRES_APP_USER_PASSWORD: ${POSTGRES_APP_USER_PASSWORD:?falta POSTGRES_APP_USER_PASSWORD}
+      POSTGRES_MAINTAINER_PASSWORD: ${POSTGRES_MAINTAINER_PASSWORD:?falta POSTGRES_MAINTAINER_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+      - ./postgres/sql:/opt/postgres-sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_SUPERUSER:-postgres} -d ${POSTGRES_DB:-ia_week}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+
+  seaweedfs:
+    image: chrislusf/seaweedfs:3.97
+    restart: unless-stopped
+    command: >
+      server -dir=/data -master.volumeSizeLimitMB=1024
+      -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json
+      -volume.max=100 -ip=seaweedfs
+    volumes:
+      - seaweedfs-data:/data
+      - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://seaweedfs:8333/status || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  migrate:
+    <<: *imagen-api
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: ./env/.env
+    command: ["alembic", "upgrade", "head"]
+
+  api:
+    <<: *imagen-api
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_healthy
+    env_file: ./env/.env
+    expose:
+      - "8000"
+
+  worker:
+    <<: *imagen-api
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    env_file: ./env/.env
+    command: ["taskiq", "worker", "app.core.tasks:broker"]
+
+  web:
+    image: ghcr.io/${GITHUB_REPOSITORY:-yosnap/eventarium}/web:${IMAGE_TAG:?falta IMAGE_TAG}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      PORT: 4000
+      API_INTERNAL_URL: http://api:8000
+      # Dominios que el SSR acepta en Host y X-Forwarded-Host. Sin definir, acepta
+      # cualquiera y la validación queda en Caddy y en la resolución por host de la API.
+      NG_ALLOWED_HOSTS: ${NG_ALLOWED_HOSTS:-}
+    expose:
+      - "4000"
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+      web:
+        condition: service_started
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?falta SITE_ADDRESS}
+      # Caddy no arranca con un correo vacío, y una variable definida pero vacía
+      # anula el valor por defecto del Caddyfile: se resuelve aquí.
+      ACME_EMAIL: ${ACME_EMAIL:-admin@localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  postgres-data:
+  redis-data:
+  seaweedfs-data:
+  caddy-data:
+  caddy-config:
