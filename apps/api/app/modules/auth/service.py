@@ -12,12 +12,16 @@ Modelo de refresh tokens (rotación con detección de reutilización):
 
 from __future__ import annotations
 
+import hashlib
 import json
+import logging
 import uuid
 from dataclasses import dataclass
 from datetime import timedelta
 
+import httpx
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -25,14 +29,26 @@ from app.core.redis_client import require_redis
 from app.core.security import (
     create_access_token,
     generate_refresh_token,
+    hash_password,
     hash_refresh_token,
     verify_password,
 )
-from app.shared.errors import AuthenticationError
+from app.core.tasks import send_verification_email
+from app.modules.auth.verification import (
+    PROPOSITO_VERIFICACION_CORREO,
+    consume_token,
+    generate_token,
+)
+from app.shared.errors import AuthenticationError, ValidationDomainError
+from app.shared.identifiers import new_uuid7
 
 CLAVE_ACTIVO = "refresh:activo:{}"
 CLAVE_USADO = "refresh:usado:{}"
 CLAVE_FAMILIA = "refresh:familia:{}"
+
+PWNED_PASSWORDS_URL = "https://api.pwnedpasswords.com/range/{prefijo}"
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -209,3 +225,96 @@ async def revoke_refresh_token(refresh_token: str) -> None:
     familia_usada = await redis.get(CLAVE_USADO.format(huella))
     if familia_usada:
         await _revoke_family(familia_usada)
+
+
+async def _password_filtrada(password: str) -> bool:
+    """Comprueba la contraseña contra HaveIBeenPwned con k-anonymity.
+
+    Solo viaja el prefijo de 5 caracteres del hash SHA-1; la contraseña en claro nunca
+    sale del proceso. **Fail-open**: si el servicio no responde, el registro continúa
+    y se registra un aviso — no es un control de sesión crítico como el refresh token.
+    """
+    huella = hashlib.sha1(password.encode("utf-8")).hexdigest().upper()  # noqa: S324
+    prefijo, sufijo = huella[:5], huella[5:]
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as cliente:
+            respuesta = await cliente.get(PWNED_PASSWORDS_URL.format(prefijo=prefijo))
+            respuesta.raise_for_status()
+    except httpx.HTTPError:
+        logger.warning("Servicio de contraseñas filtradas no disponible; se continúa (fail-open).")
+        return False
+    for linea in respuesta.text.splitlines():
+        candidato, _, _ = linea.partition(":")
+        if candidato == sufijo:
+            return True
+    return False
+
+
+async def register_user(
+    session: AsyncSession, *, email: str, password: str, full_name: str
+) -> None:
+    """Registra una cuenta y encola el correo de verificación.
+
+    Siempre se comporta igual exista o no la cuenta ya: la respuesta al llamador no
+    debe permitir averiguar qué correos están registrados. La visibilidad normal de
+    `users` bajo RLS exige compartir organización con quien pregunta, algo que no
+    existe todavía en el registro; por eso la búsqueda y la creación usan las
+    funciones `SECURITY DEFINER` de alcance mínimo `app_find_user_by_email` y
+    `app_create_unverified_user`, en vez de exponer la tabla sin contexto.
+    """
+    if await _password_filtrada(password):
+        raise ValidationDomainError(
+            "Esta contraseña aparece en filtraciones conocidas. Elige otra."
+        )
+
+    existente = (
+        await session.execute(
+            text("SELECT id FROM app_find_user_by_email(:email)"), {"email": email}
+        )
+    ).first()
+    if existente is not None:
+        return
+
+    user_id = new_uuid7()
+    try:
+        await session.execute(
+            text("SELECT app_create_unverified_user(:id, :email, :hash, :nombre)"),
+            {
+                "id": user_id,
+                "email": email,
+                "hash": hash_password(password),
+                "nombre": full_name,
+            },
+        )
+    except IntegrityError:
+        # Condición de carrera con otro registro simultáneo del mismo correo: el
+        # `UNIQUE` de la base de datos es la única fuente de verdad. Misma respuesta.
+        return
+
+    token = await generate_token(PROPOSITO_VERIFICACION_CORREO, user_id)
+    await send_verification_email.kiq(email, token)
+
+
+async def verify_email(session: AsyncSession, *, token: str) -> None:
+    """Verifica un token y marca el correo como verificado."""
+    user_id = await consume_token(PROPOSITO_VERIFICACION_CORREO, token)
+    if user_id is None:
+        raise ValidationDomainError("El enlace de verificación no es válido o ha caducado.")
+    await session.execute(text("SELECT app_verify_user_email(:id)"), {"id": user_id})
+
+
+async def resend_verification(session: AsyncSession, *, email: str) -> None:
+    """Reencola el correo de verificación si la cuenta existe y no está verificada.
+
+    Misma respuesta siempre, se cumpla o no la condición: no revela qué correos
+    existen ni cuáles ya están verificados.
+    """
+    fila = (
+        await session.execute(
+            text("SELECT id, email_verified_at FROM app_find_user_by_email(:email)"),
+            {"email": email},
+        )
+    ).first()
+    if fila is not None and fila[1] is None:
+        token = await generate_token(PROPOSITO_VERIFICACION_CORREO, fila[0])
+        await send_verification_email.kiq(email, token)

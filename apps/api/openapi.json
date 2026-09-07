@@ -92,6 +92,133 @@
         }
       }
     },
+    "/api/v1/auth/register": {
+      "post": {
+        "tags": [
+          "autenticación"
+        ],
+        "summary": "Registrar una cuenta",
+        "description": "Crea una cuenta con el correo sin verificar y encola el enlace de verificación. Responde siempre igual, exista ya la cuenta o no.",
+        "operationId": "register_api_v1_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenericMessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/verify-email": {
+      "get": {
+        "tags": [
+          "autenticación"
+        ],
+        "summary": "Verificar el correo",
+        "description": "Consume el token del enlace de verificación y marca el correo como verificado.",
+        "operationId": "verify_email_api_v1_auth_verify_email_get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyEmailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/resend-verification": {
+      "post": {
+        "tags": [
+          "autenticación"
+        ],
+        "summary": "Reenviar el correo de verificación",
+        "description": "Encola un nuevo enlace solo si la cuenta existe y no está verificada. Responde siempre igual.",
+        "operationId": "resend_verification_api_v1_auth_resend_verification_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResendVerificationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenericMessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/logout": {
       "post": {
         "tags": [
@@ -1084,6 +1211,20 @@
         "title": "DomainResponse",
         "description": "Dominio asociado a una organización."
       },
+      "GenericMessageResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "GenericMessageResponse",
+        "description": "Respuesta genérica, igual exista o no la cuenta (anti-enumeración)."
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1620,6 +1761,66 @@
         "title": "ProfileFieldResponse",
         "description": "Campo de perfil tal y como se devuelve."
       },
+      "RegisterRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email",
+            "description": "Correo electrónico del usuario"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 8,
+            "title": "Password",
+            "description": "Contraseña, mínimo 8 caracteres"
+          },
+          "full_name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Full Name",
+            "description": "Nombre completo"
+          },
+          "turnstile_token": {
+            "type": "string",
+            "title": "Turnstile Token",
+            "description": "Token del widget de Turnstile"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "password",
+          "full_name",
+          "turnstile_token"
+        ],
+        "title": "RegisterRequest",
+        "description": "Datos para crear una cuenta."
+      },
+      "ResendVerificationRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email",
+            "description": "Correo electrónico de la cuenta"
+          },
+          "turnstile_token": {
+            "type": "string",
+            "title": "Turnstile Token",
+            "description": "Token del widget de Turnstile"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "turnstile_token"
+        ],
+        "title": "ResendVerificationRequest",
+        "description": "Datos para reenviar el correo de verificación."
+      },
       "RoleCreate": {
         "properties": {
           "key": {
@@ -1944,6 +2145,20 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VerifyEmailResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "VerifyEmailResponse",
+        "description": "Respuesta de la verificación de correo."
       }
     }
   }

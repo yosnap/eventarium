@@ -22,6 +22,10 @@ interface RespuestaRefresh {
   readonly expires_in: number;
 }
 
+interface RespuestaGenerica {
+  readonly message: string;
+}
+
 /**
  * Sesión del panel de administración.
  *
@@ -68,6 +72,37 @@ export class AuthService {
       this.clear();
       return false;
     }
+  }
+
+  async register(
+    email: string,
+    password: string,
+    fullName: string,
+    turnstileToken: string,
+  ): Promise<void> {
+    await firstValueFrom(
+      this.http.post<RespuestaGenerica>(this.api.url('/auth/register'), {
+        email,
+        password,
+        full_name: fullName,
+        turnstile_token: turnstileToken,
+      }),
+    );
+  }
+
+  async verifyEmail(token: string): Promise<void> {
+    await firstValueFrom(
+      this.http.get<RespuestaGenerica>(this.api.url('/auth/verify-email'), { params: { token } }),
+    );
+  }
+
+  async resendVerification(email: string, turnstileToken: string): Promise<void> {
+    await firstValueFrom(
+      this.http.post<RespuestaGenerica>(this.api.url('/auth/resend-verification'), {
+        email,
+        turnstile_token: turnstileToken,
+      }),
+    );
   }
 
   async logout(): Promise<void> {

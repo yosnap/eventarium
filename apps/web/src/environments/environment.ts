@@ -22,4 +22,9 @@ export const environment = {
   production: true,
   apiPath: '/api/v1',
   serverApiBaseUrl: variableDeEntorno('API_INTERNAL_URL') ?? 'http://api:8000',
+  // Clave pública de Turnstile (no es un secreto: la verificación real ocurre en la
+  // API con TURNSTILE_SECRET_KEY). Sustituir por la del sitio antes de compilar para
+  // producción; ver docs/despliegue.md.
+  turnstileEnabled: true,
+  turnstileSiteKey: '0x0000000000000000000000',
 } as const;

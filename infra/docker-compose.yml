@@ -88,6 +88,20 @@ services:
       timeout: 3s
       retries: 20
 
+  # Servidor SMTP de pruebas: atrapa todo el correo saliente sin salir a Internet.
+  # Su interfaz web (MAILPIT_UI_PORT) permite leer los correos de verificación.
+  mailpit:
+    image: axllent/mailpit:v1.22
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8025/readyz"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   caddy:
     image: caddy:2.10-alpine
     restart: unless-stopped

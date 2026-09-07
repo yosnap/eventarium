@@ -7,6 +7,12 @@ export type { LoginApiV1AuthLoginPost$Params as LoginApiV1AuthLoginPost$Params }
 export { loginApiV1AuthLoginPost as loginApiV1AuthLoginPost } from './fn/autenticacion/login-api-v-1-auth-login-post';
 export type { RefreshApiV1AuthRefreshPost$Params as RefreshApiV1AuthRefreshPost$Params } from './fn/autenticacion/refresh-api-v-1-auth-refresh-post';
 export { refreshApiV1AuthRefreshPost as refreshApiV1AuthRefreshPost } from './fn/autenticacion/refresh-api-v-1-auth-refresh-post';
+export type { RegisterApiV1AuthRegisterPost$Params as RegisterApiV1AuthRegisterPost$Params } from './fn/autenticacion/register-api-v-1-auth-register-post';
+export { registerApiV1AuthRegisterPost as registerApiV1AuthRegisterPost } from './fn/autenticacion/register-api-v-1-auth-register-post';
+export type { VerifyEmailApiV1AuthVerifyEmailGet$Params as VerifyEmailApiV1AuthVerifyEmailGet$Params } from './fn/autenticacion/verify-email-api-v-1-auth-verify-email-get';
+export { verifyEmailApiV1AuthVerifyEmailGet as verifyEmailApiV1AuthVerifyEmailGet } from './fn/autenticacion/verify-email-api-v-1-auth-verify-email-get';
+export type { ResendVerificationApiV1AuthResendVerificationPost$Params as ResendVerificationApiV1AuthResendVerificationPost$Params } from './fn/autenticacion/resend-verification-api-v-1-auth-resend-verification-post';
+export { resendVerificationApiV1AuthResendVerificationPost as resendVerificationApiV1AuthResendVerificationPost } from './fn/autenticacion/resend-verification-api-v-1-auth-resend-verification-post';
 export type { LogoutApiV1AuthLogoutPost$Params as LogoutApiV1AuthLogoutPost$Params } from './fn/autenticacion/logout-api-v-1-auth-logout-post';
 export { logoutApiV1AuthLogoutPost as logoutApiV1AuthLogoutPost } from './fn/autenticacion/logout-api-v-1-auth-logout-post';
 export type { BrandingApiV1TenantBrandingGet$Params as BrandingApiV1TenantBrandingGet$Params } from './fn/tenant/branding-api-v-1-tenant-branding-get';
