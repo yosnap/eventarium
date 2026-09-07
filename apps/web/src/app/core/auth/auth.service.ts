@@ -38,6 +38,18 @@ interface RespuestaGenerica {
   readonly message: string;
 }
 
+export interface EnlaceSocial {
+  readonly kind: string;
+  readonly url: string;
+}
+
+export interface OrganizacionDeLaPersona {
+  readonly organization_id: string;
+  readonly slug: string;
+  readonly name: string;
+  readonly host: string | null;
+}
+
 /**
  * Sesión del panel de administración.
  *
@@ -66,6 +78,22 @@ export class AuthService {
   readonly currentUser = this.usuario.asReadonly();
   readonly isAuthenticated = computed(() => this.token() !== null);
   readonly bridgeToken = this.bridge.asReadonly();
+
+  /**
+   * Recarga el usuario actual desde la API.
+   *
+   * `refresh()` solo renueva el access token con la cookie: tras una recarga completa
+   * de página, `currentUser()` queda a `null` aunque la sesión siga viva, porque nada
+   * ha vuelto a pedir `/users/me`. Las páginas que necesitan datos frescos del usuario
+   * (p. ej. `account-page`) llaman a esto explícitamente en vez de asumir el signal.
+   */
+  async loadCurrentUser(): Promise<UsuarioAutenticado> {
+    const respuesta = await firstValueFrom(
+      this.http.get<UsuarioAutenticado>(this.api.url('/users/me')),
+    );
+    this.usuario.set(respuesta);
+    return respuesta;
+  }
 
   async login(email: string, password: string): Promise<void> {
     const respuesta = await firstValueFrom(
@@ -161,6 +189,80 @@ export class AuthService {
         email,
         turnstile_token: turnstileToken,
       }),
+    );
+  }
+
+  async forgotPassword(email: string, turnstileToken: string): Promise<void> {
+    await firstValueFrom(
+      this.http.post<RespuestaGenerica>(this.api.url('/auth/forgot-password'), {
+        email,
+        turnstile_token: turnstileToken,
+      }),
+    );
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    await firstValueFrom(
+      this.http.post<RespuestaGenerica>(this.api.url('/auth/reset-password'), {
+        token,
+        new_password: newPassword,
+      }),
+    );
+  }
+
+  /** Nombre y locale. El correo tiene su propio flujo (`changeEmail`). */
+  async updateMe(datos: { firstName?: string; lastName?: string; locale?: string }): Promise<void> {
+    const respuesta = await firstValueFrom(
+      this.http.patch<UsuarioAutenticado>(this.api.url('/users/me'), {
+        ...(datos.firstName !== undefined ? { first_name: datos.firstName } : {}),
+        ...(datos.lastName !== undefined ? { last_name: datos.lastName } : {}),
+        ...(datos.locale !== undefined ? { locale: datos.locale } : {}),
+      }),
+    );
+    this.usuario.set(respuesta);
+  }
+
+  /** Exige la contraseña actual. El cambio no se aplica hasta confirmarlo por correo. */
+  async changeEmail(newEmail: string, password: string): Promise<void> {
+    await firstValueFrom(
+      this.http.post(this.api.url('/users/me/change-email'), {
+        new_email: newEmail,
+        password,
+      }),
+    );
+  }
+
+  /** Sin sesión necesaria: el token prueba la propiedad del correo nuevo. */
+  async confirmChangeEmail(token: string): Promise<void> {
+    await firstValueFrom(this.http.post(this.api.url('/users/me/change-email/confirm'), { token }));
+  }
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await firstValueFrom(
+      this.http.post(this.api.url('/users/me/change-password'), {
+        current_password: currentPassword,
+        new_password: newPassword,
+      }),
+    );
+  }
+
+  async listSocialLinks(): Promise<EnlaceSocial[]> {
+    return firstValueFrom(this.http.get<EnlaceSocial[]>(this.api.url('/users/me/social-links')));
+  }
+
+  async upsertSocialLink(kind: string, url: string): Promise<EnlaceSocial> {
+    return firstValueFrom(
+      this.http.put<EnlaceSocial>(this.api.url(`/users/me/social-links/${kind}`), { url }),
+    );
+  }
+
+  async deleteSocialLink(kind: string): Promise<void> {
+    await firstValueFrom(this.http.delete(this.api.url(`/users/me/social-links/${kind}`)));
+  }
+
+  async listMyOrganizations(): Promise<OrganizacionDeLaPersona[]> {
+    return firstValueFrom(
+      this.http.get<OrganizacionDeLaPersona[]>(this.api.url('/users/me/organizations')),
     );
   }
 

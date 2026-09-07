@@ -43,7 +43,7 @@ async def _registrar_y_verificar(
         )
     ).first()
     assert fila is not None
-    token = await generate_token(PROPOSITO_VERIFICACION_CORREO, fila[0])
+    token = await generate_token(PROPOSITO_VERIFICACION_CORREO, str(fila[0]))
 
     verificacion = await cliente.get(VERIFY, params={"token": token}, headers={"Host": host})
     assert verificacion.status_code == 200, verificacion.text

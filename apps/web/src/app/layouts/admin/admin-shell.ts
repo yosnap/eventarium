@@ -1,8 +1,8 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 
-import { AuthService, displayName } from '../../core/auth/auth.service';
+import { AuthService, OrganizacionDeLaPersona, displayName } from '../../core/auth/auth.service';
 import { ThemingService } from '../../core/theming/theming.service';
 import { Button } from '../../shared/ui/button';
 
@@ -18,8 +18,19 @@ import { Button } from '../../shared/ui/button';
       <header>
         <p class="marca">{{ theming.organizationName() }} · {{ t('admin.titulo') }}</p>
         <div class="sesion">
+          @if (otrasOrganizaciones().length > 0) {
+            <nav [attr.aria-label]="t('admin.selectorOrganizacion.titulo')" class="selector">
+              @for (organizacion of organizaciones(); track organizacion.organization_id) {
+                @if (organizacion.host) {
+                  <a [href]="'https://' + organizacion.host + '/admin'">{{ organizacion.name }}</a>
+                }
+              }
+            </nav>
+          }
           @if (auth.currentUser(); as usuario) {
-            <span>{{ t('admin.sesionDe', { nombre: nombreDe(usuario) }) }}</span>
+            <a routerLink="/admin/account">{{
+              t('admin.sesionDe', { nombre: nombreDe(usuario) })
+            }}</a>
           }
           <app-button variant="secundario" (pulsado)="cerrarSesion()">
             {{ t('admin.cerrarSesion') }}
@@ -60,6 +71,11 @@ import { Button } from '../../shared/ui/button';
               </a>
             </li>
             <li>
+              <a routerLink="/admin/account" routerLinkActive="activo">
+                {{ t('admin.cuenta.titulo') }}
+              </a>
+            </li>
+            <li>
               <a routerLink="/admin/estilo" routerLinkActive="activo">
                 {{ t('admin.catalogoDeComponentes') }}
               </a>
@@ -96,6 +112,10 @@ import { Button } from '../../shared/ui/button';
       display: flex;
       align-items: center;
       gap: var(--space-md);
+    }
+    .selector {
+      display: flex;
+      gap: var(--space-sm);
     }
     .cuerpo {
       display: grid;
@@ -139,6 +159,25 @@ export class AdminShell {
   protected readonly theming = inject(ThemingService);
   protected readonly nombreDe = displayName;
   private readonly router = inject(Router);
+
+  protected readonly organizaciones = signal<readonly OrganizacionDeLaPersona[]>([]);
+  /** El selector solo tiene sentido con más de una organización. */
+  protected readonly otrasOrganizaciones = signal<readonly OrganizacionDeLaPersona[]>([]);
+
+  constructor() {
+    void this.cargarOrganizaciones();
+  }
+
+  private async cargarOrganizaciones(): Promise<void> {
+    try {
+      const lista = await this.auth.listMyOrganizations();
+      this.organizaciones.set(lista);
+      this.otrasOrganizaciones.set(lista.length > 1 ? lista : []);
+    } catch {
+      // El selector es una ayuda de navegación, no algo crítico: un fallo aquí no
+      // debe impedir usar el resto del panel.
+    }
+  }
 
   protected async cerrarSesion(): Promise<void> {
     await this.auth.logout();

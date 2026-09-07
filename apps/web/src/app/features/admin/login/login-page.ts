@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
 import { ApiError } from '../../../core/api/error.interceptor';
@@ -13,7 +13,7 @@ import { Input } from '../../../shared/ui/input';
 @Component({
   selector: 'app-login-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input],
+  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, Input],
   template: `
     <ng-container *transloco="let t">
       <main id="contenido" class="pagina">
@@ -44,6 +44,9 @@ import { Input } from '../../../shared/ui/input';
               {{ enviando() ? t('admin.login.entrando') : t('admin.login.entrar') }}
             </app-button>
           </form>
+          <p>
+            <a routerLink="/recuperar-contrasena">{{ t('admin.login.olvidasteContrasena') }}</a>
+          </p>
         </app-card>
       </main>
     </ng-container>

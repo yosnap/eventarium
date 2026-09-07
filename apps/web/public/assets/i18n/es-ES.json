@@ -78,6 +78,33 @@
     "reenviadoTitulo": "Enlace reenviado",
     "reenviadoDetalle": "Si la cuenta existe y no está verificada, recibirás un nuevo enlace."
   },
+  "recuperarContrasena": {
+    "titulo": "Recuperar la contraseña",
+    "instrucciones": "Escribe tu correo y te enviaremos un enlace para elegir una contraseña nueva.",
+    "email": "Correo electrónico",
+    "enviar": "Enviar enlace",
+    "enviando": "Enviando…",
+    "error": "No hemos podido completar la solicitud.",
+    "exitoTitulo": "Revisa tu correo",
+    "exitoDetalle": "Si la cuenta existe, recibirás un enlace para elegir una contraseña nueva. Revisa también la carpeta de spam.",
+    "nuevaTitulo": "Elige una contraseña nueva",
+    "nueva": "Contraseña nueva",
+    "guardar": "Guardar contraseña",
+    "guardando": "Guardando…",
+    "tokenInvalido": "El enlace no es válido o ha caducado.",
+    "pedirOtro": "Pedir un enlace nuevo",
+    "exitoNuevaTitulo": "Contraseña actualizada",
+    "exitoNuevaDetalle": "Ya puedes entrar al panel con tu contraseña nueva."
+  },
+  "cuenta": {
+    "confirmarCorreo": {
+      "titulo": "Confirmación de correo",
+      "comprobando": "Comprobando el enlace…",
+      "exitoTitulo": "Correo actualizado",
+      "exitoDetalle": "Tu correo se ha actualizado correctamente. Ya puedes entrar con él.",
+      "errorDetalle": "Pide un nuevo cambio de correo desde tu cuenta."
+    }
+  },
   "crearOrganizacion": {
     "titulo": "Crea tu organización",
     "nombre": "Nombre de la organización",
@@ -110,6 +137,9 @@
     "catalogoDeComponentes": "Catálogo de componentes",
     "cerrarSesion": "Cerrar sesión",
     "sesionDe": "Sesión de {{nombre}}",
+    "selectorOrganizacion": {
+      "titulo": "Cambiar de organización"
+    },
     "login": {
       "titulo": "Acceso al panel",
       "email": "Correo electrónico",
@@ -118,7 +148,8 @@
       "entrando": "Comprobando credenciales…",
       "error": "No hemos podido iniciar sesión.",
       "emailRequerido": "Escribe tu correo electrónico.",
-      "passwordRequerido": "Escribe tu contraseña."
+      "passwordRequerido": "Escribe tu contraseña.",
+      "olvidasteContrasena": "¿Has olvidado tu contraseña?"
     },
     "escritorioPagina": {
       "bienvenida": "Hola, {{nombre}}",
@@ -277,6 +308,37 @@
         "anadiendo": "Añadiendo…",
         "error": "No hemos podido añadir a la persona.",
         "exito": "Miembro añadido correctamente."
+      }
+    },
+    "cuenta": {
+      "titulo": "Mi cuenta",
+      "guardar": "Guardar",
+      "error": "No hemos podido completar la operación.",
+      "perfil": {
+        "titulo": "Perfil",
+        "nombre": "Nombre",
+        "apellidos": "Apellidos",
+        "exito": "Perfil actualizado."
+      },
+      "correo": {
+        "titulo": "Correo electrónico",
+        "actual": "Correo actual: {{correo}}",
+        "nuevo": "Correo nuevo",
+        "invalido": "Escribe un correo electrónico válido.",
+        "passwordActual": "Contraseña actual",
+        "passwordRequerida": "Escribe tu contraseña actual.",
+        "solicitar": "Solicitar cambio",
+        "exito": "Revisa el correo nuevo para confirmar el cambio. También hemos avisado a tu correo actual."
+      },
+      "contrasena": {
+        "titulo": "Contraseña",
+        "actual": "Contraseña actual",
+        "nueva": "Contraseña nueva",
+        "cambiar": "Cambiar contraseña",
+        "exito": "Contraseña actualizada. Las demás sesiones se han cerrado."
+      },
+      "enlaces": {
+        "titulo": "Enlaces sociales"
       }
     }
   }

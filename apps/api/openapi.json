@@ -219,6 +219,90 @@
         }
       }
     },
+    "/api/v1/auth/forgot-password": {
+      "post": {
+        "tags": [
+          "autenticación"
+        ],
+        "summary": "Pedir la recuperación de una contraseña olvidada",
+        "description": "Encola un enlace de recuperación solo si la cuenta existe. Responde siempre igual.",
+        "operationId": "forgot_password_api_v1_auth_forgot_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenericMessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/reset-password": {
+      "post": {
+        "tags": [
+          "autenticación"
+        ],
+        "summary": "Completar la recuperación de contraseña",
+        "description": "Consume el token del enlace de recuperación, aplica la contraseña nueva y revoca las demás sesiones.",
+        "operationId": "reset_password_api_v1_auth_reset_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenericMessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/logout": {
       "post": {
         "tags": [
@@ -617,6 +701,320 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CurrentUserResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "usuarios"
+        ],
+        "summary": "Modificar el usuario autenticado",
+        "description": "Nombre y locale. El correo tiene su propio flujo, con confirmación.",
+        "operationId": "update_me_api_v1_users_me_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserMeUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentUserResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/change-email": {
+      "post": {
+        "tags": [
+          "usuarios"
+        ],
+        "summary": "Solicitar un cambio de correo",
+        "description": "Exige la contraseña actual. Avisa al correo actual y envía la confirmación al correo nuevo; el cambio no se aplica hasta confirmarlo.",
+        "operationId": "change_email_api_v1_users_me_change_email_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeEmailRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Change Email Api V1 Users Me Change Email Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/change-email/confirm": {
+      "post": {
+        "tags": [
+          "usuarios"
+        ],
+        "summary": "Confirmar un cambio de correo",
+        "description": "Consume el token recibido en el correo nuevo, aplica el cambio y revoca las demás sesiones. No exige estar autenticado: el token prueba la propiedad del correo nuevo.",
+        "operationId": "change_email_confirm_api_v1_users_me_change_email_confirm_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeEmailConfirmRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Change Email Confirm Api V1 Users Me Change Email Confirm Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/change-password": {
+      "post": {
+        "tags": [
+          "usuarios"
+        ],
+        "summary": "Cambiar la contraseña",
+        "description": "Exige la actual y revoca las demás sesiones, salvo la actual.",
+        "operationId": "change_password_api_v1_users_me_change_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Change Password Api V1 Users Me Change Password Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/social-links": {
+      "get": {
+        "tags": [
+          "usuarios"
+        ],
+        "summary": "Enlaces sociales del perfil",
+        "operationId": "list_social_links_api_v1_users_me_social_links_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SocialLinkResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Social Links Api V1 Users Me Social Links Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/social-links/{kind}": {
+      "put": {
+        "tags": [
+          "usuarios"
+        ],
+        "summary": "Crear o actualizar un enlace social",
+        "operationId": "upsert_social_link_api_v1_users_me_social_links__kind__put",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Kind"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SocialLinkUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SocialLinkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "usuarios"
+        ],
+        "summary": "Eliminar un enlace social",
+        "operationId": "delete_social_link_api_v1_users_me_social_links__kind__delete",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Kind"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/organizations": {
+      "get": {
+        "tags": [
+          "usuarios"
+        ],
+        "summary": "Organizaciones a las que pertenece la persona",
+        "description": "Para el selector de organización del panel, cuando pertenece a más de una.",
+        "operationId": "list_my_organizations_api_v1_users_me_organizations_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OrganizationMembershipResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List My Organizations Api V1 Users Me Organizations Get"
                 }
               }
             }
@@ -1200,6 +1598,66 @@
         "title": "BrandingUpdate",
         "description": "Identidad visual editable desde el panel."
       },
+      "ChangeEmailConfirmRequest": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "ChangeEmailConfirmRequest",
+        "description": "Confirmación del cambio de correo con el token recibido en el correo nuevo."
+      },
+      "ChangeEmailRequest": {
+        "properties": {
+          "new_email": {
+            "type": "string",
+            "format": "email",
+            "title": "New Email"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "new_email",
+          "password"
+        ],
+        "title": "ChangeEmailRequest",
+        "description": "Solicitud de cambio de correo: exige la contraseña actual."
+      },
+      "ChangePasswordRequest": {
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Current Password"
+          },
+          "new_password": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 8,
+            "title": "New Password",
+            "description": "Contraseña: mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "title": "ChangePasswordRequest",
+        "description": "Cambio de contraseña: exige la actual."
+      },
       "CheckSlugResponse": {
         "properties": {
           "available": {
@@ -1328,6 +1786,28 @@
         ],
         "title": "DomainResponse",
         "description": "Dominio asociado a una organización."
+      },
+      "ForgotPasswordRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email",
+            "description": "Correo electrónico de la cuenta"
+          },
+          "turnstile_token": {
+            "type": "string",
+            "title": "Turnstile Token",
+            "description": "Token del widget de Turnstile"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "turnstile_token"
+        ],
+        "title": "ForgotPasswordRequest",
+        "description": "Datos para pedir la recuperación de una contraseña olvidada."
       },
       "GenericMessageResponse": {
         "properties": {
@@ -1603,6 +2083,42 @@
         ],
         "title": "OrganizationCreate",
         "description": "Alta de organización (solo superadmin)."
+      },
+      "OrganizationMembershipResponse": {
+        "properties": {
+          "organization_id": {
+            "type": "string",
+            "title": "Organization Id"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
+          }
+        },
+        "type": "object",
+        "required": [
+          "organization_id",
+          "slug",
+          "name",
+          "host"
+        ],
+        "title": "OrganizationMembershipResponse",
+        "description": "Una organización a la que pertenece la persona, para el selector del panel."
       },
       "OrganizationResponse": {
         "properties": {
@@ -1957,6 +2473,29 @@
         "title": "ResendVerificationRequest",
         "description": "Datos para reenviar el correo de verificación."
       },
+      "ResetPasswordRequest": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token",
+            "description": "Token del enlace de recuperación"
+          },
+          "new_password": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 8,
+            "title": "New Password",
+            "description": "Contraseña: mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "new_password"
+        ],
+        "title": "ResetPasswordRequest",
+        "description": "Datos para completar la recuperación con el token recibido por correo."
+      },
       "RoleCreate": {
         "properties": {
           "key": {
@@ -2255,6 +2794,42 @@
         "title": "SocialLinkInput",
         "description": "Enlace social del organizador."
       },
+      "SocialLinkResponse": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "url"
+        ],
+        "title": "SocialLinkResponse",
+        "description": "Enlace social tal y como lo ve el panel."
+      },
+      "SocialLinkUpdate": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "pattern": "^https?://",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "SocialLinkUpdate",
+        "description": "Enlace social del perfil de una persona."
+      },
       "TokenResponse": {
         "properties": {
           "access_token": {
@@ -2279,6 +2854,52 @@
         ],
         "title": "TokenResponse",
         "description": "Access token. El refresh viaja en una cookie `HttpOnly` y no se expone aquí."
+      },
+      "UserMeUpdate": {
+        "properties": {
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
+          "locale": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10,
+                "minLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locale"
+          }
+        },
+        "type": "object",
+        "title": "UserMeUpdate",
+        "description": "Campos editables directamente, sin flujo propio (nombre, locale).\n\nEl correo no está aquí: tiene su propio flujo con confirmación\n(`POST /users/me/change-email`)."
       },
       "UserSummary": {
         "properties": {

@@ -140,6 +140,33 @@ para listas de opciones dinámicas. Verificado leyendo `select.value` desde la c
 del navegador antes y después de la corrección, sobre un rol creado a partir de la
 plantilla «Voluntariado».
 
+## Checklist manual — Fase 5 (cuenta propia y recuperación)
+
+Revisado el 2026-09-07 sobre `/recuperar-contrasena`, `/recuperar-contrasena/nueva`,
+`/cuenta/confirmar-correo` y `admin/account`, más el selector de organización en
+`admin-shell`.
+
+| # | Criterio WCAG 2.1 AA | Cómo se ha comprobado | Resultado |
+|---|---|---|---|
+| 2.1.1 | Teclado | Recorrido completo con tabulador en las cuatro pantallas nuevas: campos, envío, enlaces de vuelta | ✅ |
+| 3.3.1 | Identificación de errores | Mismo patrón `aria-describedby`/`aria-invalid` que el resto del panel en los formularios de perfil, correo y contraseña de `account-page` | ✅ |
+| 4.1.3 | Mensajes de estado | El resultado de `reset-password-page` y `confirm-email-change-page` (éxito, token caducado) se anuncia con `aria-live="assertive"`, mismo patrón que `verify-email-page`: ninguna de las dos comprobaciones ocurre por interacción directa de la persona | ✅ |
+| 2.4.4 | Propósito de los enlaces | El selector de organización usa `<a href>` reales por organización (no un manejador de clic que cambia `location.href`), con `aria-label` en el `nav` que lo contiene — un enlace real se anuncia como navegación, no como un control genérico | ✅ |
+| 1.3.1 | Información y relaciones | Los enlaces sociales de `account-page` reutilizan `app-input` con su etiqueta ya asociada; el guardado ocurre al perder el foco (`blurred`), sin depender de un botón adicional por fila | ✅ |
+| — | Cobertura automática | 4 ficheros de test nuevos (`forgot-password-page`, `reset-password-page`, `confirm-email-change-page`, `account-page`): cero violaciones de axe en cada estado (formulario, éxito, error, token caducado) | ✅ |
+
+**Verificación de extremo a extremo realizada manualmente** (no solo declarada, según
+exige el paso de cierre de esta fase): recuperación de contraseña completa contra el entorno de
+desarrollo real (Caddy + Angular SSR + FastAPI + Redis + Mailpit) — solicitud del
+enlace, lectura del correo real en Mailpit, cambio de contraseña, inicio de sesión con
+la contraseña nueva, edición del perfil y guardado de un enlace social, todo
+comprobado en el navegador. Este recorrido encontró y permitió corregir dos fallos
+reales que ningún test unitario cubría: la migración `0008_cuenta_y_recuperacion` no
+se había aplicado a la base de datos de desarrollo (solo a la de test), y
+`account-page` no recargaba el usuario actual tras una recarga completa de página
+(`AuthService.refresh()` solo renueva el token, no el usuario en memoria) — corregido
+con `AuthService.loadCurrentUser()`.
+
 ## Al añadir una pantalla
 
 1. Externaliza todos los textos a `es-ES.json`.
