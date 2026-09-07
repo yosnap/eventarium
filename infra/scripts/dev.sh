@@ -109,15 +109,24 @@ parar_hijos() {
 }
 
 # Cada línea se prefija con el nombre del proceso para poder seguir tres logs a la vez.
+# Se usa un bucle de lectura en lugar de `sed`: sed almacena la salida cuando no escribe
+# a una terminal, así que al redirigir a un fichero los logs no aparecían.
 arrancar_en_segundo_plano() {
 	local etiqueta="$1"
 	shift
-	("$@" 2>&1 | sed "s/^/[$etiqueta] /") &
+	(
+		"$@" 2>&1 | while IFS= read -r linea; do
+			printf '[%s] %s\n' "$etiqueta" "$linea"
+		done
+	) &
 	PIDS+=("$!")
 }
 
-comando_api() { cd "$RAIZ/apps/api" && uv run uvicorn app.main:app --reload --port "$PUERTO_API"; }
-comando_worker() { cd "$RAIZ/apps/api" && uv run taskiq worker app.core.tasks:broker --reload; }
+# PYTHONUNBUFFERED: sin esto, Python almacena la salida al escribir en una tubería
+# en lugar de en una terminal, y los logs no aparecen hasta que el proceso muere.
+comando_api() { cd "$RAIZ/apps/api" && PYTHONUNBUFFERED=1 uv run uvicorn app.main:app --reload --port "$PUERTO_API"; }
+# Sin --reload: esa bandera exige el extra taskiq[reload], que no instalamos.
+comando_worker() { cd "$RAIZ/apps/api" && PYTHONUNBUFFERED=1 uv run taskiq worker app.core.tasks:broker; }
 # El puerto y el host viven en angular.json; aquí solo se sobrescribe el puerto
 # cuando quien llama lo ha cambiado con WEB_DEV_PORT.
 comando_web() { cd "$RAIZ/apps/web" && pnpm start --port "$PUERTO_WEB"; }
