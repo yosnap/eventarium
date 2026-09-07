@@ -14,7 +14,7 @@ export
 endif
 
 .DEFAULT_GOAL := help
-.PHONY: help setup dev up down logs ps reset api worker web \
+.PHONY: help setup dev up down logs ps reset api worker web stop status \
         db-migrate db-revision db-seed db-reset db-test-create \
         lint lint-api lint-web test test-api test-web audit \
         api-openapi api-types
@@ -44,23 +44,23 @@ logs: ## Sigue los logs de las dependencias
 ps: ## Estado de los servicios
 	$(COMPOSE) ps
 
-dev: up ## Levanta dependencias y explica cómo arrancar las apps
-	@echo ""
-	@echo "Dependencias listas. Abre tres terminales:"
-	@echo "  make api      # FastAPI en :8000"
-	@echo "  make web      # Angular en :4200"
-	@echo "  make worker   # worker de Taskiq"
-	@echo ""
-	@echo "Accede SIEMPRE por http://localhost:$(WEB_PORT) (Caddy), nunca por :4200."
+dev: ## Levanta dependencias y arranca API, worker y frontend a la vez
+	./infra/scripts/dev.sh all
 
-api: ## Arranca la API con recarga automática
-	cd $(API_DIR) && uv run uvicorn app.main:app --reload --port 8000
+api: ## Arranca solo la API con recarga automática
+	./infra/scripts/dev.sh api
 
-worker: ## Arranca el worker de Taskiq
-	cd $(API_DIR) && uv run taskiq worker app.core.tasks:broker --reload
+worker: ## Arranca solo el worker de Taskiq
+	./infra/scripts/dev.sh worker
 
-web: ## Arranca el dev server de Angular
-	cd $(WEB_DIR) && pnpm start
+web: ## Arranca solo el dev server de Angular
+	./infra/scripts/dev.sh web
+
+stop: ## Libera los puertos del proyecto (no para Docker)
+	./infra/scripts/dev.sh stop
+
+status: ## Muestra qué hay escuchando en los puertos del proyecto
+	./infra/scripts/dev.sh status
 
 db-migrate: ## Aplica las migraciones (rol app_maintainer)
 	cd $(API_DIR) && uv run alembic upgrade head
