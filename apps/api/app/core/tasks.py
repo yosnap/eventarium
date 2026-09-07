@@ -11,6 +11,7 @@ from taskiq import TaskiqEvents, TaskiqState
 from taskiq_redis import RedisAsyncResultBackend, RedisStreamBroker
 
 from app.core.config import get_settings
+from app.core.email import get_email_provider
 
 _settings = get_settings()
 
@@ -31,3 +32,20 @@ async def _al_arrancar(state: TaskiqState) -> None:
 async def ping(mensaje: str = "pong") -> str:
     """Tarea mínima de verificación de la cola."""
     return mensaje
+
+
+@broker.task(retry_on_error=True, max_retries=5)
+async def send_verification_email(to_email: str, token: str) -> None:
+    """Envía el enlace de verificación de correo tras el registro."""
+    settings = get_settings()
+    enlace = f"{settings.web_base_url}/verificar-correo?token={token}"
+    await get_email_provider().send(
+        to=to_email,
+        subject="Verifica tu correo",
+        body=(
+            "Hola,\n\n"
+            "Confirma tu correo para completar el registro:\n"
+            f"{enlace}\n\n"
+            "El enlace caduca en 24 horas. Si no has sido tú, ignora este mensaje."
+        ),
+    )
