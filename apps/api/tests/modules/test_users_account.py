@@ -3,15 +3,19 @@ el selector de organizaciones (fase 5 del PRD)."""
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import text
 
+from app.core.database import SessionApp, set_organization_context
 from app.core.tasks import send_email_change_confirmation, send_email_change_warning
+from app.modules.auth import service as auth_service
 from app.modules.auth.router import COOKIE_NOMBRE
 from app.modules.auth.verification import PROPOSITO_CAMBIO_CORREO, generate_token
+from app.shared.errors import ConflictError
 from tests.conftest import OrganizacionDePrueba, crear_organizacion, iniciar_sesion
 
 ME = "/api/v1/users/me"
@@ -135,6 +139,40 @@ async def test_change_email_confirmar_aplica_el_cambio_y_revoca_las_sesiones(
         REFRESH, headers={"Host": organizacion.host}, cookies={COOKIE_NOMBRE: refresh_previo}
     )
     assert revocado.status_code == 401
+
+
+async def test_confirmar_dos_cambios_de_correo_concurrentes_al_mismo_correo_da_409(
+    organizacion: OrganizacionDePrueba, otra_organizacion: OrganizacionDePrueba
+) -> None:
+    """La comprobación previa de disponibilidad no cierra la carrera: dos
+    confirmaciones distintas pueden pasarla a la vez si corren en paralelo. El
+    `UNIQUE` de `users.email` es quien de verdad decide, y el resultado debe ser un
+    409 controlado, no una excepción sin capturar."""
+    correo_disputado = "disputado@example.com"
+    token_a = await generate_token(
+        PROPOSITO_CAMBIO_CORREO, f"{organizacion.owner_id}:{correo_disputado}"
+    )
+    token_b = await generate_token(
+        PROPOSITO_CAMBIO_CORREO, f"{otra_organizacion.owner_id}:{correo_disputado}"
+    )
+
+    async def confirmar(token: str):  # type: ignore[no-untyped-def]
+        async with SessionApp() as session:
+            async with session.begin():
+                await set_organization_context(session, None)
+                return await auth_service.change_email_confirm(session, token=token)
+
+    resultados = await asyncio.gather(
+        confirmar(token_a), confirmar(token_b), return_exceptions=True
+    )
+
+    errores = [r for r in resultados if isinstance(r, BaseException)]
+    exitos = [r for r in resultados if not isinstance(r, BaseException)]
+    assert len(exitos) == 1, "una de las dos confirmaciones debe aplicarse"
+    assert len(errores) == 1, "la otra debe fallar, no aplicarse silenciosamente"
+    assert isinstance(errores[0], ConflictError), (
+        f"se esperaba ConflictError (409), se obtuvo {type(errores[0])!r}"
+    )
 
 
 async def test_change_password_exige_la_actual(
