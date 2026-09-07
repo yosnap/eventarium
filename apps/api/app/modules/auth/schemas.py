@@ -27,7 +27,8 @@ class UserSummary(BaseModel):
 
     id: str
     email: EmailStr
-    full_name: str
+    first_name: str | None
+    last_name: str | None
     is_superadmin: bool
 
 
@@ -48,7 +49,6 @@ class RegisterRequest(BaseModel):
             "Contraseña: mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial"
         ),
     )
-    full_name: str = Field(min_length=1, max_length=200, description="Nombre completo")
     turnstile_token: str = Field(description="Token del widget de Turnstile")
 
     @field_validator("password")
@@ -76,6 +76,13 @@ class GenericMessageResponse(BaseModel):
 
 
 class VerifyEmailResponse(BaseModel):
-    """Respuesta de la verificación de correo."""
+    """Respuesta de la verificación de correo.
+
+    Incluye un access token **sin organización** (`create_access_token` acepta
+    `organization_id=None`): sirve solo de puente hasta crear la primera
+    organización (fase 2), no para entrar en el panel de ninguna.
+    """
 
     message: str
+    access_token: str
+    expires_in: int

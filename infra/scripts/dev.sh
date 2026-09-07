@@ -5,6 +5,7 @@
 #   infra/scripts/dev.sh api       solo la API
 #   infra/scripts/dev.sh web       solo el frontend
 #   infra/scripts/dev.sh worker    solo el worker de tareas
+#   infra/scripts/dev.sh scheduler solo el planificador de tareas periódicas
 #   infra/scripts/dev.sh stop      libera todos los puertos del proyecto
 #   infra/scripts/dev.sh status    qué hay escuchando en cada puerto
 #
@@ -127,6 +128,7 @@ arrancar_en_segundo_plano() {
 comando_api() { cd "$RAIZ/apps/api" && PYTHONUNBUFFERED=1 uv run uvicorn app.main:app --reload --port "$PUERTO_API"; }
 # Sin --reload: esa bandera exige el extra taskiq[reload], que no instalamos.
 comando_worker() { cd "$RAIZ/apps/api" && PYTHONUNBUFFERED=1 uv run taskiq worker app.core.tasks:broker; }
+comando_scheduler() { cd "$RAIZ/apps/api" && PYTHONUNBUFFERED=1 uv run taskiq scheduler app.core.tasks:scheduler; }
 # El puerto y el host viven en angular.json; aquí solo se sobrescribe el puerto
 # cuando quien llama lo ha cambiado con WEB_DEV_PORT.
 comando_web() { cd "$RAIZ/apps/web" && pnpm start --port "$PUERTO_WEB"; }
@@ -152,11 +154,11 @@ case "$accion" in
 		exit 0
 		;;
 
-	api | web | worker | all) ;;
+	api | web | worker | scheduler | all) ;;
 
 	*)
 		rojo "Acción desconocida: $accion"
-		echo "Uso: dev.sh [all|api|web|worker|stop|status]"
+		echo "Uso: dev.sh [all|api|web|worker|scheduler|stop|status]"
 		exit 2
 		;;
 esac
@@ -181,12 +183,17 @@ case "$accion" in
 		azul "→ Worker de tareas"
 		arrancar_en_segundo_plano worker comando_worker
 		;;
+	scheduler)
+		azul "→ Planificador de tareas periódicas"
+		arrancar_en_segundo_plano scheduler comando_scheduler
+		;;
 	all)
 		liberar_puerto "$PUERTO_API" "API"
 		liberar_puerto "$PUERTO_WEB" "frontend"
-		azul "→ Arrancando API, worker y frontend"
+		azul "→ Arrancando API, worker, planificador y frontend"
 		arrancar_en_segundo_plano api comando_api
 		arrancar_en_segundo_plano worker comando_worker
+		arrancar_en_segundo_plano scheduler comando_scheduler
 		arrancar_en_segundo_plano web comando_web
 		;;
 esac

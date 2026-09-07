@@ -35,6 +35,11 @@ REENVIO_VERIFICACION_POR_IP = 3
 # El token tiene 256 bits de entropía (no es adivinable), pero el endpoint sigue
 # necesitando un tope propio para no quedar como el único público sin ninguno.
 VERIFICACION_CORREO_POR_IP = 20
+# Creación de organización: de un solo uso legítimo por persona, como el registro.
+CREAR_ORGANIZACION_POR_IP = 10
+# check-slug es solo ayuda de UX (debounce en el cliente), pero necesita su propio
+# tope: sin Turnstile ni cuenta detrás, es el candidato más fácil a escaneo.
+CHECK_SLUG_POR_IP = 30
 
 VENTANA_SEGUNDOS = 60
 

@@ -186,7 +186,8 @@ async def crear_organizacion(
         correo = f"owner@{slug}.com"
         usuario = User(
             email=correo,
-            full_name="Propietario",
+            first_name="Propietario",
+            last_name="De prueba",
             password_hash=hash_password(owner_password),
             is_active=True,
         )
@@ -282,7 +283,8 @@ async def crear_usuario_con_rol(
         correo = f"{role_key}@{organizacion.slug}.com"
         usuario = User(
             email=correo,
-            full_name=f"Persona {role_key}",
+            first_name="Persona",
+            last_name=role_key,
             password_hash=hash_password(password),
             is_active=True,
         )

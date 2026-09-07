@@ -143,7 +143,8 @@ async def test_un_organizador_no_puede_asignar_el_rol_owner(
         headers=cabeceras,
         json={
             "email": "aspirante@example.com",
-            "full_name": "Aspirante",
+            "first_name": "Aspirante",
+            "last_name": "Prueba",
             "role_id": str(rol_owner_id),
         },
     )
@@ -168,7 +169,8 @@ async def test_el_owner_si_puede_asignar_el_rol_owner(
         headers=cabeceras,
         json={
             "email": "cofundadora@example.com",
-            "full_name": "Cofundadora",
+            "first_name": "Cofundadora",
+            "last_name": "Prueba",
             "role_id": str(organizacion.owner_role_id),
         },
     )

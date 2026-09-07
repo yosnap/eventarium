@@ -13,11 +13,15 @@ import { TurnstileWidget } from '../../../shared/ui/turnstile-widget';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-type Campo = 'fullName' | 'email' | 'password';
+type Campo = 'email' | 'password' | 'confirmPassword';
 
 /**
  * Alta de una cuenta. CSR, como `admin/login`: es un flujo transaccional, no
  * contenido público indexable.
+ *
+ * Sin campo de nombre a propósito: un único «nombre completo» es ambiguo para
+ * repartir en nombre y apellidos después. Se pide más tarde, en el punto donde de
+ * verdad hace falta — crear una organización, inscribirse a un evento — no aquí.
  *
  * Cada campo se valida al perder el foco (no en cada pulsación, que interrumpiría
  * mientras se escribe, ni solo al enviar). La respuesta del servidor es siempre la
@@ -48,14 +52,6 @@ type Campo = 'fullName' | 'email' | 'password';
           } @else {
             <form (submit)="enviar($event)" novalidate>
               <app-input
-                [label]="t('registro.nombre')"
-                autocomplete="name"
-                [required]="true"
-                [error]="errores().fullName"
-                [(value)]="fullName"
-                (blurred)="validar('fullName')"
-              />
-              <app-input
                 [label]="t('registro.email')"
                 type="email"
                 autocomplete="email"
@@ -70,10 +66,22 @@ type Campo = 'fullName' | 'email' | 'password';
                 autocomplete="new-password"
                 [required]="true"
                 [error]="errores().password"
+                [hint]="t('registro.passwordAyuda')"
                 [(value)]="password"
                 (blurred)="validar('password')"
               />
               <app-password-strength [password]="password()" />
+
+              <app-input
+                [label]="t('registro.confirmarPassword')"
+                type="password"
+                autocomplete="new-password"
+                [required]="true"
+                [error]="errores().confirmPassword"
+                [hint]="t('registro.confirmarPasswordAyuda')"
+                [(value)]="confirmPassword"
+                (blurred)="validar('confirmPassword')"
+              />
 
               <app-turnstile-widget (resuelto)="turnstileToken.set($event)" />
 
@@ -115,23 +123,21 @@ export class RegisterPage {
   private readonly auth = inject(AuthService);
   private readonly transloco = inject(TranslocoService);
 
-  protected readonly fullName = signal('');
   protected readonly email = signal('');
   protected readonly password = signal('');
+  protected readonly confirmPassword = signal('');
   protected readonly turnstileToken = signal<string | null>(null);
   protected readonly enviando = signal(false);
   protected readonly enviado = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly errores = signal<Record<Campo, string | null>>({
-    fullName: null,
     email: null,
     password: null,
+    confirmPassword: null,
   });
 
   private errorDe(campo: Campo): string | null {
     switch (campo) {
-      case 'fullName':
-        return this.fullName().trim() ? null : this.transloco.translate('registro.nombreRequerido');
       case 'email': {
         const valor = this.email().trim();
         if (!valor) return this.transloco.translate('registro.emailRequerido');
@@ -143,6 +149,14 @@ export class RegisterPage {
         return isPasswordValid(valor)
           ? null
           : this.transloco.translate('registro.passwordSinComplejidad');
+      }
+      case 'confirmPassword': {
+        if (!this.confirmPassword()) {
+          return this.transloco.translate('registro.confirmarPasswordRequerida');
+        }
+        return this.confirmPassword() === this.password()
+          ? null
+          : this.transloco.translate('registro.passwordsNoCoinciden');
       }
     }
   }
@@ -156,9 +170,9 @@ export class RegisterPage {
     this.error.set(null);
 
     const nuevosErrores: Record<Campo, string | null> = {
-      fullName: this.errorDe('fullName'),
       email: this.errorDe('email'),
       password: this.errorDe('password'),
+      confirmPassword: this.errorDe('confirmPassword'),
     };
     this.errores.set(nuevosErrores);
     if (Object.values(nuevosErrores).some((mensaje) => mensaje)) {
@@ -167,12 +181,7 @@ export class RegisterPage {
 
     this.enviando.set(true);
     try {
-      await this.auth.register(
-        this.email().trim(),
-        this.password(),
-        this.fullName().trim(),
-        this.turnstileToken() ?? '',
-      );
+      await this.auth.register(this.email().trim(), this.password(), this.turnstileToken() ?? '');
       this.enviado.set(true);
     } catch (error) {
       this.error.set(

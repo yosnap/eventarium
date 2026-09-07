@@ -256,6 +256,91 @@
         }
       }
     },
+    "/api/v1/organizations/check-slug": {
+      "get": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Comprobar disponibilidad de un identificador de organización",
+        "description": "Ayuda de UX para sugerir un subdominio libre mientras se escribe. No es la validación de seguridad: la creación real vuelve a comprobarlo y el `UNIQUE` de la base de datos es la única fuente de verdad ante una carrera.",
+        "operationId": "check_slug_api_v1_organizations_check_slug_get",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckSlugResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations": {
+      "post": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Crear una organización (autoservicio)",
+        "description": "Exige correo verificado y Turnstile. La persona autenticada queda como `owner`; el subdominio se registra como `{slug}.DOMINIO_BASE`.",
+        "operationId": "create_organization_api_v1_organizations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelfServiceOrganizationCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelfServiceOrganizationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/organizations/me": {
       "get": {
         "tags": [
@@ -1115,6 +1200,20 @@
         "title": "BrandingUpdate",
         "description": "Identidad visual editable desde el panel."
       },
+      "CheckSlugResponse": {
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          }
+        },
+        "type": "object",
+        "required": [
+          "available"
+        ],
+        "title": "CheckSlugResponse",
+        "description": "Disponibilidad de un identificador de organización."
+      },
       "CurrentUserResponse": {
         "properties": {
           "id": {
@@ -1126,9 +1225,27 @@
             "format": "email",
             "title": "Email"
           },
-          "full_name": {
-            "type": "string",
-            "title": "Full Name"
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
           },
           "is_superadmin": {
             "type": "boolean",
@@ -1157,7 +1274,8 @@
         "required": [
           "id",
           "email",
-          "full_name",
+          "first_name",
+          "last_name",
           "is_superadmin",
           "organization_id",
           "roles",
@@ -1334,11 +1452,17 @@
             "format": "email",
             "title": "Email"
           },
-          "full_name": {
+          "first_name": {
             "type": "string",
-            "maxLength": 200,
+            "maxLength": 100,
             "minLength": 1,
-            "title": "Full Name"
+            "title": "First Name"
+          },
+          "last_name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Last Name"
           },
           "role_id": {
             "type": "string",
@@ -1353,7 +1477,8 @@
         "type": "object",
         "required": [
           "email",
-          "full_name",
+          "first_name",
+          "last_name",
           "role_id"
         ],
         "title": "MemberCreate",
@@ -1374,9 +1499,27 @@
             "format": "email",
             "title": "Email"
           },
-          "full_name": {
-            "type": "string",
-            "title": "Full Name"
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
           },
           "role_id": {
             "type": "string",
@@ -1397,7 +1540,8 @@
           "id",
           "user_id",
           "email",
-          "full_name",
+          "first_name",
+          "last_name",
           "role_id",
           "role_key",
           "profile_data"
@@ -1776,13 +1920,6 @@
             "title": "Password",
             "description": "Contraseña: mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial"
           },
-          "full_name": {
-            "type": "string",
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Full Name",
-            "description": "Nombre completo"
-          },
           "turnstile_token": {
             "type": "string",
             "title": "Turnstile Token",
@@ -1793,7 +1930,6 @@
         "required": [
           "email",
           "password",
-          "full_name",
           "turnstile_token"
         ],
         "title": "RegisterRequest",
@@ -2007,6 +2143,74 @@
         "title": "RoleUpdate",
         "description": "Edición de un rol existente."
       },
+      "SelfServiceOrganizationCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "slug": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 2,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "title": "Slug"
+          },
+          "first_name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "First Name"
+          },
+          "last_name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Last Name"
+          },
+          "turnstile_token": {
+            "type": "string",
+            "title": "Turnstile Token",
+            "description": "Token del widget de Turnstile"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "slug",
+          "first_name",
+          "last_name",
+          "turnstile_token"
+        ],
+        "title": "SelfServiceOrganizationCreate",
+        "description": "Alta de organización por autoservicio (persona ya verificada)."
+      },
+      "SelfServiceOrganizationResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "host": {
+            "type": "string",
+            "title": "Host"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "host"
+        ],
+        "title": "SelfServiceOrganizationResponse",
+        "description": "Organización recién creada.\n\nSin token de sesión: el subdominio nuevo es un origen distinto de donde se ha\nllamado a este endpoint (normalmente el dominio principal de la instalación), así\nque ninguna cookie ni token en memoria viajaría con la persona hasta allí. El\ncliente redirige a `host` y la persona entra con su correo y contraseña, esta vez\ncon éxito porque ya pertenece a una organización."
+      },
       "SocialLink": {
         "properties": {
           "kind": {
@@ -2087,9 +2291,27 @@
             "format": "email",
             "title": "Email"
           },
-          "full_name": {
-            "type": "string",
-            "title": "Full Name"
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
           },
           "is_superadmin": {
             "type": "boolean",
@@ -2100,7 +2322,8 @@
         "required": [
           "id",
           "email",
-          "full_name",
+          "first_name",
+          "last_name",
           "is_superadmin"
         ],
         "title": "UserSummary",
@@ -2151,14 +2374,24 @@
           "message": {
             "type": "string",
             "title": "Message"
+          },
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
           }
         },
         "type": "object",
         "required": [
-          "message"
+          "message",
+          "access_token",
+          "expires_in"
         ],
         "title": "VerifyEmailResponse",
-        "description": "Respuesta de la verificación de correo."
+        "description": "Respuesta de la verificación de correo.\n\nIncluye un access token **sin organización** (`create_access_token` acepta\n`organization_id=None`): sirve solo de puente hasta crear la primera\norganización (fase 2), no para entrar en el panel de ninguna."
       }
     }
   }

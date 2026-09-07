@@ -33,12 +33,17 @@ En EasyPanel, crea un proyecto y dentro estos servicios:
 | `seaweedfs` | App | `chrislusf/seaweedfs:3.97` | 8333 |
 | `api` | App | `ghcr.io/yosnap/eventarium/api:sha-<commit>` | 8000 |
 | `worker` | App | la misma imagen que `api` | — |
+| `scheduler` | App | la misma imagen que `api` | — |
 | `web` | App | `ghcr.io/yosnap/eventarium/web:sha-<commit>` | 4000 |
 
 Comandos de arranque:
 
 - `seaweedfs`: `server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json -ip=seaweedfs`
 - `worker`: `taskiq worker app.core.tasks:broker`
+- `scheduler`: `taskiq scheduler app.core.tasks:scheduler`. Es un proceso aparte del
+  `worker` (desde Taskiq 0.12 uno consume la cola y el otro dispara las tareas con
+  `schedule`): sin este servicio, el barrido de cuentas sin verificar no se ejecuta nunca,
+  aunque el `worker` esté sano.
 - `api` y `web` usan el comando por defecto de su imagen.
 
 ### 2. Enrutar el dominio por rutas
@@ -58,7 +63,7 @@ Deja que EasyPanel gestione el certificado TLS.
 
 ### 3. Variables de entorno
 
-En cada servicio que las necesite (`api`, `worker` y `migrate`):
+En cada servicio que las necesite (`api`, `worker`, `scheduler` y `migrate`):
 
 ```bash
 APP_ENV=production
@@ -74,6 +79,7 @@ WEB_BASE_URL=https://eventos.tu-dominio.org
 JWT_SECRET=<openssl rand -base64 48>
 DEFAULT_ORGANIZATION_SLUG=
 TRUSTED_PROXY_CIDRS=10.0.0.0/8,172.16.0.0/12
+DOMINIO_BASE=tu-dominio.org
 ```
 
 Y en `web`:
@@ -93,6 +99,9 @@ Dos que suelen dar problemas:
 - **`DEFAULT_ORGANIZATION_SLUG`** debe quedar vacío. La API se niega a arrancar en
   producción si tiene valor: es un atajo de desarrollo que saltaría la resolución por
   host.
+- **`DOMINIO_BASE`** es el dominio bajo el que se registra el subdominio de cada
+  organización nueva (`{slug}.{DOMINIO_BASE}`). La API se niega a arrancar en producción
+  si está vacío: sin él, el alta libre de organización no sabría qué host asignar.
 
 ### 4. Roles de base de datos y migraciones
 
@@ -139,7 +148,7 @@ enrutado que hace falta.
 
 ## Actualización
 
-En EasyPanel: cambia la etiqueta de imagen de `api`, `worker` y `web` a
+En EasyPanel: cambia la etiqueta de imagen de `api`, `worker`, `scheduler` y `web` a
 `sha-<commit-nuevo>` y despliega. El *pre-deploy command* de `api` ejecuta la migración
 antes de levantar la versión nueva.
 
@@ -163,12 +172,12 @@ Haz una copia de seguridad **antes** de una actualización con migraciones (abaj
 
 ## Rollback
 
-En EasyPanel: vuelve a poner la etiqueta anterior en `api`, `worker` y `web` y
-despliega. Con Compose:
+En EasyPanel: vuelve a poner la etiqueta anterior en `api`, `worker`, `scheduler` y `web`
+y despliega. Con Compose:
 
 ```bash
 sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=sha-<commit-anterior>/' infra/env/.env
-docker compose --env-file infra/env/.env -f infra/docker-compose.prod.yml up -d --force-recreate api worker web
+docker compose --env-file infra/env/.env -f infra/docker-compose.prod.yml up -d --force-recreate api worker scheduler web
 ```
 
 Si la versión nueva traía una migración incompatible, revierte también el esquema:
@@ -278,13 +287,16 @@ Lo que hay que preparar en el despliegue:
    `tu-dominio.org,*.tu-dominio.org`. El SSR valida `Host` y `X-Forwarded-Host` contra
    esta lista.
 
-Al dar de alta una organización se registra su subdominio:
+Al dar de alta una organización se registra su subdominio, ya sea por CLI:
 
 ```bash
 python -m app.cli create-organization mi-org "Mi Organización" mi-org.tu-dominio.org
 ```
 
-Cuando exista el registro libre de usuarios, ese alta la hará la propia aplicación.
+o por el alta libre desde la propia aplicación (`POST /organizations`, tras verificar el
+correo): la persona elige nombre y slug, la API compone el host como
+`{slug}.{DOMINIO_BASE}` y registra el dominio igual que el CLI. Por eso `DOMINIO_BASE`
+(arriba) es obligatorio en producción.
 
 Quien quiera una instalación aparte hace fork del repositorio y la despliega.
 
@@ -303,7 +315,8 @@ Todas están documentadas en `infra/env/.env.example`. Las que solo aplican a pr
 | `API_INTERNAL_URL` | URL de la API en la red interna, para el SSR |
 | `GITHUB_REPOSITORY` | Origen de las imágenes en GHCR |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_USE_TLS`, `SMTP_FROM` | Proveedor de correo real para la verificación de cuentas. Mailpit solo existe en desarrollo |
-| `TURNSTILE_ENABLED`, `TURNSTILE_SECRET_KEY` | Anti-bot en el registro y el reenvío de verificación. **`TURNSTILE_ENABLED` no puede ser `false` en producción**: el arranque de la API falla si lo es |
+| `TURNSTILE_ENABLED`, `TURNSTILE_SECRET_KEY` | Anti-bot en el registro, el reenvío de verificación y el alta de organización. **`TURNSTILE_ENABLED` no puede ser `false` en producción**: el arranque de la API falla si lo es |
+| `DOMINIO_BASE` | Dominio bajo el que se registra el subdominio de cada organización nueva. **Obligatorio en producción**: el arranque de la API falla si está vacío |
 
 La clave pública de Turnstile (`turnstileSiteKey`) no es un secreto de la API: se
 compila en el bundle del frontend (`apps/web/src/environments/environment.ts`) antes de

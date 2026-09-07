@@ -47,7 +47,7 @@ describe('RegisterPage', () => {
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
-  it('exige nombre, correo y una contraseña de al menos 8 caracteres', async () => {
+  it('exige correo y una contraseña de al menos 8 caracteres', async () => {
     const fixture = TestBed.createComponent(RegisterPage);
     await fixture.whenStable();
     const auth = TestBed.inject(AuthService);
@@ -82,6 +82,65 @@ describe('RegisterPage', () => {
     await fixture.whenStable();
 
     expect(auth.register).not.toHaveBeenCalled();
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('exige que la repetición de la contraseña coincida', async () => {
+    const fixture = TestBed.createComponent(RegisterPage);
+    await fixture.whenStable();
+    const auth = TestBed.inject(AuthService);
+
+    const [campoPassword, campoConfirmar] = Array.from(
+      fixture.nativeElement.querySelectorAll('input[type="password"]'),
+    ) as HTMLInputElement[];
+
+    campoPassword.value = 'Una-Contraseña-Fuerte-1!';
+    campoPassword.dispatchEvent(new Event('input'));
+    campoConfirmar.value = 'Otra-Diferente-1!';
+    campoConfirmar.dispatchEvent(new Event('input'));
+    campoConfirmar.dispatchEvent(new Event('blur'));
+    await fixture.whenStable();
+
+    expect(fixture.nativeElement.textContent).toContain('no coinciden');
+
+    (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
+      new Event('submit'),
+    );
+    await fixture.whenStable();
+
+    expect(auth.register).not.toHaveBeenCalled();
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('con datos válidos y contraseñas iguales envía el registro', async () => {
+    const fixture = TestBed.createComponent(RegisterPage);
+    await fixture.whenStable();
+    const auth = TestBed.inject(AuthService);
+
+    const campoEmail = fixture.nativeElement.querySelector(
+      'input[type="email"]',
+    ) as HTMLInputElement;
+    campoEmail.value = 'valido@example.com';
+    campoEmail.dispatchEvent(new Event('input'));
+
+    const [campoPassword, campoConfirmar] = Array.from(
+      fixture.nativeElement.querySelectorAll('input[type="password"]'),
+    ) as HTMLInputElement[];
+    campoPassword.value = 'Una-Contraseña-Fuerte-1!';
+    campoPassword.dispatchEvent(new Event('input'));
+    campoConfirmar.value = 'Una-Contraseña-Fuerte-1!';
+    campoConfirmar.dispatchEvent(new Event('input'));
+
+    (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
+      new Event('submit'),
+    );
+    await fixture.whenStable();
+
+    expect(auth.register).toHaveBeenCalledWith(
+      'valido@example.com',
+      'Una-Contraseña-Fuerte-1!',
+      '',
+    );
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 });

@@ -20,7 +20,6 @@ RESEND = "/api/v1/auth/resend-verification"
 DATOS_REGISTRO = {
     "email": "nueva-persona@example.com",
     "password": "Una-Contraseña-Larga-1!",
-    "full_name": "Persona Nueva",
     "turnstile_token": "token-de-prueba",
 }
 

@@ -18,6 +18,20 @@ export const routes: Routes = [
       import('./features/public/verify-email/verify-email-page').then((m) => m.VerifyEmailPage),
   },
   {
+    path: 'crear-organizacion',
+    loadComponent: () =>
+      import('./features/public/create-organization/create-organization-page').then(
+        (m) => m.CreateOrganizationPage,
+      ),
+  },
+  {
+    // Catálogo interno de componentes: sin enlace desde ningún sitio, solo para
+    // revisarlos juntos mientras se diseña. No forma parte del producto.
+    path: 'estilo',
+    loadComponent: () =>
+      import('./features/dev/style-guide/style-guide-page').then((m) => m.StyleGuidePage),
+  },
+  {
     path: 'admin',
     loadComponent: () => import('./layouts/admin/admin-shell').then((m) => m.AdminShell),
     canActivate: [authGuard],
