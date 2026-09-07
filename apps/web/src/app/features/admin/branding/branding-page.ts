@@ -90,9 +90,9 @@ const HEX_VALIDO = /^#[0-9a-f]{6}$/i;
           <div class="tarjetas">
             <app-card [heading]="t('admin.branding.plantilla')">
               <label for="plantilla">{{ t('admin.branding.plantilla') }}</label>
-              <select id="plantilla" [value]="templateKey()" (change)="alCambiarPlantilla($event)">
+              <select id="plantilla" (change)="alCambiarPlantilla($event)">
                 @for (clave of claves; track clave) {
-                  <option [value]="clave">{{ clave }}</option>
+                  <option [value]="clave" [selected]="clave === templateKey()">{{ clave }}</option>
                 }
               </select>
             </app-card>

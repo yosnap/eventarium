@@ -28,7 +28,7 @@ import { TranslocoService } from '@jsverse/transloco';
     <div class="campo" [class.flotando]="flotando()">
       <div class="control">
         <input
-          [id]="idCampo"
+          [id]="idCampo()"
           [type]="tipoEfectivo()"
           [value]="value()"
           [attr.autocomplete]="autocomplete()"
@@ -40,7 +40,7 @@ import { TranslocoService } from '@jsverse/transloco';
           (focus)="enFoco.set(true)"
           (blur)="enFoco.set(false); blurred.emit()"
         />
-        <label [for]="idCampo">{{ label() }}</label>
+        <label [for]="idCampo()">{{ label() }}</label>
         @if (esPassword()) {
           <button
             type="button"
@@ -70,9 +70,9 @@ import { TranslocoService } from '@jsverse/transloco';
         }
       </div>
       @if (error()) {
-        <p [id]="idError" class="error">{{ error() }}</p>
+        <p [id]="idError()" class="error">{{ error() }}</p>
       } @else if (hint()) {
-        <p [id]="idAyuda" class="ayuda">{{ hint() }}</p>
+        <p [id]="idAyuda()" class="ayuda">{{ hint() }}</p>
       }
     </div>
   `,
@@ -172,12 +172,15 @@ import { TranslocoService } from '@jsverse/transloco';
 })
 export class Input {
   readonly label = input.required<string>();
-  readonly type = input<'text' | 'email' | 'password' | 'url'>('text');
+  readonly type = input<'text' | 'email' | 'password' | 'url' | 'date'>('text');
   readonly autocomplete = input<string | null>(null);
   readonly required = input(false);
   readonly error = input<string | null>(null);
   /** Texto de ayuda bajo el campo, oculto mientras haya un error que mostrar. */
   readonly hint = input<string | null>(null);
+  /** Id estable para enlazar desde fuera (p. ej. un resumen de errores). Si se omite,
+   * se genera uno automático. */
+  readonly fieldId = input<string | null>(null);
   readonly value = model('');
   /** Se emite al perder el foco, para validar en el momento en que tiene sentido: ni
    * en cada pulsación (interrumpiría mientras se escribe) ni solo al enviar. */
@@ -187,9 +190,9 @@ export class Input {
 
   private static contador = 0;
   private readonly indice = Input.contador++;
-  protected readonly idCampo = `campo-${this.indice}`;
-  protected readonly idError = `campo-${this.indice}-error`;
-  protected readonly idAyuda = `campo-${this.indice}-ayuda`;
+  protected readonly idCampo = computed(() => this.fieldId() ?? `campo-${this.indice}`);
+  protected readonly idError = computed(() => `${this.idCampo()}-error`);
+  protected readonly idAyuda = computed(() => `${this.idCampo()}-ayuda`);
 
   protected readonly enFoco = signal(false);
   protected readonly mostrar = signal(false);
@@ -199,8 +202,8 @@ export class Input {
   );
   protected readonly flotando = computed(() => this.enFoco() || this.value().length > 0);
   protected readonly descripcionId = computed(() => {
-    if (this.error()) return this.idError;
-    if (this.hint()) return this.idAyuda;
+    if (this.error()) return this.idError();
+    if (this.hint()) return this.idAyuda();
     return null;
   });
 
