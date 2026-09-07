@@ -162,28 +162,28 @@ la página pública.
 
 ## Success Criteria
 
-- [ ] Un `owner`/`organizer` añade a alguien de la organización al roster de un
+- [x] Un `owner`/`organizer` añade a alguien de la organización al roster de un
       evento y lo asigna a una sesión con un rol libre
-- [ ] La misma persona puede aparecer en la misma sesión con dos roles distintos
+- [x] La misma persona puede aparecer en la misma sesión con dos roles distintos
       (dos filas en `event_session_participants`)
-- [ ] Asignar a una sesión a alguien que no está en el roster de ese evento falla
+- [x] Asignar a una sesión a alguien que no está en el roster de ese evento falla
       con 422
-- [ ] Quitar del roster a alguien con participaciones activas da 409, no 500
-- [ ] Dos guardados concurrentes de la lista de participantes de la misma sesión:
+- [x] Quitar del roster a alguien con participaciones activas da 409, no 500
+- [x] Dos guardados concurrentes de la lista de participantes de la misma sesión:
       el segundo da 409 por `expected_updated_at` desactualizado, nunca
       sobrescribe en silencio el primero
-- [ ] Una persona activa **su propio** perfil público (autoservicio, sin
+- [x] Una persona activa **su propio** perfil público (autoservicio, sin
       `MEMBERS_WRITE`); el slug se comprueba en vivo y es único por organización
-- [ ] Activar el perfil sobre una membresía ajena, o sobre una cuyo rol no
+- [x] Activar el perfil sobre una membresía ajena, o sobre una cuyo rol no
       declara ningún campo publicable, falla con 422
-- [ ] La respuesta pública del perfil solo incluye la lista blanca fija; un campo
+- [x] La respuesta pública del perfil solo incluye la lista blanca fija; un campo
       a medida sensible del rol (p. ej. teléfono) nunca aparece, con test
       explícito
-- [ ] El historial de un ponente (`speakers_repository`) incluye sesiones de
+- [x] El historial de un ponente (`speakers_repository`) incluye sesiones de
       **todas** las membresías de esa persona y de **todas** las ediciones
       `published` + `public`, excluyendo explícitamente `hidden`/`private`
       aunque estén publicadas
-- [ ] Cero violaciones de axe en las pantallas modificadas
+- [x] Cero violaciones de axe en las pantallas modificadas
 
 ## Risk Assessment
 

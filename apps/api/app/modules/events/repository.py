@@ -30,6 +30,41 @@ def events_query(organization_id: uuid.UUID, *, status: str | None = None) -> Se
     return consulta
 
 
+def public_events_query(organization_id: uuid.UUID) -> Select[tuple[Event]]:
+    """Eventos `published` + `public`, para el listado sin autenticar.
+
+    El filtro de publicación va explícito aquí, nunca delegado a RLS: RLS aísla
+    por organización, no por si un evento está publicado, así que sin este
+    `WHERE` un borrador de la propia organización seguiría siendo visible bajo el
+    contexto anónimo de esa organización.
+    """
+    return (
+        select(Event)
+        .where(
+            Event.organization_id == organization_id,
+            Event.status == "published",
+            Event.visibility == "public",
+        )
+        .order_by(Event.starts_at)
+    )
+
+
+async def get_public_event_by_slug(
+    session: AsyncSession, organization_id: uuid.UUID, slug: str
+) -> Event | None:
+    """`None` tanto si el slug no existe como si el evento no es público — mismo
+    404 uniforme en el router, para no filtrar por qué no está disponible."""
+    resultado: Event | None = await session.scalar(
+        select(Event).where(
+            Event.organization_id == organization_id,
+            Event.slug == slug,
+            Event.status == "published",
+            Event.visibility == "public",
+        )
+    )
+    return resultado
+
+
 async def get_event(
     session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID
 ) -> Event | None:

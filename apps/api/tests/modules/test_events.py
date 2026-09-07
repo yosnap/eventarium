@@ -172,6 +172,119 @@ async def test_una_sesion_fuera_del_rango_del_evento_se_rechaza(
     assert respuesta.status_code == 422
 
 
+async def test_video_url_sin_https_se_rechaza(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento = await _crear_evento(cliente, cabeceras)
+
+    respuesta = await cliente.post(
+        f"{EVENTS}/{evento['id']}/sessions",
+        headers=cabeceras,
+        json={
+            "session_type": "talk",
+            "title": "Charla con vídeo inseguro",
+            "starts_at": (AHORA + timedelta(hours=1)).isoformat(),
+            "ends_at": (AHORA + timedelta(hours=2)).isoformat(),
+            "video_platform": "youtube",
+            "video_url": "http://youtube.com/watch?v=abc",
+        },
+    )
+    assert respuesta.status_code == 422
+
+
+async def test_video_url_de_dominio_ajeno_a_la_plataforma_se_rechaza(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento = await _crear_evento(cliente, cabeceras)
+
+    respuesta = await cliente.post(
+        f"{EVENTS}/{evento['id']}/sessions",
+        headers=cabeceras,
+        json={
+            "session_type": "talk",
+            "title": "Charla con vídeo de otro dominio",
+            "starts_at": (AHORA + timedelta(hours=1)).isoformat(),
+            "ends_at": (AHORA + timedelta(hours=2)).isoformat(),
+            "video_platform": "youtube",
+            "video_url": "https://evil.example.com/video",
+        },
+    )
+    assert respuesta.status_code == 422
+
+
+async def test_video_url_https_del_dominio_correcto_se_acepta(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento = await _crear_evento(cliente, cabeceras)
+
+    respuesta = await cliente.post(
+        f"{EVENTS}/{evento['id']}/sessions",
+        headers=cabeceras,
+        json={
+            "session_type": "talk",
+            "title": "Charla con vídeo válido",
+            "starts_at": (AHORA + timedelta(hours=1)).isoformat(),
+            "ends_at": (AHORA + timedelta(hours=2)).isoformat(),
+            "video_platform": "youtube",
+            "video_url": "https://youtu.be/abc123",
+        },
+    )
+    assert respuesta.status_code == 201
+
+
+async def test_un_material_sin_https_se_rechaza(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento = await _crear_evento(cliente, cabeceras)
+
+    respuesta = await cliente.post(
+        f"{EVENTS}/{evento['id']}/sessions",
+        headers=cabeceras,
+        json={
+            "session_type": "talk",
+            "title": "Charla con material inseguro",
+            "starts_at": (AHORA + timedelta(hours=1)).isoformat(),
+            "ends_at": (AHORA + timedelta(hours=2)).isoformat(),
+            "materials": [{"label": "Diapositivas", "url": "http://ejemplo.com/slides.pdf"}],
+        },
+    )
+    assert respuesta.status_code == 422
+
+
+async def test_cambiar_solo_la_url_del_video_revalida_contra_la_plataforma_ya_guardada(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """El `PATCH` puede tocar solo `video_url`: la combinación final (con la
+    plataforma ya guardada) se valida en el servicio, no solo campo a campo."""
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento = await _crear_evento(cliente, cabeceras)
+    sesion = (
+        await cliente.post(
+            f"{EVENTS}/{evento['id']}/sessions",
+            headers=cabeceras,
+            json={
+                "session_type": "talk",
+                "title": "Charla",
+                "starts_at": (AHORA + timedelta(hours=1)).isoformat(),
+                "ends_at": (AHORA + timedelta(hours=2)).isoformat(),
+                "video_platform": "youtube",
+                "video_url": "https://youtu.be/abc123",
+            },
+        )
+    ).json()
+
+    respuesta = await cliente.patch(
+        f"{EVENTS}/{evento['id']}/sessions/{sesion['id']}",
+        headers=cabeceras,
+        json={"video_url": "https://vimeo.com/123456"},
+    )
+    assert respuesta.status_code == 422
+
+
 async def test_editar_y_borrar_una_sesion(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:

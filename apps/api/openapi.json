@@ -2206,6 +2206,167 @@
           }
         }
       }
+    },
+    "/api/v1/public/events": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Listar eventos publicados",
+        "operationId": "list_public_events_api_v1_public_events_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PublicEventSummary"
+                  },
+                  "type": "array",
+                  "title": "Response List Public Events Api V1 Public Events Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/events/{slug}": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Ver el detalle de un evento publicado",
+        "operationId": "get_public_event_api_v1_public_events__slug__get",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicEventDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/events/{slug}/sessions/{session_id}": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Ver el detalle de una sesión publicada",
+        "description": "Anidado bajo el evento: exige que el evento sea `published` + `public` además de que la propia sesión le pertenezca. Sin este anidamiento, un `id` de sesión (UUIDv7, con entropía reducida frente a un v4 dentro de una ventana de tiempo conocida) sería enumerable y filtraría agendas de eventos sin publicar.",
+        "operationId": "get_public_session_api_v1_public_events__slug__sessions__session_id__get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSessionDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/speakers/{public_slug}": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Ver el perfil público de un ponente",
+        "operationId": "get_public_speaker_api_v1_public_speakers__public_slug__get",
+        "parameters": [
+          {
+            "name": "public_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Public Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSpeakerProfile"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4296,6 +4457,380 @@
         "title": "ProfileFieldResponse",
         "description": "Campo de perfil tal y como se devuelve."
       },
+      "PublicEventDetail": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Starts At"
+          },
+          "ends_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ends At"
+          },
+          "location_mode": {
+            "type": "string",
+            "enum": [
+              "in_person",
+              "online",
+              "hybrid"
+            ],
+            "title": "Location Mode"
+          },
+          "location_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Name"
+          },
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "online_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Online Url"
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity"
+          },
+          "registration_mode": {
+            "type": "string",
+            "enum": [
+              "free",
+              "approval",
+              "paid"
+            ],
+            "title": "Registration Mode"
+          },
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/PublicEventSession"
+            },
+            "type": "array",
+            "title": "Sessions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "title",
+          "summary",
+          "description",
+          "cover_url",
+          "timezone",
+          "starts_at",
+          "ends_at",
+          "location_mode",
+          "location_name",
+          "location_address",
+          "online_url",
+          "capacity",
+          "registration_mode",
+          "sessions"
+        ],
+        "title": "PublicEventDetail",
+        "description": "Evento publicado con su agenda completa, para la página pública de detalle."
+      },
+      "PublicEventSession": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "session_type": {
+            "type": "string",
+            "enum": [
+              "talk",
+              "break",
+              "service",
+              "other"
+            ],
+            "title": "Session Type"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Starts At"
+          },
+          "ends_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ends At"
+          },
+          "room": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room"
+          },
+          "video_platform": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "youtube",
+                  "vimeo",
+                  "twitch",
+                  "other"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Platform"
+          },
+          "video_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Url"
+          },
+          "materials": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Materials"
+          },
+          "participants": {
+            "items": {
+              "$ref": "#/components/schemas/PublicParticipant"
+            },
+            "type": "array",
+            "title": "Participants"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "session_type",
+          "title",
+          "description",
+          "starts_at",
+          "ends_at",
+          "room",
+          "video_platform",
+          "video_url",
+          "materials",
+          "participants"
+        ],
+        "title": "PublicEventSession",
+        "description": "Sesión de la agenda tal y como se muestra en la página pública del evento."
+      },
+      "PublicEventSummary": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Starts At"
+          },
+          "ends_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ends At"
+          },
+          "location_mode": {
+            "type": "string",
+            "enum": [
+              "in_person",
+              "online",
+              "hybrid"
+            ],
+            "title": "Location Mode"
+          },
+          "location_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "title",
+          "summary",
+          "cover_url",
+          "timezone",
+          "starts_at",
+          "ends_at",
+          "location_mode",
+          "location_name"
+        ],
+        "title": "PublicEventSummary",
+        "description": "Evento tal y como aparece en el listado público."
+      },
+      "PublicParticipant": {
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "role_key": {
+            "type": "string",
+            "title": "Role Key"
+          },
+          "public_slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Slug"
+          }
+        },
+        "type": "object",
+        "required": [
+          "display_name",
+          "role_key",
+          "public_slug"
+        ],
+        "title": "PublicParticipant",
+        "description": "Participante tal y como se muestra en las páginas públicas.\n\nNunca lleva el correo — a diferencia de `SessionParticipantResponse`, que es\npara el panel de administración. `public_slug` solo está presente si esa\npersona activó su perfil público; si no, es `None` y la página no enlaza a\nningún sitio."
+      },
       "PublicProfileResponse": {
         "properties": {
           "active": {
@@ -4389,6 +4924,210 @@
         ],
         "title": "PublicProfileUpdate",
         "description": "Activa, cambia o desactiva el perfil público de ponente (autoservicio).\n\n`public_slug: null` desactiva el perfil (borra la fila de\n`speaker_public_profiles`); un valor no nulo lo activa o lo actualiza, y en\nese caso `source_organization_member_id` es obligatorio."
+      },
+      "PublicSessionDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "session_type": {
+            "type": "string",
+            "enum": [
+              "talk",
+              "break",
+              "service",
+              "other"
+            ],
+            "title": "Session Type"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Starts At"
+          },
+          "ends_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ends At"
+          },
+          "room": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room"
+          },
+          "video_platform": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "youtube",
+                  "vimeo",
+                  "twitch",
+                  "other"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Platform"
+          },
+          "video_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Url"
+          },
+          "materials": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Materials"
+          },
+          "participants": {
+            "items": {
+              "$ref": "#/components/schemas/PublicParticipant"
+            },
+            "type": "array",
+            "title": "Participants"
+          },
+          "event_slug": {
+            "type": "string",
+            "title": "Event Slug"
+          },
+          "event_title": {
+            "type": "string",
+            "title": "Event Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "session_type",
+          "title",
+          "description",
+          "starts_at",
+          "ends_at",
+          "room",
+          "video_platform",
+          "video_url",
+          "materials",
+          "participants",
+          "event_slug",
+          "event_title"
+        ],
+        "title": "PublicSessionDetail",
+        "description": "La misma sesión, con el enlace a su evento padre para la página propia."
+      },
+      "PublicSpeakerHistoryItem": {
+        "properties": {
+          "event_slug": {
+            "type": "string",
+            "title": "Event Slug"
+          },
+          "event_title": {
+            "type": "string",
+            "title": "Event Title"
+          },
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "session_title": {
+            "type": "string",
+            "title": "Session Title"
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Starts At"
+          },
+          "role_key": {
+            "type": "string",
+            "title": "Role Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_slug",
+          "event_title",
+          "session_id",
+          "session_title",
+          "starts_at",
+          "role_key"
+        ],
+        "title": "PublicSpeakerHistoryItem",
+        "description": "Una participación del historial público de un ponente."
+      },
+      "PublicSpeakerProfile": {
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "public_slug": {
+            "type": "string",
+            "title": "Public Slug"
+          },
+          "fields": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Fields"
+          },
+          "social_links": {
+            "items": {
+              "$ref": "#/components/schemas/SocialLinkResponse"
+            },
+            "type": "array",
+            "title": "Social Links"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/PublicSpeakerHistoryItem"
+            },
+            "type": "array",
+            "title": "History"
+          }
+        },
+        "type": "object",
+        "required": [
+          "display_name",
+          "public_slug",
+          "fields",
+          "social_links",
+          "history"
+        ],
+        "title": "PublicSpeakerProfile",
+        "description": "Perfil público de un ponente tal y como lo ve cualquier visitante."
       },
       "RegisterRequest": {
         "properties": {

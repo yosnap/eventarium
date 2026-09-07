@@ -16,6 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.events import repository
+from app.modules.events import schemas as events_schemas
 from app.modules.events.models import Event, EventMember, EventSession, EventSessionParticipant
 from app.modules.organizations import repository as organizations_repository
 from app.shared.errors import ConflictError, NotFoundError, ValidationDomainError
@@ -126,6 +127,19 @@ async def update_session(
     if fin <= inicio:
         raise ValidationDomainError("La fecha de fin debe ser posterior a la de inicio.")
     _validar_sesion_dentro_del_evento(evento, inicio, fin)
+
+    # `EventSessionUpdate` valida `video_url`/`materials` campo a campo, pero un
+    # `PATCH` parcial puede tocar solo uno de los dos (p. ej. cambiar la URL sin
+    # repetir la plataforma): la combinación final solo se conoce aquí, tras
+    # fusionar con lo que ya tenía la sesión.
+    try:
+        events_schemas.validate_video_url(
+            datos.get("video_platform", sesion.video_platform),
+            datos.get("video_url", sesion.video_url),
+        )
+        events_schemas.validate_materials(datos.get("materials", sesion.materials))
+    except ValueError as exc:
+        raise ValidationDomainError(str(exc)) from exc
 
     for campo, valor in datos.items():
         setattr(sesion, campo, valor)

@@ -57,6 +57,12 @@ async def get_db(
     return session
 
 
+# Reutilizable por los endpoints públicos (sin autenticar): necesitan el `id` de la
+# organización resuelta por host, pero no un usuario — `get_db` ya deja el contexto
+# RLS listo con solo esta dependencia, sin pasar por `get_current_user`.
+OrganizationDep = Annotated[ResolvedOrganization, Depends(get_current_organization)]
+
+
 async def get_maintenance_db() -> AsyncIterator[AsyncSession]:
     """Sesión con el rol `app_maintainer` (BYPASSRLS).
 

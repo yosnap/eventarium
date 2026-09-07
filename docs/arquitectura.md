@@ -240,20 +240,66 @@ Si la API no responde, la aplicación muestra «sitio no disponible» en lugar d
 paleta por defecto: enseñar una marca que no es la de la organización sería peor que
 admitir el fallo.
 
+### Páginas públicas con datos: SSR real, no solo plantilla
+
+Las páginas públicas de evento, sesión y ponente (`features/public/events/`) piden
+datos a la API durante el renderizado en servidor, siguiendo el mismo patrón que
+`ThemingService` — no el de `home-page.ts`, que solo espera un `import()` dinámico
+sin ninguna petición HTTP y por tanto serviría un hueco vacío (o, peor, datos de otra
+organización por el atajo de desarrollo) si se copiara sin más para una página con
+datos reales.
+
+1. La petición usa `ApiService.url()` + `ApiService.serverForwardHeaders()`, para
+   que en SSR lleve el `X-Forwarded-Host` real de la visita en vez del `Host`
+   interno del contenedor.
+2. La carga se registra con `PendingTasks.run(...)` dentro de `ngOnInit`: en modo
+   zoneless, sin esto el renderizado en servidor no esperaría a la petición
+   asíncrona y serializaría la página con el estado inicial vacío.
+3. El resultado se guarda en `TransferState` con una clave propia por página
+   (`makeStateKey`), para que el cliente no repita la petición al hidratar.
+4. Un 404 de la API marca un estado "no encontrado" en el componente, que
+   `NotFoundStatusService` (`core/ssr/not-found-status.service.ts`) traduce al
+   código de estado HTTP real de la respuesta SSR mediante el token `RESPONSE_INIT`
+   de `@angular/core` — `null` fuera de un renderizado en servidor real (build,
+   CSR, SSG, extracción de rutas), así que `mark()` es un no-op seguro en
+   cualquier otro contexto. No hace falta ninguna lógica adicional en
+   `server.ts`: el motor de `@angular/ssr` ya construye la `Response` final a
+   partir de ese mismo objeto antes de que `writeResponseToNodeResponse` la
+   escriba.
+5. Las etiquetas Open Graph (`og:title`, `og:description`, `og:image`) se fijan con
+   `SeoMetaService` (`core/seo/meta.service.ts`), primer uso de `Meta`/`Title` de
+   `@angular/platform-browser` en el proyecto.
+
+El vídeo embebido (`features/public/events/video-embed.ts`) resuelve la URL del
+reproductor oficial de cada plataforma (`youtube-nocookie.com`, `player.vimeo.com`,
+`player.twitch.tv`) a partir del `video_url` guardado; para «otro» plantea un enlace
+directo en vez de un `iframe` genérico que podría no cargar. El `src` de ese
+`iframe` se marca con `DomSanitizer.bypassSecurityTrustResourceUrl`: es seguro
+porque siempre se construye desde ese prefijo propio fijo, nunca a partir de la URL
+cruda que guardó quien edita la sesión — esa URL ya pasó, además, la validación de
+dominio por plataforma del backend (`validate_video_url`, ver
+`docs/modelo-de-datos.md`).
+
 ## Estructura
 
 ```
 apps/api/app/
 ├── core/      config, database, security, storage, tenant, permissions, deps, tasks
-├── modules/   health, auth, tenant, organizations, users, roles, admin
+├── modules/   health, auth, tenant, organizations, users, roles, admin, events
 ├── shared/    errors, pagination, dynamic_fields, identifiers
 └── seed/
 
 apps/web/src/app/
-├── core/      api, auth, theming, tenant, i18n
+├── core/      api, auth, theming, tenant, i18n, seo, ssr
 ├── layouts/   public, admin
-├── features/  public/*, admin/*
+├── features/  public/* (incluida public/events), admin/*
 └── shared/ui/
 ```
+
+`modules/events` reúne eventos, agenda, roster de participantes y perfil público de
+ponente: `router.py` (administración, autenticado), `public_router.py` (lecturas sin
+autenticar bajo `/public/...`, con `limit_per_ip` en los cuatro endpoints) y
+`speakers_repository.py` (historial de un ponente, compartido por ambos routers con
+el filtro de publicación como parámetro explícito).
 
 Regla: ningún fichero fuente supera las 1000 líneas, con 300 como objetivo.

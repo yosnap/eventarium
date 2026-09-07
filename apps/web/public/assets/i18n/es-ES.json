@@ -18,13 +18,37 @@
   "publico": {
     "navegacion": "Navegación principal",
     "inicio": "Inicio",
-    "eventos": "Eventos",
+    "eventos": {
+      "listadoTitulo": "Eventos",
+      "sinEventos": "Todavía no hay eventos publicados.",
+      "error": "No hemos podido cargar los eventos.",
+      "noEncontrado": "No hemos encontrado este evento.",
+      "agenda": "Agenda",
+      "sinAgenda": "Todavía no hay agenda publicada.",
+      "enlaceOnline": "Enlace de acceso online",
+      "sinResumen": "Descubre este evento.",
+      "ponentes": "Ponentes",
+      "video": "Vídeo",
+      "verVideo": "Ver el vídeo",
+      "materiales": "Materiales"
+    },
     "accesoPanel": "Acceso al panel",
     "organizadoPor": "Organizado por {{nombre}}",
     "proximamente": "Próximamente",
     "proximamenteDetalle": "Estamos preparando la próxima edición. Vuelve pronto para ver el programa y las inscripciones.",
     "redesSociales": "Redes sociales del organizador",
-    "piePagina": "Pie de página"
+    "piePagina": "Pie de página",
+    "ponentes": {
+      "noEncontrado": "No hemos encontrado este perfil.",
+      "redes": "Redes sociales",
+      "historial": "Historial de sesiones",
+      "bio": "Biografía",
+      "titular": "Titular profesional",
+      "empresa": "Empresa u organización",
+      "curriculum": "Currículum",
+      "web": "Sitio web",
+      "contacto": "Contacto"
+    }
   },
   "registro": {
     "titulo": "Crear una cuenta",

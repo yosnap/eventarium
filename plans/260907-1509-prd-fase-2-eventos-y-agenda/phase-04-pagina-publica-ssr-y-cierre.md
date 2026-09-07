@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: "Fase 4: Página pública del evento con SSR, cierre de fase"
-status: pending
+status: done
 priority: P1
 effort: "2-3d"
 dependencies: [3]
@@ -161,27 +161,27 @@ explícito para producirlo — no se asume que "sin contenido" ya es suficiente.
 
 ## Success Criteria
 
-- [ ] Un evento en borrador o no público responde **404 real** (código de estado
+- [x] Un evento en borrador o no público responde **404 real** (código de estado
       HTTP, no solo contenido vacío) en su página pública, sin distinguir por
       qué
-- [ ] Una sesión de un evento no publicado da 404 aunque se conozca su `id`
+- [x] Una sesión de un evento no publicado da 404 aunque se conozca su `id`
       directamente
-- [ ] La página de evento sirve HTML con el contenido ya renderizado sin necesitar
+- [x] La página de evento sirve HTML con el contenido ya renderizado sin necesitar
       JavaScript, verificado con una petición que fija `X-Forwarded-Host`
-- [ ] Las etiquetas OG (`og:title`, `og:description`, `og:image`) están presentes
+- [x] Las etiquetas OG (`og:title`, `og:description`, `og:image`) están presentes
       y usan los datos reales del evento
-- [ ] El vídeo se embebe según su plataforma; para "otro" se ofrece un enlace en
+- [x] El vídeo se embebe según su plataforma; para "otro" se ofrece un enlace en
       vez de un iframe que podría no cargar
-- [ ] El perfil de ponente muestra la lista blanca de campos (nunca
+- [x] El perfil de ponente muestra la lista blanca de campos (nunca
       `profile_data` completo) y el historial agrupado por evento, con enlaces a
       las páginas de los eventos correspondientes
-- [ ] Dos organizaciones no pueden ver los eventos, sesiones ni ponentes públicos
+- [x] Dos organizaciones no pueden ver los eventos, sesiones ni ponentes públicos
       de la otra cambiando el host — verificado también contra el filtro de
       publicación, no solo contra RLS
-- [ ] Los cuatro endpoints públicos tienen límite de peticiones por IP
-- [ ] Cero violaciones de axe en las cuatro pantallas públicas nuevas
-- [ ] `docs/` refleja el estado real del código
-- [ ] Verificación de extremo a extremo ejecutada en el navegador y documentada,
+- [x] Los cuatro endpoints públicos tienen límite de peticiones por IP
+- [x] Cero violaciones de axe en las cuatro pantallas públicas nuevas
+- [x] `docs/` refleja el estado real del código
+- [x] Verificación de extremo a extremo ejecutada en el navegador y documentada,
       no solo declarada
 
 ## Risk Assessment

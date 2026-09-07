@@ -19,7 +19,13 @@ from typing import Any
 from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.events.models import Event, EventMember, EventSession, EventSessionParticipant
+from app.modules.events.models import (
+    Event,
+    EventMember,
+    EventSession,
+    EventSessionParticipant,
+    SpeakerPublicProfile,
+)
 from app.modules.organizations.models import OrganizationMember
 
 
@@ -60,3 +66,19 @@ async def get_speaker_history(
         )
     ).all()
     return [(participacion, sesion, evento) for participacion, sesion, evento in filas]
+
+
+async def get_public_slugs_by_user_ids(
+    session: AsyncSession, organization_id: uuid.UUID, user_ids: set[uuid.UUID]
+) -> dict[uuid.UUID, str]:
+    """`user_id → public_slug` para quienes activaron su perfil, sin N+1 al pintar
+    una agenda con varios participantes."""
+    if not user_ids:
+        return {}
+    filas = await session.execute(
+        select(SpeakerPublicProfile.user_id, SpeakerPublicProfile.public_slug).where(
+            SpeakerPublicProfile.organization_id == organization_id,
+            SpeakerPublicProfile.user_id.in_(user_ids),
+        )
+    )
+    return {user_id: slug for user_id, slug in filas}
