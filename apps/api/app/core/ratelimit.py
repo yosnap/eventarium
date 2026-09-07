@@ -32,6 +32,9 @@ PUBLICO_POR_IP = 120
 REGISTRO_POR_IP = 10
 # El reenvío es reutilizable y encola correo: más estricto, además de exigir Turnstile.
 REENVIO_VERIFICACION_POR_IP = 3
+# El token tiene 256 bits de entropía (no es adivinable), pero el endpoint sigue
+# necesitando un tope propio para no quedar como el único público sin ninguno.
+VERIFICACION_CORREO_POR_IP = 20
 
 VENTANA_SEGUNDOS = 60
 

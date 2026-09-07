@@ -31,9 +31,13 @@ depends_on: str | Sequence[str] | None = None
 FUNCIONES_REGISTRO = (
     """
 CREATE OR REPLACE FUNCTION app_find_user_by_email(p_email text)
-RETURNS TABLE (id uuid, password_hash text, is_active boolean, email_verified_at timestamptz)
+RETURNS TABLE (id uuid, email_verified_at timestamptz)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT u.id, u.password_hash, u.is_active, u.email_verified_at
+  -- Solo lo que necesitan sus dos llamadores (comprobar existencia y estado de
+  -- verificación): ni password_hash ni is_active tienen consumidor aquí, y
+  -- exponerlos invitaría a que un futuro llamador los usara para autenticar sin
+  -- pasar por `authenticate()`, saltándose la comprobación de membresía.
+  SELECT u.id, u.email_verified_at
   FROM users u
   WHERE lower(u.email) = lower(p_email)
 $$
