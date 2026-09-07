@@ -81,7 +81,7 @@ Y en `web`:
 ```bash
 PORT=4000
 API_INTERNAL_URL=http://api:8000
-NG_ALLOWED_HOSTS=eventos.tu-dominio.org
+NG_ALLOWED_HOSTS=tu-dominio.org,*.tu-dominio.org
 ```
 
 Dos que suelen dar problemas:
@@ -260,16 +260,31 @@ POSTGRES_APP_USER_PASSWORD=... POSTGRES_MAINTAINER_PASSWORD=... \
 # y actualiza DATABASE_URL y DATABASE_MIGRATIONS_URL en infra/env/.env
 ```
 
-## Varias organizaciones bajo un mismo dominio
+## Varias organizaciones: un subdominio para cada una
 
-> **Limitación conocida.** Hoy la organización se resuelve por el **host exacto** de la
-> petición, contrastado contra `organization_domains`. Eso funciona con un dominio o
-> subdominio por organización, pero **no** permite que varias convivan en un único
-> dominio con registro libre, que es el modelo de producto que se quiere.
->
-> Mientras no se resuelva, cada organización necesita su propio host registrado con
-> `python -m app.cli add-domain` (por ejemplo `iawic.tu-dominio.org`), y en EasyPanel un
-> certificado comodín para el dominio padre.
+Cada organización vive en su propio subdominio del dominio de la instalación:
+`iawic.tu-dominio.org`, `otra.tu-dominio.org`. La API resuelve la organización por el
+host exacto de la petición, contrastado contra `organization_domains`.
+
+Se eligió así frente a repartir por ruta (`/o/mi-org`) porque no toca la resolución por
+host, que ya está implementada y cubierta por tests de aislamiento, y porque deja el
+branding y las cookies limpiamente separados por organización.
+
+Lo que hay que preparar en el despliegue:
+
+1. **DNS comodín**: un registro `*.tu-dominio.org` apuntando al servidor.
+2. **Certificado comodín** para `*.tu-dominio.org` en EasyPanel, o TLS bajo demanda.
+3. **`NG_ALLOWED_HOSTS`**: incluir el comodín, por ejemplo
+   `tu-dominio.org,*.tu-dominio.org`. El SSR valida `Host` y `X-Forwarded-Host` contra
+   esta lista.
+
+Al dar de alta una organización se registra su subdominio:
+
+```bash
+python -m app.cli create-organization mi-org "Mi Organización" mi-org.tu-dominio.org
+```
+
+Cuando exista el registro libre de usuarios, ese alta la hará la propia aplicación.
 
 Quien quiera una instalación aparte hace fork del repositorio y la despliega.
 
