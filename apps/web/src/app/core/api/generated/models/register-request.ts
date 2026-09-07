@@ -18,7 +18,7 @@ export interface RegisterRequest {
   full_name: string;
 
   /**
-   * Contraseña, mínimo 8 caracteres
+   * Contraseña: mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial
    */
   password: string;
 

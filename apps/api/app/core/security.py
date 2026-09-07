@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import secrets
 import uuid
 from dataclasses import dataclass
@@ -23,6 +24,27 @@ from app.core.config import get_settings
 from app.shared.errors import AuthenticationError
 
 _hasher = PasswordHasher()
+
+# Política de contraseña del registro público: longitud mínima + composición
+# (mayúscula, minúscula, número, carácter especial). El mismo conjunto de caracteres
+# especiales que valida el widget del frontend (`shared/ui/password-strength.ts`),
+# para que un cliente no acepte una contraseña que el servidor rechazaría después.
+PASSWORD_MIN_LENGTH = 8
+_PASSWORD_ESPECIAL = re.compile(r'[!@#$%^&*(),.?":{}|<>]')
+_PASSWORD_MAYUSCULA = re.compile(r"[A-Z]")
+_PASSWORD_MINUSCULA = re.compile(r"[a-z]")
+_PASSWORD_NUMERO = re.compile(r"[0-9]")
+
+
+def password_meets_complexity(password: str) -> bool:
+    """Longitud mínima + mayúscula + minúscula + número + carácter especial."""
+    return (
+        len(password) >= PASSWORD_MIN_LENGTH
+        and bool(_PASSWORD_MAYUSCULA.search(password))
+        and bool(_PASSWORD_MINUSCULA.search(password))
+        and bool(_PASSWORD_NUMERO.search(password))
+        and bool(_PASSWORD_ESPECIAL.search(password))
+    )
 
 
 def hash_password(password: str) -> str:
