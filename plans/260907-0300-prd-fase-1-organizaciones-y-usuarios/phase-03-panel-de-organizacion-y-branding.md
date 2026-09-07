@@ -16,6 +16,12 @@ organización y su branding (colores, tipografías, plantilla, redes sociales, l
 `admin/branding` es de solo lectura; esta fase la convierte en un formulario real y
 añade la pantalla de datos generales de la organización.
 
+## Hallazgo del predict/debate aplicado en esta fase
+
+| # | Quién | Hallazgo | Corrección |
+|---|---|---|---|
+| Opcional | UX | Tras crear la organización (fases 1-2), el panel/dashboard no tiene eventos que mostrar (fuera de alcance, fase 2 del PRD) y puede sentirse un callejón sin salida | El dashboard (`dashboard-page.ts`, ya existe desde la fase 0) muestra un mensaje explícito — «los eventos llegan en una fase futura; mientras tanto, personaliza tu organización» con enlaces a `admin/organization` y `admin/branding` — en vez de quedar vacío |
+
 ## Requirements
 
 - Functional: `admin/organization` (nueva) con formulario para nombre, descripción,
@@ -45,6 +51,8 @@ añade la pantalla de datos generales de la organización.
 - Create: `apps/web/src/app/features/admin/organization/organization-page.ts`
 - Modify: `apps/web/src/app/features/admin/branding/branding-page.ts` (de lectura a
   edición)
+- Modify: `apps/web/src/app/features/admin/dashboard/dashboard-page.ts` (mensaje de
+  «próximamente eventos» con enlaces)
 - Modify: `apps/web/src/app/app.routes.ts` (ruta `admin/organization`)
 - Modify: `apps/web/src/app/layouts/admin/admin-shell.ts` (enlace de navegación)
 - Create: specs de axe para las pantallas nuevas
