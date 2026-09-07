@@ -53,10 +53,19 @@ export class AuthService {
 
   private readonly token = signal<string | null>(null);
   private readonly usuario = signal<UsuarioAutenticado | null>(null);
+  /**
+   * Access token **sin organización**, emitido al verificar el correo (fase 2). Vive
+   * aparte del token de sesión normal a propósito: si compartiera `token`,
+   * `isAuthenticated()` daría `true` para alguien que todavía no pertenece a ninguna
+   * organización, y `authGuard` le dejaría entrar en `/admin` sin que hubiera nada que
+   * mostrar ahí.
+   */
+  private readonly bridge = signal<string | null>(null);
 
   readonly accessToken = this.token.asReadonly();
   readonly currentUser = this.usuario.asReadonly();
   readonly isAuthenticated = computed(() => this.token() !== null);
+  readonly bridgeToken = this.bridge.asReadonly();
 
   async login(email: string, password: string): Promise<void> {
     const respuesta = await firstValueFrom(
@@ -97,9 +106,53 @@ export class AuthService {
   }
 
   async verifyEmail(token: string): Promise<void> {
-    await firstValueFrom(
-      this.http.get<RespuestaGenerica>(this.api.url('/auth/verify-email'), { params: { token } }),
+    const respuesta = await firstValueFrom(
+      this.http.get<RespuestaGenerica & { access_token: string }>(
+        this.api.url('/auth/verify-email'),
+        { params: { token } },
+      ),
     );
+    this.bridge.set(respuesta.access_token);
+  }
+
+  /**
+   * Crea la organización con el token puente de `verifyEmail`. La cabecera se fija a
+   * mano: el interceptor solo añade automáticamente el token de sesión normal
+   * (`accessToken`), que aquí sigue valiendo `null`.
+   */
+  async createOrganization(datos: {
+    name: string;
+    slug: string;
+    firstName: string;
+    lastName: string;
+    turnstileToken: string;
+  }): Promise<{ id: string; slug: string; host: string }> {
+    const token = this.bridge();
+    if (!token) {
+      throw new Error('No hay una sesión de verificación activa.');
+    }
+    return firstValueFrom(
+      this.http.post<{ id: string; slug: string; host: string }>(
+        this.api.url('/organizations'),
+        {
+          name: datos.name,
+          slug: datos.slug,
+          first_name: datos.firstName,
+          last_name: datos.lastName,
+          turnstile_token: datos.turnstileToken,
+        },
+        { headers: { Authorization: `Bearer ${token}` } },
+      ),
+    );
+  }
+
+  async checkSlug(slug: string): Promise<boolean> {
+    const respuesta = await firstValueFrom(
+      this.http.get<{ available: boolean }>(this.api.url('/organizations/check-slug'), {
+        params: { slug },
+      }),
+    );
+    return respuesta.available;
   }
 
   async resendVerification(email: string, turnstileToken: string): Promise<void> {
@@ -124,5 +177,6 @@ export class AuthService {
   clear(): void {
     this.token.set(null);
     this.usuario.set(null);
+    this.bridge.set(null);
   }
 }

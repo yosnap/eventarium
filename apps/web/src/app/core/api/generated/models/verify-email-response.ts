@@ -4,7 +4,13 @@
 
 /**
  * Respuesta de la verificación de correo.
+ *
+ * Incluye un access token **sin organización** (`create_access_token` acepta
+ * `organization_id=None`): sirve solo de puente hasta crear la primera
+ * organización (fase 2), no para entrar en el panel de ninguna.
  */
 export interface VerifyEmailResponse {
+  access_token: string;
+  expires_in: number;
   message: string;
 }

@@ -100,6 +100,21 @@ services:
     env_file: ./env/.env
     command: ["taskiq", "worker", "app.core.tasks:broker"]
 
+  # Proceso separado del worker desde Taskiq 0.12: TaskiqScheduler corre en su propio
+  # proceso, no dentro de `taskiq worker`. Ejecuta el barrido de cuentas no
+  # verificadas (aviso a los 5 días, borrado a los 7) según el `schedule` fijo de la
+  # tarea, no bajo demanda.
+  scheduler:
+    <<: *imagen-api
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    env_file: ./env/.env
+    command: ["taskiq", "scheduler", "app.core.tasks:scheduler"]
+
   web:
     image: ghcr.io/${GITHUB_REPOSITORY:-yosnap/eventarium}/web:${IMAGE_TAG:?falta IMAGE_TAG}
     restart: unless-stopped

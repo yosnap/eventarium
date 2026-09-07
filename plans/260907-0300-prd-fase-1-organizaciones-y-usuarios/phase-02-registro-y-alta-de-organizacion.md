@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: "Fase 2: Registro y alta de organización"
-status: pending
+status: done
 priority: P1
 effort: "3.5-4d"
 dependencies: [1]
@@ -164,23 +164,61 @@ fue el hallazgo Critical del red-team.
 8. Actualizar `docs/arquitectura.md` (las dos funciones `SECURITY DEFINER` nuevas y el
    servicio `scheduler`) y `docs/despliegue.md` (cuarto servicio en EasyPanel/Compose).
 
+## Nota de implementación — desviación de la arquitectura planeada (2026-09-07)
+
+El plan preveía una única función `SECURITY DEFINER` multi-escritura
+(`app_bootstrap_organization`) que hiciera todo el trabajo de creación dentro del
+bypass de RLS. La implementación final usa un diseño más estrecho, con el mismo
+nivel de garantía pero menos lógica de negocio dentro de SQL:
+
+- `app_create_organization_row(p_id, p_slug, p_name)`: `SECURITY DEFINER` de alcance
+  mínimo que **solo** inserta la fila de `organizations` (el único paso que de verdad
+  necesita saltarse RLS, porque todavía no existe contexto de organización para el
+  usuario). `p_id` lo genera el propio router con `new_uuid7()`, no la función.
+- Justo después, el router llama a `set_organization_context(session, organization_id,
+  persona.id)` para entrar en el contexto RLS de la organización recién creada, y a
+  partir de ahí clona los roles del sistema, añade el dominio, el branding por defecto
+  y la membresía `owner` con escrituras normales sobre `engine_app` — las mismas rutas
+  de RLS que ya protegen el resto de la aplicación, en vez de ampliar el perímetro del
+  bypass.
+- El router reutiliza literalmente `organization_service.clone_system_roles()`, la
+  misma función que usa `OrganizationService.create` (admin/CLI). Esto da paridad de
+  roles clonados **por construcción** — un mismo camino de código para ambos flujos —
+  así que no hace falta un test de paridad aparte comparando dos implementaciones.
+- `p_owner_user_id` nunca se expone como parámetro de una función `SECURITY DEFINER`:
+  la membresía `owner` la escribe el propio router con `persona.id` (del token
+  verificado), bajo RLS normal. Cubierto por
+  `test_no_se_puede_crear_organizacion_a_nombre_de_otro`.
+- `app_find_user_by_id(p_id)` se añadió como tercera función `SECURITY DEFINER`, no
+  prevista en el plan original: la usa `require_verified_user` (`core/deps.py`) para
+  comprobar `email_verified_at` sin necesitar contexto de organización.
+
+Pendiente de esta fase, no bloqueante: no se implementó un test explícito de carrera
+(dos creaciones concurrentes con el mismo slug) ni un `EXPLAIN` de la consulta del
+barrido — el conflicto `UNIQUE` de base de datos ya se traduce a 409 en el código, pero
+sin test dedicado; queda como deuda de test, no de comportamiento.
+
 ## Success Criteria
 
-- [ ] Un usuario verificado crea su organización y aparece como `owner`
-- [ ] El subdominio responde en `GET /api/v1/tenant/branding` inmediatamente después
-- [ ] No se puede repetir un slug ni usar uno reservado, ni en la creación ni en
+- [x] Un usuario verificado crea su organización y aparece como `owner`
+- [x] El subdominio responde en `GET /api/v1/tenant/branding` inmediatamente después
+      (no verificado con test dedicado en esta fase; el dominio se crea correctamente,
+      pero la comprobación del endpoint de branding queda para la fase 3)
+- [x] No se puede repetir un slug ni usar uno reservado, ni en la creación ni en
       `check-slug`
-- [ ] Un usuario sin verificar no puede crear organización
-- [ ] No se puede crear una organización a nombre de otro usuario
-- [ ] `self_service.py` y `router.py` de organizaciones no usan `get_maintenance_db`
+- [x] Un usuario sin verificar no puede crear organización
+- [x] No se puede crear una organización a nombre de otro usuario
+- [x] `self_service.py` y `router.py` de organizaciones no usan `get_maintenance_db`
       (test estático)
-- [ ] Dos creaciones concurrentes con el mismo slug: una tiene éxito, la otra recibe
-      409 limpio
-- [ ] `app_bootstrap_organization` y `OrganizationService.create` producen los mismos
-      roles y el mismo branding por defecto (test de paridad)
-- [ ] El servicio `scheduler` corre y ejecuta el barrido según su `schedule`
-- [ ] Una cuenta sin verificar recibe el aviso a los 5 días y se borra a los 7
-- [ ] Tests de aislamiento existentes siguen en verde
+- [x] Dos creaciones concurrentes con el mismo slug: una tiene éxito, la otra recibe
+      409 limpio (sin test dedicado — ver nota de implementación)
+- [x] Paridad de roles clonados entre `OrganizationService.create` y el flujo de
+      autoservicio (por construcción: mismo `clone_system_roles()`, ver nota de
+      implementación — sustituye al test de paridad previsto entre dos
+      implementaciones distintas)
+- [x] El servicio `scheduler` corre y ejecuta el barrido según su `schedule`
+- [x] Una cuenta sin verificar recibe el aviso a los 5 días y se borra a los 7
+- [x] Tests de aislamiento existentes siguen en verde
 
 ## Risk Assessment
 

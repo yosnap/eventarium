@@ -306,12 +306,17 @@ async def register_user(session: AsyncSession, *, email: str, password: str) -> 
     await send_verification_email.kiq(email, token)
 
 
-async def verify_email(session: AsyncSession, *, token: str) -> None:
-    """Verifica un token y marca el correo como verificado."""
+async def verify_email(session: AsyncSession, *, token: str) -> uuid.UUID:
+    """Verifica un token, marca el correo como verificado y devuelve el `user_id`.
+
+    El llamador usa el id para emitir el token puente sin organización (fase 2:
+    autoservicio de creación de organizaciones).
+    """
     user_id = await consume_token(PROPOSITO_VERIFICACION_CORREO, token)
     if user_id is None:
         raise ValidationDomainError("El enlace de verificación no es válido o ha caducado.")
     await session.execute(text("SELECT app_verify_user_email(:id)"), {"id": user_id})
+    return user_id
 
 
 async def resend_verification(session: AsyncSession, *, email: str) -> None:

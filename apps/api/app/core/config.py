@@ -89,6 +89,10 @@ class Settings(BaseSettings):
     turnstile_enabled: bool = True
     turnstile_secret_key: str = ""
 
+    # Dominio de la instalación: cada organización recibe {slug}.{dominio_base}.
+    # Vacío en desarrollo (se resuelve por localhost); obligatorio en producción.
+    dominio_base: str = ""
+
     @field_validator("jwt_secret")
     @classmethod
     def _validar_secreto(cls, valor: str) -> str:
@@ -112,6 +116,11 @@ class Settings(BaseSettings):
             raise ValueError(
                 "TURNSTILE_ENABLED no puede estar desactivado en producción: desprotegería "
                 "el registro y el reenvío de verificación frente a scripts automatizados."
+            )
+        if self.app_env == "production" and not self.dominio_base:
+            raise ValueError(
+                "DOMINIO_BASE no puede estar vacío en producción: cada organización "
+                "necesita saber bajo qué dominio registrar su subdominio."
             )
         return self
 
