@@ -7,8 +7,20 @@ import { ApiService } from '../api/api.service';
 export interface UsuarioAutenticado {
   readonly id: string;
   readonly email: string;
-  readonly full_name: string;
+  readonly first_name: string | null;
+  readonly last_name: string | null;
   readonly is_superadmin: boolean;
+}
+
+/**
+ * Nombre para mostrar. El registro no pide nombre, así que puede no haber ninguno
+ * todavía: se recurre al correo antes que a un hueco en blanco.
+ */
+export function displayName(
+  usuario: Pick<UsuarioAutenticado, 'email' | 'first_name' | 'last_name'>,
+): string {
+  const nombre = [usuario.first_name, usuario.last_name].filter(Boolean).join(' ').trim();
+  return nombre || usuario.email;
 }
 
 interface RespuestaLogin {
@@ -74,17 +86,11 @@ export class AuthService {
     }
   }
 
-  async register(
-    email: string,
-    password: string,
-    fullName: string,
-    turnstileToken: string,
-  ): Promise<void> {
+  async register(email: string, password: string, turnstileToken: string): Promise<void> {
     await firstValueFrom(
       this.http.post<RespuestaGenerica>(this.api.url('/auth/register'), {
         email,
         password,
-        full_name: fullName,
         turnstile_token: turnstileToken,
       }),
     );

@@ -7,7 +7,8 @@
  */
 export interface UserSummary {
   email: string;
-  full_name: string;
+  first_name: (string | null);
   id: string;
   is_superadmin: boolean;
+  last_name: (string | null);
 }

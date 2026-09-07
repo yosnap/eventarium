@@ -84,20 +84,22 @@ async def get_token_claims(request: Request) -> AccessTokenClaims:
 class CurrentUser:
     """Usuario autenticado en el contexto de la organización de la petición."""
 
-    __slots__ = ("id", "email", "full_name", "is_superadmin", "organization_id")
+    __slots__ = ("id", "email", "first_name", "last_name", "is_superadmin", "organization_id")
 
     def __init__(
         self,
         *,
         id: uuid.UUID,
         email: str,
-        full_name: str,
+        first_name: str | None,
+        last_name: str | None,
         is_superadmin: bool,
         organization_id: uuid.UUID,
     ) -> None:
         self.id = id
         self.email = email
-        self.full_name = full_name
+        self.first_name = first_name
+        self.last_name = last_name
         self.is_superadmin = is_superadmin
         self.organization_id = organization_id
 
@@ -121,18 +123,22 @@ async def get_current_user(
 
     fila = (
         await session.execute(
-            text("SELECT id, email, full_name, is_superadmin, is_active FROM users WHERE id = :id"),
+            text(
+                "SELECT id, email, first_name, last_name, is_superadmin, is_active "
+                "FROM users WHERE id = :id"
+            ),
             {"id": claims.user_id},
         )
     ).first()
-    if fila is None or not fila[4]:
+    if fila is None or not fila[5]:
         raise AuthenticationError("El usuario ya no existe o está desactivado.")
 
     return CurrentUser(
         id=fila[0],
         email=fila[1],
-        full_name=fila[2],
-        is_superadmin=fila[3],
+        first_name=fila[2],
+        last_name=fila[3],
+        is_superadmin=fila[4],
         organization_id=organizacion.id,
     )
 
@@ -197,18 +203,22 @@ async def require_superadmin(
     """
     fila = (
         await session.execute(
-            text("SELECT id, email, full_name, is_superadmin, is_active FROM users WHERE id = :id"),
+            text(
+                "SELECT id, email, first_name, last_name, is_superadmin, is_active "
+                "FROM users WHERE id = :id"
+            ),
             {"id": claims.user_id},
         )
     ).first()
-    if fila is None or not fila[4]:
+    if fila is None or not fila[5]:
         raise AuthenticationError("El usuario ya no existe o está desactivado.")
-    if not fila[3]:
+    if not fila[4]:
         raise PermissionDeniedError("Se requieren privilegios de superadministrador.")
     return CurrentUser(
         id=fila[0],
         email=fila[1],
-        full_name=fila[2],
+        first_name=fila[2],
+        last_name=fila[3],
         is_superadmin=True,
         organization_id=claims.organization_id or uuid.UUID(int=0),
     )

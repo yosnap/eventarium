@@ -7,8 +7,9 @@
  */
 export interface MemberResponse {
   email: string;
-  full_name: string;
+  first_name: (string | null);
   id: string;
+  last_name: (string | null);
   profile_data: {
 [key: string]: any;
 };

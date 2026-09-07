@@ -12,7 +12,8 @@ class CurrentUserResponse(BaseModel):
 
     id: str
     email: EmailStr
-    full_name: str
+    first_name: str | None
+    last_name: str | None
     is_superadmin: bool
     organization_id: str
     roles: list[str]

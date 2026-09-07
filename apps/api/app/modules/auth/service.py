@@ -57,7 +57,8 @@ class AuthenticatedUser:
 
     id: uuid.UUID
     email: str
-    full_name: str
+    first_name: str | None
+    last_name: str | None
     is_superadmin: bool
 
 
@@ -90,7 +91,8 @@ async def authenticate(
     fila = (
         await session.execute(
             text(
-                "SELECT u.id, u.email, u.full_name, u.password_hash, u.is_active, u.is_superadmin "
+                "SELECT u.id, u.email, u.first_name, u.last_name, u.password_hash, "
+                "       u.is_active, u.is_superadmin "
                 "FROM users u "
                 "WHERE lower(u.email) = lower(:email) "
                 "  AND EXISTS (SELECT 1 FROM organization_members m "
@@ -105,10 +107,12 @@ async def authenticate(
         # Se verifica igualmente un hash ficticio para no filtrar por tiempo de respuesta.
         verify_password(password, None)
         raise credenciales_invalidas
-    if not fila[4] or not verify_password(password, fila[3]):
+    if not fila[5] or not verify_password(password, fila[4]):
         raise credenciales_invalidas
 
-    return AuthenticatedUser(id=fila[0], email=fila[1], full_name=fila[2], is_superadmin=fila[5])
+    return AuthenticatedUser(
+        id=fila[0], email=fila[1], first_name=fila[2], last_name=fila[3], is_superadmin=fila[6]
+    )
 
 
 async def issue_tokens(
@@ -190,7 +194,7 @@ async def rotate_refresh_token(
     fila = (
         await session.execute(
             text(
-                "SELECT u.id, u.email, u.full_name, u.is_superadmin "
+                "SELECT u.id, u.email, u.first_name, u.last_name, u.is_superadmin "
                 "FROM users u "
                 "WHERE u.id = :id AND u.is_active "
                 "  AND EXISTS (SELECT 1 FROM organization_members m "
@@ -209,7 +213,9 @@ async def rotate_refresh_token(
         tuberia.set(CLAVE_USADO.format(huella), familia, ex=ttl)
         await tuberia.execute()
 
-    usuario = AuthenticatedUser(id=fila[0], email=fila[1], full_name=fila[2], is_superadmin=fila[3])
+    usuario = AuthenticatedUser(
+        id=fila[0], email=fila[1], first_name=fila[2], last_name=fila[3], is_superadmin=fila[4]
+    )
     tokens = await issue_tokens(usuario, organization_id, family_id=familia)
     return tokens, organization_id
 
@@ -250,9 +256,7 @@ async def _password_filtrada(password: str) -> bool:
     return False
 
 
-async def register_user(
-    session: AsyncSession, *, email: str, password: str, full_name: str
-) -> None:
+async def register_user(session: AsyncSession, *, email: str, password: str) -> None:
     """Registra una cuenta y encola el correo de verificación.
 
     Siempre se comporta igual exista o no la cuenta ya: la respuesta al llamador no
@@ -286,12 +290,11 @@ async def register_user(
     user_id = new_uuid7()
     try:
         await session.execute(
-            text("SELECT app_create_unverified_user(:id, :email, :hash, :nombre)"),
+            text("SELECT app_create_unverified_user(:id, :email, :hash)"),
             {
                 "id": user_id,
                 "email": email,
                 "hash": password_hash,
-                "nombre": full_name,
             },
         )
     except IntegrityError:

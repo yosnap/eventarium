@@ -69,7 +69,8 @@ class MemberResponse(BaseModel):
     id: str
     user_id: str
     email: EmailStr
-    full_name: str
+    first_name: str | None
+    last_name: str | None
     role_id: str
     role_key: str
     profile_data: dict[str, Any]
@@ -79,7 +80,8 @@ class MemberCreate(BaseModel):
     """Alta de un miembro por correo electrónico."""
 
     email: EmailStr
-    full_name: Annotated[str, Field(min_length=1, max_length=200)]
+    first_name: Annotated[str, Field(min_length=1, max_length=100)]
+    last_name: Annotated[str, Field(min_length=1, max_length=100)]
     role_id: str
     profile_data: dict[str, Any] = Field(default_factory=dict)
 

@@ -42,7 +42,8 @@ async def add_member(
     actor_id: uuid.UUID,
     actor_permissions: set[Permission],
     email: str,
-    full_name: str,
+    first_name: str,
+    last_name: str,
     role_id: uuid.UUID,
     profile_data: dict[str, Any] | None,
 ) -> OrganizationMember:
@@ -69,7 +70,12 @@ async def add_member(
     correo = email.strip().lower()
     usuario = await session.scalar(select(User).where(User.email == correo))
     if usuario is None:
-        usuario = User(email=correo, full_name=full_name.strip(), is_active=True)
+        usuario = User(
+            email=correo,
+            first_name=first_name.strip(),
+            last_name=last_name.strip(),
+            is_active=True,
+        )
         session.add(usuario)
         await session.flush()
 

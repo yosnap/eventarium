@@ -48,7 +48,7 @@ def members_query(organization_id: uuid.UUID) -> Select[Any]:
         .join(User, User.id == OrganizationMember.user_id)
         .join(Role, Role.id == OrganizationMember.role_id)
         .where(OrganizationMember.organization_id == organization_id)
-        .order_by(User.full_name, User.email)
+        .order_by(User.first_name, User.last_name, User.email)
     )
 
 
