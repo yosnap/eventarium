@@ -1,11 +1,127 @@
 ---
 phase: 3
 title: "Fase 3: Aprobación, lista de espera automática y panel de organizador"
-status: pending
+status: done
 priority: P1
 effort: "3-3.5d"
 dependencies: [2]
 ---
+
+## Estado — implementado 2026-09-08
+
+Rama `feat/0.15.0-aprobacion-lista-de-espera-y-panel` (desde `develop`, sin
+mergear todavía).
+
+**Archivos backend:**
+- `apps/api/app/modules/registrations/router.py` (nuevo) — panel de
+  organizador: listado/detalle/estadísticas, aprobar/rechazar/cancelar,
+  CRUD de preguntas personalizadas
+- `apps/api/app/modules/registrations/service.py` — `approve_registration`,
+  `reject_registration`, `cancel_registration`, `_promote_next_waitlisted`,
+  `confirm_waitlist_promotion`, `expire_waitlist_promotions`,
+  `get_registration_stats`, CRUD de preguntas; refactor de
+  `_evaluar_estado_por_aforo` para extraer `_evaluar_estado_por_capacidad`
+  (reutilizada por `approve_registration` sin repetir la regla de aforo)
+- `apps/api/app/modules/registrations/repository.py` — consultas del panel,
+  lista de espera (`get_oldest_waitlisted`, `requeue_to_back_of_waitlist`,
+  `events_with_expired_waitlist_promotions`), estadísticas, preguntas
+- `apps/api/app/modules/registrations/schemas.py` — esquemas del panel
+- `apps/api/app/modules/registrations/public_router.py` —
+  `POST /public/registrations/confirm-waitlist-promotion`
+- `apps/api/app/modules/auth/verification.py` — `generate_token` admite
+  `ttl` variable; nuevo propósito `waitlist_promotion_confirm`
+- `apps/api/app/core/config.py` — `waitlist_promotion_window_hours` (48h por
+  defecto, fija a nivel de aplicación según el predict/debate del plan)
+- `apps/api/app/core/tasks.py` — `expire_waitlist_promotions_task`, cron
+  cada 15 min
+- `apps/api/app/core/ratelimit.py` — `CONFIRMACION_PROMOCION_POR_IP`
+- `apps/api/app/main.py` — router del panel montado
+- `apps/api/tests/test_registrations_organizer.py` (nuevo, 32 tests)
+
+**Archivos frontend:**
+- `apps/web/src/app/features/admin/events/registration-types.ts` (nuevo) —
+  tipos compartidos del dominio de inscripciones
+- `apps/web/src/app/features/admin/events/event-registrations.ts` +
+  `.spec.ts` (nuevo) — tarjetas de estadísticas, listado filtrable,
+  aprobar/rechazar/cancelar; incrustado en `event-form.ts` junto a
+  `event-agenda`
+- `apps/web/src/app/features/admin/events/registration-detail-page.ts` +
+  `.spec.ts` (nuevo) — ruta `admin/events/:id/registrations/:registrationId`
+- `apps/web/src/app/features/admin/events/registration-questions.ts` +
+  `.spec.ts` (nuevo) — CRUD de preguntas personalizadas
+- `apps/web/src/app/app.routes.ts`, `public/assets/i18n/es-ES.json` — ruta y
+  textos nuevos
+- `apps/web/src/app/features/admin/events/event-form.spec.ts` — actualizado
+  para las 3 peticiones HTTP nuevas que dispara el componente incrustado
+
+**Decisión de diseño, no un hallazgo del plan:** el requisito de `reject`
+("si liberaba una plaza que ya estaba `confirmed`, dispara la promoción")
+no es alcanzable en la práctica — el propio requisito restringe `reject` a
+partir únicamente de `pending_approval`, estado que nunca ocupó una plaza
+`confirmed`. Se implementó `reject_registration` sin lógica de promoción,
+con un docstring que explica por qué esa cláusula del requisito no aplica
+dado el resto de la máquina de estados ya cerrada en la fase 1. `cancel`
+(la única vía real desde `confirmed`) sí dispara la promoción.
+
+**Verificado (comandos ejecutados en esta sesión):**
+- `uv run pytest -q` (API completa): **264 passed** (232 previos + 32 nuevos; el runner de este proyecto no imprime el recuento final "N passed", contado por recolección con `--collect-only -q`).
+- `uv run ruff check .` / `ruff format` (API): sin hallazgos tras formatear.
+- `uv run mypy app/modules/registrations app/core/tasks.py app/core/ratelimit.py app/modules/auth/verification.py app/core/config.py`: sin errores.
+- `pnpm test` (web completo, Vitest + axe): **116 passed** (106 previos + 10
+  nuevos), sin violaciones de accesibilidad en listado/tabla/formularios
+  nuevos.
+- `pnpm build` (web, browser + SSR): compila sin errores nuevos (2
+  advertencias NG8102 preexistentes en `event-agenda.ts`/`member-form.ts`,
+  ajenas a esta fase).
+- `pnpm lint` (web): sin hallazgos.
+- `prettier --check` sobre los ficheros nuevos: **5 ficheros con formato
+  incorrecto** entregados por el agente de frontend (`event-registrations.ts`
+  y su spec, `registration-detail-page.ts` y su spec,
+  `registration-questions.ts`) — corregido con `prettier --write` y
+  reverificado (tests y build siguen en verde tras el formateo).
+- `openapi.json` y los tipos generados del cliente Angular, regenerados
+  (`make api-types`).
+
+**Huecos reales, no maquillados:**
+- No hay prueba manual en navegador real del panel completo
+  (aprobar/rechazar, ver moverse la lista de espera) — cubierto por tests de
+  integración HTTP (backend) y de componente con axe (frontend), no por una
+  sesión de navegador real. Mismo hueco ya declarado en la fase 2; queda
+  pendiente antes de cerrar la fase 4.
+- El email de promoción de lista de espera **no se envía** en esta fase: el
+  token de confirmación (`waitlist_promotion_confirm`) ya se genera y la
+  ventana ya se marca, pero la plantilla de email es explícitamente fase 4
+  de trabajo (`phase-04-emails-autocancelacion-y-cierre.md`), que reutilizará
+  este mismo token.
+- Prueba de carga (1.000 inscripciones/hora, PRD) no ejecutada — pendiente
+  antes de cerrar la fase 4, según ya advertía el predict/debate del plan.
+
+### Checklist de criterios de aceptación (Requirements/Validation de esta fase)
+
+Functional:
+- [x] `GET .../registrations` paginado con filtro por `status`, `registrations:read` — `router.list_registrations`, `test_listar_inscripciones_filtra_por_estado` (passed)
+- [x] `GET .../registrations/{id}` con respuestas y consentimientos, `registrations:read` — `router.get_registration`, `test_detalle_incluye_respuestas_y_consentimiento` (passed)
+- [x] `POST .../approve`: solo desde `pending_approval`, revalúa aforo bajo el mismo bloqueo de fila que la Fase 2 — `service.approve_registration`, `test_aprobar_con_aforo_libre_confirma`, `test_aprobar_con_aforo_agotado_deja_en_lista_de_espera`, `test_aprobar_una_inscripcion_que_no_esta_pendiente_falla_409` (passed)
+- [x] `POST .../reject`: solo desde `pending_approval` → `rejected` — `service.reject_registration`, `test_rechazar_una_pendiente_de_aprobacion`, `test_rechazar_una_inscripcion_confirmada_falla_409` (passed). Promoción al rechazar: no aplica, ver nota de diseño arriba
+- [x] `POST .../cancel`: si liberaba una `confirmed`, dispara la promoción — `service.cancel_registration`, `test_cancelar_una_confirmada_promueve_a_la_primera_en_espera`, `test_cancelar_sin_lista_de_espera_no_promueve_a_nadie`, `test_cancelar_una_ya_cancelada_falla_409` (passed)
+- [x] Promoción de lista de espera: `waitlist_promoted_at`/`waitlist_promotion_expires_at`, token Redis `waitlist_promotion_confirm` con TTL = ventana — `service._promote_next_waitlisted`, verificado en `test_cancelar_una_confirmada_promueve_a_la_primera_en_espera`
+- [x] `POST /public/registrations/confirm-waitlist-promotion`: `GETDEL` contra Redis, `confirmed` si no caducó, mensaje genérico si caducó/no existe — `service.confirm_waitlist_promotion`, `test_confirmar_promocion_con_token_valido`, `test_confirmar_promocion_con_token_invalido_falla`, `test_confirmar_promocion_caducada_falla_y_no_consume_dos_veces` (passed)
+- [x] Tarea cron `expire_waitlist_promotions_task` (`*/15 * * * *`): reasigna promociones caducadas al final de la cola y promueve a la siguiente — `service.expire_waitlist_promotions`, `test_tarea_cron_reasigna_una_promocion_caducada` (passed)
+- [x] `GET .../registrations/stats`: iniciados/verificados/pendientes/confirmados/rechazados/cancelados/en espera + dos tasas de conversión, `registrations:read` — `service.get_registration_stats`, `test_estadisticas_cuadran_con_un_escenario_sembrado` (passed). "Emails enviados/entregados/abiertos" fuera de alcance, documentado en el docstring de `get_registration_stats` (falta de webhooks del proveedor de email)
+- [x] Gestión de preguntas: añadir siempre permitido; `PATCH` de tipo/`DELETE` con respuestas asociadas → 409; edición de `label`/`sort_order`/`required` siempre permitida — `service.create_registration_question`/`update_registration_question`/`delete_registration_question`, `test_crear_editar_y_borrar_una_pregunta_sin_respuestas`, `test_cambiar_tipo_de_una_pregunta_con_respuestas_falla_409`, `test_editar_label_de_una_pregunta_con_respuestas_funciona` (passed)
+- [x] Páginas del panel (Angular): listado con filtro, detalle con acciones, editor de preguntas, tarjetas de estadísticas — `event-registrations.ts`, `registration-detail-page.ts`, `registration-questions.ts`, 10/10 tests passed
+
+Non-functional:
+- [x] Todo endpoint de escritura exige `registrations:write`; lectura exige `registrations:read` — `dependencies=[require_permission(...)]` en cada ruta de `router.py`, mismo patrón que `events:*`
+- [x] Revaluación de aforo en `approve` y promoción comparten la sección crítica de la Fase 2 (`lock_event_for_capacity`) — sin segunda implementación de la regla de aforo (`_evaluar_estado_por_capacidad` única)
+- [x] Accesibilidad WCAG 2.1 AA en el panel — `esperarSinViolacionesDeAccesibilidad` (axe) en los specs nuevos, 0 violaciones
+
+Validation:
+- [~] Test: rechazar una `confirmed` promueve a la primera en `waitlisted` — no aplica tal como está escrito el requisito (`reject` solo existe desde `pending_approval`, ver nota de diseño arriba); la promoción real al liberar una `confirmed` está cubierta por `cancel`, que es el único camino alcanzable
+- [x] Test: la tarea de expiración devuelve a `waitlisted` una promoción vencida y promueve a la siguiente — `test_tarea_cron_reasigna_una_promocion_caducada` (passed)
+- [x] Test: `PATCH` de tipo/`DELETE` con respuestas → 409; sin respuestas funciona — `test_cambiar_tipo_de_una_pregunta_con_respuestas_falla_409`, `test_crear_editar_y_borrar_una_pregunta_sin_respuestas` (passed)
+- [x] Test: estadísticas cuadran con un escenario sembrado — `test_estadisticas_cuadran_con_un_escenario_sembrado` (passed)
+- [ ] Prueba manual del panel (navegador real): aprobar/rechazar, ver la lista de espera moverse tras cancelar una confirmada — no ejecutada, ver "Huecos reales" arriba
 
 # Fase 3: Aprobación, lista de espera automática y panel de organizador
 
