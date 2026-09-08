@@ -1,11 +1,65 @@
 ---
 phase: 1
 title: "Fase 1: Modelo de datos, RLS y permisos"
-status: pending
+status: done
 priority: P1
 effort: "2-2.5d"
 dependencies: []
 ---
+
+## Estado — implementado 2026-09-08
+
+Rama `feat/0.13.0-modelo-de-inscripciones-rls-y-permisos` (desde `develop`, sin
+mergear todavía).
+
+**Archivos:**
+- `apps/api/app/modules/registrations/models.py` (nuevo) — los 4 modelos SQLAlchemy
+- `apps/api/alembic/versions/0010_inscripcion_de_asistentes.py` (nuevo) — migración
+- `apps/api/app/core/permissions.py` — añade `REGISTRATIONS_READ`/`REGISTRATIONS_WRITE`
+- `apps/api/tests/test_registrations_rls_isolation.py` (nuevo, 8 tests)
+- `apps/api/tests/modules/test_registrations_constraints.py` (nuevo, 9 tests)
+- `apps/api/tests/modules/test_registrations_permissions_backfill.py` (nuevo, 4 tests)
+
+**Verificado (comandos ejecutados en esta sesión, no solo escritos):**
+- `alembic upgrade head` aplica `0010` sin error sobre `ia_week_test`; `alembic history` encadena `0009 → 0010` sin huecos.
+- `pytest -q` (suite completa del API): **196 passed**, 0 failed.
+- `ruff check app tests`: sin hallazgos. `ruff format --check`: sin diffs.
+- `mypy app/modules/registrations`: sin errores.
+- Dos bugs reales encontrados y corregidos durante la propia verificación (no
+  hipotéticos): (1) `options=None` explícito se codificaba como JSON `null`
+  en vez de SQL `NULL` — corregido con `JSONB(none_as_null=True)`; (2) el
+  `CHECK` con `jsonb_typeof(options)='array'` se evaluaba a `NULL`
+  (desconocido → constraint satisfecho) cuando `options` era `NULL` de
+  verdad — corregido añadiendo `options IS NOT NULL` explícito. Sin este
+  segundo fix, una pregunta `single_choice` sin opciones se habría podido
+  crear igualmente.
+
+**Pendiente antes de mergear a develop:** commit, PR, `ak:review-pr`, merge,
+y solo entonces el bump de versión + release (norma del usuario: nunca saltar
+la revisión de PR).
+
+### Checklist de criterios de aceptación (Requirements/Validation de esta fase)
+
+Functional:
+- [x] `event_registration_questions` con `type`/`label`/`required`/`sort_order`/`options` — `models.py:40-94`
+- [x] `event_registrations` con email/nombre/`user_id`/estado/lista de espera/timestamps, **sin** columnas de token — `models.py:97-160`
+- [x] `event_registration_answers` con `value` jsonb — `models.py:163-205`
+- [x] `event_registration_consents` con los 3 consentimientos independientes — `models.py:208-235`
+- [x] Permisos `REGISTRATIONS_READ`/`REGISTRATIONS_WRITE` en `permissions.py` — verificado por `test_registrations_permissions_backfill.py` (4/4 passed)
+- [x] Backfill anclado a `organizations:write`, no al nombre del rol — mismos 4 tests, incluye caso "rol a medida sin ese permiso no recibe nada" y "ejecutar dos veces no duplica"
+- [x] Tokens en Redis, no columnas (hallazgo del red-team) — confirmado leyendo `models.py`: no existe ninguna columna `*_token_hash`
+- [x] Resolución de `user_id` vía `app_find_user_by_email` — documentado en el comentario de `models.py:126-129` (la implementación real del endpoint público es fase 2, aquí solo el modelo lo deja preparado)
+
+Non-functional:
+- [x] RLS `ENABLE`+`FORCE`+policy `tenant_*` en las 4 tablas — migración `0010`, `_activar_rls()`; verificado por `test_registrations_rls_isolation.py::test_una_sesion_solo_ve_las_filas_de_su_organizacion` parametrizado en las 4 tablas (4/4 passed)
+- [x] FK compuestas `(id, organization_id)` — verificado por los 4 tests `test_no_se_puede_*_ajen*` de `test_registrations_rls_isolation.py` (4/4 passed, cada uno espera `DBAPIError`)
+- [x] `UNIQUE(event_id, email)` — verificado por `test_no_se_puede_inscribir_dos_veces_el_mismo_email_al_mismo_evento` (passed) y `test_el_mismo_email_puede_inscribirse_a_eventos_distintos` (passed, confirma que NO es una unicidad global)
+- [x] `UNIQUE(registration_id, question_id)` en answers — `test_no_se_puede_responder_dos_veces_a_la_misma_pregunta` (passed), añadido tras detectar el hueco
+- [x] `CHECK` de `options` por tipo — 7 tests parametrizados (`test_options_invalido_para_el_tipo_falla` x4, `test_options_valido_para_el_tipo_funciona` x3), todos passed; incluye el caso NULL-vs-JSON-null que falló en la primera pasada y quedó corregido
+- [x] Índice `(event_id, status)` — creado en migración (`ix_event_registrations_event_id_status`); no hay test dedicado (no es lo habitual testear la existencia de un índice, es aceptable)
+- [x] Migración `0010` encadenada tras `0009`, `downgrade()` explícito — **ciclo `downgrade -1` → verificado con `psql \dt` que las 4 tablas desaparecen → `upgrade head` → verificado que las 4 tablas vuelven → `pytest -q` completo: 197 passed** (196 + el test nuevo de la UNIQUE)
+
+Sin huecos pendientes en esta fase de trabajo.
 
 # Fase 1: Modelo de datos, RLS y permisos
 
