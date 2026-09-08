@@ -25,6 +25,8 @@ TTL_TOKEN = timedelta(hours=24)
 PROPOSITO_VERIFICACION_CORREO = "email_verify"
 PROPOSITO_CAMBIO_CORREO = "email_change"
 PROPOSITO_RECUPERAR_CONTRASENA = "password_reset"
+# Fase 3 del PRD (inscripción de asistentes). Payload: el `id` de la inscripción.
+PROPOSITO_VERIFICACION_INSCRIPCION = "registration_email_verify"
 
 _CLAVE = "verify:{proposito}:{huella}"
 

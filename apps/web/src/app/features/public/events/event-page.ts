@@ -115,6 +115,10 @@ function fechaLocal(iso: string): string {
             <p class="descripcion">{{ evento.description }}</p>
           }
 
+          <a class="inscribirse" [routerLink]="['/eventos', evento.slug, 'inscribirse']">
+            {{ t('publico.eventos.inscribirse') }}
+          </a>
+
           <h2>{{ t('publico.eventos.agenda') }}</h2>
           @if (dias().length === 0) {
             <p>{{ t('publico.eventos.sinAgenda') }}</p>
@@ -176,6 +180,19 @@ function fechaLocal(iso: string): string {
     }
     .lugar {
       color: var(--color-text-muted, #6b7280);
+    }
+    .inscribirse {
+      display: inline-block;
+      margin-top: var(--space-md);
+      padding: var(--space-sm) var(--space-lg);
+      border-radius: var(--radius-md);
+      background-color: var(--color-primary);
+      color: var(--color-primary-contrast, #fff);
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .inscribirse:hover {
+      opacity: 0.9;
     }
     .sesiones {
       list-style: none;
