@@ -28,8 +28,9 @@ const PAGINAS_DE_TOKEN_DE_UN_SOLO_USO = [
 export const serverRoutes: ServerRoute[] = [
   { path: 'admin', renderMode: RenderMode.Client },
   { path: 'admin/**', renderMode: RenderMode.Client },
-  ...PAGINAS_DE_TOKEN_DE_UN_SOLO_USO.map(
-    (path): ServerRoute => ({ path, renderMode: RenderMode.Client }),
-  ),
+  ...PAGINAS_DE_TOKEN_DE_UN_SOLO_USO.map((path): ServerRoute => ({
+    path,
+    renderMode: RenderMode.Client,
+  })),
   { path: '**', renderMode: RenderMode.Server },
 ];
