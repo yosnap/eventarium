@@ -52,6 +52,9 @@ INSCRIPCION_POR_IP = 10
 # Mismo razonamiento que verify-email: el token tiene entropía de sobra, pero el
 # endpoint necesita su propio tope por ser público.
 VERIFICACION_INSCRIPCION_POR_IP = 20
+# Confirmación de una promoción de lista de espera: mismo razonamiento que
+# verify-email, token con entropía de sobra pero tope propio por ser público.
+CONFIRMACION_PROMOCION_POR_IP = 20
 
 VENTANA_SEGUNDOS = 60
 

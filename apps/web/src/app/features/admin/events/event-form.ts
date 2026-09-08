@@ -13,6 +13,7 @@ import { ErrorSummary, ResumenDeError } from '../../../shared/ui/error-summary';
 import { Input } from '../../../shared/ui/input';
 import { isoAValorLocal } from './datetime-local';
 import { EventAgenda } from './event-agenda';
+import { EventRegistrations } from './event-registrations';
 
 type EventStatus = 'draft' | 'published' | 'archived';
 type LocationMode = 'in_person' | 'online' | 'hybrid';
@@ -39,7 +40,17 @@ type CampoBase = 'slug' | 'title' | 'startsAt' | 'endsAt';
 @Component({
   selector: 'app-event-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, ErrorSummary, Input, EventAgenda],
+  imports: [
+    TranslocoDirective,
+    RouterLink,
+    Alert,
+    Button,
+    Card,
+    ErrorSummary,
+    Input,
+    EventAgenda,
+    EventRegistrations,
+  ],
   template: `
     <ng-container *transloco="let t">
       <h1>
@@ -181,6 +192,7 @@ type CampoBase = 'slug' | 'title' | 'startsAt' | 'endsAt';
 
         @if (esEdicion()) {
           <app-event-agenda [eventId]="eventId()!" />
+          <app-event-registrations [eventId]="eventId()!" />
         }
       }
     </ng-container>
