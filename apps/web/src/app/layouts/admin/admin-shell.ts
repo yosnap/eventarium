@@ -76,10 +76,27 @@ import { Button } from '../../shared/ui/button';
               </a>
             </li>
             <li>
+              <a routerLink="/admin/sponsor-tiers" routerLinkActive="activo">
+                {{ t('admin.sponsorTiersNav') }}
+              </a>
+            </li>
+            <li>
+              <a routerLink="/admin/legal" routerLinkActive="activo">
+                {{ t('admin.legalNav') }}
+              </a>
+            </li>
+            <li>
               <a routerLink="/admin/account" routerLinkActive="activo">
                 {{ t('admin.cuenta.titulo') }}
               </a>
             </li>
+            @if (auth.currentUser()?.is_superadmin) {
+              <li>
+                <a routerLink="/admin/superadmin" routerLinkActive="activo">
+                  {{ t('admin.superadminNav') }}
+                </a>
+              </li>
+            }
             <li>
               <a routerLink="/admin/estilo" routerLinkActive="activo">
                 {{ t('admin.catalogoDeComponentes') }}
