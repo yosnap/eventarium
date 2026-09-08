@@ -526,3 +526,44 @@ evidencia. Todos los 15 se aceptaron y aplicaron.
   + DOMPurify" en Fase 3; exportación de `event_tickets` sin exclusión
   explícita del JWT → exclusión explícita documentada en Fase 4.
 - Contradicciones sin resolver: 0.
+
+## PR #23 — ak:review-pr y deuda conocida aceptada
+
+**PR:** `feature/0.18.0-patrocinadores-legal-superadmin` → `develop`
+(https://github.com/yosnap/eventarium/pull/23).
+
+**Primera pasada de `ak:review-pr`:** veredicto Request changes — 1 crítico
+(CI en rojo por lint/formato en 14 ficheros nuevos de este PR, pese a que el
+informe de fase 5 afirmaba "ruff/mypy limpios") y 2 importantes (retirada de
+consentimiento de cookies no implementada; `restore.sh` en modo aislado
+protegía la base de datos pero no el bucket de objetos). Los tres se
+corrigieron con test de regresión, commits `3b9d83e`/`94d321e`/`ec262c1`.
+
+**Segunda pasada (re-revisión):** veredicto **Approve**. Los tres hallazgos
+verificados como resueltos de verdad (no solo CI en verde: ejecución local de
+ruff/mypy/pnpm/pytest, lectura del diff de los 3 commits de fix, prueba de
+foco/a11y del banner reabierto). Aprobación confirmada por el usuario
+(2026-09-08) para mergear con la siguiente deuda aceptada, sin bloquear el
+cierre de esta fase:
+
+- **S1** (`infra/scripts/restore.sh`): la guarda nueva del bucket usa
+  `[ -n "$OBJETOS" ]` en vez de `[ -d "$OBJETOS" ]`, así que una restauración
+  aislada *solo de base de datos* (sin ruta de objetos) puede disparar un
+  mensaje de error sobre `S3_BUCKET` aunque no vaya a tocar ningún bucket.
+  Falla en la dirección segura (bloquea en vez de dejar pasar) y tiene un
+  rodeo trivial (`--si-estoy-seguro`), por eso no bloqueó el merge — pero es
+  un mensaje engañoso justo en el peor momento (un simulacro o una
+  restauración real). Arreglo de una línea, pendiente para una pasada
+  posterior sobre `restore.sh`.
+- **S2** (`cookie-consent.service.ts`/`dummy-analytics.service.ts`): retirar
+  el consentimiento de una categoría no desactiva el script ya cargado en la
+  sesión en curso (solo deja de cargarlo en la siguiente visita). Sin
+  impacto real hoy porque el único script de esa categoría es un dummy de
+  prueba que no recoge nada. **Debe resolverse antes de conectar cualquier
+  proveedor de analítica/marketing real** (GA, Matomo, píxeles) — en ese
+  momento deja de ser deuda aceptable y pasa a ser un defecto de
+  cumplimiento RGPD real.
+- **S3** (`public-shell.ts`): el botón "Gestionar cookies" del footer es
+  visible también en la primera visita, cuando el banner de bienvenida ya
+  está abierto — redundante pero inofensivo (verificado que no rompe el
+  flujo de "Volver").
