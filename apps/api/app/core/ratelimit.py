@@ -46,6 +46,12 @@ FORGOT_PASSWORD_POR_IP = 3
 # El token tiene 256 bits de entropía, pero el endpoint necesita su propio tope, igual
 # que verify-email.
 RESET_PASSWORD_POR_IP = 20
+# Inscripción a un evento: de un solo uso legítimo por persona y evento, como el
+# registro de cuentas.
+INSCRIPCION_POR_IP = 10
+# Mismo razonamiento que verify-email: el token tiene entropía de sobra, pero el
+# endpoint necesita su propio tope por ser público.
+VERIFICACION_INSCRIPCION_POR_IP = 20
 
 VENTANA_SEGUNDOS = 60
 
