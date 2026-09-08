@@ -42,6 +42,8 @@ from app.modules.events.schemas import (
     PublicSessionDetail,
 )
 from app.modules.organizations.models import OrganizationMember
+from app.modules.sponsors import repository as sponsors_repository
+from app.modules.sponsors.schemas import PublicSponsor, PublicSponsorTier
 from app.modules.users.models import User, UserSocialLink
 from app.modules.users.schemas import (
     PublicSpeakerHistoryItem,
@@ -163,6 +165,39 @@ async def _obtener_evento_publico_o_404(
     return evento
 
 
+async def _sponsor_tiers_publicos(
+    session: DbDep, organization_id: uuid.UUID, event_id: uuid.UUID
+) -> list[PublicSponsorTier]:
+    """Patrocinadores del evento agrupados por nivel y ordenados por
+    `display_order` (Fase 5 del PRD, fase 2 de trabajo). Sin aportación: el
+    PRD no pide hacer pública la valoración económica de nadie."""
+    filas = (
+        await session.execute(sponsors_repository.public_sponsors_query(organization_id, event_id))
+    ).all()
+    if not filas:
+        return []
+
+    almacen = get_storage()
+    grupos: dict[uuid.UUID, PublicSponsorTier] = {}
+    orden: list[uuid.UUID] = []
+    for patrocinador, nivel in filas:
+        if nivel.id not in grupos:
+            grupos[nivel.id] = PublicSponsorTier(
+                name=nivel.name, logo_size=nivel.logo_size, sponsors=[]
+            )
+            orden.append(nivel.id)
+        grupos[nivel.id].sponsors.append(
+            PublicSponsor(
+                name=patrocinador.name,
+                logo_url=almacen.public_url(patrocinador.logo_object_key)
+                if patrocinador.logo_object_key
+                else None,
+                website=patrocinador.website,
+            )
+        )
+    return [grupos[tier_id] for tier_id in orden]
+
+
 @router.get(
     "/events/{slug}",
     summary="Ver el detalle de un evento publicado",
@@ -173,6 +208,9 @@ async def get_public_event(
     evento: Annotated[Event, Depends(_obtener_evento_publico_o_404)], session: DbDep
 ) -> PublicEventDetail:
     sesiones = await _sesiones_publicas(session, evento.organization_id, evento.id)
+    niveles_con_patrocinadores = await _sponsor_tiers_publicos(
+        session, evento.organization_id, evento.id
+    )
     return PublicEventDetail(
         slug=evento.slug,
         title=evento.title,
@@ -189,6 +227,7 @@ async def get_public_event(
         capacity=evento.capacity,
         registration_mode=evento.registration_mode,  # type: ignore[arg-type]
         sessions=sesiones,
+        sponsor_tiers=niveles_con_patrocinadores,
     )
 
 

@@ -263,6 +263,77 @@ terceros desde el propio dominio de la organización. Se aplica tanto al alta
 los dos campos se revalida en `service.update_session` contra el valor ya
 guardado del otro, no solo campo a campo.
 
+### Patrocinadores: niveles por organización, patrocinio por edición (fase 5 del PRD)
+
+Dos tablas: `sponsor_tiers` (organización) y `sponsors` (evento + nivel).
+`sponsor_tiers` es por organización porque los niveles se reutilizan entre
+ediciones (ej. "Oro" siempre significa lo mismo); `sponsors` cuelga de
+`(event_id, tier_id)` porque un patrocinio es por edición concreta, no
+permanente — una empresa puede patrocinar una edición y no la siguiente.
+Mismo patrón de FK compuesta que `event_sessions`/`event_members`:
+`sponsors.organization_id` denormalizado, `UNIQUE(id, organization_id)` en
+`sponsor_tiers` para que la FK compuesta de `sponsors.tier_id` pueda
+crearse.
+
+**Borrar un nivel con patrocinadores activos es un 409, no un 500.**
+`sponsors.tier_id` es `RESTRICT` (sin `ondelete`): la base de datos rechaza el
+borrado si algún patrocinador sigue apuntando a ese nivel.
+`sponsors/service.py:delete_tier` traduce el `IntegrityError` resultante a un
+mensaje legible en vez de dejarlo subir como error de servidor.
+
+**La aportación es mutuamente excluyente por tipo.**
+`contribution_type` (`monetaria`/`en_especie`) determina cuál de
+`contribution_amount`/`contribution_description` va relleno — nunca los dos,
+nunca ninguno. Se valida en el esquema Pydantic para el alta
+(`SponsorCreate`) y se revalida en el servicio para el `PATCH` parcial
+(`update_sponsor`), donde la combinación final solo se conoce tras fusionar
+con lo que el patrocinador ya tenía guardado — mismo motivo que
+`events/service.py:update_session` con `video_platform`/`video_url`.
+
+**El bloque público nunca expone la aportación.** El endpoint público de
+detalle de evento (`GET /public/events/{slug}`) agrupa los patrocinadores por
+nivel y los ordena por `sponsor_tiers.display_order`, pero solo expone
+`name`/`logo_url`/`website` (`PublicSponsor`) — nunca importe ni descripción:
+el PRD no pide hacer pública la valoración económica de nadie. El filtro de
+publicación del evento (`published` + `public`) ya se aplica al resolver el
+evento antes de construir este bloque, así que un borrador u oculto no expone
+tampoco sus patrocinadores.
+
+### Páginas legales, cookies y consentimientos (fase 5 del PRD)
+
+Las cuatro páginas legales (`legal_notice_content`, `privacy_policy_content`,
+`cookies_policy_content`, `registration_terms_content`) son columnas `Text`
+nullable de `Organization`, no tablas aparte: son contenido de la entidad
+responsable, no del evento, y `NULL` significa "usar la plantilla por
+defecto" — el mismo patrón que un campo opcional editable desde el panel, sin
+una tabla de "página" genérica para cuatro casos fijos.
+
+**Plantillas en Python, no en base de datos ni con un motor nuevo.** Las
+plantillas (`apps/api/app/modules/legal/templates.py`) son f-strings de
+Python rellenadas con `legal_name`/`contact_email`/`legal_address`/`tax_id`
+de la organización — mismo patrón que los emails de `app/core/tasks.py`, sin
+Jinja2 ni ningún motor de plantillas: el contenido es editable por
+`owner`/`organizer` y se sirve en SSR público, así que un motor que
+interprete el texto guardado como plantilla (en vez de como variable)
+abriría SSTI, y un escapado manual mal hecho abriría XSS. El contenido
+Markdown se sanea en el frontend (`marked` + `DOMPurify`, lista blanca de
+párrafos/negrita/cursiva/listas/enlaces) antes de mostrarse — nunca se
+interpreta como HTML en el backend.
+
+**`cookie_consents` es anónima por diseño.** Solo `organization_id`,
+`categories_accepted` (JSONB) y `created_at` — sin `user_id`, sin email y sin
+ningún campo de IP o su hash: RGPD no exige identificar a quien acepta o
+rechaza cookies, es la decisión de un navegador, no un consentimiento de
+inscripción ligado a una persona. La tabla no lleva RLS (es de instalación,
+no de organización) pero tampoco el acceso por defecto de `app_user`: la
+migración `0012` hace `REVOKE ALL ON cookie_consents FROM app_user` seguido
+de `GRANT INSERT` puntual, lo mínimo que el endpoint público necesita para
+escribir sin poder leer ni borrar filas ajenas ni propias. El endpoint
+(`POST /public/cookie-consent`) inserta con `sqlalchemy.insert()` de Core, no
+con `session.add()`: el ORM añadiría `RETURNING` para leer `created_at`
+(`server_default`), y `INSERT ... RETURNING` exige además `SELECT` sobre las
+columnas devueltas, que este rol no tiene a propósito.
+
 ### Permisos como texto validado en código
 
 `role_permissions.permission` guarda una cadena, pero solo se aceptan valores del enum
@@ -274,11 +345,20 @@ lugar de romper la sesión de quien lo tuviera.
 | Tabla | Política |
 |---|---|
 | `organizations` | `id = app_current_organization()` |
-| `organization_domains`, `organization_branding`, `organization_members`, `roles`, `role_permissions`, `role_profile_fields`, `events`, `event_sessions`, `event_members`, `event_session_participants`, `speaker_public_profiles` | `organization_id = app_current_organization()` |
+| `organization_domains`, `organization_branding`, `organization_members`, `roles`, `role_permissions`, `role_profile_fields`, `events`, `event_sessions`, `event_members`, `event_session_participants`, `speaker_public_profiles`, `event_registrations`, `event_registration_answers`, `event_registration_consents`, `event_tickets`, `event_ticket_scans`, `sponsor_tiers`, `sponsors` | `organization_id = app_current_organization()` |
 | `users` | Uno mismo (`id = app_current_user()`) o quien comparta organización |
 | `user_social_links` | Según la visibilidad de su usuario |
 
 Todas con `ENABLE` + `FORCE ROW LEVEL SECURITY`.
+
+`audit_log` y `cookie_consents` (fase 5 del PRD) son la excepción deliberada: **sin**
+política RLS, porque son tablas de instalación, no de dominio por organización, pero
+tampoco con el `GRANT` automático que `app_user` recibiría de otro modo — la migración
+`0012` ejecuta `REVOKE ALL ... FROM app_user` explícito sobre ambas (con `GRANT INSERT`
+puntual sobre `cookie_consents` para el endpoint público de consentimiento). Sin ese
+`REVOKE`, `ALTER DEFAULT PRIVILEGES` (`infra/postgres/sql/roles.sql`) le habría dado a
+`app_user` acceso de lectura y **borrado** sobre el registro de auditoría completo de la
+instalación — ver `docs/arquitectura.md` § Auditoría y RGPD.
 
 RLS aísla por **organización**, no por si un evento está publicado: un borrador de
 la propia organización sigue siendo visible bajo RLS para cualquiera que resuelva
@@ -309,6 +389,10 @@ la visibilidad: la fila solo será legible cuando exista la membresía.
 | `0006_autoservicio_organizaciones` | Tres funciones `SECURITY DEFINER` para el alta de organización desde el propio registro público (ver más abajo) |
 | `0007_barrido_no_verificados` | `users.verification_warning_sent_at`, para el barrido de cuentas sin verificar |
 | `0008_cuenta_y_recuperacion` | Tres funciones `SECURITY DEFINER` para cuenta propia y recuperación de contraseña (ver más abajo) |
+| `0009_eventos_agenda_y_ponentes` | `events`, `event_sessions`, `event_members`, `event_session_participants`, `speaker_public_profiles`; políticas RLS y FK compuestas del mismo patrón que las tablas anteriores |
+| `0010_inscripcion_de_asistentes` | `event_registrations`, `event_registration_answers`, `event_registration_consents`; funciones `SECURITY DEFINER` para el formulario público de inscripción |
+| `0011_entradas_qr` | `event_tickets`, `event_ticket_scans`; emisión automática de entrada al confirmarse una inscripción |
+| `0012_patrocinio_legal_auditoria` | `sponsor_tiers`, `sponsors` (con `UNIQUE(id, organization_id)` en `sponsor_tiers`), `audit_log`, `cookie_consents` (`REVOKE ALL ... FROM app_user` explícito en ambas, `GRANT INSERT` puntual en `cookie_consents`), columnas legales en `organizations`; backfill de `sponsors:read`/`write` a roles existentes con `organizations:write` |
 
 Se ejecutan siempre con `DATABASE_MIGRATIONS_URL` (rol `app_maintainer`). Con el rol de
 la API fallarían, y eso es deliberado. El ciclo `upgrade head` → `downgrade base` →

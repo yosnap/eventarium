@@ -2,6 +2,8 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink, RouterOutlet } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 
+import { CookieBanner } from '../../shared/cookies/cookie-banner';
+import { CookieConsentService } from '../../core/cookies/cookie-consent.service';
 import { ThemingService } from '../../core/theming/theming.service';
 
 /**
@@ -12,7 +14,7 @@ import { ThemingService } from '../../core/theming/theming.service';
 @Component({
   selector: 'app-public-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, TranslocoDirective],
+  imports: [RouterOutlet, RouterLink, TranslocoDirective, CookieBanner],
   template: `
     <ng-container *transloco="let t">
       <a class="skip-link" href="#contenido">{{ t('comun.saltarAlContenido') }}</a>
@@ -51,7 +53,32 @@ import { ThemingService } from '../../core/theming/theming.service';
             </ul>
           </nav>
         }
+        <nav [attr.aria-label]="t('publico.enlacesLegales')" class="enlaces-legales">
+          <ul>
+            <li>
+              <a routerLink="/legal/aviso-legal">{{ t('legal.avisoLegal') }}</a>
+            </li>
+            <li>
+              <a routerLink="/legal/privacidad">{{ t('legal.privacidad') }}</a>
+            </li>
+            <li>
+              <a routerLink="/legal/cookies">{{ t('legal.cookies') }}</a>
+            </li>
+            <li>
+              <a routerLink="/legal/condiciones-de-inscripcion">
+                {{ t('legal.condicionesInscripcion') }}
+              </a>
+            </li>
+            <li>
+              <button type="button" class="enlace-boton" (click)="gestionarCookies()">
+                {{ t('cookies.gestionar') }}
+              </button>
+            </li>
+          </ul>
+        </nav>
       </footer>
+
+      <app-cookie-banner />
     </ng-container>
   `,
   styles: `
@@ -104,8 +131,23 @@ import { ThemingService } from '../../core/theming/theming.service';
       margin: 0;
       padding: 0;
     }
+    .enlace-boton {
+      background: none;
+      border: none;
+      padding: 0;
+      margin: 0;
+      font: inherit;
+      color: var(--color-primary);
+      text-decoration: underline;
+      cursor: pointer;
+    }
   `,
 })
 export class PublicShell {
   protected readonly theming = inject(ThemingService);
+  private readonly consentimiento = inject(CookieConsentService);
+
+  protected gestionarCookies(): void {
+    this.consentimiento.abrirGestionDeCookies();
+  }
 }

@@ -135,9 +135,24 @@ export const routes: Routes = [
           import('./features/admin/events/event-check-in').then((m) => m.EventCheckIn),
       },
       {
+        path: 'sponsor-tiers',
+        loadComponent: () =>
+          import('./features/admin/sponsors/sponsor-tiers-page').then((m) => m.SponsorTiersPage),
+      },
+      {
+        path: 'legal',
+        loadComponent: () =>
+          import('./features/admin/legal/legal-pages-page').then((m) => m.LegalPagesPage),
+      },
+      {
         path: 'account',
         loadComponent: () =>
           import('./features/admin/account/account-page').then((m) => m.AccountPage),
+      },
+      {
+        path: 'superadmin',
+        loadComponent: () =>
+          import('./features/admin/superadmin/superadmin-page').then((m) => m.SuperadminPage),
       },
       {
         // Catálogo interno de componentes: no forma parte del producto, pero vive
@@ -180,6 +195,26 @@ export const routes: Routes = [
         path: 'ponentes/:publicSlug',
         loadComponent: () =>
           import('./features/public/events/speaker-page').then((m) => m.SpeakerPage),
+      },
+      {
+        path: 'legal/aviso-legal',
+        loadComponent: () => import('./features/public/legal/legal-page').then((m) => m.LegalPage),
+        data: { page: 'aviso-legal' },
+      },
+      {
+        path: 'legal/privacidad',
+        loadComponent: () => import('./features/public/legal/legal-page').then((m) => m.LegalPage),
+        data: { page: 'privacidad' },
+      },
+      {
+        path: 'legal/cookies',
+        loadComponent: () => import('./features/public/legal/legal-page').then((m) => m.LegalPage),
+        data: { page: 'cookies' },
+      },
+      {
+        path: 'legal/condiciones-de-inscripcion',
+        loadComponent: () => import('./features/public/legal/legal-page').then((m) => m.LegalPage),
+        data: { page: 'condiciones-de-inscripcion' },
       },
     ],
   },

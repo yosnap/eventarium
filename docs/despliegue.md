@@ -240,7 +240,77 @@ sin restaurar no cuenta como backup:
    host no resuelve. Ahora se ejecuta dentro de la red de Compose.
 
 Repite esta prueba tras cualquier cambio en el esquema de roles o en el almacenamiento,
-y actualiza la fecha de arriba.
+y añade una entrada nueva abajo (no sustituyas esta).
+
+### Revalidación — 2026-09-07 + esquema fase 5 del PRD (2026-09-08)
+
+**Ejecutada el 2026-09-08** contra el esquema ampliado por la fase 5 del PRD
+(`sponsor_tiers`, `sponsors`, `audit_log`, `cookie_consents`), en el entorno de
+desarrollo (`infra/docker-compose.yml`, sin tocar el stack de producción).
+
+**Corrección previa de `restore.sh`.** El script solo sabía restaurar sobre el
+proyecto `docker-compose.prod.yml`: no creaba la base de destino si no existía, paraba
+siempre `api`/`worker` y reaplicaba `roles.sql` (que rota las contraseñas de los roles
+del **clúster entero**, no solo de la base de destino). Ninguna de las tres cosas es
+aceptable para una restauración de prueba aislada. Se añadió el modo
+`RESTAURACION_AISLADA=1` (aditivo, sin tocar el camino por defecto): crea la base de
+datos de destino si no existe, omite parar/arrancar `api`/`worker`, y omite reaplicar
+`roles.sql`. El script rechaza explícitamente `RESTAURACION_AISLADA=1` con
+`POSTGRES_DB=ia_week` (la base de producción), para que el modo aislado no pueda
+apuntar a producción por un `POSTGRES_DB` olvidado. La misma guarda existe para el
+bucket de objetos: `RESTAURACION_AISLADA=1` con `S3_BUCKET` sin definir o
+`S3_BUCKET=media` (el bucket de producción) aborta antes de tocar nada, para que un
+`S3_BUCKET` olvidado no sobrescriba el bucket real durante una restauración de prueba.
+Verificado manualmente el 2026-09-08: con `S3_BUCKET` sin definir y con
+`S3_BUCKET=media` el script aborta con el mensaje esperado sin llegar a crear la base
+de datos ni invocar `docker compose`; con `S3_BUCKET=media-restore-test` la guarda deja
+pasar la ejecución con normalidad. De paso se corrigió un bug latente
+de la confirmación interactiva (`«$POSTGRES_DB»` inmediatamente pegado a la variable
+rompía el `set -u` de Bash con el carácter multibyte de la comilla angular — reproducible
+con `bash -c 'set -u; V=x; echo "«$V»"'`), presente también en el camino por defecto.
+
+Procedimiento:
+
+1. Siembra de datos reales en la base de desarrollo (`ia_week`): organización, evento
+   con portada subida a SeaweedFS, un `sponsor_tier`, un `sponsor` con logo subido, una
+   inscripción `confirmed` con su entrada (`event_tickets`), un `cookie_consents` y una
+   fila de `audit_log`.
+2. `infra/scripts/backup.sh` contra `ia_week` (`COMPOSE` apuntando al compose de
+   desarrollo, `COMPOSE_NETWORK=ia-week_default`): vuelca PostgreSQL y sincroniza el
+   bucket `media` completo a un directorio local.
+3. `RESTAURACION_AISLADA=1 POSTGRES_DB=ia_week_restore_test S3_BUCKET=media-restore-test
+   infra/scripts/restore.sh <volcado> <objetos> --si-estoy-seguro`, contra una base de
+   datos y un bucket nombrados explícitamente para la prueba (nunca `ia_week` ni
+   `ia_week_test`).
+4. Recuento de filas por tabla entre `ia_week` e `ia_week_restore_test`.
+5. Comprobación uno a uno (`s3api head-object`) de cada `cover_object_key`/
+   `logo_object_key` de las filas restauradas contra el bucket `media-restore-test`.
+
+**Resultado:** recuento de filas idéntico en las 8 tablas clave (`organizations`: 5,
+`events`: 4, `event_registrations`: 1, `event_tickets`: 1, `sponsor_tiers`: 1,
+`sponsors`: 1, `audit_log`: 1, `cookie_consents`: 2 — origen y restaurada coinciden
+exactamente en las ocho). Los tres objetos referenciados (dos portadas de evento y un
+logo de patrocinador) existen en el bucket restaurado, verificados individualmente con
+`head-object`, no solo por la ausencia de error de `aws s3 sync`. `/api/v1/health` del
+entorno de desarrollo respondió `200` de forma continua durante toda la prueba: en
+ningún momento se paró `api`, `worker` ni ningún otro servicio.
+
+Un hallazgo del entorno, no del código: la primera ejecución del `s3 sync` de
+restauración falló con `InternalError` en todos los objetos porque el SeaweedFS de
+desarrollo tiene `-volume.max=10` y ya estaba en `Free: 0` (los volúmenes del bucket
+`media` de meses de uso de desarrollo agotaron el cupo) — una colección S3 nueva
+(`media-restore-test`) no tenía dónde alojar su primer volumen. Se subió temporalmente
+a `-volume.max=30`, se recreó solo el contenedor `seaweedfs` (sin afectar a `postgres`,
+`api`, `worker` ni `web`), se repitió la prueba de punta a punta con éxito, y se
+revirtió `-volume.max` a 10 al terminar (`git diff infra/docker-compose.yml` limpio).
+Esto no es un defecto de `restore.sh`: en un servidor de producción real el bucket ya
+tiene cupo de volúmenes acorde a su uso real, y el propio mensaje de error de SeaweedFS
+(`InternalError`, sin detalle) es lo primero a mirar si esta prueba vuelve a fallar así.
+
+Datos de prueba y bucket de prueba eliminados tras la verificación
+(`DROP DATABASE ia_week_restore_test`, `s3 rb s3://media-restore-test --force`); las
+filas sembradas en `ia_week` para la prueba también se retiraron para no dejar datos
+ficticios en el entorno de desarrollo compartido.
 
 ## Integración continua
 

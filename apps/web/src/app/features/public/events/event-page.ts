@@ -43,6 +43,18 @@ interface PublicEventSession {
   readonly participants: readonly PublicParticipant[];
 }
 
+interface PublicSponsor {
+  readonly name: string;
+  readonly logo_url: string | null;
+  readonly website: string | null;
+}
+
+interface PublicSponsorTier {
+  readonly name: string;
+  readonly logo_size: 'large' | 'medium' | 'small';
+  readonly sponsors: readonly PublicSponsor[];
+}
+
 interface PublicEventDetail {
   readonly slug: string;
   readonly title: string;
@@ -57,6 +69,7 @@ interface PublicEventDetail {
   readonly location_address: string | null;
   readonly online_url: string | null;
   readonly sessions: readonly PublicEventSession[];
+  readonly sponsor_tiers: readonly PublicSponsorTier[];
 }
 
 interface DiaDeAgenda {
@@ -160,6 +173,32 @@ function fechaLocal(iso: string): string {
               }
             </ul>
           }
+
+          @if (evento.sponsor_tiers.length > 0) {
+            <h2>{{ t('publico.eventos.patrocinadores.titulo') }}</h2>
+            @for (nivel of evento.sponsor_tiers; track nivel.name) {
+              <h3>{{ nivel.name }}</h3>
+              <ul class="patrocinadores" [class]="'tamano-' + nivel.logo_size">
+                @for (patrocinador of nivel.sponsors; track patrocinador.name) {
+                  <li>
+                    @if (patrocinador.website) {
+                      <a [href]="patrocinador.website" rel="noopener noreferrer" target="_blank">
+                        @if (patrocinador.logo_url) {
+                          <img [src]="patrocinador.logo_url" [alt]="patrocinador.name" />
+                        } @else {
+                          {{ patrocinador.name }}
+                        }
+                      </a>
+                    } @else if (patrocinador.logo_url) {
+                      <img [src]="patrocinador.logo_url" [alt]="patrocinador.name" />
+                    } @else {
+                      <span>{{ patrocinador.name }}</span>
+                    }
+                  </li>
+                }
+              </ul>
+            }
+          }
         </article>
       }
     </ng-container>
@@ -214,6 +253,32 @@ function fechaLocal(iso: string): string {
       flex-wrap: wrap;
       gap: var(--space-sm);
       font-size: 0.875rem;
+    }
+    .patrocinadores {
+      list-style: none;
+      margin: 0 0 var(--space-md);
+      padding: 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-lg);
+    }
+    .patrocinadores img {
+      display: block;
+      width: auto;
+      object-fit: contain;
+    }
+    .patrocinadores.tamano-large img {
+      height: 4.5rem;
+    }
+    .patrocinadores.tamano-medium img {
+      height: 3rem;
+    }
+    .patrocinadores.tamano-small img {
+      height: 2rem;
+    }
+    .patrocinadores a {
+      display: inline-block;
     }
   `,
 })
