@@ -31,6 +31,11 @@ PROPOSITO_VERIFICACION_INSCRIPCION = "registration_email_verify"
 # `id` de la inscripción promovida. TTL variable, igual a la ventana de
 # promoción configurada — nunca `TTL_TOKEN`, ver `generate_token`.
 PROPOSITO_PROMOCION_LISTA_ESPERA = "waitlist_promotion_confirm"
+# Fase 3 del PRD, fase 4 de trabajo (autocancelación). Payload: el `id` de la
+# inscripción. Se genera de nuevo cada vez que se encola un email que ofrece
+# cancelar (confirmación, lista de espera, promoción) — nunca una sola vez —
+# así que pueden coexistir varios tokens válidos para la misma inscripción.
+PROPOSITO_CANCELACION_INSCRIPCION = "registration_cancel"
 
 _CLAVE = "verify:{proposito}:{huella}"
 

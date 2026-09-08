@@ -1,4 +1,4 @@
-"""Endpoints públicos de inscripción a eventos (fase 3 del PRD, fase 2 de trabajo).
+"""Endpoints públicos de inscripción a eventos (fase 3 del PRD, fases 2-4 de trabajo).
 
 Mismo patrón que `events/public_router.py`: sin autenticación, contexto RLS
 fijado por host vía `OrganizationDep`/`DbDep`. El enlace de verificación apunta
@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, Request, status
 
 from app.core.deps import DbDep, OrganizationDep
 from app.core.ratelimit import (
+    CANCELACION_INSCRIPCION_POR_IP,
     CONFIRMACION_PROMOCION_POR_IP,
     INSCRIPCION_POR_IP,
     PUBLICO_POR_IP,
@@ -26,6 +27,8 @@ from app.modules.events import repository as events_repository
 from app.modules.events.models import Event
 from app.modules.registrations import repository, service
 from app.modules.registrations.schemas import (
+    CancelRegistrationRequest,
+    CancelRegistrationResponse,
     ConfirmWaitlistPromotionRequest,
     ConfirmWaitlistPromotionResponse,
     RegistrationMessageResponse,
@@ -144,3 +147,20 @@ async def confirm_waitlist_promotion(
 ) -> ConfirmWaitlistPromotionResponse:
     await service.confirm_waitlist_promotion(session, token=datos.token)
     return ConfirmWaitlistPromotionResponse(message="Tu plaza está confirmada.")
+
+
+@router.post(
+    "/registrations/cancel",
+    summary="Cancelar una inscripción por autocancelación",
+    description=(
+        "Consume el token del enlace de cancelación (un solo uso). Si liberaba una "
+        "plaza confirmada, promueve automáticamente a la lista de espera."
+    ),
+    response_model=CancelRegistrationResponse,
+    dependencies=[limit_per_ip("cancelar-inscripcion", CANCELACION_INSCRIPCION_POR_IP)],
+)
+async def cancel_registration(
+    datos: CancelRegistrationRequest, session: DbDep
+) -> CancelRegistrationResponse:
+    await service.cancel_registration_by_token(session, token=datos.token)
+    return CancelRegistrationResponse(message="Tu inscripción ha sido cancelada.")

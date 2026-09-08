@@ -179,3 +179,103 @@ async def send_registration_verification_email(
             "El enlace caduca en 24 horas. Si no has sido tú, ignora este mensaje."
         ),
     )
+
+
+def _cuerpo_con_cancelacion(intro: str, enlace_cancelacion: str) -> str:
+    """Cuerpo común a las tres plantillas que ofrecen autocancelación
+    (confirmación, lista de espera, promoción) — evita triplicar el mismo
+    párrafo de cancelación en cada tarea."""
+    return (
+        f"Hola,\n\n{intro}\n\n"
+        "Si no puedes asistir, cancela tu inscripción desde este enlace:\n"
+        f"{enlace_cancelacion}"
+    )
+
+
+@broker.task(retry_on_error=True, max_retries=5)
+async def send_registration_confirmed_email(
+    to_email: str, organization_id: str, cancel_token: str
+) -> None:
+    """Confirmación de inscripción (alta directa, verificación o aprobación)."""
+    base = await _base_url_de_organizacion(uuid.UUID(organization_id))
+    enlace_cancelacion = f"{base}/cancelar-inscripcion?token={cancel_token}"
+    await get_email_provider().send(
+        to=to_email,
+        subject="Tu inscripción está confirmada",
+        body=_cuerpo_con_cancelacion(
+            "Tu inscripción ha quedado confirmada. ¡Te esperamos!", enlace_cancelacion
+        ),
+    )
+
+
+@broker.task(retry_on_error=True, max_retries=5)
+async def send_registration_waitlisted_email(
+    to_email: str, organization_id: str, cancel_token: str
+) -> None:
+    """Entrada en lista de espera (alta directa, verificación o aprobación)."""
+    base = await _base_url_de_organizacion(uuid.UUID(organization_id))
+    enlace_cancelacion = f"{base}/cancelar-inscripcion?token={cancel_token}"
+    await get_email_provider().send(
+        to=to_email,
+        subject="Estás en la lista de espera",
+        body=_cuerpo_con_cancelacion(
+            "El aforo está completo; te hemos añadido a la lista de espera. Te "
+            "avisaremos por correo si se libera una plaza.",
+            enlace_cancelacion,
+        ),
+    )
+
+
+@broker.task(retry_on_error=True, max_retries=5)
+async def send_registration_rejected_email(to_email: str, organization_id: str) -> None:
+    """Rechazo de una inscripción `pending_approval` por el organizador."""
+    await get_email_provider().send(
+        to=to_email,
+        subject="Tu inscripción no ha sido aprobada",
+        body=(
+            "Hola,\n\n"
+            "El organizador del evento no ha aprobado tu inscripción. Si crees que "
+            "es un error, contacta directamente con la organización."
+        ),
+    )
+
+
+@broker.task(retry_on_error=True, max_retries=5)
+async def send_registration_cancelled_email(to_email: str, organization_id: str) -> None:
+    """Cancelación de una inscripción, por el organizador o por autocancelación."""
+    await get_email_provider().send(
+        to=to_email,
+        subject="Tu inscripción ha sido cancelada",
+        body=(
+            "Hola,\n\n"
+            "Tu inscripción a este evento ha quedado cancelada. Si no has sido tú, "
+            "contacta con la organización del evento."
+        ),
+    )
+
+
+@broker.task(retry_on_error=True, max_retries=5)
+async def send_waitlist_promotion_email(
+    to_email: str,
+    organization_id: str,
+    confirm_token: str,
+    cancel_token: str,
+    expira_el: str,
+) -> None:
+    """Promoción desde la lista de espera: hay que confirmar antes de `expira_el`
+    (ya formateado en texto legible) o la plaza pasa a la siguiente persona."""
+    base = await _base_url_de_organizacion(uuid.UUID(organization_id))
+    enlace_confirmar = f"{base}/confirmar-promocion?token={confirm_token}"
+    enlace_cancelacion = f"{base}/cancelar-inscripcion?token={cancel_token}"
+    await get_email_provider().send(
+        to=to_email,
+        subject="Se ha liberado una plaza: confirma tu inscripción",
+        body=(
+            "Hola,\n\n"
+            "Se ha liberado una plaza y te toca a ti. Confirma tu inscripción antes "
+            f"de {expira_el} desde este enlace:\n{enlace_confirmar}\n\n"
+            "Si no confirmas a tiempo, pasaremos a la siguiente persona en la lista "
+            "de espera.\n\n"
+            f"Si ya no quieres asistir, cancela tu inscripción aquí:\n{enlace_cancelacion}"
+        ),
+    )
