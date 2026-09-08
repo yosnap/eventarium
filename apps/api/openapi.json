@@ -1483,6 +1483,221 @@
         }
       }
     },
+    "/api/v1/admin/audit-log": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Listar el registro de auditoría de la instalación",
+        "description": "Filtros opcionales por organización, rango de fechas y tipo de acción. No hay ningún `Permission` de rol de organización que sustituya a `Superadmin` aquí.",
+        "operationId": "list_audit_log_api_v1_admin_audit_log_get",
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "name": "date_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date From"
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date To"
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Action"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Elementos por página",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Elementos por página"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Elementos omitidos",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Elementos omitidos"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_AuditLogEntry_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/events/{event_id}/rgpd-export": {
+      "post": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Exportar en RGPD las inscripciones y entradas de un evento",
+        "description": "ZIP con un CSV de inscripciones (con sus respuestas) y un CSV de entradas (sin el JWT del QR, que es una credencial de acceso físico válida). Exige reautenticación por contraseña en el body. Es un `POST` y no un `GET` a propósito: la Fetch API (`fetch(url, {method: 'GET', body})`) prohíbe cuerpo en peticiones `GET` — lanza un `TypeError` antes de llegar a la red — y el frontend usa `provideHttpClient(withFetch())`. Un `GET` con reautenticación por contraseña en el body nunca habría funcionado desde el navegador.",
+        "operationId": "export_event_rgpd_api_v1_admin_events__event_id__rgpd_export_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RgpdExportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/registrations/by-email": {
+      "delete": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Borrar (RGPD) la inscripción de una persona a un evento por email",
+        "description": "Reutiliza el servicio de cancelación (revoca la entrada y promueve la lista de espera si liberaba una plaza) y anonimiza los escaneos de la entrada antes del borrado real de la fila. Exige reautenticación por contraseña en el body. `audit_log` guarda un hash con sal del email, nunca en claro.",
+        "operationId": "delete_registration_by_email_api_v1_admin_registrations_by_email_delete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteRegistrationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/events": {
       "get": {
         "tags": [
@@ -3481,10 +3696,709 @@
           }
         }
       }
+    },
+    "/api/v1/organizations/me/sponsor-tiers": {
+      "get": {
+        "tags": [
+          "patrocinio"
+        ],
+        "summary": "Listar niveles de patrocinio",
+        "operationId": "list_sponsor_tiers_api_v1_organizations_me_sponsor_tiers_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Elementos por página",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Elementos por página"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Elementos omitidos",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Elementos omitidos"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_SponsorTierResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "patrocinio"
+        ],
+        "summary": "Crear un nivel de patrocinio",
+        "operationId": "create_sponsor_tier_api_v1_organizations_me_sponsor_tiers_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SponsorTierCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SponsorTierResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me/sponsor-tiers/{tier_id}": {
+      "patch": {
+        "tags": [
+          "patrocinio"
+        ],
+        "summary": "Actualizar un nivel de patrocinio",
+        "description": "También reordena: para mover un nivel, actualiza `display_order` de los niveles afectados con peticiones sucesivas.",
+        "operationId": "update_sponsor_tier_api_v1_organizations_me_sponsor_tiers__tier_id__patch",
+        "parameters": [
+          {
+            "name": "tier_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Tier Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SponsorTierUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SponsorTierResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "patrocinio"
+        ],
+        "summary": "Borrar un nivel de patrocinio",
+        "description": "Falla con 409 si el nivel tiene patrocinadores asignados.",
+        "operationId": "delete_sponsor_tier_api_v1_organizations_me_sponsor_tiers__tier_id__delete",
+        "parameters": [
+          {
+            "name": "tier_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Tier Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/sponsors": {
+      "get": {
+        "tags": [
+          "patrocinio"
+        ],
+        "summary": "Listar los patrocinadores de un evento",
+        "operationId": "list_sponsors_api_v1_events__event_id__sponsors_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SponsorResponse"
+                  },
+                  "title": "Response List Sponsors Api V1 Events  Event Id  Sponsors Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "patrocinio"
+        ],
+        "summary": "Añadir un patrocinador a un evento",
+        "operationId": "create_sponsor_api_v1_events__event_id__sponsors_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SponsorCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SponsorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/sponsors/{sponsor_id}": {
+      "patch": {
+        "tags": [
+          "patrocinio"
+        ],
+        "summary": "Actualizar un patrocinador",
+        "operationId": "update_sponsor_api_v1_events__event_id__sponsors__sponsor_id__patch",
+        "parameters": [
+          {
+            "name": "sponsor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sponsor Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SponsorUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SponsorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "patrocinio"
+        ],
+        "summary": "Quitar un patrocinador de un evento",
+        "operationId": "delete_sponsor_api_v1_events__event_id__sponsors__sponsor_id__delete",
+        "parameters": [
+          {
+            "name": "sponsor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sponsor Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/sponsors/{sponsor_id}/logo": {
+      "put": {
+        "tags": [
+          "patrocinio"
+        ],
+        "summary": "Subir el logotipo de un patrocinador",
+        "description": "Acepta PNG, JPEG o WebP de hasta 5 MB. El tipo se comprueba por contenido.",
+        "operationId": "upload_sponsor_logo_api_v1_events__event_id__sponsors__sponsor_id__logo_put",
+        "parameters": [
+          {
+            "name": "sponsor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sponsor Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_sponsor_logo_api_v1_events__event_id__sponsors__sponsor_id__logo_put"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SponsorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me/legal-pages": {
+      "get": {
+        "tags": [
+          "legal"
+        ],
+        "summary": "Contenido de las cuatro páginas legales",
+        "operationId": "get_legal_pages_api_v1_organizations_me_legal_pages_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalPagesAdminResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "legal"
+        ],
+        "summary": "Editar el contenido de las páginas legales",
+        "description": "Un campo ausente no se toca; un campo presente con `null` restaura la plantilla por defecto de esa página.",
+        "operationId": "update_legal_pages_api_v1_organizations_me_legal_pages_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LegalPagesUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalPagesAdminResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/legal/aviso-legal": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Aviso legal",
+        "operationId": "public_legal_notice_api_v1_public_legal_aviso_legal_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalPageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/legal/privacidad": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Política de privacidad",
+        "operationId": "public_privacy_policy_api_v1_public_legal_privacidad_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalPageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/legal/cookies": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Política de cookies",
+        "operationId": "public_cookies_policy_api_v1_public_legal_cookies_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalPageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/legal/condiciones-de-inscripcion": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Condiciones de inscripción",
+        "operationId": "public_registration_terms_api_v1_public_legal_condiciones_de_inscripcion_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalPageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/cookie-consent": {
+      "post": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Registrar una decisión del banner de cookies",
+        "description": "Anónimo por diseño: sin `user_id`, sin email y sin ningún campo de IP o su hash (decisión #3 del plan). `necessary` debe estar siempre presente: el banner no permite rechazarla.",
+        "operationId": "create_cookie_consent_api_v1_public_cookie_consent_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CookieConsentCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AuditLogEntry": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "actor_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor User Id"
+          },
+          "organization_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization Id"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "entity_type": {
+            "type": "string",
+            "title": "Entity Type"
+          },
+          "entity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Id"
+          },
+          "detail": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Detail"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "actor_user_id",
+          "organization_id",
+          "action",
+          "entity_type",
+          "entity_id",
+          "detail",
+          "created_at"
+        ],
+        "title": "AuditLogEntry",
+        "description": "Una fila de `audit_log`, tal y como la ve el superadmin."
+      },
       "Body_upload_cover_api_v1_events__event_id__cover_put": {
         "properties": {
           "fichero": {
@@ -3514,6 +4428,21 @@
           "fichero"
         ],
         "title": "Body_upload_logo_api_v1_organizations_me_branding_logo_put"
+      },
+      "Body_upload_sponsor_logo_api_v1_events__event_id__sponsors__sponsor_id__logo_put": {
+        "properties": {
+          "fichero": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Fichero",
+            "description": "Logotipo del patrocinador"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fichero"
+        ],
+        "title": "Body_upload_sponsor_logo_api_v1_events__event_id__sponsors__sponsor_id__logo_put"
       },
       "BrandingAdminResponse": {
         "properties": {
@@ -3860,6 +4789,29 @@
         "title": "ConfirmWaitlistPromotionResponse",
         "description": "Resultado de confirmar una promoción de lista de espera."
       },
+      "CookieConsentCreate": {
+        "properties": {
+          "categories": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "necessary",
+                "analytics",
+                "marketing"
+              ]
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Categories"
+          }
+        },
+        "type": "object",
+        "required": [
+          "categories"
+        ],
+        "title": "CookieConsentCreate",
+        "description": "Decisión del banner de cookies a registrar."
+      },
       "CurrentUserResponse": {
         "properties": {
           "id": {
@@ -3929,6 +4881,33 @@
         ],
         "title": "CurrentUserResponse",
         "description": "Usuario autenticado en el contexto de la organización actual."
+      },
+      "DeleteRegistrationRequest": {
+        "properties": {
+          "password": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Password"
+          },
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "password",
+          "event_id",
+          "email"
+        ],
+        "title": "DeleteRegistrationRequest",
+        "description": "Cuerpo de `DELETE /admin/registrations/by-email`."
       },
       "DomainCreate": {
         "properties": {
@@ -5045,6 +6024,120 @@
         "title": "HealthResponse",
         "description": "Estado de cada dependencia."
       },
+      "LegalPageAdminItem": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "is_custom": {
+            "type": "boolean",
+            "title": "Is Custom",
+            "description": "`true` si la organización ha editado esta página."
+          }
+        },
+        "type": "object",
+        "required": [
+          "content",
+          "is_custom"
+        ],
+        "title": "LegalPageAdminItem",
+        "description": "Una página legal tal y como la ve el panel de edición."
+      },
+      "LegalPageResponse": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "LegalPageResponse",
+        "description": "Contenido efectivo (editado o de plantilla) de una página legal."
+      },
+      "LegalPagesAdminResponse": {
+        "properties": {
+          "legal_notice": {
+            "$ref": "#/components/schemas/LegalPageAdminItem"
+          },
+          "privacy_policy": {
+            "$ref": "#/components/schemas/LegalPageAdminItem"
+          },
+          "cookies_policy": {
+            "$ref": "#/components/schemas/LegalPageAdminItem"
+          },
+          "registration_terms": {
+            "$ref": "#/components/schemas/LegalPageAdminItem"
+          }
+        },
+        "type": "object",
+        "required": [
+          "legal_notice",
+          "privacy_policy",
+          "cookies_policy",
+          "registration_terms"
+        ],
+        "title": "LegalPagesAdminResponse",
+        "description": "Las cuatro páginas legales, con su contenido efectivo y si están editadas."
+      },
+      "LegalPagesUpdate": {
+        "properties": {
+          "legal_notice_content": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legal Notice Content"
+          },
+          "privacy_policy_content": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Privacy Policy Content"
+          },
+          "cookies_policy_content": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cookies Policy Content"
+          },
+          "registration_terms_content": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registration Terms Content"
+          }
+        },
+        "type": "object",
+        "title": "LegalPagesUpdate",
+        "description": "Actualización parcial de las páginas legales.\n\nMismo patrón que `OrganizationUpdate`: un campo ausente no se toca: un\ncampo presente con valor `null` restaura la plantilla por defecto (ver\n`Organization.legal_notice_content` y hermanos, `NULL` = plantilla)."
+      },
       "LoginRequest": {
         "properties": {
           "email": {
@@ -5458,6 +6551,37 @@
         "title": "OrganizationUpdate",
         "description": "Campos editables de la organización."
       },
+      "Page_AuditLogEntry_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuditLogEntry"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[AuditLogEntry]"
+      },
       "Page_EventResponse_": {
         "properties": {
           "items": {
@@ -5551,6 +6675,37 @@
         ],
         "title": "Page[RegistrationListItem]"
       },
+      "Page_SponsorTierResponse_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SponsorTierResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[SponsorTierResponse]"
+      },
       "Permission": {
         "type": "string",
         "enum": [
@@ -5567,7 +6722,9 @@
           "registrations:read",
           "registrations:write",
           "tickets:read",
-          "tickets:write"
+          "tickets:write",
+          "sponsors:read",
+          "sponsors:write"
         ],
         "title": "Permission",
         "description": "Permisos disponibles en la fase 0."
@@ -5811,6 +6968,13 @@
             },
             "type": "array",
             "title": "Sessions"
+          },
+          "sponsor_tiers": {
+            "items": {
+              "$ref": "#/components/schemas/PublicSponsorTier"
+            },
+            "type": "array",
+            "title": "Sponsor Tiers"
           }
         },
         "type": "object",
@@ -6357,6 +7521,76 @@
         ],
         "title": "PublicSpeakerProfile",
         "description": "Perfil público de un ponente tal y como lo ve cualquier visitante."
+      },
+      "PublicSponsor": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "logo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Url"
+          },
+          "website": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Website"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "logo_url",
+          "website"
+        ],
+        "title": "PublicSponsor",
+        "description": "Patrocinador tal y como se muestra en la página pública del evento.\n\nNunca lleva la aportación (ni importe ni descripción): el PRD no pide hacer\npública la valoración económica de nadie, solo el logo/nombre/web agrupados\npor nivel (ver Fase 2 de trabajo del plan, Requirements)."
+      },
+      "PublicSponsorTier": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "logo_size": {
+            "type": "string",
+            "enum": [
+              "large",
+              "medium",
+              "small"
+            ],
+            "title": "Logo Size"
+          },
+          "sponsors": {
+            "items": {
+              "$ref": "#/components/schemas/PublicSponsor"
+            },
+            "type": "array",
+            "title": "Sponsors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "logo_size",
+          "sponsors"
+        ],
+        "title": "PublicSponsorTier",
+        "description": "Nivel de patrocinio con sus patrocinadores, para el bloque público."
       },
       "RegisterRequest": {
         "properties": {
@@ -7081,6 +8315,22 @@
         "title": "ResetPasswordRequest",
         "description": "Datos para completar la recuperación con el token recibido por correo."
       },
+      "RgpdExportRequest": {
+        "properties": {
+          "password": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "password"
+        ],
+        "title": "RgpdExportRequest",
+        "description": "Cuerpo de `POST /admin/events/{event_id}/rgpd-export`."
+      },
       "RoleCreate": {
         "properties": {
           "key": {
@@ -7576,6 +8826,392 @@
         ],
         "title": "SocialLinkUpdate",
         "description": "Enlace social del perfil de una persona."
+      },
+      "SponsorCreate": {
+        "properties": {
+          "tier_id": {
+            "type": "string",
+            "title": "Tier Id"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "website": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Website"
+          },
+          "contribution_type": {
+            "type": "string",
+            "enum": [
+              "monetaria",
+              "en_especie"
+            ],
+            "title": "Contribution Type"
+          },
+          "contribution_amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contribution Amount"
+          },
+          "contribution_description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contribution Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tier_id",
+          "name",
+          "contribution_type"
+        ],
+        "title": "SponsorCreate",
+        "description": "Alta de un patrocinador en un evento."
+      },
+      "SponsorResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "tier_id": {
+            "type": "string",
+            "title": "Tier Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "logo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Url"
+          },
+          "website": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Website"
+          },
+          "contribution_type": {
+            "type": "string",
+            "enum": [
+              "monetaria",
+              "en_especie"
+            ],
+            "title": "Contribution Type"
+          },
+          "contribution_amount": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contribution Amount"
+          },
+          "contribution_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contribution Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "tier_id",
+          "name",
+          "logo_url",
+          "website",
+          "contribution_type",
+          "contribution_amount",
+          "contribution_description"
+        ],
+        "title": "SponsorResponse",
+        "description": "Patrocinador tal y como lo ve el panel del evento (incluye la aportación)."
+      },
+      "SponsorTierCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "display_order": {
+            "type": "integer",
+            "title": "Display Order",
+            "default": 0
+          },
+          "logo_size": {
+            "type": "string",
+            "enum": [
+              "large",
+              "medium",
+              "small"
+            ],
+            "title": "Logo Size",
+            "default": "medium"
+          },
+          "benefits": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benefits"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "SponsorTierCreate",
+        "description": "Alta de un nivel de patrocinio."
+      },
+      "SponsorTierResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "display_order": {
+            "type": "integer",
+            "title": "Display Order"
+          },
+          "logo_size": {
+            "type": "string",
+            "enum": [
+              "large",
+              "medium",
+              "small"
+            ],
+            "title": "Logo Size"
+          },
+          "benefits": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benefits"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "display_order",
+          "logo_size",
+          "benefits"
+        ],
+        "title": "SponsorTierResponse",
+        "description": "Nivel de patrocinio tal y como lo ve el panel."
+      },
+      "SponsorTierUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "display_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Order"
+          },
+          "logo_size": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "large",
+                  "medium",
+                  "small"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Size"
+          },
+          "benefits": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benefits"
+          }
+        },
+        "type": "object",
+        "title": "SponsorTierUpdate",
+        "description": "Campos editables de un nivel de patrocinio. `display_order` es lo que\nreordena: el panel envía el nuevo valor de cada nivel afectado."
+      },
+      "SponsorUpdate": {
+        "properties": {
+          "tier_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tier Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "website": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Website"
+          },
+          "contribution_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "monetaria",
+                  "en_especie"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contribution Type"
+          },
+          "contribution_amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contribution Amount"
+          },
+          "contribution_description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contribution Description"
+          }
+        },
+        "type": "object",
+        "title": "SponsorUpdate",
+        "description": "Campos editables de un patrocinador. Parcial: la exclusividad de la\naportación se revalida en el servicio contra el estado ya guardado."
       },
       "SubmitRegistrationRequest": {
         "properties": {

@@ -197,6 +197,40 @@ Tres reglas impiden que `roles:write` se convierta en control total:
 2. Solo un `owner` gestiona o asigna el rol `owner`.
 3. Nadie amplía sus propios permisos modificando su membresía.
 
+`AUDIT_READ` no existe como valor del enum `Permission` (fase 5 del PRD, decisión #7
+del plan): si existiera, `OWNER.permissions = tuple(Permission)`
+(`modules/roles/system_roles.py`) lo concedería automáticamente a todo `owner` futuro,
+contradiciendo que la auditoría sea exclusiva de superadmin. El endpoint de auditoría
+comprueba `is_superadmin` directamente, no un permiso de rol.
+
+## Auditoría y RGPD (superadmin)
+
+`AuditLog` (`app/core/audit.py`) es un log de solo-inserción: sin política RLS y sin el
+`GRANT` por defecto que `ALTER DEFAULT PRIVILEGES` (`roles.sql`) le daría a `app_user`
+sobre cualquier tabla nueva — la migración `0012` ejecuta `REVOKE ALL ON audit_log FROM
+app_user` explícito, así que solo `app_maintainer` (`maintenance_session()`) puede leer
+o escribir ahí. `cookie_consents` recibe el mismo `REVOKE` seguido de un `GRANT INSERT`
+puntual, porque el endpoint público de consentimiento sí necesita escribir sin
+autenticar. Retención de `audit_log`: indefinida, sin purga automática (es un log de
+cumplimiento).
+
+Se instrumenta explícitamente cada acción sensible existente — cambio de permisos de
+un rol, alta de organización, alta de dominio — y las tres acciones nuevas de
+superadmin (`app/modules/admin/router.py`): listado de auditoría con filtros, export
+RGPD de un evento (ZIP con CSV de inscripciones/respuestas/entradas, sin el JWT del QR,
+con prefijado `'` de celdas que empiezan por `=`/`+`/`-`/`@`/tab/CR contra inyección de
+fórmulas) y borrado de un inscrito por email. Los tres exigen `is_superadmin` (403 para
+cualquier otro rol), `limit_per_ip` y reautenticación por contraseña en el body de la
+petición — no hay sesión de reautenticación aparte.
+
+El borrado de un inscrito reutiliza el servicio de cancelación
+(`registrations/service.py`), no un `DELETE` directo: así promueve automáticamente a la
+siguiente persona en lista de espera. Los `event_ticket_scans` del ticket se anonimizan
+(`ticket_id = NULL`) en vez de borrarse, para conservar el recuento real de aforo sin
+conservar el vínculo con la persona. `audit_log.detail` guarda un hash con sal del
+email, nunca en claro: el propio registro de auditoría no puede convertirse en el dato
+personal que demuestra haber sido borrado.
+
 ## Almacenamiento de objetos
 
 `StorageProvider` es un `Protocol`; `S3StorageProvider` (aioboto3, path-style) es la
@@ -279,6 +313,36 @@ porque siempre se construye desde ese prefijo propio fijo, nunca a partir de la 
 cruda que guardó quien edita la sesión — esa URL ya pasó, además, la validación de
 dominio por plataforma del backend (`validate_video_url`, ver
 `docs/modelo-de-datos.md`).
+
+### Páginas legales: SSR con texto plano primero, HTML saneado después
+
+Las cuatro páginas legales (`/legal/aviso-legal`, `/legal/privacidad`,
+`/legal/cookies`, `/legal/condiciones-de-inscripcion`, `features/public/legal/
+legal-page.ts`) siguen el mismo patrón `TransferState`/`serverForwardHeaders()`
+de arriba, con una diferencia deliberada: el contenido (Markdown restringido
+editable por el tenant, ver `docs/modelo-de-datos.md`) se muestra primero como
+texto plano interpolado por Angular — siempre escapado, tanto en SSR como antes
+de hidratar — y solo se sustituye por HTML saneado (`marked` + `DOMPurify`,
+`shared/legal/sanitize-markdown.ts`) dentro de `afterNextRender`, que nunca
+corre en el servidor. Evita depender de `jsdom` en el bundle de SSR (`DOMPurify`
+necesita un `window` real) a cambio de una mejora progresiva: sin JavaScript se
+ve el texto sin formato Markdown, con JavaScript se ve el HTML enriquecido —
+nunca hay una ventana en la que un `<script>` guardado como contenido legal
+pudiera ejecutarse.
+
+### Banner de cookies
+
+`shared/cookies/cookie-banner.ts`, integrado en `layouts/public/public-shell.ts`
+para aparecer en toda página pública. `core/cookies/cookie-consent.service.ts`
+guarda la decisión en `localStorage` (cada organización ya vive en su propio
+host, así que no hace falta espacio de nombres adicional) y llama a
+`POST /public/cookie-consent`. Cloudflare Turnstile (`shared/ui/
+turnstile-widget.ts`) nunca pasa por este servicio: sigue cargando decida lo
+que decida la persona, clasificado como necesario en la página de cookies (ver
+`apps/api/app/modules/legal/templates.py`). Un script de ejemplo de categoría
+`analytics` (`core/cookies/dummy-analytics.service.ts`, `public/assets/
+dummy-analytics.js`) solo se inyecta en el DOM tras consentimiento explícito,
+para probar de verdad el bloqueo hasta que exista un script analítico real.
 
 ## Estructura
 

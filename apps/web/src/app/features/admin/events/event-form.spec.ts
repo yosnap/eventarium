@@ -82,6 +82,10 @@ describe('EventForm', () => {
       .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/members')
       .flush({ items: [], total: 0, limit: 200, offset: 0 });
     http
+      .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/sponsor-tiers')
+      .flush({ items: [], total: 0, limit: 100, offset: 0 });
+    http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/sponsors').flush([]);
+    http
       .expectOne((peticion) => peticion.url === '/api/v1/events/e1/registrations')
       .flush({ items: [], total: 0, limit: 20, offset: 0 });
     http

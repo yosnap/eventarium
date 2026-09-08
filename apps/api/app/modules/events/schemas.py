@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 from pydantic import BaseModel, Field, model_validator
 
 from app.modules.organizations.schemas import SLUG_PATTERN
+from app.modules.sponsors.schemas import PublicSponsorTier
 
 EventStatus = Literal["draft", "published", "archived"]
 EventVisibility = Literal["public", "hidden", "private"]
@@ -320,3 +321,4 @@ class PublicEventDetail(BaseModel):
     capacity: int | None
     registration_mode: RegistrationMode
     sessions: list[PublicEventSession]
+    sponsor_tiers: list[PublicSponsorTier] = Field(default_factory=list)

@@ -31,7 +31,10 @@
       "video": "Vídeo",
       "verVideo": "Ver el vídeo",
       "materiales": "Materiales",
-      "inscribirse": "Inscribirme"
+      "inscribirse": "Inscribirme",
+      "patrocinadores": {
+        "titulo": "Patrocinadores"
+      }
     },
     "accesoPanel": "Acceso al panel",
     "organizadoPor": "Organizado por {{nombre}}",
@@ -49,7 +52,8 @@
       "curriculum": "Currículum",
       "web": "Sitio web",
       "contacto": "Contacto"
-    }
+    },
+    "enlacesLegales": "Información legal"
   },
   "registro": {
     "titulo": "Crear una cuenta",
@@ -617,6 +621,113 @@
           "yaUsada": "Ya usada el {{fecha}}",
           "error": "No hemos podido completar la búsqueda."
         }
+      },
+      "sponsors": {
+        "titulo": "Patrocinadores",
+        "sinNiveles": "Crea antes un nivel de patrocinio en «Niveles de patrocinio».",
+        "sinPatrocinadores": "Todavía no hay patrocinadores en este evento.",
+        "anadirPatrocinador": "Añadir patrocinador",
+        "editarPatrocinador": "Editar patrocinador",
+        "editar": "Editar",
+        "eliminar": "Eliminar",
+        "guardarCambios": "Guardar cambios",
+        "nivel": "Nivel de patrocinio",
+        "elegirNivel": "Elige un nivel",
+        "nombre": "Nombre",
+        "web": "Sitio web",
+        "tipoAportacion": "Tipo de aportación",
+        "tipoMonetaria": "Monetaria",
+        "tipoEnEspecie": "En especie",
+        "importe": "Importe (€)",
+        "importeRequerido": "Indica el importe de la aportación.",
+        "descripcionAportacion": "Descripción de la aportación",
+        "descripcionRequerida": "Describe la aportación en especie.",
+        "camposRequeridos": "Elige un nivel y escribe el nombre del patrocinador.",
+        "subirLogo": "Subir logo (PNG, JPEG o WebP, hasta 5 MB)",
+        "logoDe": "Logo de {{nombre}}",
+        "logoNoValido": "Solo se aceptan imágenes PNG, JPEG o WebP.",
+        "logoDemasiadoGrande": "El logo no puede superar los 5 MB.",
+        "error": "No hemos podido completar la operación.",
+        "tipoEnespecie": "En especie"
+      }
+    },
+    "sponsorTiersNav": "Niveles de patrocinio",
+    "superadminNav": "Superadministración",
+    "sponsorTiers": {
+      "titulo": "Niveles de patrocinio",
+      "descripcion": "Define los niveles de patrocinio de tu organización (ej. Oro, Plata, Bronce). Se reutilizan entre eventos.",
+      "sinNiveles": "Todavía no hay niveles de patrocinio.",
+      "anadirNivel": "Añadir nivel",
+      "editarNivel": "Editar nivel",
+      "editar": "Editar",
+      "eliminar": "Eliminar",
+      "guardarCambios": "Guardar cambios",
+      "subir": "Subir {{nombre}}",
+      "bajar": "Bajar {{nombre}}",
+      "nombre": "Nombre",
+      "nombreRequerido": "Escribe el nombre del nivel.",
+      "tamanoLogoCampo": "Tamaño del logo",
+      "tamanoLogoLarge": "Grande",
+      "tamanoLogoMedium": "Mediano",
+      "tamanoLogoSmall": "Pequeño",
+      "beneficios": "Beneficios (texto libre)",
+      "error": "No hemos podido completar la operación."
+    },
+    "legalNav": "Páginas legales",
+    "legal": {
+      "titulo": "Páginas legales",
+      "descripcion": "Edita el contenido de las cuatro páginas legales públicas. Si dejas una en blanco se sirve la plantilla por defecto con los datos de tu organización.",
+      "avisoLegal": "Aviso legal",
+      "privacidad": "Política de privacidad",
+      "cookies": "Política de cookies",
+      "condicionesInscripcion": "Condiciones de inscripción",
+      "editada": "Editada",
+      "porDefecto": "Plantilla por defecto",
+      "restaurarPlantilla": "Restaurar plantilla por defecto",
+      "guardar": "Guardar cambios",
+      "guardando": "Guardando…",
+      "guardado": "Cambios guardados.",
+      "error": "No hemos podido guardar los cambios."
+    },
+    "superadmin": {
+      "titulo": "Superadministración",
+      "descripcion": "Auditoría de la instalación, exportación RGPD y borrado de inscritos bajo solicitud. Ninguna de estas acciones está disponible para un organizador.",
+      "auditoria": {
+        "titulo": "Registro de auditoría",
+        "organizacion": "Id. de organización",
+        "accion": "Acción",
+        "desde": "Desde",
+        "hasta": "Hasta",
+        "filtrar": "Filtrar",
+        "sinResultados": "No hay entradas de auditoría con estos filtros.",
+        "columnaFecha": "Fecha",
+        "columnaAccion": "Acción",
+        "columnaOrganizacion": "Organización",
+        "columnaEntidad": "Entidad",
+        "columnaDetalle": "Detalle",
+        "error": "No hemos podido cargar el registro de auditoría."
+      },
+      "exportar": {
+        "titulo": "Exportar RGPD de un evento",
+        "descripcion": "ZIP con las inscripciones, sus respuestas y las entradas de un evento. Nunca incluye el JWT del QR.",
+        "eventId": "Id. del evento",
+        "password": "Tu contraseña (reautenticación)",
+        "boton": "Exportar",
+        "exportando": "Generando la exportación…",
+        "correcto": "Exportación descargada.",
+        "error": "No hemos podido generar la exportación."
+      },
+      "borrar": {
+        "titulo": "Borrar un inscrito (RGPD)",
+        "descripcion": "Borra la inscripción de una persona a un evento por su email, tras un derecho de supresión. Si estaba confirmada y había lista de espera, se promueve a la siguiente persona.",
+        "eventId": "Id. del evento",
+        "email": "Email de la persona inscrita",
+        "password": "Tu contraseña (reautenticación)",
+        "boton": "Borrar inscripción",
+        "borrando": "Borrando…",
+        "correcto": "Inscripción borrada.",
+        "error": "No hemos podido borrar la inscripción.",
+        "confirmar": "Esta acción borra la inscripción de forma permanente. ¿Continuar?"
       }
     }
   },
@@ -636,5 +747,30 @@
     },
     "errorTitulo": "El enlace no es válido o ha caducado",
     "errorDetalle": "Revisa el correo de confirmación de tu inscripción para volver a intentarlo."
+  },
+  "cookies": {
+    "gestionar": "Gestionar cookies",
+    "banner": {
+      "titulo": "Preferencias de cookies",
+      "texto": "Usamos cookies necesarias para que la web funcione y, solo si lo aceptas, cookies analíticas y de marketing. Puedes cambiar tu decisión cuando quieras.",
+      "aceptarTodo": "Aceptar todo",
+      "rechazarTodo": "Rechazar todo",
+      "personalizar": "Personalizar",
+      "guardarPreferencias": "Guardar preferencias",
+      "volver": "Volver",
+      "categorias": "Categorías de cookies",
+      "necesarias": "Necesarias (siempre activas)",
+      "analiticas": "Analíticas",
+      "marketing": "Marketing",
+      "masInfo": "Más información en nuestra {{enlace}}."
+    }
+  },
+  "legal": {
+    "avisoLegal": "Aviso legal",
+    "privacidad": "Política de privacidad",
+    "cookies": "Política de cookies",
+    "condicionesInscripcion": "Condiciones de inscripción",
+    "cargando": "Cargando…",
+    "error": "No hemos podido cargar esta página."
   }
 }

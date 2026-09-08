@@ -208,6 +208,70 @@ aislamiento multi-tenant end-to-end (el mismo evento pedido con el host de otra
 organización responde `404`, no solo a nivel de API sino a través de todo el
 recorrido de SSR).
 
+## Checklist manual — Fase 5 del PRD, fase 2 (patrocinadores)
+
+Revisado el 2026-09-08 sobre las tres pantallas nuevas: `/admin/sponsor-tiers`
+(niveles de la organización), el bloque de patrocinadores embebido en
+`/admin/events/:id` (`EventSponsors`) y el bloque público en
+`/eventos/:slug`.
+
+| # | Criterio WCAG 2.1 AA | Cómo se ha comprobado | Resultado |
+|---|---|---|---|
+| 2.1.1 / 2.5.5 | Teclado / objetivo táctil | Reordenar niveles usa botones «↑»/«↓» (`app-button`, 2.75rem de alto mínimo), nunca arrastrar y soltar sin alternativa por teclado | ✅ |
+| 4.1.2 | Nombre, función, valor | Los botones de reordenar llevan `aria-label` con el nombre del nivel (`"Subir Oro"`/`"Bajar Oro"`), no solo la flecha visual | ✅ |
+| 1.1.1 | Contenido no textual | Cada logo de patrocinador (panel y bloque público) lleva `alt` con el nombre del patrocinador; sin logo, se muestra el nombre como texto | ✅ |
+| 4.1.3 | Mensajes de estado | Errores de carga/guardado con `app-alert`, mismo patrón que el resto del panel | ✅ |
+| — | Cobertura automática | 3 ficheros de test nuevos (`sponsor-tiers-page`, `event-sponsors`, `event-page` ampliado): cero violaciones de axe en cada estado con datos (niveles reordenados, patrocinador monetario/en especie, bloque público agrupado) | ✅ |
+
+**Decisión de diseño con impacto en accesibilidad**: reordenar con dos
+llamadas `PATCH` secuenciales (intercambiar `display_order` entre el nivel
+movido y su vecino) en vez de arrastrar y soltar evita por completo el
+problema de accesibilidad del drag-and-drop (WCAG 2.5.7, objetivos de
+arrastre) — no hay nada que arrastrar, cada movimiento es una acción de
+botón discreta y anunciable.
+
+## Checklist manual — Fase 5 del PRD, fase 3 (legal, cookies y consentimientos)
+
+Revisado el 2026-09-08 sobre el banner de cookies (`shared/cookies/cookie-banner.ts`,
+integrado en `layouts/public/public-shell.ts`), las cuatro páginas legales públicas
+(`/legal/*`) y su editor en el panel (`/admin/legal`).
+
+**Orejime vs. Klaro, decisión tomada en esta fase.** `docs/prd.md` §7 dejaba el
+banner "a confirmar frente a Klaro según auditoría WCAG". Comprobación rápida
+(no una auditoría exhaustiva): Orejime es un fork de Klaro nacido explícitamente
+para corregir problemas de accesibilidad de Klaro (gestión de foco al abrir/cerrar,
+navegación por teclado del panel de personalización) documentados por su propio
+proyecto. Ninguna de las dos librerías se ha integrado: en vez de instalar un
+paquete de terceros con su propio DOM y su propia gestión de foco (una caja negra
+más difícil de auditar y de mantener alineada con el resto del sistema de diseño
+Angular), el banner es un componente propio (`CookieBanner`) construido con los
+mismos bloques (`app-button`, señales, `afterNextRender`) que el resto del panel,
+lo que permite verificar directamente los criterios de abajo en vez de confiar en
+la accesibilidad de una librería externa. Documentado aquí en vez de en el PRD
+porque es una decisión de implementación, no de producto.
+
+| # | Criterio WCAG 2.1 AA | Cómo se ha comprobado | Resultado |
+|---|---|---|---|
+| 2.4.3 | Orden del foco | Al aparecer el banner, el foco se mueve al panel (`afterNextRender` + `.focus()`); al decidir (aceptar/rechazar/guardar), el foco vuelve al elemento que lo tenía antes de que apareciera el banner | ✅ |
+| 2.1.2 | Sin trampa de foco | El banner no es un diálogo modal: no intercepta `Tab`/`Shift+Tab`, el resto de la página sigue siendo alcanzable mientras está visible | ✅ |
+| 1.3.1 / 4.1.2 | Información y relaciones | `role="region"` con `aria-label`; casillas de categoría dentro de `fieldset`/`legend`; cada `label` envuelve su `input`, sin necesitar `id` generado | ✅ |
+| 1.4.1 / — | Uso del color | "Aceptar todo" / "Rechazar todo" / "Personalizar" usan la misma variante de botón (`secundario`), verificado con un test que compara las clases CSS de los tres, no solo revisión visual | ✅ |
+| 2.1.1 | Teclado | Las tres acciones y las casillas de personalizar son accesibles y activables por teclado (elementos `button`/`input` nativos, sin manejadores de solo ratón) | ✅ |
+| 1.3.1 | Encabezados | Cada página legal pública tiene un único `h1` con el nombre de la página | ✅ |
+| — | Cobertura automática | `cookie-banner.spec.ts`, `legal-page.spec.ts`, `legal-pages-page.spec.ts`: cero violaciones de axe en el banner (con y sin personalización visible), las cuatro páginas legales con contenido renderizado y el editor del panel | ✅ |
+
+**Contenido legal sin `[innerHTML]` directo.** Las páginas legales muestran el
+contenido primero como texto plano interpolado por Angular (SSR y antes de
+hidratar) y solo lo sustituyen por HTML saneado (`marked` + `DOMPurify`, lista
+blanca explícita) tras `afterNextRender` en el navegador — nunca hay una ventana
+en la que un `<script>` guardado como contenido legal pudiera ejecutarse, ni en el
+servidor ni en el cliente. Verificado con un test explícito que guarda
+`<script>alert(1)</script>` como contenido y comprueba que no aparece como
+etiqueta `<script>` real en el DOM servido (`legal-page.spec.ts`), además de un
+test de la función de saneado en sí (`sanitize-markdown.spec.ts`) y uno en el
+backend que confirma que el contenido viaja como string dentro de JSON, nunca
+como HTML de la propia respuesta.
+
 ## Al añadir una pantalla
 
 1. Externaliza todos los textos a `es-ES.json`.
