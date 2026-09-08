@@ -63,8 +63,49 @@ inscripción ya figuraba `confirmed` en la base de datos. Corregido añadiendo
 verificado de nuevo tras el cambio con tokens generados a mano para las tres
 páginas de esta fase, las tres muestran éxito correctamente.
 
+**`ak:code-review` (high) sobre el diff completo de la fase 3 del PRD (fases
+de trabajo 2-4), ejecutado antes de cerrar — 6 hallazgos reales, los 6
+corregidos:**
+1. **Sobreventa de aforo (crítico):** `_evaluar_estado_por_capacidad` contaba
+   solo `confirmed`; el hueco de alguien recién promovido de la lista de
+   espera (todavía `waitlisted`, sin confirmar) no contaba para el aforo, así
+   que una verificación/aprobación concurrente podía colarse en ese hueco.
+   Corregido con `repository.count_reserved_registrations` (`confirmed` +
+   promociones vigentes), usado en `_evaluar_estado_por_capacidad`. Test:
+   `test_una_promocion_sin_confirmar_reserva_el_hueco_y_evita_sobreventa`.
+2. **Cancelar una promoción a medias no repromovía:** `_cancelar_inscripcion`
+   solo repromovía si el estado cancelado era `confirmed`; cancelar una
+   `waitlisted` en mitad de su promoción dejaba el hueco huérfano hasta que
+   el cron la expirase (hasta 15 min). Corregido extendiendo
+   `liberaba_una_plaza`. Test:
+   `test_cancelar_una_promovida_sin_confirmar_repromueve_de_inmediato`.
+3. **Carrera en cancelaciones concurrentes:** sin bloquear la fila de la
+   inscripción antes de decidir, dos cancelaciones concurrentes de la misma
+   `confirmed` podían promover dos veces para un único hueco. Corregido con
+   `repository.get_registration_for_update` (panel) y
+   `session.get(..., with_for_update=True)` (autocancelación pública). Test:
+   `test_cancelaciones_concurrentes_de_la_misma_confirmada_solo_promueven_una_vez`
+   (`asyncio.gather`, mismo patrón que la fase 2).
+4. **Estadística de verificación engañosa sin verificación de email:**
+   `verified_at` nunca se rellena si `email_verification_required=False`,
+   así que "verificados" siempre daba 0% aunque todo el mundo llegara a
+   `confirmed`/`waitlisted`. Corregido: en ese caso "verificados" se informa
+   igual a "iniciados" (no hay paso que superar). Test:
+   `test_estadisticas_sin_verificacion_de_email_no_penalizan_verificados`.
+5. **Recuento ineficiente en el listado:** `list_registrations` calculaba el
+   total materializando todas las filas (con `answers`/`consent` eager-loaded
+   vía `selectin`) solo para hacer `len()`. Corregido con
+   `repository.count_registrations` (un `SELECT COUNT(*)`).
+6. **Reenvío incompleto (decisión #1 del PRD, fase 3):** reenviar el
+   formulario con un email `confirmed`/`waitlisted`/`rejected`/`cancelled`
+   no reenviaba ningún email — solo `pending_verification` lo hacía, pese a
+   que ahora existen plantillas para los demás estados. Corregido en
+   `submit_registration`. 5 tests en `TestReenvioSegunEstadoActual`.
+
+9 tests nuevos de regresión para estos 6 hallazgos (274 → 283).
+
 **Verificado (comandos ejecutados en esta sesión):**
-- `uv run pytest -q` (API completa): **274 passed** (264 previos + 10 nuevos).
+- `uv run pytest -q` (API completa): **283 passed** (274 previos + 9 nuevos de regresión de code-review).
 - `uv run ruff check .` / `ruff format` (API): sin hallazgos.
 - `uv run mypy app/modules/registrations app/core/tasks.py app/core/config.py app/core/ratelimit.py app/modules/auth/verification.py`: sin errores.
 - `pnpm test` (web completo, Vitest + axe): **122 passed** (116 previos + 6 nuevos).
@@ -111,7 +152,8 @@ Validation:
 - [x] Test E2E embudo `approval` con aforo agotado: alta → verificación → `pending_approval` → `approve` → `waitlisted` → cancelación de una `confirmed` → promoción — cubierto por `test_registrations_organizer.py` (fase 3) + `test_aprobar_encola_email_de_confirmacion`/`test_cancelar_por_organizador_encola_email_de_cancelacion_y_promocion` (passed)
 - [x] Test: token de cancelación de un solo uso, reutilizarlo falla — `test_reutilizar_el_token_falla` (passed)
 - [x] Revisión de accesibilidad (axe) en las páginas públicas nuevas — `esperarSinViolacionesDeAccesibilidad` en los 6 tests nuevos de `confirm-waitlist-promotion-page.spec.ts`/`cancel-registration-page.spec.ts`, 0 violaciones
-- [x] `ak:review-pr` obligatorio antes de mergear — pendiente de ejecutar tras abrir el PR de esta fase, según norma del usuario
+- [x] `ak:code-review` (high) sobre el diff completo de la fase 3 del PRD — 6 hallazgos reales, los 6 corregidos con test de regresión (ver arriba)
+- [ ] `ak:review-pr` obligatorio antes de mergear — pendiente de ejecutar, según norma del usuario
 
 # Fase 4: Emails transaccionales, autocancelación y cierre de fase
 
