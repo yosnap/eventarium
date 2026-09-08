@@ -19,6 +19,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
+import { capitalizarClaveDeTraduccion } from '../../../shared/text/capitalizar-clave-de-traduccion';
 import { isoAValorLocal } from './datetime-local';
 
 type SessionType = 'talk' | 'break' | 'service' | 'other';
@@ -663,7 +664,7 @@ export class EventAgenda implements OnInit {
   }
 
   protected capitaliza(valor: string): string {
-    return valor.charAt(0).toUpperCase() + valor.slice(1);
+    return capitalizarClaveDeTraduccion(valor);
   }
 
   protected alCambiarTipo(evento: Event): void {
