@@ -128,6 +128,20 @@
     "errorTitulo": "El enlace no es válido o ha caducado",
     "errorDetalle": "Vuelve a la página del evento para inscribirte de nuevo."
   },
+  "confirmarPromocion": {
+    "titulo": "Confirmar tu plaza",
+    "comprobando": "Comprobando el enlace…",
+    "exitoTitulo": "Plaza confirmada",
+    "errorTitulo": "El enlace no es válido o ha caducado",
+    "errorDetalle": "Si el plazo ha vencido, tu plaza puede haber pasado a otra persona."
+  },
+  "cancelarInscripcion": {
+    "titulo": "Cancelar tu inscripción",
+    "comprobando": "Comprobando el enlace…",
+    "exitoTitulo": "Inscripción cancelada",
+    "errorTitulo": "El enlace no es válido o ha caducado",
+    "errorDetalle": "Vuelve a la página del evento si necesitas hacer algo más."
+  },
   "recuperarContrasena": {
     "titulo": "Recuperar la contraseña",
     "instrucciones": "Escribe tu correo y te enviaremos un enlace para elegir una contraseña nueva.",

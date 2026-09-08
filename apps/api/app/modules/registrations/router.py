@@ -129,7 +129,9 @@ async def list_registrations(
     estado: Annotated[RegistrationStatus | None, Query(alias="status")] = None,
 ) -> Page[RegistrationListItem]:
     consulta = repository.registrations_query(evento.organization_id, evento.id, status=estado)
-    total = len((await session.execute(consulta)).all())
+    total = await repository.count_registrations(
+        session, evento.organization_id, evento.id, status=estado
+    )
     filas = (
         await session.execute(consulta.limit(paginacion.limit).offset(paginacion.offset))
     ).scalars()
@@ -151,7 +153,10 @@ async def get_registration_stats(
     evento: Annotated[Event, Depends(_obtener_evento_o_404)], session: DbDep
 ) -> RegistrationStats:
     estadisticas = await service.get_registration_stats(
-        session, organization_id=evento.organization_id, event_id=evento.id
+        session,
+        organization_id=evento.organization_id,
+        event_id=evento.id,
+        email_verification_required=evento.email_verification_required,
     )
     return RegistrationStats(**estadisticas)
 
