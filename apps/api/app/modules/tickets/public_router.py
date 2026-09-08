@@ -26,9 +26,7 @@ router = APIRouter(prefix="/public", tags=["entradas"])
     response_model=MyTicketResponse,
     dependencies=[limit_per_ip("mi-entrada", MI_ENTRADA_POR_IP)],
 )
-async def get_my_ticket(
-    session: DbDep, token: Annotated[str, Query()]
-) -> MyTicketResponse:
+async def get_my_ticket(session: DbDep, token: Annotated[str, Query()]) -> MyTicketResponse:
     info = await service.get_my_ticket_info(session, token=token)
     return MyTicketResponse(status=info.status, full_name=info.full_name, has_qr=info.tiene_qr)
 

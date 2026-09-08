@@ -96,9 +96,7 @@ def _crear_tablas() -> None:
         sa.UniqueConstraint("registration_id", name="uq_event_tickets_registration_id"),
         sa.UniqueConstraint("id", "organization_id", name="uq_event_tickets_id_organization_id"),
     )
-    op.create_index(
-        op.f("ix_event_tickets_event_id"), "event_tickets", ["event_id"], unique=False
-    )
+    op.create_index(op.f("ix_event_tickets_event_id"), "event_tickets", ["event_id"], unique=False)
 
     op.create_table(
         "event_ticket_scans",

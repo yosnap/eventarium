@@ -255,9 +255,7 @@ async def _cancelar_inscripcion(
     # Antes de cambiar el estado: una entrada revocada nunca es válida al
     # escanear, aunque el JWT no haya caducado (fase 4 del PRD). No-op si la
     # inscripción nunca tuvo entrada (`waitlisted`/`pending_approval`).
-    await revocar_entrada(
-        session, organization_id=organization_id, registration_id=inscripcion.id
-    )
+    await revocar_entrada(session, organization_id=organization_id, registration_id=inscripcion.id)
 
     # Una plaza está reservada tanto si está `confirmed` como si está
     # `waitlisted` en mitad de una promoción (ver `count_reserved_registrations`)

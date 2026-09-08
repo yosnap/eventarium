@@ -221,8 +221,7 @@ async def test_escanear_el_mismo_qr_dos_veces_es_duplicate(
     assert segundo["result"] == "duplicate"
     assert fila_tras_primero["used_at"] == fila_tras_segundo["used_at"]
     assert (
-        fila_tras_primero["used_by_event_member_id"]
-        == fila_tras_segundo["used_by_event_member_id"]
+        fila_tras_primero["used_by_event_member_id"] == fila_tras_segundo["used_by_event_member_id"]
     )
 
 

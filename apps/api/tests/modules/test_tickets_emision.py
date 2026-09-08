@@ -133,13 +133,15 @@ async def _registration_id(event_id: str, email: str) -> str:
 async def _ticket_de(registration_id: str) -> dict | None:
     async with SessionMaintenance() as session:
         fila = (
-            await session.execute(
-                text(
-                    "SELECT id, revoked_at FROM event_tickets WHERE registration_id = :id"
-                ),
-                {"id": registration_id},
+            (
+                await session.execute(
+                    text("SELECT id, revoked_at FROM event_tickets WHERE registration_id = :id"),
+                    {"id": registration_id},
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
     return dict(fila) if fila is not None else None
 
 
