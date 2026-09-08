@@ -41,6 +41,7 @@ function eventoDetalle() {
         participants: [{ display_name: 'Ana Ponente', role_key: 'speaker', public_slug: 'ana' }],
       },
     ],
+    sponsor_tiers: [],
   };
 }
 
@@ -90,6 +91,35 @@ describe('EventPage', () => {
     expect(texto).toContain('IA Week in Cascais 2026');
     expect(texto).toContain('Charla de apertura');
     expect(texto).toContain('Ana Ponente');
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('agrupa los patrocinadores por nivel, sin violaciones de accesibilidad', async () => {
+    const fixture = TestBed.createComponent(EventPage);
+    fixture.componentRef.setInput('slug', 'iawic-2026');
+    fixture.detectChanges();
+    http.expectOne((peticion) => peticion.url === '/api/v1/public/events/iawic-2026').flush({
+      ...eventoDetalle(),
+      sponsor_tiers: [
+        {
+          name: 'Oro',
+          logo_size: 'large',
+          sponsors: [{ name: 'Acme Corp', logo_url: null, website: 'https://acme.example' }],
+        },
+        {
+          name: 'Colaboradores',
+          logo_size: 'small',
+          sponsors: [{ name: 'Espacio Cedido', logo_url: null, website: null }],
+        },
+      ],
+    });
+    await avanzar(fixture);
+
+    const texto = fixture.nativeElement.textContent;
+    expect(texto).toContain('Oro');
+    expect(texto).toContain('Acme Corp');
+    expect(texto).toContain('Colaboradores');
+    expect(texto).toContain('Espacio Cedido');
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
