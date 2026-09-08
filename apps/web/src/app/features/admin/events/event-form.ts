@@ -11,16 +11,17 @@ import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { ErrorSummary, ResumenDeError } from '../../../shared/ui/error-summary';
 import { Input } from '../../../shared/ui/input';
+import { capitalizarClaveDeTraduccion } from '../../../shared/text/capitalizar-clave-de-traduccion';
+import { IMAGEN_MIMES_PERMITIDOS, IMAGEN_TAMANO_MAXIMO } from '../../../shared/uploads/image-upload-constraints';
 import { isoAValorLocal } from './datetime-local';
 import { EventAgenda } from './event-agenda';
 import { EventRegistrations } from './event-registrations';
+import { EventSponsors } from './event-sponsors';
 
 type EventStatus = 'draft' | 'published' | 'archived';
 type LocationMode = 'in_person' | 'online' | 'hybrid';
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const COVER_MIMES_PERMITIDOS = new Set(['image/png', 'image/jpeg', 'image/webp']);
-const COVER_TAMANO_MAXIMO = 5 * 1024 * 1024;
 
 interface EventDetail {
   readonly id: string;
@@ -50,6 +51,7 @@ type CampoBase = 'slug' | 'title' | 'startsAt' | 'endsAt';
     Input,
     EventAgenda,
     EventRegistrations,
+    EventSponsors,
   ],
   template: `
     <ng-container *transloco="let t">
@@ -192,6 +194,7 @@ type CampoBase = 'slug' | 'title' | 'startsAt' | 'endsAt';
 
         @if (esEdicion()) {
           <app-event-agenda [eventId]="eventId()!" />
+          <app-event-sponsors [eventId]="eventId()!" />
           <app-event-registrations [eventId]="eventId()!" />
           <a [routerLink]="['/admin/events', eventId(), 'check-in']">
             <app-button variant="secundario" type="button">
@@ -295,7 +298,7 @@ export class EventForm {
   }
 
   protected capitaliza(valor: string): string {
-    return valor.charAt(0).toUpperCase() + valor.slice(1);
+    return capitalizarClaveDeTraduccion(valor);
   }
 
   private async cargar(id: string): Promise<void> {
@@ -435,12 +438,12 @@ export class EventForm {
     if (!fichero) {
       return;
     }
-    if (!COVER_MIMES_PERMITIDOS.has(fichero.type)) {
+    if (!IMAGEN_MIMES_PERMITIDOS.has(fichero.type)) {
       this.errorPortada.set(this.transloco.translate('admin.events.formulario.portadaNoValida'));
       (evento.target as HTMLInputElement).value = '';
       return;
     }
-    if (fichero.size > COVER_TAMANO_MAXIMO) {
+    if (fichero.size > IMAGEN_TAMANO_MAXIMO) {
       this.errorPortada.set(
         this.transloco.translate('admin.events.formulario.portadaDemasiadoGrande'),
       );
