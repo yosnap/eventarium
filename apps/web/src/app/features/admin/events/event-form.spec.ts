@@ -81,6 +81,25 @@ describe('EventForm', () => {
     http
       .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/members')
       .flush({ items: [], total: 0, limit: 200, offset: 0 });
+    http
+      .expectOne((peticion) => peticion.url === '/api/v1/events/e1/registrations')
+      .flush({ items: [], total: 0, limit: 20, offset: 0 });
+    http
+      .expectOne((peticion) => peticion.url === '/api/v1/events/e1/registrations/stats')
+      .flush({
+        initiated: 0,
+        verified: 0,
+        pending_approval: 0,
+        confirmed: 0,
+        rejected: 0,
+        cancelled: 0,
+        waitlisted: 0,
+        verified_conversion_rate: null,
+        confirmed_conversion_rate: null,
+      });
+    http
+      .expectOne((peticion) => peticion.url === '/api/v1/events/e1/registration-questions')
+      .flush([]);
     await avanzar(fixture);
 
     expect((fixture.nativeElement.querySelector('#evento-titulo') as HTMLInputElement).value).toBe(

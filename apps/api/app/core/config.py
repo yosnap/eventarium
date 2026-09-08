@@ -93,6 +93,12 @@ class Settings(BaseSettings):
     # Vacío en desarrollo (se resuelve por localhost); obligatorio en producción.
     dominio_base: str = ""
 
+    # Ventana de confirmación al promover desde la lista de espera (fase 3 del
+    # PRD, fase 3 de trabajo). Fija a nivel de aplicación, no por evento —
+    # decisión confirmada en el predict/debate del plan: no ampliar sin que se
+    # pida.
+    waitlist_promotion_window_hours: int = 48
+
     @field_validator("jwt_secret")
     @classmethod
     def _validar_secreto(cls, valor: str) -> str:
