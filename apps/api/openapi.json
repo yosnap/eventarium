@@ -2367,6 +2367,147 @@
           }
         }
       }
+    },
+    "/api/v1/public/events/{slug}/registration-questions": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Listar las preguntas personalizadas de inscripción de un evento",
+        "operationId": "list_registration_questions_api_v1_public_events__slug__registration_questions_get",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RegistrationQuestionPublic"
+                  },
+                  "title": "Response List Registration Questions Api V1 Public Events  Slug  Registration Questions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/events/{slug}/registrations": {
+      "post": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Inscribirse a un evento",
+        "description": "Da de alta una inscripción, o reencola el correo pendiente si el email ya estaba inscrito. Responde siempre igual, para no filtrar si un correo ya está inscrito.",
+        "operationId": "create_registration_api_v1_public_events__slug__registrations_post",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitRegistrationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationMessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/registrations/verify": {
+      "post": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Verificar el correo de una inscripción",
+        "description": "Consume el token del enlace de verificación y evalúa el estado siguiente.",
+        "operationId": "verify_registration_api_v1_public_registrations_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyRegistrationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyRegistrationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5161,6 +5302,99 @@
         "title": "RegisterRequest",
         "description": "Datos para crear una cuenta."
       },
+      "RegistrationAnswerInput": {
+        "properties": {
+          "question_id": {
+            "type": "string",
+            "title": "Question Id"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question_id"
+        ],
+        "title": "RegistrationAnswerInput",
+        "description": "Respuesta a una pregunta personalizada del formulario de inscripción."
+      },
+      "RegistrationMessageResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "RegistrationMessageResponse",
+        "description": "Respuesta genérica del alta: siempre el mismo mensaje, exista o no ya el email."
+      },
+      "RegistrationQuestionPublic": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "required": {
+            "type": "boolean",
+            "title": "Required"
+          },
+          "options": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Options"
+          },
+          "sort_order": {
+            "type": "integer",
+            "title": "Sort Order"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "label",
+          "required",
+          "sort_order"
+        ],
+        "title": "RegistrationQuestionPublic",
+        "description": "Pregunta personalizada tal como la ve el formulario público."
+      },
       "ResendVerificationRequest": {
         "properties": {
           "email": {
@@ -5647,6 +5881,57 @@
         "title": "SocialLinkUpdate",
         "description": "Enlace social del perfil de una persona."
       },
+      "SubmitRegistrationRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "full_name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Full Name"
+          },
+          "answers": {
+            "items": {
+              "$ref": "#/components/schemas/RegistrationAnswerInput"
+            },
+            "type": "array",
+            "title": "Answers"
+          },
+          "data_processing_accepted": {
+            "type": "boolean",
+            "title": "Data Processing Accepted",
+            "description": "Consentimiento de tratamiento de datos, obligatorio para inscribirse."
+          },
+          "marketing_accepted": {
+            "type": "boolean",
+            "title": "Marketing Accepted",
+            "default": false
+          },
+          "recording_accepted": {
+            "type": "boolean",
+            "title": "Recording Accepted",
+            "default": false
+          },
+          "turnstile_token": {
+            "type": "string",
+            "title": "Turnstile Token",
+            "description": "Token del widget de Turnstile"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "full_name",
+          "data_processing_accepted",
+          "turnstile_token"
+        ],
+        "title": "SubmitRegistrationRequest",
+        "description": "Datos del formulario público de inscripción a un evento."
+      },
       "TokenResponse": {
         "properties": {
           "access_token": {
@@ -5830,6 +6115,39 @@
         ],
         "title": "VerifyEmailResponse",
         "description": "Respuesta de la verificación de correo.\n\nIncluye un access token **sin organización** (`create_access_token` acepta\n`organization_id=None`): sirve solo de puente hasta crear la primera\norganización (fase 2), no para entrar en el panel de ninguna."
+      },
+      "VerifyRegistrationRequest": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "VerifyRegistrationRequest",
+        "description": "Token del enlace de verificación recibido por correo."
+      },
+      "VerifyRegistrationResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message",
+          "status"
+        ],
+        "title": "VerifyRegistrationResponse",
+        "description": "Resultado de verificar una inscripción."
       }
     }
   }

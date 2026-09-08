@@ -30,7 +30,8 @@
       "ponentes": "Ponentes",
       "video": "Vídeo",
       "verVideo": "Ver el vídeo",
-      "materiales": "Materiales"
+      "materiales": "Materiales",
+      "inscribirse": "Inscribirme"
     },
     "accesoPanel": "Acceso al panel",
     "organizadoPor": "Organizado por {{nombre}}",
@@ -101,6 +102,31 @@
     "reenviando": "Reenviando…",
     "reenviadoTitulo": "Enlace reenviado",
     "reenviadoDetalle": "Si la cuenta existe y no está verificada, recibirás un nuevo enlace."
+  },
+  "inscripcion": {
+    "titulo": "Inscripción al evento",
+    "email": "Correo electrónico",
+    "nombre": "Nombre completo",
+    "tratamientoDatos": "Acepto el tratamiento de mis datos para gestionar la inscripción.",
+    "tratamientoDatosRequerido": "Debes aceptar el tratamiento de datos para inscribirte.",
+    "marketing": "Quiero recibir comunicaciones sobre futuros eventos (opcional).",
+    "grabacion": "Autorizo el uso de mi imagen o voz en la grabación del evento (opcional).",
+    "inscribirse": "Inscribirme",
+    "enviando": "Enviando…",
+    "error": "No hemos podido completar la inscripción.",
+    "exitoTitulo": "Solicitud recibida",
+    "emailRequerido": "Escribe tu correo electrónico.",
+    "emailInvalido": "Escribe un correo electrónico válido.",
+    "nombreRequerido": "Escribe tu nombre completo.",
+    "preguntaObligatoria": "Esta pregunta es obligatoria.",
+    "volverAlEvento": "← Volver al evento"
+  },
+  "verificarInscripcion": {
+    "titulo": "Verificación de inscripción",
+    "verificando": "Comprobando el enlace…",
+    "exitoTitulo": "Inscripción verificada",
+    "errorTitulo": "El enlace no es válido o ha caducado",
+    "errorDetalle": "Vuelve a la página del evento para inscribirte de nuevo."
   },
   "recuperarContrasena": {
     "titulo": "Recuperar la contraseña",
