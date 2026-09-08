@@ -323,6 +323,100 @@ class TestAutocancelacionPublica:
         assert segunda.status_code == 422
 
 
+class TestReenvioSegunEstadoActual:
+    """Decisión #1 del PRD (fase 3): reenviar el formulario con un email ya
+    inscrito reencola el email que corresponda a su estado actual, nunca
+    crea una segunda fila. Regresión: solo se reenviaba para
+    `pending_verification`; los demás estados no reenviaban nada."""
+
+    async def test_reenviar_con_email_confirmado_reenvia_confirmacion(
+        self, cliente: AsyncClient, organizacion: OrganizacionDePrueba, _tareas_de_email_mockeadas
+    ) -> None:
+        _, cabeceras = await iniciar_sesion(cliente, organizacion)
+        evento = await _crear_y_publicar_evento(cliente, cabeceras, "reenvio-confirmada")
+        await _crear_inscripcion(
+            organizacion, evento, email="ya-confirmado@example.com", status="confirmed"
+        )
+
+        respuesta = await _inscribir(
+            cliente, organizacion.host, "reenvio-confirmada", email="ya-confirmado@example.com"
+        )
+
+        assert respuesta.status_code == 202, respuesta.text
+        assert _tareas_de_email_mockeadas["confirmada"].await_count == 1
+
+    async def test_reenviar_con_email_en_espera_reenvia_lista_de_espera(
+        self, cliente: AsyncClient, organizacion: OrganizacionDePrueba, _tareas_de_email_mockeadas
+    ) -> None:
+        _, cabeceras = await iniciar_sesion(cliente, organizacion)
+        evento = await _crear_y_publicar_evento(cliente, cabeceras, "reenvio-espera")
+        await _crear_inscripcion(
+            organizacion, evento, email="ya-espera@example.com", status="waitlisted"
+        )
+
+        respuesta = await _inscribir(
+            cliente, organizacion.host, "reenvio-espera", email="ya-espera@example.com"
+        )
+
+        assert respuesta.status_code == 202, respuesta.text
+        assert _tareas_de_email_mockeadas["lista_espera"].await_count == 1
+
+    async def test_reenviar_con_email_rechazado_reenvia_rechazo(
+        self, cliente: AsyncClient, organizacion: OrganizacionDePrueba, _tareas_de_email_mockeadas
+    ) -> None:
+        _, cabeceras = await iniciar_sesion(cliente, organizacion)
+        evento = await _crear_y_publicar_evento(cliente, cabeceras, "reenvio-rechazada")
+        await _crear_inscripcion(
+            organizacion, evento, email="ya-rechazado@example.com", status="rejected"
+        )
+
+        respuesta = await _inscribir(
+            cliente, organizacion.host, "reenvio-rechazada", email="ya-rechazado@example.com"
+        )
+
+        assert respuesta.status_code == 202, respuesta.text
+        assert _tareas_de_email_mockeadas["rechazada"].await_count == 1
+
+    async def test_reenviar_con_email_cancelado_reenvia_cancelacion(
+        self, cliente: AsyncClient, organizacion: OrganizacionDePrueba, _tareas_de_email_mockeadas
+    ) -> None:
+        _, cabeceras = await iniciar_sesion(cliente, organizacion)
+        evento = await _crear_y_publicar_evento(cliente, cabeceras, "reenvio-cancelada")
+        await _crear_inscripcion(
+            organizacion, evento, email="ya-cancelado@example.com", status="cancelled"
+        )
+
+        respuesta = await _inscribir(
+            cliente, organizacion.host, "reenvio-cancelada", email="ya-cancelado@example.com"
+        )
+
+        assert respuesta.status_code == 202, respuesta.text
+        assert _tareas_de_email_mockeadas["cancelada"].await_count == 1
+
+    async def test_reenviar_no_crea_una_segunda_fila(
+        self, cliente: AsyncClient, organizacion: OrganizacionDePrueba, _tareas_de_email_mockeadas
+    ) -> None:
+        _, cabeceras = await iniciar_sesion(cliente, organizacion)
+        evento = await _crear_y_publicar_evento(cliente, cabeceras, "reenvio-sin-duplicar")
+        await _crear_inscripcion(
+            organizacion, evento, email="unico@example.com", status="confirmed"
+        )
+
+        await _inscribir(
+            cliente, organizacion.host, "reenvio-sin-duplicar", email="unico@example.com"
+        )
+
+        async with SessionMaintenance() as session:
+            total = await session.scalar(
+                text(
+                    "SELECT count(*) FROM event_registrations "
+                    "WHERE event_id = :event_id AND email = :email"
+                ),
+                {"event_id": evento["id"], "email": "unico@example.com"},
+            )
+        assert total == 1
+
+
 async def _registration_id(email: str) -> str:
     async with SessionMaintenance() as session:
         valor = await session.scalar(

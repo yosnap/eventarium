@@ -138,13 +138,20 @@ async def _evaluar_estado_por_capacidad(session: AsyncSession, evento: Event) ->
     """`confirmed` o `waitlisted` únicamente por aforo, sin mirar el modo de
     aprobación — usada tanto por el alta/verificación (a través de
     `_evaluar_estado_por_aforo`) como por `approve_registration`, que ya sabe
-    que está saliendo de `pending_approval` y no debe volver a evaluarlo."""
+    que está saliendo de `pending_approval` y no debe volver a evaluarlo.
+
+    Cuenta `confirmed` **y** promociones de lista de espera todavía dentro de
+    su ventana (`count_reserved_registrations`), no solo `confirmed`: la
+    plaza de alguien a quien se le acaba de promover ya está reservada
+    aunque todavía no haya confirmado, y una verificación o aprobación
+    concurrente no debe poder colarse en ese hueco.
+    """
     if evento.capacity is None:
         return "confirmed"
-    confirmados = await repository.count_confirmed_registrations(
+    reservadas = await repository.count_reserved_registrations(
         session, evento.organization_id, evento.id
     )
-    return "confirmed" if confirmados < evento.capacity else "waitlisted"
+    return "confirmed" if reservadas < evento.capacity else "waitlisted"
 
 
 async def _evaluar_estado_por_aforo(session: AsyncSession, evento: Event) -> str:
@@ -226,7 +233,7 @@ async def _cancelar_inscripcion(
 ) -> bool:
     """Núcleo compartido de la cancelación: por el organizador o por
     autocancelación pública. Marca `cancelled`, envía el email y, si liberaba
-    una plaza `confirmed`, promueve a la lista de espera.
+    una plaza reservada, promueve a la lista de espera.
 
     Devuelve `False` sin hacer nada si ya estaba `cancelled`/`rejected` — el
     llamador decide si eso es un 409 (panel) o un no-op silencioso (enlace
@@ -235,7 +242,13 @@ async def _cancelar_inscripcion(
     if inscripcion.status in ("cancelled", "rejected"):
         return False
 
-    liberaba_una_plaza = inscripcion.status == "confirmed"
+    # Una plaza está reservada tanto si está `confirmed` como si está
+    # `waitlisted` en mitad de una promoción (ver `count_reserved_registrations`)
+    # — cancelar en cualquiera de los dos casos libera un hueco real y debe
+    # promover a la siguiente persona, no solo cuando ya estaba confirmada.
+    liberaba_una_plaza = inscripcion.status == "confirmed" or (
+        inscripcion.status == "waitlisted" and inscripcion.waitlist_promoted_at is not None
+    )
     inscripcion.status = "cancelled"
     inscripcion.cancelled_at = datetime.now(UTC)
     await send_registration_cancelled_email.kiq(inscripcion.email, str(organization_id))
@@ -280,13 +293,21 @@ async def submit_registration(
         session, event.organization_id, event.id, email_normalizado
     )
     if existente is not None:
+        # Reenvía siempre el email que corresponda al estado actual (decisión
+        # #1 del PRD, fase 3) — la respuesta pública es la misma en cualquier
+        # caso, nunca revela en qué estado está la inscripción existente.
         if existente.status == "pending_verification":
             token = await generate_token(PROPOSITO_VERIFICACION_INSCRIPCION, str(existente.id))
             await send_registration_verification_email.kiq(
                 email_normalizado, token, str(event.organization_id)
             )
-        # Los demás estados no tienen plantilla de correo todavía (llegan en la
-        # fase 4 de trabajo); la respuesta pública es la misma en cualquier caso.
+        elif existente.status in ("confirmed", "waitlisted"):
+            await _enviar_email_por_estado(existente)
+        elif existente.status == "rejected":
+            await send_registration_rejected_email.kiq(existente.email, str(event.organization_id))
+        elif existente.status == "cancelled":
+            await send_registration_cancelled_email.kiq(existente.email, str(event.organization_id))
+        # `pending_approval`: sin plantilla propia, igual que en el alta normal.
         return
 
     user_id = await repository.find_user_id_by_email(session, email_normalizado)
@@ -448,10 +469,12 @@ async def cancel_registration(
 ) -> EventRegistration:
     """Cancela una inscripción desde el panel de organizador.
 
-    Si liberaba una plaza `confirmed`, promueve a la primera persona en lista
-    de espera — misma sección crítica que `approve_registration`.
+    Si liberaba una plaza reservada, promueve a la primera persona en lista
+    de espera. Bloquea la fila de la inscripción (`get_registration_for_update`)
+    antes de decidir: dos cancelaciones concurrentes de la misma inscripción
+    no deben poder promover dos veces para un único hueco liberado.
     """
-    inscripcion = await repository.get_registration(
+    inscripcion = await repository.get_registration_for_update(
         session, organization_id, event_id, registration_id
     )
     if inscripcion is None:
@@ -478,7 +501,10 @@ async def cancel_registration_by_token(session: AsyncSession, *, token: str) -> 
         raise ValidationDomainError("El enlace de cancelación no es válido o ha caducado.")
 
     registration_id = uuid.UUID(bruto)
-    inscripcion = await session.get(EventRegistration, registration_id)
+    # `with_for_update=True`: mismo motivo que `get_registration_for_update`
+    # del panel — dos tokens de cancelación vigentes para la misma
+    # inscripción no deben poder promover dos veces un único hueco liberado.
+    inscripcion = await session.get(EventRegistration, registration_id, with_for_update=True)
     if inscripcion is None:
         return
 
@@ -542,7 +568,11 @@ async def expire_waitlist_promotions() -> None:
 
 
 async def get_registration_stats(
-    session: AsyncSession, *, organization_id: uuid.UUID, event_id: uuid.UUID
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    email_verification_required: bool,
 ) -> dict[str, Any]:
     """Estadísticas de conversión del embudo, para `GET .../registrations/stats`.
 
@@ -551,11 +581,24 @@ async def get_registration_stats(
     abiertos" (PRD §4.3) queda fuera de esta fase por falta de webhooks del
     proveedor de email — decisión de alcance ya documentada en el plan, no una
     omisión.
+
+    Cuando el evento no exige verificación de email, `verified_at` nunca se
+    rellena (no hay paso de verificación que lo haga) — contar `verificados`
+    a partir de esa columna daría siempre 0% aunque todo el mundo llegue a
+    `confirmed`/`waitlisted`. En ese caso "verificados" se informa igual a
+    "iniciados": no hay paso de verificación que superar, así que todo el
+    mundo lo "pasa" trivialmente.
     """
     por_estado = await repository.count_registrations_by_status(session, organization_id, event_id)
     iniciados = sum(por_estado.values())
-    verificados = await repository.count_verified_registrations(session, organization_id, event_id)
     confirmados = por_estado.get("confirmed", 0)
+
+    if email_verification_required:
+        verificados = await repository.count_verified_registrations(
+            session, organization_id, event_id
+        )
+    else:
+        verificados = iniciados
 
     return {
         "initiated": iniciados,
