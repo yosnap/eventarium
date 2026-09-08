@@ -5,8 +5,7 @@ puede introducir un permiso que el código no conoce ni al revés. `role_permiss
 guarda únicamente valores de este enum.
 
 Prefijos reservados para fases posteriores del PRD (no usar todavía):
-`registrations:*`, `tickets:*`, `sponsors:*`, `payments:*`, `accounting:*`,
-`emails:*`.
+`tickets:*`, `sponsors:*`, `payments:*`, `accounting:*`, `emails:*`.
 """
 
 from __future__ import annotations
@@ -27,6 +26,8 @@ class Permission(StrEnum):
     USERS_READ = "users:read"
     EVENTS_READ = "events:read"
     EVENTS_WRITE = "events:write"
+    REGISTRATIONS_READ = "registrations:read"
+    REGISTRATIONS_WRITE = "registrations:write"
 
 
 ALL_PERMISSIONS: frozenset[Permission] = frozenset(Permission)
