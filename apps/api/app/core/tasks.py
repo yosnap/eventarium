@@ -147,6 +147,21 @@ async def _base_url_de_organizacion(organization_id: uuid.UUID) -> str:
     return f"{esquema}://{host}"
 
 
+@broker.task(schedule=[{"cron": "*/15 * * * *"}])
+async def expire_waitlist_promotions_task() -> None:
+    """Cada 15 minutos: devuelve al final de la cola las promociones de lista
+    de espera caducadas sin confirmar y promueve a la siguiente persona
+    (`app/modules/registrations/service.py`).
+
+    Importado dentro de la tarea, no a nivel de módulo: `registrations.service`
+    importa `send_registration_verification_email` de este mismo archivo, y un
+    `import` a nivel de módulo en ambos sentidos sería una importación circular.
+    """
+    from app.modules.registrations.service import expire_waitlist_promotions
+
+    await expire_waitlist_promotions()
+
+
 @broker.task(retry_on_error=True, max_retries=5)
 async def send_registration_verification_email(
     to_email: str, token: str, organization_id: str
