@@ -27,6 +27,20 @@ class Organization(Base, TimestampMixin):
     website: Mapped[str | None] = mapped_column(String(300), nullable=True)
     contact_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Datos de la entidad responsable para las páginas legales (fase 5 del
+    # PRD, decisión #2 del plan): un aviso legal real necesita dirección
+    # postal y NIF/CIF, que la fase 1 no pidió porque entonces no había para
+    # qué.
+    legal_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tax_id: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    # `NULL` = usar la plantilla de texto plano/Markdown restringido por
+    # defecto (nunca HTML crudo, nunca un motor de plantillas nuevo — Jinja2
+    # no existe en el proyecto y añadirlo solo para esto abriría XSS/SSTI
+    # sobre contenido editable por el tenant y servido en SSR público).
+    legal_notice_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    privacy_policy_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cookies_policy_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    registration_terms_content: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     domains: Mapped[list[OrganizationDomain]] = relationship(
         back_populates="organization", cascade="all, delete-orphan", lazy="selectin"

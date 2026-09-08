@@ -85,6 +85,15 @@ TABLAS = (
     "user_social_links",
     "users",
     "organizations",
+    # `sponsor_tiers`/`sponsors` cascadean desde `organizations`/`events` por
+    # FK, pero `audit_log`/`cookie_consents` no tienen ninguna FK con
+    # `ondelete="CASCADE"` hacia una tabla de esta lista (fase 5 del PRD,
+    # hallazgo #15 del red-team) — sin listarlas explícitamente, filas de un
+    # test contaminarían al siguiente dentro de la misma suite.
+    "sponsor_tiers",
+    "sponsors",
+    "audit_log",
+    "cookie_consents",
 )
 
 

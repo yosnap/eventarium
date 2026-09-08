@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import re
 import secrets
 import uuid
@@ -159,3 +160,18 @@ def hash_refresh_token(token: str) -> str:
 def generate_password(longitud: int = 12) -> str:
     """Contraseña aleatoria legible, usada por el seed y el CLI."""
     return secrets.token_urlsafe(longitud)
+
+
+def hash_email_with_salt(email: str) -> str:
+    """Hash **no reversible** de un email, para `audit_log.detail` del borrado
+    RGPD de un inscrito (decisión #6 del plan de la fase 5).
+
+    Guardar el email en claro trasladaría la PII de una tabla protegida (RLS +
+    cascada de borrado) a `audit_log`, que no tiene retención propia. Un
+    `sha256` sin sal sería reversible por diccionario (los emails no tienen
+    entropía suficiente); se usa HMAC-SHA256 con `jwt_secret` como clave —ya
+    es un secreto de instalación, no expuesto en ningún export— en vez de dar
+    de alta un secreto nuevo solo para este uso puntual.
+    """
+    clave = get_settings().jwt_secret.encode("utf-8")
+    return hmac.new(clave, email.strip().lower().encode("utf-8"), hashlib.sha256).hexdigest()
