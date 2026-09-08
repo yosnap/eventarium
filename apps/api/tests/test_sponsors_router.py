@@ -139,7 +139,9 @@ async def test_patch_de_nivel_con_name_null_devuelve_422_no_409(
 
 
 async def test_no_se_puede_asignar_un_patrocinador_a_un_nivel_ajeno(
-    cliente: AsyncClient, organizacion: OrganizacionDePrueba, otra_organizacion: OrganizacionDePrueba
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    otra_organizacion: OrganizacionDePrueba,
 ) -> None:
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     _, cabeceras_ajenas = await iniciar_sesion(cliente, otra_organizacion)

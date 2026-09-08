@@ -45,7 +45,11 @@ describe('SuperadminPage', () => {
           translocoConfig: { availableLangs: ['es-ES'], defaultLang: 'es-ES' },
         }),
       ],
-      providers: [provideZonelessChangeDetection(), provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideZonelessChangeDetection(),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
     });
     http = TestBed.inject(HttpTestingController);
   });

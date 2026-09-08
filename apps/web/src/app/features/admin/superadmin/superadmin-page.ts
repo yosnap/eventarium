@@ -89,7 +89,9 @@ const AUDIT_LOG_URL = '/admin/audit-log';
         } @else {
           <table>
             <caption class="visualmente-oculto">
-              {{ t('admin.superadmin.auditoria.titulo') }}
+              {{
+                t('admin.superadmin.auditoria.titulo')
+              }}
             </caption>
             <thead>
               <tr>
@@ -107,7 +109,9 @@ const AUDIT_LOG_URL = '/admin/audit-log';
                   <td>{{ entrada.action }}</td>
                   <td>{{ entrada.organization_id ?? '—' }}</td>
                   <td>{{ entrada.entity_type }} · {{ entrada.entity_id ?? '—' }}</td>
-                  <td><code>{{ resumenDetalle(entrada.detail) }}</code></td>
+                  <td>
+                    <code>{{ resumenDetalle(entrada.detail) }}</code>
+                  </td>
                 </tr>
               }
             </tbody>
@@ -343,7 +347,9 @@ export class SuperadminPage {
   protected async borrar(evento: Event): Promise<void> {
     evento.preventDefault();
     if (typeof window !== 'undefined') {
-      const confirmado = window.confirm(this.transloco.translate('admin.superadmin.borrar.confirmar'));
+      const confirmado = window.confirm(
+        this.transloco.translate('admin.superadmin.borrar.confirmar'),
+      );
       if (!confirmado) {
         return;
       }

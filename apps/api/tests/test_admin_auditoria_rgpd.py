@@ -514,7 +514,7 @@ class TestRateLimit:
 
         respuestas = [
             await cliente.request(
-            "POST",
+                "POST",
                 f"/api/v1/admin/events/{evento_id}/rgpd-export",
                 headers=cabeceras,
                 json={"password": "lo que sea"},

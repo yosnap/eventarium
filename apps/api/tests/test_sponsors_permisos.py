@@ -101,10 +101,14 @@ async def test_backfill_anade_sponsors_a_un_rol_preexistente_sin_recrearlo() -> 
 
     async with SessionMaintenance() as session:
         antes = (
-            await session.execute(
-                select(RolePermission.permission).where(RolePermission.role_id == role_id)
+            (
+                await session.execute(
+                    select(RolePermission.permission).where(RolePermission.role_id == role_id)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert Permission.SPONSORS_READ.value not in antes
         assert Permission.SPONSORS_WRITE.value not in antes
 
@@ -114,10 +118,14 @@ async def test_backfill_anade_sponsors_a_un_rol_preexistente_sin_recrearlo() -> 
 
     async with SessionMaintenance() as session:
         despues = (
-            await session.execute(
-                select(RolePermission.permission).where(RolePermission.role_id == role_id)
+            (
+                await session.execute(
+                    select(RolePermission.permission).where(RolePermission.role_id == role_id)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     assert Permission.SPONSORS_READ.value in despues
     assert Permission.SPONSORS_WRITE.value in despues
 

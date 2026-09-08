@@ -101,7 +101,11 @@ function vacio(): { name: string; logoSize: LogoSize; benefits: string } {
         </app-card>
       }
 
-      <app-card [heading]="editandoId() ? t('admin.sponsorTiers.editarNivel') : t('admin.sponsorTiers.anadirNivel')">
+      <app-card
+        [heading]="
+          editandoId() ? t('admin.sponsorTiers.editarNivel') : t('admin.sponsorTiers.anadirNivel')
+        "
+      >
         <form (submit)="guardar($event)" novalidate class="formulario">
           <app-input
             fieldId="nivel-nombre"

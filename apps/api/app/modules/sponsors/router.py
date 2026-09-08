@@ -141,7 +141,9 @@ async def delete_sponsor_tier(usuario: CurrentUserDep, session: DbDep, tier_id: 
 
 
 async def _obtener_evento_o_404(session: DbDep, usuario: CurrentUserDep, event_id: str) -> Event:
-    evento = await events_repository.get_event(session, usuario.organization_id, uuid.UUID(event_id))
+    evento = await events_repository.get_event(
+        session, usuario.organization_id, uuid.UUID(event_id)
+    )
     if evento is None:
         raise NotFoundError("El evento no existe.")
     return evento

@@ -32,9 +32,7 @@ async def create_tier(
     try:
         await session.flush()
     except IntegrityError as exc:
-        raise ConflictError(
-            f"Ya existe un nivel de patrocinio llamado «{datos['name']}»."
-        ) from exc
+        raise ConflictError(f"Ya existe un nivel de patrocinio llamado «{datos['name']}».") from exc
     return nivel
 
 
