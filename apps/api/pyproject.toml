@@ -24,6 +24,11 @@ dependencies = [
     "uuid-utils>=0.10,<1.0",
     "httpx>=0.28,<1.0",
     "aiosmtplib>=5.1.2,<6.0",
+    # Imagen PNG del QR de la entrada (fase 4 del PRD). Puro Python, sin
+    # dependencias propias (a diferencia de `qrcode`, que necesita Pillow
+    # para generar PNG) — la más ligera que cubre "PNG a partir de una
+    # cadena", según el plan.
+    "segno>=1.6,<2.0",
 ]
 
 [dependency-groups]

@@ -3133,6 +3133,354 @@
           }
         }
       }
+    },
+    "/api/v1/events/{event_id}/tickets/scan": {
+      "post": {
+        "tags": [
+          "entradas"
+        ],
+        "summary": "Escanear el QR de una entrada",
+        "operationId": "scan_ticket_api_v1_events__event_id__tickets_scan_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScanRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketScanResultOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/tickets/scan/batch": {
+      "post": {
+        "tags": [
+          "entradas"
+        ],
+        "summary": "Sincronizar varios escaneos encolados sin conexión",
+        "operationId": "scan_tickets_batch_api_v1_events__event_id__tickets_scan_batch_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScanBatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketScanResultOut"
+                  },
+                  "title": "Response Scan Tickets Batch Api V1 Events  Event Id  Tickets Scan Batch Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/tickets/{ticket_id}/check-in-manual": {
+      "post": {
+        "tags": [
+          "entradas"
+        ],
+        "summary": "Marcar el uso de una entrada desde la búsqueda manual",
+        "operationId": "check_in_manual_api_v1_events__event_id__tickets__ticket_id__check_in_manual_post",
+        "parameters": [
+          {
+            "name": "ticket_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ticket Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketScanResultOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/tickets/search": {
+      "get": {
+        "tags": [
+          "entradas"
+        ],
+        "summary": "Buscar una inscripción confirmada por nombre o email",
+        "operationId": "search_tickets_api_v1_events__event_id__tickets_search_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketSearchItem"
+                  },
+                  "title": "Response Search Tickets Api V1 Events  Event Id  Tickets Search Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/tickets/{registration_id}": {
+      "get": {
+        "tags": [
+          "entradas"
+        ],
+        "summary": "Detalle de la entrada de una inscripción",
+        "operationId": "get_ticket_detail_api_v1_events__event_id__tickets__registration_id__get",
+        "parameters": [
+          {
+            "name": "registration_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Registration Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/registrations/my-ticket": {
+      "get": {
+        "tags": [
+          "entradas"
+        ],
+        "summary": "Consultar el estado de una entrada por su token de autocancelación",
+        "operationId": "get_my_ticket_api_v1_public_registrations_my_ticket_get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyTicketResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/registrations/my-ticket/qr": {
+      "get": {
+        "tags": [
+          "entradas"
+        ],
+        "summary": "Imagen PNG del QR de una entrada",
+        "operationId": "get_my_ticket_qr_api_v1_public_registrations_my_ticket_qr_get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4854,6 +5202,30 @@
         "title": "MemberResponse",
         "description": "Miembro de la organización."
       },
+      "MyTicketResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "has_qr": {
+            "type": "boolean",
+            "title": "Has Qr"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "full_name",
+          "has_qr"
+        ],
+        "title": "MyTicketResponse",
+        "description": "`/mi-entrada` (fase 4, fase 4 de trabajo): qué mostrar y si hay QR que pedir."
+      },
       "OrganizationCreate": {
         "properties": {
           "slug": {
@@ -5193,7 +5565,9 @@
           "events:read",
           "events:write",
           "registrations:read",
-          "registrations:write"
+          "registrations:write",
+          "tickets:read",
+          "tickets:write"
         ],
         "title": "Permission",
         "description": "Permisos disponibles en la fase 0."
@@ -6893,6 +7267,61 @@
         "title": "RoleUpdate",
         "description": "Edición de un rol existente."
       },
+      "ScanBatchRequest": {
+        "properties": {
+          "scans": {
+            "items": {
+              "$ref": "#/components/schemas/ScanRequest"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Scans"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scans"
+        ],
+        "title": "ScanBatchRequest",
+        "description": "Varios escaneos encolados sin conexión, sincronizados en una petición."
+      },
+      "ScanRequest": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "client_scan_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Client Scan Id"
+          },
+          "client_scanned_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Client Scanned At"
+          },
+          "device_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "client_scan_id",
+          "client_scanned_at"
+        ],
+        "title": "ScanRequest",
+        "description": "Un intento de escaneo, tal como lo encola la app de escaneo (fase 3)."
+      },
       "SelfServiceOrganizationCreate": {
         "properties": {
           "name": {
@@ -7198,6 +7627,227 @@
         ],
         "title": "SubmitRegistrationRequest",
         "description": "Datos del formulario público de inscripción a un evento."
+      },
+      "TicketDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "registration_id": {
+            "type": "string",
+            "title": "Registration Id"
+          },
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "issued_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Issued At"
+          },
+          "used_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used At"
+          },
+          "used_by_event_member_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used By Event Member Id"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "registration_id",
+          "event_id",
+          "issued_at",
+          "used_at",
+          "used_by_event_member_id",
+          "revoked_at",
+          "full_name",
+          "email",
+          "status"
+        ],
+        "title": "TicketDetail",
+        "description": "Detalle de la entrada de una inscripción, para el panel de organizador."
+      },
+      "TicketScanResultOut": {
+        "properties": {
+          "client_scan_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Client Scan Id"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "valid",
+              "duplicate",
+              "expired",
+              "invalid_signature",
+              "revoked",
+              "not_found",
+              "manual"
+            ],
+            "title": "Result"
+          },
+          "ticket_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticket Id"
+          },
+          "registration_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registration Id"
+          },
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "used_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used At"
+          },
+          "used_by_event_member_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used By Event Member Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "client_scan_id",
+          "result"
+        ],
+        "title": "TicketScanResultOut",
+        "description": "Resultado de un escaneo — nunca lleva el JWT de vuelta (no-funcional del plan)."
+      },
+      "TicketSearchItem": {
+        "properties": {
+          "ticket_id": {
+            "type": "string",
+            "title": "Ticket Id"
+          },
+          "registration_id": {
+            "type": "string",
+            "title": "Registration Id"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "used_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ticket_id",
+          "registration_id",
+          "full_name",
+          "email",
+          "used_at"
+        ],
+        "title": "TicketSearchItem",
+        "description": "Fila del respaldo de búsqueda manual."
       },
       "TokenResponse": {
         "properties": {

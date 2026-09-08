@@ -29,12 +29,18 @@ importers:
       '@angular/router':
         specifier: ^21.2.0
         version: 21.2.22(@angular/common@21.2.22(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(@angular/platform-browser@21.2.22(@angular/common@21.2.22(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2)))(rxjs@7.8.2)
+      '@angular/service-worker':
+        specifier: ^21.2.22
+        version: 21.2.22(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(rxjs@7.8.2)
       '@angular/ssr':
         specifier: ^21.2.23
         version: 21.2.23(@angular/common@21.2.22(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(@angular/platform-server@21.2.22(@angular/common@21.2.22(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/compiler@21.2.22)(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(@angular/platform-browser@21.2.22(@angular/common@21.2.22(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2)))(rxjs@7.8.2))(@angular/router@21.2.22(@angular/common@21.2.22(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(@angular/platform-browser@21.2.22(@angular/common@21.2.22(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2)))(rxjs@7.8.2))
       express:
         specifier: ^5.1.0
         version: 5.2.1
+      jsqr:
+        specifier: ^1.4.0
+        version: 1.4.0
       rxjs:
         specifier: ~7.8.0
         version: 7.8.2
@@ -47,7 +53,7 @@ importers:
         version: 22.2.0(chokidar@5.0.0)(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3)
       '@angular/build':
         specifier: ^21.2.23
-        version: 21.2.23(9fe63359f258a14b2ffb975a1a1001c3)
+        version: 21.2.23(51cec8f570a2882113cf17a2efcfd493)
       '@angular/cli':
         specifier: ^21.2.23
         version: 21.2.23(@types/node@20.19.43)(chokidar@5.0.0)
@@ -78,6 +84,9 @@ importers:
       eslint:
         specifier: ^10.9.0
         version: 10.10.0(jiti@2.7.0)
+      fake-indexeddb:
+        specifier: ^6.2.5
+        version: 6.2.5
       jsdom:
         specifier: ^28.0.0
         version: 28.1.0
@@ -372,6 +381,14 @@ packages:
       '@angular/common': 21.2.22
       '@angular/core': 21.2.22
       '@angular/platform-browser': 21.2.22
+      rxjs: ^6.5.3 || ^7.4.0
+
+  '@angular/service-worker@21.2.22':
+    resolution: {integrity: sha512-0rJPjiNqm2mW8qh1k+TAlsJoia7ui3cER6lMZcmypacfqQMsJJAHzxNKprAz0uNcYzbTb5MIE75vGN8j6xwY1w==}
+    engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
+    hasBin: true
+    peerDependencies:
+      '@angular/core': 21.2.22
       rxjs: ^6.5.3 || ^7.4.0
 
   '@angular/ssr@21.2.23':
@@ -2329,6 +2346,10 @@ packages:
     resolution: {integrity: sha512-hIS4idWWai69NezIdRt2xFVofaF4j+6INOpJlVOLDO8zXGpUVEVzIYk12UUi2JzjEzWL3IOAxcTubgz9Po0yXw==}
     engines: {node: '>= 18'}
 
+  fake-indexeddb@6.2.5:
+    resolution: {integrity: sha512-CGnyrvbhPlWYMngksqrSSUT1BAVP49dZocrHuK0SvtR0D5TMs5wP0o3j7jexDJW01KSadjBp1M/71o/KR3nD1w==}
+    engines: {node: '>=18'}
+
   fast-deep-equal@3.1.3:
     resolution: {integrity: sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==}
 
@@ -2672,6 +2693,9 @@ packages:
   jsonparse@1.3.1:
     resolution: {integrity: sha512-POQXvpdL69+CluYsillJ7SUhKvytYjW9vG/GKpnf+xP8UWgYEM/RaMzHHofbALDiKbbP1W8UEYmgGl39WkPZsg==}
     engines: {'0': node >= 0.2.0}
+
+  jsqr@1.4.0:
+    resolution: {integrity: sha512-dxLob7q65Xg2DvstYkRpkYtmKm2sPJ9oFhrhmudT1dZvNFFTlroai3AWSpLey/w5vMcLBXRgOJsbXpdN9HzU/A==}
 
   keyv@5.6.0:
     resolution: {integrity: sha512-CYDD3SOtsHtyXeEORYRx2qBtpDJFjRTGXUtmNEMGyzYOKj1TE3tycdlho7kA1Ufx9OYWZzg52QFBGALTirzDSw==}
@@ -3964,7 +3988,7 @@ snapshots:
       eslint: 10.10.0(jiti@2.7.0)
       typescript: 5.9.3
 
-  '@angular/build@21.2.23(9fe63359f258a14b2ffb975a1a1001c3)':
+  '@angular/build@21.2.23(51cec8f570a2882113cf17a2efcfd493)':
     dependencies:
       '@ampproject/remapping': 2.3.0
       '@angular-devkit/architect': 0.2102.23(chokidar@5.0.0)
@@ -4001,6 +4025,7 @@ snapshots:
       '@angular/core': 21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2)
       '@angular/platform-browser': 21.2.22(@angular/common@21.2.22(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))
       '@angular/platform-server': 21.2.22(@angular/common@21.2.22(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/compiler@21.2.22)(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(@angular/platform-browser@21.2.22(@angular/common@21.2.22(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2)))(rxjs@7.8.2)
+      '@angular/service-worker': 21.2.22(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(rxjs@7.8.2)
       '@angular/ssr': 21.2.23(@angular/common@21.2.22(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(@angular/platform-server@21.2.22(@angular/common@21.2.22(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/compiler@21.2.22)(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(@angular/platform-browser@21.2.22(@angular/common@21.2.22(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2)))(rxjs@7.8.2))(@angular/router@21.2.22(@angular/common@21.2.22(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(@angular/platform-browser@21.2.22(@angular/common@21.2.22(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2)))(rxjs@7.8.2))
       lmdb: 3.5.1
       postcss: 8.5.28
@@ -4110,6 +4135,12 @@ snapshots:
       '@angular/common': 21.2.22(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(rxjs@7.8.2)
       '@angular/core': 21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2)
       '@angular/platform-browser': 21.2.22(@angular/common@21.2.22(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))
+      rxjs: 7.8.2
+      tslib: 2.8.1
+
+  '@angular/service-worker@21.2.22(@angular/core@21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2))(rxjs@7.8.2)':
+    dependencies:
+      '@angular/core': 21.2.22(@angular/compiler@21.2.22)(rxjs@7.8.2)
       rxjs: 7.8.2
       tslib: 2.8.1
 
@@ -5974,6 +6005,8 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  fake-indexeddb@6.2.5: {}
+
   fast-deep-equal@3.1.3: {}
 
   fast-json-stable-stringify@2.1.0: {}
@@ -6315,6 +6348,8 @@ snapshots:
       graceful-fs: 4.2.11
 
   jsonparse@1.3.1: {}
+
+  jsqr@1.4.0: {}
 
   keyv@5.6.0:
     dependencies:

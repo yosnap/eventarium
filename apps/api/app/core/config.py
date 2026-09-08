@@ -105,11 +105,19 @@ class Settings(BaseSettings):
     # posteriores al alta.
     registration_cancel_token_ttl_days: int = 90
 
-    @field_validator("jwt_secret")
+    # Entrada QR (fase 4 del PRD). Secreto **propio**, distinto de `jwt_secret`:
+    # comprometer el secreto de entradas no debe permitir forjar tokens de
+    # sesión, y viceversa (decisión #3 del plan de la fase 4).
+    ticket_qr_secret: str
+    # Margen tras `event.ends_at` durante el que el QR sigue siendo válido —
+    # absorbe cierres tardíos y desajustes de reloj (decisión #4 del plan).
+    ticket_qr_expiry_margin_hours: int = 48
+
+    @field_validator("jwt_secret", "ticket_qr_secret")
     @classmethod
     def _validar_secreto(cls, valor: str) -> str:
         if len(valor) < 32:
-            raise ValueError("JWT_SECRET debe tener al menos 32 caracteres")
+            raise ValueError("El secreto debe tener al menos 32 caracteres")
         return valor
 
     @field_validator("s3_public_base_url", "web_base_url")

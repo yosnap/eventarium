@@ -62,6 +62,15 @@ ORGANIZER = SystemRoleTemplate(
         Permission.USERS_READ,
         Permission.EVENTS_READ,
         Permission.EVENTS_WRITE,
+        # `REGISTRATIONS_*` faltaba en esta plantilla desde la fase 3 del PRD:
+        # la migración 0010 las dio de alta por backfill a los organizadores
+        # ya clonados en ese momento, pero una organización creada después de
+        # esa migración clonaba un organizador sin ellas (hallazgo del
+        # code-review de la fase 4, corregido aquí en la raíz).
+        Permission.REGISTRATIONS_READ,
+        Permission.REGISTRATIONS_WRITE,
+        Permission.TICKETS_READ,
+        Permission.TICKETS_WRITE,
     ),
     profile_fields=(
         ProfileFieldTemplate(key="cargo", label="Cargo", sort_order=10),
@@ -94,7 +103,10 @@ VOLUNTEER = SystemRoleTemplate(
     key="volunteer",
     name="Voluntariado",
     description="Apoya la organización durante el evento.",
-    permissions=(Permission.ORGANIZATIONS_READ,),
+    # Solo escanea entradas en la puerta, no ve estadísticas ni gestiona
+    # preguntas del formulario — de ahí `TICKETS_WRITE` sin `TICKETS_READ`
+    # (fase 4 del PRD, decisión #8 del plan).
+    permissions=(Permission.ORGANIZATIONS_READ, Permission.TICKETS_WRITE),
     profile_fields=(
         ProfileFieldTemplate(
             key="disponibilidad", label="Disponibilidad", field_type="textarea", sort_order=10

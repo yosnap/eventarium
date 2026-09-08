@@ -67,6 +67,11 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'mi-entrada',
+    loadComponent: () =>
+      import('./features/public/events/my-ticket-page').then((m) => m.MyTicketPage),
+  },
+  {
     path: 'admin',
     loadComponent: () => import('./layouts/admin/admin-shell').then((m) => m.AdminShell),
     canActivate: [authGuard],
@@ -123,6 +128,11 @@ export const routes: Routes = [
           import('./features/admin/events/registration-detail-page').then(
             (m) => m.RegistrationDetailPage,
           ),
+      },
+      {
+        path: 'events/:id/check-in',
+        loadComponent: () =>
+          import('./features/admin/events/event-check-in').then((m) => m.EventCheckIn),
       },
       {
         path: 'account',

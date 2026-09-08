@@ -587,7 +587,54 @@
         "opcionesRequeridas": "Añade al menos dos opciones.",
         "error": "No hemos podido completar la operación.",
         "errorEliminar": "No hemos podido eliminar la pregunta."
+      },
+      "checkIn": {
+        "titulo": "Check-in",
+        "enlaceDesdeEvento": "Ir a la app de escaneo",
+        "contador": "Escaneados: {{escaneados}} de {{total}}",
+        "pendientesDeSincronizar": "{{n}} escaneo(s) pendiente(s) de sincronizar",
+        "sinCamara": "No se pudo acceder a la cámara. Usa la búsqueda manual.",
+        "resultadosTitulo": "Últimos escaneos",
+        "sinResultados": "Todavía no se ha escaneado ninguna entrada.",
+        "resultado": {
+          "valid": "Entrada válida",
+          "manual": "Entrada válida (check-in manual)",
+          "pending": "Procesando…",
+          "duplicate": "Entrada ya utilizada",
+          "revoked": "Entrada revocada",
+          "expired": "QR caducado",
+          "invalid_signature": "QR no válido",
+          "not_found": "Entrada no encontrada"
+        },
+        "usadaEl": "Usada el {{fecha}}",
+        "porMiembro": "por el miembro {{id}}",
+        "busqueda": {
+          "titulo": "Búsqueda manual",
+          "campo": "Nombre o correo",
+          "boton": "Buscar",
+          "sinResultados": "No hay ninguna inscripción confirmada que coincida.",
+          "marcar": "Marcar entrada",
+          "yaUsada": "Ya usada el {{fecha}}",
+          "error": "No hemos podido completar la búsqueda."
+        }
       }
     }
+  },
+  "miEntrada": {
+    "titulo": "Tu entrada",
+    "comprobando": "Comprobando el enlace…",
+    "saludo": "Hola {{nombre}}, aquí tienes tu entrada:",
+    "qrAlt": "Código QR de tu entrada",
+    "sinQrDetalle": "Esta inscripción no tiene ninguna entrada disponible para mostrar.",
+    "estado": {
+      "confirmada": "Tu inscripción está confirmada",
+      "cancelada": "Tu inscripción está cancelada",
+      "rechazada": "Tu inscripción no fue aprobada",
+      "listaEspera": "Estás en la lista de espera",
+      "pendienteAprobacion": "Tu inscripción está pendiente de aprobación",
+      "pendienteVerificacion": "Tu inscripción está pendiente de verificar tu correo"
+    },
+    "errorTitulo": "El enlace no es válido o ha caducado",
+    "errorDetalle": "Revisa el correo de confirmación de tu inscripción para volver a intentarlo."
   }
 }
