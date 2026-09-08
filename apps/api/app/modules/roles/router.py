@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Response, status
+from fastapi import APIRouter, BackgroundTasks, Response, status
 
 from app.core.deps import CurrentUserDep, DbDep, PermissionsDep, require_permission
 from app.core.permissions import Permission
@@ -103,14 +103,17 @@ async def update_role(
     usuario: CurrentUserDep,
     session: DbDep,
     permisos: PermissionsDep,
+    background_tasks: BackgroundTasks,
 ) -> RoleResponse:
     rol = await service.update_role(
         session,
         organization_id=usuario.organization_id,
         role_id=role_id,
+        actor_user_id=usuario.id,
         actor_role_keys=await user_role_keys(session, usuario.organization_id, usuario.id),
         actor_permissions=permisos,
         datos=datos,
+        background_tasks=background_tasks,
     )
     return _to_response(rol)
 
