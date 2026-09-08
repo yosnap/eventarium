@@ -35,6 +35,13 @@ if [ "$RESTAURACION_AISLADA" = "1" ] && [ "$POSTGRES_DB" = "ia_week" ]; then
 	exit 1
 fi
 
+if [ "$RESTAURACION_AISLADA" = "1" ] && [ -n "$OBJETOS" ] \
+	&& { [ -z "${S3_BUCKET:-}" ] || [ "${S3_BUCKET:-}" = "media" ]; }; then
+	echo "RESTAURACION_AISLADA=1 con S3_BUCKET sin definir o S3_BUCKET=media (el bucket de producción)." >&2
+	echo "El modo aislado exige un S3_BUCKET de prueba explícito, nunca el bucket real." >&2
+	exit 1
+fi
+
 if [ "${3:-}" != "--si-estoy-seguro" ] && [ "${2:-}" != "--si-estoy-seguro" ]; then
 	echo "Se va a SOBRESCRIBIR la base de datos «${POSTGRES_DB}» con $VOLCADO."
 	printf 'Escribe «restaurar» para continuar: '

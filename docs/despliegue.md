@@ -257,7 +257,14 @@ aceptable para una restauración de prueba aislada. Se añadió el modo
 datos de destino si no existe, omite parar/arrancar `api`/`worker`, y omite reaplicar
 `roles.sql`. El script rechaza explícitamente `RESTAURACION_AISLADA=1` con
 `POSTGRES_DB=ia_week` (la base de producción), para que el modo aislado no pueda
-apuntar a producción por un `POSTGRES_DB` olvidado. De paso se corrigió un bug latente
+apuntar a producción por un `POSTGRES_DB` olvidado. La misma guarda existe para el
+bucket de objetos: `RESTAURACION_AISLADA=1` con `S3_BUCKET` sin definir o
+`S3_BUCKET=media` (el bucket de producción) aborta antes de tocar nada, para que un
+`S3_BUCKET` olvidado no sobrescriba el bucket real durante una restauración de prueba.
+Verificado manualmente el 2026-09-08: con `S3_BUCKET` sin definir y con
+`S3_BUCKET=media` el script aborta con el mensaje esperado sin llegar a crear la base
+de datos ni invocar `docker compose`; con `S3_BUCKET=media-restore-test` la guarda deja
+pasar la ejecución con normalidad. De paso se corrigió un bug latente
 de la confirmación interactiva (`«$POSTGRES_DB»` inmediatamente pegado a la variable
 rompía el `set -u` de Bash con el carácter multibyte de la comilla angular — reproducible
 con `bash -c 'set -u; V=x; echo "«$V»"'`), presente también en el camino por defecto.
