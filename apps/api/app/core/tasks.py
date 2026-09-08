@@ -7,6 +7,9 @@ no puede desaparecer sin rastro.
 
 from __future__ import annotations
 
+import uuid
+
+from sqlalchemy import text
 from taskiq import TaskiqEvents, TaskiqState
 from taskiq.schedule_sources import LabelScheduleSource
 from taskiq.scheduler.scheduler import TaskiqScheduler
@@ -14,6 +17,7 @@ from taskiq_redis import RedisAsyncResultBackend, RedisStreamBroker
 
 from app.core.cleanup import sweep_unverified_accounts
 from app.core.config import get_settings
+from app.core.database import maintenance_session
 from app.core.email import get_email_provider
 
 _settings = get_settings()
@@ -111,6 +115,51 @@ async def send_email_change_confirmation(to_email: str, token: str) -> None:
         body=(
             "Hola,\n\n"
             "Confirma que quieres usar este correo para tu cuenta:\n"
+            f"{enlace}\n\n"
+            "El enlace caduca en 24 horas. Si no has sido tú, ignora este mensaje."
+        ),
+    )
+
+
+async def _base_url_de_organizacion(organization_id: uuid.UUID) -> str:
+    """URL pública de la organización, por su dominio primario.
+
+    A diferencia de los correos de cuenta (transversales a toda la instalación,
+    de ahí `settings.web_base_url`), un correo de inscripción llega a alguien
+    sin sesión ni contexto de organización: el enlace tiene que apuntar al
+    dominio propio de esa organización — la instalación resuelve el tenant por
+    `Host`, así que un enlace al dominio equivocado no encontraría la
+    inscripción al volver. Usa `maintenance_session` porque una tarea de fondo
+    no tiene una petición HTTP de la que resolver la organización.
+    """
+    settings = get_settings()
+    async with maintenance_session() as session:
+        host = await session.scalar(
+            text(
+                "SELECT host FROM organization_domains "
+                "WHERE organization_id = :id ORDER BY is_primary DESC LIMIT 1"
+            ),
+            {"id": organization_id},
+        )
+    if not host:
+        return settings.web_base_url
+    esquema = "https" if settings.app_env == "production" else "http"
+    return f"{esquema}://{host}"
+
+
+@broker.task(retry_on_error=True, max_retries=5)
+async def send_registration_verification_email(
+    to_email: str, token: str, organization_id: str
+) -> None:
+    """Envía el enlace de verificación de una inscripción a un evento."""
+    base = await _base_url_de_organizacion(uuid.UUID(organization_id))
+    enlace = f"{base}/verificar-inscripcion?token={token}"
+    await get_email_provider().send(
+        to=to_email,
+        subject="Verifica tu inscripción",
+        body=(
+            "Hola,\n\n"
+            "Confirma tu correo para completar la inscripción:\n"
             f"{enlace}\n\n"
             "El enlace caduca en 24 horas. Si no has sido tú, ignora este mensaje."
         ),

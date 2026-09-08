@@ -46,6 +46,13 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'verificar-inscripcion',
+    loadComponent: () =>
+      import('./features/public/events/verify-registration-page').then(
+        (m) => m.VerifyRegistrationPage,
+      ),
+  },
+  {
     path: 'admin',
     loadComponent: () => import('./layouts/admin/admin-shell').then((m) => m.AdminShell),
     canActivate: [authGuard],
@@ -132,6 +139,11 @@ export const routes: Routes = [
         path: 'eventos/:slug/sesiones/:sessionId',
         loadComponent: () =>
           import('./features/public/events/session-page').then((m) => m.SessionPage),
+      },
+      {
+        path: 'eventos/:slug/inscribirse',
+        loadComponent: () =>
+          import('./features/public/events/registration-page').then((m) => m.RegistrationPage),
       },
       {
         path: 'ponentes/:publicSlug',

@@ -1,11 +1,52 @@
 ---
 phase: 2
 title: "Fase 2: Formulario público, verificación y consentimientos"
-status: pending
+status: done
 priority: P1
 effort: "2.5-3d"
 dependencies: [1]
 ---
+
+## Estado — implementado 2026-09-08
+
+Rama `feat/0.14.0-formulario-publico-verificacion-consentimientos` (desde
+`develop`, sin mergear todavía).
+
+**Archivos backend:**
+- `apps/api/app/modules/registrations/repository.py`, `service.py`, `schemas.py`, `public_router.py` (nuevos)
+- `apps/api/app/core/tasks.py` — `send_registration_verification_email` + `_base_url_de_organizacion` (dominio primario de la organización, no `web_base_url` genérico — hallazgo real durante la implementación, ver abajo)
+- `apps/api/app/core/ratelimit.py` — `INSCRIPCION_POR_IP`, `VERIFICACION_INSCRIPCION_POR_IP`
+- `apps/api/app/modules/auth/verification.py` — `PROPOSITO_VERIFICACION_INSCRIPCION`
+- `apps/api/app/main.py` — router montado
+- `apps/api/tests/test_registrations_public.py` (nuevo, 17 tests)
+
+**Archivos frontend:**
+- `apps/web/src/app/core/registrations/registrations.service.ts` (nuevo)
+- `apps/web/src/app/features/public/events/registration-page.ts` + `.spec.ts` (nuevo) — ruta `/eventos/:slug/inscribirse`
+- `apps/web/src/app/features/public/events/verify-registration-page.ts` + `.spec.ts` (nuevo) — ruta `/verificar-inscripcion`
+- `apps/web/src/app/features/public/events/event-page.ts` — enlace "Inscribirme"
+- `apps/web/src/app/app.routes.ts`, `public/assets/i18n/es-ES.json` — rutas y textos nuevos
+
+**Hallazgo de diseño real, no anticipado en el plan:** el enlace de
+verificación no puede usar `settings.web_base_url` (genérico para toda la
+instalación) porque cada organización resuelve su propio tenant por `Host` —
+un enlace al host equivocado no encontraría la inscripción al volver. Se
+añadió `_base_url_de_organizacion()` en `tasks.py`, que resuelve el dominio
+primario de `organization_domains` con `maintenance_session()` (sin
+`Request` del que partir, igual que `sweep_unverified_accounts`). Esto
+también resuelve solo: `/public/registrations/verify` no necesita el
+`organization_id` en el token porque la petición ya llega con el `Host`
+correcto — mismo mecanismo `OrganizationDep`/`DbDep` que cualquier otro
+endpoint público.
+
+**Verificado (comandos ejecutados en esta sesión):**
+- `pytest -q` (API completa): **214 passed**.
+- `ruff check .` / `ruff format --check .` (API): sin hallazgos.
+- `mypy app/modules/registrations app/core/tasks.py app/core/ratelimit.py`: sin errores.
+- `ng test` (web completo, incluye axe): **106 passed**, sin violaciones de accesibilidad en las 2 páginas nuevas.
+- `ng lint` / `prettier --check` (web): sin hallazgos.
+- `ng build` (web): compila sin errores.
+- `openapi.json` y los tipos generados del cliente Angular, regenerados y verificados contra el diff exacto que exige el CI.
 
 # Fase 2: Formulario público, verificación y consentimientos
 
@@ -86,6 +127,34 @@ llegan en la fase 3.
 - Prueba manual en navegador (Playwright/webapp-testing) del formulario
   público: envío, email de verificación (log/mailhog local), clic, estado
   final visible.
+
+### Checklist de criterios de aceptación (Requirements/Validation de esta fase)
+
+Functional:
+- [x] `POST /public/events/{slug}/registrations` con validación de respuestas y consentimientos, Turnstile — `public_router.py::create_registration`
+- [x] Respuesta HTTP siempre idéntica, no crea segunda fila, reencola verificación si procede — `test_el_mismo_email_no_crea_una_segunda_inscripcion_y_responde_igual`, `test_reenviar_a_un_email_ya_inscrito_reencola_el_correo_de_verificacion` (passed)
+- [x] `user_id` resuelto con `app_find_user_by_email` — `repository.find_user_id_by_email`
+- [x] `pending_verification` + token Redis (`GETDEL`, TTL 24h) cuando `email_verification_required` — `test_alta_con_verificacion_obligatoria_queda_pendiente_de_verificacion` (passed)
+- [x] `POST /public/registrations/verify` con evaluación de estado siguiente — `test_verificar_con_aforo_libre_confirma`, `test_evento_con_aprobacion_queda_pendiente_de_aprobacion_aunque_haya_aforo` (passed)
+- [x] `free`+aforo agotado → `waitlisted` — `test_segunda_verificacion_tras_agotar_aforo_queda_en_lista_de_espera` (passed)
+- [x] Sin verificación exigida, estado evaluado al enviar el formulario — `test_evento_sin_verificacion_evalua_el_estado_al_enviar_el_formulario` (passed)
+- [x] Bloqueo de fila (`SELECT...FOR UPDATE`) durante la evaluación de aforo — `repository.lock_event_for_capacity`, usado por `submit_registration` y `verify_registration`
+- [x] Página pública del formulario, con preguntas por tipo — `registration-page.ts`, 3/3 tests de axe/render passed
+- [x] Página de resultado de verificación — `verify-registration-page.ts`, 3/3 tests passed
+
+Non-functional:
+- [x] Rate limiting en alta y verificación — `INSCRIPCION_POR_IP`, `VERIFICACION_INSCRIPCION_POR_IP` aplicados en `public_router.py`
+- [x] Mensajes genéricos, sin filtrar aforo ni existencia de email — verificado por los tests de no-filtrado
+- [x] Validación estricta de `value` contra `options` — `test_una_opcion_invalida_falla`, `test_una_pregunta_obligatoria_sin_respuesta_falla`, `test_una_respuesta_a_pregunta_ajena_falla` (passed)
+- [x] Accesibilidad — `ng test` con axe: 0 violaciones en las 6 pruebas de las 2 páginas nuevas
+
+- [x] Test de concurrencia real: `test_dos_verificaciones_simultaneas_no_superan_el_aforo`, dos `POST /verify` concurrentes (`asyncio.gather`) contra el último hueco de aforo → exactamente un `confirmed` y un `waitlisted`, nunca dos `confirmed`. Ejecutado 5 veces seguidas sin fallar (no es una pasada por suerte).
+
+**Hueco real, no maquillado:** no hay prueba manual en navegador real
+(Playwright) del flujo completo — cubierto por los tests de integración
+HTTP + los tests de accesibilidad del componente (axe), pero no es lo mismo
+que una sesión de navegador real. Queda para antes de cerrar la fase 4,
+junto con la prueba de carga que exige el PRD (1.000 inscripciones/hora).
 
 ## Risk & Rollback
 
