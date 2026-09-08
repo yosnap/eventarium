@@ -38,6 +38,7 @@ from app.modules.registrations.models import (
     EventRegistrationQuestion,
 )
 from app.modules.registrations.schemas import RegistrationAnswerInput
+from app.modules.tickets.service import emitir_entrada, generar_token_qr, revocar_entrada
 from app.shared.errors import ConflictError, NotFoundError, ValidationDomainError
 
 # Límite de longitud para una respuesta de texto libre: no hay columna que lo
@@ -180,16 +181,25 @@ async def _generar_token_cancelacion(registration_id: uuid.UUID) -> str:
     )
 
 
-async def _enviar_email_por_estado(inscripcion: EventRegistration) -> None:
+async def _enviar_email_por_estado(session: AsyncSession, inscripcion: EventRegistration) -> None:
     """Encola el email de confirmación o de lista de espera según el estado
     ya asignado a `inscripcion` — usado por el alta sin verificación, la
-    verificación posterior y la aprobación manual, para no triplicar esta
-    decisión en cada llamador."""
+    verificación posterior, la aprobación manual y la promoción de lista de
+    espera, para no repetir esta decisión en cada llamador.
+
+    Es también el único punto por el que pasan los cinco caminos que pueden
+    dejar una inscripción en `confirmed` (fase 4 del PRD): emitir la entrada
+    aquí, no en cada llamador, cubre los cinco de una vez. `emitir_entrada` es
+    idempotente, así que el reenvío del formulario con un email ya
+    `confirmed` (que no es una confirmación nueva) no crea una segunda
+    entrada.
+    """
     token_cancelacion = await _generar_token_cancelacion(inscripcion.id)
     organization_id = str(inscripcion.organization_id)
     if inscripcion.status == "confirmed":
+        ticket = await emitir_entrada(session, inscripcion)
         await send_registration_confirmed_email.kiq(
-            inscripcion.email, organization_id, token_cancelacion
+            inscripcion.email, organization_id, token_cancelacion, generar_token_qr(ticket)
         )
     elif inscripcion.status == "waitlisted":
         await send_registration_waitlisted_email.kiq(
@@ -241,6 +251,13 @@ async def _cancelar_inscripcion(
     """
     if inscripcion.status in ("cancelled", "rejected"):
         return False
+
+    # Antes de cambiar el estado: una entrada revocada nunca es válida al
+    # escanear, aunque el JWT no haya caducado (fase 4 del PRD). No-op si la
+    # inscripción nunca tuvo entrada (`waitlisted`/`pending_approval`).
+    await revocar_entrada(
+        session, organization_id=organization_id, registration_id=inscripcion.id
+    )
 
     # Una plaza está reservada tanto si está `confirmed` como si está
     # `waitlisted` en mitad de una promoción (ver `count_reserved_registrations`)
@@ -302,7 +319,7 @@ async def submit_registration(
                 email_normalizado, token, str(event.organization_id)
             )
         elif existente.status in ("confirmed", "waitlisted"):
-            await _enviar_email_por_estado(existente)
+            await _enviar_email_por_estado(session, existente)
         elif existente.status == "rejected":
             await send_registration_rejected_email.kiq(existente.email, str(event.organization_id))
         elif existente.status == "cancelled":
@@ -366,7 +383,7 @@ async def submit_registration(
             email_normalizado, token, str(event.organization_id)
         )
     else:
-        await _enviar_email_por_estado(inscripcion)
+        await _enviar_email_por_estado(session, inscripcion)
 
 
 async def verify_registration(session: AsyncSession, *, token: str) -> EventRegistration:
@@ -395,7 +412,7 @@ async def verify_registration(session: AsyncSession, *, token: str) -> EventRegi
     inscripcion.status = nuevo_estado
     if nuevo_estado == "confirmed":
         inscripcion.confirmed_at = ahora
-    await _enviar_email_por_estado(inscripcion)
+    await _enviar_email_por_estado(session, inscripcion)
     return inscripcion
 
 
@@ -429,7 +446,7 @@ async def approve_registration(
     inscripcion.status = await _evaluar_estado_por_capacidad(session, evento)
     if inscripcion.status == "confirmed":
         inscripcion.confirmed_at = ahora
-    await _enviar_email_por_estado(inscripcion)
+    await _enviar_email_por_estado(session, inscripcion)
     return inscripcion
 
 
@@ -540,7 +557,7 @@ async def confirm_waitlist_promotion(session: AsyncSession, *, token: str) -> Ev
 
     inscripcion.status = "confirmed"
     inscripcion.confirmed_at = ahora
-    await _enviar_email_por_estado(inscripcion)
+    await _enviar_email_por_estado(session, inscripcion)
     return inscripcion
 
 

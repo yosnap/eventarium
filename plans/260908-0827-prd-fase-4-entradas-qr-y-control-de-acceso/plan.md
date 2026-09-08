@@ -1,7 +1,7 @@
 ---
 title: "PRD Fase 4 — Entradas QR y control de acceso"
 description: "Entrada QR firmada por inscripción confirmada, escaneo de check-in con app PWA offline-first para el rol voluntariado/staff, y búsqueda manual de respaldo."
-status: validated
+status: done
 priority: P1
 effort: "6-8d"
 tags: [entradas, qr, check-in, pwa, offline]

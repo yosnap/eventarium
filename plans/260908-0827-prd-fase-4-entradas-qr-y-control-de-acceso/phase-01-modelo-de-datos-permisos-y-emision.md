@@ -1,7 +1,7 @@
 ---
 phase: 1
 title: "Fase 1: Modelo de datos, permisos y emisión automática"
-status: pending
+status: done
 priority: P1
 effort: "1.5-2d"
 dependencies: []

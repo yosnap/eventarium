@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: "Fase 4: Email de entrada, página pública y cierre de fase"
-status: pending
+status: done
 priority: P1
 effort: "1-1.5d"
 dependencies: [3]

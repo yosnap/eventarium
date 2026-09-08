@@ -108,6 +108,7 @@ jobs:
           S3_PUBLIC_BASE_URL=http://localhost:8080/media
           REDIS_URL=redis://localhost:6379/0
           JWT_SECRET=secreto-de-integracion-continua-de-mas-de-32
+          TICKET_QR_SECRET=otro-secreto-de-integracion-continua-de-mas-de-32
           TRUSTED_PROXY_CIDRS=127.0.0.1/32,::1/128
           DEFAULT_ORGANIZATION_SLUG=
           SMTP_HOST=127.0.0.1

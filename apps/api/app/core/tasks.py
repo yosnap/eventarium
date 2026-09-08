@@ -18,7 +18,8 @@ from taskiq_redis import RedisAsyncResultBackend, RedisStreamBroker
 from app.core.cleanup import sweep_unverified_accounts
 from app.core.config import get_settings
 from app.core.database import maintenance_session
-from app.core.email import get_email_provider
+from app.core.email import EmailAttachment, get_email_provider
+from app.modules.tickets.service import generar_imagen_qr
 
 _settings = get_settings()
 
@@ -194,16 +195,44 @@ def _cuerpo_con_cancelacion(intro: str, enlace_cancelacion: str) -> str:
 
 @broker.task(retry_on_error=True, max_retries=5)
 async def send_registration_confirmed_email(
-    to_email: str, organization_id: str, cancel_token: str
+    to_email: str, organization_id: str, cancel_token: str, qr_token: str | None = None
 ) -> None:
-    """Confirmación de inscripción (alta directa, verificación o aprobación)."""
+    """Confirmación de inscripción (alta directa, verificación o aprobación),
+    con la entrada QR incrustada (fase 4 del PRD, fase 4 de trabajo).
+
+    `qr_token` es el JWT ya firmado de la entrada (`tickets.service.generar_token_qr`),
+    generado en `_enviar_email_por_estado` — la imagen PNG se genera aquí, en
+    el worker, no en el camino de la petición HTTP que confirma la inscripción.
+
+    Opcional con valor por defecto (no un cuarto argumento obligatorio): un
+    despliegue con reinicio escalonado podría dejar un mensaje ya encolado
+    por un productor con la firma antigua (de tres argumentos) esperando a
+    ser procesado por un worker ya actualizado — con un valor por defecto ese
+    mensaje se entrega igual, sin el QR incrustado, en vez de fallar.
+    """
     base = await _base_url_de_organizacion(uuid.UUID(organization_id))
     enlace_cancelacion = f"{base}/cancelar-inscripcion?token={cancel_token}"
+    enlace_mi_entrada = f"{base}/mi-entrada?token={cancel_token}"
     await get_email_provider().send(
         to=to_email,
         subject="Tu inscripción está confirmada",
         body=_cuerpo_con_cancelacion(
-            "Tu inscripción ha quedado confirmada. ¡Te esperamos!", enlace_cancelacion
+            "Tu inscripción ha quedado confirmada. ¡Te esperamos! Adjuntamos tu "
+            "entrada con el código QR: muéstrala en la puerta el día del evento.\n\n"
+            f"Si pierdes este correo, puedes volver a verla aquí:\n{enlace_mi_entrada}",
+            enlace_cancelacion,
+        ),
+        attachments=(
+            [
+                EmailAttachment(
+                    filename="entrada.png",
+                    content=generar_imagen_qr(qr_token),
+                    maintype="image",
+                    subtype="png",
+                )
+            ]
+            if qr_token is not None
+            else []
         ),
     )
 

@@ -23,6 +23,8 @@ from app.modules.registrations.public_router import router as registrations_publ
 from app.modules.registrations.router import router as registrations_router
 from app.modules.roles.router import router as roles_router
 from app.modules.tenant.router import router as tenant_router
+from app.modules.tickets.public_router import router as tickets_public_router
+from app.modules.tickets.router import router as tickets_router
 from app.modules.users.router import router as users_router
 from app.shared.errors import register_exception_handlers
 
@@ -88,6 +90,8 @@ def create_app() -> FastAPI:
     api.include_router(events_public_router)
     api.include_router(registrations_router)
     api.include_router(registrations_public_router)
+    api.include_router(tickets_router)
+    api.include_router(tickets_public_router)
     app.include_router(api)
 
     return app

@@ -193,6 +193,11 @@ type CampoBase = 'slug' | 'title' | 'startsAt' | 'endsAt';
         @if (esEdicion()) {
           <app-event-agenda [eventId]="eventId()!" />
           <app-event-registrations [eventId]="eventId()!" />
+          <a [routerLink]="['/admin/events', eventId(), 'check-in']">
+            <app-button variant="secundario" type="button">
+              {{ t('admin.events.checkIn.enlaceDesdeEvento') }}
+            </app-button>
+          </a>
         }
       }
     </ng-container>
