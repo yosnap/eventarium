@@ -82,12 +82,22 @@ dado el resto de la máquina de estados ya cerrada en la fase 1. `cancel`
 - `openapi.json` y los tipos generados del cliente Angular, regenerados
   (`make api-types`).
 
+**Prueba manual en navegador real (Comet), sesión 2026-09-08:** contra
+`http://localhost:8080/admin`, evento `e2e-fase4` con datos sembrados
+directamente en Postgres (`registration_mode=approval`, `capacity=1`, una
+`confirmed`, una `pending_approval`, una `waitlisted`). Verificado en vivo:
+- Rechazar la `pending_approval` → pasa a `Rechazada`, estadísticas se
+  actualizan, botones de acción desaparecen.
+- Cancelar la `confirmed` → pasa a `Cancelada`; la persona en
+  `waitlisted` recibe `waitlist_promoted_at`/`waitlist_promotion_expires_at`
+  automáticamente (confirmado también por consulta directa a la tabla).
+- Filtro por estado (`En lista de espera`) en el listado.
+- Preguntas: alta, edición (con precarga de datos), borrado con
+  confirmación en dos pasos (`¿Seguro?`) — sin `window.confirm`.
+Datos de prueba borrados y `registration_mode`/`capacity` del evento
+restaurados a su valor original tras la sesión.
+
 **Huecos reales, no maquillados:**
-- No hay prueba manual en navegador real del panel completo
-  (aprobar/rechazar, ver moverse la lista de espera) — cubierto por tests de
-  integración HTTP (backend) y de componente con axe (frontend), no por una
-  sesión de navegador real. Mismo hueco ya declarado en la fase 2; queda
-  pendiente antes de cerrar la fase 4.
 - El email de promoción de lista de espera **no se envía** en esta fase: el
   token de confirmación (`waitlist_promotion_confirm`) ya se genera y la
   ventana ya se marca, pero la plantilla de email es explícitamente fase 4
@@ -121,7 +131,7 @@ Validation:
 - [x] Test: la tarea de expiración devuelve a `waitlisted` una promoción vencida y promueve a la siguiente — `test_tarea_cron_reasigna_una_promocion_caducada` (passed)
 - [x] Test: `PATCH` de tipo/`DELETE` con respuestas → 409; sin respuestas funciona — `test_cambiar_tipo_de_una_pregunta_con_respuestas_falla_409`, `test_crear_editar_y_borrar_una_pregunta_sin_respuestas` (passed)
 - [x] Test: estadísticas cuadran con un escenario sembrado — `test_estadisticas_cuadran_con_un_escenario_sembrado` (passed)
-- [ ] Prueba manual del panel (navegador real): aprobar/rechazar, ver la lista de espera moverse tras cancelar una confirmada — no ejecutada, ver "Huecos reales" arriba
+- [x] Prueba manual del panel (navegador real, Comet): aprobar/rechazar, ver la lista de espera moverse tras cancelar una confirmada — ver sección de prueba manual arriba
 
 # Fase 3: Aprobación, lista de espera automática y panel de organizador
 
