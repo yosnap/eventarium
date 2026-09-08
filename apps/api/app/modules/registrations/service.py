@@ -1,10 +1,6 @@
-"""Lógica de inscripción de asistentes: alta pública y verificación de correo.
-
-Aprobación bajo demanda, lista de espera con promoción automática y las
-emails restantes son de las fases 3 y 4 de trabajo; esta fase entrega el alta
-completa hasta el punto en que la inscripción queda `confirmed`,
-`pending_approval` o `waitlisted`.
-"""
+"""Lógica de inscripción de asistentes: alta, verificación, aprobación, lista
+de espera con promoción automática, emails transaccionales y autocancelación
+(fases 2, 3 y 4 de trabajo de la fase 3 del PRD)."""
 
 from __future__ import annotations
 
@@ -18,8 +14,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import maintenance_session
-from app.core.tasks import send_registration_verification_email
+from app.core.tasks import (
+    send_registration_cancelled_email,
+    send_registration_confirmed_email,
+    send_registration_rejected_email,
+    send_registration_verification_email,
+    send_registration_waitlisted_email,
+    send_waitlist_promotion_email,
+)
 from app.modules.auth.verification import (
+    PROPOSITO_CANCELACION_INSCRIPCION,
     PROPOSITO_PROMOCION_LISTA_ESPERA,
     PROPOSITO_VERIFICACION_INSCRIPCION,
     consume_token,
@@ -134,13 +138,20 @@ async def _evaluar_estado_por_capacidad(session: AsyncSession, evento: Event) ->
     """`confirmed` o `waitlisted` únicamente por aforo, sin mirar el modo de
     aprobación — usada tanto por el alta/verificación (a través de
     `_evaluar_estado_por_aforo`) como por `approve_registration`, que ya sabe
-    que está saliendo de `pending_approval` y no debe volver a evaluarlo."""
+    que está saliendo de `pending_approval` y no debe volver a evaluarlo.
+
+    Cuenta `confirmed` **y** promociones de lista de espera todavía dentro de
+    su ventana (`count_reserved_registrations`), no solo `confirmed`: la
+    plaza de alguien a quien se le acaba de promover ya está reservada
+    aunque todavía no haya confirmado, y una verificación o aprobación
+    concurrente no debe poder colarse en ese hueco.
+    """
     if evento.capacity is None:
         return "confirmed"
-    confirmados = await repository.count_confirmed_registrations(
+    reservadas = await repository.count_reserved_registrations(
         session, evento.organization_id, evento.id
     )
-    return "confirmed" if confirmados < evento.capacity else "waitlisted"
+    return "confirmed" if reservadas < evento.capacity else "waitlisted"
 
 
 async def _evaluar_estado_por_aforo(session: AsyncSession, evento: Event) -> str:
@@ -156,13 +167,42 @@ async def _evaluar_estado_por_aforo(session: AsyncSession, evento: Event) -> str
     return await _evaluar_estado_por_capacidad(session, evento)
 
 
+def _ttl_cancelacion() -> timedelta:
+    return timedelta(days=get_settings().registration_cancel_token_ttl_days)
+
+
+async def _generar_token_cancelacion(registration_id: uuid.UUID) -> str:
+    """El token se genera cada vez que se encola un email que lo ofrece, nunca
+    una sola vez al confirmar — así una persona `waitlisted` también puede
+    cancelar, no solo una `confirmed` (decisión #5 del PRD)."""
+    return await generate_token(
+        PROPOSITO_CANCELACION_INSCRIPCION, str(registration_id), ttl=_ttl_cancelacion()
+    )
+
+
+async def _enviar_email_por_estado(inscripcion: EventRegistration) -> None:
+    """Encola el email de confirmación o de lista de espera según el estado
+    ya asignado a `inscripcion` — usado por el alta sin verificación, la
+    verificación posterior y la aprobación manual, para no triplicar esta
+    decisión en cada llamador."""
+    token_cancelacion = await _generar_token_cancelacion(inscripcion.id)
+    organization_id = str(inscripcion.organization_id)
+    if inscripcion.status == "confirmed":
+        await send_registration_confirmed_email.kiq(
+            inscripcion.email, organization_id, token_cancelacion
+        )
+    elif inscripcion.status == "waitlisted":
+        await send_registration_waitlisted_email.kiq(
+            inscripcion.email, organization_id, token_cancelacion
+        )
+
+
 async def _promote_next_waitlisted(session: AsyncSession, evento: Event) -> None:
     """Promueve a la primera persona en lista de espera, si hay alguna.
 
-    Solo marca la ventana de promoción y genera el token de confirmación
-    (`waitlist_promotion_confirm`, TTL = ventana configurada): el email que
-    lleva ese enlace es la fase 4 de trabajo, que reutilizará este mismo
-    token en vez de generar uno nuevo.
+    Marca la ventana de promoción y encola el email con el enlace de
+    confirmación (`waitlist_promotion_confirm`) y el de autocancelación
+    (`registration_cancel`), cada uno con su propio TTL.
     """
     siguiente = await repository.get_oldest_waitlisted(session, evento.organization_id, evento.id)
     if siguiente is None:
@@ -171,7 +211,52 @@ async def _promote_next_waitlisted(session: AsyncSession, evento: Event) -> None
     ventana = timedelta(hours=get_settings().waitlist_promotion_window_hours)
     siguiente.waitlist_promoted_at = ahora
     siguiente.waitlist_promotion_expires_at = ahora + ventana
-    await generate_token(PROPOSITO_PROMOCION_LISTA_ESPERA, str(siguiente.id), ttl=ventana)
+    confirm_token = await generate_token(
+        PROPOSITO_PROMOCION_LISTA_ESPERA, str(siguiente.id), ttl=ventana
+    )
+    cancel_token = await _generar_token_cancelacion(siguiente.id)
+    await send_waitlist_promotion_email.kiq(
+        siguiente.email,
+        str(siguiente.organization_id),
+        confirm_token,
+        cancel_token,
+        (ahora + ventana).strftime("%d/%m/%Y %H:%M"),
+    )
+
+
+async def _cancelar_inscripcion(
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    inscripcion: EventRegistration,
+) -> bool:
+    """Núcleo compartido de la cancelación: por el organizador o por
+    autocancelación pública. Marca `cancelled`, envía el email y, si liberaba
+    una plaza reservada, promueve a la lista de espera.
+
+    Devuelve `False` sin hacer nada si ya estaba `cancelled`/`rejected` — el
+    llamador decide si eso es un 409 (panel) o un no-op silencioso (enlace
+    público, de un solo uso salvo que existan varios tokens vigentes).
+    """
+    if inscripcion.status in ("cancelled", "rejected"):
+        return False
+
+    # Una plaza está reservada tanto si está `confirmed` como si está
+    # `waitlisted` en mitad de una promoción (ver `count_reserved_registrations`)
+    # — cancelar en cualquiera de los dos casos libera un hueco real y debe
+    # promover a la siguiente persona, no solo cuando ya estaba confirmada.
+    liberaba_una_plaza = inscripcion.status == "confirmed" or (
+        inscripcion.status == "waitlisted" and inscripcion.waitlist_promoted_at is not None
+    )
+    inscripcion.status = "cancelled"
+    inscripcion.cancelled_at = datetime.now(UTC)
+    await send_registration_cancelled_email.kiq(inscripcion.email, str(organization_id))
+
+    if liberaba_una_plaza:
+        evento = await repository.lock_event_for_capacity(session, organization_id, event_id)
+        await _promote_next_waitlisted(session, evento)
+    return True
 
 
 async def submit_registration(
@@ -208,13 +293,21 @@ async def submit_registration(
         session, event.organization_id, event.id, email_normalizado
     )
     if existente is not None:
+        # Reenvía siempre el email que corresponda al estado actual (decisión
+        # #1 del PRD, fase 3) — la respuesta pública es la misma en cualquier
+        # caso, nunca revela en qué estado está la inscripción existente.
         if existente.status == "pending_verification":
             token = await generate_token(PROPOSITO_VERIFICACION_INSCRIPCION, str(existente.id))
             await send_registration_verification_email.kiq(
                 email_normalizado, token, str(event.organization_id)
             )
-        # Los demás estados no tienen plantilla de correo todavía (llegan en la
-        # fase 4 de trabajo); la respuesta pública es la misma en cualquier caso.
+        elif existente.status in ("confirmed", "waitlisted"):
+            await _enviar_email_por_estado(existente)
+        elif existente.status == "rejected":
+            await send_registration_rejected_email.kiq(existente.email, str(event.organization_id))
+        elif existente.status == "cancelled":
+            await send_registration_cancelled_email.kiq(existente.email, str(event.organization_id))
+        # `pending_approval`: sin plantilla propia, igual que en el alta normal.
         return
 
     user_id = await repository.find_user_id_by_email(session, email_normalizado)
@@ -272,6 +365,8 @@ async def submit_registration(
         await send_registration_verification_email.kiq(
             email_normalizado, token, str(event.organization_id)
         )
+    else:
+        await _enviar_email_por_estado(inscripcion)
 
 
 async def verify_registration(session: AsyncSession, *, token: str) -> EventRegistration:
@@ -300,6 +395,7 @@ async def verify_registration(session: AsyncSession, *, token: str) -> EventRegi
     inscripcion.status = nuevo_estado
     if nuevo_estado == "confirmed":
         inscripcion.confirmed_at = ahora
+    await _enviar_email_por_estado(inscripcion)
     return inscripcion
 
 
@@ -333,6 +429,7 @@ async def approve_registration(
     inscripcion.status = await _evaluar_estado_por_capacidad(session, evento)
     if inscripcion.status == "confirmed":
         inscripcion.confirmed_at = ahora
+    await _enviar_email_por_estado(inscripcion)
     return inscripcion
 
 
@@ -359,6 +456,7 @@ async def reject_registration(
 
     inscripcion.status = "rejected"
     inscripcion.rejected_at = datetime.now(UTC)
+    await send_registration_rejected_email.kiq(inscripcion.email, str(organization_id))
     return inscripcion
 
 
@@ -371,10 +469,12 @@ async def cancel_registration(
 ) -> EventRegistration:
     """Cancela una inscripción desde el panel de organizador.
 
-    Si liberaba una plaza `confirmed`, promueve a la primera persona en lista
-    de espera — misma sección crítica que `approve_registration`.
+    Si liberaba una plaza reservada, promueve a la primera persona en lista
+    de espera. Bloquea la fila de la inscripción (`get_registration_for_update`)
+    antes de decidir: dos cancelaciones concurrentes de la misma inscripción
+    no deben poder promover dos veces para un único hueco liberado.
     """
-    inscripcion = await repository.get_registration(
+    inscripcion = await repository.get_registration_for_update(
         session, organization_id, event_id, registration_id
     )
     if inscripcion is None:
@@ -382,14 +482,38 @@ async def cancel_registration(
     if inscripcion.status in ("cancelled", "rejected"):
         raise ConflictError("La inscripción ya está cancelada o rechazada.")
 
-    liberaba_una_plaza = inscripcion.status == "confirmed"
-    inscripcion.status = "cancelled"
-    inscripcion.cancelled_at = datetime.now(UTC)
-
-    if liberaba_una_plaza:
-        evento = await repository.lock_event_for_capacity(session, organization_id, event_id)
-        await _promote_next_waitlisted(session, evento)
+    await _cancelar_inscripcion(
+        session, organization_id=organization_id, event_id=event_id, inscripcion=inscripcion
+    )
     return inscripcion
+
+
+async def cancel_registration_by_token(session: AsyncSession, *, token: str) -> None:
+    """Autocancelación pública: consume el token de un solo uso (`GETDEL`) y
+    aplica la misma cancelación que el panel de organizador.
+
+    Idempotente si la inscripción ya estaba `cancelled`/`rejected` (puede
+    haber varios tokens vigentes para la misma inscripción, uno por cada
+    email enviado): no es un error, simplemente no hace nada más.
+    """
+    bruto = await consume_token(PROPOSITO_CANCELACION_INSCRIPCION, token)
+    if bruto is None:
+        raise ValidationDomainError("El enlace de cancelación no es válido o ha caducado.")
+
+    registration_id = uuid.UUID(bruto)
+    # `with_for_update=True`: mismo motivo que `get_registration_for_update`
+    # del panel — dos tokens de cancelación vigentes para la misma
+    # inscripción no deben poder promover dos veces un único hueco liberado.
+    inscripcion = await session.get(EventRegistration, registration_id, with_for_update=True)
+    if inscripcion is None:
+        return
+
+    await _cancelar_inscripcion(
+        session,
+        organization_id=inscripcion.organization_id,
+        event_id=inscripcion.event_id,
+        inscripcion=inscripcion,
+    )
 
 
 async def confirm_waitlist_promotion(session: AsyncSession, *, token: str) -> EventRegistration:
@@ -416,6 +540,7 @@ async def confirm_waitlist_promotion(session: AsyncSession, *, token: str) -> Ev
 
     inscripcion.status = "confirmed"
     inscripcion.confirmed_at = ahora
+    await _enviar_email_por_estado(inscripcion)
     return inscripcion
 
 
@@ -443,7 +568,11 @@ async def expire_waitlist_promotions() -> None:
 
 
 async def get_registration_stats(
-    session: AsyncSession, *, organization_id: uuid.UUID, event_id: uuid.UUID
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    email_verification_required: bool,
 ) -> dict[str, Any]:
     """Estadísticas de conversión del embudo, para `GET .../registrations/stats`.
 
@@ -452,11 +581,24 @@ async def get_registration_stats(
     abiertos" (PRD §4.3) queda fuera de esta fase por falta de webhooks del
     proveedor de email — decisión de alcance ya documentada en el plan, no una
     omisión.
+
+    Cuando el evento no exige verificación de email, `verified_at` nunca se
+    rellena (no hay paso de verificación que lo haga) — contar `verificados`
+    a partir de esa columna daría siempre 0% aunque todo el mundo llegue a
+    `confirmed`/`waitlisted`. En ese caso "verificados" se informa igual a
+    "iniciados": no hay paso de verificación que superar, así que todo el
+    mundo lo "pasa" trivialmente.
     """
     por_estado = await repository.count_registrations_by_status(session, organization_id, event_id)
     iniciados = sum(por_estado.values())
-    verificados = await repository.count_verified_registrations(session, organization_id, event_id)
     confirmados = por_estado.get("confirmed", 0)
+
+    if email_verification_required:
+        verificados = await repository.count_verified_registrations(
+            session, organization_id, event_id
+        )
+    else:
+        verificados = iniciados
 
     return {
         "initiated": iniciados,

@@ -10,6 +10,7 @@ estados que el formulario público no puede producir por sí solo (p. ej.
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
@@ -366,6 +367,114 @@ class TestCancelacionYListaDeEspera:
         assert siguiente["waitlist_promoted_at"] is not None
         assert siguiente["waitlist_promotion_expires_at"] is not None
 
+    async def test_una_promocion_sin_confirmar_reserva_el_hueco_y_evita_sobreventa(
+        self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
+    ) -> None:
+        """Regresión: `_evaluar_estado_por_capacidad` contaba solo `confirmed`,
+        así que el hueco de alguien recién promovido (todavía `waitlisted`,
+        sin confirmar) no contaba para el aforo — una aprobación concurrente
+        podía colarse en ese hueco y dejar dos personas para una plaza."""
+        _, cabeceras = await iniciar_sesion(cliente, organizacion)
+        evento = await _crear_y_publicar_evento(
+            cliente, cabeceras, "sin-sobreventa", registration_mode="approval", capacity=1
+        )
+        confirmada_id = await _crear_inscripcion(
+            organizacion, evento, email="confirmado@example.com", status="confirmed"
+        )
+        await _crear_inscripcion(
+            organizacion, evento, email="espera@example.com", status="waitlisted"
+        )
+        pendiente_id = await _crear_inscripcion(
+            organizacion, evento, email="pendiente@example.com", status="pending_approval"
+        )
+
+        cancelacion = await cliente.post(
+            f"{EVENTS}/{evento['id']}/registrations/{confirmada_id}/cancel", headers=cabeceras
+        )
+        assert cancelacion.status_code == 200, cancelacion.text
+        # "espera@example.com" queda promovida (waitlisted + waitlist_promoted_at),
+        # el hueco liberado por la cancelación está reservado para ella.
+
+        aprobacion = await cliente.post(
+            f"{EVENTS}/{evento['id']}/registrations/{pendiente_id}/approve", headers=cabeceras
+        )
+
+        assert aprobacion.status_code == 200, aprobacion.text
+        assert aprobacion.json()["status"] == "waitlisted"
+
+    async def test_cancelar_una_promovida_sin_confirmar_repromueve_de_inmediato(
+        self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
+    ) -> None:
+        """Regresión: cancelar una inscripción `waitlisted` en mitad de su
+        promoción no disparaba una nueva promoción (`liberaba_una_plaza` solo
+        miraba `confirmed`) — el hueco quedaba huérfano hasta que el cron la
+        expirase, hasta 15 minutos después."""
+        _, cabeceras = await iniciar_sesion(cliente, organizacion)
+        evento = await _crear_y_publicar_evento(
+            cliente, cabeceras, "repromueve-al-cancelar", capacity=1
+        )
+        confirmada_id = await _crear_inscripcion(
+            organizacion, evento, email="confirmado@example.com", status="confirmed"
+        )
+        promovida_id = await _crear_inscripcion(
+            organizacion, evento, email="promovida@example.com", status="waitlisted"
+        )
+        siguiente_id = await _crear_inscripcion(
+            organizacion, evento, email="siguiente@example.com", status="waitlisted"
+        )
+        await cliente.post(
+            f"{EVENTS}/{evento['id']}/registrations/{confirmada_id}/cancel", headers=cabeceras
+        )
+        assert (await _fila(promovida_id))["waitlist_promoted_at"] is not None
+
+        respuesta = await cliente.post(
+            f"{EVENTS}/{evento['id']}/registrations/{promovida_id}/cancel", headers=cabeceras
+        )
+
+        assert respuesta.status_code == 200, respuesta.text
+        assert (await _estado(promovida_id)) == "cancelled"
+        siguiente = await _fila(siguiente_id)
+        assert siguiente["waitlist_promoted_at"] is not None
+
+    async def test_cancelaciones_concurrentes_de_la_misma_confirmada_solo_promueven_una_vez(
+        self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
+    ) -> None:
+        """Regresión: sin bloquear la fila de la inscripción antes de decidir,
+        dos cancelaciones concurrentes de la misma `confirmed` podían leer
+        ambas el estado antes de que ninguna confirmara su cambio y promover
+        dos veces para un único hueco liberado."""
+        _, cabeceras = await iniciar_sesion(cliente, organizacion)
+        evento = await _crear_y_publicar_evento(
+            cliente, cabeceras, "cancelar-concurrente", capacity=1
+        )
+        confirmada_id = await _crear_inscripcion(
+            organizacion, evento, email="confirmado@example.com", status="confirmed"
+        )
+        espera1_id = await _crear_inscripcion(
+            organizacion, evento, email="espera1@example.com", status="waitlisted"
+        )
+        espera2_id = await _crear_inscripcion(
+            organizacion, evento, email="espera2@example.com", status="waitlisted"
+        )
+
+        respuestas = await asyncio.gather(
+            cliente.post(
+                f"{EVENTS}/{evento['id']}/registrations/{confirmada_id}/cancel", headers=cabeceras
+            ),
+            cliente.post(
+                f"{EVENTS}/{evento['id']}/registrations/{confirmada_id}/cancel", headers=cabeceras
+            ),
+        )
+        codigos = sorted(respuesta.status_code for respuesta in respuestas)
+        assert codigos == [200, 409]
+
+        promovidas = [
+            fila
+            for fila in [await _fila(espera1_id), await _fila(espera2_id)]
+            if fila["waitlist_promoted_at"] is not None
+        ]
+        assert len(promovidas) == 1
+
 
 class TestListadoYEstadisticas:
     async def test_listar_inscripciones_filtra_por_estado(
@@ -471,6 +580,31 @@ class TestListadoYEstadisticas:
         assert stats["waitlisted"] == 1
         assert stats["verified_conversion_rate"] == pytest.approx(3 / 6)
         assert stats["confirmed_conversion_rate"] == pytest.approx(1 / 3)
+
+    async def test_estadisticas_sin_verificacion_de_email_no_penalizan_verificados(
+        self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
+    ) -> None:
+        """Regresión: con `email_verification_required=False`, `verified_at`
+        nunca se rellena (no hay paso de verificación), así que contar
+        "verificados" a partir de esa columna daba siempre 0% de conversión
+        aunque todo el mundo llegara a `confirmed`/`waitlisted`."""
+        _, cabeceras = await iniciar_sesion(cliente, organizacion)
+        evento = await _crear_y_publicar_evento(
+            cliente, cabeceras, "estadisticas-sin-verificacion", email_verification_required=False
+        )
+        await _crear_inscripcion(organizacion, evento, email="a@example.com", status="confirmed")
+        await _crear_inscripcion(organizacion, evento, email="b@example.com", status="waitlisted")
+
+        respuesta = await cliente.get(
+            f"{EVENTS}/{evento['id']}/registrations/stats", headers=cabeceras
+        )
+
+        assert respuesta.status_code == 200, respuesta.text
+        stats = respuesta.json()
+        assert stats["initiated"] == 2
+        assert stats["verified"] == 2
+        assert stats["verified_conversion_rate"] == pytest.approx(1.0)
+        assert stats["confirmed_conversion_rate"] == pytest.approx(1 / 2)
 
 
 class TestGestionDePreguntas:

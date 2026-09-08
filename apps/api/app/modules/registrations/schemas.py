@@ -86,6 +86,18 @@ class ConfirmWaitlistPromotionResponse(BaseModel):
     message: str
 
 
+class CancelRegistrationRequest(BaseModel):
+    """Token del enlace de autocancelación recibido por correo."""
+
+    token: str
+
+
+class CancelRegistrationResponse(BaseModel):
+    """Resultado de cancelar una inscripción por autocancelación."""
+
+    message: str
+
+
 # --- Panel de organizador (fase 3 de trabajo) --------------------------------
 
 

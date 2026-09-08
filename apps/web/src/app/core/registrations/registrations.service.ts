@@ -79,4 +79,19 @@ export class RegistrationsService {
       }),
     );
   }
+
+  async confirmWaitlistPromotion(token: string): Promise<RespuestaGenerica> {
+    return firstValueFrom(
+      this.http.post<RespuestaGenerica>(
+        this.api.url('/public/registrations/confirm-waitlist-promotion'),
+        { token },
+      ),
+    );
+  }
+
+  async cancel(token: string): Promise<RespuestaGenerica> {
+    return firstValueFrom(
+      this.http.post<RespuestaGenerica>(this.api.url('/public/registrations/cancel'), { token }),
+    );
+  }
 }
