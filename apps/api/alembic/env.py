@@ -18,8 +18,13 @@ from alembic import context
 from app.core.config import get_settings
 from app.core.database import Base
 
-# La importación de los modelos registra las tablas en `Base.metadata`.
+# La importación de los modelos registra las tablas en `Base.metadata`. Sin
+# ella, `alembic revision --autogenerate` no vería estas tablas y generaría
+# una migración que las borra — `events`/`registrations` faltaban aquí (la
+# fase 2 del PRD nunca las añadió); se completan ahora de paso.
+from app.modules.events import models as event_models  # noqa: F401
 from app.modules.organizations import models as organization_models  # noqa: F401
+from app.modules.registrations import models as registration_models  # noqa: F401
 from app.modules.roles import models as role_models  # noqa: F401
 from app.modules.users import models as user_models  # noqa: F401
 
