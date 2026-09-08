@@ -749,6 +749,7 @@
     "errorDetalle": "Revisa el correo de confirmación de tu inscripción para volver a intentarlo."
   },
   "cookies": {
+    "gestionar": "Gestionar cookies",
     "banner": {
       "titulo": "Preferencias de cookies",
       "texto": "Usamos cookies necesarias para que la web funcione y, solo si lo aceptas, cookies analíticas y de marketing. Puedes cambiar tu decisión cuando quieras.",

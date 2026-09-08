@@ -3,6 +3,7 @@ import {
   Component,
   ElementRef,
   afterNextRender,
+  effect,
   inject,
   signal,
   viewChild,
@@ -72,7 +73,7 @@ import { Button } from '../ui/button';
               <app-button variant="secundario" (pulsado)="guardarPersonalizacion()">
                 {{ t('cookies.banner.guardarPreferencias') }}
               </app-button>
-              <app-button variant="secundario" (pulsado)="personalizando.set(false)">
+              <app-button variant="secundario" (pulsado)="volver()">
                 {{ t('cookies.banner.volver') }}
               </app-button>
             </div>
@@ -148,6 +149,20 @@ export class CookieBanner {
         this.moverFocoAlBanner();
       }
     });
+
+    // Reabierto desde "Gestionar cookies": precarga las categorías ya
+    // elegidas (no un estado vacío como si fuera la primera visita) y mueve
+    // el foco al banner, igual que en la primera aparición.
+    effect(() => {
+      if (!this.consentimiento.gestionAbierta()) {
+        return;
+      }
+      const activas = this.consentimiento.categorias();
+      this.analiticas.set(activas.has('analytics'));
+      this.marketing.set(activas.has('marketing'));
+      this.personalizando.set(true);
+      this.moverFocoAlBanner();
+    });
   }
 
   private moverFocoAlBanner(): void {
@@ -177,5 +192,16 @@ export class CookieBanner {
     await this.consentimiento.personalizar(categorias);
     this.personalizando.set(false);
     this.devolverFoco();
+  }
+
+  /** "Volver": si se llegó aquí desde "Gestionar cookies" (ya había una
+   * decisión previa), cierra la gestión sin cambiar nada; si es la primera
+   * visita, vuelve a la pantalla de las tres opciones iniciales. */
+  protected volver(): void {
+    if (this.consentimiento.gestionAbierta()) {
+      this.consentimiento.cerrarGestionDeCookies();
+      this.devolverFoco();
+    }
+    this.personalizando.set(false);
   }
 }

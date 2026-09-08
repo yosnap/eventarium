@@ -22,6 +22,7 @@ describe('shells', () => {
   const branding = signal(brandingDePrueba());
 
   beforeEach(() => {
+    localStorage.clear();
     TestBed.configureTestingModule({
       imports: [
         TranslocoTestingModule.forRoot({
@@ -82,6 +83,28 @@ describe('shells', () => {
     expect(raiz.querySelector('main#contenido-admin')).not.toBeNull();
     expect(raiz.querySelector('nav[aria-label]')).not.toBeNull();
     await esperarSinViolacionesDeAccesibilidad(raiz);
+  });
+
+  it('"Gestionar cookies" del pie reabre el banner de cookies', async () => {
+    localStorage.setItem(
+      'cookie-consent',
+      JSON.stringify({ categories: ['necessary'], version: 1, created_at: 'x' }),
+    );
+    const fixture = TestBed.createComponent(PublicShell);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const raiz = fixture.nativeElement as HTMLElement;
+
+    expect(raiz.querySelector('[role="region"]')).toBeNull();
+    const gestionar = Array.from(raiz.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Gestionar cookies'),
+    );
+    expect(gestionar).toBeTruthy();
+    gestionar?.dispatchEvent(new Event('click'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(raiz.querySelector('[role="region"]')).not.toBeNull();
   });
 
   it('el shell público muestra el logotipo con texto alternativo cuando existe', async () => {

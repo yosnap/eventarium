@@ -7,6 +7,7 @@ import { TranslocoTestingModule } from '@jsverse/transloco';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { CookieBanner } from './cookie-banner';
+import { CookieConsentService } from '../../core/cookies/cookie-consent.service';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../testing/axe';
 import es from '../../../../public/assets/i18n/es-ES.json';
 
@@ -144,6 +145,101 @@ describe('CookieBanner', () => {
     await avanzar(fixture);
 
     expect((fixture.nativeElement as HTMLElement).querySelector('[role="region"]')).toBeNull();
+  });
+
+  it('guarda versión y fecha en la decisión persistida', async () => {
+    const fixture = TestBed.createComponent(CookieBanner);
+    await avanzar(fixture);
+
+    const botones = (fixture.nativeElement as HTMLElement).querySelectorAll('button');
+    const aceptar = Array.from(botones).find((b) => b.textContent?.includes('Aceptar todo'));
+    aceptar?.dispatchEvent(new Event('click'));
+    await avanzar(fixture);
+    http
+      .expectOne('/api/v1/public/cookie-consent')
+      .flush(null, { status: 204, statusText: 'No Content' });
+    await avanzar(fixture);
+
+    const guardado = JSON.parse(localStorage.getItem('cookie-consent') ?? '{}');
+    expect(guardado.version).toBe(1);
+    expect(typeof guardado.created_at).toBe('string');
+    expect(Number.isNaN(Date.parse(guardado.created_at))).toBe(false);
+  });
+
+  it('"Gestionar cookies" reabre el banner con las categorías previamente elegidas ya marcadas', async () => {
+    localStorage.setItem(
+      'cookie-consent',
+      JSON.stringify({ categories: ['necessary', 'analytics'], version: 1, created_at: 'x' }),
+    );
+    const fixture = TestBed.createComponent(CookieBanner);
+    await avanzar(fixture);
+    const raiz = fixture.nativeElement as HTMLElement;
+
+    // Ya hay una decisión guardada: el banner no se muestra hasta reabrir la gestión.
+    expect(raiz.querySelector('[role="region"]')).toBeNull();
+
+    const consentimiento = TestBed.inject(CookieConsentService);
+    consentimiento.abrirGestionDeCookies();
+    await avanzar(fixture);
+
+    expect(raiz.querySelector('[role="region"]')).not.toBeNull();
+    const checkboxes = Array.from(
+      raiz.querySelectorAll('input[type="checkbox"]:not([disabled])'),
+    ) as HTMLInputElement[];
+    // Analíticas (ya elegida antes) viene precargada; marketing no.
+    expect(checkboxes[0].checked).toBe(true);
+    expect(checkboxes[1].checked).toBe(false);
+    await esperarSinViolacionesDeAccesibilidad(raiz);
+
+    // Cambia una categoría y guarda: la nueva decisión sobrescribe la anterior.
+    checkboxes[1].checked = true;
+    checkboxes[1].dispatchEvent(new Event('change'));
+    await avanzar(fixture);
+
+    const guardar = Array.from(raiz.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Guardar preferencias'),
+    );
+    guardar?.dispatchEvent(new Event('click'));
+    await avanzar(fixture);
+
+    const peticion = http.expectOne('/api/v1/public/cookie-consent');
+    expect(new Set(peticion.request.body.categories)).toEqual(
+      new Set(['necessary', 'analytics', 'marketing']),
+    );
+    peticion.flush(null, { status: 204, statusText: 'No Content' });
+    await avanzar(fixture);
+
+    expect(raiz.querySelector('[role="region"]')).toBeNull();
+    const persistido = JSON.parse(localStorage.getItem('cookie-consent') ?? '{}');
+    expect(new Set(persistido.categories)).toEqual(
+      new Set(['necessary', 'analytics', 'marketing']),
+    );
+  });
+
+  it('"Volver" tras reabrir "Gestionar cookies" cierra sin cambiar la decisión guardada', async () => {
+    localStorage.setItem(
+      'cookie-consent',
+      JSON.stringify({ categories: ['necessary'], version: 1, created_at: 'x' }),
+    );
+    const fixture = TestBed.createComponent(CookieBanner);
+    await avanzar(fixture);
+    const raiz = fixture.nativeElement as HTMLElement;
+
+    const consentimiento = TestBed.inject(CookieConsentService);
+    consentimiento.abrirGestionDeCookies();
+    await avanzar(fixture);
+    expect(raiz.querySelector('[role="region"]')).not.toBeNull();
+
+    const volver = Array.from(raiz.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Volver'),
+    );
+    volver?.dispatchEvent(new Event('click'));
+    await avanzar(fixture);
+
+    expect(raiz.querySelector('[role="region"]')).toBeNull();
+    expect(JSON.parse(localStorage.getItem('cookie-consent') ?? '{}').categories).toEqual([
+      'necessary',
+    ]);
   });
 
   it('rechazar todo no toca nada relacionado con Turnstile (aislamiento arquitectónico)', async () => {
