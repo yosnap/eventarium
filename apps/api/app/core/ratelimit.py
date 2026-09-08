@@ -61,6 +61,21 @@ CANCELACION_INSCRIPCION_POR_IP = 20
 # pensado para volver a visitarlo varias veces, no de un solo uso — mismo
 # tope que el resto de endpoints públicos con token de sobra entropía.
 MI_ENTRADA_POR_IP = 20
+# Páginas legales (fase 5 del PRD): lectura pública sin token, mismo tope que
+# el resto de contenido público de solo lectura.
+LEGAL_PAGES_POR_IP = PUBLICO_POR_IP
+# El banner de cookies llama a este endpoint como mucho una vez por decisión
+# real (aceptar/rechazar/personalizar); más permisivo que el registro porque
+# no encola correo ni consume ningún recurso escaso, pero sigue necesitando
+# su propio tope por ser público y sin Turnstile delante.
+COOKIE_CONSENT_POR_IP = 30
+# Superadministración (fase 5 del PRD): `admin/router.py` era el único módulo
+# de la API sin ningún límite de peticiones — un token de superadmin robado
+# sin tope permitiría iterar la exportación RGPD sobre todos los eventos de
+# todas las organizaciones sin fricción.
+AUDIT_LOG_POR_IP = 30
+RGPD_EXPORT_POR_IP = 10
+RGPD_DELETE_POR_IP = 10
 
 VENTANA_SEGUNDOS = 60
 
