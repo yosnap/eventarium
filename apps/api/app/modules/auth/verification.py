@@ -67,3 +67,16 @@ async def consume_token(proposito: str, token: str) -> str | None:
     clave = _CLAVE.format(proposito=proposito, huella=_huella(token))
     bruto = await redis.getdel(clave)
     return str(bruto) if bruto is not None else None
+
+
+async def peek_token(proposito: str, token: str) -> str | None:
+    """Como `consume_token`, pero sin borrar la clave.
+
+    `/mi-entrada` (fase 4 del PRD) reutiliza el token de autocancelación para
+    volver a mostrar el QR — mirarlo no debe invalidar el enlace de cancelar
+    que llegó en el mismo correo, así que no puede usar `GETDEL`.
+    """
+    redis = await require_redis()
+    clave = _CLAVE.format(proposito=proposito, huella=_huella(token))
+    bruto = await redis.get(clave)
+    return str(bruto) if bruto is not None else None

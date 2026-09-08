@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: "Fase 2: Escaneo y check-in (API)"
-status: pending
+status: done
 priority: P1
 effort: "1.5-2d"
 dependencies: [1]

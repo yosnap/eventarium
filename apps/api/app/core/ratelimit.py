@@ -57,6 +57,10 @@ VERIFICACION_INSCRIPCION_POR_IP = 20
 CONFIRMACION_PROMOCION_POR_IP = 20
 # Autocancelación: mismo razonamiento que confirm-waitlist-promotion.
 CANCELACION_INSCRIPCION_POR_IP = 20
+# `/mi-entrada` (fase 4 del PRD): a diferencia de verify/cancel, es un enlace
+# pensado para volver a visitarlo varias veces, no de un solo uso — mismo
+# tope que el resto de endpoints públicos con token de sobra entropía.
+MI_ENTRADA_POR_IP = 20
 
 VENTANA_SEGUNDOS = 60
 

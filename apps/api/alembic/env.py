@@ -26,6 +26,7 @@ from app.modules.events import models as event_models  # noqa: F401
 from app.modules.organizations import models as organization_models  # noqa: F401
 from app.modules.registrations import models as registration_models  # noqa: F401
 from app.modules.roles import models as role_models  # noqa: F401
+from app.modules.tickets import models as ticket_models  # noqa: F401
 from app.modules.users import models as user_models  # noqa: F401
 
 config = context.config
