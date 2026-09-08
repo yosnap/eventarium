@@ -27,6 +27,10 @@ PROPOSITO_CAMBIO_CORREO = "email_change"
 PROPOSITO_RECUPERAR_CONTRASENA = "password_reset"
 # Fase 3 del PRD (inscripción de asistentes). Payload: el `id` de la inscripción.
 PROPOSITO_VERIFICACION_INSCRIPCION = "registration_email_verify"
+# Fase 3 del PRD, fase 3 de trabajo (aprobación y lista de espera). Payload: el
+# `id` de la inscripción promovida. TTL variable, igual a la ventana de
+# promoción configurada — nunca `TTL_TOKEN`, ver `generate_token`.
+PROPOSITO_PROMOCION_LISTA_ESPERA = "waitlist_promotion_confirm"
 
 _CLAVE = "verify:{proposito}:{huella}"
 
@@ -35,14 +39,19 @@ def _huella(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-async def generate_token(proposito: str, payload: str) -> str:
-    """Genera y guarda un token opaco de un solo uso para el propósito indicado."""
+async def generate_token(proposito: str, payload: str, *, ttl: timedelta = TTL_TOKEN) -> str:
+    """Genera y guarda un token opaco de un solo uso para el propósito indicado.
+
+    `ttl` por defecto son las 24h de siempre; la promoción de lista de espera
+    pasa su propia ventana, configurable por `settings`, en vez de reutilizar
+    esta constante.
+    """
     token = secrets.token_urlsafe(32)
     redis = await require_redis()
     await redis.set(
         _CLAVE.format(proposito=proposito, huella=_huella(token)),
         payload,
-        ex=TTL_TOKEN,
+        ex=ttl,
     )
     return token
 

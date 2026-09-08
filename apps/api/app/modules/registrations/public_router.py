@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, Request, status
 
 from app.core.deps import DbDep, OrganizationDep
 from app.core.ratelimit import (
+    CONFIRMACION_PROMOCION_POR_IP,
     INSCRIPCION_POR_IP,
     PUBLICO_POR_IP,
     VERIFICACION_INSCRIPCION_POR_IP,
@@ -25,6 +26,8 @@ from app.modules.events import repository as events_repository
 from app.modules.events.models import Event
 from app.modules.registrations import repository, service
 from app.modules.registrations.schemas import (
+    ConfirmWaitlistPromotionRequest,
+    ConfirmWaitlistPromotionResponse,
     RegistrationMessageResponse,
     RegistrationQuestionPublic,
     SubmitRegistrationRequest,
@@ -124,3 +127,20 @@ async def verify_registration(
         message=_MENSAJES_POR_ESTADO.get(inscripcion.status, "Inscripción verificada."),
         status=inscripcion.status,
     )
+
+
+@router.post(
+    "/registrations/confirm-waitlist-promotion",
+    summary="Confirmar una promoción desde la lista de espera",
+    description=(
+        "Consume el token del enlace de promoción. Si ha caducado, responde que "
+        "caducó sin más detalle y deja que el barrido cron reasigne la plaza."
+    ),
+    response_model=ConfirmWaitlistPromotionResponse,
+    dependencies=[limit_per_ip("confirmar-promocion", CONFIRMACION_PROMOCION_POR_IP)],
+)
+async def confirm_waitlist_promotion(
+    datos: ConfirmWaitlistPromotionRequest, session: DbDep
+) -> ConfirmWaitlistPromotionResponse:
+    await service.confirm_waitlist_promotion(session, token=datos.token)
+    return ConfirmWaitlistPromotionResponse(message="Tu plaza está confirmada.")

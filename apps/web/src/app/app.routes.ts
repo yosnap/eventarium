@@ -104,6 +104,13 @@ export const routes: Routes = [
         loadComponent: () => import('./features/admin/events/event-form').then((m) => m.EventForm),
       },
       {
+        path: 'events/:id/registrations/:registrationId',
+        loadComponent: () =>
+          import('./features/admin/events/registration-detail-page').then(
+            (m) => m.RegistrationDetailPage,
+          ),
+      },
+      {
         path: 'account',
         loadComponent: () =>
           import('./features/admin/account/account-page').then((m) => m.AccountPage),

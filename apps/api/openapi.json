@@ -2368,6 +2368,547 @@
         }
       }
     },
+    "/api/v1/events/{event_id}/registrations": {
+      "get": {
+        "tags": [
+          "inscripciones"
+        ],
+        "summary": "Listar las inscripciones de un evento",
+        "operationId": "list_registrations_api_v1_events__event_id__registrations_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending_verification",
+                    "pending_approval",
+                    "confirmed",
+                    "rejected",
+                    "cancelled",
+                    "waitlisted"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Elementos por página",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Elementos por página"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Elementos omitidos",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Elementos omitidos"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_RegistrationListItem_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/registrations/stats": {
+      "get": {
+        "tags": [
+          "inscripciones"
+        ],
+        "summary": "Estadísticas de conversión del embudo de inscripción",
+        "operationId": "get_registration_stats_api_v1_events__event_id__registrations_stats_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationStats"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/registrations/{registration_id}": {
+      "get": {
+        "tags": [
+          "inscripciones"
+        ],
+        "summary": "Ver el detalle de una inscripción",
+        "operationId": "get_registration_api_v1_events__event_id__registrations__registration_id__get",
+        "parameters": [
+          {
+            "name": "registration_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Registration Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/registrations/{registration_id}/approve": {
+      "post": {
+        "tags": [
+          "inscripciones"
+        ],
+        "summary": "Aprobar una inscripción pendiente de aprobación",
+        "operationId": "approve_registration_api_v1_events__event_id__registrations__registration_id__approve_post",
+        "parameters": [
+          {
+            "name": "registration_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Registration Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationListItem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/registrations/{registration_id}/reject": {
+      "post": {
+        "tags": [
+          "inscripciones"
+        ],
+        "summary": "Rechazar una inscripción pendiente de aprobación",
+        "operationId": "reject_registration_api_v1_events__event_id__registrations__registration_id__reject_post",
+        "parameters": [
+          {
+            "name": "registration_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Registration Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationListItem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/registrations/{registration_id}/cancel": {
+      "post": {
+        "tags": [
+          "inscripciones"
+        ],
+        "summary": "Cancelar una inscripción desde el panel de organizador",
+        "description": "Si la inscripción cancelada estaba confirmada, promueve automáticamente a la primera persona en lista de espera.",
+        "operationId": "cancel_registration_api_v1_events__event_id__registrations__registration_id__cancel_post",
+        "parameters": [
+          {
+            "name": "registration_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Registration Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationListItem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/registration-questions": {
+      "get": {
+        "tags": [
+          "inscripciones"
+        ],
+        "summary": "Listar las preguntas personalizadas de inscripción de un evento",
+        "operationId": "list_registration_questions_api_v1_events__event_id__registration_questions_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RegistrationQuestionResponse"
+                  },
+                  "title": "Response List Registration Questions Api V1 Events  Event Id  Registration Questions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "inscripciones"
+        ],
+        "summary": "Añadir una pregunta personalizada de inscripción",
+        "operationId": "create_registration_question_api_v1_events__event_id__registration_questions_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistrationQuestionCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationQuestionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/registration-questions/{question_id}": {
+      "patch": {
+        "tags": [
+          "inscripciones"
+        ],
+        "summary": "Editar una pregunta personalizada de inscripción",
+        "description": "Cambiar el tipo o las opciones falla con 409 si la pregunta ya tiene respuestas guardadas; el resto de campos se puede editar siempre.",
+        "operationId": "update_registration_question_api_v1_events__event_id__registration_questions__question_id__patch",
+        "parameters": [
+          {
+            "name": "question_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Question Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistrationQuestionUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationQuestionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "inscripciones"
+        ],
+        "summary": "Quitar una pregunta personalizada de inscripción",
+        "description": "Falla con 409 si la pregunta ya tiene respuestas guardadas.",
+        "operationId": "delete_registration_question_api_v1_events__event_id__registration_questions__question_id__delete",
+        "parameters": [
+          {
+            "name": "question_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Question Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/public/events/{slug}/registration-questions": {
       "get": {
         "tags": [
@@ -2492,6 +3033,48 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/VerifyRegistrationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/registrations/confirm-waitlist-promotion": {
+      "post": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Confirmar una promoción desde la lista de espera",
+        "description": "Consume el token del enlace de promoción. Si ha caducado, responde que caducó sin más detalle y deja que el barrido cron reasigne la plaza.",
+        "operationId": "confirm_waitlist_promotion_api_v1_public_registrations_confirm_waitlist_promotion_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmWaitlistPromotionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmWaitlistPromotionResponse"
                 }
               }
             }
@@ -2830,6 +3413,34 @@
         ],
         "title": "CheckSlugResponse",
         "description": "Disponibilidad de un identificador de organización."
+      },
+      "ConfirmWaitlistPromotionRequest": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "ConfirmWaitlistPromotionRequest",
+        "description": "Token del enlace de confirmación de una promoción de lista de espera."
+      },
+      "ConfirmWaitlistPromotionResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "ConfirmWaitlistPromotionResponse",
+        "description": "Resultado de confirmar una promoción de lista de espera."
       },
       "CurrentUserResponse": {
         "properties": {
@@ -4467,6 +5078,37 @@
         ],
         "title": "Page[MemberResponse]"
       },
+      "Page_RegistrationListItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RegistrationListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[RegistrationListItem]"
+      },
       "Permission": {
         "type": "string",
         "enum": [
@@ -5333,6 +5975,317 @@
         "title": "RegistrationAnswerInput",
         "description": "Respuesta a una pregunta personalizada del formulario de inscripción."
       },
+      "RegistrationAnswerOut": {
+        "properties": {
+          "question_id": {
+            "type": "string",
+            "title": "Question Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "value": {
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question_id",
+          "label",
+          "value"
+        ],
+        "title": "RegistrationAnswerOut",
+        "description": "Respuesta de una inscripción, tal como la ve el panel de organizador."
+      },
+      "RegistrationConsentOut": {
+        "properties": {
+          "data_processing_accepted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Data Processing Accepted At"
+          },
+          "marketing_accepted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Marketing Accepted At"
+          },
+          "recording_accepted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recording Accepted At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data_processing_accepted_at",
+          "marketing_accepted_at",
+          "recording_accepted_at"
+        ],
+        "title": "RegistrationConsentOut"
+      },
+      "RegistrationDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending_verification",
+              "pending_approval",
+              "confirmed",
+              "rejected",
+              "cancelled",
+              "waitlisted"
+            ],
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "verified_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified At"
+          },
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "waitlist_promoted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waitlist Promoted At"
+          },
+          "waitlist_promotion_expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waitlist Promotion Expires At"
+          },
+          "approved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved At"
+          },
+          "rejected_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejected At"
+          },
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled At"
+          },
+          "answers": {
+            "items": {
+              "$ref": "#/components/schemas/RegistrationAnswerOut"
+            },
+            "type": "array",
+            "title": "Answers"
+          },
+          "consent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RegistrationConsentOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "full_name",
+          "status",
+          "created_at",
+          "verified_at",
+          "confirmed_at",
+          "waitlist_promoted_at",
+          "waitlist_promotion_expires_at",
+          "approved_at",
+          "rejected_at",
+          "cancelled_at",
+          "answers",
+          "consent"
+        ],
+        "title": "RegistrationDetail",
+        "description": "Detalle de una inscripción, con respuestas y consentimientos."
+      },
+      "RegistrationListItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending_verification",
+              "pending_approval",
+              "confirmed",
+              "rejected",
+              "cancelled",
+              "waitlisted"
+            ],
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "verified_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified At"
+          },
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "waitlist_promoted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waitlist Promoted At"
+          },
+          "waitlist_promotion_expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waitlist Promotion Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "full_name",
+          "status",
+          "created_at",
+          "verified_at",
+          "confirmed_at",
+          "waitlist_promoted_at",
+          "waitlist_promotion_expires_at"
+        ],
+        "title": "RegistrationListItem",
+        "description": "Fila del listado de inscripciones del panel de organizador."
+      },
       "RegistrationMessageResponse": {
         "properties": {
           "message": {
@@ -5346,6 +6299,56 @@
         ],
         "title": "RegistrationMessageResponse",
         "description": "Respuesta genérica del alta: siempre el mismo mensaje, exista o no ya el email."
+      },
+      "RegistrationQuestionCreate": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "short_text",
+              "single_choice",
+              "multiple_choice"
+            ],
+            "title": "Type"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "required": {
+            "type": "boolean",
+            "title": "Required",
+            "default": false
+          },
+          "sort_order": {
+            "type": "integer",
+            "title": "Sort Order",
+            "default": 0
+          },
+          "options": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Options"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "label"
+        ],
+        "title": "RegistrationQuestionCreate",
+        "description": "Alta de una pregunta personalizada desde el panel de organizador."
       },
       "RegistrationQuestionPublic": {
         "properties": {
@@ -5394,6 +6397,200 @@
         ],
         "title": "RegistrationQuestionPublic",
         "description": "Pregunta personalizada tal como la ve el formulario público."
+      },
+      "RegistrationQuestionResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "short_text",
+              "single_choice",
+              "multiple_choice"
+            ],
+            "title": "Type"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "required": {
+            "type": "boolean",
+            "title": "Required"
+          },
+          "sort_order": {
+            "type": "integer",
+            "title": "Sort Order"
+          },
+          "options": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Options"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "label",
+          "required",
+          "sort_order",
+          "options"
+        ],
+        "title": "RegistrationQuestionResponse",
+        "description": "Pregunta personalizada tal como la ve el panel de organizador."
+      },
+      "RegistrationQuestionUpdate": {
+        "properties": {
+          "type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "short_text",
+                  "single_choice",
+                  "multiple_choice"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "required": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          },
+          "options": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Options"
+          }
+        },
+        "type": "object",
+        "title": "RegistrationQuestionUpdate",
+        "description": "Edición parcial de una pregunta personalizada.\n\n`type`/`options` solo se aplican si la pregunta no tiene respuestas\nasociadas todavía — el servicio responde 409 si las hay (decisión #6 del\nPRD, fase 3)."
+      },
+      "RegistrationStats": {
+        "properties": {
+          "initiated": {
+            "type": "integer",
+            "title": "Initiated"
+          },
+          "verified": {
+            "type": "integer",
+            "title": "Verified"
+          },
+          "pending_approval": {
+            "type": "integer",
+            "title": "Pending Approval"
+          },
+          "confirmed": {
+            "type": "integer",
+            "title": "Confirmed"
+          },
+          "rejected": {
+            "type": "integer",
+            "title": "Rejected"
+          },
+          "cancelled": {
+            "type": "integer",
+            "title": "Cancelled"
+          },
+          "waitlisted": {
+            "type": "integer",
+            "title": "Waitlisted"
+          },
+          "verified_conversion_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified Conversion Rate"
+          },
+          "confirmed_conversion_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed Conversion Rate"
+          }
+        },
+        "type": "object",
+        "required": [
+          "initiated",
+          "verified",
+          "pending_approval",
+          "confirmed",
+          "rejected",
+          "cancelled",
+          "waitlisted",
+          "verified_conversion_rate",
+          "confirmed_conversion_rate"
+        ],
+        "title": "RegistrationStats",
+        "description": "Estadísticas de conversión del embudo de inscripción de un evento."
       },
       "ResendVerificationRequest": {
         "properties": {
