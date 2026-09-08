@@ -12,7 +12,10 @@ import { Card } from '../../../shared/ui/card';
 import { ErrorSummary, ResumenDeError } from '../../../shared/ui/error-summary';
 import { Input } from '../../../shared/ui/input';
 import { capitalizarClaveDeTraduccion } from '../../../shared/text/capitalizar-clave-de-traduccion';
-import { IMAGEN_MIMES_PERMITIDOS, IMAGEN_TAMANO_MAXIMO } from '../../../shared/uploads/image-upload-constraints';
+import {
+  IMAGEN_MIMES_PERMITIDOS,
+  IMAGEN_TAMANO_MAXIMO,
+} from '../../../shared/uploads/image-upload-constraints';
 import { isoAValorLocal } from './datetime-local';
 import { EventAgenda } from './event-agenda';
 import { EventRegistrations } from './event-registrations';

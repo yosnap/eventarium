@@ -114,9 +114,7 @@ def _crear_tablas() -> None:
             "organization_id", "name", name="uq_sponsor_tiers_organization_id_name"
         ),
         # Obligatoria para que la FK compuesta de `sponsors` pueda crearse.
-        sa.UniqueConstraint(
-            "id", "organization_id", name="uq_sponsor_tiers_id_organization_id"
-        ),
+        sa.UniqueConstraint("id", "organization_id", name="uq_sponsor_tiers_id_organization_id"),
     )
     op.create_index(
         op.f("ix_sponsor_tiers_organization_id"), "sponsor_tiers", ["organization_id"], unique=False
@@ -199,7 +197,9 @@ def _crear_tablas() -> None:
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_audit_log")),
     )
-    op.create_index(op.f("ix_audit_log_organization_id"), "audit_log", ["organization_id"], unique=False)
+    op.create_index(
+        op.f("ix_audit_log_organization_id"), "audit_log", ["organization_id"], unique=False
+    )
     op.create_index(op.f("ix_audit_log_action"), "audit_log", ["action"], unique=False)
     op.create_index(op.f("ix_audit_log_created_at"), "audit_log", ["created_at"], unique=False)
 
@@ -229,7 +229,10 @@ def _crear_tablas() -> None:
         sa.PrimaryKeyConstraint("id", name=op.f("pk_cookie_consents")),
     )
     op.create_index(
-        op.f("ix_cookie_consents_organization_id"), "cookie_consents", ["organization_id"], unique=False
+        op.f("ix_cookie_consents_organization_id"),
+        "cookie_consents",
+        ["organization_id"],
+        unique=False,
     )
 
 

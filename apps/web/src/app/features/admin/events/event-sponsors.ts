@@ -18,7 +18,10 @@ import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
 import { Textarea } from '../../../shared/ui/textarea';
 import { capitalizarClaveDeTraduccion } from '../../../shared/text/capitalizar-clave-de-traduccion';
-import { IMAGEN_MIMES_PERMITIDOS, IMAGEN_TAMANO_MAXIMO } from '../../../shared/uploads/image-upload-constraints';
+import {
+  IMAGEN_MIMES_PERMITIDOS,
+  IMAGEN_TAMANO_MAXIMO,
+} from '../../../shared/uploads/image-upload-constraints';
 
 type ContributionType = 'monetaria' | 'en_especie';
 
@@ -101,7 +104,9 @@ function vacio(): {
                     <strong>{{ patrocinador.name }}</strong>
                     <span class="detalle">
                       {{ nombreDeNivel(patrocinador.tier_id) }} ·
-                      {{ t('admin.events.sponsors.tipo' + capitaliza(patrocinador.contribution_type)) }}
+                      {{
+                        t('admin.events.sponsors.tipo' + capitaliza(patrocinador.contribution_type))
+                      }}
                     </span>
                   </div>
                   <div class="acciones">
@@ -161,7 +166,11 @@ function vacio(): {
 
           <div class="campo-select">
             <label for="patrocinador-tipo">{{ t('admin.events.sponsors.tipoAportacion') }}</label>
-            <select id="patrocinador-tipo" [value]="tipoAportacion()" (change)="alCambiarTipo($event)">
+            <select
+              id="patrocinador-tipo"
+              [value]="tipoAportacion()"
+              (change)="alCambiarTipo($event)"
+            >
               <option value="monetaria">{{ t('admin.events.sponsors.tipoMonetaria') }}</option>
               <option value="en_especie">{{ t('admin.events.sponsors.tipoEnEspecie') }}</option>
             </select>

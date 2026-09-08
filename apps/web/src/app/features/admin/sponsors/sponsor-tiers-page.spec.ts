@@ -39,7 +39,11 @@ describe('SponsorTiersPage', () => {
           translocoConfig: { availableLangs: ['es-ES'], defaultLang: 'es-ES' },
         }),
       ],
-      providers: [provideZonelessChangeDetection(), provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideZonelessChangeDetection(),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
     });
     http = TestBed.inject(HttpTestingController);
   });
@@ -72,12 +76,24 @@ describe('SponsorTiersPage', () => {
 
     const primerPatch = http.expectOne((p) => p.method === 'PATCH' && p.url === `${TIERS_URL}/t1`);
     expect(primerPatch.request.body).toEqual({ display_order: 1 });
-    primerPatch.flush({ id: 't1', name: 'Oro', display_order: 1, logo_size: 'large', benefits: null });
+    primerPatch.flush({
+      id: 't1',
+      name: 'Oro',
+      display_order: 1,
+      logo_size: 'large',
+      benefits: null,
+    });
     await avanzar(fixture);
 
     const segundoPatch = http.expectOne((p) => p.method === 'PATCH' && p.url === `${TIERS_URL}/t2`);
     expect(segundoPatch.request.body).toEqual({ display_order: 0 });
-    segundoPatch.flush({ id: 't2', name: 'Plata', display_order: 0, logo_size: 'medium', benefits: null });
+    segundoPatch.flush({
+      id: 't2',
+      name: 'Plata',
+      display_order: 0,
+      logo_size: 'medium',
+      benefits: null,
+    });
     await avanzar(fixture);
 
     http.expectOne((p) => p.url === TIERS_URL).flush(pagina());

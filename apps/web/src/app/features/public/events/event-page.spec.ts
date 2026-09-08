@@ -98,21 +98,23 @@ describe('EventPage', () => {
     const fixture = TestBed.createComponent(EventPage);
     fixture.componentRef.setInput('slug', 'iawic-2026');
     fixture.detectChanges();
-    http.expectOne((peticion) => peticion.url === '/api/v1/public/events/iawic-2026').flush({
-      ...eventoDetalle(),
-      sponsor_tiers: [
-        {
-          name: 'Oro',
-          logo_size: 'large',
-          sponsors: [{ name: 'Acme Corp', logo_url: null, website: 'https://acme.example' }],
-        },
-        {
-          name: 'Colaboradores',
-          logo_size: 'small',
-          sponsors: [{ name: 'Espacio Cedido', logo_url: null, website: null }],
-        },
-      ],
-    });
+    http
+      .expectOne((peticion) => peticion.url === '/api/v1/public/events/iawic-2026')
+      .flush({
+        ...eventoDetalle(),
+        sponsor_tiers: [
+          {
+            name: 'Oro',
+            logo_size: 'large',
+            sponsors: [{ name: 'Acme Corp', logo_url: null, website: 'https://acme.example' }],
+          },
+          {
+            name: 'Colaboradores',
+            logo_size: 'small',
+            sponsors: [{ name: 'Espacio Cedido', logo_url: null, website: null }],
+          },
+        ],
+      });
     await avanzar(fixture);
 
     const texto = fixture.nativeElement.textContent;
