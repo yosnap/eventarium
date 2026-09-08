@@ -130,7 +130,7 @@ export const routes: Routes = [
           ),
       },
       {
-        path: 'events/:id/check-in',
+        path: 'events/:eventId/check-in',
         loadComponent: () =>
           import('./features/admin/events/event-check-in').then((m) => m.EventCheckIn),
       },
