@@ -3,6 +3,7 @@ import { RouterLink, RouterOutlet } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 
 import { CookieBanner } from '../../shared/cookies/cookie-banner';
+import { CookieConsentService } from '../../core/cookies/cookie-consent.service';
 import { ThemingService } from '../../core/theming/theming.service';
 
 /**
@@ -68,6 +69,11 @@ import { ThemingService } from '../../core/theming/theming.service';
                 {{ t('legal.condicionesInscripcion') }}
               </a>
             </li>
+            <li>
+              <button type="button" class="enlace-boton" (click)="gestionarCookies()">
+                {{ t('cookies.gestionar') }}
+              </button>
+            </li>
           </ul>
         </nav>
       </footer>
@@ -125,8 +131,23 @@ import { ThemingService } from '../../core/theming/theming.service';
       margin: 0;
       padding: 0;
     }
+    .enlace-boton {
+      background: none;
+      border: none;
+      padding: 0;
+      margin: 0;
+      font: inherit;
+      color: var(--color-primary);
+      text-decoration: underline;
+      cursor: pointer;
+    }
   `,
 })
 export class PublicShell {
   protected readonly theming = inject(ThemingService);
+  private readonly consentimiento = inject(CookieConsentService);
+
+  protected gestionarCookies(): void {
+    this.consentimiento.abrirGestionDeCookies();
+  }
 }

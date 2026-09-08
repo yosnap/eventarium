@@ -9,8 +9,15 @@ import { DummyAnalyticsService } from './dummy-analytics.service';
 
 const CLAVE_LOCAL_STORAGE = 'cookie-consent';
 
+/** Versión del esquema de la decisión guardada. Permite en el futuro invalidar
+ * decisiones antiguas si cambia la política de cookies; hoy solo se persiste,
+ * no se usa para invalidar nada (YAGNI). */
+const VERSION_DECISION_ACTUAL = 1;
+
 interface DecisionGuardada {
   readonly categories: CookieCategory[];
+  readonly version: number;
+  readonly created_at: string;
 }
 
 /**
@@ -34,12 +41,20 @@ export class CookieConsentService {
   private readonly categoriasActivas = signal<ReadonlySet<CookieCategory>>(
     new Set<CookieCategory>(['necessary']),
   );
+  private readonly gestionSolicitada = signal(false);
 
-  /** `true` mientras no haya una decisión guardada: el banner debe mostrarse.
-   * Nunca en SSR: mostrar el banner solo tiene sentido con JavaScript activo
-   * para poder decidir y persistir la respuesta. */
-  readonly mostrarBanner = computed(() => this.esNavegador && !this.decisionTomada());
+  /** `true` mientras no haya una decisión guardada, o mientras se haya pedido
+   * reabrir la gestión de cookies con `abrirGestionDeCookies()`: el banner
+   * debe mostrarse. Nunca en SSR: mostrar el banner solo tiene sentido con
+   * JavaScript activo para poder decidir y persistir la respuesta. */
+  readonly mostrarBanner = computed(
+    () => this.esNavegador && (!this.decisionTomada() || this.gestionSolicitada()),
+  );
   readonly categorias = this.categoriasActivas.asReadonly();
+  /** `true` mientras el banner esté reabierto desde "Gestionar cookies" (ya
+   * había una decisión previa): permite al banner precargar las categorías ya
+   * elegidas en vez de partir de un estado vacío. */
+  readonly gestionAbierta = this.gestionSolicitada.asReadonly();
 
   constructor() {
     if (!this.esNavegador) {
@@ -65,10 +80,25 @@ export class CookieConsentService {
     await this.decidir(['necessary', ...categoriasElegidas.filter((c) => c !== 'necessary')]);
   }
 
+  /** Reabre el banner para cambiar una decisión ya tomada ("Gestionar
+   * cookies" en el pie de página o en `/legal/cookies`). El banner precarga
+   * las categorías activas en ese momento, no un estado vacío como si fuera
+   * la primera visita. */
+  abrirGestionDeCookies(): void {
+    this.gestionSolicitada.set(true);
+  }
+
+  /** Cierra la gestión reabierta sin cambiar la decisión ya guardada
+   * ("Volver" dentro del banner reabierto desde "Gestionar cookies"). */
+  cerrarGestionDeCookies(): void {
+    this.gestionSolicitada.set(false);
+  }
+
   private async decidir(categorias: CookieCategory[]): Promise<void> {
     const unicas = [...new Set(categorias)];
     this.categoriasActivas.set(new Set(unicas));
     this.decisionTomada.set(true);
+    this.gestionSolicitada.set(false);
     this.guardarDecision(unicas);
     this.activarScriptsDeLasCategorias(unicas);
 
@@ -112,7 +142,12 @@ export class CookieConsentService {
 
   private guardarDecision(categorias: CookieCategory[]): void {
     try {
-      localStorage.setItem(CLAVE_LOCAL_STORAGE, JSON.stringify({ categories: categorias }));
+      const decision: DecisionGuardada = {
+        categories: categorias,
+        version: VERSION_DECISION_ACTUAL,
+        created_at: new Date().toISOString(),
+      };
+      localStorage.setItem(CLAVE_LOCAL_STORAGE, JSON.stringify(decision));
     } catch {
       // Almacenamiento no disponible (modo privado estricto, cuota agotada):
       // la decisión sigue aplicándose en esta visita, solo no persiste.
