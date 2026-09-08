@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import Select, case, func, select, text
+from sqlalchemy import Select, and_, case, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.events.models import Event
@@ -85,6 +85,52 @@ async def count_confirmed_registrations(
     return int(total or 0)
 
 
+async def count_reserved_registrations(
+    session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID
+) -> int:
+    """`confirmed` + promociones de lista de espera todavía dentro de su
+    ventana de confirmación — ambas ocupan un hueco real de aforo, aunque la
+    persona promovida no haya confirmado todavía. Sin esto, una verificación
+    o aprobación concurrente podría colarse en el hueco ya reservado para
+    quien está en mitad de confirmar su promoción (sobreventa de aforo)."""
+    total = await session.scalar(
+        select(func.count())
+        .select_from(EventRegistration)
+        .where(
+            EventRegistration.organization_id == organization_id,
+            EventRegistration.event_id == event_id,
+            or_(
+                EventRegistration.status == "confirmed",
+                and_(
+                    EventRegistration.status == "waitlisted",
+                    EventRegistration.waitlist_promoted_at.is_not(None),
+                    EventRegistration.waitlist_promotion_expires_at >= datetime.now(UTC),
+                ),
+            ),
+        )
+    )
+    return int(total or 0)
+
+
+async def count_registrations(
+    session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID, *, status: str | None
+) -> int:
+    """Recuento para la paginación del listado, con el mismo filtro que
+    `registrations_query` pero sin materializar las filas (ni sus `answers`/
+    `consent` eager-loaded) solo para contarlas."""
+    consulta = (
+        select(func.count())
+        .select_from(EventRegistration)
+        .where(
+            EventRegistration.organization_id == organization_id,
+            EventRegistration.event_id == event_id,
+        )
+    )
+    if status is not None:
+        consulta = consulta.where(EventRegistration.status == status)
+    return int(await session.scalar(consulta) or 0)
+
+
 def registrations_query(
     organization_id: uuid.UUID, event_id: uuid.UUID, *, status: str | None = None
 ) -> Select[tuple[EventRegistration]]:
@@ -113,6 +159,33 @@ async def get_registration(
             EventRegistration.event_id == event_id,
             EventRegistration.organization_id == organization_id,
         )
+    )
+    return resultado
+
+
+async def get_registration_for_update(
+    session: AsyncSession,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    registration_id: uuid.UUID,
+) -> EventRegistration | None:
+    """Como `get_registration`, pero con `SELECT ... FOR UPDATE`.
+
+    Necesario antes de decidir si una cancelación libera una plaza: sin este
+    bloqueo, dos cancelaciones concurrentes de la misma inscripción (dos
+    tokens vigentes, o el organizador y la persona a la vez) podrían leer
+    ambas el estado `confirmed` antes de que ninguna confirme su cambio, y
+    las dos acabarían promoviendo a alguien de la lista de espera para un
+    único hueco liberado.
+    """
+    resultado: EventRegistration | None = await session.scalar(
+        select(EventRegistration)
+        .where(
+            EventRegistration.id == registration_id,
+            EventRegistration.event_id == event_id,
+            EventRegistration.organization_id == organization_id,
+        )
+        .with_for_update()
     )
     return resultado
 

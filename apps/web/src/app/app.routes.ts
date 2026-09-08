@@ -53,6 +53,20 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'confirmar-promocion',
+    loadComponent: () =>
+      import('./features/public/events/confirm-waitlist-promotion-page').then(
+        (m) => m.ConfirmWaitlistPromotionPage,
+      ),
+  },
+  {
+    path: 'cancelar-inscripcion',
+    loadComponent: () =>
+      import('./features/public/events/cancel-registration-page').then(
+        (m) => m.CancelRegistrationPage,
+      ),
+  },
+  {
     path: 'admin',
     loadComponent: () => import('./layouts/admin/admin-shell').then((m) => m.AdminShell),
     canActivate: [authGuard],

@@ -114,7 +114,7 @@ Prioridad: **M** = MVP IAWIC Valencia · **S** = siguiente · **P** = posterior.
 - Consentimientos separados y auditables: tratamiento necesario, marketing (opcional), **grabación de imagen/voz** (opcional, no condiciona la inscripción).
 - Estados: pendiente de verificación → pendiente de aprobación → confirmada / rechazada / cancelada / lista de espera.
 - Aprobación bajo demanda: con aforo limitado, el organizador ve el perfil/respuestas y acepta o rechaza; notificación personalizada.
-- Lista de espera automática al llenarse el aforo; promoción manual o automática al liberarse plaza.
+- Lista de espera automática al llenarse el aforo; promoción automática al liberarse plaza, con ventana de confirmación fija de 48h a nivel de aplicación (no por evento) antes de pasar a la siguiente persona.
 - Estadísticas: iniciados, verificados, aprobados, rechazados, cancelados, check-ins, emails enviados/entregados/abiertos, conversión.
 
 ### 4.4 Entradas QR y control de acceso — M

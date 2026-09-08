@@ -99,6 +99,12 @@ class Settings(BaseSettings):
     # pida.
     waitlist_promotion_window_hours: int = 48
 
+    # Vigencia del enlace de autocancelación de una inscripción (fase 3 del
+    # PRD, fase 4 de trabajo). Generoso a propósito: una inscripción puede
+    # cancelarse en cualquier momento hasta el evento, no solo en las horas
+    # posteriores al alta.
+    registration_cancel_token_ttl_days: int = 90
+
     @field_validator("jwt_secret")
     @classmethod
     def _validar_secreto(cls, valor: str) -> str:

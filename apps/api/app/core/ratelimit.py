@@ -55,6 +55,8 @@ VERIFICACION_INSCRIPCION_POR_IP = 20
 # Confirmación de una promoción de lista de espera: mismo razonamiento que
 # verify-email, token con entropía de sobra pero tope propio por ser público.
 CONFIRMACION_PROMOCION_POR_IP = 20
+# Autocancelación: mismo razonamiento que confirm-waitlist-promotion.
+CANCELACION_INSCRIPCION_POR_IP = 20
 
 VENTANA_SEGUNDOS = 60
 

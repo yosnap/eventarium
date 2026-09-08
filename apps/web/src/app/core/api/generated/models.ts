@@ -6,6 +6,8 @@ export type { BodyUploadLogoApiV1OrganizationsMeBrandingLogoPut } from './models
 export type { BrandingAdminResponse } from './models/branding-admin-response';
 export type { BrandingResponse } from './models/branding-response';
 export type { BrandingUpdate } from './models/branding-update';
+export type { CancelRegistrationRequest } from './models/cancel-registration-request';
+export type { CancelRegistrationResponse } from './models/cancel-registration-response';
 export type { ChangeEmailConfirmRequest } from './models/change-email-confirm-request';
 export type { ChangeEmailRequest } from './models/change-email-request';
 export type { ChangePasswordRequest } from './models/change-password-request';
