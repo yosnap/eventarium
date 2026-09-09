@@ -15,8 +15,16 @@ API_DIR = Path(__file__).resolve().parents[1]
 
 
 def _ejecutar_ruff_sobre(contenido: str, ruta_relativa: str) -> subprocess.CompletedProcess[str]:
+    """Escribe `contenido` en `ruta_relativa` para que ruff lo analice por su
+    ruta real (el `per-file-ignores` de `TID251` empareja por ruta exacta), y
+    restaura el estado previo del fichero al terminar. `stripe_client.py` es
+    un fichero real del repo, no un fichero de prueba desechable: borrarlo con
+    `unlink` en el `finally` (como hacía antes) lo eliminaba del disco de
+    verdad en cada ejecución de la suite.
+    """
     ruta = API_DIR / ruta_relativa
     ruta.parent.mkdir(parents=True, exist_ok=True)
+    contenido_previo = ruta.read_text(encoding="utf-8") if ruta.exists() else None
     ruta.write_text(contenido, encoding="utf-8")
     try:
         return subprocess.run(  # noqa: S603 — argv fijo, sin entrada externa
@@ -26,7 +34,10 @@ def _ejecutar_ruff_sobre(contenido: str, ruta_relativa: str) -> subprocess.Compl
             text=True,
         )
     finally:
-        ruta.unlink(missing_ok=True)
+        if contenido_previo is None:
+            ruta.unlink(missing_ok=True)
+        else:
+            ruta.write_text(contenido_previo, encoding="utf-8")
 
 
 def test_import_stripe_fuera_del_wrapper_falla_el_lint() -> None:
