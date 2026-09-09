@@ -13,6 +13,8 @@ export type { CancelRegistrationResponse } from './models/cancel-registration-re
 export type { ChangeEmailConfirmRequest } from './models/change-email-confirm-request';
 export type { ChangeEmailRequest } from './models/change-email-request';
 export type { ChangePasswordRequest } from './models/change-password-request';
+export type { CheckoutQuoteRequest } from './models/checkout-quote-request';
+export type { CheckoutQuoteResponse } from './models/checkout-quote-response';
 export type { CheckPublicSlugResponse } from './models/check-public-slug-response';
 export type { CheckSlugResponse } from './models/check-slug-response';
 export type { ConfirmWaitlistPromotionRequest } from './models/confirm-waitlist-promotion-request';
@@ -20,6 +22,9 @@ export type { ConfirmWaitlistPromotionResponse } from './models/confirm-waitlist
 export type { CookieConsentCreate } from './models/cookie-consent-create';
 export type { CurrentUserResponse } from './models/current-user-response';
 export type { DeleteRegistrationRequest } from './models/delete-registration-request';
+export type { DiscountCodeCreate } from './models/discount-code-create';
+export type { DiscountCodeResponse } from './models/discount-code-response';
+export type { DiscountCodeUpdate } from './models/discount-code-update';
 export type { DomainCreate } from './models/domain-create';
 export type { DomainResponse } from './models/domain-response';
 export type { EligibleMembershipResponse } from './models/eligible-membership-response';
@@ -109,6 +114,9 @@ export type { SubmitRegistrationRequest } from './models/submit-registration-req
 export type { TicketDetail } from './models/ticket-detail';
 export type { TicketScanResultOut } from './models/ticket-scan-result-out';
 export type { TicketSearchItem } from './models/ticket-search-item';
+export type { TicketTypeCreate } from './models/ticket-type-create';
+export type { TicketTypeResponse } from './models/ticket-type-response';
+export type { TicketTypeUpdate } from './models/ticket-type-update';
 export type { TokenResponse } from './models/token-response';
 export type { UserMeUpdate } from './models/user-me-update';
 export type { UserSummary } from './models/user-summary';

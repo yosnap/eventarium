@@ -18,11 +18,14 @@ import {
 } from '../../../shared/uploads/image-upload-constraints';
 import { isoAValorLocal } from './datetime-local';
 import { EventAgenda } from './event-agenda';
+import { EventDiscountCodes } from './event-discount-codes';
 import { EventRegistrations } from './event-registrations';
 import { EventSponsors } from './event-sponsors';
+import { EventTicketTypes } from './event-ticket-types';
 
 type EventStatus = 'draft' | 'published' | 'archived';
 type LocationMode = 'in_person' | 'online' | 'hybrid';
+type RegistrationMode = 'free' | 'approval' | 'paid';
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -36,6 +39,7 @@ interface EventDetail {
   readonly starts_at: string;
   readonly ends_at: string;
   readonly location_mode: LocationMode;
+  readonly registration_mode: RegistrationMode;
   readonly payment_checkout_window_minutes: number;
 }
 
@@ -62,8 +66,10 @@ const VENTANA_DE_PAGO_POR_DEFECTO = 30;
     ErrorSummary,
     Input,
     EventAgenda,
+    EventDiscountCodes,
     EventRegistrations,
     EventSponsors,
+    EventTicketTypes,
   ],
   template: `
     <ng-container *transloco="let t">
@@ -234,6 +240,14 @@ const VENTANA_DE_PAGO_POR_DEFECTO = 30;
         @if (esEdicion()) {
           <app-event-agenda [eventId]="eventId()!" />
           <app-event-sponsors [eventId]="eventId()!" />
+          @if (registrationMode() === 'paid') {
+            <app-alert tone="info">
+              {{ t('admin.events.pagos.avisoConectarStripe') }}
+              <a routerLink="/admin/stripe">{{ t('admin.events.pagos.irAConectarStripe') }}</a>
+            </app-alert>
+            <app-event-ticket-types [eventId]="eventId()!" />
+            <app-event-discount-codes [eventId]="eventId()!" />
+          }
           <app-event-registrations [eventId]="eventId()!" />
           <a [routerLink]="['/admin/events', eventId(), 'check-in']">
             <app-button variant="secundario" type="button">
@@ -332,6 +346,7 @@ export class EventForm {
   protected readonly startsAt = signal('');
   protected readonly endsAt = signal('');
   protected readonly locationMode = signal<LocationMode>('in_person');
+  protected readonly registrationMode = signal<RegistrationMode>('free');
   protected readonly estadoActual = signal<EventStatus>('draft');
   protected readonly portadaUrl = signal<string | null>(null);
   protected readonly paymentWindow = signal(VENTANA_DE_PAGO_POR_DEFECTO);
@@ -384,6 +399,7 @@ export class EventForm {
       this.startsAt.set(isoAValorLocal(evento.starts_at));
       this.endsAt.set(isoAValorLocal(evento.ends_at));
       this.locationMode.set(evento.location_mode);
+      this.registrationMode.set(evento.registration_mode);
       this.estadoActual.set(evento.status);
       this.portadaUrl.set(evento.cover_url);
       this.paymentWindow.set(evento.payment_checkout_window_minutes);

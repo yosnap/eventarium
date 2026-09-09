@@ -4274,6 +4274,461 @@
         }
       }
     },
+    "/api/v1/events/{event_id}/ticket-types": {
+      "get": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Listar los tipos de entrada de un evento",
+        "operationId": "list_ticket_types_api_v1_events__event_id__ticket_types_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketTypeResponse"
+                  },
+                  "title": "Response List Ticket Types Api V1 Events  Event Id  Ticket Types Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Crear un tipo de entrada",
+        "operationId": "create_ticket_type_api_v1_events__event_id__ticket_types_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketTypeCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketTypeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/ticket-types/{ticket_type_id}": {
+      "patch": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Editar un tipo de entrada",
+        "description": "Reordenar es un caso particular de edición: el panel envía el nuevo `sort_order` de cada tipo afectado con peticiones sucesivas, mismo patrón que `sponsor_tiers`.",
+        "operationId": "update_ticket_type_api_v1_events__event_id__ticket_types__ticket_type_id__patch",
+        "parameters": [
+          {
+            "name": "ticket_type_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ticket Type Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketTypeUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketTypeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Borrar un tipo de entrada",
+        "description": "Falla con 409 si tiene códigos de descuento o pagos asociados; desactívalo (`is_active = false`) en su lugar.",
+        "operationId": "delete_ticket_type_api_v1_events__event_id__ticket_types__ticket_type_id__delete",
+        "parameters": [
+          {
+            "name": "ticket_type_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ticket Type Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/discount-codes": {
+      "get": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Listar los códigos de descuento de un evento",
+        "description": "`used_count` es siempre derivado de los pagos, nunca un contador guardado.",
+        "operationId": "list_discount_codes_api_v1_events__event_id__discount_codes_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DiscountCodeResponse"
+                  },
+                  "title": "Response List Discount Codes Api V1 Events  Event Id  Discount Codes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Crear un código de descuento",
+        "operationId": "create_discount_code_api_v1_events__event_id__discount_codes_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscountCodeCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscountCodeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/discount-codes/{discount_code_id}": {
+      "patch": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Editar un código de descuento",
+        "operationId": "update_discount_code_api_v1_events__event_id__discount_codes__discount_code_id__patch",
+        "parameters": [
+          {
+            "name": "discount_code_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Discount Code Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscountCodeUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscountCodeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Borrar un código de descuento",
+        "description": "Falla con 409 si el código tiene pagos asociados.",
+        "operationId": "delete_discount_code_api_v1_events__event_id__discount_codes__discount_code_id__delete",
+        "parameters": [
+          {
+            "name": "discount_code_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Discount Code Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/events/{slug}/checkout/quote": {
+      "post": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Presupuesto de compra de una entrada",
+        "description": "Calcula el precio final de un tipo de entrada, con o sin código de descuento. Nunca reserva cupo ni consume el uso de un código: es puramente informativo.",
+        "operationId": "quote_checkout_api_v1_public_events__slug__checkout_quote_post",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutQuoteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutQuoteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/organizations/me/legal-pages": {
       "get": {
         "tags": [
@@ -4891,6 +5346,67 @@
         "title": "CheckSlugResponse",
         "description": "Disponibilidad de un identificador de organización."
       },
+      "CheckoutQuoteRequest": {
+        "properties": {
+          "ticket_type_id": {
+            "type": "string",
+            "title": "Ticket Type Id"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 60
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "turnstile_token": {
+            "type": "string",
+            "title": "Turnstile Token",
+            "description": "Token del widget de Turnstile"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ticket_type_id",
+          "turnstile_token"
+        ],
+        "title": "CheckoutQuoteRequest",
+        "description": "Petición de presupuesto público: nunca reserva cupo ni consume un uso."
+      },
+      "CheckoutQuoteResponse": {
+        "properties": {
+          "price_cents": {
+            "type": "integer",
+            "title": "Price Cents"
+          },
+          "discount_cents": {
+            "type": "integer",
+            "title": "Discount Cents"
+          },
+          "total_cents": {
+            "type": "integer",
+            "title": "Total Cents"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          }
+        },
+        "type": "object",
+        "required": [
+          "price_cents",
+          "discount_cents",
+          "total_cents",
+          "currency"
+        ],
+        "title": "CheckoutQuoteResponse",
+        "description": "Presupuesto de compra: precio de lista, descuento aplicado y total."
+      },
       "ConfirmWaitlistPromotionRequest": {
         "properties": {
           "token": {
@@ -5038,6 +5554,264 @@
         ],
         "title": "DeleteRegistrationRequest",
         "description": "Cuerpo de `DELETE /admin/registrations/by-email`."
+      },
+      "DiscountCodeCreate": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Code"
+          },
+          "discount_type": {
+            "type": "string",
+            "enum": [
+              "percentage",
+              "fixed_amount"
+            ],
+            "title": "Discount Type"
+          },
+          "discount_value": {
+            "type": "integer",
+            "title": "Discount Value"
+          },
+          "max_uses": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Uses"
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
+          },
+          "ticket_type_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticket Type Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "discount_type",
+          "discount_value"
+        ],
+        "title": "DiscountCodeCreate",
+        "description": "Alta de un código de descuento desde el panel de organizador.\n\n`code` se normaliza a mayúsculas en el servicio, no aquí: la normalización\ndebe aplicarse igual en el alta y en la edición parcial, y `model_validator`\nde un `Create` no puede compartirse con la clase `Update` sin duplicarlo."
+      },
+      "DiscountCodeResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "discount_type": {
+            "type": "string",
+            "enum": [
+              "percentage",
+              "fixed_amount"
+            ],
+            "title": "Discount Type"
+          },
+          "discount_value": {
+            "type": "integer",
+            "title": "Discount Value"
+          },
+          "max_uses": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Uses"
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
+          },
+          "ticket_type_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticket Type Id"
+          },
+          "used_count": {
+            "type": "integer",
+            "title": "Used Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "discount_type",
+          "discount_value",
+          "max_uses",
+          "valid_from",
+          "valid_until",
+          "ticket_type_id",
+          "used_count"
+        ],
+        "title": "DiscountCodeResponse",
+        "description": "Código de descuento tal como lo ve el panel, con su uso derivado."
+      },
+      "DiscountCodeUpdate": {
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 60,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "discount_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "percentage",
+                  "fixed_amount"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discount Type"
+          },
+          "discount_value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discount Value"
+          },
+          "max_uses": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Uses"
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
+          },
+          "ticket_type_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticket Type Id"
+          }
+        },
+        "type": "object",
+        "title": "DiscountCodeUpdate",
+        "description": "Edición parcial de un código de descuento.\n\n`discount_type`/`discount_value` se validan juntos en el servicio si se\nedita solo uno de los dos: el esquema no conoce el valor ya guardado del\notro campo."
       },
       "DomainCreate": {
         "properties": {
@@ -9730,6 +10504,297 @@
         ],
         "title": "TicketSearchItem",
         "description": "Fila del respaldo de búsqueda manual."
+      },
+      "TicketTypeCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "price_cents": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Price Cents"
+          },
+          "currency": {
+            "type": "string",
+            "maxLength": 3,
+            "minLength": 3,
+            "title": "Currency",
+            "default": "eur"
+          },
+          "max_quantity": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Quantity"
+          },
+          "sales_start_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sales Start At"
+          },
+          "sales_end_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sales End At"
+          },
+          "sort_order": {
+            "type": "integer",
+            "title": "Sort Order",
+            "default": 0
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "price_cents"
+        ],
+        "title": "TicketTypeCreate",
+        "description": "Alta de un tipo de entrada desde el panel de organizador."
+      },
+      "TicketTypeResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "price_cents": {
+            "type": "integer",
+            "title": "Price Cents"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "max_quantity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Quantity"
+          },
+          "sales_start_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sales Start At"
+          },
+          "sales_end_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sales End At"
+          },
+          "sort_order": {
+            "type": "integer",
+            "title": "Sort Order"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "price_cents",
+          "currency",
+          "max_quantity",
+          "sales_start_at",
+          "sales_end_at",
+          "sort_order",
+          "is_active"
+        ],
+        "title": "TicketTypeResponse",
+        "description": "Tipo de entrada tal como lo ve el panel de organizador."
+      },
+      "TicketTypeUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "price_cents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Cents"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 3,
+                "minLength": 3
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "max_quantity": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Quantity"
+          },
+          "sales_start_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sales Start At"
+          },
+          "sales_end_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sales End At"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "title": "TicketTypeUpdate",
+        "description": "Edición parcial de un tipo de entrada."
       },
       "TokenResponse": {
         "properties": {
