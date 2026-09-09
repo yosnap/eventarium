@@ -4729,6 +4729,131 @@
         }
       }
     },
+    "/api/v1/public/events/{slug}/checkout": {
+      "post": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Comprar una entrada de un evento de pago",
+        "description": "Inscripción + selección de tipo de entrada y código de descuento en una sola petición. Dos transacciones internas (T1 con bloqueos, sin red; T2 con red, sin bloqueos): nunca una llamada a Stripe con filas bloqueadas. Respuesta siempre con la misma forma, para no revelar si el email ya estaba inscrito.",
+        "operationId": "start_checkout_api_v1_public_events__slug__checkout_post",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutStartRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutStartResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/events/{slug}/checkout/{registration_id}/status": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Estado real de un pago, para la pantalla de retorno",
+        "description": "Consulta lo persistido, nunca da el pago por confirmado por el mero retorno desde Stripe: el webhook es la única fuente de verdad.",
+        "operationId": "get_checkout_status_api_v1_public_events__slug__checkout__registration_id__status_get",
+        "parameters": [
+          {
+            "name": "registration_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Registration Id"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/webhooks/stripe": {
+      "post": {
+        "tags": [
+          "webhooks"
+        ],
+        "summary": "Webhook de Stripe (cuentas conectadas)",
+        "description": "Único endpoint de webhooks de la instalación, registrado en Stripe con `connect: true`. Verifica la firma sobre el cuerpo crudo antes de parsear nada. Sin esquema de cuerpo: no genera ningún modelo tipado en el cliente.",
+        "operationId": "stripe_webhook_api_v1_webhooks_stripe_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/organizations/me/legal-pages": {
       "get": {
         "tags": [
@@ -5406,6 +5531,100 @@
         ],
         "title": "CheckoutQuoteResponse",
         "description": "Presupuesto de compra: precio de lista, descuento aplicado y total."
+      },
+      "CheckoutStartRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "full_name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Full Name"
+          },
+          "answers": {
+            "items": {
+              "$ref": "#/components/schemas/RegistrationAnswerInputPublic"
+            },
+            "type": "array",
+            "title": "Answers"
+          },
+          "data_processing_accepted": {
+            "type": "boolean",
+            "title": "Data Processing Accepted",
+            "description": "Consentimiento de tratamiento de datos, obligatorio para inscribirse."
+          },
+          "marketing_accepted": {
+            "type": "boolean",
+            "title": "Marketing Accepted",
+            "default": false
+          },
+          "recording_accepted": {
+            "type": "boolean",
+            "title": "Recording Accepted",
+            "default": false
+          },
+          "ticket_type_id": {
+            "type": "string",
+            "title": "Ticket Type Id"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 60
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "turnstile_token": {
+            "type": "string",
+            "title": "Turnstile Token",
+            "description": "Token del widget de Turnstile"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "full_name",
+          "data_processing_accepted",
+          "ticket_type_id",
+          "turnstile_token"
+        ],
+        "title": "CheckoutStartRequest",
+        "description": "Formulario público de compra: inscripción + selección de tipo de\nentrada y código de descuento opcional, en una sola petición (paso único\ndel embudo, decisión de producto de la fase 6)."
+      },
+      "CheckoutStartResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "checkout_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkout Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message",
+          "checkout_url"
+        ],
+        "title": "CheckoutStartResponse",
+        "description": "Respuesta siempre con la misma forma (hallazgo de no filtrar si el\nemail ya estaba inscrito): `checkout_url` es `null` cuando la\ninscripción existente no es pagable ahora mismo."
       },
       "ConfirmWaitlistPromotionRequest": {
         "properties": {
@@ -7635,6 +7854,32 @@
         ],
         "title": "Page[SponsorTierResponse]"
       },
+      "PaymentStatusResponse": {
+        "properties": {
+          "registration_status": {
+            "type": "string",
+            "title": "Registration Status"
+          },
+          "payment_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "registration_status",
+          "payment_status"
+        ],
+        "title": "PaymentStatusResponse",
+        "description": "Estado real de un pago, para la pantalla de retorno — nunca se da el\npago por confirmado por el mero retorno desde Stripe."
+      },
       "Permission": {
         "type": "string",
         "enum": [
@@ -8583,6 +8828,37 @@
         ],
         "title": "RegistrationAnswerInput",
         "description": "Respuesta a una pregunta personalizada del formulario de inscripción."
+      },
+      "RegistrationAnswerInputPublic": {
+        "properties": {
+          "question_id": {
+            "type": "string",
+            "title": "Question Id"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question_id"
+        ],
+        "title": "RegistrationAnswerInputPublic",
+        "description": "Copia de `registrations.schemas.RegistrationAnswerInput`: los módulos\nde dominio no se importan schemas entre sí (mismo criterio que\n`payments/service.py` no importa `registrations`), solo el tipo de datos\nque necesita `checkout_service` para reenviarlo tal cual."
       },
       "RegistrationAnswerOut": {
         "properties": {
