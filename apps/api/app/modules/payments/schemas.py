@@ -294,3 +294,64 @@ class PaymentStatusResponse(BaseModel):
 
     registration_status: str
     payment_status: str | None
+
+
+# --- Panel de pagos y reembolsos (fase 6 del PRD, fase 5 de trabajo) ---------
+
+PaymentStatus = Literal["pending", "paid", "refunded", "partially_refunded", "expired"]
+RefundReason = Literal["cancellation", "manual"]
+RefundStatus = Literal["pending", "submitted", "succeeded", "failed"]
+NoAutoRefundReason = Literal["evento_ya_empezado", "entrada_usada", "fuera_de_plazo"]
+
+
+class PaymentRefundOut(BaseModel):
+    """Una intención de reembolso del outbox, tal como la ve el panel."""
+
+    id: str
+    amount_cents: int
+    reason: RefundReason
+    revoke_ticket: bool
+    status: RefundStatus
+    error: str | None
+    attempts: int
+
+
+class PaymentListItem(BaseModel):
+    """Un pago del evento, con sus reembolsos (si los tiene) y el motivo por
+    el que no se reembolsó automáticamente al cancelarse, si aplica.
+
+    `no_auto_refund_reason` es siempre derivado en el momento de la lectura
+    (nunca una columna guardada, mismo criterio que `used_count` de un código
+    de descuento): deja de mostrarse en cuanto exista cualquier reembolso
+    para el pago, automático o manual.
+    """
+
+    id: str
+    registration_id: str | None
+    email: str | None
+    ticket_type_name: str | None
+    status: PaymentStatus
+    amount_cents: int
+    discount_cents: int
+    currency: str
+    refunded_cents: int
+    paid_at: datetime | None
+    no_auto_refund_reason: NoAutoRefundReason | None
+    refunds: list[PaymentRefundOut]
+
+
+class RefundRequest(BaseModel):
+    """Reembolso manual desde el panel. `amount_cents` ausente = importe
+    pendiente íntegro (reembolso total). `revoke_ticket` solo tiene efecto en
+    un reembolso parcial: uno total siempre revoca (Decisión #15 del plan)."""
+
+    amount_cents: Annotated[int, Field(gt=0)] | None = None
+    revoke_ticket: bool = False
+
+
+class RefundAcceptedResponse(BaseModel):
+    """El reembolso no se ha ejecutado todavía: queda `pending` en el outbox
+    hasta que la tarea programada lo procese contra Stripe."""
+
+    status: Literal["in_progress"] = "in_progress"
+    refund_id: str

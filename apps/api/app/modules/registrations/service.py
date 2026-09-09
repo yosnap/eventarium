@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.database import maintenance_session
 from app.core.tasks import (
+    process_refunds_task,
     send_registration_cancelled_email,
     send_registration_confirmed_email,
     send_registration_rejected_email,
@@ -30,6 +31,7 @@ from app.modules.auth.verification import (
     generate_token,
 )
 from app.modules.events.models import Event
+from app.modules.payments import refunds_service as payments_refunds_service
 from app.modules.payments import repository as payments_repository
 from app.modules.registrations import repository
 from app.modules.registrations.models import (
@@ -303,9 +305,24 @@ async def _cancelar_inscripcion(
     Devuelve `False` sin hacer nada si ya estaba `cancelled`/`rejected` — el
     llamador decide si eso es un 409 (panel) o un no-op silencioso (enlace
     público, de un solo uso salvo que existan varios tokens vigentes).
+
+    Antes de cambiar el estado (fase 6 del PRD, fase 5 de trabajo): si hay un
+    `event_payments` con importe pendiente, persiste una intención de
+    reembolso en el outbox (`event_payment_refunds`) — nunca llama a Stripe
+    aquí. Los dos llamadores reales (`cancel_registration`,
+    `cancel_registration_by_token`) ya tienen la fila de la inscripción
+    bloqueada (`FOR UPDATE`) antes de entrar, así que cualquier llamada de
+    red en esta función ocurriría con ese bloqueo abierto (hallazgo #12).
     """
     if inscripcion.status in ("cancelled", "rejected"):
         return False
+
+    reembolso = await payments_refunds_service.preparar_reembolso_por_cancelacion(
+        session,
+        organization_id=organization_id,
+        event_id=event_id,
+        registration_id=inscripcion.id,
+    )
 
     # Antes de cambiar el estado: una entrada revocada nunca es válida al
     # escanear, aunque el JWT no haya caducado (fase 4 del PRD). No-op si la
@@ -328,7 +345,14 @@ async def _cancelar_inscripcion(
     )
     inscripcion.status = "cancelled"
     inscripcion.cancelled_at = datetime.now(UTC)
-    await send_registration_cancelled_email.kiq(inscripcion.email, str(organization_id))
+    await send_registration_cancelled_email.kiq(inscripcion.email, str(organization_id), reembolso)
+
+    if reembolso == "en_curso":
+        # Encolado al vuelo (además del cron `*/2 * * * *`): la persona no
+        # tiene que esperar hasta dos minutos para que se dispare el intento
+        # de reembolso. Nunca bajo el bloqueo de la inscripción: `.kiq()` solo
+        # encola el mensaje, no ejecuta la tarea aquí.
+        await process_refunds_task.kiq()
 
     if liberaba_una_plaza:
         evento = await repository.lock_event_for_capacity(session, organization_id, event_id)

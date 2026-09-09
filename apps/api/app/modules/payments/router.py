@@ -27,16 +27,21 @@ from app.core.permissions import Permission
 from app.core.ratelimit import STRIPE_SYNC_POR_IP, limit_per_ip
 from app.modules.events import repository as events_repository
 from app.modules.events.models import Event
-from app.modules.payments import repository, service
+from app.modules.payments import refunds_service, repository, service
 from app.modules.payments.models import (
     EventDiscountCode,
     EventTicketType,
     OrganizationStripeAccount,
 )
+from app.modules.payments.refunds_service import PaymentOut
 from app.modules.payments.schemas import (
     DiscountCodeCreate,
     DiscountCodeResponse,
     DiscountCodeUpdate,
+    PaymentListItem,
+    PaymentRefundOut,
+    RefundAcceptedResponse,
+    RefundRequest,
     StripeAccountResponse,
     StripeOnboardingResponse,
     TicketTypeCreate,
@@ -49,6 +54,7 @@ from app.shared.errors import NotFoundError, ServiceUnavailableError
 router = APIRouter(prefix="/organizations/{organization_id}/stripe", tags=["pagos"])
 router_ticket_types = APIRouter(prefix="/events/{event_id}/ticket-types", tags=["pagos"])
 router_discount_codes = APIRouter(prefix="/events/{event_id}/discount-codes", tags=["pagos"])
+router_payments = APIRouter(prefix="/events/{event_id}/payments", tags=["pagos"])
 
 
 def _organizacion_propia(organization_id: str, usuario: CurrentUserDep) -> uuid.UUID:
@@ -363,3 +369,89 @@ async def delete_discount_code(
         event_id=evento.id,
         discount_code_id=uuid.UUID(discount_code_id),
     )
+
+
+# --- Pagos y reembolsos (fase 6 del PRD, fase 5 de trabajo) ------------------
+
+
+def _refund_response(refund: refunds_service.RefundOut) -> PaymentRefundOut:
+    return PaymentRefundOut(
+        id=str(refund.id),
+        amount_cents=refund.amount_cents,
+        reason=refund.reason,  # type: ignore[arg-type]
+        revoke_ticket=refund.revoke_ticket,
+        status=refund.status,  # type: ignore[arg-type]
+        error=refund.error,
+        attempts=refund.attempts,
+    )
+
+
+def _payment_list_item(pago_out: PaymentOut) -> PaymentListItem:
+    pago = pago_out.payment
+    return PaymentListItem(
+        id=str(pago.id),
+        registration_id=str(pago.registration_id) if pago.registration_id else None,
+        email=pago_out.email,
+        ticket_type_name=pago_out.ticket_type_name,
+        status=pago.status,  # type: ignore[arg-type]
+        amount_cents=pago.amount_cents,
+        discount_cents=pago.discount_cents,
+        currency=pago.currency,
+        refunded_cents=pago.refunded_cents,
+        paid_at=pago.paid_at,
+        no_auto_refund_reason=pago_out.no_auto_refund_reason,  # type: ignore[arg-type]
+        refunds=[_refund_response(fila) for fila in pago_out.refunds],
+    )
+
+
+@router_payments.get(
+    "",
+    summary="Listar los pagos de un evento",
+    description=(
+        "Estado, importes y reembolsos en curso de cada pago, con el motivo de «sin "
+        "reembolso automático» cuando aplica — siempre derivado, nunca una columna guardada."
+    ),
+    response_model=list[PaymentListItem],
+    dependencies=[require_permission(Permission.PAYMENTS_READ)],
+)
+async def list_payments(
+    evento: Annotated[Event, Depends(_obtener_evento_o_404)], session: DbDep
+) -> list[PaymentListItem]:
+    pagos = await refunds_service.listar_pagos_del_evento(
+        session, organization_id=evento.organization_id, event_id=evento.id
+    )
+    return [_payment_list_item(pago) for pago in pagos]
+
+
+@router_payments.post(
+    "/{payment_id}/refund",
+    summary="Reembolsar un pago, total o parcialmente",
+    description=(
+        "Escribe la intención en el mismo outbox que el reembolso automático de una "
+        "cancelación: nunca llama a Stripe en esta petición, así que un importe superior "
+        "al pendiente falla con 409 antes de cualquier llamada de red. Un reembolso total "
+        "revoca siempre la entrada, ignorando `revoke_ticket`; uno parcial no revoca salvo "
+        "que se pida explícitamente."
+    ),
+    status_code=202,
+    response_model=RefundAcceptedResponse,
+    dependencies=[require_permission(Permission.PAYMENTS_WRITE)],
+)
+async def refund_payment(
+    datos: RefundRequest,
+    evento: Annotated[Event, Depends(_obtener_evento_o_404)],
+    session: DbDep,
+    payment_id: str,
+) -> RefundAcceptedResponse:
+    reembolso = await refunds_service.solicitar_reembolso_manual(
+        session,
+        organization_id=evento.organization_id,
+        payment_id=uuid.UUID(payment_id),
+        amount_cents=datos.amount_cents,
+        revoke_ticket=datos.revoke_ticket,
+    )
+
+    from app.core.tasks import process_refunds_task
+
+    await process_refunds_task.kiq()
+    return RefundAcceptedResponse(refund_id=str(reembolso.id))

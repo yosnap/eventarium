@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.payments.models import (
     EventDiscountCode,
     EventPayment,
+    EventPaymentRefund,
     EventTicketType,
     OrganizationStripeAccount,
     StripeWebhookEvent,
@@ -460,6 +461,40 @@ async def get_payment_by_checkout_session_id(
     )
 
 
+async def get_payment_by_payment_intent_id(
+    session: AsyncSession, stripe_payment_intent_id: str
+) -> EventPayment | None:
+    """Único punto de búsqueda de `charge.refunded` (hallazgo #2, ampliado en
+    la fase 5 de trabajo): **nunca** por `metadata`, que el organizador de una
+    cuenta Connect Standard controla desde su propio Dashboard."""
+    return await session.scalar(
+        select(EventPayment).where(
+            EventPayment.stripe_payment_intent_id == stripe_payment_intent_id
+        )
+    )
+
+
+async def get_payment(
+    session: AsyncSession, organization_id: uuid.UUID, payment_id: uuid.UUID
+) -> EventPayment | None:
+    return await session.scalar(
+        select(EventPayment).where(
+            EventPayment.id == payment_id, EventPayment.organization_id == organization_id
+        )
+    )
+
+
+async def list_payments_for_event(
+    session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID
+) -> list[EventPayment]:
+    filas = await session.scalars(
+        select(EventPayment)
+        .where(EventPayment.organization_id == organization_id, EventPayment.event_id == event_id)
+        .order_by(EventPayment.created_at.desc())
+    )
+    return list(filas)
+
+
 @dataclass(frozen=True, slots=True)
 class _PagoPendienteLigero:
     """Proyección mínima para el barrido y la tarea de enlaces: nunca objetos
@@ -628,3 +663,108 @@ async def purgar_eventos_antiguos(session: AsyncSession, *, dias: int) -> int:
     for fila in filas:
         await session.delete(fila)
     return len(filas)
+
+
+# --- Reembolsos: outbox (fase 6 del PRD, fase 5 de trabajo) ------------------
+
+
+async def crear_intencion_reembolso(
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    payment_id: uuid.UUID,
+    amount_cents: int,
+    reason: str,
+    revoke_ticket: bool,
+) -> EventPaymentRefund:
+    """Persiste la intención **antes** de cualquier llamada a Stripe
+    (hallazgos #11 y #12): la fila existe siempre antes de que exista la
+    posibilidad de que el dinero se mueva."""
+    intencion = EventPaymentRefund(
+        organization_id=organization_id,
+        payment_id=payment_id,
+        amount_cents=amount_cents,
+        reason=reason,
+        revoke_ticket=revoke_ticket,
+    )
+    session.add(intencion)
+    await session.flush()
+    return intencion
+
+
+async def get_refunds_for_payment(
+    session: AsyncSession, organization_id: uuid.UUID, payment_id: uuid.UUID
+) -> list[EventPaymentRefund]:
+    filas = await session.scalars(
+        select(EventPaymentRefund)
+        .where(
+            EventPaymentRefund.organization_id == organization_id,
+            EventPaymentRefund.payment_id == payment_id,
+        )
+        .order_by(EventPaymentRefund.created_at)
+    )
+    return list(filas)
+
+
+async def tiene_reembolso_con_revocacion(session: AsyncSession, payment_id: uuid.UUID) -> bool:
+    """`True` si algún reembolso ya `succeeded` de este pago pedía revocar la
+    entrada — la casilla del panel en un reembolso parcial (decisión #15).
+    El webhook de `charge.refunded` la consulta para saber si debe revocar
+    cuando el importe acumulado todavía no es el total."""
+    existe = await session.scalar(
+        select(EventPaymentRefund.id)
+        .where(
+            EventPaymentRefund.payment_id == payment_id,
+            EventPaymentRefund.revoke_ticket.is_(True),
+            EventPaymentRefund.status == "succeeded",
+        )
+        .limit(1)
+    )
+    return existe is not None
+
+
+async def refunds_pendientes(session: AsyncSession) -> list[uuid.UUID]:
+    """Filas `pending`, listas para su primer intento — la tarea principal
+    (`process_refunds_task`), nunca las `submitted` atascadas (esas las
+    recoge `refunds_atascados`, un barrido distinto para no competir con una
+    ejecución concurrente en curso, ver hallazgo #11)."""
+    filas = await session.scalars(
+        select(EventPaymentRefund.id).where(EventPaymentRefund.status == "pending")
+    )
+    return list(filas)
+
+
+async def refunds_atascados(session: AsyncSession) -> list[uuid.UUID]:
+    """Filas `submitted` cuya llamada a Stripe pudo tener éxito pero cuya
+    escritura posterior falló (hallazgo #11): atascadas hace más de 10
+    minutos, igual que `eventos_para_reencolar` para webhooks. Las `failed`
+    con reintentos disponibles también se retoman aquí; las agotadas se
+    registran en `ERROR`."""
+    limite = datetime.now(UTC) - timedelta(minutes=10)
+    atascados = list(
+        await session.scalars(
+            select(EventPaymentRefund.id).where(
+                EventPaymentRefund.status == "submitted",
+                EventPaymentRefund.submitted_at < limite,
+            )
+        )
+    )
+    reintentables = list(
+        await session.scalars(
+            select(EventPaymentRefund.id).where(
+                EventPaymentRefund.status == "failed",
+                EventPaymentRefund.attempts < 5,
+            )
+        )
+    )
+    agotados = await session.scalars(
+        select(EventPaymentRefund.id).where(
+            EventPaymentRefund.status == "failed",
+            EventPaymentRefund.attempts >= 5,
+        )
+    )
+    for refund_id in agotados:
+        logger.error(
+            "Reembolso %s ha agotado sus reintentos: dinero pendiente de devolver.", refund_id
+        )
+    return [*atascados, *reintentables]

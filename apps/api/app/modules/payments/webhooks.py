@@ -33,6 +33,7 @@ from app.modules.payments import checkout_service, repository
 from app.modules.payments import stripe_client as stripe_gateway
 from app.modules.payments.models import OrganizationStripeAccount, StripeWebhookEvent
 from app.modules.registrations.models import EventRegistration
+from app.modules.tickets.service import revocar_entrada
 from app.shared.errors import DomainError, ExternalServiceError
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,7 @@ router = APIRouter(tags=["webhooks"])
 _CAMPOS_POR_TIPO: dict[str, tuple[str, ...]] = {
     "checkout.session.completed": ("payment_status", "payment_intent"),
     "account.updated": ("charges_enabled", "payouts_enabled", "details_submitted"),
+    "charge.refunded": ("payment_intent", "amount_refunded"),
 }
 
 
@@ -172,10 +174,7 @@ async def _despachar(
     if fila.event_type == "account.application.deauthorized":
         return await _handle_account_deauthorized(session, organizacion)
     if fila.event_type == "charge.refunded":
-        # La fase 5 de trabajo implementa el reembolso. Aquí se registra
-        # explícitamente como `ignored`, nunca como `failed`: no es un error,
-        # es trabajo fuera del alcance de esta fase.
-        return "ignored"
+        return await _handle_charge_refunded(session, fila, organizacion)
     return "ignored"
 
 
@@ -249,4 +248,60 @@ async def _handle_account_deauthorized(
     session: AsyncSession, organizacion: OrganizationStripeAccount
 ) -> str:
     await repository.marcar_desautorizada(session, organizacion, momento=datetime.now(UTC))
+    return "processed"
+
+
+async def _handle_charge_refunded(
+    session: AsyncSession, fila: StripeWebhookEvent, organizacion: OrganizationStripeAccount
+) -> str:
+    """Fuente de verdad de `refunded_cents` (fase 5 de trabajo de la fase 6
+    del PRD): incluye los reembolsos hechos por el organizador desde su
+    propio Dashboard de Stripe, que con Connect Standard puede hacer sin
+    pasar por la plataforma.
+
+    Localiza el pago **exclusivamente** por `stripe_payment_intent_id`
+    (`UNIQUE`), nunca por `metadata` (hallazgo #2, ampliado en la fase 5), y
+    verifica que su organización coincide con la resuelta desde
+    `event.account` antes de mutar nada. `refunded_cents` se **fija** al
+    acumulado que reporta Stripe (`amount_refunded`), nunca se suma un delta:
+    es la única forma de que converjan los reembolsos del panel y los del
+    Dashboard del organizador, y de que reenviar el mismo evento no duplique
+    el importe.
+    """
+    payload = fila.payload
+    stripe_payment_intent_id = payload.get("payment_intent")
+    if not isinstance(stripe_payment_intent_id, str):
+        return "ignored"
+
+    pago = await repository.get_payment_by_payment_intent_id(session, stripe_payment_intent_id)
+    if pago is None:
+        return "ignored"
+
+    if pago.organization_id != organizacion.organization_id:
+        logger.error(
+            "Webhook charge.refunded: organization_id del pago %s (%s) no coincide con la "
+            "organización resuelta desde event.account (%s).",
+            pago.id,
+            pago.organization_id,
+            organizacion.organization_id,
+        )
+        return "failed"
+
+    amount_refunded = payload.get("amount_refunded")
+    if not isinstance(amount_refunded, int):
+        return "ignored"
+
+    pago.refunded_cents = amount_refunded
+    es_total = amount_refunded >= pago.amount_cents
+    if es_total:
+        pago.status = "refunded"
+        pago.refunded_at = datetime.now(UTC)
+    elif amount_refunded > 0:
+        pago.status = "partially_refunded"
+
+    deberia_revocar = es_total or await repository.tiene_reembolso_con_revocacion(session, pago.id)
+    if deberia_revocar and pago.registration_id is not None:
+        await revocar_entrada(
+            session, organization_id=pago.organization_id, registration_id=pago.registration_id
+        )
     return "processed"

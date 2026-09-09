@@ -243,16 +243,38 @@ async def send_registration_rejected_email(to_email: str, organization_id: str) 
 
 
 @broker.task(retry_on_error=True, max_retries=5)
-async def send_registration_cancelled_email(to_email: str, organization_id: str) -> None:
-    """Cancelación de una inscripción, por el organizador o por autocancelación."""
+async def send_registration_cancelled_email(
+    to_email: str, organization_id: str, reembolso: str | None = None
+) -> None:
+    """Cancelación de una inscripción, por el organizador o por autocancelación.
+
+    `reembolso` (fase 6 del PRD, fase 5 de trabajo, hallazgo #13) distingue
+    los dos casos de una cancelación con pago: `"en_curso"` (política
+    cumplida, se ha creado la intención de reembolso) o `"sin_reembolso"`
+    (había importe pendiente pero la política de plazo lo descarta). `None`
+    para un evento gratuito o un pago que nunca llegó a cobrarse — mismo
+    correo que antes de esta fase.
+    """
+    cuerpo = (
+        "Hola,\n\n"
+        "Tu inscripción a este evento ha quedado cancelada. Si no has sido tú, "
+        "contacta con la organización del evento."
+    )
+    if reembolso == "en_curso":
+        cuerpo += (
+            "\n\nEstamos tramitando el reembolso de tu pago; lo recibirás en los "
+            "próximos días en el mismo medio de pago."
+        )
+    elif reembolso == "sin_reembolso":
+        cuerpo += (
+            "\n\nTu pago no se reembolsa automáticamente por la política de plazo de "
+            "cancelación de este evento. Contacta con la organización si crees que "
+            "debería reembolsarse."
+        )
     await get_email_provider().send(
         to=to_email,
         subject="Tu inscripción ha sido cancelada",
-        body=(
-            "Hola,\n\n"
-            "Tu inscripción a este evento ha quedado cancelada. Si no has sido tú, "
-            "contacta con la organización del evento."
-        ),
+        body=cuerpo,
     )
 
 
@@ -335,6 +357,29 @@ async def purge_stripe_webhook_events_task() -> None:
         await payments_repository.purgar_eventos_antiguos(
             session, dias=get_settings().stripe_webhook_retention_days
         )
+
+
+@broker.task(schedule=[{"cron": "*/2 * * * *"}])
+async def process_refunds_task() -> None:
+    """Cada 2 minutos, y encolada al vuelo tras cada cancelación con
+    reembolso automático (`registrations/service.py::_cancelar_inscripcion`):
+    ejecuta contra Stripe las intenciones `pending` del outbox
+    `event_payment_refunds` (fase 6 del PRD, fase 5 de trabajo). El mismo
+    camino ejecuta tanto el reembolso automático como el manual del panel."""
+    from app.modules.payments.refunds_service import procesar_reembolsos_pendientes
+
+    await procesar_reembolsos_pendientes()
+
+
+@broker.task(schedule=[{"cron": "*/10 * * * *"}])
+async def sweep_stuck_refunds_task() -> None:
+    """Cada 10 minutos: hermana de `sweep_stuck_webhook_events_task`. Retoma
+    un reembolso cuya llamada a Stripe pudo tener éxito pero cuya escritura
+    posterior falló (hallazgo #11: sin esto, la fila queda `submitted` para
+    siempre y nadie se entera de si el dinero salió o no)."""
+    from app.modules.payments.refunds_service import reencolar_reembolsos_atascados
+
+    await reencolar_reembolsos_atascados()
 
 
 @broker.task(retry_on_error=True, max_retries=5)
