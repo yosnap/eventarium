@@ -9,7 +9,14 @@ import es from '../../../../../public/assets/i18n/es-ES.json';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../../testing/axe';
 import { EventTicketTypes } from './event-ticket-types';
 
+const EVENT_URL = '/api/v1/events/e1';
 const TICKET_TYPES_URL = '/api/v1/events/e1/ticket-types';
+
+function flushEventoDePago(http: HttpTestingController): void {
+  http
+    .expectOne((p) => p.url === EVENT_URL && p.method === 'GET')
+    .flush({ registration_mode: 'paid' });
+}
 
 function tipos() {
   return [
@@ -74,6 +81,8 @@ describe('EventTicketTypes', () => {
     fixture.componentRef.setInput('eventId', 'e1');
     fixture.detectChanges();
     await avanzar(fixture);
+    flushEventoDePago(http);
+    await avanzar(fixture);
 
     http.expectOne((p) => p.url === TICKET_TYPES_URL && p.method === 'GET').flush(tipos());
     await avanzar(fixture);
@@ -89,6 +98,8 @@ describe('EventTicketTypes', () => {
     fixture.componentRef.setInput('eventId', 'e1');
     fixture.detectChanges();
     await avanzar(fixture);
+    flushEventoDePago(http);
+    await avanzar(fixture);
     http.expectOne((p) => p.url === TICKET_TYPES_URL && p.method === 'GET').flush([]);
     await avanzar(fixture);
 
@@ -99,5 +110,22 @@ describe('EventTicketTypes', () => {
 
     http.expectNone((p) => p.method === 'POST');
     expect(fixture.nativeElement.textContent).toContain('Escribe el nombre del tipo de entrada.');
+  });
+
+  it('en un evento sin pagos, explica que los tipos de entrada no aplican y no pide la lista', async () => {
+    const fixture = TestBed.createComponent(EventTicketTypes);
+    fixture.componentRef.setInput('eventId', 'e1');
+    fixture.detectChanges();
+    await avanzar(fixture);
+    http
+      .expectOne((p) => p.url === EVENT_URL && p.method === 'GET')
+      .flush({
+        registration_mode: 'free',
+      });
+    await avanzar(fixture);
+
+    http.expectNone((p) => p.url === TICKET_TYPES_URL);
+    expect(fixture.nativeElement.textContent).toContain('Este evento no acepta pagos');
+    expect(fixture.nativeElement.querySelector('form')).toBeNull();
   });
 });

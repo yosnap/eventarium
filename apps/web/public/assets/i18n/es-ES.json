@@ -235,6 +235,15 @@
   "admin": {
     "titulo": "Panel de administración",
     "navegacion": "Navegación del panel",
+    "nav": {
+      "grupoOrganizacion": "Organización",
+      "grupoPlataforma": "Plataforma",
+      "eventoCargando": "Cargando evento…",
+      "volverAEventos": "Volver a eventos",
+      "detallesEvento": "Detalles",
+      "abrirNavegacion": "Abrir navegación",
+      "cerrarNavegacion": "Cerrar navegación"
+    },
     "escritorio": "Escritorio",
     "identidadVisual": "Identidad visual",
     "rolesNav": "Roles",
@@ -723,7 +732,8 @@
         "cupo": "{{cupo}} plazas",
         "inicioVenta": "Inicio de la venta",
         "finVenta": "Fin de la venta",
-        "error": "No hemos podido completar la operación."
+        "error": "No hemos podido completar la operación.",
+        "eventoGratuito": "Este evento no acepta pagos: los tipos de entrada solo aplican a eventos con inscripción de pago. Cambia el modo de inscripción del evento a «pago» para gestionarlos."
       },
       "discountCodes": {
         "titulo": "Códigos de descuento",
@@ -752,7 +762,8 @@
         "todosLosTipos": "Todos los tipos de entrada",
         "vigenteDesde": "Vigente desde",
         "vigenteHasta": "Vigente hasta",
-        "error": "No hemos podido completar la operación."
+        "error": "No hemos podido completar la operación.",
+        "eventoGratuito": "Este evento no acepta pagos: los códigos de descuento solo aplican a eventos con inscripción de pago. Cambia el modo de inscripción del evento a «pago» para gestionarlos."
       },
       "payments": {
         "titulo": "Pagos",

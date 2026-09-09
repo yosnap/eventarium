@@ -19,6 +19,12 @@ import { Input } from '../../../shared/ui/input';
 import { Textarea } from '../../../shared/ui/textarea';
 import { isoAValorLocal } from './datetime-local';
 
+type RegistrationMode = 'free' | 'approval' | 'paid';
+
+interface EventoResumen {
+  readonly registration_mode: RegistrationMode;
+}
+
 interface TicketType {
   readonly id: string;
   readonly name: string;
@@ -68,158 +74,170 @@ function precioAEuros(cents: number): string {
   template: `
     <ng-container *transloco="let t">
       <app-card [heading]="t('admin.events.ticketTypes.titulo')">
-        @if (error(); as mensaje) {
-          <app-alert tone="error">{{ mensaje }}</app-alert>
-        }
-
-        @if (cargando()) {
+        @if (cargandoEvento()) {
           <p>{{ t('comun.cargando') }}</p>
-        } @else if (tipos().length === 0) {
-          <p>{{ t('admin.events.ticketTypes.sinTipos') }}</p>
+        } @else if (!aceptaPagos()) {
+          <app-alert tone="info">{{ t('admin.events.ticketTypes.eventoGratuito') }}</app-alert>
         } @else {
-          <ul class="lista">
-            @for (tipo of tipos(); track tipo.id; let primero = $first; let ultimo = $last) {
-              <li [class.inactivo]="!tipo.is_active">
-                <div class="fila">
-                  <div class="orden">
-                    <button
-                      type="button"
-                      [attr.aria-label]="t('admin.events.ticketTypes.subir')"
-                      [disabled]="primero"
-                      (click)="mover(tipo, -1)"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      [attr.aria-label]="t('admin.events.ticketTypes.bajar')"
-                      [disabled]="ultimo"
-                      (click)="mover(tipo, 1)"
-                    >
-                      ↓
-                    </button>
-                  </div>
-                  <div>
-                    <strong>{{ tipo.name }}</strong>
-                    @if (!tipo.is_active) {
-                      <span class="insignia">{{ t('admin.events.ticketTypes.inactivo') }}</span>
-                    }
-                    <span class="detalle">
-                      {{ precioEnEuros(tipo.price_cents) }} {{ tipo.currency.toUpperCase() }}
-                      @if (tipo.max_quantity !== null) {
-                        · {{ t('admin.events.ticketTypes.cupo', { cupo: tipo.max_quantity }) }}
-                      }
-                    </span>
-                  </div>
-                  <div class="acciones">
-                    <app-button variant="secundario" type="button" (pulsado)="editar(tipo)">
-                      {{ t('admin.events.ticketTypes.editar') }}
-                    </app-button>
-                    <app-button variant="secundario" type="button" (pulsado)="alternarActivo(tipo)">
-                      {{
-                        tipo.is_active
-                          ? t('admin.events.ticketTypes.desactivar')
-                          : t('admin.events.ticketTypes.activar')
-                      }}
-                    </app-button>
-                    <app-button variant="peligro" type="button" (pulsado)="borrar(tipo.id)">
-                      {{ t('admin.events.ticketTypes.eliminar') }}
-                    </app-button>
-                  </div>
-                </div>
-              </li>
-            }
-          </ul>
-        }
-
-        <form (submit)="guardar($event)" novalidate class="formulario">
-          <h3>
-            {{
-              editandoId()
-                ? t('admin.events.ticketTypes.editarTipo')
-                : t('admin.events.ticketTypes.anadirTipo')
-            }}
-          </h3>
-
-          <app-input
-            fieldId="tipo-nombre"
-            [label]="t('admin.events.ticketTypes.nombre')"
-            [required]="true"
-            [(value)]="nombre"
-          />
-          <app-textarea
-            fieldId="tipo-descripcion"
-            [label]="t('admin.events.ticketTypes.descripcion')"
-            [(value)]="descripcion"
-          />
-
-          <div class="campo-numero">
-            <label for="tipo-precio">{{ t('admin.events.ticketTypes.precio') }}</label>
-            <input
-              id="tipo-precio"
-              type="text"
-              inputmode="decimal"
-              [value]="precio()"
-              [attr.aria-describedby]="'tipo-precio-ayuda'"
-              (input)="precio.set(alTexto($event))"
-            />
-            <p id="tipo-precio-ayuda" class="ayuda">
-              {{ t('admin.events.ticketTypes.precioAyuda') }}
-            </p>
-          </div>
-
-          <div class="campo-numero">
-            <label for="tipo-cupo">{{ t('admin.events.ticketTypes.cupoMaximo') }}</label>
-            <input
-              id="tipo-cupo"
-              type="number"
-              inputmode="numeric"
-              min="1"
-              [value]="maxCantidad()"
-              [attr.aria-describedby]="'tipo-cupo-ayuda'"
-              (input)="maxCantidad.set(alTexto($event))"
-            />
-            <p id="tipo-cupo-ayuda" class="ayuda">{{ t('admin.events.ticketTypes.cupoAyuda') }}</p>
-          </div>
-
-          <div class="campo-fecha">
-            <label for="tipo-inicio-venta">{{ t('admin.events.ticketTypes.inicioVenta') }}</label>
-            <input
-              id="tipo-inicio-venta"
-              type="datetime-local"
-              [value]="inicioVenta()"
-              (input)="inicioVenta.set(alTexto($event))"
-            />
-          </div>
-          <div class="campo-fecha">
-            <label for="tipo-fin-venta">{{ t('admin.events.ticketTypes.finVenta') }}</label>
-            <input
-              id="tipo-fin-venta"
-              type="datetime-local"
-              [value]="finVenta()"
-              (input)="finVenta.set(alTexto($event))"
-            />
-          </div>
-
-          @if (formError(); as mensaje) {
+          @if (error(); as mensaje) {
             <app-alert tone="error">{{ mensaje }}</app-alert>
           }
 
-          <div class="acciones-finales">
-            @if (editandoId()) {
-              <app-button variant="secundario" type="button" (pulsado)="cancelarEdicion()">
-                {{ t('comun.cancelar') }}
-              </app-button>
-            }
-            <app-button type="submit" [loading]="guardando()">
+          @if (cargando()) {
+            <p>{{ t('comun.cargando') }}</p>
+          } @else if (tipos().length === 0) {
+            <p>{{ t('admin.events.ticketTypes.sinTipos') }}</p>
+          } @else {
+            <ul class="lista">
+              @for (tipo of tipos(); track tipo.id; let primero = $first; let ultimo = $last) {
+                <li [class.inactivo]="!tipo.is_active">
+                  <div class="fila">
+                    <div class="orden">
+                      <button
+                        type="button"
+                        [attr.aria-label]="t('admin.events.ticketTypes.subir')"
+                        [disabled]="primero"
+                        (click)="mover(tipo, -1)"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        [attr.aria-label]="t('admin.events.ticketTypes.bajar')"
+                        [disabled]="ultimo"
+                        (click)="mover(tipo, 1)"
+                      >
+                        ↓
+                      </button>
+                    </div>
+                    <div>
+                      <strong>{{ tipo.name }}</strong>
+                      @if (!tipo.is_active) {
+                        <span class="insignia">{{ t('admin.events.ticketTypes.inactivo') }}</span>
+                      }
+                      <span class="detalle">
+                        {{ precioEnEuros(tipo.price_cents) }} {{ tipo.currency.toUpperCase() }}
+                        @if (tipo.max_quantity !== null) {
+                          · {{ t('admin.events.ticketTypes.cupo', { cupo: tipo.max_quantity }) }}
+                        }
+                      </span>
+                    </div>
+                    <div class="acciones">
+                      <app-button variant="secundario" type="button" (pulsado)="editar(tipo)">
+                        {{ t('admin.events.ticketTypes.editar') }}
+                      </app-button>
+                      <app-button
+                        variant="secundario"
+                        type="button"
+                        (pulsado)="alternarActivo(tipo)"
+                      >
+                        {{
+                          tipo.is_active
+                            ? t('admin.events.ticketTypes.desactivar')
+                            : t('admin.events.ticketTypes.activar')
+                        }}
+                      </app-button>
+                      <app-button variant="peligro" type="button" (pulsado)="borrar(tipo.id)">
+                        {{ t('admin.events.ticketTypes.eliminar') }}
+                      </app-button>
+                    </div>
+                  </div>
+                </li>
+              }
+            </ul>
+          }
+
+          <form (submit)="guardar($event)" novalidate class="formulario">
+            <h3>
               {{
                 editandoId()
-                  ? t('admin.events.ticketTypes.guardarCambios')
+                  ? t('admin.events.ticketTypes.editarTipo')
                   : t('admin.events.ticketTypes.anadirTipo')
               }}
-            </app-button>
-          </div>
-        </form>
+            </h3>
+
+            <app-input
+              fieldId="tipo-nombre"
+              [label]="t('admin.events.ticketTypes.nombre')"
+              [required]="true"
+              [(value)]="nombre"
+            />
+            <app-textarea
+              fieldId="tipo-descripcion"
+              [label]="t('admin.events.ticketTypes.descripcion')"
+              [(value)]="descripcion"
+            />
+
+            <div class="campo-numero">
+              <label for="tipo-precio">{{ t('admin.events.ticketTypes.precio') }}</label>
+              <input
+                id="tipo-precio"
+                type="text"
+                inputmode="decimal"
+                [value]="precio()"
+                [attr.aria-describedby]="'tipo-precio-ayuda'"
+                (input)="precio.set(alTexto($event))"
+              />
+              <p id="tipo-precio-ayuda" class="ayuda">
+                {{ t('admin.events.ticketTypes.precioAyuda') }}
+              </p>
+            </div>
+
+            <div class="campo-numero">
+              <label for="tipo-cupo">{{ t('admin.events.ticketTypes.cupoMaximo') }}</label>
+              <input
+                id="tipo-cupo"
+                type="number"
+                inputmode="numeric"
+                min="1"
+                [value]="maxCantidad()"
+                [attr.aria-describedby]="'tipo-cupo-ayuda'"
+                (input)="maxCantidad.set(alTexto($event))"
+              />
+              <p id="tipo-cupo-ayuda" class="ayuda">
+                {{ t('admin.events.ticketTypes.cupoAyuda') }}
+              </p>
+            </div>
+
+            <div class="campo-fecha">
+              <label for="tipo-inicio-venta">{{ t('admin.events.ticketTypes.inicioVenta') }}</label>
+              <input
+                id="tipo-inicio-venta"
+                type="datetime-local"
+                [value]="inicioVenta()"
+                (input)="inicioVenta.set(alTexto($event))"
+              />
+            </div>
+            <div class="campo-fecha">
+              <label for="tipo-fin-venta">{{ t('admin.events.ticketTypes.finVenta') }}</label>
+              <input
+                id="tipo-fin-venta"
+                type="datetime-local"
+                [value]="finVenta()"
+                (input)="finVenta.set(alTexto($event))"
+              />
+            </div>
+
+            @if (formError(); as mensaje) {
+              <app-alert tone="error">{{ mensaje }}</app-alert>
+            }
+
+            <div class="acciones-finales">
+              @if (editandoId()) {
+                <app-button variant="secundario" type="button" (pulsado)="cancelarEdicion()">
+                  {{ t('comun.cancelar') }}
+                </app-button>
+              }
+              <app-button type="submit" [loading]="guardando()">
+                {{
+                  editandoId()
+                    ? t('admin.events.ticketTypes.guardarCambios')
+                    : t('admin.events.ticketTypes.anadirTipo')
+                }}
+              </app-button>
+            </div>
+          </form>
+        }
       </app-card>
     </ng-container>
   `,
@@ -325,6 +343,11 @@ export class EventTicketTypes implements OnInit {
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
 
+  /** Mientras no se conozca el modo de inscripción del evento, no tiene sentido
+   * cargar ni pintar el gestor de tipos de entrada: solo aplica a eventos de pago. */
+  protected readonly cargandoEvento = signal(true);
+  protected readonly aceptaPagos = signal(false);
+
   protected readonly cargando = signal(true);
   protected readonly guardando = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -341,7 +364,7 @@ export class EventTicketTypes implements OnInit {
   protected readonly finVenta = signal(this.valoresIniciales.salesEndAt);
 
   ngOnInit(): void {
-    void this.cargar();
+    void this.iniciar();
   }
 
   protected precioEnEuros(cents: number): string {
@@ -350,6 +373,32 @@ export class EventTicketTypes implements OnInit {
 
   protected alTexto(evento: Event): string {
     return (evento.target as HTMLInputElement).value;
+  }
+
+  private async iniciar(): Promise<void> {
+    this.cargandoEvento.set(true);
+    try {
+      const evento = await firstValueFrom(
+        this.http.get<EventoResumen>(this.api.url(`/events/${this.eventId()}`)),
+      );
+      this.aceptaPagos.set(evento.registration_mode === 'paid');
+    } catch (error) {
+      // Si no se puede confirmar el modo de inscripción, se trata como si no
+      // aceptara pagos: mostrar el gestor de entradas sin saber si aplica sería
+      // peor que mostrar el mensaje explicativo de más.
+      this.aceptaPagos.set(false);
+      this.error.set(
+        error instanceof ApiError
+          ? error.message
+          : this.transloco.translate('admin.events.ticketTypes.error'),
+      );
+      return;
+    } finally {
+      this.cargandoEvento.set(false);
+    }
+    if (this.aceptaPagos()) {
+      await this.cargar();
+    }
   }
 
   private async cargar(): Promise<void> {

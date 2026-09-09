@@ -15,13 +15,9 @@ function eventoDetalle(overrides: Record<string, unknown> = {}) {
     id: 'e1',
     slug: 'iawic-2026',
     title: 'IA Week in Cascais 2026',
-    summary: null,
-    cover_url: null,
-    status: 'draft',
     starts_at: '2026-10-01T09:00:00Z',
     ends_at: '2026-10-02T18:00:00Z',
     location_mode: 'in_person',
-    registration_mode: 'free',
     payment_checkout_window_minutes: 45,
     ...overrides,
   };
@@ -53,6 +49,49 @@ function configurar(id: string | null) {
   });
 }
 
+/** `EventDetails` (delegado desde `EventForm` en modo edición) pide sus propios
+ * datos: se vacían aquí para no dejar peticiones pendientes en `http.verify()`. Las
+ * secciones (agenda, patrocinadores…) solo se crean —y solo entonces piden lo
+ * suyo— una vez que la petición de `EventDetails` se resuelve, así que hace falta
+ * una vuelta de `avanzar` entre medias. */
+async function flushEventDetailsYSusSecciones(
+  http: HttpTestingController,
+  fixture: ComponentFixture<unknown>,
+): Promise<void> {
+  http
+    .expectOne((peticion) => peticion.url === '/api/v1/events/e1' && peticion.method === 'GET')
+    .flush({ cover_url: null, status: 'draft', registration_mode: 'free' });
+  await avanzar(fixture);
+  http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/sessions').flush([]);
+  http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/members').flush([]);
+  http
+    .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/members')
+    .flush({ items: [], total: 0, limit: 200, offset: 0 });
+  http
+    .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/sponsor-tiers')
+    .flush({ items: [], total: 0, limit: 100, offset: 0 });
+  http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/sponsors').flush([]);
+  http
+    .expectOne((peticion) => peticion.url === '/api/v1/events/e1/registrations')
+    .flush({ items: [], total: 0, limit: 20, offset: 0 });
+  http
+    .expectOne((peticion) => peticion.url === '/api/v1/events/e1/registrations/stats')
+    .flush({
+      initiated: 0,
+      verified: 0,
+      pending_approval: 0,
+      confirmed: 0,
+      rejected: 0,
+      cancelled: 0,
+      waitlisted: 0,
+      verified_conversion_rate: null,
+      confirmed_conversion_rate: null,
+    });
+  http
+    .expectOne((peticion) => peticion.url === '/api/v1/events/e1/registration-questions')
+    .flush([]);
+}
+
 describe('EventForm', () => {
   let http: HttpTestingController;
 
@@ -60,14 +99,14 @@ describe('EventForm', () => {
     http.verify();
   });
 
-  it('modo alta: sin violaciones de accesibilidad y sin pedir el evento', async () => {
+  it('modo alta: sin violaciones de accesibilidad y sin pedir el evento ni delegar en EventDetails', async () => {
     configurar(null);
     http = TestBed.inject(HttpTestingController);
 
     const fixture = TestBed.createComponent(EventForm);
     await avanzar(fixture);
 
-    expect(fixture.nativeElement.querySelector('app-event-agenda')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-event-details')).toBeNull();
     const campoVentana = fixture.nativeElement.querySelector(
       '#evento-ventana-pago',
     ) as HTMLInputElement;
@@ -93,42 +132,15 @@ describe('EventForm', () => {
     expect(fixture.nativeElement.textContent).toContain('Debe estar entre 30 y 1439 minutos.');
   });
 
-  it('modo edición: carga el evento y la agenda, sin violaciones de accesibilidad', async () => {
+  it('modo edición: carga los datos base y delega el resto en EventDetails', async () => {
     configurar('e1');
     http = TestBed.inject(HttpTestingController);
 
     const fixture = TestBed.createComponent(EventForm);
     await avanzar(fixture);
-    http.expectOne((peticion) => peticion.url === '/api/v1/events/e1').flush(eventoDetalle());
-    await avanzar(fixture);
-    http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/sessions').flush([]);
-    http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/members').flush([]);
     http
-      .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/members')
-      .flush({ items: [], total: 0, limit: 200, offset: 0 });
-    http
-      .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/sponsor-tiers')
-      .flush({ items: [], total: 0, limit: 100, offset: 0 });
-    http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/sponsors').flush([]);
-    http
-      .expectOne((peticion) => peticion.url === '/api/v1/events/e1/registrations')
-      .flush({ items: [], total: 0, limit: 20, offset: 0 });
-    http
-      .expectOne((peticion) => peticion.url === '/api/v1/events/e1/registrations/stats')
-      .flush({
-        initiated: 0,
-        verified: 0,
-        pending_approval: 0,
-        confirmed: 0,
-        rejected: 0,
-        cancelled: 0,
-        waitlisted: 0,
-        verified_conversion_rate: null,
-        confirmed_conversion_rate: null,
-      });
-    http
-      .expectOne((peticion) => peticion.url === '/api/v1/events/e1/registration-questions')
-      .flush([]);
+      .expectOne((peticion) => peticion.url === '/api/v1/events/e1' && peticion.method === 'GET')
+      .flush(eventoDetalle());
     await avanzar(fixture);
 
     expect((fixture.nativeElement.querySelector('#evento-titulo') as HTMLInputElement).value).toBe(
@@ -137,62 +149,10 @@ describe('EventForm', () => {
     expect(
       (fixture.nativeElement.querySelector('#evento-ventana-pago') as HTMLInputElement).value,
     ).toBe('45');
-    expect(fixture.nativeElement.querySelector('app-event-ticket-types')).toBeNull();
-    expect(fixture.nativeElement.querySelector('app-event-discount-codes')).toBeNull();
-    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
-  });
+    expect(fixture.nativeElement.querySelector('app-event-details')).not.toBeNull();
 
-  it('modo edición, evento `paid`: muestra los tipos de entrada y los códigos de descuento', async () => {
-    configurar('e1');
-    http = TestBed.inject(HttpTestingController);
+    await flushEventDetailsYSusSecciones(http, fixture);
 
-    const fixture = TestBed.createComponent(EventForm);
-    await avanzar(fixture);
-    http
-      .expectOne((peticion) => peticion.url === '/api/v1/events/e1')
-      .flush(eventoDetalle({ registration_mode: 'paid' }));
-    await avanzar(fixture);
-    http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/sessions').flush([]);
-    http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/members').flush([]);
-    http
-      .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/members')
-      .flush({ items: [], total: 0, limit: 200, offset: 0 });
-    http
-      .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/sponsor-tiers')
-      .flush({ items: [], total: 0, limit: 100, offset: 0 });
-    http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/sponsors').flush([]);
-    // Dos peticiones a `ticket-types`: una de `EventTicketTypes` (su propio
-    // listado) y otra de `EventDiscountCodes` (el desplegable de tipos).
-    for (const peticion of http.match((p) => p.url === '/api/v1/events/e1/ticket-types')) {
-      peticion.flush([]);
-    }
-    http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/discount-codes').flush([]);
-    http
-      .expectOne((peticion) => peticion.url === '/api/v1/events/e1/registrations')
-      .flush({ items: [], total: 0, limit: 20, offset: 0 });
-    http
-      .expectOne((peticion) => peticion.url === '/api/v1/events/e1/registrations/stats')
-      .flush({
-        initiated: 0,
-        verified: 0,
-        pending_approval: 0,
-        confirmed: 0,
-        rejected: 0,
-        cancelled: 0,
-        waitlisted: 0,
-        verified_conversion_rate: null,
-        confirmed_conversion_rate: null,
-      });
-    http
-      .expectOne((peticion) => peticion.url === '/api/v1/events/e1/registration-questions')
-      .flush([]);
-    await avanzar(fixture);
-
-    expect(fixture.nativeElement.querySelector('app-event-ticket-types')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('app-event-discount-codes')).not.toBeNull();
-    expect(fixture.nativeElement.textContent).toContain(
-      'no podrá publicarse hasta conectar y verificar una cuenta de Stripe',
-    );
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 });

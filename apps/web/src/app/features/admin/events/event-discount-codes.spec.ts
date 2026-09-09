@@ -9,8 +9,15 @@ import es from '../../../../../public/assets/i18n/es-ES.json';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../../testing/axe';
 import { EventDiscountCodes } from './event-discount-codes';
 
+const EVENT_URL = '/api/v1/events/e1';
 const TICKET_TYPES_URL = '/api/v1/events/e1/ticket-types';
 const DISCOUNT_CODES_URL = '/api/v1/events/e1/discount-codes';
+
+function flushEventoDePago(http: HttpTestingController): void {
+  http
+    .expectOne((p) => p.url === EVENT_URL && p.method === 'GET')
+    .flush({ registration_mode: 'paid' });
+}
 
 function tipos() {
   return [{ id: 't1', name: 'General' }];
@@ -66,6 +73,8 @@ describe('EventDiscountCodes', () => {
     fixture.componentRef.setInput('eventId', 'e1');
     fixture.detectChanges();
     await avanzar(fixture);
+    flushEventoDePago(http);
+    await avanzar(fixture);
 
     http.expectOne((p) => p.url === TICKET_TYPES_URL).flush(tipos());
     http.expectOne((p) => p.url === DISCOUNT_CODES_URL && p.method === 'GET').flush(codigos());
@@ -82,6 +91,8 @@ describe('EventDiscountCodes', () => {
     fixture.componentRef.setInput('eventId', 'e1');
     fixture.detectChanges();
     await avanzar(fixture);
+    flushEventoDePago(http);
+    await avanzar(fixture);
     http.expectOne((p) => p.url === TICKET_TYPES_URL).flush([]);
     http.expectOne((p) => p.url === DISCOUNT_CODES_URL && p.method === 'GET').flush([]);
     await avanzar(fixture);
@@ -93,5 +104,23 @@ describe('EventDiscountCodes', () => {
 
     http.expectNone((p) => p.method === 'POST');
     expect(fixture.nativeElement.textContent).toContain('Escribe el código de descuento.');
+  });
+
+  it('en un evento sin pagos, explica que los códigos de descuento no aplican y no pide listas', async () => {
+    const fixture = TestBed.createComponent(EventDiscountCodes);
+    fixture.componentRef.setInput('eventId', 'e1');
+    fixture.detectChanges();
+    await avanzar(fixture);
+    http
+      .expectOne((p) => p.url === EVENT_URL && p.method === 'GET')
+      .flush({
+        registration_mode: 'approval',
+      });
+    await avanzar(fixture);
+
+    http.expectNone((p) => p.url === TICKET_TYPES_URL);
+    http.expectNone((p) => p.url === DISCOUNT_CODES_URL);
+    expect(fixture.nativeElement.textContent).toContain('Este evento no acepta pagos');
+    expect(fixture.nativeElement.querySelector('form')).toBeNull();
   });
 });

@@ -18,6 +18,12 @@ import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
 import { isoAValorLocal } from './datetime-local';
 
+type RegistrationMode = 'free' | 'approval' | 'paid';
+
+interface EventoResumen {
+  readonly registration_mode: RegistrationMode;
+}
+
 type DiscountType = 'percentage' | 'fixed_amount';
 
 interface TicketTypeOption {
@@ -70,181 +76,187 @@ function vacio(): {
   template: `
     <ng-container *transloco="let t">
       <app-card [heading]="t('admin.events.discountCodes.titulo')">
-        @if (error(); as mensaje) {
-          <app-alert tone="error">{{ mensaje }}</app-alert>
-        }
-
-        @if (cargando()) {
+        @if (cargandoEvento()) {
           <p>{{ t('comun.cargando') }}</p>
-        } @else if (codigos().length === 0) {
-          <p>{{ t('admin.events.discountCodes.sinCodigos') }}</p>
+        } @else if (!aceptaPagos()) {
+          <app-alert tone="info">{{ t('admin.events.discountCodes.eventoGratuito') }}</app-alert>
         } @else {
-          <ul class="lista">
-            @for (codigo of codigos(); track codigo.id) {
-              <li>
-                <div class="fila">
-                  <div>
-                    <strong>{{ codigo.code }}</strong>
-                    <span class="detalle">
-                      {{
-                        codigo.discount_type === 'percentage'
-                          ? t('admin.events.discountCodes.valorPorcentaje', {
-                              valor: codigo.discount_value,
-                            })
-                          : t('admin.events.discountCodes.valorFijo', {
-                              valor: codigo.discount_value,
-                            })
-                      }}
-                      ·
-                      {{
-                        t('admin.events.discountCodes.usos', {
-                          usados: codigo.used_count,
-                          max: codigo.max_uses ?? t('admin.events.discountCodes.sinLimite'),
-                        })
-                      }}
-                      @if (codigo.ticket_type_id) {
-                        · {{ nombreDeTipo(codigo.ticket_type_id) }}
-                      }
-                    </span>
-                  </div>
-                  <div class="acciones">
-                    <app-button variant="secundario" type="button" (pulsado)="editar(codigo)">
-                      {{ t('admin.events.discountCodes.editar') }}
-                    </app-button>
-                    <app-button variant="peligro" type="button" (pulsado)="borrar(codigo.id)">
-                      {{ t('admin.events.discountCodes.eliminar') }}
-                    </app-button>
-                  </div>
-                </div>
-              </li>
-            }
-          </ul>
-        }
-
-        <form (submit)="guardar($event)" novalidate class="formulario">
-          <h3>
-            {{
-              editandoId()
-                ? t('admin.events.discountCodes.editarCodigo')
-                : t('admin.events.discountCodes.anadirCodigo')
-            }}
-          </h3>
-
-          <app-input
-            fieldId="codigo-code"
-            [label]="t('admin.events.discountCodes.codigo')"
-            [required]="true"
-            [(value)]="code"
-          />
-
-          <div class="campo-select">
-            <label for="codigo-tipo-descuento">
-              {{ t('admin.events.discountCodes.tipoDescuento') }}
-            </label>
-            <select
-              id="codigo-tipo-descuento"
-              [value]="discountType()"
-              (change)="alCambiarTipoDescuento($event)"
-            >
-              <option value="percentage">{{ t('admin.events.discountCodes.porcentaje') }}</option>
-              <option value="fixed_amount">
-                {{ t('admin.events.discountCodes.importeFijo') }}
-              </option>
-            </select>
-          </div>
-
-          <div class="campo-numero">
-            <label for="codigo-valor">
-              {{
-                discountType() === 'percentage'
-                  ? t('admin.events.discountCodes.valorPorcentajeLabel')
-                  : t('admin.events.discountCodes.valorFijoLabel')
-              }}
-            </label>
-            <input
-              id="codigo-valor"
-              type="number"
-              inputmode="decimal"
-              min="0"
-              [value]="discountValue()"
-              (input)="discountValue.set(alTexto($event))"
-            />
-          </div>
-
-          <div class="campo-numero">
-            <label for="codigo-max-usos">{{ t('admin.events.discountCodes.maxUsos') }}</label>
-            <input
-              id="codigo-max-usos"
-              type="number"
-              inputmode="numeric"
-              min="1"
-              [value]="maxUsos()"
-              [attr.aria-describedby]="'codigo-max-usos-ayuda'"
-              (input)="maxUsos.set(alTexto($event))"
-            />
-            <p id="codigo-max-usos-ayuda" class="ayuda">
-              {{ t('admin.events.discountCodes.maxUsosAyuda') }}
-            </p>
-          </div>
-
-          <div class="campo-select">
-            <label for="codigo-tipo-entrada">
-              {{ t('admin.events.discountCodes.tipoEntrada') }}
-            </label>
-            <select
-              id="codigo-tipo-entrada"
-              [value]="ticketTypeId()"
-              (change)="alCambiarTipoEntrada($event)"
-            >
-              <option value="">{{ t('admin.events.discountCodes.todosLosTipos') }}</option>
-              @for (tipo of tiposDisponibles(); track tipo.id) {
-                <option [value]="tipo.id">{{ tipo.name }}</option>
-              }
-            </select>
-          </div>
-
-          <div class="campo-fecha">
-            <label for="codigo-vigente-desde">
-              {{ t('admin.events.discountCodes.vigenteDesde') }}
-            </label>
-            <input
-              id="codigo-vigente-desde"
-              type="datetime-local"
-              [value]="validFrom()"
-              (input)="validFrom.set(alTexto($event))"
-            />
-          </div>
-          <div class="campo-fecha">
-            <label for="codigo-vigente-hasta">
-              {{ t('admin.events.discountCodes.vigenteHasta') }}
-            </label>
-            <input
-              id="codigo-vigente-hasta"
-              type="datetime-local"
-              [value]="validUntil()"
-              (input)="validUntil.set(alTexto($event))"
-            />
-          </div>
-
-          @if (formError(); as mensaje) {
+          @if (error(); as mensaje) {
             <app-alert tone="error">{{ mensaje }}</app-alert>
           }
 
-          <div class="acciones-finales">
-            @if (editandoId()) {
-              <app-button variant="secundario" type="button" (pulsado)="cancelarEdicion()">
-                {{ t('comun.cancelar') }}
-              </app-button>
-            }
-            <app-button type="submit" [loading]="guardando()">
+          @if (cargando()) {
+            <p>{{ t('comun.cargando') }}</p>
+          } @else if (codigos().length === 0) {
+            <p>{{ t('admin.events.discountCodes.sinCodigos') }}</p>
+          } @else {
+            <ul class="lista">
+              @for (codigo of codigos(); track codigo.id) {
+                <li>
+                  <div class="fila">
+                    <div>
+                      <strong>{{ codigo.code }}</strong>
+                      <span class="detalle">
+                        {{
+                          codigo.discount_type === 'percentage'
+                            ? t('admin.events.discountCodes.valorPorcentaje', {
+                                valor: codigo.discount_value,
+                              })
+                            : t('admin.events.discountCodes.valorFijo', {
+                                valor: codigo.discount_value,
+                              })
+                        }}
+                        ·
+                        {{
+                          t('admin.events.discountCodes.usos', {
+                            usados: codigo.used_count,
+                            max: codigo.max_uses ?? t('admin.events.discountCodes.sinLimite'),
+                          })
+                        }}
+                        @if (codigo.ticket_type_id) {
+                          · {{ nombreDeTipo(codigo.ticket_type_id) }}
+                        }
+                      </span>
+                    </div>
+                    <div class="acciones">
+                      <app-button variant="secundario" type="button" (pulsado)="editar(codigo)">
+                        {{ t('admin.events.discountCodes.editar') }}
+                      </app-button>
+                      <app-button variant="peligro" type="button" (pulsado)="borrar(codigo.id)">
+                        {{ t('admin.events.discountCodes.eliminar') }}
+                      </app-button>
+                    </div>
+                  </div>
+                </li>
+              }
+            </ul>
+          }
+
+          <form (submit)="guardar($event)" novalidate class="formulario">
+            <h3>
               {{
                 editandoId()
-                  ? t('admin.events.discountCodes.guardarCambios')
+                  ? t('admin.events.discountCodes.editarCodigo')
                   : t('admin.events.discountCodes.anadirCodigo')
               }}
-            </app-button>
-          </div>
-        </form>
+            </h3>
+
+            <app-input
+              fieldId="codigo-code"
+              [label]="t('admin.events.discountCodes.codigo')"
+              [required]="true"
+              [(value)]="code"
+            />
+
+            <div class="campo-select">
+              <label for="codigo-tipo-descuento">
+                {{ t('admin.events.discountCodes.tipoDescuento') }}
+              </label>
+              <select
+                id="codigo-tipo-descuento"
+                [value]="discountType()"
+                (change)="alCambiarTipoDescuento($event)"
+              >
+                <option value="percentage">{{ t('admin.events.discountCodes.porcentaje') }}</option>
+                <option value="fixed_amount">
+                  {{ t('admin.events.discountCodes.importeFijo') }}
+                </option>
+              </select>
+            </div>
+
+            <div class="campo-numero">
+              <label for="codigo-valor">
+                {{
+                  discountType() === 'percentage'
+                    ? t('admin.events.discountCodes.valorPorcentajeLabel')
+                    : t('admin.events.discountCodes.valorFijoLabel')
+                }}
+              </label>
+              <input
+                id="codigo-valor"
+                type="number"
+                inputmode="decimal"
+                min="0"
+                [value]="discountValue()"
+                (input)="discountValue.set(alTexto($event))"
+              />
+            </div>
+
+            <div class="campo-numero">
+              <label for="codigo-max-usos">{{ t('admin.events.discountCodes.maxUsos') }}</label>
+              <input
+                id="codigo-max-usos"
+                type="number"
+                inputmode="numeric"
+                min="1"
+                [value]="maxUsos()"
+                [attr.aria-describedby]="'codigo-max-usos-ayuda'"
+                (input)="maxUsos.set(alTexto($event))"
+              />
+              <p id="codigo-max-usos-ayuda" class="ayuda">
+                {{ t('admin.events.discountCodes.maxUsosAyuda') }}
+              </p>
+            </div>
+
+            <div class="campo-select">
+              <label for="codigo-tipo-entrada">
+                {{ t('admin.events.discountCodes.tipoEntrada') }}
+              </label>
+              <select
+                id="codigo-tipo-entrada"
+                [value]="ticketTypeId()"
+                (change)="alCambiarTipoEntrada($event)"
+              >
+                <option value="">{{ t('admin.events.discountCodes.todosLosTipos') }}</option>
+                @for (tipo of tiposDisponibles(); track tipo.id) {
+                  <option [value]="tipo.id">{{ tipo.name }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="campo-fecha">
+              <label for="codigo-vigente-desde">
+                {{ t('admin.events.discountCodes.vigenteDesde') }}
+              </label>
+              <input
+                id="codigo-vigente-desde"
+                type="datetime-local"
+                [value]="validFrom()"
+                (input)="validFrom.set(alTexto($event))"
+              />
+            </div>
+            <div class="campo-fecha">
+              <label for="codigo-vigente-hasta">
+                {{ t('admin.events.discountCodes.vigenteHasta') }}
+              </label>
+              <input
+                id="codigo-vigente-hasta"
+                type="datetime-local"
+                [value]="validUntil()"
+                (input)="validUntil.set(alTexto($event))"
+              />
+            </div>
+
+            @if (formError(); as mensaje) {
+              <app-alert tone="error">{{ mensaje }}</app-alert>
+            }
+
+            <div class="acciones-finales">
+              @if (editandoId()) {
+                <app-button variant="secundario" type="button" (pulsado)="cancelarEdicion()">
+                  {{ t('comun.cancelar') }}
+                </app-button>
+              }
+              <app-button type="submit" [loading]="guardando()">
+                {{
+                  editandoId()
+                    ? t('admin.events.discountCodes.guardarCambios')
+                    : t('admin.events.discountCodes.anadirCodigo')
+                }}
+              </app-button>
+            </div>
+          </form>
+        }
       </app-card>
     </ng-container>
   `,
@@ -327,6 +339,11 @@ export class EventDiscountCodes implements OnInit {
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
 
+  /** Mientras no se conozca el modo de inscripción del evento, no tiene sentido
+   * cargar ni pintar el gestor de códigos de descuento: solo aplica a eventos de pago. */
+  protected readonly cargandoEvento = signal(true);
+  protected readonly aceptaPagos = signal(false);
+
   protected readonly cargando = signal(true);
   protected readonly guardando = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -345,8 +362,7 @@ export class EventDiscountCodes implements OnInit {
   protected readonly ticketTypeId = signal(this.valoresIniciales.ticketTypeId);
 
   ngOnInit(): void {
-    void this.cargarTipos();
-    void this.cargar();
+    void this.iniciar();
   }
 
   protected alTexto(evento: Event): string {
@@ -355,6 +371,33 @@ export class EventDiscountCodes implements OnInit {
 
   protected nombreDeTipo(ticketTypeId: string): string {
     return this.tiposDisponibles().find((tipo) => tipo.id === ticketTypeId)?.name ?? '—';
+  }
+
+  private async iniciar(): Promise<void> {
+    this.cargandoEvento.set(true);
+    try {
+      const evento = await firstValueFrom(
+        this.http.get<EventoResumen>(this.api.url(`/events/${this.eventId()}`)),
+      );
+      this.aceptaPagos.set(evento.registration_mode === 'paid');
+    } catch (error) {
+      // Si no se puede confirmar el modo de inscripción, se trata como si no
+      // aceptara pagos: mostrar el gestor de códigos sin saber si aplica sería
+      // peor que mostrar el mensaje explicativo de más.
+      this.aceptaPagos.set(false);
+      this.error.set(
+        error instanceof ApiError
+          ? error.message
+          : this.transloco.translate('admin.events.discountCodes.error'),
+      );
+      return;
+    } finally {
+      this.cargandoEvento.set(false);
+    }
+    if (this.aceptaPagos()) {
+      void this.cargarTipos();
+      await this.cargar();
+    }
   }
 
   private async cargarTipos(): Promise<void> {

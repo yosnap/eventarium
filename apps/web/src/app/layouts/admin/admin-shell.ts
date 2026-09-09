@@ -1,17 +1,32 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
+import { Router, RouterLink, RouterOutlet } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 
 import { AuthService, OrganizacionDeLaPersona, displayName } from '../../core/auth/auth.service';
 import { ThemingService } from '../../core/theming/theming.service';
 import { Button } from '../../shared/ui/button';
 import { ThemeToggle } from '../../shared/ui/theme-toggle';
+import { AdminNav } from './admin-nav';
+import { EventScope } from './event-scope';
 
-/** Estructura del panel de administración. */
+/**
+ * Estructura del panel de administración: cabecera con marca, selector de
+ * organizaciones, cuenta y sesión; navegación agrupada por ámbito
+ * (`AdminNav`), colapsable en pantallas estrechas con gestión de foco.
+ */
 @Component({
   selector: 'app-admin-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, TranslocoDirective, Button, ThemeToggle],
+  imports: [RouterOutlet, RouterLink, TranslocoDirective, Button, ThemeToggle, AdminNav],
   template: `
     <ng-container *transloco="let t">
       <a class="skip-link" href="#contenido-admin">{{ t('comun.saltarAlContenido') }}</a>
@@ -41,75 +56,29 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       </header>
 
       <div class="cuerpo">
-        <nav [attr.aria-label]="t('admin.navegacion')">
-          <ul>
-            <li>
-              <a
-                routerLink="/admin"
-                routerLinkActive="activo"
-                [routerLinkActiveOptions]="{ exact: true }"
-              >
-                {{ t('admin.escritorio') }}
-              </a>
-            </li>
-            <li>
-              <a routerLink="/admin/organization" routerLinkActive="activo">
-                {{ t('admin.organizacion.titulo') }}
-              </a>
-            </li>
-            <li>
-              <a routerLink="/admin/branding" routerLinkActive="activo">
-                {{ t('admin.identidadVisual') }}
-              </a>
-            </li>
-            <li>
-              <a routerLink="/admin/roles" routerLinkActive="activo">
-                {{ t('admin.rolesNav') }}
-              </a>
-            </li>
-            <li>
-              <a routerLink="/admin/members" routerLinkActive="activo">
-                {{ t('admin.miembrosNav') }}
-              </a>
-            </li>
-            <li>
-              <a routerLink="/admin/events" routerLinkActive="activo">
-                {{ t('admin.eventsNav') }}
-              </a>
-            </li>
-            <li>
-              <a routerLink="/admin/sponsor-tiers" routerLinkActive="activo">
-                {{ t('admin.sponsorTiersNav') }}
-              </a>
-            </li>
-            <li>
-              <a routerLink="/admin/stripe" routerLinkActive="activo">
-                {{ t('admin.stripeNav') }}
-              </a>
-            </li>
-            <li>
-              <a routerLink="/admin/legal" routerLinkActive="activo">
-                {{ t('admin.legalNav') }}
-              </a>
-            </li>
-            <li>
-              <a routerLink="/admin/account" routerLinkActive="activo">
-                {{ t('admin.cuenta.titulo') }}
-              </a>
-            </li>
-            @if (auth.currentUser()?.is_superadmin) {
-              <li>
-                <a routerLink="/admin/superadmin" routerLinkActive="activo">
-                  {{ t('admin.superadminNav') }}
-                </a>
-              </li>
-            }
-            <li>
-              <a routerLink="/admin/estilo" routerLinkActive="activo">
-                {{ t('admin.catalogoDeComponentes') }}
-              </a>
-            </li>
-          </ul>
+        <button
+          #botonNavegacion
+          type="button"
+          class="boton-navegacion"
+          [attr.aria-expanded]="navegacionAbierta()"
+          aria-controls="panel-navegacion-admin"
+          (click)="alternarNavegacion()"
+        >
+          {{
+            navegacionAbierta() ? t('admin.nav.cerrarNavegacion') : t('admin.nav.abrirNavegacion')
+          }}
+        </button>
+
+        <nav
+          #panelNavegacion
+          id="panel-navegacion-admin"
+          class="panel-navegacion"
+          tabindex="-1"
+          [class.abierta]="navegacionAbierta()"
+          [attr.aria-label]="t('admin.navegacion')"
+          (keydown.escape)="cerrarNavegacion()"
+        >
+          <app-admin-nav [isSuperadmin]="esSuperadmin()" [evento]="grupoEvento()" />
         </nav>
 
         <main id="contenido-admin" tabindex="-1">
@@ -150,36 +119,28 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       display: grid;
       grid-template-columns: minmax(12rem, 16rem) 1fr;
     }
+    .boton-navegacion {
+      display: none;
+      margin: var(--space-md);
+    }
+    .panel-navegacion {
+      border-right: 1px solid var(--color-border);
+      background-color: var(--color-surface-muted);
+      padding-block: var(--space-md);
+    }
+    main {
+      padding: var(--space-lg);
+    }
     @media (max-width: 48rem) {
       .cuerpo {
         grid-template-columns: 1fr;
       }
-    }
-    nav {
-      padding: var(--space-md);
-      border-right: 1px solid var(--color-border);
-      background-color: var(--color-surface-muted);
-    }
-    nav ul {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      display: grid;
-      gap: var(--space-xs);
-    }
-    nav a {
-      display: block;
-      padding: var(--space-sm) var(--space-md);
-      border-radius: var(--radius-md);
-      color: var(--color-text);
-      text-decoration: none;
-    }
-    nav a.activo {
-      background-color: var(--color-primary);
-      color: var(--color-primary-contrast);
-    }
-    main {
-      padding: var(--space-lg);
+      .boton-navegacion {
+        display: inline-flex;
+      }
+      .panel-navegacion:not(.abierta) {
+        display: none;
+      }
     }
   `,
 })
@@ -188,13 +149,48 @@ export class AdminShell {
   protected readonly theming = inject(ThemingService);
   protected readonly nombreDe = displayName;
   private readonly router = inject(Router);
+  private readonly eventScope = inject(EventScope);
 
   protected readonly organizaciones = signal<readonly OrganizacionDeLaPersona[]>([]);
   /** El selector solo tiene sentido con más de una organización. */
   protected readonly otrasOrganizaciones = signal<readonly OrganizacionDeLaPersona[]>([]);
 
+  protected readonly esSuperadmin = computed(() => !!this.auth.currentUser()?.is_superadmin);
+
+  /** `null` sin evento activo o con fallo de carga: en ambos casos la navegación
+   * conserva solo los dos grupos estables. */
+  protected readonly grupoEvento = computed(() => {
+    const id = this.eventScope.eventId();
+    if (!id || this.eventScope.falloCarga()) {
+      return null;
+    }
+    return {
+      id,
+      nombre: this.eventScope.nombreEvento(),
+      cargando: this.eventScope.cargando(),
+      aceptaPagos: this.eventScope.registrationMode() === 'paid',
+    };
+  });
+
+  protected readonly navegacionAbierta = signal(false);
+  private readonly panelNavegacion = viewChild<ElementRef<HTMLElement>>('panelNavegacion');
+  private readonly botonNavegacion = viewChild<ElementRef<HTMLButtonElement>>('botonNavegacion');
+  private seAbrioAlgunaVez = false;
+
   constructor() {
     void this.cargarOrganizaciones();
+
+    // Gestión de foco del panel colapsable (WCAG 2.4.3): al abrir, el foco entra en
+    // el primer enlace del panel; al cerrar, vuelve al botón que lo abrió.
+    effect(() => {
+      if (this.navegacionAbierta()) {
+        this.seAbrioAlgunaVez = true;
+        this.panelNavegacion()?.nativeElement.querySelector<HTMLElement>('a, button')?.focus();
+      } else if (this.seAbrioAlgunaVez) {
+        this.seAbrioAlgunaVez = false;
+        this.botonNavegacion()?.nativeElement.focus();
+      }
+    });
   }
 
   private async cargarOrganizaciones(): Promise<void> {
@@ -206,6 +202,14 @@ export class AdminShell {
       // El selector es una ayuda de navegación, no algo crítico: un fallo aquí no
       // debe impedir usar el resto del panel.
     }
+  }
+
+  protected alternarNavegacion(): void {
+    this.navegacionAbierta.update((abierta) => !abierta);
+  }
+
+  protected cerrarNavegacion(): void {
+    this.navegacionAbierta.set(false);
   }
 
   protected async cerrarSesion(): Promise<void> {

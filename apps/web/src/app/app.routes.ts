@@ -141,6 +141,35 @@ export const routes: Routes = [
           import('./features/admin/events/event-payments').then((m) => m.EventPayments),
       },
       {
+        // Rutas hermanas de fase 3: solo adiciones, con el parámetro `eventId` (no
+        // `id`, que usa la ruta de detalle de arriba) porque `withComponentInputBinding()`
+        // vincula por nombre exacto y estos 5 componentes ya declaran
+        // `readonly eventId = input.required<string>()`.
+        path: 'events/:eventId/agenda',
+        loadComponent: () =>
+          import('./features/admin/events/event-agenda').then((m) => m.EventAgenda),
+      },
+      {
+        path: 'events/:eventId/entradas',
+        loadComponent: () =>
+          import('./features/admin/events/event-ticket-types').then((m) => m.EventTicketTypes),
+      },
+      {
+        path: 'events/:eventId/descuentos',
+        loadComponent: () =>
+          import('./features/admin/events/event-discount-codes').then((m) => m.EventDiscountCodes),
+      },
+      {
+        path: 'events/:eventId/patrocinadores',
+        loadComponent: () =>
+          import('./features/admin/events/event-sponsors').then((m) => m.EventSponsors),
+      },
+      {
+        path: 'events/:eventId/inscripciones',
+        loadComponent: () =>
+          import('./features/admin/events/event-registrations').then((m) => m.EventRegistrations),
+      },
+      {
         path: 'sponsor-tiers',
         loadComponent: () =>
           import('./features/admin/sponsors/sponsor-tiers-page').then((m) => m.SponsorTiersPage),

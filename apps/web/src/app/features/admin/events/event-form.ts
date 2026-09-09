@@ -11,35 +11,20 @@ import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { ErrorSummary, ResumenDeError } from '../../../shared/ui/error-summary';
 import { Input } from '../../../shared/ui/input';
-import { capitalizarClaveDeTraduccion } from '../../../shared/text/capitalizar-clave-de-traduccion';
-import {
-  IMAGEN_MIMES_PERMITIDOS,
-  IMAGEN_TAMANO_MAXIMO,
-} from '../../../shared/uploads/image-upload-constraints';
 import { isoAValorLocal } from './datetime-local';
-import { EventAgenda } from './event-agenda';
-import { EventDiscountCodes } from './event-discount-codes';
-import { EventRegistrations } from './event-registrations';
-import { EventSponsors } from './event-sponsors';
-import { EventTicketTypes } from './event-ticket-types';
+import { EventDetails } from './event-details';
 
-type EventStatus = 'draft' | 'published' | 'archived';
 type LocationMode = 'in_person' | 'online' | 'hybrid';
-type RegistrationMode = 'free' | 'approval' | 'paid';
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-interface EventDetail {
+interface EventoBase {
   readonly id: string;
   readonly slug: string;
   readonly title: string;
-  readonly summary: string | null;
-  readonly cover_url: string | null;
-  readonly status: EventStatus;
   readonly starts_at: string;
   readonly ends_at: string;
   readonly location_mode: LocationMode;
-  readonly registration_mode: RegistrationMode;
   readonly payment_checkout_window_minutes: number;
 }
 
@@ -53,24 +38,15 @@ const VENTANA_DE_PAGO_MIN = 30;
 const VENTANA_DE_PAGO_MAX = 1439;
 const VENTANA_DE_PAGO_POR_DEFECTO = 30;
 
-/** Alta y edición de un evento: campos, portada, publicar/archivar y agenda. */
+/**
+ * Alta y edición de los datos base de un evento (título, slug, fechas, modalidad,
+ * ventana de pago). Portada, estado y las secciones del evento viven en
+ * `EventDetails`, que este componente delega en cuanto hay un `eventId`.
+ */
 @Component({
   selector: 'app-event-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    TranslocoDirective,
-    RouterLink,
-    Alert,
-    Button,
-    Card,
-    ErrorSummary,
-    Input,
-    EventAgenda,
-    EventDiscountCodes,
-    EventRegistrations,
-    EventSponsors,
-    EventTicketTypes,
-  ],
+  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, ErrorSummary, Input, EventDetails],
   template: `
     <ng-container *transloco="let t">
       <h1>
@@ -166,56 +142,6 @@ const VENTANA_DE_PAGO_POR_DEFECTO = 30;
             </div>
           </app-card>
 
-          @if (esEdicion()) {
-            <app-card [heading]="t('admin.events.formulario.portada')">
-              @if (portadaUrl(); as url) {
-                <img [src]="url" [alt]="t('admin.events.formulario.portada')" height="120" />
-              } @else {
-                <p>{{ t('admin.events.formulario.sinPortada') }}</p>
-              }
-              <label class="etiqueta-fichero" for="portada">{{
-                t('admin.events.formulario.subirPortada')
-              }}</label>
-              <input
-                id="portada"
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                (change)="alSeleccionarPortada($event)"
-              />
-              @if (errorPortada(); as mensaje) {
-                <app-alert tone="error">{{ mensaje }}</app-alert>
-              }
-            </app-card>
-
-            <app-card [heading]="t('admin.events.formulario.estadoActual')">
-              <p>
-                {{ t('admin.events.estado' + capitaliza(estadoActual())) }}
-              </p>
-              <div class="acciones-estado">
-                @if (estadoActual() === 'draft') {
-                  <app-button
-                    type="button"
-                    variant="secundario"
-                    [loading]="cambiandoEstado()"
-                    (pulsado)="cambiarEstado('published')"
-                  >
-                    {{ t('admin.events.formulario.publicar') }}
-                  </app-button>
-                }
-                @if (estadoActual() !== 'archived') {
-                  <app-button
-                    type="button"
-                    variant="peligro"
-                    [loading]="cambiandoEstado()"
-                    (pulsado)="cambiarEstado('archived')"
-                  >
-                    {{ t('admin.events.formulario.archivar') }}
-                  </app-button>
-                }
-              </div>
-            </app-card>
-          }
-
           @if (exito()) {
             <app-alert tone="exito">{{ t('admin.events.formulario.exito') }}</app-alert>
           }
@@ -239,28 +165,8 @@ const VENTANA_DE_PAGO_POR_DEFECTO = 30;
           </div>
         </form>
 
-        @if (esEdicion()) {
-          <app-event-agenda [eventId]="eventId()!" />
-          <app-event-sponsors [eventId]="eventId()!" />
-          @if (registrationMode() === 'paid') {
-            <app-alert tone="info">
-              {{ t('admin.events.pagos.avisoConectarStripe') }}
-              <a routerLink="/admin/stripe">{{ t('admin.events.pagos.irAConectarStripe') }}</a>
-            </app-alert>
-            <app-event-ticket-types [eventId]="eventId()!" />
-            <app-event-discount-codes [eventId]="eventId()!" />
-            <a [routerLink]="['/admin/events', eventId(), 'payments']">
-              <app-button variant="secundario" type="button">
-                {{ t('admin.events.payments.enlaceDesdeEvento') }}
-              </app-button>
-            </a>
-          }
-          <app-event-registrations [eventId]="eventId()!" />
-          <a [routerLink]="['/admin/events', eventId(), 'check-in']">
-            <app-button variant="secundario" type="button">
-              {{ t('admin.events.checkIn.enlaceDesdeEvento') }}
-            </app-button>
-          </a>
+        @if (eventId(); as id) {
+          <app-event-details [eventId]="id" />
         }
       }
     </ng-container>
@@ -275,28 +181,14 @@ const VENTANA_DE_PAGO_POR_DEFECTO = 30;
       margin-top: var(--space-md);
       max-width: 34rem;
     }
-    .campo-select {
-      display: grid;
-      gap: var(--space-xs);
-    }
-    .campo-select select {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 0.625rem 0.75rem;
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-md);
-      background-color: var(--color-surface);
-      color: var(--color-text);
-      font: inherit;
-      min-height: 2.75rem;
-    }
+    .campo-select,
     .campo-numero {
       display: grid;
       gap: var(--space-xs);
     }
+    .campo-select select,
     .campo-numero input {
       width: 100%;
-      max-width: 12rem;
       box-sizing: border-box;
       padding: 0.625rem 0.75rem;
       border: 1px solid var(--color-border);
@@ -305,6 +197,9 @@ const VENTANA_DE_PAGO_POR_DEFECTO = 30;
       color: var(--color-text);
       font: inherit;
       min-height: 2.75rem;
+    }
+    .campo-numero input {
+      max-width: 12rem;
     }
     .error-campo {
       margin: 0;
@@ -315,16 +210,6 @@ const VENTANA_DE_PAGO_POR_DEFECTO = 30;
       margin: 0;
       color: var(--color-text-muted, #6b7280);
       font-size: 0.8125rem;
-    }
-    .etiqueta-fichero {
-      display: block;
-      margin-top: var(--space-sm);
-      font-weight: 500;
-    }
-    .acciones-estado {
-      display: flex;
-      gap: var(--space-md);
-      margin-top: var(--space-sm);
     }
     .acciones-finales {
       display: flex;
@@ -343,19 +228,14 @@ export class EventForm {
 
   protected readonly cargando = signal(true);
   protected readonly guardando = signal(false);
-  protected readonly cambiandoEstado = signal(false);
   protected readonly exito = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly errorPortada = signal<string | null>(null);
 
   protected readonly slug = signal('');
   protected readonly title = signal('');
   protected readonly startsAt = signal('');
   protected readonly endsAt = signal('');
   protected readonly locationMode = signal<LocationMode>('in_person');
-  protected readonly registrationMode = signal<RegistrationMode>('free');
-  protected readonly estadoActual = signal<EventStatus>('draft');
-  protected readonly portadaUrl = signal<string | null>(null);
   protected readonly paymentWindow = signal(VENTANA_DE_PAGO_POR_DEFECTO);
   protected readonly ventanaDePagoMin = VENTANA_DE_PAGO_MIN;
   protected readonly ventanaDePagoMax = VENTANA_DE_PAGO_MAX;
@@ -391,24 +271,15 @@ export class EventForm {
     }
   }
 
-  protected capitaliza(valor: string): string {
-    return capitalizarClaveDeTraduccion(valor);
-  }
-
   private async cargar(id: string): Promise<void> {
     this.cargando.set(true);
     try {
-      const evento = await firstValueFrom(
-        this.http.get<EventDetail>(this.api.url(`/events/${id}`)),
-      );
+      const evento = await firstValueFrom(this.http.get<EventoBase>(this.api.url(`/events/${id}`)));
       this.slug.set(evento.slug);
       this.title.set(evento.title);
       this.startsAt.set(isoAValorLocal(evento.starts_at));
       this.endsAt.set(isoAValorLocal(evento.ends_at));
       this.locationMode.set(evento.location_mode);
-      this.registrationMode.set(evento.registration_mode);
-      this.estadoActual.set(evento.status);
-      this.portadaUrl.set(evento.cover_url);
       this.paymentWindow.set(evento.payment_checkout_window_minutes);
     } catch (error) {
       this.error.set(
@@ -506,10 +377,9 @@ export class EventForm {
         await firstValueFrom(this.http.patch(this.api.url(`/events/${id}`), payload));
       } else {
         const creado = await firstValueFrom(
-          this.http.post<EventDetail>(this.api.url('/events'), payload),
+          this.http.post<EventoBase>(this.api.url('/events'), payload),
         );
         this.eventId.set(creado.id);
-        this.estadoActual.set(creado.status);
       }
       this.exito.set(true);
     } catch (error) {
@@ -520,68 +390,6 @@ export class EventForm {
       );
     } finally {
       this.guardando.set(false);
-    }
-  }
-
-  protected async cambiarEstado(nuevoEstado: EventStatus): Promise<void> {
-    const id = this.eventId();
-    if (!id) return;
-    this.cambiandoEstado.set(true);
-    this.error.set(null);
-    try {
-      const actualizado = await firstValueFrom(
-        this.http.patch<EventDetail>(this.api.url(`/events/${id}`), { status: nuevoEstado }),
-      );
-      this.estadoActual.set(actualizado.status);
-    } catch (error) {
-      this.error.set(
-        error instanceof ApiError
-          ? error.message
-          : this.transloco.translate('admin.events.formulario.error'),
-      );
-    } finally {
-      this.cambiandoEstado.set(false);
-    }
-  }
-
-  protected alSeleccionarPortada(evento: Event): void {
-    this.errorPortada.set(null);
-    const fichero = (evento.target as HTMLInputElement).files?.[0] ?? null;
-    if (!fichero) {
-      return;
-    }
-    if (!IMAGEN_MIMES_PERMITIDOS.has(fichero.type)) {
-      this.errorPortada.set(this.transloco.translate('admin.events.formulario.portadaNoValida'));
-      (evento.target as HTMLInputElement).value = '';
-      return;
-    }
-    if (fichero.size > IMAGEN_TAMANO_MAXIMO) {
-      this.errorPortada.set(
-        this.transloco.translate('admin.events.formulario.portadaDemasiadoGrande'),
-      );
-      (evento.target as HTMLInputElement).value = '';
-      return;
-    }
-
-    const id = this.eventId();
-    if (!id) return;
-    void this.subirPortada(id, fichero);
-  }
-
-  private async subirPortada(id: string, fichero: File): Promise<void> {
-    const datos = new FormData();
-    datos.append('fichero', fichero);
-    try {
-      const actualizado = await firstValueFrom(
-        this.http.put<EventDetail>(this.api.url(`/events/${id}/cover`), datos),
-      );
-      this.portadaUrl.set(actualizado.cover_url);
-    } catch (error) {
-      this.errorPortada.set(
-        error instanceof ApiError
-          ? error.message
-          : this.transloco.translate('admin.events.formulario.error'),
-      );
     }
   }
 }
