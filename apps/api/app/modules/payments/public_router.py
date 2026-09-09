@@ -103,8 +103,11 @@ async def start_checkout(
     evento: Annotated[Event, Depends(_obtener_evento_o_404)],
     datos: CheckoutStartRequest,
     request: Request,
-    session: DbDep,
 ) -> CheckoutStartResponse:
+    """`checkout_service.iniciar_compra` abre su propia sesión (T1 + T2, ver
+    su docstring): no recibe la del `DbDep` de la petición, que envuelve toda
+    la petición en una única transacción y no admite un `commit` a mitad de
+    camino."""
     await require_turnstile(request, datos.turnstile_token)
 
     try:
@@ -113,7 +116,6 @@ async def start_checkout(
         raise ValidationDomainError("Este tipo de entrada no está disponible.") from exc
 
     resultado = await checkout_service.iniciar_compra(
-        session,
         event=evento,
         email=str(datos.email),
         full_name=datos.full_name,

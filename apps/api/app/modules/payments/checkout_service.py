@@ -32,7 +32,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import maintenance_session
+from app.core.database import SessionApp, maintenance_session, set_organization_context
 from app.core.tenant import base_url_de_organizacion
 from app.modules.events.models import Event
 from app.modules.payments import repository
@@ -73,7 +73,6 @@ async def _obtener_cuenta_operativa(session: AsyncSession, organization_id: uuid
 
 
 async def iniciar_compra(
-    session: AsyncSession,
     *,
     event: Event,
     email: str,
@@ -87,96 +86,114 @@ async def iniciar_compra(
 ) -> ResultadoCompra:
     """T1 + T2 encadenadas: crea la inscripción y el pago bajo bloqueo, hace
     `commit`, y solo entonces llama a Stripe.
+
+    Abre su **propia** sesión (`SessionApp`, con el contexto RLS de
+    `event.organization_id`), en vez de recibir la del `DbDep` de la
+    petición: `get_db` envuelve toda la petición en una única transacción
+    (`app/core/deps.py::get_session`), así que un `commit` a mitad de camino
+    chocaría con ese contexto exterior. T1 y T2 son, literalmente, dos
+    transacciones distintas sobre la misma conexión — nunca la transacción
+    de la petición.
     """
-    cuenta = await _obtener_cuenta_operativa(session, event.organization_id)
+    async with SessionApp() as session:
+        async with session.begin():
+            await set_organization_context(session, event.organization_id)
 
-    inscripcion = await registrations_service.submit_registration(
-        session,
-        event=event,
-        email=email,
-        full_name=full_name,
-        answers=answers,
-        data_processing_accepted=data_processing_accepted,
-        marketing_accepted=marketing_accepted,
-        recording_accepted=recording_accepted,
-    )
-    if inscripcion is None or inscripcion.status not in ("pending_payment", "pending_verification"):
-        # Ya existía y no es reactivable/pagable ahora mismo, o cupo lleno
-        # (`waitlisted`): la respuesta pública es la misma de siempre, sin
-        # revelar en qué estado está.
-        await session.commit()
-        return ResultadoCompra(message=MENSAJE_GENERICO, checkout_url=None)
+            cuenta = await _obtener_cuenta_operativa(session, event.organization_id)
 
-    ahora = datetime.now(UTC)
-    tipo = await repository.lock_ticket_type(session, event.organization_id, ticket_type_id)
-    tipo_vigente = tipo is not None and payments_service.validar_tipo_vigente(tipo, ahora)
-    if tipo is None or tipo.event_id != event.id or not tipo_vigente:
-        await session.rollback()
-        raise ValidationDomainError("Este tipo de entrada no está disponible.")
-    if tipo.max_quantity is not None:
-        vendidas = await repository.count_used_ticket_type(session, event.organization_id, tipo.id)
-        if vendidas >= tipo.max_quantity:
-            await session.rollback()
-            raise ValidationDomainError("Este tipo de entrada está agotado.")
+            inscripcion = await registrations_service.submit_registration(
+                session,
+                event=event,
+                email=email,
+                full_name=full_name,
+                answers=answers,
+                data_processing_accepted=data_processing_accepted,
+                marketing_accepted=marketing_accepted,
+                recording_accepted=recording_accepted,
+            )
+            if inscripcion is None or inscripcion.status not in (
+                "pending_payment",
+                "pending_verification",
+            ):
+                # Ya existía y no es reactivable/pagable ahora mismo, o cupo
+                # lleno (`waitlisted`): la respuesta pública es la misma de
+                # siempre, sin revelar en qué estado está.
+                return ResultadoCompra(message=MENSAJE_GENERICO, checkout_url=None)
 
-    discount_type: str | None = None
-    discount_value: int | None = None
-    discount_code_id: uuid.UUID | None = None
-    if code:
-        codigo = await repository.get_discount_code_by_code(
-            session, event.organization_id, event.id, code.strip().upper()
-        )
-        if codigo is not None:
-            codigo = await repository.lock_discount_code(session, event.organization_id, codigo.id)
-        if codigo is None:
-            await session.rollback()
-            raise ValidationDomainError(payments_service.MENSAJE_CODIGO_NO_VALIDO)
-        usos = await repository.count_used_discount_code(session, event.organization_id, codigo.id)
-        if not payments_service.validar_codigo_vigente(codigo, tipo, usos, ahora):
-            await session.rollback()
-            raise ValidationDomainError(payments_service.MENSAJE_CODIGO_NO_VALIDO)
-        discount_type = codigo.discount_type
-        discount_value = codigo.discount_value
-        discount_code_id = codigo.id
+            ahora = datetime.now(UTC)
+            tipo = await repository.lock_ticket_type(session, event.organization_id, ticket_type_id)
+            tipo_vigente = tipo is not None and payments_service.validar_tipo_vigente(tipo, ahora)
+            if tipo is None or tipo.event_id != event.id or not tipo_vigente:
+                raise ValidationDomainError("Este tipo de entrada no está disponible.")
+            if tipo.max_quantity is not None:
+                vendidas = await repository.count_used_ticket_type(
+                    session, event.organization_id, tipo.id
+                )
+                if vendidas >= tipo.max_quantity:
+                    raise ValidationDomainError("Este tipo de entrada está agotado.")
 
-    total = payments_service.calcular_precio_final(tipo.price_cents, discount_type, discount_value)
+            discount_type: str | None = None
+            discount_value: int | None = None
+            discount_code_id: uuid.UUID | None = None
+            if code:
+                codigo = await repository.get_discount_code_by_code(
+                    session, event.organization_id, event.id, code.strip().upper()
+                )
+                if codigo is not None:
+                    codigo = await repository.lock_discount_code(
+                        session, event.organization_id, codigo.id
+                    )
+                if codigo is None:
+                    raise ValidationDomainError(payments_service.MENSAJE_CODIGO_NO_VALIDO)
+                usos = await repository.count_used_discount_code(
+                    session, event.organization_id, codigo.id
+                )
+                if not payments_service.validar_codigo_vigente(codigo, tipo, usos, ahora):
+                    raise ValidationDomainError(payments_service.MENSAJE_CODIGO_NO_VALIDO)
+                discount_type = codigo.discount_type
+                discount_value = codigo.discount_value
+                discount_code_id = codigo.id
 
-    pago = await repository.crear_o_reutilizar_pago(
-        session,
-        organization_id=event.organization_id,
-        event_id=event.id,
-        registration_id=inscripcion.id,
-        stripe_account_id=cuenta.stripe_account_id,
-        ticket_type_id=tipo.id,
-        discount_code_id=discount_code_id,
-        amount_cents=total,
-        discount_cents=tipo.price_cents - total,
-        currency=tipo.currency,
-    )
+            total = payments_service.calcular_precio_final(
+                tipo.price_cents, discount_type, discount_value
+            )
 
-    if inscripcion.status == "pending_payment":
-        ventana = timedelta(minutes=event.payment_checkout_window_minutes)
-        inscripcion.payment_expires_at = ahora + ventana
+            pago = await repository.crear_o_reutilizar_pago(
+                session,
+                organization_id=event.organization_id,
+                event_id=event.id,
+                registration_id=inscripcion.id,
+                stripe_account_id=cuenta.stripe_account_id,
+                ticket_type_id=tipo.id,
+                discount_code_id=discount_code_id,
+                amount_cents=total,
+                discount_cents=tipo.price_cents - total,
+                currency=tipo.currency,
+            )
 
-    payment_id = pago.id
-    estado_resultante = inscripcion.status
+            if inscripcion.status == "pending_payment":
+                ventana = timedelta(minutes=event.payment_checkout_window_minutes)
+                inscripcion.payment_expires_at = ahora + ventana
 
-    await session.commit()
-    # --- fin de T1: la fila del pago ya persiste sin ningún bloqueo abierto ---
+            payment_id = pago.id
+            estado_resultante = inscripcion.status
+        # --- fin de T1 (`session.begin()` ha hecho commit al salir del `with`):
+        # la fila del pago ya persiste sin ningún bloqueo de fila abierto ---
 
-    if estado_resultante != "pending_payment":
-        # `pending_verification`: la sesión de pago se crea más tarde, cuando
-        # se verifique el email (camino 2, `dispatch_pending_payment_links_task`).
-        return ResultadoCompra(message=MENSAJE_GENERICO, checkout_url=None)
+        if estado_resultante != "pending_payment":
+            # `pending_verification`: la sesión de pago se crea más tarde,
+            # cuando se verifique el email (camino 2,
+            # `dispatch_pending_payment_links_task`).
+            return ResultadoCompra(message=MENSAJE_GENERICO, checkout_url=None)
 
-    try:
-        checkout_url = await crear_sesion_de_pago(session, payment_id=payment_id)
-    except ExternalServiceError:
-        # La fila queda `pending` sin sesión; el barrido la expira por su
-        # ventana y libera todo. Nunca queda dinero cobrado sin fila, porque
-        # el cobro no ha empezado.
-        raise
-    return ResultadoCompra(message=MENSAJE_GENERICO, checkout_url=checkout_url)
+        async with session.begin():
+            # T2, transacción propia: nunca comparte bloqueos con T1. `SET
+            # LOCAL` (el contexto RLS) solo dura lo que dura su transacción,
+            # así que hay que volver a fijarlo — T1 ya hizo `commit` y lo
+            # perdió.
+            await set_organization_context(session, event.organization_id)
+            checkout_url = await crear_sesion_de_pago(session, payment_id=payment_id)
+        return ResultadoCompra(message=MENSAJE_GENERICO, checkout_url=checkout_url)
 
 
 async def crear_sesion_de_pago(session: AsyncSession, *, payment_id: uuid.UUID) -> str | None:
@@ -233,7 +250,7 @@ async def crear_sesion_de_pago(session: AsyncSession, *, payment_id: uuid.UUID) 
         if inscripcion is not None and inscripcion.status == "pending_payment":
             inscripcion.payment_expires_at = pago.expires_at
 
-    await session.commit()
+    await session.flush()
     return pago.checkout_url
 
 
