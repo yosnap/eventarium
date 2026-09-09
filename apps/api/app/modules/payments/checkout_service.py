@@ -267,6 +267,19 @@ async def crear_sesion_de_pago(session: AsyncSession, *, payment_id: uuid.UUID) 
     # `idempotency_key`) que recalculara `expires_at` en cada intento
     # generaría un `expires_at` distinto cada vez, y Stripe rechaza reutilizar
     # una `idempotency_key` con parámetros distintos.
+    if inscripcion is None or inscripcion.payment_expires_at is None:
+        # Nunca debería pasar en producción (hallazgo I7 del code review de
+        # la fase 6): todos los caminos que llegan aquí fijan
+        # `payment_expires_at` antes de llamar a esta función. Si este
+        # `logger.warning` aparece alguna vez, el bug I7 (expires_at
+        # recalculado en cada llamada, romper la idempotency_key) podría
+        # estar volviendo de forma silenciosa.
+        logger.warning(
+            "Pago %s sin payment_expires_at persistido: derivando expires_at con "
+            "datetime.now(UTC), lo que puede romper la idempotency_key si esta "
+            "función se reintenta.",
+            pago.id,
+        )
     limite = (
         inscripcion.payment_expires_at
         if inscripcion is not None and inscripcion.payment_expires_at is not None
@@ -411,13 +424,26 @@ async def expirar_pagos_pendientes() -> None:
     """`expire_pending_payments_task`: antes de expirar, consulta el estado
     real en Stripe (recupera un webhook perdido) — la única llamada síncrona
     a Stripe fuera del camino de la petición. Nunca bajo un bloqueo de fila:
-    la consulta ocurre entre dos secciones bloqueadas por separado."""
+    la consulta ocurre entre dos secciones bloqueadas por separado.
+
+    `repository.pagos_pendientes_caducados` devuelve dos grupos de
+    candidatos (hallazgo IMP-1 del code review de la fase 6, ronda 3): los de
+    siempre (`pending_payment` cuya ventana ya venció, sí consultados contra
+    Stripe) y los de la red de seguridad (`cancelled`/`rejected` con un pago
+    todavía `pending` que se les quedó huérfano) — a estos últimos nunca se
+    les creó una Checkout Session real que consultar, así que solo hace falta
+    marcar el pago `expired`, sin llamar a Stripe ni volver a tocar la
+    inscripción (ya está en su estado terminal).
+    """
     async with maintenance_session() as session:
         candidatos = await repository.pagos_pendientes_caducados(session)
 
     for candidato in candidatos:
         estado_stripe: str | None = None
-        if candidato.stripe_checkout_session_id is not None:
+        if (
+            candidato.registration_status == "pending_payment"
+            and candidato.stripe_checkout_session_id is not None
+        ):
             try:
                 estado_stripe = await stripe_gateway.consultar_sesion_checkout(
                     stripe_account_id=candidato.stripe_account_id,
@@ -437,8 +463,21 @@ async def expirar_pagos_pendientes() -> None:
             inscripcion = await session.get(
                 EventRegistration, pago.registration_id, with_for_update=True
             )
-            if inscripcion is None or inscripcion.status != "pending_payment":
-                # Ya confirmada o cancelada por otro camino concurrente
+            if inscripcion is None:
+                continue
+
+            if inscripcion.status in repository.ESTADOS_TERMINALES_SIN_PAGO:
+                # Red de seguridad: la inscripción ya está en un estado
+                # terminal (por `reject_registration`, `_cancelar_inscripcion`
+                # o cualquier otro camino que no haya expirado el pago él
+                # mismo) — solo libera el cupo/uso de código, sin llamar a
+                # Stripe ni tocar de nuevo la inscripción.
+                pago.status = "expired"
+                continue
+
+            if inscripcion.status != "pending_payment":
+                # Ya confirmada, o cambió de estado entre la lectura de
+                # candidatos y este bloqueo por otro camino concurrente
                 # (webhook, autocancelación): nada que hacer aquí.
                 continue
 

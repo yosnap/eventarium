@@ -89,12 +89,6 @@ async def create_event(
     session: AsyncSession, *, organization_id: uuid.UUID, datos: dict[str, Any]
 ) -> Event:
     await _asegurar_slug_disponible(session, organization_id, datos["slug"])
-    await _asegurar_venta_posible(
-        session,
-        organization_id,
-        status=datos.get("status", "draft"),
-        registration_mode=datos.get("registration_mode", "free"),
-    )
 
     evento = Event(organization_id=organization_id, **datos)
     session.add(evento)
@@ -105,6 +99,21 @@ async def create_event(
         # slug pueden llegar a la vez. El `UNIQUE(organization_id, slug)` es la
         # única fuente de verdad ante esa carrera estrecha.
         raise ConflictError(f"Ya existe un evento con el identificador «{datos['slug']}».") from exc
+
+    # `event_id=evento.id` tras el `flush` (no antes de crearlo, como hacía
+    # esta llamada originalmente): sin él, un alta directa con
+    # `status=published`/`registration_mode=paid` se saltaba la exigencia de
+    # al menos un tipo de entrada vigente (hallazgo C1b), porque
+    # `_asegurar_venta_posible` solo la comprueba cuando recibe `event_id`. Si
+    # esto falla, el `session.begin()` de `get_db` deshace también el
+    # `flush` de arriba: nunca queda un evento a medio crear.
+    await _asegurar_venta_posible(
+        session,
+        organization_id,
+        status=evento.status,
+        registration_mode=evento.registration_mode,
+        event_id=evento.id,
+    )
     return evento
 
 

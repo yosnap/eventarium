@@ -37,6 +37,7 @@ from app.modules.registrations import service as registrations_service
 from app.modules.registrations.models import EventRegistration
 from app.modules.tickets.models import EventTicket
 from app.modules.tickets.service import emitir_entrada
+from app.shared.errors import ConflictError
 from tests.conftest import OrganizacionDePrueba, iniciar_sesion
 
 EVENTS = "/api/v1/events"
@@ -443,6 +444,142 @@ async def test_dos_ejecuciones_concurrentes_producen_un_solo_reembolso(
             select(EventPaymentRefund).where(EventPaymentRefund.payment_id == payment_id)
         )
         assert reembolso.status == "succeeded"
+
+
+# --- C2: `attempts` sube en toda salida no exitosa, con tope de reintentos --
+
+
+async def test_error_directo_de_stripe_incrementa_attempts_y_deja_failed(
+    organizacion: OrganizacionDePrueba, fake: FakeStripeClient
+) -> None:
+    """Hallazgo IMP-2 (C2) del code review de la fase 6, ronda 3: antes de
+    `_marcar_intento_fallido`, la rama de error directo de
+    `_ejecutar_reembolso` (la llamada a Stripe lanza `ExternalServiceError`)
+    no incrementaba `attempts` — un reembolso que siempre fallara nunca
+    llegaba a `_INTENTOS_MAXIMOS` y se reencolaba para siempre sin ninguna
+    alarma."""
+    stripe_account_id = await _crear_organizacion_con_stripe(organizacion)
+    event_id, registration_id, payment_id = await _crear_evento_pagado(
+        organizacion, stripe_account_id=stripe_account_id
+    )
+    await _cancelar(organizacion.id, event_id, registration_id)
+    fake.v1.refunds.create_async.side_effect = stripe.StripeError(
+        "detalle interno de Stripe que no debe llegar al panel"
+    )
+
+    await refunds_service.procesar_reembolsos_pendientes()
+
+    async with SessionMaintenance() as session:
+        reembolso = await session.scalar(
+            select(EventPaymentRefund).where(EventPaymentRefund.payment_id == payment_id)
+        )
+        assert reembolso.status == "failed"
+        assert reembolso.attempts == 1
+        assert reembolso.error is not None
+
+
+async def test_reintento_atascado_partiendo_de_failed_incrementa_attempts_y_se_detiene_en_el_tope(
+    organizacion: OrganizacionDePrueba,
+    fake: FakeStripeClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Complementa el test anterior con el otro camino del hallazgo C2: un
+    reintento vía `reencolar_reembolsos_atascados` que arranca ya en `failed`
+    también debe incrementar `attempts`, hasta dejar de reencolarse al llegar
+    a `_INTENTOS_MAXIMOS` (5) y registrar el error en el log."""
+    stripe_account_id = await _crear_organizacion_con_stripe(organizacion)
+    event_id, registration_id, payment_id = await _crear_evento_pagado(
+        organizacion, stripe_account_id=stripe_account_id
+    )
+    await _cancelar(organizacion.id, event_id, registration_id)
+    fake.v1.refunds.create_async.side_effect = stripe.StripeError("fallo persistente simulado")
+
+    async with SessionMaintenance() as session:
+        reembolso = await session.scalar(
+            select(EventPaymentRefund).where(EventPaymentRefund.payment_id == payment_id)
+        )
+        reembolso.status = "failed"
+        reembolso.attempts = 4
+        refund_id = reembolso.id
+        await session.commit()
+
+    caplog.set_level("ERROR", logger="app.modules.payments.refunds_service")
+    await refunds_service.reencolar_reembolsos_atascados()
+
+    async with SessionMaintenance() as session:
+        reembolso = await session.get(EventPaymentRefund, refund_id)
+        assert reembolso.status == "failed"
+        assert reembolso.attempts == 5
+    assert any("agotado sus reintentos" in mensaje for mensaje in caplog.messages)
+
+    # Al haber agotado el tope, un nuevo barrido no debe volver a reencolarlo
+    # ni a llamar otra vez a Stripe (`refunds_atascados` excluye `attempts >=
+    # _INTENTOS_MAXIMOS`).
+    fake.v1.refunds.create_async.reset_mock()
+    await refunds_service.reencolar_reembolsos_atascados()
+    fake.v1.refunds.create_async.assert_not_awaited()
+    async with SessionMaintenance() as session:
+        reembolso = await session.get(EventPaymentRefund, refund_id)
+        assert reembolso.attempts == 5
+
+
+# --- C3: dos reembolsos parciales solapados ----------------------------------
+
+
+async def test_dos_reembolsos_parciales_solapados_no_superan_el_importe_pendiente(
+    organizacion: OrganizacionDePrueba, fake: FakeStripeClient
+) -> None:
+    """Hallazgo IMP-2 (C3) del code review de la fase 6, ronda 3: un segundo
+    reembolso parcial manual, pedido mientras el primero sigue `pending`/
+    `submitted` (su `charge.refunded` todavía no ha llegado), no debe poder
+    pedir más de lo que de verdad queda pendiente — `suma_reembolsos_en_curso`
+    debe restar el primero, todavía en curso, del importe disponible."""
+    stripe_account_id = await _crear_organizacion_con_stripe(organizacion)
+    _, _, payment_id = await _crear_evento_pagado(organizacion, stripe_account_id=stripe_account_id)
+
+    async with SessionApp() as session:
+        async with session.begin():
+            await set_organization_context(session, organizacion.id)
+            # Primer reembolso parcial: importe 700 de un pago de 1000,
+            # dejado `pending` (su webhook `charge.refunded` no ha llegado
+            # todavía, así que `refunded_cents` sigue en 0).
+            await refunds_service.solicitar_reembolso_manual(
+                session,
+                organization_id=organizacion.id,
+                payment_id=payment_id,
+                amount_cents=700,
+                revoke_ticket=False,
+            )
+
+    # Sin el fix de C3, el importe pendiente se seguiría calculando como
+    # `amount_cents - refunded_cents` (1000 - 0 = 1000), permitiendo pedir un
+    # segundo reembolso de hasta 1000 sobre un pago que ya solo tiene 300
+    # realmente disponibles.
+    async with SessionApp() as session:
+        async with session.begin():
+            await set_organization_context(session, organizacion.id)
+            with pytest.raises(ConflictError):
+                await refunds_service.solicitar_reembolso_manual(
+                    session,
+                    organization_id=organizacion.id,
+                    payment_id=payment_id,
+                    amount_cents=400,
+                    revoke_ticket=False,
+                )
+
+    # El importe justo que queda (300) sigue admitiéndose.
+    async with SessionApp() as session:
+        async with session.begin():
+            await set_organization_context(session, organizacion.id)
+            segundo = await refunds_service.solicitar_reembolso_manual(
+                session,
+                organization_id=organizacion.id,
+                payment_id=payment_id,
+                amount_cents=300,
+                revoke_ticket=False,
+            )
+            assert segundo.amount_cents == 300
 
 
 # --- Reembolso manual: importe, estado y aislamiento cross-tenant -----------
