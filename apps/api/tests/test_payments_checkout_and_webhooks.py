@@ -27,7 +27,12 @@ from app.modules.events.models import Event
 from app.modules.payments import checkout_service, stripe_client
 from app.modules.payments import repository as payments_repository
 from app.modules.payments import webhooks as payments_webhooks
-from app.modules.payments.models import EventPayment, EventTicketType, OrganizationStripeAccount
+from app.modules.payments.models import (
+    EventDiscountCode,
+    EventPayment,
+    EventTicketType,
+    OrganizationStripeAccount,
+)
 from app.modules.registrations import repository as registrations_repository
 from app.modules.registrations import service as registrations_service
 from app.modules.registrations.models import EventRegistration
@@ -1202,3 +1207,112 @@ async def test_tres_compras_concurrentes_sobre_cupo_de_dos_solo_dos_prosperan(
             session, organizacion.id, tipo_id
         )
         assert vendidas == 2
+
+
+async def test_cuatro_usos_concurrentes_de_codigo_con_max_uses_tres(
+    organizacion: OrganizacionDePrueba, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import asyncio
+
+    monkeypatch.setattr(stripe_client, "get_settings", _settings_con_stripe)
+    await _crear_organizacion_con_stripe(organizacion)
+
+    async with SessionMaintenance() as session:
+        evento = Event(
+            organization_id=organizacion.id,
+            slug="concurrencia-codigo",
+            title="Concurrencia código",
+            status="published",
+            visibility="public",
+            starts_at=AHORA,
+            ends_at=AHORA + timedelta(days=1),
+            location_mode="online",
+            registration_mode="paid",
+            email_verification_required=False,
+        )
+        session.add(evento)
+        await session.flush()
+        tipo = EventTicketType(
+            organization_id=organizacion.id, event_id=evento.id, name="General", price_cents=1000
+        )
+        session.add(tipo)
+        await session.flush()
+        codigo = EventDiscountCode(
+            organization_id=organizacion.id,
+            event_id=evento.id,
+            code="LIMITADO3",
+            discount_type="percentage",
+            discount_value=10,
+            max_uses=3,
+        )
+        session.add(codigo)
+        await session.commit()
+        evento_id, tipo_id = evento.id, tipo.id
+
+    async with SessionMaintenance() as session:
+        evento_fresco = await session.get(Event, evento_id)
+        assert evento_fresco is not None
+        session.expunge(evento_fresco)
+
+    async def _crear_sesion_id(*_args, **_kwargs):
+        return _sesion_creada(f"cs_{uuid.uuid4().hex[:8]}")
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(stripe_client, "get_settings", _settings_con_stripe)
+        instancia = FakeStripeClient()
+        instancia.v1.checkout.sessions.create_async.side_effect = _crear_sesion_id
+        mp.setattr(stripe_client.stripe, "StripeClient", lambda **_kwargs: instancia)
+
+        resultados = await asyncio.gather(
+            *[
+                checkout_service.iniciar_compra(
+                    event=evento_fresco,
+                    email=f"codigo{i}@example.com",
+                    full_name=f"Codigo {i}",
+                    answers=[],
+                    data_processing_accepted=True,
+                    marketing_accepted=False,
+                    recording_accepted=False,
+                    ticket_type_id=tipo_id,
+                    code="LIMITADO3",
+                )
+                for i in range(4)
+            ],
+            return_exceptions=True,
+        )
+
+    exitos = [r for r in resultados if not isinstance(r, Exception) and r.checkout_url is not None]
+    assert len(exitos) == 3, resultados
+
+    async with SessionMaintenance() as session:
+        codigo_fila = await session.scalar(
+            select(EventDiscountCode).where(EventDiscountCode.event_id == evento_id)
+        )
+        usos = await payments_repository.count_used_discount_code(
+            session, organizacion.id, codigo_fila.id
+        )
+        assert usos == 3
+
+
+async def test_webhook_sesion_desconocida_se_marca_ignored(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(stripe_client, "get_settings", _settings_con_stripe)
+    stripe_account_id = await _crear_organizacion_con_stripe(organizacion)
+
+    event_id = f"evt_{uuid.uuid4().hex}"
+    cuerpo = _cuerpo_checkout_completed(
+        event_id=event_id, session_id="cs_no_existe", account=stripe_account_id
+    )
+    firma = _firmar(cuerpo, int(time.time()))
+    monkeypatch.setattr(
+        "app.core.tasks.process_stripe_webhook_task.kiq",
+        AsyncMock(side_effect=payments_webhooks.procesar_evento),
+    )
+
+    respuesta = await cliente.post(WEBHOOK_URL, content=cuerpo, headers={"stripe-signature": firma})
+    assert respuesta.status_code == 200
+
+    async with SessionMaintenance() as session:
+        fila = await payments_repository.get_webhook_event(session, event_id)
+        assert fila.status == "ignored"
