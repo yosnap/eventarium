@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 DiscountType = Literal["percentage", "fixed_amount"]
 
@@ -231,3 +231,51 @@ class CheckoutQuoteResponse(BaseModel):
     discount_cents: int
     total_cents: int
     currency: str
+
+
+# --- Compra pública (fase 6 del PRD, fase 4 de trabajo) -----------------------
+
+
+class RegistrationAnswerInputPublic(BaseModel):
+    """Copia de `registrations.schemas.RegistrationAnswerInput`: los módulos
+    de dominio no se importan schemas entre sí (mismo criterio que
+    `payments/service.py` no importa `registrations`), solo el tipo de datos
+    que necesita `checkout_service` para reenviarlo tal cual."""
+
+    question_id: str
+    value: str | list[str] | None = None
+
+
+class CheckoutStartRequest(BaseModel):
+    """Formulario público de compra: inscripción + selección de tipo de
+    entrada y código de descuento opcional, en una sola petición (paso único
+    del embudo, decisión de producto de la fase 6)."""
+
+    email: EmailStr
+    full_name: Annotated[str, Field(min_length=1, max_length=200)]
+    answers: list[RegistrationAnswerInputPublic] = Field(default_factory=list)
+    data_processing_accepted: bool = Field(
+        description="Consentimiento de tratamiento de datos, obligatorio para inscribirse."
+    )
+    marketing_accepted: bool = False
+    recording_accepted: bool = False
+    ticket_type_id: str
+    code: Annotated[str, Field(max_length=60)] | None = None
+    turnstile_token: str = Field(description="Token del widget de Turnstile")
+
+
+class CheckoutStartResponse(BaseModel):
+    """Respuesta siempre con la misma forma (hallazgo de no filtrar si el
+    email ya estaba inscrito): `checkout_url` es `null` cuando la
+    inscripción existente no es pagable ahora mismo."""
+
+    message: str
+    checkout_url: str | None
+
+
+class PaymentStatusResponse(BaseModel):
+    """Estado real de un pago, para la pantalla de retorno — nunca se da el
+    pago por confirmado por el mero retorno desde Stripe."""
+
+    registration_status: str
+    payment_status: str | None
