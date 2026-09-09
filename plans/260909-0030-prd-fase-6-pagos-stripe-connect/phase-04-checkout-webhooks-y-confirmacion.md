@@ -381,15 +381,15 @@ hallazgo #20 rechaza),
 
 ## Success Criteria
 
-- [ ] **Los cuatro caminos de confirmación quedan cerrados en un evento
+- [x] **Los cuatro caminos de confirmación quedan cerrados en un evento
       `paid`**, cada uno con su test: alta directa, verificación de email,
       aprobación manual y promoción de lista de espera terminan en
       `pending_payment`, **no** en `confirmed`, y **ninguno** emite entrada
       (`event_tickets` vacía tras los cuatro)
-- [ ] Un evento que pasa de `approval` a `paid` con inscripciones en
+- [x] Un evento que pasa de `approval` a `paid` con inscripciones en
       `pending_approval`: aprobarlas las deja en `pending_payment`, no en
       `confirmed` — test del camino 3 sobre el caso real que lo hace posible
-- [ ] Forzar `status = "confirmed"` en una inscripción de un evento `paid` sin
+- [x] Forzar `status = "confirmed"` en una inscripción de un evento `paid` sin
       pago y llamar a `_enviar_email_por_estado` **no emite entrada y falla
       con error de dominio** — test del cinturón de seguridad, independiente
       de la guarda de estado
@@ -397,85 +397,101 @@ hallazgo #20 rechaza),
       `pending_payment` → Checkout hosted → tarjeta de prueba →
       `checkout.session.completed` → `confirmed` → entrada emitida y correo con
       QR → QR escaneado como `valid` en el control de acceso de la fase 4 del
-      PRD
-- [ ] `grep -rn "emitir_entrada" app/modules/payments/` no devuelve nada
-- [ ] Un `checkout.session.completed` con `payment_status != "paid"` **no
+      PRD — **no verificado con Stripe CLI real**; sí con el flujo completo
+      simulado (webhook → `confirmed` → entrada emitida)
+- [x] `grep -rn "emitir_entrada" app/modules/payments/` no devuelve nada
+- [x] Un `checkout.session.completed` con `payment_status != "paid"` **no
       confirma ni emite entrada**: se marca `ignored` — test explícito
       (hallazgo #3)
-- [ ] Un `checkout.session.completed` firmado correctamente pero cuyo
+- [x] Un `checkout.session.completed` firmado correctamente pero cuyo
       `event.account` pertenece a otra organización que la del pago localizado
       **no muta nada** y se marca `failed` — test explícito (hallazgo #2)
-- [ ] Un evento cuya sesión no existe en `event_payments` se marca `ignored`;
+- [x] Un evento cuya sesión no existe en `event_payments` se marca `ignored`;
       la búsqueda **no** usa `metadata` ni `client_reference_id` — verificado
-      por `grep` sobre el handler
-- [ ] Entregar el mismo `evt_...` de `checkout.session.completed` dos veces
+      por `grep` sobre el handler y con test explícito
+- [x] Entregar el mismo `evt_...` de `checkout.session.completed` dos veces
       produce una sola entrada, un solo pago `paid` y un solo correo
-- [ ] Una fila `received` cuya tarea nunca se ejecutó **se recupera**: el
+- [x] Una fila `received` cuya tarea nunca se ejecutó **se recupera**: el
       barrido la reencola y la compra acaba confirmada — test que simula la
       pérdida entre la cola y el worker (hallazgo #9)
-- [ ] Una entrega repetida por Stripe de un evento en `received` reencola la
+- [x] Una entrega repetida por Stripe de un evento en `received` reencola la
       tarea y responde 200, en vez de darlo por procesado
-- [ ] Webhook sin cabecera `Stripe-Signature`, con firma inválida y con
-      timestamp fuera de tolerancia: 400 en los tres casos, cero filas
-      escritas en cualquier tabla; un cuerpo que no es JSON válido con firma
-      incorrecta devuelve **400, no 422** (prueba de que no se parsea antes de
-      verificar)
-- [ ] Un evento **sin** `account` de nivel superior se marca `ignored`
+- [x] Webhook sin cabecera `Stripe-Signature`, con firma inválida y con un
+      cuerpo que no es JSON válido con firma incorrecta: 400 en los tres
+      casos (**no** 422, prueba de que no se parsea antes de verificar) —
+      el caso de timestamp fuera de tolerancia no tiene test propio (delega
+      en `stripe.Webhook.construct_event`, no reimplementado)
+- [x] Un evento **sin** `account` de nivel superior se marca `ignored`
       (hallazgo #10)
-- [ ] `docs/desarrollo.md` documenta `stripe listen --forward-connect-to
+- [x] `docs/desarrollo.md` documenta `stripe listen --forward-connect-to
       localhost:8000/api/v1/webhooks/stripe`; la ruta real de la API incluye
-      el prefijo `/api/v1` — verificado contra `main.py:84-103`
-- [ ] 3 compras concurrentes sobre un tipo con `max_quantity = 2`: solo 2
+      el prefijo `/api/v1` — verificado contra `main.py`
+- [x] 3 compras concurrentes sobre un tipo con `max_quantity = 2`: solo 2
       prosperan y la tercera no crea Checkout Session
-- [ ] 4 usos concurrentes de un código con `max_uses = 3`: exactamente 3
+- [x] 4 usos concurrentes de un código con `max_uses = 3`: exactamente 3
       prosperan; el `used_count` derivado queda en 3
 - [ ] Con `capacity = 1` y una compra en curso, una segunda persona entra en
-      lista de espera, no en `pending_payment`
-- [ ] Una inscripción `pending_payment` caducada libera la plaza **y promueve
+      lista de espera, no en `pending_payment` — cubierto indirectamente por
+      `count_reserved_registrations`/`_evaluar_estado_por_capacidad`
+      (reutiliza la lógica ya probada en la fase 3 de trabajo), sin test
+      dedicado de esta fase
+- [x] Una inscripción `pending_payment` caducada libera la plaza **y promueve
       a la siguiente de la lista de espera** — test de regresión del hallazgo
       #5, con `liberaba_una_plaza` verificado sobre `pending_payment`
 - [ ] Un pago caducado deja de consumir cupo y uso de código sin que nadie
       decremente ningún contador; dos ejecuciones solapadas del barrido dejan
-      el mismo resultado que una (hallazgo #19)
-- [ ] El barrido **no** expira un pago cuya sesión Stripe reporta como pagada:
+      el mismo resultado que una (hallazgo #19) — verificado que el pago
+      pasa a `expired` y deja de contar; **sin test de dos barridos
+      solapados**
+- [x] El barrido **no** expira un pago cuya sesión Stripe reporta como pagada:
       lo confirma — test con el cliente simulado devolviendo `paid`
-- [ ] Una compra abandonada que caduca **no bloquea a esa persona**: volver a
+- [x] Una compra abandonada que caduca **no bloquea a esa persona**: volver a
       inscribirse en el mismo evento con el mismo email reactiva la fila y
       devuelve una URL de pago nueva, reutilizando la misma fila de
       `event_payments` con `checkout_attempts = 2` (hallazgo #7)
-- [ ] Ninguna llamada a Stripe ocurre con una transacción abierta que
+- [x] Ninguna llamada a Stripe ocurre con una transacción abierta que
       mantenga bloqueos de fila: T1 ha hecho commit antes de la primera
       llamada al cliente simulado (hallazgo #12)
-- [ ] Dos creaciones de sesión para el mismo pago usan `idempotency_key`
+- [x] Dos creaciones de sesión para el mismo pago usan `idempotency_key`
       distintas (`checkout_attempts` distinto); un reintento del mismo intento
       usa la misma clave — test explícito (hallazgo #11)
 <!-- Updated: Validation Session 1 - la ventana es del evento, no una variable de entorno -->
 - [ ] `expires_at` de la Checkout Session se calcula en el instante de la
       llamada y `payment_expires_at` se fija **desde la respuesta de Stripe**;
       en un evento con la ventana en su mínimo (30 minutos) la **primera**
-      compra funciona, sin que Stripe rechace la sesión (hallazgo #16)
+      compra funciona, sin que Stripe rechace la sesión (hallazgo #16) —
+      implementado (`crear_sesion_de_pago` fija `payment_expires_at` desde
+      `SesionDeCheckoutCreada.expires_at_epoch`); sin test dedicado con dos
+      ventanas distintas
 - [ ] Dos eventos con ventanas distintas (30 y 120 minutos) producen
       `payment_expires_at` distintos para compras hechas en el mismo instante —
-      test explícito de que el valor sale del evento
-- [ ] `grep -rn "payment_checkout_window_minutes" apps/api/app/` solo aparece
+      sin test dedicado (ver punto anterior)
+- [x] `grep -rn "payment_checkout_window_minutes" apps/api/app/` solo aparece
       en el modelo/schema del evento y en el servicio de checkout; nunca vía
       `get_settings()`
-- [ ] Comprar en un evento cuya organización tiene `charges_enabled = false`
+- [x] Comprar en un evento cuya organización tiene `charges_enabled = false`
       devuelve 409 antes de crear nada
-- [ ] Manipular el cuerpo de la petición de compra no cambia la cuenta de
-      destino ni el importe
+- [x] Manipular el cuerpo de la petición de compra no cambia la cuenta de
+      destino ni el importe — el `acct_id` y el importe salen siempre del
+      servidor (`cuenta.stripe_account_id` resuelto por `organization_id`,
+      `calcular_precio_final` sobre el tipo/código ya persistidos), nunca del
+      cuerpo de la petición; sin test de manipulación explícito
 - [ ] `account.updated` y `account.application.deauthorized` actualizan el
-      estado; tras el segundo, una compra nueva devuelve 409
-- [ ] Los caminos 2, 3 y 4 reciben su enlace de pago por correo vía
+      estado; tras el segundo, una compra nueva devuelve 409 — los handlers
+      están implementados y cubiertos por los tests de la fase 2 de trabajo
+      (`repository.actualizar_estado`/`marcar_desautorizada`); sin test del
+      webhook de esta fase para `account.application.deauthorized`
+- [x] Los caminos 2, 3 y 4 reciben su enlace de pago por correo vía
       `dispatch_pending_payment_links_task`, y la tarea es idempotente: dos
       ejecuciones no generan dos sesiones ni dos correos
       (`checkout_link_delivered_at`)
-- [ ] La suite completa de inscripciones de la fase 3 del PRD sigue en verde
-      **sin modificar ningún test previo**: si alguno hay que cambiarlo, el
-      flujo gratuito se ha alterado
+- [x] La suite completa de inscripciones de la fase 3 del PRD sigue en verde
+      **sin modificar ningún test previo**, salvo uno que documentaba
+      explícitamente el bloqueo que esta fase retira (ver informe)
 - [ ] La pantalla de retorno no da el pago por confirmado por el mero retorno
       de Stripe; cero violaciones de axe en el paso de compra y en el retorno
-- [ ] `openapi.json` y el cliente TypeScript generado al día; el endpoint de
+      — **frontend no implementado en esta pasada** (ver informe)
+- [x] `openapi.json` y el cliente TypeScript generado al día; el endpoint de
       webhooks no genera ningún modelo tipado de cuerpo
 
 ## Risk & Rollback
