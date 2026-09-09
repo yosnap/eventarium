@@ -123,7 +123,40 @@
     "emailInvalido": "Escribe un correo electrónico válido.",
     "nombreRequerido": "Escribe tu nombre completo.",
     "preguntaObligatoria": "Esta pregunta es obligatoria.",
-    "volverAlEvento": "← Volver al evento"
+    "volverAlEvento": "← Volver al evento",
+    "continuarAlPago": "Continuar al pago",
+    "codigoDescuento": "Código de descuento (opcional)",
+    "tipoEntrada": {
+      "titulo": "Elige tu entrada",
+      "obligatorio": "Elige un tipo de entrada."
+    },
+    "presupuesto": {
+      "calculando": "Calculando el precio…",
+      "total": "Total a pagar",
+      "descuentoAplicado": "descuento de {{importe}} € aplicado",
+      "error": "No hemos podido calcular el precio."
+    }
+  },
+  "pago": {
+    "retorno": {
+      "titulo": "Confirmando tu pago",
+      "comprobando": "Estamos comprobando tu pago con la pasarela. No cierres esta página.",
+      "confirmadoTitulo": "¡Pago confirmado!",
+      "confirmadoDetalle": "Tu inscripción está confirmada. Revisa tu correo: ahí tienes tu entrada.",
+      "pendienteTitulo": "Tu pago todavía no se ha confirmado",
+      "pendienteDetalle": "Puede tardar unos segundos en confirmarse. Si tarda más de lo normal, reintenta o contacta con la organización.",
+      "reintentar": "Comprobar de nuevo",
+      "fallidoTitulo": "No hemos podido confirmar tu pago",
+      "fallidoDetalle": "Si el cargo se realizó y este mensaje persiste, contacta con la organización del evento.",
+      "errorTitulo": "No hemos podido comprobar el estado de tu pago",
+      "errorDetalle": "Revisa tu conexión y vuelve a intentarlo.",
+      "volverAlEvento": "← Volver al evento"
+    },
+    "cancelado": {
+      "titulo": "Pago cancelado",
+      "detalle": "Has cancelado el proceso de pago. Tu plaza no se ha confirmado; puedes volver a intentarlo desde la página del evento.",
+      "volverAlEvento": "← Volver al evento"
+    }
   },
   "verificarInscripcion": {
     "titulo": "Verificación de inscripción",

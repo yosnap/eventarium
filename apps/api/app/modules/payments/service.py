@@ -187,6 +187,19 @@ async def list_ticket_types(
     return await repository.get_ticket_types(session, organization_id, event_id)
 
 
+async def list_public_ticket_types(
+    session: AsyncSession, *, organization_id: uuid.UUID, event_id: uuid.UUID
+) -> list[EventTicketType]:
+    """Tipos de entrada que el formulario público de compra puede ofrecer:
+    vigentes en el instante de la consulta (fase 4 de trabajo de la fase 6
+    del PRD). Reutiliza `validar_tipo_vigente` — la misma función que decide
+    si un `checkout/quote` acepta el tipo — para que listado y validación
+    nunca diverjan."""
+    ahora = datetime.now(UTC)
+    tipos = await repository.get_ticket_types(session, organization_id, event_id)
+    return [tipo for tipo in tipos if validar_tipo_vigente(tipo, ahora)]
+
+
 async def create_ticket_type(
     session: AsyncSession, *, organization_id: uuid.UUID, event_id: uuid.UUID, datos: dict[str, Any]
 ) -> EventTicketType:

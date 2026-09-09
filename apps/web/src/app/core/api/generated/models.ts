@@ -76,6 +76,7 @@ export type { PublicSpeakerHistoryItem } from './models/public-speaker-history-i
 export type { PublicSpeakerProfile } from './models/public-speaker-profile';
 export type { PublicSponsor } from './models/public-sponsor';
 export type { PublicSponsorTier } from './models/public-sponsor-tier';
+export type { PublicTicketTypeResponse } from './models/public-ticket-type-response';
 export type { RegisterRequest } from './models/register-request';
 export type { RegistrationAnswerInput } from './models/registration-answer-input';
 export type { RegistrationAnswerInputPublic } from './models/registration-answer-input-public';
