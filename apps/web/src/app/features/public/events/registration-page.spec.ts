@@ -261,7 +261,12 @@ describe('RegistrationPage', () => {
 
       const asignacionDeUrl = vi.fn();
       Object.defineProperty(window, 'location', {
-        value: { ...window.location, set href(url: string) { asignacionDeUrl(url); } },
+        value: {
+          ...window.location,
+          set href(url: string) {
+            asignacionDeUrl(url);
+          },
+        },
         writable: true,
       });
 
@@ -301,7 +306,12 @@ describe('RegistrationPage', () => {
 
       const asignacionDeUrl = vi.fn();
       Object.defineProperty(window, 'location', {
-        value: { ...window.location, set href(url: string) { asignacionDeUrl(url); } },
+        value: {
+          ...window.location,
+          set href(url: string) {
+            asignacionDeUrl(url);
+          },
+        },
         writable: true,
       });
 

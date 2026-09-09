@@ -186,9 +186,16 @@ function precioEnEuros(cents: number): string {
                   } @else if (presupuesto(); as presupuesto) {
                     <p>
                       {{ t('inscripcion.presupuesto.total') }}:
-                      <strong>{{ precioEuros(presupuesto.total_cents) }} {{ presupuesto.currency.toUpperCase() }}</strong>
+                      <strong
+                        >{{ precioEuros(presupuesto.total_cents) }}
+                        {{ presupuesto.currency.toUpperCase() }}</strong
+                      >
                       @if (presupuesto.discount_cents > 0) {
-                        ({{ t('inscripcion.presupuesto.descuentoAplicado', { importe: precioEuros(presupuesto.discount_cents) }) }})
+                        ({{
+                          t('inscripcion.presupuesto.descuentoAplicado', {
+                            importe: precioEuros(presupuesto.discount_cents),
+                          })
+                        }})
                       }
                     </p>
                   }
@@ -519,7 +526,9 @@ export class RegistrationPage implements OnInit {
     const esCompraDePago = this.esCompraDePago();
     if (esCompraDePago) {
       this.errorTicketType.set(
-        this.ticketTypeId() ? null : this.transloco.translate('inscripcion.tipoEntrada.obligatorio'),
+        this.ticketTypeId()
+          ? null
+          : this.transloco.translate('inscripcion.tipoEntrada.obligatorio'),
       );
     }
 

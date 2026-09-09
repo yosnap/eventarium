@@ -40,7 +40,14 @@ function vacio(): {
   salesStartAt: string;
   salesEndAt: string;
 } {
-  return { name: '', description: '', price: '', maxQuantity: '', salesStartAt: '', salesEndAt: '' };
+  return {
+    name: '',
+    description: '',
+    price: '',
+    maxQuantity: '',
+    salesStartAt: '',
+    salesEndAt: '',
+  };
 }
 
 function precioAEuros(cents: number): string {
@@ -108,11 +115,7 @@ function precioAEuros(cents: number): string {
                     <app-button variant="secundario" type="button" (pulsado)="editar(tipo)">
                       {{ t('admin.events.ticketTypes.editar') }}
                     </app-button>
-                    <app-button
-                      variant="secundario"
-                      type="button"
-                      (pulsado)="alternarActivo(tipo)"
-                    >
+                    <app-button variant="secundario" type="button" (pulsado)="alternarActivo(tipo)">
                       {{
                         tipo.is_active
                           ? t('admin.events.ticketTypes.desactivar')
@@ -160,7 +163,9 @@ function precioAEuros(cents: number): string {
               [attr.aria-describedby]="'tipo-precio-ayuda'"
               (input)="precio.set(alTexto($event))"
             />
-            <p id="tipo-precio-ayuda" class="ayuda">{{ t('admin.events.ticketTypes.precioAyuda') }}</p>
+            <p id="tipo-precio-ayuda" class="ayuda">
+              {{ t('admin.events.ticketTypes.precioAyuda') }}
+            </p>
           </div>
 
           <div class="campo-numero">
@@ -498,9 +503,7 @@ export class EventTicketTypes implements OnInit {
     this.error.set(null);
     try {
       await firstValueFrom(
-        this.http.delete(
-          this.api.url(`/events/${this.eventId()}/ticket-types/${ticketTypeId}`),
-        ),
+        this.http.delete(this.api.url(`/events/${this.eventId()}/ticket-types/${ticketTypeId}`)),
       );
       await this.cargar();
     } catch (error) {

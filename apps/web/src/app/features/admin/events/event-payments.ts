@@ -92,7 +92,9 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
         } @else {
           <table>
             <caption class="sr-only">
-              {{ t('admin.events.payments.titulo') }}
+              {{
+                t('admin.events.payments.titulo')
+              }}
             </caption>
             <thead>
               <tr>
@@ -121,7 +123,12 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
                     }
                     @if (pago.no_auto_refund_reason) {
                       <span class="detalle">
-                        {{ t('admin.events.payments.sinReembolsoAutomatico.' + pago.no_auto_refund_reason) }}
+                        {{
+                          t(
+                            'admin.events.payments.sinReembolsoAutomatico.' +
+                              pago.no_auto_refund_reason
+                          )
+                        }}
                       </span>
                     }
                   </td>
@@ -129,11 +136,7 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
                   <td>{{ euros(pago.refunded_cents) }} {{ pago.currency.toUpperCase() }}</td>
                   <td>
                     @if (pendiente(pago) > 0) {
-                      <app-button
-                        variant="secundario"
-                        type="button"
-                        (pulsado)="abrirDialogo(pago)"
-                      >
+                      <app-button variant="secundario" type="button" (pulsado)="abrirDialogo(pago)">
                         {{ t('admin.events.payments.reembolsar') }}
                       </app-button>
                     }
@@ -376,7 +379,9 @@ export class EventPayments implements OnInit {
 
     const importeCents = Math.round(Number(this.importeEuros().replace(',', '.')) * 100);
     if (!Number.isFinite(importeCents) || importeCents <= 0) {
-      this.errorDialogo.set(this.transloco.translate('admin.events.payments.dialogo.importeInvalido'));
+      this.errorDialogo.set(
+        this.transloco.translate('admin.events.payments.dialogo.importeInvalido'),
+      );
       return;
     }
     if (importeCents > pendiente(pago)) {

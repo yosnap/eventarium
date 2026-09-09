@@ -112,9 +112,7 @@ describe('EventPayments', () => {
 
     const dialogo = fixture.nativeElement.querySelector('dialog') as HTMLDialogElement;
     expect(dialogo.hasAttribute('open')).toBe(true);
-    const importe = fixture.nativeElement.querySelector(
-      '#reembolso-importe',
-    ) as HTMLInputElement;
+    const importe = fixture.nativeElement.querySelector('#reembolso-importe') as HTMLInputElement;
     expect(importe.value).toBe('10.00');
   });
 
