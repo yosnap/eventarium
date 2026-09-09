@@ -126,8 +126,8 @@ async def _crear_publicar_evento_de_pago(
 ) -> dict:
     """Crea el evento en borrador, le añade un tipo de entrada («General») y
     solo entonces lo publica: `_asegurar_venta_posible` exige al menos un
-    tipo de entrada vigente para publicar un evento `paid` (hallazgo C1b del
-    code review de la fase 6), así que publicar antes de tener uno daría 409.
+    tipo de entrada vigente para publicar un evento `paid`, así que publicar
+    antes de tener uno daría 409.
     """
     monkeypatch_activo = overrides.pop("_monkeypatch", None)
     if monkeypatch_activo is not None:

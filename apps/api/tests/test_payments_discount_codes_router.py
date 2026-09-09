@@ -158,7 +158,7 @@ async def test_used_count_es_derivado_y_no_una_columna(
     encontrado = next(c for c in listado.json() if c["id"] == codigo_id)
     assert encontrado["used_count"] == 1
 
-    # Un pago `expired` deja de contar sin que nadie lo decremente (hallazgo #19).
+    # Un pago `expired` deja de contar sin que nadie lo decremente.
     async with SessionMaintenance() as session:
         pago_en_bd = await session.get(EventPayment, pago_id)
         assert pago_en_bd is not None

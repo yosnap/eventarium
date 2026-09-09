@@ -113,17 +113,17 @@ class Settings(BaseSettings):
     # absorbe cierres tardíos y desajustes de reloj (decisión #4 del plan).
     ticket_qr_expiry_margin_hours: int = 48
 
-    # Pagos con Stripe Connect (fase 6 del PRD). Con valor por defecto vacío
-    # (hallazgo #14 del red-team): una instalación que no vende nada, y el CI
+    # Pagos con Stripe Connect (fase 6 del PRD). Con valor por defecto vacío:
+    # una instalación que no vende nada, y el CI
     # que escribe su propio `.env`, no deben dejar de arrancar por dos
     # secretos de una pasarela que no usan. La ventana de checkout es un
     # campo por evento (tabla `events`), no vive en esta configuración.
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
-    # Plazo del reembolso automático al cancelar una inscripción de pago
-    # (hallazgo #13): se consume en la fase 5 de trabajo.
+    # Plazo del reembolso automático al cancelar una inscripción de pago:
+    # se consume en la fase 5 de trabajo.
     payment_refund_cutoff_hours: int = 24
-    # Purga de `stripe_webhook_events` (hallazgo #15): se consume en la fase 5
+    # Purga de `stripe_webhook_events`: se consume en la fase 5
     # de trabajo.
     stripe_webhook_retention_days: int = 90
 

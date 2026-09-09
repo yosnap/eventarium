@@ -198,7 +198,7 @@ async def test_webhook_payment_status_no_pagado_no_confirma(
 async def test_confirmar_pago_ya_reembolsado_no_vuelve_a_paid(
     organizacion: OrganizacionDePrueba,
 ) -> None:
-    """Hallazgo IMP-2 (I5) del code review de la fase 6, ronda 3: la prueba
+    """La prueba
     existente de `confirmar_pago_y_registro` solo cubre el camino feliz. Un
     pago ya `refunded` (o `expired`) que reciba una segunda confirmación —
     reenvío de Stripe, o una carrera con el barrido de caducados — no debe
@@ -271,7 +271,8 @@ async def test_confirmar_pago_ya_reembolsado_no_vuelve_a_paid(
 async def test_webhook_checkout_completed_sobre_pago_ya_expirado_no_lo_revive(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Mismo hallazgo I5, camino completo del webhook real
+    """Mismo escenario que el estado exacto exigido antes de confirmar, pero
+    por el camino completo del webhook real
     (`_handle_checkout_completed`): un `checkout.session.completed` reenviado
     contra un pago ya `expired` (p. ej. el barrido de caducados ganó la
     carrera) debe quedar `"ignored"` en `stripe_webhook_events`, sin volver a
@@ -613,7 +614,7 @@ async def test_barrido_no_expira_si_stripe_reporta_pagado(
 async def test_barrido_red_de_seguridad_expira_pago_huerfano_de_inscripcion_rechazada(
     fake: FakeStripeClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    """Hallazgo IMP-1 del code review de la fase 6, ronda 3: red de seguridad
+    """Red de seguridad
     además del cambio explícito en `reject_registration`. Simula una fila que
     se hubiera quedado huérfana por cualquier otro camino no cubierto
     explícitamente (aquí, forzando el estado `rejected` sin pasar por
@@ -678,7 +679,7 @@ async def test_barrido_red_de_seguridad_expira_pago_huerfano_de_inscripcion_rech
 async def test_regresion_evento_gratuito_con_lista_de_espera_no_se_ve_afectado(
     organizacion: OrganizacionDePrueba,
 ) -> None:
-    """Hallazgo #5 y el riesgo de `count_reserved_registrations`: un evento
+    """El riesgo de `count_reserved_registrations`: un evento
     gratuito con lista de espera sigue funcionando igual, porque la nueva
     condición de `pending_payment` nunca se cumple para él."""
     async with SessionMaintenance() as session:

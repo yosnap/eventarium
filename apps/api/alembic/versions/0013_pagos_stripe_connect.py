@@ -12,13 +12,13 @@ Mismo patrón de FK **compuestas** contra `(id, organization_id)` del padre y
 RLS `tenant_<tabla>` que el resto del esquema
 (`0012_patrocinio_legal_auditoria.py`). `stripe_webhook_events` es tabla de
 **instalación**: sin RLS, con `REVOKE ALL ... FROM app_user` (precedente
-exacto en `0012`, hallazgo #1 de su red-team) — es el mecanismo antirreplay
+exacto en `0012`) — es el mecanismo antirreplay
 de los webhooks, y si `app_user` pudiera borrarla cualquier sesión de
 organización podría reabrir la ventana de reprocesar un evento ya aplicado.
 
 El índice único de `organization_stripe_accounts` es **parcial**
-(`WHERE deauthorized_at IS NULL`), no `UNIQUE(organization_id)` a secas
-(hallazgo #17 del red-team de la fase 6): permite histórico de cuentas
+(`WHERE deauthorized_at IS NULL`), no `UNIQUE(organization_id)` a secas:
+permite histórico de cuentas
 desconectadas sin perder el `acct_id` con el que se cobraron sus pagos.
 
 `event_payments.registration_id` usa `ondelete="SET NULL (registration_id)"`
@@ -28,7 +28,7 @@ un pago asociado, y un `SET NULL` a secas sobre esta FK compuesta intentaría
 anular también `organization_id`, que es `NOT NULL`.
 
 `event_discount_codes` no lleva `used_count`: su consumo se deriva de un
-`COUNT` sobre `event_payments` (hallazgo #19).
+`COUNT` sobre `event_payments`.
 
 Backfill de `payments:read`/`payments:write` a cualquier rol con
 `organizations:write` (mismo criterio que `0010`/`0011`/`0012`), más la
@@ -122,7 +122,7 @@ def _crear_tablas() -> None:
         unique=False,
     )
     # Parcial: una organización tiene una sola cuenta *activa*, pero conserva
-    # el histórico de las desconectadas (hallazgo #17).
+    # el histórico de las desconectadas.
     op.create_index(
         "uq_organization_stripe_accounts_activa",
         "organization_stripe_accounts",
@@ -289,8 +289,7 @@ def _crear_tablas() -> None:
         # Lista de columnas obligatoria (Postgres 15+): un `SET NULL` a secas
         # sobre esta FK compuesta intentaría anular también `organization_id`,
         # que es `NOT NULL`. Sin este `ondelete`, el borrado RGPD de una
-        # inscripción con pago asociado fallaría con `IntegrityError`
-        # (hallazgo #15).
+        # inscripción con pago asociado fallaría con `IntegrityError`.
         sa.ForeignKeyConstraint(
             ["registration_id", "organization_id"],
             ["event_registrations.id", "event_registrations.organization_id"],
@@ -312,7 +311,7 @@ def _crear_tablas() -> None:
         sa.PrimaryKeyConstraint("id", name=op.f("pk_event_payments")),
         sa.UniqueConstraint("id", "organization_id", name="uq_event_payments_id_organization_id"),
         # Una inscripción, un pago: un reintento tras caducar reutiliza la
-        # fila (hallazgo #7), no crea una segunda.
+        # fila, no crea una segunda.
         sa.UniqueConstraint("registration_id", name="uq_event_payments_registration_id"),
         sa.UniqueConstraint(
             "stripe_checkout_session_id", name="uq_event_payments_stripe_checkout_session_id"
@@ -410,7 +409,7 @@ def _crear_tablas() -> None:
         sa.Column("stripe_account_id", sa.String(length=255), nullable=True),
         sa.Column("organization_id", sa.UUID(), nullable=True),
         # Proyección con lista blanca de campos, nunca el evento crudo de
-        # Stripe (hallazgo #15): nunca `customer_details.email`/`address` ni
+        # Stripe: nunca `customer_details.email`/`address` ni
         # ningún otro dato personal del comprador.
         sa.Column("payload", JSONB(), nullable=False),
         sa.Column("status", sa.String(length=20), nullable=False, server_default="received"),
@@ -522,7 +521,7 @@ def _restringir_tablas_de_instalacion() -> None:
     SELECT/INSERT/UPDATE/DELETE a `app_user` sobre toda tabla nueva
     automáticamente. Sin este `REVOKE`, cualquier sesión de organización
     podría leer y **borrar** el registro antirreplay de webhooks completo de
-    la instalación (mismo hallazgo #1 de `0012`, aplicado aquí). Solo la
+    la instalación (mismo criterio que `0012`). Solo la
     escribe/lee `app_maintainer` (endpoint de webhooks y tarea de fondo, fase
     3 de trabajo), así que el `REVOKE` no rompe ningún camino."""
     for tabla in TABLAS_DE_INSTALACION:

@@ -2,8 +2,8 @@
 **venta**, no de configuracion — decision #13 del plan. Crear y editar un
 evento `paid` en borrador funciona sin Stripe conectado; solo publicarlo
 (`published` + `paid`) exige `payments_enabled` y una cuenta con
-`charges_enabled = true`. Invocada desde `create_event` **y** `update_event`
-(hallazgo #4 del red-team): antes de esta fase, `create_event` no validaba
+`charges_enabled = true`. Invocada desde `create_event` **y** `update_event`:
+antes de esta fase, `create_event` no validaba
 nada de estado.
 """
 
@@ -128,14 +128,13 @@ async def test_publicar_editando_a_paid_sin_stripe_da_409(
 async def test_publicar_evento_paid_con_charges_enabled_funciona(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    """Alta en borrador + tipo de entrada + publicación vía `PATCH` (hallazgo
-    M2 del code review de la fase 6, ronda 3): un alta directa con
+    """Alta en borrador + tipo de entrada + publicación vía `PATCH`: un alta
+    directa con
     `status=published` no puede tener ya un tipo de entrada colgado —
     `create_event` no tiene todavía una fila de evento sobre la que colgarlo
     (`_asegurar_venta_posible` solo puede comprobarlo con un `event_id` ya
     existente) — así que esta es la única secuencia que cumple a la vez la
-    guarda de cuenta operativa y la de al menos un tipo de entrada vigente
-    (hallazgo C1b)."""
+    guarda de cuenta operativa y la de al menos un tipo de entrada vigente."""
     await _conectar_cuenta_operativa(organizacion)
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
 
@@ -166,10 +165,10 @@ async def test_publicar_evento_paid_con_charges_enabled_funciona(
 async def test_crear_evento_paid_publicado_directamente_sin_tipo_de_entrada_da_409(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    """Hallazgo M2 del code review de la fase 6, ronda 3: antes de este fix,
-    `create_event` no pasaba `event_id` a `_asegurar_venta_posible`, así que
+    """Antes de este fix, `create_event` no pasaba `event_id` a
+    `_asegurar_venta_posible`, así que
     el requisito de al menos un tipo de entrada vigente para publicar un
-    evento de pago (hallazgo C1b) se saltaba en un alta directamente
+    evento de pago se saltaba en un alta directamente
     publicada — imposible de cumplir de todos modos, porque no puede existir
     ningún tipo de entrada antes de que el propio evento exista."""
     await _conectar_cuenta_operativa(organizacion)

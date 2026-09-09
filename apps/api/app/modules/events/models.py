@@ -48,7 +48,7 @@ class Event(Base, TimestampMixin):
         # Stripe admite un `expires_at` de Checkout Session entre 30 minutos y
         # 24h desde la creación de la sesión; la fase 4 de trabajo de pagos
         # añade siempre 60s de margen técnico, así que 1439 es el máximo que
-        # no se pasa de las 24h (hallazgo #16 del red-team de la fase 6).
+        # no se pasa de las 24h.
         CheckConstraint(
             "payment_checkout_window_minutes BETWEEN 30 AND 1439",
             name="ck_events_payment_checkout_window_minutes_rango",

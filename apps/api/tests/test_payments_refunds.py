@@ -2,8 +2,8 @@
 del PRD, fase 5 de trabajo).
 
 Sin red real: `stripe.StripeClient` se sustituye por un doble, mismo patrón
-que `test_payments_checkout_and_webhooks.py`. El foco es el outbox (hallazgos
-#11 y #12), la política de reembolso automático (hallazgo #13) y que
+que `test_payments_checkout_and_webhooks.py`. El foco es el outbox, la
+política de reembolso automático y que
 `refunded_cents` se fija desde `charge.refunded`, nunca se suma.
 """
 
@@ -222,7 +222,7 @@ async def test_autocancelacion_publica_hereda_el_mismo_outbox(
 async def test_ninguna_llamada_a_stripe_dentro_de_cancelar_inscripcion(
     organizacion: OrganizacionDePrueba, fake: FakeStripeClient
 ) -> None:
-    """Hallazgo #12, verificado contando llamadas al cliente simulado durante
+    """Verificado contando llamadas al cliente simulado durante
     la propia transacción de cancelación (antes de que la tarea programada
     pueda ejecutarse)."""
     stripe_account_id = await _crear_organizacion_con_stripe(organizacion)
@@ -242,7 +242,7 @@ async def test_ninguna_llamada_a_stripe_dentro_de_cancelar_inscripcion(
             assert fake.v1.refunds.create_async.await_count == 0
 
 
-# --- Política de plazo (hallazgo #13) ----------------------------------------
+# --- Política de plazo -------------------------------------------------------
 
 
 async def test_evento_ya_empezado_cancela_sin_reembolso_automatico(
@@ -356,7 +356,7 @@ async def test_idempotency_key_deriva_de_la_pk_del_outbox(
 async def test_fallo_de_escritura_tras_exito_en_stripe_deja_rastro_y_reintenta_misma_clave(
     organizacion: OrganizacionDePrueba, fake: FakeStripeClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Hallazgo #11: simula que Stripe confirma el reembolso pero la
+    """Simula que Stripe confirma el reembolso pero la
     transacción que marca `succeeded` nunca llega a completarse (la fila se
     queda `submitted`). El barrido de atascados la retoma con la **misma**
     `idempotency_key`, sin duplicar el reembolso."""
@@ -446,13 +446,13 @@ async def test_dos_ejecuciones_concurrentes_producen_un_solo_reembolso(
         assert reembolso.status == "succeeded"
 
 
-# --- C2: `attempts` sube en toda salida no exitosa, con tope de reintentos --
+# --- `attempts` sube en toda salida no exitosa, con tope de reintentos ------
 
 
 async def test_error_directo_de_stripe_incrementa_attempts_y_deja_failed(
     organizacion: OrganizacionDePrueba, fake: FakeStripeClient
 ) -> None:
-    """Hallazgo IMP-2 (C2) del code review de la fase 6, ronda 3: antes de
+    """Antes de
     `_marcar_intento_fallido`, la rama de error directo de
     `_ejecutar_reembolso` (la llamada a Stripe lanza `ExternalServiceError`)
     no incrementaba `attempts` — un reembolso que siempre fallara nunca
@@ -484,7 +484,7 @@ async def test_reintento_atascado_partiendo_de_failed_incrementa_attempts_y_se_d
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Complementa el test anterior con el otro camino del hallazgo C2: un
+    """Complementa el test anterior con el otro camino: un
     reintento vía `reencolar_reembolsos_atascados` que arranca ya en `failed`
     también debe incrementar `attempts`, hasta dejar de reencolarse al llegar
     a `_INTENTOS_MAXIMOS` (5) y registrar el error en el log."""
@@ -524,13 +524,13 @@ async def test_reintento_atascado_partiendo_de_failed_incrementa_attempts_y_se_d
         assert reembolso.attempts == 5
 
 
-# --- C3: dos reembolsos parciales solapados ----------------------------------
+# --- Dos reembolsos parciales solapados --------------------------------------
 
 
 async def test_dos_reembolsos_parciales_solapados_no_superan_el_importe_pendiente(
     organizacion: OrganizacionDePrueba, fake: FakeStripeClient
 ) -> None:
-    """Hallazgo IMP-2 (C3) del code review de la fase 6, ronda 3: un segundo
+    """Un segundo
     reembolso parcial manual, pedido mientras el primero sigue `pending`/
     `submitted` (su `charge.refunded` todavía no ha llegado), no debe poder
     pedir más de lo que de verdad queda pendiente — `suma_reembolsos_en_curso`
@@ -552,7 +552,7 @@ async def test_dos_reembolsos_parciales_solapados_no_superan_el_importe_pendient
                 revoke_ticket=False,
             )
 
-    # Sin el fix de C3, el importe pendiente se seguiría calculando como
+    # Sin restar los reembolsos en curso, el importe pendiente se seguiría calculando como
     # `amount_cents - refunded_cents` (1000 - 0 = 1000), permitiendo pedir un
     # segundo reembolso de hasta 1000 sobre un pago que ya solo tiene 300
     # realmente disponibles.
@@ -700,7 +700,7 @@ async def test_aislamiento_cross_tenant_del_reembolso(
 async def test_acct_id_del_reembolso_sale_de_la_fila_del_pago_no_de_la_cuenta_actual(
     organizacion: OrganizacionDePrueba, fake: FakeStripeClient
 ) -> None:
-    """Hallazgo #17: un pago cobrado en una cuenta luego desconectada y
+    """Un pago cobrado en una cuenta luego desconectada y
     sustituida por una nueva solo se reembolsa contra la cuenta original."""
     stripe_account_id_antigua = await _crear_organizacion_con_stripe(organizacion)
     event_id, registration_id, payment_id = await _crear_evento_pagado(

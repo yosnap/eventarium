@@ -93,8 +93,8 @@ TABLAS = (
     "organizations",
     # `sponsor_tiers`/`sponsors` cascadean desde `organizations`/`events` por
     # FK, pero `audit_log`/`cookie_consents` no tienen ninguna FK con
-    # `ondelete="CASCADE"` hacia una tabla de esta lista (fase 5 del PRD,
-    # hallazgo #15 del red-team) — sin listarlas explícitamente, filas de un
+    # `ondelete="CASCADE"` hacia una tabla de esta lista (fase 5 del PRD)
+    # — sin listarlas explícitamente, filas de un
     # test contaminarían al siguiente dentro de la misma suite.
     "sponsor_tiers",
     "sponsors",
@@ -105,7 +105,7 @@ TABLAS = (
     # el mismo criterio de arriba. `stripe_webhook_events` no tiene FK
     # ninguna (es tabla de instalación, sin `organization_id` de confianza) —
     # sin listarla, un `evt_...` escrito por un test haría que el siguiente lo
-    # tomara por duplicado (hallazgo #15 del red-team de la fase 6).
+    # tomara por duplicado.
     "organization_stripe_accounts",
     "event_ticket_types",
     "event_discount_codes",

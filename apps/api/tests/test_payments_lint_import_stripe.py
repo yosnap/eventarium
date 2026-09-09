@@ -17,8 +17,8 @@ API_DIR = Path(__file__).resolve().parents[1]
 def _ejecutar_ruff_sobre(contenido: str, ruta_relativa: str) -> subprocess.CompletedProcess[str]:
     """Pasa `contenido` a `ruff check` por `stdin`, con `--stdin-filename
     <ruta_relativa>` para que el `per-file-ignores` de `TID251` empareje por
-    esa ruta exacta — sin escribir nunca sobre el fichero real (hallazgo S1
-    del code review de la fase 6, ronda 3): la versión anterior escribía
+    esa ruta exacta — sin escribir nunca sobre el fichero real: la versión
+    anterior escribía
     sobre `app/modules/payments/stripe_client.py` de verdad y lo restauraba
     en el `finally`, así que un crash a mitad del `subprocess.run` (o de la
     propia sesión de pruebas) podía dejarlo corrupto en disco. Verificado que

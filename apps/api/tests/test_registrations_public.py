@@ -246,12 +246,12 @@ async def test_evento_de_pago_rechaza_el_alta_gratuita(
     """Un evento `paid` solo admite inscripción a través del embudo de compra
     (`POST /public/events/{slug}/checkout`), que captura el tipo de entrada y
     el código de descuento en la misma transacción que crea la inscripción
-    (fase 6 del PRD, hallazgo C1/C1b del code review). El endpoint gratuito
+    (fase 6 del PRD). El endpoint gratuito
     (`POST /public/events/{slug}/registrations`) nunca los captura, así que
     antes dejaba una inscripción `pending_payment` sin ningún pago posible —
     ahora responde 409 sin llegar a crear nada. Publicar el evento exige
     además una cuenta Stripe operativa y un tipo de entrada vigente (fase 6,
-    fase 2 de trabajo, hallazgos #4 y C1b): ambos se simulan aquí para no
+    fase 2 de trabajo): ambos se simulan aquí para no
     acoplar este test a esas fases."""
     from app.core.config import Settings
     from app.modules.events import service as events_service
