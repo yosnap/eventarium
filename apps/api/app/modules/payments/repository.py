@@ -15,10 +15,13 @@ crea un pago, respetando el orden de bloqueo único del módulo documentado en
 
 from __future__ import annotations
 
+import logging
 import uuid
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.payments.models import (
@@ -26,7 +29,11 @@ from app.modules.payments.models import (
     EventPayment,
     EventTicketType,
     OrganizationStripeAccount,
+    StripeWebhookEvent,
 )
+from app.modules.registrations.models import EventRegistration
+
+logger = logging.getLogger(__name__)
 
 # Estados de `event_payments` que cuentan como cupo/uso consumido: un pago
 # `pending` todavía puede completarse y uno `expired` deja de contar sin que
@@ -334,3 +341,290 @@ async def create_discount_code(
     session.add(codigo)
     await session.flush()
     return codigo
+
+
+# --- Guarda de pago (fase 6 del PRD, fase 4 de trabajo) ----------------------
+
+
+async def tiene_pago_confirmado(
+    session: AsyncSession, organization_id: uuid.UUID, registration_id: uuid.UUID
+) -> bool:
+    """`True` si existe un `event_payments` en `paid` para esta inscripción.
+
+    Único predicado que consultan las dos capas de la guarda de pago
+    (`registrations/service.py::_estado_confirmable` y el cinturón de
+    seguridad de `_enviar_email_por_estado`) — una sola implementación, para
+    que ninguna de las dos pueda desincronizarse de la otra.
+    """
+    existe = await session.scalar(
+        select(EventPayment.id)
+        .where(
+            EventPayment.organization_id == organization_id,
+            EventPayment.registration_id == registration_id,
+            EventPayment.status == "paid",
+        )
+        .limit(1)
+    )
+    return existe is not None
+
+
+async def get_payment_by_registration(
+    session: AsyncSession, organization_id: uuid.UUID, registration_id: uuid.UUID
+) -> EventPayment | None:
+    return await session.scalar(
+        select(EventPayment).where(
+            EventPayment.organization_id == organization_id,
+            EventPayment.registration_id == registration_id,
+        )
+    )
+
+
+async def pago_reactivable(
+    session: AsyncSession, organization_id: uuid.UUID, registration_id: uuid.UUID
+) -> bool:
+    """`True` si una inscripción `cancelled` se puede reactivar (hallazgo #7):
+    su pago existe y nunca llegó a moverse dinero (`pending`/`expired`).
+    `paid`/`refunded`/`partially_refunded` no se reactiva — una segunda
+    compra exigiría una segunda fila de pago, que `UNIQUE(registration_id)`
+    no admite; límite explícito de esta fase, no un olvido.
+    """
+    pago = await get_payment_by_registration(session, organization_id, registration_id)
+    return pago is not None and pago.status in ("pending", "expired")
+
+
+async def crear_o_reutilizar_pago(
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    registration_id: uuid.UUID,
+    stripe_account_id: str,
+    ticket_type_id: uuid.UUID,
+    discount_code_id: uuid.UUID | None,
+    amount_cents: int,
+    discount_cents: int,
+    currency: str,
+) -> EventPayment:
+    """T1 del checkout (hallazgo #7 y #12): crea la fila de pago, o reutiliza
+    la existente de una inscripción reactivada tras caducar sin cobrar —
+    nunca una segunda fila (`UNIQUE(registration_id)`). Deja siempre el pago
+    en `pending`, sin sesión de Stripe: esa la crea T2, fuera de cualquier
+    bloqueo de fila.
+    """
+    existente = await get_payment_by_registration(session, organization_id, registration_id)
+    if existente is not None:
+        existente.stripe_account_id = stripe_account_id
+        existente.ticket_type_id = ticket_type_id
+        existente.discount_code_id = discount_code_id
+        existente.amount_cents = amount_cents
+        existente.discount_cents = discount_cents
+        existente.currency = currency
+        existente.status = "pending"
+        existente.checkout_attempts += 1
+        existente.stripe_checkout_session_id = None
+        existente.checkout_url = None
+        existente.checkout_link_delivered_at = None
+        existente.expires_at = None
+        await session.flush()
+        return existente
+
+    pago = EventPayment(
+        organization_id=organization_id,
+        event_id=event_id,
+        registration_id=registration_id,
+        stripe_account_id=stripe_account_id,
+        ticket_type_id=ticket_type_id,
+        discount_code_id=discount_code_id,
+        amount_cents=amount_cents,
+        discount_cents=discount_cents,
+        currency=currency,
+        status="pending",
+        checkout_attempts=1,
+    )
+    session.add(pago)
+    await session.flush()
+    return pago
+
+
+async def get_payment_by_checkout_session_id(
+    session: AsyncSession, stripe_checkout_session_id: str
+) -> EventPayment | None:
+    """Único punto de búsqueda del webhook (hallazgo #2 del red-team de la
+    fase 6): **nunca** por `metadata` ni `client_reference_id`, que el
+    organizador de una cuenta Connect Standard controla desde su propio
+    Dashboard."""
+    return await session.scalar(
+        select(EventPayment).where(
+            EventPayment.stripe_checkout_session_id == stripe_checkout_session_id
+        )
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _PagoPendienteLigero:
+    """Proyección mínima para el barrido y la tarea de enlaces: nunca objetos
+    ORM que sobrevivan a una llamada de red a Stripe (evitaría instancias
+    «detached» y, sobre todo, dejaría el objeto pegado a una fila bloqueada
+    mientras dura la llamada — justo lo que el hallazgo #12 prohíbe)."""
+
+    payment_id: uuid.UUID
+    organization_id: uuid.UUID
+    stripe_account_id: str
+    stripe_checkout_session_id: str | None
+    registration_id: uuid.UUID | None
+
+
+async def pagos_pendientes_caducados(session: AsyncSession) -> list[_PagoPendienteLigero]:
+    """Pagos `pending` cuya inscripción `pending_payment` asociada ya superó
+    su ventana — candidatos del barrido `expire_pending_payments_task`. Sin
+    `FOR UPDATE`: el bloqueo se adquiere fila a fila, después de la consulta
+    a Stripe, nunca durante ella (hallazgo #12)."""
+    filas = (
+        await session.execute(
+            select(
+                EventPayment.id,
+                EventPayment.organization_id,
+                EventPayment.stripe_account_id,
+                EventPayment.stripe_checkout_session_id,
+                EventPayment.registration_id,
+            )
+            .join(EventRegistration, EventRegistration.id == EventPayment.registration_id)
+            .where(
+                EventPayment.status == "pending",
+                EventRegistration.status == "pending_payment",
+                EventRegistration.payment_expires_at.is_not(None),
+                EventRegistration.payment_expires_at < datetime.now(UTC),
+            )
+        )
+    ).all()
+    return [
+        _PagoPendienteLigero(
+            payment_id=fila.id,
+            organization_id=fila.organization_id,
+            stripe_account_id=fila.stripe_account_id,
+            stripe_checkout_session_id=fila.stripe_checkout_session_id,
+            registration_id=fila.registration_id,
+        )
+        for fila in filas
+    ]
+
+
+async def pagos_sin_enlace_entregado(session: AsyncSession) -> list[uuid.UUID]:
+    """`payment_id` de los caminos 2, 3 y 4 (fase 6 del PRD): la inscripción
+    ya está `pending_payment` (verificada, aprobada o promovida) y su pago
+    todavía no tiene sesión de Stripe entregada por correo —
+    `dispatch_pending_payment_links_task` la crea fuera de la petición
+    (hallazgo #12)."""
+    filas = await session.scalars(
+        select(EventPayment.id)
+        .join(EventRegistration, EventRegistration.id == EventPayment.registration_id)
+        .where(
+            EventPayment.status == "pending",
+            EventPayment.checkout_link_delivered_at.is_(None),
+            EventRegistration.status == "pending_payment",
+        )
+    )
+    return list(filas)
+
+
+# --- Idempotencia de webhooks (fase 6 del PRD, fase 4 de trabajo) -----------
+
+
+async def registrar_evento_recibido(
+    session: AsyncSession,
+    *,
+    event_id: str,
+    event_type: str,
+    stripe_account_id: str,
+    payload: dict[str, object],
+) -> bool:
+    """`INSERT ... ON CONFLICT DO NOTHING`: `True` si esta llamada ha creado
+    la fila (evento nuevo, hay que encolar la tarea), `False` si ya existía
+    (Stripe está reintentando una entrega, decisión #10 del plan)."""
+    resultado = await session.execute(
+        pg_insert(StripeWebhookEvent)
+        .values(
+            id=event_id,
+            event_type=event_type,
+            stripe_account_id=stripe_account_id,
+            payload=payload,
+            status="received",
+            received_at=datetime.now(UTC),
+        )
+        .on_conflict_do_nothing(index_elements=["id"])
+    )
+    return bool(resultado.rowcount)
+
+
+async def registrar_evento_ignorado_sin_cuenta(
+    session: AsyncSession, *, event_id: str, event_type: str, payload: dict[str, object]
+) -> None:
+    """Un evento sin `account` de nivel superior (hallazgo #10): se marca
+    `ignored` sin encolar ninguna tarea. `ON CONFLICT DO NOTHING`: una
+    reentrega del mismo evento no debe fallar por chocar con la PK."""
+    await session.execute(
+        pg_insert(StripeWebhookEvent)
+        .values(
+            id=event_id,
+            event_type=event_type,
+            stripe_account_id=None,
+            payload=payload,
+            status="ignored",
+            received_at=datetime.now(UTC),
+            processed_at=datetime.now(UTC),
+        )
+        .on_conflict_do_nothing(index_elements=["id"])
+    )
+
+
+async def get_webhook_event(session: AsyncSession, event_id: str) -> StripeWebhookEvent | None:
+    return await session.get(StripeWebhookEvent, event_id)
+
+
+async def eventos_para_reencolar(session: AsyncSession) -> list[str]:
+    """`sweep_stuck_webhook_events_task` (hallazgo #9): filas `received` con
+    más de 10 minutos (perdidas entre la cola y el worker) y `failed` con
+    reintentos disponibles. Las `failed` que agotaron sus reintentos se
+    registran en `ERROR` en vez de reencolarse otra vez."""
+    limite = datetime.now(UTC) - timedelta(minutes=10)
+    atascados = list(
+        await session.scalars(
+            select(StripeWebhookEvent.id).where(
+                StripeWebhookEvent.status == "received",
+                StripeWebhookEvent.received_at < limite,
+            )
+        )
+    )
+    reintentables = list(
+        await session.scalars(
+            select(StripeWebhookEvent.id).where(
+                StripeWebhookEvent.status == "failed",
+                StripeWebhookEvent.attempts < 5,
+            )
+        )
+    )
+    agotados = list(
+        await session.scalars(
+            select(StripeWebhookEvent.id).where(
+                StripeWebhookEvent.status == "failed",
+                StripeWebhookEvent.attempts >= 5,
+            )
+        )
+    )
+    for event_id in agotados:
+        logger.error("Webhook de Stripe %s ha agotado sus reintentos.", event_id)
+    return [*atascados, *reintentables]
+
+
+async def purgar_eventos_antiguos(session: AsyncSession, *, dias: int) -> int:
+    """`purge_stripe_webhook_events_task` (hallazgo #15): borra filas con más
+    de `dias` de antigüedad."""
+    limite = datetime.now(UTC) - timedelta(days=dias)
+    filas = list(
+        await session.scalars(
+            select(StripeWebhookEvent).where(StripeWebhookEvent.received_at < limite)
+        )
+    )
+    for fila in filas:
+        await session.delete(fila)
+    return len(filas)

@@ -89,10 +89,13 @@ async def count_reserved_registrations(
     session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID
 ) -> int:
     """`confirmed` + promociones de lista de espera todavía dentro de su
-    ventana de confirmación — ambas ocupan un hueco real de aforo, aunque la
-    persona promovida no haya confirmado todavía. Sin esto, una verificación
-    o aprobación concurrente podría colarse en el hueco ya reservado para
-    quien está en mitad de confirmar su promoción (sobreventa de aforo)."""
+    ventana de confirmación + `pending_payment` todavía dentro de su ventana
+    de pago (fase 6 del PRD, decisión #5) — las tres ocupan un hueco real de
+    aforo, aunque la persona no haya confirmado ni pagado todavía. Sin esto,
+    una verificación o aprobación concurrente podría colarse en un hueco ya
+    reservado por quien está en mitad de confirmar su promoción, o N compras
+    simultáneas podrían cobrarse todas sobre la última plaza (sobreventa de
+    aforo)."""
     total = await session.scalar(
         select(func.count())
         .select_from(EventRegistration)
@@ -105,6 +108,10 @@ async def count_reserved_registrations(
                     EventRegistration.status == "waitlisted",
                     EventRegistration.waitlist_promoted_at.is_not(None),
                     EventRegistration.waitlist_promotion_expires_at >= datetime.now(UTC),
+                ),
+                and_(
+                    EventRegistration.status == "pending_payment",
+                    EventRegistration.payment_expires_at >= datetime.now(UTC),
                 ),
             ),
         )

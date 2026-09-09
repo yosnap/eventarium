@@ -257,6 +257,87 @@ async def send_registration_cancelled_email(to_email: str, organization_id: str)
 
 
 @broker.task(retry_on_error=True, max_retries=5)
+async def send_registration_payment_link_email(
+    to_email: str, organization_id: str, checkout_url: str, cancel_token: str, expira_el: str
+) -> None:
+    """Enlace de pago de los caminos 2, 3 y 4 (fase 6 del PRD, fase 4 de
+    trabajo): verificación de email, aprobación manual y promoción de lista
+    de espera de un evento de pago. Encolado por
+    `dispatch_pending_payment_links_task`, nunca dentro de la petición que
+    verificó/aprobó/promovió (hallazgo #12: sería una llamada de red a
+    Stripe bajo bloqueos de fila)."""
+    base = await base_url_de_organizacion(uuid.UUID(organization_id))
+    enlace_cancelacion = f"{base}/cancelar-inscripcion?token={cancel_token}"
+    await get_email_provider().send(
+        to=to_email,
+        subject="Completa el pago de tu entrada",
+        body=_cuerpo_con_cancelacion(
+            "Tu plaza está reservada. Complétala pagando tu entrada antes de "
+            f"{expira_el} desde este enlace:\n{checkout_url}",
+            enlace_cancelacion,
+        ),
+    )
+
+
+@broker.task(schedule=[{"cron": "* * * * *"}])
+async def dispatch_pending_payment_links_task() -> None:
+    """Cada minuto: crea la Checkout Session de los caminos 2, 3 y 4 y encola
+    su correo (`app/modules/payments/checkout_service.py`)."""
+    from app.modules.payments.checkout_service import dispatch_pending_payment_links
+
+    await dispatch_pending_payment_links()
+
+
+@broker.task(schedule=[{"cron": "*/5 * * * *"}])
+async def expire_pending_payments_task() -> None:
+    """Cada 5 minutos: hermana de `expire_waitlist_promotions_task`. Antes de
+    expirar una compra caducada, consulta el estado real en Stripe — un
+    webhook perdido no debe cancelar una compra que sí se pagó."""
+    from app.modules.payments.checkout_service import expirar_pagos_pendientes
+
+    await expirar_pagos_pendientes()
+
+
+@broker.task(retry_on_error=True, max_retries=5)
+async def process_stripe_webhook_task(event_id: str) -> None:
+    """Efecto de dominio de un webhook de Stripe ya registrado como
+    `received` (`app/modules/payments/webhooks.py`). Relee el payload de la
+    base de datos por `event_id`, nunca del argumento serializado en la cola
+    (decisión #9 del plan de la fase 6)."""
+    from app.modules.payments.webhooks import procesar_evento
+
+    await procesar_evento(event_id)
+
+
+@broker.task(schedule=[{"cron": "*/10 * * * *"}])
+async def sweep_stuck_webhook_events_task() -> None:
+    """Cada 10 minutos: reencola los eventos `received` atascados entre la
+    cola y el worker, y los `failed` con reintentos disponibles (hallazgo #9:
+    sin esto, un evento perdido deja dinero cobrado sin inscripción
+    confirmada, para siempre)."""
+    from app.core.database import maintenance_session
+    from app.modules.payments import repository as payments_repository
+
+    async with maintenance_session() as session:
+        pendientes = await payments_repository.eventos_para_reencolar(session)
+    for event_id in pendientes:
+        await process_stripe_webhook_task.kiq(event_id)
+
+
+@broker.task(schedule=[{"cron": "0 3 * * *"}])
+async def purge_stripe_webhook_events_task() -> None:
+    """Diaria: purga `stripe_webhook_events` más antiguos que
+    `stripe_webhook_retention_days` (hallazgo #15)."""
+    from app.core.database import maintenance_session
+    from app.modules.payments import repository as payments_repository
+
+    async with maintenance_session() as session:
+        await payments_repository.purgar_eventos_antiguos(
+            session, dias=get_settings().stripe_webhook_retention_days
+        )
+
+
+@broker.task(retry_on_error=True, max_retries=5)
 async def send_waitlist_promotion_email(
     to_email: str,
     organization_id: str,

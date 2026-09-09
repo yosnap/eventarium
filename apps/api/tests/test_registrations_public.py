@@ -240,14 +240,17 @@ async def test_evento_sin_verificacion_evalua_el_estado_al_enviar_el_formulario(
     assert await _estado(evento["id"], "asistente@example.com") == "confirmed"
 
 
-async def test_evento_de_pago_rechaza_la_inscripcion(
+async def test_evento_de_pago_deja_la_inscripcion_en_pending_payment(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`registration_mode == "paid"` sigue bloqueado en `submit_registration`
-    (se desbloquea en la fase 4 de trabajo de la fase 6 del PRD). Publicar el
-    evento exige ahora, además, una cuenta Stripe operativa (fase 6, fase 2 de
-    trabajo, hallazgo #4): se simula aquí para no acoplar este test, anterior
-    a esa fase, a que Stripe esté fuera de alcance."""
+    """`registration_mode == "paid"` ya no bloquea `submit_registration`
+    (fase 4 de trabajo de la fase 6 del PRD, desbloqueo del hallazgo #1): el
+    alta directa sobre el endpoint público de inscripción (sin tipo de
+    entrada, que solo recoge el endpoint de compra) deja la inscripción en
+    `pending_payment`, nunca en `confirmed` — la guarda de pago se aplica
+    igual sin pasar por el endpoint de compra. Publicar el evento exige
+    además una cuenta Stripe operativa (fase 6, fase 2 de trabajo, hallazgo
+    #4): se simula aquí para no acoplar este test a esa fase."""
     from app.core.config import Settings
     from app.modules.events import service as events_service
     from app.modules.payments.models import OrganizationStripeAccount
@@ -270,11 +273,18 @@ async def test_evento_de_pago_rechaza_la_inscripcion(
         await session.commit()
 
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
-    await _crear_y_publicar_evento(cliente, cabeceras, "de-pago", registration_mode="paid")
+    evento = await _crear_y_publicar_evento(
+        cliente,
+        cabeceras,
+        "de-pago",
+        registration_mode="paid",
+        email_verification_required=False,
+    )
 
     respuesta = await _inscribir(cliente, organizacion.host, "de-pago")
 
-    assert respuesta.status_code == 422
+    assert respuesta.status_code == 202, respuesta.text
+    assert await _estado(evento["id"], "asistente@example.com") == "pending_payment"
 
 
 async def test_sin_aceptar_tratamiento_de_datos_falla(

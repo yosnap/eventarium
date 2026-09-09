@@ -123,26 +123,42 @@ async def crear_sesion_checkout(
     cancel_url: str,
     expires_at_epoch: int,
     idempotency_key: str,
+    client_reference_id: str | None = None,
+    metadata: dict[str, str] | None = None,
 ) -> SesionDeCheckoutCreada:
+    """`payment_method_types=["card"]` explícito (hallazgo #3 de la fase 6):
+    sin él, el organizador podría habilitar métodos de pago diferidos desde
+    su propio Dashboard de Connect y un `checkout.session.completed`
+    llegaría con `payment_status="unpaid"` para un método que todavía no ha
+    resuelto. `client_reference_id`/`metadata` son informativos, nunca la
+    fuente de verdad para localizar el pago (hallazgo #2): el webhook busca
+    siempre por `stripe_checkout_session_id`.
+    """
     cliente = _cliente()
+    params: dict[str, object] = {
+        "mode": "payment",
+        "payment_method_types": ["card"],
+        "line_items": [
+            {
+                "price_data": {
+                    "currency": linea.currency,
+                    "unit_amount": linea.unit_amount_cents,
+                    "product_data": {"name": linea.product_name},
+                },
+                "quantity": 1,
+            }
+        ],
+        "success_url": success_url,
+        "cancel_url": cancel_url,
+        "expires_at": expires_at_epoch,
+    }
+    if client_reference_id is not None:
+        params["client_reference_id"] = client_reference_id
+    if metadata is not None:
+        params["metadata"] = metadata
     try:
         sesion = await cliente.v1.checkout.sessions.create_async(
-            params={
-                "mode": "payment",
-                "line_items": [
-                    {
-                        "price_data": {
-                            "currency": linea.currency,
-                            "unit_amount": linea.unit_amount_cents,
-                            "product_data": {"name": linea.product_name},
-                        },
-                        "quantity": 1,
-                    }
-                ],
-                "success_url": success_url,
-                "cancel_url": cancel_url,
-                "expires_at": expires_at_epoch,
-            },
+            params=params,
             options={
                 "stripe_account": cuenta.stripe_account_id,
                 "idempotency_key": idempotency_key,
@@ -159,6 +175,27 @@ async def crear_sesion_checkout(
         checkout_url=sesion.url,
         expires_at_epoch=sesion.expires_at,
     )
+
+
+async def consultar_sesion_checkout(
+    *, stripe_account_id: str, stripe_checkout_session_id: str
+) -> str:
+    """`payment_status` real de una Checkout Session, consultado por el
+    barrido antes de expirar un pago pendiente (riesgo #1 de la fase de
+    trabajo: recupera un webhook perdido en vez de cancelar una compra que sí
+    se pagó). Único punto del módulo que recibe el `acct_id` como `str`
+    suelto: siempre procede de `event_payments.stripe_account_id`, nunca de
+    una petición (hallazgo #8).
+    """
+    cliente = _cliente()
+    try:
+        sesion = await cliente.v1.checkout.sessions.retrieve_async(
+            stripe_checkout_session_id,
+            options={"stripe_account": stripe_account_id},
+        )
+    except stripe.StripeError as exc:
+        raise _traducir_error(exc) from exc
+    return str(sesion.payment_status)
 
 
 @dataclass(frozen=True, slots=True)

@@ -30,6 +30,7 @@ from app.modules.auth.verification import (
     generate_token,
 )
 from app.modules.events.models import Event
+from app.modules.payments import repository as payments_repository
 from app.modules.registrations import repository
 from app.modules.registrations.models import (
     EventRegistration,
@@ -135,27 +136,63 @@ def _validar_respuestas(
     return validadas
 
 
-async def _evaluar_estado_por_capacidad(session: AsyncSession, evento: Event) -> str:
-    """`confirmed` o `waitlisted` únicamente por aforo, sin mirar el modo de
-    aprobación — usada tanto por el alta/verificación (a través de
+async def _estado_confirmable(
+    session: AsyncSession, evento: Event, registration_id: uuid.UUID | None
+) -> str:
+    """`"confirmed"` salvo que el evento sea de pago y no exista todavía un
+    `event_payments` en `paid` para esta inscripción — en cuyo caso
+    `"pending_payment"` (fase 6 del PRD, hallazgo #1 de su red-team).
+
+    Capa 1 de la guarda de pago: invocada desde los dos `return "confirmed"`
+    de `_evaluar_estado_por_capacidad` (cubre alta, verificación y
+    aprobación, los tres caminos que desembocan ahí) y desde
+    `confirm_waitlist_promotion` (el cuarto camino, que asignaba `"confirmed"`
+    directamente). `registration_id=None` en el alta —la fila todavía no
+    existe— siempre da `"pending_payment"`: nadie ha podido pagar antes de
+    inscribirse.
+    """
+    if evento.registration_mode != "paid":
+        return "confirmed"
+    if registration_id is None:
+        return "pending_payment"
+    tiene_pago = await payments_repository.tiene_pago_confirmado(
+        session, evento.organization_id, registration_id
+    )
+    return "confirmed" if tiene_pago else "pending_payment"
+
+
+async def _evaluar_estado_por_capacidad(
+    session: AsyncSession, evento: Event, *, registration_id: uuid.UUID | None
+) -> str:
+    """`pending_payment`/`confirmed` o `waitlisted` por aforo, sin mirar el
+    modo de aprobación — usada tanto por el alta/verificación (a través de
     `_evaluar_estado_por_aforo`) como por `approve_registration`, que ya sabe
     que está saliendo de `pending_approval` y no debe volver a evaluarlo.
 
-    Cuenta `confirmed` **y** promociones de lista de espera todavía dentro de
-    su ventana (`count_reserved_registrations`), no solo `confirmed`: la
-    plaza de alguien a quien se le acaba de promover ya está reservada
-    aunque todavía no haya confirmado, y una verificación o aprobación
-    concurrente no debe poder colarse en ese hueco.
+    Cuenta `confirmed` **y** `pending_payment` vigente **y** promociones de
+    lista de espera todavía dentro de su ventana
+    (`count_reserved_registrations`): las tres ocupan un hueco real de
+    aforo, aunque la persona todavía no haya pagado ni confirmado. Sin esto,
+    una verificación o aprobación concurrente podría colarse en un hueco ya
+    reservado por una compra en curso.
+
+    `registration_id` se propaga a `_estado_confirmable` (capa 1 de la
+    guarda de pago, hallazgo #1): un evento `paid` nunca sale de aquí en
+    `"confirmed"` sin un pago ya verificado.
     """
     if evento.capacity is None:
-        return "confirmed"
+        return await _estado_confirmable(session, evento, registration_id)
     reservadas = await repository.count_reserved_registrations(
         session, evento.organization_id, evento.id
     )
-    return "confirmed" if reservadas < evento.capacity else "waitlisted"
+    if reservadas < evento.capacity:
+        return await _estado_confirmable(session, evento, registration_id)
+    return "waitlisted"
 
 
-async def _evaluar_estado_por_aforo(session: AsyncSession, evento: Event) -> str:
+async def _evaluar_estado_por_aforo(
+    session: AsyncSession, evento: Event, *, registration_id: uuid.UUID | None
+) -> str:
     """Estado inicial de una inscripción ya verificada (o sin verificación exigida).
 
     Función única reutilizada por el alta sin verificación y por la
@@ -165,7 +202,7 @@ async def _evaluar_estado_por_aforo(session: AsyncSession, evento: Event) -> str
     """
     if evento.registration_mode == "approval":
         return "pending_approval"
-    return await _evaluar_estado_por_capacidad(session, evento)
+    return await _evaluar_estado_por_capacidad(session, evento, registration_id=registration_id)
 
 
 def _ttl_cancelacion() -> timedelta:
@@ -187,16 +224,34 @@ async def _enviar_email_por_estado(session: AsyncSession, inscripcion: EventRegi
     verificación posterior, la aprobación manual y la promoción de lista de
     espera, para no repetir esta decisión en cada llamador.
 
-    Es también el único punto por el que pasan los cinco caminos que pueden
+    Es también el único punto por el que pasan los cuatro caminos que pueden
     dejar una inscripción en `confirmed` (fase 4 del PRD): emitir la entrada
-    aquí, no en cada llamador, cubre los cinco de una vez. `emitir_entrada` es
+    aquí, no en cada llamador, cubre los cuatro de una vez. `emitir_entrada` es
     idempotente, así que el reenvío del formulario con un email ya
     `confirmed` (que no es una confirmación nueva) no crea una segunda
     entrada.
+
+    Cinturón de seguridad (capa 2 de la guarda de pago, fase 6 del PRD,
+    hallazgo #1): antes de emitir, si la inscripción está `confirmed` y su
+    evento es de pago, exige un `event_payments` en `paid`. La capa 1
+    (`_estado_confirmable`) ya impide que los cuatro caminos conocidos
+    lleguen aquí en ese estado sin haber pagado; esta capa protege el quinto
+    camino que alguien escriba más adelante, en el único sitio por el que
+    necesariamente tiene que pasar.
     """
     token_cancelacion = await _generar_token_cancelacion(inscripcion.id)
     organization_id = str(inscripcion.organization_id)
     if inscripcion.status == "confirmed":
+        evento = await session.get(Event, inscripcion.event_id)
+        if evento is not None and evento.registration_mode == "paid":
+            tiene_pago = await payments_repository.tiene_pago_confirmado(
+                session, inscripcion.organization_id, inscripcion.id
+            )
+            if not tiene_pago:
+                raise ValidationDomainError(
+                    "No se puede confirmar una inscripción de un evento de pago sin un "
+                    "pago verificado."
+                )
         ticket = await emitir_entrada(session, inscripcion)
         await send_registration_confirmed_email.kiq(
             inscripcion.email, organization_id, token_cancelacion, generar_token_qr(ticket)
@@ -257,12 +312,22 @@ async def _cancelar_inscripcion(
     # inscripción nunca tuvo entrada (`waitlisted`/`pending_approval`).
     await revocar_entrada(session, organization_id=organization_id, registration_id=inscripcion.id)
 
-    # Una plaza está reservada tanto si está `confirmed` como si está
-    # `waitlisted` en mitad de una promoción (ver `count_reserved_registrations`)
-    # — cancelar en cualquiera de los dos casos libera un hueco real y debe
-    # promover a la siguiente persona, no solo cuando ya estaba confirmada.
-    liberaba_una_plaza = inscripcion.status == "confirmed" or (
-        inscripcion.status == "waitlisted" and inscripcion.waitlist_promoted_at is not None
+    # Una plaza está reservada si está `confirmed`, si está `waitlisted` en
+    # mitad de una promoción, o si está `pending_payment` todavía dentro de
+    # su ventana (fase 6 del PRD, hallazgo #5) — exactamente la misma
+    # condición que `count_reserved_registrations`: si una cuenta la plaza y
+    # la otra no la libera, el aforo se pierde en silencio en cuanto caduca
+    # o se cancela la primera compra. Cancelar en cualquiera de los tres
+    # casos libera un hueco real y debe promover a la siguiente persona.
+    ahora_cancelacion = datetime.now(UTC)
+    liberaba_una_plaza = (
+        inscripcion.status == "confirmed"
+        or (inscripcion.status == "waitlisted" and inscripcion.waitlist_promoted_at is not None)
+        or (
+            inscripcion.status == "pending_payment"
+            and inscripcion.payment_expires_at is not None
+            and inscripcion.payment_expires_at >= ahora_cancelacion
+        )
     )
     inscripcion.status = "cancelled"
     inscripcion.cancelled_at = datetime.now(UTC)
@@ -284,17 +349,20 @@ async def submit_registration(
     data_processing_accepted: bool,
     marketing_accepted: bool,
     recording_accepted: bool,
-) -> None:
+) -> EventRegistration | None:
     """Da de alta una inscripción, o reencola el correo si el email ya existía.
 
     Nunca revela al llamador anónimo si el email ya estaba inscrito: la
     respuesta pública del router es siempre la misma pase lo que pase aquí
     dentro (mismo principio que `auth.service.register_user`).
+
+    Devuelve la inscripción cuando esta llamada la crea o la reactiva (fase 6
+    del PRD, fase 4 de trabajo): el endpoint de compra pública lo necesita
+    para saber si tiene que crear una Checkout Session sin volver a
+    consultar. Devuelve `None` en la rama de «ya existía y no es reactivable»
+    y en la carrera de `IntegrityError` — ninguno de los dos casos requiere
+    una sesión de pago nueva.
     """
-    if event.registration_mode == "paid":
-        raise ValidationDomainError(
-            "Este evento requiere pago; la inscripción todavía no está disponible."
-        )
     if not data_processing_accepted:
         raise ValidationDomainError("Debes aceptar el tratamiento de datos para inscribirte.")
 
@@ -308,6 +376,32 @@ async def submit_registration(
         session, event.organization_id, event.id, email_normalizado
     )
     if existente is not None:
+        # Reintento tras caducar (hallazgo #7): una compra abandonada de un
+        # evento de pago que nunca llegó a moverse dinero (su pago sigue en
+        # `pending`/`expired`) se reactiva en vez de bloquear a la persona
+        # para siempre contra el `UNIQUE(event_id, email)`. Reutiliza la
+        # misma fila de `event_registrations`; la fila de `event_payments` la
+        # reutiliza `payments.checkout_service` con la misma condición.
+        if (
+            event.registration_mode == "paid"
+            and existente.status == "cancelled"
+            and await payments_repository.pago_reactivable(
+                session, event.organization_id, existente.id
+            )
+        ):
+            evento_bloqueado = await repository.lock_event_for_capacity(
+                session, event.organization_id, event.id
+            )
+            nuevo_estado = await _evaluar_estado_por_aforo(
+                session, evento_bloqueado, registration_id=existente.id
+            )
+            ahora = datetime.now(UTC)
+            existente.status = nuevo_estado
+            existente.cancelled_at = None
+            existente.confirmed_at = ahora if nuevo_estado == "confirmed" else None
+            await _enviar_email_por_estado(session, existente)
+            return existente
+
         # Reenvía siempre el email que corresponda al estado actual (decisión
         # #1 del PRD, fase 3) — la respuesta pública es la misma en cualquier
         # caso, nunca revela en qué estado está la inscripción existente.
@@ -322,8 +416,9 @@ async def submit_registration(
             await send_registration_rejected_email.kiq(existente.email, str(event.organization_id))
         elif existente.status == "cancelled":
             await send_registration_cancelled_email.kiq(existente.email, str(event.organization_id))
-        # `pending_approval`: sin plantilla propia, igual que en el alta normal.
-        return
+        # `pending_approval`/`pending_payment`: sin plantilla propia, igual
+        # que en el alta normal.
+        return None
 
     user_id = await repository.find_user_id_by_email(session, email_normalizado)
     ahora = datetime.now(UTC)
@@ -334,7 +429,9 @@ async def submit_registration(
         evento_bloqueado = await repository.lock_event_for_capacity(
             session, event.organization_id, event.id
         )
-        estado_inicial = await _evaluar_estado_por_aforo(session, evento_bloqueado)
+        estado_inicial = await _evaluar_estado_por_aforo(
+            session, evento_bloqueado, registration_id=None
+        )
 
     inscripcion = EventRegistration(
         event_id=event.id,
@@ -353,7 +450,7 @@ async def submit_registration(
         # comprobación de arriba y este `flush`. El `UNIQUE(event_id, email)`
         # es la única fuente de verdad; misma respuesta pública que si hubiera
         # entrado por la rama de "ya existe".
-        return
+        return None
 
     for respuesta in respuestas_validas:
         session.add(
@@ -382,6 +479,7 @@ async def submit_registration(
         )
     else:
         await _enviar_email_por_estado(session, inscripcion)
+    return inscripcion
 
 
 async def verify_registration(session: AsyncSession, *, token: str) -> EventRegistration:
@@ -406,7 +504,7 @@ async def verify_registration(session: AsyncSession, *, token: str) -> EventRegi
     evento = await repository.lock_event_for_capacity(
         session, inscripcion.organization_id, inscripcion.event_id
     )
-    nuevo_estado = await _evaluar_estado_por_aforo(session, evento)
+    nuevo_estado = await _evaluar_estado_por_aforo(session, evento, registration_id=inscripcion.id)
     inscripcion.status = nuevo_estado
     if nuevo_estado == "confirmed":
         inscripcion.confirmed_at = ahora
@@ -441,7 +539,9 @@ async def approve_registration(
     evento = await repository.lock_event_for_capacity(session, organization_id, event_id)
     ahora = datetime.now(UTC)
     inscripcion.approved_at = ahora
-    inscripcion.status = await _evaluar_estado_por_capacidad(session, evento)
+    inscripcion.status = await _evaluar_estado_por_capacidad(
+        session, evento, registration_id=inscripcion.id
+    )
     if inscripcion.status == "confirmed":
         inscripcion.confirmed_at = ahora
     await _enviar_email_por_estado(session, inscripcion)
@@ -537,6 +637,13 @@ async def confirm_waitlist_promotion(session: AsyncSession, *, token: str) -> Ev
     Sin bloqueo de aforo: la plaza ya quedó reservada para esta persona en el
     momento de la promoción (`_promote_next_waitlisted`), nadie más puede
     disputársela mientras está `waitlisted` con `waitlist_promoted_at` fijado.
+
+    Cuarto camino de la guarda de pago (fase 6 del PRD, hallazgo #1): no pasa
+    por `_evaluar_estado_por_aforo` ni por `_evaluar_estado_por_capacidad`
+    (la plaza ya está reservada, no hay aforo que revaluar), así que llama a
+    `_estado_confirmable` directamente en vez de asignar `"confirmed"` a
+    pelo. En un evento de pago, la promoción reserva la plaza y pide el
+    pago: pasa a `pending_payment`, no a `confirmed`.
     """
     bruto = await consume_token(PROPOSITO_PROMOCION_LISTA_ESPERA, token)
     if bruto is None:
@@ -553,8 +660,17 @@ async def confirm_waitlist_promotion(session: AsyncSession, *, token: str) -> Ev
     ):
         raise ValidationDomainError("El enlace de confirmación no es válido o ha caducado.")
 
-    inscripcion.status = "confirmed"
-    inscripcion.confirmed_at = ahora
+    evento = await session.get(Event, inscripcion.event_id)
+    if evento is None:  # pragma: no cover - la FK compuesta lo hace imposible
+        raise RuntimeError(
+            f"Evento {inscripcion.event_id} no encontrado al confirmar una promoción."
+        )
+
+    inscripcion.status = await _estado_confirmable(session, evento, inscripcion.id)
+    inscripcion.confirmed_at = ahora if inscripcion.status == "confirmed" else None
+    if inscripcion.status == "pending_payment":
+        ventana = timedelta(minutes=evento.payment_checkout_window_minutes)
+        inscripcion.payment_expires_at = ahora + ventana
     await _enviar_email_por_estado(session, inscripcion)
     return inscripcion
 

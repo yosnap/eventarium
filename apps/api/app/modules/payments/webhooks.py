@@ -1,0 +1,248 @@
+"""Router y handlers de webhooks de Stripe (fase 6 del PRD, fase 4 de trabajo).
+
+Único endpoint de la instalación sin tenant por `Host` (decisión #9 del
+plan): Stripe llama a una URL fija, sin el `Host` de la organización. La
+ruta real lleva el prefijo `/api/v1` como todas las demás — el router se
+incluye en el mismo `APIRouter(prefix=API_PREFIX)` de `app/main.py`.
+
+Reglas no negociables, todas verificadas por su propio test:
+- La firma se verifica sobre el **raw body**, antes de parsear nada: sin
+  modelo Pydantic en la firma del handler, sin `await request.json()`.
+- Idempotencia medida sobre el *proceso*, no sobre la recepción (hallazgo
+  #9): el handler HTTP solo inserta la fila `received` y encola la tarea; el
+  procesamiento real (`procesar_evento`) vive fuera de la petición.
+- Un solo endpoint, un solo secreto, ámbito «cuentas conectadas» (hallazgo
+  #10): un evento sin `account` de nivel superior se marca `ignored` sin
+  encolar nada.
+- `checkout.session.completed` localiza el pago **exclusivamente** por
+  `stripe_checkout_session_id`, nunca por `metadata` ni
+  `client_reference_id` (hallazgo #2), y verifica que la organización del
+  pago coincide con la resuelta desde `event.account`.
+"""
+
+from __future__ import annotations
+
+import logging
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, Request, Response
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import maintenance_session
+from app.modules.payments import checkout_service, repository
+from app.modules.payments import stripe_client as stripe_gateway
+from app.modules.payments.models import OrganizationStripeAccount, StripeWebhookEvent
+from app.modules.registrations.models import EventRegistration
+from app.shared.errors import DomainError, ExternalServiceError
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(tags=["webhooks"])
+
+# Lista blanca de campos que sí se persisten en `stripe_webhook_events.payload`
+# (hallazgo #15): nunca datos personales del comprador. `id` siempre se
+# guarda: es el identificador con el que se localiza el pago.
+_CAMPOS_POR_TIPO: dict[str, tuple[str, ...]] = {
+    "checkout.session.completed": ("payment_status", "payment_intent"),
+    "account.updated": ("charges_enabled", "payouts_enabled", "details_submitted"),
+}
+
+
+def _proyectar_payload(evento: object) -> dict[str, object]:
+    datos = evento["data"]["object"]  # type: ignore[index]
+    tipo = evento["type"]  # type: ignore[index]
+    proyeccion: dict[str, object] = {"id": datos.get("id")}
+    for campo in _CAMPOS_POR_TIPO.get(tipo, ()):
+        proyeccion[campo] = datos.get(campo)
+    return proyeccion
+
+
+@router.post(
+    "/webhooks/stripe",
+    summary="Webhook de Stripe (cuentas conectadas)",
+    description=(
+        "Único endpoint de webhooks de la instalación, registrado en Stripe con "
+        "`connect: true`. Verifica la firma sobre el cuerpo crudo antes de parsear "
+        "nada. Sin esquema de cuerpo: no genera ningún modelo tipado en el cliente."
+    ),
+)
+async def stripe_webhook(request: Request) -> Response:
+    cuerpo = await request.body()
+    firma = request.headers.get("stripe-signature")
+    if not firma:
+        raise DomainError("Falta la cabecera Stripe-Signature.")
+
+    try:
+        evento = stripe_gateway.verificar_firma_webhook(payload=cuerpo, firma=firma)
+    except ExternalServiceError as exc:
+        raise DomainError(exc.detail) from exc
+
+    event_id = str(evento["id"])
+    event_type = str(evento["type"])
+    stripe_account_id = evento.get("account")
+
+    async with maintenance_session() as session:
+        if not stripe_account_id:
+            # Ámbito plataforma, al que esta instalación no está suscrita
+            # (decisión #9): se registra `ignored`, sin encolar nada.
+            await repository.registrar_evento_ignorado_sin_cuenta(
+                session,
+                event_id=event_id,
+                event_type=event_type,
+                payload=_proyectar_payload(evento),
+            )
+            return Response(status_code=200)
+
+        insertado = await repository.registrar_evento_recibido(
+            session,
+            event_id=event_id,
+            event_type=event_type,
+            stripe_account_id=str(stripe_account_id),
+            payload=_proyectar_payload(evento),
+        )
+        if not insertado:
+            fila = await repository.get_webhook_event(session, event_id)
+            if fila is not None and fila.status in ("processed", "ignored"):
+                return Response(status_code=200)
+            # `received`/`failed`: Stripe reintrega porque no llegamos a
+            # terminar la vez anterior — se reencola, no se da por procesado.
+
+    from app.core.tasks import process_stripe_webhook_task
+
+    await process_stripe_webhook_task.kiq(event_id)
+    return Response(status_code=200)
+
+
+async def procesar_evento(event_id: str) -> None:
+    """Efecto de dominio de un evento ya insertado como `received`
+    (`process_stripe_webhook_task`). Relee el payload de la base de datos,
+    nunca del argumento serializado en la cola (decisión #9).
+
+    `status = 'processed'`/`'failed'` se escribe **en la misma transacción**
+    que aplica (o falla al aplicar) el efecto de dominio: «procesado» solo es
+    cierto si el efecto se confirmó. Si falla, se relanza para que
+    `retry_on_error=True` de la tarea reintente.
+    """
+    error: Exception | None = None
+    async with maintenance_session() as session:
+        fila = await session.get(StripeWebhookEvent, event_id, with_for_update=True)
+        if fila is None or fila.status in ("processed", "ignored"):
+            return
+
+        fila.attempts += 1
+        fila.last_attempt_at = datetime.now(UTC)
+
+        organizacion = (
+            await repository.get_cuenta_por_stripe_account_id(session, fila.stripe_account_id)
+            if fila.stripe_account_id
+            else None
+        )
+        if organizacion is None:
+            # `event.account` no resuelve a ninguna organización conocida:
+            # un 4xx/5xx haría a Stripe reintentar indefinidamente un evento
+            # que nunca podrá procesarse.
+            fila.status = "ignored"
+            fila.processed_at = datetime.now(UTC)
+            return
+
+        fila.organization_id = organizacion.organization_id
+        try:
+            fila.status = await _despachar(session, fila, organizacion)
+            fila.processed_at = datetime.now(UTC)
+        except Exception as exc:  # noqa: BLE001 - se traduce a `failed` y se relanza
+            error = exc
+            fila.status = "failed"
+            fila.error = str(exc)[:2000]
+
+    if error is not None:
+        raise error
+
+
+async def _despachar(
+    session: AsyncSession, fila: StripeWebhookEvent, organizacion: OrganizationStripeAccount
+) -> str:
+    if fila.event_type == "checkout.session.completed":
+        return await _handle_checkout_completed(session, fila, organizacion)
+    if fila.event_type == "account.updated":
+        return await _handle_account_updated(session, fila, organizacion)
+    if fila.event_type == "account.application.deauthorized":
+        return await _handle_account_deauthorized(session, organizacion)
+    if fila.event_type == "charge.refunded":
+        # La fase 5 de trabajo implementa el reembolso. Aquí se registra
+        # explícitamente como `ignored`, nunca como `failed`: no es un error,
+        # es trabajo fuera del alcance de esta fase.
+        return "ignored"
+    return "ignored"
+
+
+async def _handle_checkout_completed(
+    session: AsyncSession, fila: StripeWebhookEvent, organizacion: OrganizationStripeAccount
+) -> str:
+    payload = fila.payload
+    stripe_checkout_session_id = payload.get("id")
+    if not isinstance(stripe_checkout_session_id, str):
+        return "ignored"
+
+    pago = await repository.get_payment_by_checkout_session_id(session, stripe_checkout_session_id)
+    if pago is None:
+        return "ignored"
+
+    if pago.organization_id != organizacion.organization_id:
+        # Con Connect Standard el organizador controla su propio Dashboard y
+        # puede firmar eventos legítimos con la `metadata` que quiera
+        # (hallazgo #2): resolver el tenant por `event.account` no autoriza
+        # la mutación por sí solo.
+        logger.error(
+            "Webhook checkout.session.completed: organization_id del pago %s (%s) no "
+            "coincide con la organización resuelta desde event.account (%s).",
+            pago.id,
+            pago.organization_id,
+            organizacion.organization_id,
+        )
+        return "failed"
+
+    if payload.get("payment_status") != "paid":
+        # `unpaid`/`no_payment_required`: con `payment_method_types=["card"]`
+        # no debería llegar, pero el organizador puede habilitar métodos
+        # diferidos en su Dashboard (hallazgo #3). No confirma nada.
+        return "ignored"
+
+    if pago.registration_id is None:
+        return "ignored"
+
+    inscripcion = await session.get(EventRegistration, pago.registration_id)
+    if inscripcion is None:
+        return "ignored"
+
+    payment_intent = payload.get("payment_intent")
+    await checkout_service.confirmar_pago_y_registro(
+        session,
+        pago,
+        inscripcion,
+        stripe_payment_intent_id=payment_intent if isinstance(payment_intent, str) else None,
+    )
+    return "processed"
+
+
+async def _handle_account_updated(
+    session: AsyncSession, fila: StripeWebhookEvent, organizacion: OrganizationStripeAccount
+) -> str:
+    if organizacion.deauthorized_at is not None:
+        return "ignored"
+    payload = fila.payload
+    await repository.actualizar_estado(
+        session,
+        organizacion,
+        charges_enabled=bool(payload.get("charges_enabled")),
+        payouts_enabled=bool(payload.get("payouts_enabled")),
+        details_submitted=bool(payload.get("details_submitted")),
+        last_synced_at=datetime.now(UTC),
+    )
+    return "processed"
+
+
+async def _handle_account_deauthorized(
+    session: AsyncSession, organizacion: OrganizationStripeAccount
+) -> str:
+    await repository.marcar_desautorizada(session, organizacion, momento=datetime.now(UTC))
+    return "processed"
