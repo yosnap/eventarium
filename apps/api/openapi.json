@@ -5780,7 +5780,7 @@
           "checkout_url"
         ],
         "title": "CheckoutStartResponse",
-        "description": "Respuesta siempre con la misma forma (hallazgo de no filtrar si el\nemail ya estaba inscrito): `checkout_url` es `null` cuando la\ninscripción existente no es pagable ahora mismo."
+        "description": "Respuesta siempre con la misma forma, para no filtrar si el\nemail ya estaba inscrito: `checkout_url` es `null` cuando la\ninscripción existente no es pagable ahora mismo."
       },
       "ConfirmWaitlistPromotionRequest": {
         "properties": {
