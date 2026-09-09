@@ -116,6 +116,18 @@ class EventRegistration(Base, TimestampMixin):
         # estadísticas de la fase 3 de trabajo (`COUNT(*) ... WHERE event_id = ?
         # AND status = ?`).
         Index("ix_event_registrations_event_id_status", "event_id", "status"),
+        # Sin `ondelete`: RESTRICT por defecto, mismo criterio que
+        # `event_payments.ticket_type_id`/`discount_code_id`.
+        ForeignKeyConstraint(
+            ["ticket_type_id", "organization_id"],
+            ["event_ticket_types.id", "event_ticket_types.organization_id"],
+            name="fk_event_registrations_ticket_type_id_organization_id",
+        ),
+        ForeignKeyConstraint(
+            ["discount_code_id", "organization_id"],
+            ["event_discount_codes.id", "event_discount_codes.organization_id"],
+            name="fk_event_registrations_discount_code_id_organization_id",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=new_uuid7)
@@ -146,6 +158,13 @@ class EventRegistration(Base, TimestampMixin):
     payment_expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Elegidos en el formulario público de compra (fase 6 del PRD): nulos para
+    # un evento gratuito. Se fijan una sola vez, en el alta, y sobreviven a
+    # `pending_approval`/`waitlisted` — son los que usan `approve_registration`
+    # y `confirm_waitlist_promotion` para reutilizar la fila de
+    # `event_payments` ya creada en el alta, nunca para recalcular el precio.
+    ticket_type_id: Mapped[uuid.UUID | None] = mapped_column(PgUUID(as_uuid=True), nullable=True)
+    discount_code_id: Mapped[uuid.UUID | None] = mapped_column(PgUUID(as_uuid=True), nullable=True)
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

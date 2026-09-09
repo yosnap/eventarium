@@ -55,6 +55,12 @@ ESTADOS_REEMBOLSABLES = ("paid", "partially_refunded")
 
 MotivoSinReembolso = str  # "evento_ya_empezado" | "entrada_usada" | "fuera_de_plazo"
 
+# Tope de reintentos compartido por `_ejecutar_reembolso` y
+# `repository.refunds_atascados`/`eventos_para_reencolar`: pasado este número
+# de intentos fallidos, se deja de reencolar y se registra en `ERROR` en vez
+# de seguir intentando en silencio.
+_INTENTOS_MAXIMOS = 5
+
 
 @dataclass(frozen=True, slots=True)
 class EvaluacionPolitica:
@@ -100,7 +106,8 @@ async def preparar_reembolso_por_cancelacion(
     pago = await repository.get_payment_by_registration(session, organization_id, registration_id)
     if pago is None or pago.status not in ESTADOS_REEMBOLSABLES:
         return None
-    pendiente = pago.amount_cents - pago.refunded_cents
+    en_curso = await repository.suma_reembolsos_en_curso(session, organization_id, pago.id)
+    pendiente = pago.amount_cents - pago.refunded_cents - en_curso
     if pendiente <= 0:
         return None
 
@@ -151,7 +158,8 @@ async def solicitar_reembolso_manual(
     if pago.status not in ESTADOS_REEMBOLSABLES:
         raise ConflictError("Este pago no admite un reembolso en su estado actual.")
 
-    pendiente = pago.amount_cents - pago.refunded_cents
+    en_curso = await repository.suma_reembolsos_en_curso(session, organization_id, pago.id)
+    pendiente = pago.amount_cents - pago.refunded_cents - en_curso
     importe = amount_cents if amount_cents is not None else pendiente
     if importe <= 0 or importe > pendiente:
         raise ConflictError("El importe a reembolsar supera el importe pendiente de este pago.")
@@ -172,6 +180,22 @@ async def solicitar_reembolso_manual(
 # --- Ejecución contra Stripe (tareas de `core/tasks.py`) ---------------------
 
 
+def _marcar_intento_fallido(reembolso: EventPaymentRefund, mensaje: str) -> None:
+    """Incrementa `attempts` en **toda** salida no exitosa de
+    `_ejecutar_reembolso` — tanto si arranca en `pending` (primer intento)
+    como si arranca ya en `submitted`/`failed` (reintento de
+    `reencolar_reembolsos_atascados`): sin esto, un reembolso que siempre
+    falla en un reintento nunca alcanza `attempts >= 5` y se reencola para
+    siempre sin ninguna alarma (hallazgo C2 del code review de la fase 6)."""
+    reembolso.status = "failed"
+    reembolso.attempts += 1
+    reembolso.error = mensaje
+    if reembolso.attempts >= _INTENTOS_MAXIMOS:
+        logger.error(
+            "Reembolso %s ha agotado sus reintentos: dinero pendiente de devolver.", reembolso.id
+        )
+
+
 async def _ejecutar_reembolso(refund_id: uuid.UUID, *, estados_permitidos: tuple[str, ...]) -> None:
     """Ejecuta una intención ya persistida. Nunca bajo un bloqueo de fila
     mientras dura la llamada de red (hallazgo #12): bloquea, marca
@@ -189,13 +213,12 @@ async def _ejecutar_reembolso(refund_id: uuid.UUID, *, estados_permitidos: tuple
             return
         pago = await session.get(EventPayment, reembolso.payment_id)
         if pago is None or pago.stripe_payment_intent_id is None:
-            reembolso.status = "failed"
-            reembolso.attempts += 1
-            reembolso.error = "El pago asociado no tiene un cobro que reembolsar."
+            _marcar_intento_fallido(
+                reembolso, "El pago asociado no tiene un cobro que reembolsar."
+            )
             return
         if reembolso.status == "pending":
             reembolso.status = "submitted"
-            reembolso.attempts += 1
             reembolso.submitted_at = datetime.now(UTC)
         stripe_account_id = pago.stripe_account_id
         stripe_payment_intent_id = pago.stripe_payment_intent_id
@@ -213,13 +236,7 @@ async def _ejecutar_reembolso(refund_id: uuid.UUID, *, estados_permitidos: tuple
         async with maintenance_session() as session:
             reembolso = await session.get(EventPaymentRefund, refund_id, with_for_update=True)
             if reembolso is not None:
-                reembolso.status = "failed"
-                reembolso.error = str(exc)[:2000]
-                if reembolso.attempts >= 5:
-                    logger.error(
-                        "Reembolso %s ha agotado sus reintentos: dinero pendiente de devolver.",
-                        refund_id,
-                    )
+                _marcar_intento_fallido(reembolso, str(exc)[:2000])
         return
 
     async with maintenance_session() as session:

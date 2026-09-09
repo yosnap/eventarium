@@ -46,7 +46,11 @@ class _FakeV1:
         self.accounts = SimpleNamespace(create_async=AsyncMock(), retrieve_async=AsyncMock())
         self.account_links = SimpleNamespace(create_async=AsyncMock())
         self.checkout = SimpleNamespace(
-            sessions=SimpleNamespace(create_async=AsyncMock(), retrieve_async=AsyncMock())
+            sessions=SimpleNamespace(
+                create_async=AsyncMock(),
+                retrieve_async=AsyncMock(),
+                expire_async=AsyncMock(),
+            )
         )
         self.refunds = SimpleNamespace(create_async=AsyncMock())
 
@@ -103,6 +107,16 @@ def _payload_evento_pago(slug: str, **overrides: object) -> dict:
     return payload
 
 
+async def _crear_tipo(cliente: AsyncClient, cabeceras: dict[str, str], event_id: str, **datos):
+    payload = {"name": "General", "price_cents": 1000}
+    payload.update(datos)
+    creado = await cliente.post(
+        f"{EVENTS}/{event_id}/ticket-types", headers=cabeceras, json=payload
+    )
+    assert creado.status_code == 201, creado.text
+    return creado.json()
+
+
 async def _crear_publicar_evento_de_pago(
     cliente: AsyncClient,
     cabeceras: dict[str, str],
@@ -110,6 +124,11 @@ async def _crear_publicar_evento_de_pago(
     slug: str,
     **overrides: object,
 ) -> dict:
+    """Crea el evento en borrador, le añade un tipo de entrada («General») y
+    solo entonces lo publica: `_asegurar_venta_posible` exige al menos un
+    tipo de entrada vigente para publicar un evento `paid` (hallazgo C1b del
+    code review de la fase 6), así que publicar antes de tener uno daría 409.
+    """
     monkeypatch_activo = overrides.pop("_monkeypatch", None)
     if monkeypatch_activo is not None:
         monkeypatch_activo.setattr(
@@ -120,6 +139,7 @@ async def _crear_publicar_evento_de_pago(
     )
     assert creacion.status_code == 201, creacion.text
     evento = creacion.json()
+    await _crear_tipo(cliente, cabeceras, evento["id"])
     publicacion = await cliente.patch(
         f"{EVENTS}/{evento['id']}",
         headers=cabeceras,
@@ -127,16 +147,6 @@ async def _crear_publicar_evento_de_pago(
     )
     assert publicacion.status_code == 200, publicacion.text
     return publicacion.json()
-
-
-async def _crear_tipo(cliente: AsyncClient, cabeceras: dict[str, str], event_id: str, **datos):
-    payload = {"name": "General", "price_cents": 1000}
-    payload.update(datos)
-    creado = await cliente.post(
-        f"{EVENTS}/{event_id}/ticket-types", headers=cabeceras, json=payload
-    )
-    assert creado.status_code == 201, creado.text
-    return creado.json()
 
 
 def _url_checkout(slug: str) -> str:
@@ -156,7 +166,12 @@ async def _preparar_evento_de_pago(
     evento = await _crear_publicar_evento_de_pago(
         cliente, cabeceras, organizacion, slug, **overrides
     )
-    tipo = await _crear_tipo(cliente, cabeceras, evento["id"])
+    # `_crear_publicar_evento_de_pago` ya crea el tipo «General» (lo necesita
+    # para poder publicar): se recupera aquí en vez de crear un segundo, que
+    # chocaría con `UniqueConstraint(event_id, name)`.
+    listado = await cliente.get(f"{EVENTS}/{evento['id']}/ticket-types", headers=cabeceras)
+    assert listado.status_code == 200, listado.text
+    tipo = listado.json()[0]
     return evento, tipo
 
 

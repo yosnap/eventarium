@@ -344,6 +344,15 @@ async def create_discount_code(
     return codigo
 
 
+@dataclass(frozen=True, slots=True)
+class SesionAnterior:
+    """Sesión de Checkout que `crear_o_reutilizar_pago` acaba de desligar de
+    un pago reutilizado — el llamador debe expirarla en Stripe (hallazgo I8)."""
+
+    stripe_account_id: str
+    stripe_checkout_session_id: str
+
+
 # --- Guarda de pago (fase 6 del PRD, fase 4 de trabajo) ----------------------
 
 
@@ -406,15 +415,33 @@ async def crear_o_reutilizar_pago(
     amount_cents: int,
     discount_cents: int,
     currency: str,
-) -> EventPayment:
+) -> tuple[EventPayment, SesionAnterior | None]:
     """T1 del checkout (hallazgo #7 y #12): crea la fila de pago, o reutiliza
     la existente de una inscripción reactivada tras caducar sin cobrar —
     nunca una segunda fila (`UNIQUE(registration_id)`). Deja siempre el pago
     en `pending`, sin sesión de Stripe: esa la crea T2, fuera de cualquier
     bloqueo de fila.
+
+    Devuelve también la sesión de Stripe (y la cuenta bajo la que se creó)
+    que esta llamada acaba de desligar del pago, o `None` si no había ninguna
+    o si la fila es nueva: esa sesión sigue viva en Stripe hasta que caduque
+    por sí sola, así que el llamador debe expirarla explícitamente (hallazgo
+    I8 del code review de la fase 6) — nunca aquí, que es una función de solo
+    base de datos, sin llamadas de red. La cuenta se captura **antes** de
+    sobrescribirla con `stripe_account_id`: si la organización reconectó una
+    cuenta distinta entre intentos, la sesión antigua solo se puede expirar
+    contra la cuenta bajo la que Stripe la creó de verdad.
     """
     existente = await get_payment_by_registration(session, organization_id, registration_id)
     if existente is not None:
+        sesion_anterior = (
+            SesionAnterior(
+                stripe_account_id=existente.stripe_account_id,
+                stripe_checkout_session_id=existente.stripe_checkout_session_id,
+            )
+            if existente.stripe_checkout_session_id is not None
+            else None
+        )
         existente.stripe_account_id = stripe_account_id
         existente.ticket_type_id = ticket_type_id
         existente.discount_code_id = discount_code_id
@@ -428,7 +455,7 @@ async def crear_o_reutilizar_pago(
         existente.checkout_link_delivered_at = None
         existente.expires_at = None
         await session.flush()
-        return existente
+        return existente, sesion_anterior
 
     pago = EventPayment(
         organization_id=organization_id,
@@ -445,7 +472,7 @@ async def crear_o_reutilizar_pago(
     )
     session.add(pago)
     await session.flush()
-    return pago
+    return pago, None
 
 
 async def get_payment_by_checkout_session_id(
@@ -696,6 +723,24 @@ async def crear_intencion_reembolso(
     session.add(intencion)
     await session.flush()
     return intencion
+
+
+async def suma_reembolsos_en_curso(
+    session: AsyncSession, organization_id: uuid.UUID, payment_id: uuid.UUID
+) -> int:
+    """Importe de los reembolsos `pending`/`submitted` de este pago: ya están
+    en marcha (persistidos en el outbox, puede que ya cobrados en Stripe)
+    pero su `charge.refunded` todavía no ha llegado a fijar `refunded_cents`.
+    Sin restarlos del importe pendiente, dos reembolsos parciales solapados
+    podrían devolver más de lo debido."""
+    total = await session.scalar(
+        select(func.coalesce(func.sum(EventPaymentRefund.amount_cents), 0)).where(
+            EventPaymentRefund.organization_id == organization_id,
+            EventPaymentRefund.payment_id == payment_id,
+            EventPaymentRefund.status.in_(("pending", "submitted")),
+        )
+    )
+    return int(total or 0)
 
 
 async def get_refunds_for_payment(

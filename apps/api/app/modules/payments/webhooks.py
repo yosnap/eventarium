@@ -218,13 +218,12 @@ async def _handle_checkout_completed(
         return "ignored"
 
     payment_intent = payload.get("payment_intent")
-    await checkout_service.confirmar_pago_y_registro(
+    return await checkout_service.confirmar_pago_y_registro(
         session,
         pago,
         inscripcion,
         stripe_payment_intent_id=payment_intent if isinstance(payment_intent, str) else None,
     )
-    return "processed"
 
 
 async def _handle_account_updated(

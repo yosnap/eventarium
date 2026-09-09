@@ -116,10 +116,16 @@ async def iniciar_compra(
             if inscripcion is None or inscripcion.status not in (
                 "pending_payment",
                 "pending_verification",
+                "pending_approval",
+                "waitlisted",
             ):
-                # Ya existía y no es reactivable/pagable ahora mismo, o cupo
-                # lleno (`waitlisted`): la respuesta pública es la misma de
-                # siempre, sin revelar en qué estado está.
+                # Ya existía y no es reactivable/pagable ahora mismo: la
+                # respuesta pública es la misma de siempre, sin revelar en qué
+                # estado está. `pending_approval`/`waitlisted` sí siguen: el
+                # tipo de entrada y el código de descuento elegidos aquí son
+                # los únicos que `approve_registration`/
+                # `confirm_waitlist_promotion` tendrán disponibles más
+                # adelante, cuando la inscripción llegue a `pending_payment`.
                 return ResultadoCompra(message=MENSAJE_GENERICO, checkout_url=None)
 
             ahora = datetime.now(UTC)
@@ -160,7 +166,7 @@ async def iniciar_compra(
                 tipo.price_cents, discount_type, discount_value
             )
 
-            pago = await repository.crear_o_reutilizar_pago(
+            pago, sesion_a_expirar = await repository.crear_o_reutilizar_pago(
                 session,
                 organization_id=event.organization_id,
                 event_id=event.id,
@@ -172,6 +178,14 @@ async def iniciar_compra(
                 discount_cents=tipo.price_cents - total,
                 currency=tipo.currency,
             )
+            # Persistidos en la propia inscripción (fase 6 del PRD, hallazgo
+            # C1 del code review): `approve_registration` y
+            # `confirm_waitlist_promotion` no reciben ningún tipo de entrada
+            # ni código de descuento por parámetro, así que sin esto no
+            # tendrían forma de saber qué pago reutilizar cuando la
+            # inscripción llegue a `pending_payment` más tarde.
+            inscripcion.ticket_type_id = tipo.id
+            inscripcion.discount_code_id = discount_code_id
 
             if inscripcion.status == "pending_payment":
                 ventana = timedelta(minutes=event.payment_checkout_window_minutes)
@@ -182,10 +196,23 @@ async def iniciar_compra(
         # --- fin de T1 (`session.begin()` ha hecho commit al salir del `with`):
         # la fila del pago ya persiste sin ningún bloqueo de fila abierto ---
 
+        if sesion_a_expirar is not None:
+            # Fuera de cualquier bloqueo de fila (hallazgo #12), y también
+            # fuera de T2: si esto fallara no debe impedir crear la sesión
+            # nueva, que es la parte que de verdad bloquearía la compra
+            # (hallazgo I8, `stripe_client.expirar_sesion_checkout` no deja
+            # escapar el error).
+            await stripe_gateway.expirar_sesion_checkout(
+                stripe_account_id=sesion_a_expirar.stripe_account_id,
+                stripe_checkout_session_id=sesion_a_expirar.stripe_checkout_session_id,
+            )
+
         if estado_resultante != "pending_payment":
-            # `pending_verification`: la sesión de pago se crea más tarde,
-            # cuando se verifique el email (camino 2,
-            # `dispatch_pending_payment_links_task`).
+            # `pending_verification`/`pending_approval`/`waitlisted`: la
+            # sesión de pago se crea más tarde, cuando la inscripción llegue a
+            # `pending_payment` por verificación, aprobación o promoción
+            # (caminos 2, 3 y 4, `dispatch_pending_payment_links_task`). El
+            # pago ya quedó creado arriba, en `pending`, sin sesión de Stripe.
             return ResultadoCompra(message=MENSAJE_GENERICO, checkout_url=None)
 
         async with session.begin():
@@ -227,9 +254,25 @@ async def crear_sesion_de_pago(session: AsyncSession, *, payment_id: uuid.UUID) 
     evento_slug = evento.slug if evento is not None else ""
     base = await base_url_de_organizacion(pago.organization_id)
 
-    expires_at_epoch = int(
-        (datetime.now(UTC) + timedelta(minutes=ventana_minutos) + _MARGEN_TECNICO).timestamp()
+    inscripcion = (
+        await session.get(EventRegistration, pago.registration_id)
+        if pago.registration_id is not None
+        else None
     )
+    # Derivado de `payment_expires_at`, ya persistido por
+    # `checkout_service.iniciar_compra`/`registrations.service` al dejar la
+    # inscripción en `pending_payment` — **nunca** recalculado con
+    # `datetime.now(UTC)` en cada llamada (hallazgo I7 del code review de la
+    # fase 6): un reintento (mismo `checkout_attempts`, misma
+    # `idempotency_key`) que recalculara `expires_at` en cada intento
+    # generaría un `expires_at` distinto cada vez, y Stripe rechaza reutilizar
+    # una `idempotency_key` con parámetros distintos.
+    limite = (
+        inscripcion.payment_expires_at
+        if inscripcion is not None and inscripcion.payment_expires_at is not None
+        else datetime.now(UTC) + timedelta(minutes=ventana_minutos)
+    )
+    expires_at_epoch = int((limite + _MARGEN_TECNICO).timestamp())
 
     creada = await stripe_gateway.crear_sesion_checkout(
         cuenta,
@@ -260,10 +303,8 @@ async def crear_sesion_de_pago(session: AsyncSession, *, payment_id: uuid.UUID) 
     pago.expires_at = datetime.fromtimestamp(creada.expires_at_epoch, tz=UTC)
     pago.checkout_link_delivered_at = datetime.now(UTC)
 
-    if pago.registration_id is not None:
-        inscripcion = await session.get(EventRegistration, pago.registration_id)
-        if inscripcion is not None and inscripcion.status == "pending_payment":
-            inscripcion.payment_expires_at = pago.expires_at
+    if inscripcion is not None and inscripcion.status == "pending_payment":
+        inscripcion.payment_expires_at = pago.expires_at
 
     await session.flush()
     return pago.checkout_url
@@ -275,24 +316,45 @@ async def confirmar_pago_y_registro(
     inscripcion: EventRegistration,
     *,
     stripe_payment_intent_id: str | None,
-) -> None:
+) -> str:
     """Aplica el efecto de dominio de un pago cobrado: marca el pago `paid` y
     confirma la inscripción llamando a `_enviar_email_por_estado` — el mismo
     punto único de emisión que usan los otros cuatro caminos. El módulo de
     pagos nunca emite la entrada por su cuenta, ni de forma directa ni
     indirecta (Decisión #6 del plan): ese paso vive por completo en
-    `registrations/service.py`. Idempotente por partida doble: no-op si el
-    pago ya estaba `paid` o la inscripción ya `confirmed`.
+    `registrations/service.py`.
+
+    Exige el estado de partida exacto — `pago.status == "pending"` **y**
+    `inscripcion.status == "pending_payment"` — antes de aplicar nada
+    (hallazgo I5 del code review de la fase 6): comprobar cada campo por
+    separado (`pago.status != "paid"`, `inscripcion.status != "confirmed"`)
+    dejaba confirmar de nuevo un pago `refunded`/`expired` o una inscripción
+    `cancelled`, siempre que el otro campo aún no hubiera cambiado. Devuelve
+    `"processed"` si aplica el cambio (o si ya estaba aplicado del todo, caso
+    idempotente) y `"ignored"` si el estado de partida no es el esperado —
+    mismos valores que usa `StripeWebhookEvent.status`, para que el webhook
+    los reutilice sin traducir nada.
     """
-    if pago.status != "paid":
-        pago.status = "paid"
-        pago.paid_at = datetime.now(UTC)
-        if stripe_payment_intent_id is not None:
-            pago.stripe_payment_intent_id = stripe_payment_intent_id
-    if inscripcion.status != "confirmed":
-        inscripcion.status = "confirmed"
-        inscripcion.confirmed_at = datetime.now(UTC)
-        await registrations_service._enviar_email_por_estado(session, inscripcion)  # noqa: SLF001
+    if pago.status == "paid" and inscripcion.status == "confirmed":
+        return "processed"
+    if pago.status != "pending" or inscripcion.status != "pending_payment":
+        logger.warning(
+            "Se ignora la confirmación del pago %s: pago en %r, inscripción %s en %r.",
+            pago.id,
+            pago.status,
+            inscripcion.id,
+            inscripcion.status,
+        )
+        return "ignored"
+
+    pago.status = "paid"
+    pago.paid_at = datetime.now(UTC)
+    if stripe_payment_intent_id is not None:
+        pago.stripe_payment_intent_id = stripe_payment_intent_id
+    inscripcion.status = "confirmed"
+    inscripcion.confirmed_at = datetime.now(UTC)
+    await registrations_service._enviar_email_por_estado(session, inscripcion)  # noqa: SLF001
+    return "processed"
 
 
 async def dispatch_pending_payment_links() -> None:
@@ -301,33 +363,48 @@ async def dispatch_pending_payment_links() -> None:
     aprobó o promovió (hallazgo #12), y encola el correo con el enlace.
     Idempotente: `crear_sesion_de_pago` no crea una segunda sesión ni un
     segundo correo una vez `checkout_link_delivered_at` está fijado.
+
+    Una `maintenance_session` **por pago**, no una sola para todo el bucle
+    (hallazgo I4 del code review de la fase 6): con una única sesión, el
+    `flush` del pago anterior deja sus bloqueos de fila abiertos durante la
+    llamada de red a Stripe del pago siguiente — justo lo que el hallazgo #12
+    prohíbe. El correo se encola **después** de que su sesión haga `commit`
+    (fin del `async with` de ese pago), nunca antes: encolarlo dentro de la
+    transacción arriesgaría enviar un enlace de una fila que después no
+    llegara a persistir.
     """
     from app.core.tasks import send_registration_payment_link_email
     from app.modules.registrations.service import _generar_token_cancelacion  # noqa: SLF001
 
     async with maintenance_session() as session:
         pagos = await repository.pagos_sin_enlace_entregado(session)
-        for payment_id in pagos:
-            try:
+
+    for payment_id in pagos:
+        try:
+            async with maintenance_session() as session:
                 url = await crear_sesion_de_pago(session, payment_id=payment_id)
-            except ExternalServiceError:
-                logger.warning("No se pudo crear la sesión de pago %s; se reintentará.", payment_id)
-                continue
-            if url is None:
-                continue
+                if url is None:
+                    continue
 
-            pago = await session.get(EventPayment, payment_id)
-            if pago is None or pago.registration_id is None:
-                continue
-            inscripcion = await session.get(EventRegistration, pago.registration_id)
-            if inscripcion is None:
-                continue
+                pago = await session.get(EventPayment, payment_id)
+                if pago is None or pago.registration_id is None:
+                    continue
+                inscripcion = await session.get(EventRegistration, pago.registration_id)
+                if inscripcion is None:
+                    continue
 
-            cancel_token = await _generar_token_cancelacion(inscripcion.id)
-            expira_el = pago.expires_at.strftime("%d/%m/%Y %H:%M") if pago.expires_at else ""
+                cancel_token = await _generar_token_cancelacion(inscripcion.id)
+                expira_el = pago.expires_at.strftime("%d/%m/%Y %H:%M") if pago.expires_at else ""
+                email = inscripcion.email
+                organization_id = str(inscripcion.organization_id)
+            # --- commit de la sesión de este pago: solo ahora se encola el
+            # correo, con la URL y el token ya persistidos ---
             await send_registration_payment_link_email.kiq(
-                inscripcion.email, str(inscripcion.organization_id), url, cancel_token, expira_el
+                email, organization_id, url, cancel_token, expira_el
             )
+        except ExternalServiceError:
+            logger.warning("No se pudo crear la sesión de pago %s; se reintentará.", payment_id)
+            continue
 
 
 async def expirar_pagos_pendientes() -> None:
