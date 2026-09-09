@@ -94,6 +94,18 @@ TABLAS = (
     "sponsors",
     "audit_log",
     "cookie_consents",
+    # Fase 6 del PRD, fase 1 de trabajo: las cinco tablas de dominio cascadean
+    # desde `organizations`/`events` por FK, pero se listan explícitamente por
+    # el mismo criterio de arriba. `stripe_webhook_events` no tiene FK
+    # ninguna (es tabla de instalación, sin `organization_id` de confianza) —
+    # sin listarla, un `evt_...` escrito por un test haría que el siguiente lo
+    # tomara por duplicado (hallazgo #15 del red-team de la fase 6).
+    "organization_stripe_accounts",
+    "event_ticket_types",
+    "event_discount_codes",
+    "event_payments",
+    "event_payment_refunds",
+    "stripe_webhook_events",
 )
 
 

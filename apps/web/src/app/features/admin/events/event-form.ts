@@ -36,9 +36,18 @@ interface EventDetail {
   readonly starts_at: string;
   readonly ends_at: string;
   readonly location_mode: LocationMode;
+  readonly payment_checkout_window_minutes: number;
 }
 
-type CampoBase = 'slug' | 'title' | 'startsAt' | 'endsAt';
+type CampoBase = 'slug' | 'title' | 'startsAt' | 'endsAt' | 'paymentWindow';
+
+// Rango de `events.payment_checkout_window_minutes` (fase 6 del PRD, fase 2
+// de trabajo): espejo del `CHECK` de base de datos y del schema del
+// backend, entregados ambos en la fase 1 — aquí no se duplica la regla, solo
+// se refleja en el cliente.
+const VENTANA_DE_PAGO_MIN = 30;
+const VENTANA_DE_PAGO_MAX = 1439;
+const VENTANA_DE_PAGO_POR_DEFECTO = 30;
 
 /** Alta y edición de un evento: campos, portada, publicar/archivar y agenda. */
 @Component({
@@ -119,6 +128,33 @@ type CampoBase = 'slug' | 'title' | 'startsAt' | 'endsAt';
                 <option value="online">{{ t('admin.events.formulario.online') }}</option>
                 <option value="hybrid">{{ t('admin.events.formulario.hibrido') }}</option>
               </select>
+            </div>
+
+            <div class="campo-numero">
+              <label for="evento-ventana-pago">{{
+                t('admin.events.formulario.ventanaDePago')
+              }}</label>
+              <input
+                id="evento-ventana-pago"
+                type="number"
+                inputmode="numeric"
+                [min]="ventanaDePagoMin"
+                [max]="ventanaDePagoMax"
+                [value]="paymentWindow()"
+                [attr.aria-invalid]="errores().paymentWindow ? 'true' : null"
+                [attr.aria-describedby]="
+                  errores().paymentWindow ? 'evento-ventana-pago-error' : 'evento-ventana-pago-ayuda'
+                "
+                (input)="alCambiarVentanaDePago($event)"
+                (blur)="validar('paymentWindow')"
+              />
+              @if (errores().paymentWindow; as mensaje) {
+                <p id="evento-ventana-pago-error" class="error-campo">{{ mensaje }}</p>
+              } @else {
+                <p id="evento-ventana-pago-ayuda" class="ayuda-campo">
+                  {{ t('admin.events.formulario.ventanaDePagoAyuda') }}
+                </p>
+              }
             </div>
           </app-card>
 
@@ -233,6 +269,32 @@ type CampoBase = 'slug' | 'title' | 'startsAt' | 'endsAt';
       font: inherit;
       min-height: 2.75rem;
     }
+    .campo-numero {
+      display: grid;
+      gap: var(--space-xs);
+    }
+    .campo-numero input {
+      width: 100%;
+      max-width: 12rem;
+      box-sizing: border-box;
+      padding: 0.625rem 0.75rem;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background-color: var(--color-surface);
+      color: var(--color-text);
+      font: inherit;
+      min-height: 2.75rem;
+    }
+    .error-campo {
+      margin: 0;
+      color: var(--color-danger);
+      font-size: 0.875rem;
+    }
+    .ayuda-campo {
+      margin: 0;
+      color: var(--color-text-muted, #6b7280);
+      font-size: 0.8125rem;
+    }
     .etiqueta-fichero {
       display: block;
       margin-top: var(--space-sm);
@@ -272,12 +334,16 @@ export class EventForm {
   protected readonly locationMode = signal<LocationMode>('in_person');
   protected readonly estadoActual = signal<EventStatus>('draft');
   protected readonly portadaUrl = signal<string | null>(null);
+  protected readonly paymentWindow = signal(VENTANA_DE_PAGO_POR_DEFECTO);
+  protected readonly ventanaDePagoMin = VENTANA_DE_PAGO_MIN;
+  protected readonly ventanaDePagoMax = VENTANA_DE_PAGO_MAX;
 
   protected readonly errores = signal<Record<CampoBase, string | null>>({
     slug: null,
     title: null,
     startsAt: null,
     endsAt: null,
+    paymentWindow: null,
   });
 
   protected readonly resumenDeErrores = computed<ResumenDeError[]>(() => {
@@ -287,6 +353,9 @@ export class EventForm {
     if (actuales.slug) resumen.push({ campoId: 'evento-slug', mensaje: actuales.slug });
     if (actuales.startsAt) resumen.push({ campoId: 'evento-inicio', mensaje: actuales.startsAt });
     if (actuales.endsAt) resumen.push({ campoId: 'evento-fin', mensaje: actuales.endsAt });
+    if (actuales.paymentWindow) {
+      resumen.push({ campoId: 'evento-ventana-pago', mensaje: actuales.paymentWindow });
+    }
     return resumen;
   });
 
@@ -317,6 +386,7 @@ export class EventForm {
       this.locationMode.set(evento.location_mode);
       this.estadoActual.set(evento.status);
       this.portadaUrl.set(evento.cover_url);
+      this.paymentWindow.set(evento.payment_checkout_window_minutes);
     } catch (error) {
       this.error.set(
         error instanceof ApiError
@@ -330,6 +400,11 @@ export class EventForm {
 
   protected alCambiarModalidad(evento: Event): void {
     this.locationMode.set((evento.target as HTMLSelectElement).value as LocationMode);
+  }
+
+  protected alCambiarVentanaDePago(evento: Event): void {
+    const bruto = (evento.target as HTMLInputElement).value;
+    this.paymentWindow.set(bruto === '' ? Number.NaN : Number(bruto));
   }
 
   private errorDe(campo: CampoBase): string | null {
@@ -356,6 +431,15 @@ export class EventForm {
         return new Date(this.endsAt()) > new Date(this.startsAt())
           ? null
           : this.transloco.translate('admin.events.formulario.finAnteriorAlInicio');
+      case 'paymentWindow': {
+        const valor = this.paymentWindow();
+        if (Number.isNaN(valor)) {
+          return this.transloco.translate('admin.events.formulario.ventanaDePagoRequerida');
+        }
+        return valor >= VENTANA_DE_PAGO_MIN && valor <= VENTANA_DE_PAGO_MAX
+          ? null
+          : this.transloco.translate('admin.events.formulario.ventanaDePagoFueraDeRango');
+      }
     }
   }
 
@@ -369,6 +453,7 @@ export class EventForm {
       title: this.errorDe('title'),
       startsAt: this.errorDe('startsAt'),
       endsAt: this.errorDe('endsAt'),
+      paymentWindow: this.errorDe('paymentWindow'),
     };
     this.errores.set(actuales);
     return Object.values(actuales).every((mensaje) => !mensaje);
@@ -388,6 +473,7 @@ export class EventForm {
       starts_at: new Date(this.startsAt()).toISOString(),
       ends_at: new Date(this.endsAt()).toISOString(),
       location_mode: this.locationMode(),
+      payment_checkout_window_minutes: this.paymentWindow(),
     };
 
     this.guardando.set(true);

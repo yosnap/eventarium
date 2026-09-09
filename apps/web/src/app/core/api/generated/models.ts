@@ -103,6 +103,8 @@ export type { SponsorTierCreate } from './models/sponsor-tier-create';
 export type { SponsorTierResponse } from './models/sponsor-tier-response';
 export type { SponsorTierUpdate } from './models/sponsor-tier-update';
 export type { SponsorUpdate } from './models/sponsor-update';
+export type { StripeAccountResponse } from './models/stripe-account-response';
+export type { StripeOnboardingResponse } from './models/stripe-onboarding-response';
 export type { SubmitRegistrationRequest } from './models/submit-registration-request';
 export type { TicketDetail } from './models/ticket-detail';
 export type { TicketScanResultOut } from './models/ticket-scan-result-out';

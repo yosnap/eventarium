@@ -619,6 +619,7 @@ async def get_registration_stats(
         "initiated": iniciados,
         "verified": verificados,
         "pending_approval": por_estado.get("pending_approval", 0),
+        "pending_payment": por_estado.get("pending_payment", 0),
         "confirmed": confirmados,
         "rejected": por_estado.get("rejected", 0),
         "cancelled": por_estado.get("cancelled", 0),

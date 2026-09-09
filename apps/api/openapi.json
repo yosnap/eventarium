@@ -2610,6 +2610,7 @@
                   "enum": [
                     "pending_verification",
                     "pending_approval",
+                    "pending_payment",
                     "confirmed",
                     "rejected",
                     "cancelled",
@@ -4144,6 +4145,135 @@
         }
       }
     },
+    "/api/v1/organizations/{organization_id}/stripe/onboarding": {
+      "post": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Iniciar (o reiniciar) el onboarding de Stripe Connect",
+        "description": "Crea una cuenta Standard si no hay ninguna activa (o si la única fila está desautorizada) y devuelve la URL de un solo uso del Account Link. Nunca crea una segunda cuenta activa.",
+        "operationId": "start_onboarding_api_v1_organizations__organization_id__stripe_onboarding_post",
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StripeOnboardingResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{organization_id}/stripe": {
+      "get": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Estado persistido de la conexión con Stripe",
+        "description": "Lee únicamente lo persistido: nunca llama a Stripe.",
+        "operationId": "get_stripe_status_api_v1_organizations__organization_id__stripe_get",
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StripeAccountResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{organization_id}/stripe/sync": {
+      "post": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Sincronizar el estado con el `Account` real de Stripe",
+        "description": "Única ruta del panel que provoca una llamada de red a Stripe por petición: el frontend la invoca al volver del onboarding y desde el botón manual.",
+        "operationId": "sync_stripe_status_api_v1_organizations__organization_id__stripe_sync_post",
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StripeAccountResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/organizations/me/legal-pages": {
       "get": {
         "tags": [
@@ -5123,6 +5253,13 @@
             "type": "boolean",
             "title": "Email Verification Required",
             "default": true
+          },
+          "payment_checkout_window_minutes": {
+            "type": "integer",
+            "maximum": 1439.0,
+            "minimum": 30.0,
+            "title": "Payment Checkout Window Minutes",
+            "default": 30
           }
         },
         "type": "object",
@@ -5352,6 +5489,10 @@
           "email_verification_required": {
             "type": "boolean",
             "title": "Email Verification Required"
+          },
+          "payment_checkout_window_minutes": {
+            "type": "integer",
+            "title": "Payment Checkout Window Minutes"
           }
         },
         "type": "object",
@@ -5373,7 +5514,8 @@
           "online_url",
           "capacity",
           "registration_mode",
-          "email_verification_required"
+          "email_verification_required",
+          "payment_checkout_window_minutes"
         ],
         "title": "EventResponse",
         "description": "Evento tal y como lo ve el panel de administración."
@@ -5933,6 +6075,19 @@
               }
             ],
             "title": "Email Verification Required"
+          },
+          "payment_checkout_window_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1439.0,
+                "minimum": 30.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Checkout Window Minutes"
           }
         },
         "type": "object",
@@ -6724,7 +6879,9 @@
           "tickets:read",
           "tickets:write",
           "sponsors:read",
-          "sponsors:write"
+          "sponsors:write",
+          "payments:read",
+          "payments:write"
         ],
         "title": "Permission",
         "description": "Permisos disponibles en la fase 0."
@@ -7735,6 +7892,7 @@
             "enum": [
               "pending_verification",
               "pending_approval",
+              "pending_payment",
               "confirmed",
               "rejected",
               "cancelled",
@@ -7888,6 +8046,7 @@
             "enum": [
               "pending_verification",
               "pending_approval",
+              "pending_payment",
               "confirmed",
               "rejected",
               "cancelled",
@@ -8216,6 +8375,10 @@
             "type": "integer",
             "title": "Pending Approval"
           },
+          "pending_payment": {
+            "type": "integer",
+            "title": "Pending Payment"
+          },
           "confirmed": {
             "type": "integer",
             "title": "Confirmed"
@@ -8260,6 +8423,7 @@
           "initiated",
           "verified",
           "pending_approval",
+          "pending_payment",
           "confirmed",
           "rejected",
           "cancelled",
@@ -9212,6 +9376,88 @@
         "type": "object",
         "title": "SponsorUpdate",
         "description": "Campos editables de un patrocinador. Parcial: la exclusividad de la\naportación se revalida en el servicio contra el estado ya guardado."
+      },
+      "StripeAccountResponse": {
+        "properties": {
+          "connected": {
+            "type": "boolean",
+            "title": "Connected"
+          },
+          "charges_enabled": {
+            "type": "boolean",
+            "title": "Charges Enabled"
+          },
+          "payouts_enabled": {
+            "type": "boolean",
+            "title": "Payouts Enabled"
+          },
+          "details_submitted": {
+            "type": "boolean",
+            "title": "Details Submitted"
+          },
+          "connected_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connected At"
+          },
+          "deauthorized_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deauthorized At"
+          },
+          "last_synced_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Synced At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "connected",
+          "charges_enabled",
+          "payouts_enabled",
+          "details_submitted",
+          "connected_at",
+          "deauthorized_at",
+          "last_synced_at"
+        ],
+        "title": "StripeAccountResponse",
+        "description": "Estado persistido de la cuenta Stripe de la organización.\n\n`connected` distingue «hay una fila activa» (aunque `charges_enabled`\ntodavía sea `False`, p. ej. durante el KYC) de «no hay ninguna cuenta o\nla única que hubo está desautorizada» — en ese segundo caso el resto de\ncampos no tiene sentido y el frontend ofrece directamente el botón de\nconectar."
+      },
+      "StripeOnboardingResponse": {
+        "properties": {
+          "onboarding_url": {
+            "type": "string",
+            "title": "Onboarding Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "onboarding_url"
+        ],
+        "title": "StripeOnboardingResponse",
+        "description": "URL de un solo uso del `AccountLink`. Nunca se persiste ni se cachea."
       },
       "SubmitRegistrationRequest": {
         "properties": {

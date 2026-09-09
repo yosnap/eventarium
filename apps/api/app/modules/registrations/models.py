@@ -140,6 +140,12 @@ class EventRegistration(Base, TimestampMixin):
     waitlist_promotion_expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Hermana de `waitlist_promotion_expires_at` (fase 6 del PRD): nula
+    # mientras no haya una compra `pending_payment` en curso; fijada desde la
+    # respuesta de Stripe al crear la Checkout Session (fase 3 de trabajo).
+    payment_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

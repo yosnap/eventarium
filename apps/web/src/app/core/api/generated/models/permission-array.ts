@@ -22,5 +22,7 @@ export const PERMISSION: Permission[] = [
   'tickets:read',
   'tickets:write',
   'sponsors:read',
-  'sponsors:write'
+  'sponsors:write',
+  'payments:read',
+  'payments:write'
 ];

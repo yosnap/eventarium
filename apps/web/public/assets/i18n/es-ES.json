@@ -459,6 +459,10 @@
         "subirPortada": "Subir portada (PNG, JPEG o WebP, hasta 5 MB)",
         "portadaNoValida": "Solo se aceptan imágenes PNG, JPEG o WebP.",
         "portadaDemasiadoGrande": "La portada no puede superar los 5 MB.",
+        "ventanaDePago": "Ventana de pago (minutos)",
+        "ventanaDePagoAyuda": "Tiempo que tiene un comprador para pagar antes de que su plaza se libere. Solo se aplica a eventos de pago.",
+        "ventanaDePagoRequerida": "Indica la ventana de pago.",
+        "ventanaDePagoFueraDeRango": "Debe estar entre 30 y 1439 minutos.",
         "estadoActual": "Estado",
         "publicar": "Publicar",
         "archivar": "Archivar",
@@ -652,6 +656,7 @@
       }
     },
     "sponsorTiersNav": "Niveles de patrocinio",
+    "stripeNav": "Pagos con Stripe",
     "superadminNav": "Superadministración",
     "sponsorTiers": {
       "titulo": "Niveles de patrocinio",
@@ -671,6 +676,20 @@
       "tamanoLogoMedium": "Mediano",
       "tamanoLogoSmall": "Pequeño",
       "beneficios": "Beneficios (texto libre)",
+      "error": "No hemos podido completar la operación."
+    },
+    "stripe": {
+      "titulo": "Pagos con Stripe",
+      "aviso": "Conecta tu propia cuenta de Stripe para cobrar tus entradas de pago. La plataforma no cobra ninguna comisión ni custodia el dinero: los cobros llegan directamente a tu cuenta.",
+      "advertenciaSalida": "Vas a salir de este sitio para completar la conexión en Stripe.",
+      "estadoSinConectar": "Todavía no has conectado ninguna cuenta de Stripe.",
+      "estadoPendiente": "Cuenta conectada, pendiente de completar la verificación en Stripe antes de poder cobrar.",
+      "estadoOperativa": "Cuenta conectada y operativa: ya puedes vender entradas de pago.",
+      "estadoDesautorizada": "Desconectaste tu cuenta de Stripe. Reconéctala para volver a vender entradas de pago.",
+      "conectar": "Conectar con Stripe",
+      "reconectar": "Reconectar con Stripe",
+      "continuarOnboarding": "Continuar la verificación en Stripe",
+      "actualizarEstado": "Actualizar estado",
       "error": "No hemos podido completar la operación."
     },
     "legalNav": "Páginas legales",

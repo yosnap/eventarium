@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import text
 from taskiq import TaskiqEvents, TaskiqState
 from taskiq.schedule_sources import LabelScheduleSource
 from taskiq.scheduler.scheduler import TaskiqScheduler
@@ -17,8 +16,8 @@ from taskiq_redis import RedisAsyncResultBackend, RedisStreamBroker
 
 from app.core.cleanup import sweep_unverified_accounts
 from app.core.config import get_settings
-from app.core.database import maintenance_session
 from app.core.email import EmailAttachment, get_email_provider
+from app.core.tenant import base_url_de_organizacion
 from app.modules.tickets.service import generar_imagen_qr
 
 _settings = get_settings()
@@ -122,32 +121,6 @@ async def send_email_change_confirmation(to_email: str, token: str) -> None:
     )
 
 
-async def _base_url_de_organizacion(organization_id: uuid.UUID) -> str:
-    """URL pública de la organización, por su dominio primario.
-
-    A diferencia de los correos de cuenta (transversales a toda la instalación,
-    de ahí `settings.web_base_url`), un correo de inscripción llega a alguien
-    sin sesión ni contexto de organización: el enlace tiene que apuntar al
-    dominio propio de esa organización — la instalación resuelve el tenant por
-    `Host`, así que un enlace al dominio equivocado no encontraría la
-    inscripción al volver. Usa `maintenance_session` porque una tarea de fondo
-    no tiene una petición HTTP de la que resolver la organización.
-    """
-    settings = get_settings()
-    async with maintenance_session() as session:
-        host = await session.scalar(
-            text(
-                "SELECT host FROM organization_domains "
-                "WHERE organization_id = :id ORDER BY is_primary DESC LIMIT 1"
-            ),
-            {"id": organization_id},
-        )
-    if not host:
-        return settings.web_base_url
-    esquema = "https" if settings.app_env == "production" else "http"
-    return f"{esquema}://{host}"
-
-
 @broker.task(schedule=[{"cron": "*/15 * * * *"}])
 async def expire_waitlist_promotions_task() -> None:
     """Cada 15 minutos: devuelve al final de la cola las promociones de lista
@@ -168,7 +141,7 @@ async def send_registration_verification_email(
     to_email: str, token: str, organization_id: str
 ) -> None:
     """Envía el enlace de verificación de una inscripción a un evento."""
-    base = await _base_url_de_organizacion(uuid.UUID(organization_id))
+    base = await base_url_de_organizacion(uuid.UUID(organization_id))
     enlace = f"{base}/verificar-inscripcion?token={token}"
     await get_email_provider().send(
         to=to_email,
@@ -210,7 +183,7 @@ async def send_registration_confirmed_email(
     ser procesado por un worker ya actualizado — con un valor por defecto ese
     mensaje se entrega igual, sin el QR incrustado, en vez de fallar.
     """
-    base = await _base_url_de_organizacion(uuid.UUID(organization_id))
+    base = await base_url_de_organizacion(uuid.UUID(organization_id))
     enlace_cancelacion = f"{base}/cancelar-inscripcion?token={cancel_token}"
     enlace_mi_entrada = f"{base}/mi-entrada?token={cancel_token}"
     await get_email_provider().send(
@@ -242,7 +215,7 @@ async def send_registration_waitlisted_email(
     to_email: str, organization_id: str, cancel_token: str
 ) -> None:
     """Entrada en lista de espera (alta directa, verificación o aprobación)."""
-    base = await _base_url_de_organizacion(uuid.UUID(organization_id))
+    base = await base_url_de_organizacion(uuid.UUID(organization_id))
     enlace_cancelacion = f"{base}/cancelar-inscripcion?token={cancel_token}"
     await get_email_provider().send(
         to=to_email,
@@ -293,7 +266,7 @@ async def send_waitlist_promotion_email(
 ) -> None:
     """Promoción desde la lista de espera: hay que confirmar antes de `expira_el`
     (ya formateado en texto legible) o la plaza pasa a la siguiente persona."""
-    base = await _base_url_de_organizacion(uuid.UUID(organization_id))
+    base = await base_url_de_organizacion(uuid.UUID(organization_id))
     enlace_confirmar = f"{base}/confirmar-promocion?token={confirm_token}"
     enlace_cancelacion = f"{base}/cancelar-inscripcion?token={cancel_token}"
     await get_email_provider().send(

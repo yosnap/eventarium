@@ -79,6 +79,10 @@ class EventCreate(BaseModel):
     capacity: Annotated[int, Field(ge=1)] | None = None
     registration_mode: RegistrationMode = "free"
     email_verification_required: bool = True
+    # Ventana de pago (fase 6 del PRD): minutos que tiene un comprador para
+    # pagar antes de que su plaza reservada caduque. Rango igual al `CHECK` de
+    # base de datos, para rechazar el valor en el schema y no solo allí.
+    payment_checkout_window_minutes: Annotated[int, Field(ge=30, le=1439)] = 30
 
     @model_validator(mode="after")
     def _validar_fechas(self) -> EventCreate:
@@ -104,6 +108,7 @@ class EventUpdate(BaseModel):
     capacity: Annotated[int, Field(ge=1)] | None = None
     registration_mode: RegistrationMode | None = None
     email_verification_required: bool | None = None
+    payment_checkout_window_minutes: Annotated[int, Field(ge=30, le=1439)] | None = None
 
     @model_validator(mode="after")
     def _validar_fechas(self) -> EventUpdate:
@@ -133,6 +138,7 @@ class EventResponse(BaseModel):
     capacity: int | None
     registration_mode: RegistrationMode
     email_verification_required: bool
+    payment_checkout_window_minutes: int
 
 
 class EventSessionCreate(BaseModel):

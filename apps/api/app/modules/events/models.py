@@ -20,6 +20,7 @@ from typing import Any
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
@@ -44,6 +45,14 @@ class Event(Base, TimestampMixin):
         UniqueConstraint("organization_id", "slug", name="uq_events_organization_id_slug"),
         # Objetivo de las FK compuestas de las tablas hijas (event_sessions, event_members).
         UniqueConstraint("id", "organization_id", name="uq_events_id_organization_id"),
+        # Stripe admite un `expires_at` de Checkout Session entre 30 minutos y
+        # 24h desde la creación de la sesión; la fase 4 de trabajo de pagos
+        # añade siempre 60s de margen técnico, así que 1439 es el máximo que
+        # no se pasa de las 24h (hallazgo #16 del red-team de la fase 6).
+        CheckConstraint(
+            "payment_checkout_window_minutes BETWEEN 30 AND 1439",
+            name="ck_events_payment_checkout_window_minutes_rango",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=new_uuid7)
@@ -74,6 +83,14 @@ class Event(Base, TimestampMixin):
     # free | approval | paid
     registration_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="free")
     email_verification_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Ventana que tiene un comprador para pagar antes de que su
+    # `pending_payment` caduque y libere la plaza (fase 6 del PRD). Por
+    # evento, no por instalación: el aforo (`capacity`) y la fila que retiene
+    # la plaza (`event_registrations.payment_expires_at`) son ambos de nivel
+    # evento — ver decisión de validación, sesión 1, del plan de la fase 6.
+    payment_checkout_window_minutes: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=30
+    )
 
     sessions: Mapped[list[EventSession]] = relationship(
         back_populates="event", cascade="all, delete-orphan", lazy="selectin"

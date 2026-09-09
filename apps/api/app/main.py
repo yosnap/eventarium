@@ -22,6 +22,7 @@ from app.modules.legal.router import router_cookie_consent as cookie_consent_rou
 from app.modules.legal.router import router_public as legal_public_router
 from app.modules.organizations.router import router as organizations_router
 from app.modules.organizations.self_service import router as organizations_self_service_router
+from app.modules.payments.router import router as payments_router
 from app.modules.registrations.public_router import router as registrations_public_router
 from app.modules.registrations.router import router as registrations_router
 from app.modules.roles.router import router as roles_router
@@ -99,6 +100,7 @@ def create_app() -> FastAPI:
     api.include_router(tickets_public_router)
     api.include_router(sponsor_tiers_router)
     api.include_router(sponsors_router)
+    api.include_router(payments_router)
     api.include_router(legal_admin_router)
     api.include_router(legal_public_router)
     api.include_router(cookie_consent_router)

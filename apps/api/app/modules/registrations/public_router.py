@@ -44,6 +44,7 @@ router = APIRouter(prefix="/public", tags=["público"])
 _MENSAJES_POR_ESTADO = {
     "confirmed": "Tu inscripción está confirmada.",
     "pending_approval": "Tu inscripción está pendiente de aprobación por parte del organizador.",
+    "pending_payment": "Tu plaza está reservada; completa el pago para confirmarla.",
     "waitlisted": "El aforo está completo; te hemos añadido a la lista de espera.",
 }
 

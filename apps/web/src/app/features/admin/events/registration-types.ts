@@ -7,6 +7,7 @@
 export type RegistrationStatus =
   | 'pending_verification'
   | 'pending_approval'
+  | 'pending_payment'
   | 'confirmed'
   | 'rejected'
   | 'cancelled'
@@ -15,6 +16,7 @@ export type RegistrationStatus =
 export const ESTADOS_DE_INSCRIPCION: readonly RegistrationStatus[] = [
   'pending_verification',
   'pending_approval',
+  'pending_payment',
   'confirmed',
   'rejected',
   'cancelled',
@@ -57,6 +59,7 @@ export interface RegistrationStats {
   readonly initiated: number;
   readonly verified: number;
   readonly pending_approval: number;
+  readonly pending_payment: number;
   readonly confirmed: number;
   readonly rejected: number;
   readonly cancelled: number;

@@ -140,6 +140,13 @@ export const routes: Routes = [
           import('./features/admin/sponsors/sponsor-tiers-page').then((m) => m.SponsorTiersPage),
       },
       {
+        path: 'stripe',
+        loadComponent: () =>
+          import('./features/admin/organization/stripe-connection').then(
+            (m) => m.StripeConnection,
+          ),
+      },
+      {
         path: 'legal',
         loadComponent: () =>
           import('./features/admin/legal/legal-pages-page').then((m) => m.LegalPagesPage),
