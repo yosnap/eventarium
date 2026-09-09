@@ -8,15 +8,14 @@ incluye en el mismo `APIRouter(prefix=API_PREFIX)` de `app/main.py`.
 Reglas no negociables, todas verificadas por su propio test:
 - La firma se verifica sobre el **raw body**, antes de parsear nada: sin
   modelo Pydantic en la firma del handler, sin `await request.json()`.
-- Idempotencia medida sobre el *proceso*, no sobre la recepción (hallazgo
-  #9): el handler HTTP solo inserta la fila `received` y encola la tarea; el
+- Idempotencia medida sobre el *proceso*, no sobre la recepción: el handler
+  HTTP solo inserta la fila `received` y encola la tarea; el
   procesamiento real (`procesar_evento`) vive fuera de la petición.
-- Un solo endpoint, un solo secreto, ámbito «cuentas conectadas» (hallazgo
-  #10): un evento sin `account` de nivel superior se marca `ignored` sin
-  encolar nada.
+- Un solo endpoint, un solo secreto, ámbito «cuentas conectadas»: un evento
+  sin `account` de nivel superior se marca `ignored` sin encolar nada.
 - `checkout.session.completed` localiza el pago **exclusivamente** por
   `stripe_checkout_session_id`, nunca por `metadata` ni
-  `client_reference_id` (hallazgo #2), y verifica que la organización del
+  `client_reference_id`, y verifica que la organización del
   pago coincide con la resuelta desde `event.account`.
 """
 
@@ -40,8 +39,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["webhooks"])
 
-# Lista blanca de campos que sí se persisten en `stripe_webhook_events.payload`
-# (hallazgo #15): nunca datos personales del comprador. `id` siempre se
+# Lista blanca de campos que sí se persisten en `stripe_webhook_events.payload`:
+# nunca datos personales del comprador. `id` siempre se
 # guarda: es el identificador con el que se localiza el pago.
 _CAMPOS_POR_TIPO: dict[str, tuple[str, ...]] = {
     "checkout.session.completed": ("payment_status", "payment_intent"),
@@ -192,8 +191,8 @@ async def _handle_checkout_completed(
 
     if pago.organization_id != organizacion.organization_id:
         # Con Connect Standard el organizador controla su propio Dashboard y
-        # puede firmar eventos legítimos con la `metadata` que quiera
-        # (hallazgo #2): resolver el tenant por `event.account` no autoriza
+        # puede firmar eventos legítimos con la `metadata` que quiera:
+        # resolver el tenant por `event.account` no autoriza
         # la mutación por sí solo.
         logger.error(
             "Webhook checkout.session.completed: organization_id del pago %s (%s) no "
@@ -207,7 +206,7 @@ async def _handle_checkout_completed(
     if payload.get("payment_status") != "paid":
         # `unpaid`/`no_payment_required`: con `payment_method_types=["card"]`
         # no debería llegar, pero el organizador puede habilitar métodos
-        # diferidos en su Dashboard (hallazgo #3). No confirma nada.
+        # diferidos en su Dashboard. No confirma nada.
         return "ignored"
 
     if pago.registration_id is None:
@@ -259,7 +258,7 @@ async def _handle_charge_refunded(
     pasar por la plataforma.
 
     Localiza el pago **exclusivamente** por `stripe_payment_intent_id`
-    (`UNIQUE`), nunca por `metadata` (hallazgo #2, ampliado en la fase 5), y
+    (`UNIQUE`), nunca por `metadata` (ampliado en la fase 5), y
     verifica que su organización coincide con la resuelta desde
     `event.account` antes de mutar nada. `refunded_cents` se **fija** al
     acumulado que reporta Stripe (`amount_refunded`), nunca se suma un delta:

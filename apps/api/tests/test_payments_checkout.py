@@ -1,8 +1,8 @@
 """Compra pública y guarda de pago de dos capas (fase 6 del PRD, fase 4 de
 trabajo).
 
-El foco es el hallazgo #1 del red-team (los cuatro caminos de confirmación)
-y el diseño de dos transacciones del checkout (hallazgo #12). Los webhooks
+El foco son los cuatro caminos de confirmación
+y el diseño de dos transacciones del checkout. Los webhooks
 que confirman estas compras están en `test_payments_webhooks.py`.
 """
 
@@ -41,7 +41,7 @@ from tests.payments_test_helpers import (
     _url_checkout,
 )
 
-# --- Los cuatro caminos de confirmación (hallazgo #1) -------------------------
+# --- Los cuatro caminos de confirmación ---------------------------------------
 
 
 async def test_camino_1_alta_directa_deja_pending_payment_sin_emitir_entrada(
@@ -89,8 +89,8 @@ async def test_camino_2_verificacion_deja_pending_payment(
         session.add(inscripcion)
         await session.flush()
         # El pago ya existe en `pending`, tal como lo deja
-        # `checkout_service.iniciar_compra` en el alta (fase 6 del PRD,
-        # hallazgo C1 del code review): `verify_registration` lo reutiliza,
+        # `checkout_service.iniciar_compra` en el alta (fase 6 del PRD):
+        # `verify_registration` lo reutiliza,
         # nunca lo crea desde cero.
         pago = EventPayment(
             organization_id=organizacion.id,
@@ -129,7 +129,7 @@ async def test_camino_2_verificacion_deja_pending_payment(
 async def test_camino_3_aprobacion_tras_cambiar_a_paid_deja_pending_payment(
     organizacion: OrganizacionDePrueba,
 ) -> None:
-    """El caso real del hallazgo: un evento `approval` cambia a `paid` con
+    """Un evento `approval` cambia a `paid` con
     inscripciones ya en `pending_approval`."""
     async with SessionMaintenance() as session:
         evento = Event(
@@ -161,8 +161,8 @@ async def test_camino_3_aprobacion_tras_cambiar_a_paid_deja_pending_payment(
         session.add(inscripcion)
         await session.flush()
         # El pago ya existe en `pending`, tal como lo deja
-        # `checkout_service.iniciar_compra` en el alta (fase 6 del PRD,
-        # hallazgo C1 del code review): `approve_registration` lo reutiliza,
+        # `checkout_service.iniciar_compra` en el alta (fase 6 del PRD):
+        # `approve_registration` lo reutiliza,
         # nunca lo crea desde cero.
         pago = EventPayment(
             organization_id=organizacion.id,
@@ -203,8 +203,8 @@ async def test_camino_3_aprobacion_tras_cambiar_a_paid_deja_pending_payment(
 async def test_camino_3_aprobacion_sin_compra_iniciada_falla(
     organizacion: OrganizacionDePrueba,
 ) -> None:
-    """Sin un `event_payments` ya creado (nunca debería ocurrir tras el
-    hallazgo C1b, que obliga a pasar por el embudo de compra) la aprobación no
+    """Sin un `event_payments` ya creado (nunca debería ocurrir, ya que el
+    embudo de compra obliga a pasar por ahí) la aprobación no
     puede dejar la inscripción colgada en `pending_payment` sin ningún pago
     posible: falla en vez de aplicar el cambio."""
     async with SessionMaintenance() as session:
@@ -280,8 +280,8 @@ async def test_camino_4_promocion_de_lista_de_espera_deja_pending_payment(
         session.add(inscripcion)
         await session.flush()
         # El pago ya existe en `pending`, tal como lo deja
-        # `checkout_service.iniciar_compra` en el alta (fase 6 del PRD,
-        # hallazgo C1 del code review): `confirm_waitlist_promotion` lo
+        # `checkout_service.iniciar_compra` en el alta (fase 6 del PRD):
+        # `confirm_waitlist_promotion` lo
         # reutiliza, nunca lo crea desde cero.
         pago = EventPayment(
             organization_id=organizacion.id,
@@ -367,7 +367,7 @@ async def test_camino_3_endpoint_real_en_evento_de_aprobacion_crea_el_pago(
     monkeypatch: pytest.MonkeyPatch,
     fake: FakeStripeClient,
 ) -> None:
-    """Hallazgo IMP-2 (C1) del code review de la fase 6, ronda 3: los
+    """Los
     `test_camino_3_*`/`test_camino_4_*` anteriores insertaban el pago a mano
     y solo comprobaban que sobrevivía a `approve_registration`/
     `confirm_waitlist_promotion`. Este ejercita el camino real de producción
@@ -474,13 +474,13 @@ async def test_camino_4_endpoint_real_con_aforo_lleno_crea_el_pago(
     fake.v1.checkout.sessions.create_async.assert_not_awaited()
 
 
-# --- IMP-1: liberar cupo/uso de código cuando el pago nunca llega a cobrarse -
+# --- Liberar cupo/uso de código cuando el pago nunca llega a cobrarse -------
 
 
 async def test_rechazar_inscripcion_libera_el_pago_pendiente_y_el_cupo(
     organizacion: OrganizacionDePrueba,
 ) -> None:
-    """Hallazgo IMP-1 del code review de la fase 6, ronda 3: antes de este
+    """Antes de este
     fix, `reject_registration` dejaba el `event_payments` en `pending` para
     siempre — `ESTADOS_CONSUMIBLES` lo sigue contando como cupo ocupado, y
     ningún barrido lo expira nunca (exige `EventRegistration.status ==
@@ -567,7 +567,7 @@ async def test_rechazar_inscripcion_libera_el_pago_pendiente_y_el_cupo(
 async def test_cancelar_inscripcion_pending_payment_libera_el_pago_sin_cobrar(
     organizacion: OrganizacionDePrueba,
 ) -> None:
-    """Mismo hallazgo IMP-1, camino de cancelación: cancelar una inscripción
+    """Mismo camino, aplicado a la cancelación: cancelar una inscripción
     `pending_payment` que nunca llegó a pagarse tampoco pasaba por
     `preparar_reembolso_por_cancelacion` (solo actúa sobre pagos ya cobrados,
     `ESTADOS_REEMBOLSABLES`), así que el pago `pending` también quedaba
@@ -648,7 +648,7 @@ async def test_reutilizar_pago_expira_la_sesion_de_stripe_anterior(
     monkeypatch: pytest.MonkeyPatch,
     fake: FakeStripeClient,
 ) -> None:
-    """Hallazgo IMP-2 (I8) del code review de la fase 6, ronda 3: el test de
+    """El test de
     idempotencia ya cubría que las claves difieren entre intentos, pero nunca
     comprobó que la sesión de Checkout anterior se expira de verdad en
     Stripe — solo que el método del doble existía. Aquí se asserta la
@@ -702,10 +702,10 @@ async def test_reutilizar_pago_expira_la_sesion_de_stripe_anterior(
 async def test_idempotency_key_mismo_expires_at_en_dos_intentos_de_la_misma_inscripcion(
     organizacion: OrganizacionDePrueba, fake: FakeStripeClient
 ) -> None:
-    """Hallazgo IMP-2 (I7) del code review de la fase 6, ronda 3: el test
+    """El test
     `test_idempotency_key_distinta_por_intento_de_checkout` solo prueba que
-    la clave cambia entre intentos; no prueba la causa raíz del hallazgo I7
-    (`expires_at` recalculado con `datetime.now(UTC)` en cada llamada a
+    la clave cambia entre intentos; no prueba la causa raíz de un
+    `expires_at` recalculado con `datetime.now(UTC)` en cada llamada a
     `crear_sesion_de_pago`, en vez de derivarse siempre del mismo
     `payment_expires_at` ya persistido — lo que rompería la reutilización de
     la `idempotency_key` en Stripe si esta función se reintentara). Llama dos
@@ -751,7 +751,7 @@ async def test_idempotency_key_mismo_expires_at_en_dos_intentos_de_la_misma_insc
     primer_expires_at = primeros_kwargs["params"]["expires_at"]
     primera_clave = primeros_kwargs["options"]["idempotency_key"]
 
-    # Simula el reintento real del hallazgo I7: Stripe llegó a crear la
+    # Simula un reintento real: Stripe llegó a crear la
     # sesión, pero el proceso murió antes de persistir
     # `checkout_link_delivered_at` (si hubiera llegado a persistir, la
     # siguiente llamada devolvería `pago.checkout_url` sin volver a llamar a
@@ -783,7 +783,7 @@ async def test_idempotency_key_mismo_expires_at_en_dos_intentos_de_la_misma_insc
 
     # Mismo `checkout_attempts` (retry del mismo intento, no uno nuevo): la
     # `idempotency_key` es la misma las dos veces, y ahora también lo es
-    # `expires_at` — antes del fix I7, un `expires_at` recalculado con
+    # `expires_at` — antes de este fix, un `expires_at` recalculado con
     # `datetime.now(UTC)` habría roto esta invariante y Stripe habría
     # rechazado la reutilización de la clave con parámetros distintos.
     assert primera_clave == segunda_clave
@@ -924,7 +924,7 @@ async def test_idempotency_key_distinta_por_intento_de_checkout(
     primera_clave = primera_kwargs["options"]["idempotency_key"]
 
     # Caduca y se reintenta con el mismo email: reactiva la misma fila de
-    # `event_payments`, con `checkout_attempts` distinto (hallazgo #7 y #11).
+    # `event_payments`, con `checkout_attempts` distinto.
     async with SessionMaintenance() as session:
         registro = await session.scalar(
             select(EventRegistration).where(EventRegistration.email == "idem@example.com")

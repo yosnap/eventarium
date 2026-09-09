@@ -65,8 +65,8 @@ ORGANIZER = SystemRoleTemplate(
         # `REGISTRATIONS_*` faltaba en esta plantilla desde la fase 3 del PRD:
         # la migración 0010 las dio de alta por backfill a los organizadores
         # ya clonados en ese momento, pero una organización creada después de
-        # esa migración clonaba un organizador sin ellas (hallazgo del
-        # code-review de la fase 4, corregido aquí en la raíz).
+        # esa migración clonaba un organizador sin ellas, corregido aquí en
+        # la raíz.
         Permission.REGISTRATIONS_READ,
         Permission.REGISTRATIONS_WRITE,
         Permission.TICKETS_READ,

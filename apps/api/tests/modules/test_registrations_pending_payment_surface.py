@@ -1,5 +1,5 @@
 """Superficie de API del estado `pending_payment` (fase 6 del PRD, fase 1 de
-trabajo, hallazgo #6 del red-team): añadir el estado a la base de datos sin
+trabajo): añadir el estado a la base de datos sin
 actualizar `RegistrationStatus`/`RegistrationStats` en el mismo cambio rompe
 con 500 el listado y las estadísticas de inscripciones en cuanto exista una
 compra en curso.

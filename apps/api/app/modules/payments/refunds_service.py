@@ -3,8 +3,8 @@
 
 Tres reglas no negociables, todas con su propio test:
 
-- **Ninguna llamada de red a Stripe ocurre bajo un bloqueo de fila abierto**
-  (hallazgo #12). `preparar_reembolso_por_cancelacion` solo persiste una
+- **Ninguna llamada de red a Stripe ocurre bajo un bloqueo de fila abierto**.
+  `preparar_reembolso_por_cancelacion` solo persiste una
   intención en `event_payment_refunds`; el llamador real
   (`registrations.service._cancelar_inscripcion`) ya tiene la fila de la
   inscripción bloqueada, así que aquí no puede haber ni una sola llamada de
@@ -18,7 +18,7 @@ Tres reglas no negociables, todas con su propio test:
   (`_ejecutar_reembolso`), invocada por las mismas dos tareas
   (`process_refunds_task`/`sweep_stuck_refunds_task` en `core/tasks.py`).
 - **`idempotency_key = f"refund_{refund.id}"`**, derivada de la PK ya
-  persistida (hallazgo #11): un reintento — de la tarea o del barrido de
+  persistida: un reintento — de la tarea o del barrido de
   atascados — nunca genera una clave distinta, así que nunca duplica el
   cargo en Stripe.
 
@@ -59,8 +59,8 @@ MotivoSinReembolso = str  # "evento_ya_empezado" | "entrada_usada" | "fuera_de_p
 # `repository.refunds_atascados`/`suma_reembolsos_en_curso`: pasado este
 # número de intentos fallidos, se deja de reencolar y se registra en `ERROR`
 # en vez de seguir intentando en silencio. Única fuente de verdad en
-# `repository.INTENTOS_MAXIMOS_REEMBOLSO` (hallazgo M4 del code review de la
-# fase 6, ronda 3): antes era un literal `5` duplicado en ambos módulos.
+# `repository.INTENTOS_MAXIMOS_REEMBOLSO`: antes era un literal `5`
+# duplicado en ambos módulos.
 _INTENTOS_MAXIMOS = repository.INTENTOS_MAXIMOS_REEMBOLSO
 
 
@@ -73,7 +73,7 @@ class EvaluacionPolitica:
 def evaluar_politica_reembolso_automatico(
     *, evento: Event, ticket_used_at: datetime | None, ahora: datetime
 ) -> EvaluacionPolitica:
-    """Las cuatro condiciones del reembolso automático (hallazgo #13): pago
+    """Las cuatro condiciones del reembolso automático: pago
     con importe pendiente (comprobado por el llamador), evento no empezado,
     entrada no usada, y al menos `payment_refund_cutoff_hours` de margen
     hasta `starts_at`. Pura: no toca la base de datos, así que el mismo
@@ -188,7 +188,7 @@ def _marcar_intento_fallido(reembolso: EventPaymentRefund, mensaje: str) -> None
     como si arranca ya en `submitted`/`failed` (reintento de
     `reencolar_reembolsos_atascados`): sin esto, un reembolso que siempre
     falla en un reintento nunca alcanza `attempts >= 5` y se reencola para
-    siempre sin ninguna alarma (hallazgo C2 del code review de la fase 6)."""
+    siempre sin ninguna alarma."""
     reembolso.status = "failed"
     reembolso.attempts += 1
     reembolso.error = mensaje
@@ -200,7 +200,7 @@ def _marcar_intento_fallido(reembolso: EventPaymentRefund, mensaje: str) -> None
 
 async def _ejecutar_reembolso(refund_id: uuid.UUID, *, estados_permitidos: tuple[str, ...]) -> None:
     """Ejecuta una intención ya persistida. Nunca bajo un bloqueo de fila
-    mientras dura la llamada de red (hallazgo #12): bloquea, marca
+    mientras dura la llamada de red: bloquea, marca
     `submitted` y hace `commit` (fin del `async with`) antes de llamar a
     Stripe; vuelve a abrir transacción para escribir el resultado.
 
@@ -258,8 +258,8 @@ async def procesar_reembolsos_pendientes() -> None:
 async def reencolar_reembolsos_atascados() -> None:
     """`sweep_stuck_refunds_task`, hermana de
     `sweep_stuck_webhook_events_task`: retoma un reembolso cuya llamada a
-    Stripe pudo tener éxito pero cuya escritura posterior falló (hallazgo
-    #11). La misma `idempotency_key` evita duplicar el cargo en Stripe."""
+    Stripe pudo tener éxito pero cuya escritura posterior falló. La misma
+    `idempotency_key` evita duplicar el cargo en Stripe."""
     async with maintenance_session() as session:
         atascados = await repository.refunds_atascados(session)
     for refund_id in atascados:
@@ -299,7 +299,7 @@ async def _motivo_sin_reembolso_automatico(
     ya_tiene_reembolsos: bool,
 ) -> MotivoSinReembolso | None:
     """Motivo **derivado**, nunca una columna guardada (mismo criterio que
-    `used_count` de un código de descuento, hallazgo #19): se recalcula en
+    `used_count` de un código de descuento): se recalcula en
     cada lectura para no arrastrar un motivo obsoleto si el organizador
     reembolsa a mano después. Solo tiene sentido mostrarlo cuando la
     inscripción está cancelada, el pago sigue con importe pendiente y todavía

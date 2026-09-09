@@ -143,7 +143,7 @@ async def _estado_confirmable(
 ) -> str:
     """`"confirmed"` salvo que el evento sea de pago y no exista todavía un
     `event_payments` en `paid` para esta inscripción — en cuyo caso
-    `"pending_payment"` (fase 6 del PRD, hallazgo #1 de su red-team).
+    `"pending_payment"` (fase 6 del PRD).
 
     Capa 1 de la guarda de pago: invocada desde los dos `return "confirmed"`
     de `_evaluar_estado_por_capacidad` (cubre alta, verificación y
@@ -179,7 +179,7 @@ async def _evaluar_estado_por_capacidad(
     reservado por una compra en curso.
 
     `registration_id` se propaga a `_estado_confirmable` (capa 1 de la
-    guarda de pago, hallazgo #1): un evento `paid` nunca sale de aquí en
+    guarda de pago): un evento `paid` nunca sale de aquí en
     `"confirmed"` sin un pago ya verificado.
     """
     if evento.capacity is None:
@@ -233,8 +233,8 @@ async def _enviar_email_por_estado(session: AsyncSession, inscripcion: EventRegi
     `confirmed` (que no es una confirmación nueva) no crea una segunda
     entrada.
 
-    Cinturón de seguridad (capa 2 de la guarda de pago, fase 6 del PRD,
-    hallazgo #1): antes de emitir, si la inscripción está `confirmed` y su
+    Cinturón de seguridad (capa 2 de la guarda de pago, fase 6 del PRD):
+    antes de emitir, si la inscripción está `confirmed` y su
     evento es de pago, exige un `event_payments` en `paid`. La capa 1
     (`_estado_confirmable`) ya impide que los cuatro caminos conocidos
     lleguen aquí en ese estado sin haber pagado; esta capa protege el quinto
@@ -340,7 +340,7 @@ async def _cancelar_inscripcion(
     aquí. Los dos llamadores reales (`cancel_registration`,
     `cancel_registration_by_token`) ya tienen la fila de la inscripción
     bloqueada (`FOR UPDATE`) antes de entrar, así que cualquier llamada de
-    red en esta función ocurriría con ese bloqueo abierto (hallazgo #12).
+    red en esta función ocurriría con ese bloqueo abierto.
     """
     if inscripcion.status in ("cancelled", "rejected"):
         return False
@@ -355,7 +355,7 @@ async def _cancelar_inscripcion(
     # (`ESTADOS_REEMBOLSABLES`): un pago todavía `pending` (p. ej. una
     # inscripción `pending_payment` cancelada por el organizador antes de
     # pagar) no pasa por ahí y quedaría reteniendo cupo/uso de código para
-    # siempre (hallazgo IMP-1 del code review de la fase 6, ronda 3). No-op
+    # siempre. No-op
     # si ya está `expired` — el barrido de caducados (`expirar_pagos_pendientes`)
     # ya lo deja así antes de llamar a esta misma función.
     await payments_repository.expirar_pago_pendiente_de_inscripcion(
@@ -368,8 +368,8 @@ async def _cancelar_inscripcion(
     await revocar_entrada(session, organization_id=organization_id, registration_id=inscripcion.id)
 
     # Una plaza está reservada si está `confirmed`, si está `waitlisted` en
-    # mitad de una promoción, o si está `pending_payment` (fase 6 del PRD,
-    # hallazgo #5) — mismo predicado de estado que usa
+    # mitad de una promoción, o si está `pending_payment` (fase 6 del PRD)
+    # — mismo predicado de estado que usa
     # `count_reserved_registrations` para decidir si una fila ocupa un hueco.
     # Sin condición de vigencia aquí (igual que la rama `waitlisted`, que
     # tampoco la lleva): esta función cancela la fila en el mismo instante en
@@ -435,7 +435,7 @@ async def submit_registration(
         session, event.organization_id, event.id, email_normalizado
     )
     if existente is not None:
-        # Reintento tras caducar (hallazgo #7): una compra abandonada de un
+        # Reintento tras caducar: una compra abandonada de un
         # evento de pago que nunca llegó a moverse dinero (su pago sigue en
         # `pending`/`expired`) se reactiva en vez de bloquear a la persona
         # para siempre contra el `UNIQUE(event_id, email)`. Reutiliza la
@@ -624,9 +624,9 @@ async def reject_registration(
     `confirmed` — a diferencia de `cancel_registration`, rechazar nunca libera
     aforo ni dispara una promoción de lista de espera.
 
-    Sí libera el pago (hallazgo IMP-1 del code review de la fase 6, ronda 3):
-    `checkout_service.iniciar_compra` ya deja un `event_payments` en
-    `pending` para una inscripción `pending_approval` (hallazgo C1), y
+    Sí libera el pago: `checkout_service.iniciar_compra` ya deja un
+    `event_payments` en
+    `pending` para una inscripción `pending_approval`, y
     ninguna ventana de tiempo lo iba a expirar nunca si la aprobación
     terminaba en rechazo — `expirar_pago_pendiente_de_inscripcion` es un
     no-op si el evento es gratuito y nunca hubo pago que crear.
@@ -711,7 +711,7 @@ async def confirm_waitlist_promotion(session: AsyncSession, *, token: str) -> Ev
     momento de la promoción (`_promote_next_waitlisted`), nadie más puede
     disputársela mientras está `waitlisted` con `waitlist_promoted_at` fijado.
 
-    Cuarto camino de la guarda de pago (fase 6 del PRD, hallazgo #1): no pasa
+    Cuarto camino de la guarda de pago (fase 6 del PRD): no pasa
     por `_evaluar_estado_por_aforo` ni por `_evaluar_estado_por_capacidad`
     (la plaza ya está reservada, no hay aforo que revaluar), así que llama a
     `_estado_confirmable` directamente en vez de asignar `"confirmed"` a

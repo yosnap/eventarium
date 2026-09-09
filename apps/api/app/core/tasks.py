@@ -268,7 +268,7 @@ async def send_registration_cancelled_email(
 ) -> None:
     """Cancelación de una inscripción, por el organizador o por autocancelación.
 
-    `reembolso` (fase 6 del PRD, fase 5 de trabajo, hallazgo #13) distingue
+    `reembolso` (fase 6 del PRD, fase 5 de trabajo) distingue
     los dos casos de una cancelación con pago: `"en_curso"` (política
     cumplida, se ha creado la intención de reembolso) o `"sin_reembolso"`
     (había importe pendiente pero la política de plazo lo descarta). `None`
@@ -306,8 +306,8 @@ async def send_registration_payment_link_email(
     trabajo): verificación de email, aprobación manual y promoción de lista
     de espera de un evento de pago. Encolado por
     `dispatch_pending_payment_links_task`, nunca dentro de la petición que
-    verificó/aprobó/promovió (hallazgo #12: sería una llamada de red a
-    Stripe bajo bloqueos de fila)."""
+    verificó/aprobó/promovió: sería una llamada de red a
+    Stripe bajo bloqueos de fila."""
     base = await base_url_de_organizacion(uuid.UUID(organization_id))
     enlace_cancelacion = f"{base}/cancelar-inscripcion?token={cancel_token}"
     await get_email_provider().send(
@@ -354,9 +354,9 @@ async def process_stripe_webhook_task(event_id: str) -> None:
 @broker.task(schedule=[{"cron": "*/10 * * * *"}])
 async def sweep_stuck_webhook_events_task() -> None:
     """Cada 10 minutos: reencola los eventos `received` atascados entre la
-    cola y el worker, y los `failed` con reintentos disponibles (hallazgo #9:
-    sin esto, un evento perdido deja dinero cobrado sin inscripción
-    confirmada, para siempre)."""
+    cola y el worker, y los `failed` con reintentos disponibles: sin esto, un
+    evento perdido deja dinero cobrado sin inscripción confirmada, para
+    siempre."""
     from app.core.database import maintenance_session
     from app.modules.payments import repository as payments_repository
 
@@ -369,7 +369,7 @@ async def sweep_stuck_webhook_events_task() -> None:
 @broker.task(schedule=[{"cron": "0 3 * * *"}])
 async def purge_stripe_webhook_events_task() -> None:
     """Diaria: purga `stripe_webhook_events` más antiguos que
-    `stripe_webhook_retention_days` (hallazgo #15)."""
+    `stripe_webhook_retention_days`."""
     from app.core.database import maintenance_session
     from app.modules.payments import repository as payments_repository
 
@@ -395,8 +395,8 @@ async def process_refunds_task() -> None:
 async def sweep_stuck_refunds_task() -> None:
     """Cada 10 minutos: hermana de `sweep_stuck_webhook_events_task`. Retoma
     un reembolso cuya llamada a Stripe pudo tener éxito pero cuya escritura
-    posterior falló (hallazgo #11: sin esto, la fila queda `submitted` para
-    siempre y nadie se entera de si el dinero salió o no)."""
+    posterior falló: sin esto, la fila queda `submitted` para siempre y nadie
+    se entera de si el dinero salió o no."""
     from app.modules.payments.refunds_service import reencolar_reembolsos_atascados
 
     await reencolar_reembolsos_atascados()

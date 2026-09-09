@@ -6,7 +6,7 @@ destino siempre por `repository.get_cuenta_activa` — nunca un valor recibido
 del cliente.
 
 **Orden de adquisición de bloqueos, único para todo este módulo** (fase 3 de
-trabajo, hallazgo #12 del red-team): `event_registrations` → `events` →
+trabajo): `event_registrations` → `events` →
 `event_ticket_types` → `event_discount_codes`. Es el mismo orden que ya usan
 los caminos existentes (`registrations/service.py:_cancelar_inscripcion`
 bloquea la inscripción y después el evento vía `lock_event_for_capacity`);

@@ -43,9 +43,9 @@ def _cliente() -> stripe.StripeClient:
 
 
 def _traducir_error(exc: stripe.StripeError) -> ExternalServiceError:
-    """Registra el error real de Stripe (hallazgo I9 del code review de la
-    fase 6: antes se descartaba sin más, sin dejar ningún rastro con el que
-    diagnosticar un fallo de la pasarela) y lo traduce a un mensaje genérico
+    """Registra el error real de Stripe (antes se descartaba sin más, sin
+    dejar ningún rastro con el que diagnosticar un fallo de la pasarela) y lo
+    traduce a un mensaje genérico
     para el cliente HTTP — nunca el detalle crudo del SDK, que puede llevar
     identificadores u otra información interna de la cuenta de Stripe."""
     logger.warning("Error de Stripe: %s", exc)
@@ -135,12 +135,12 @@ async def crear_sesion_checkout(
     client_reference_id: str | None = None,
     metadata: dict[str, str] | None = None,
 ) -> SesionDeCheckoutCreada:
-    """`payment_method_types=["card"]` explícito (hallazgo #3 de la fase 6):
-    sin él, el organizador podría habilitar métodos de pago diferidos desde
-    su propio Dashboard de Connect y un `checkout.session.completed`
-    llegaría con `payment_status="unpaid"` para un método que todavía no ha
-    resuelto. `client_reference_id`/`metadata` son informativos, nunca la
-    fuente de verdad para localizar el pago (hallazgo #2): el webhook busca
+    """`payment_method_types=["card"]` explícito: sin él, el organizador
+    podría habilitar métodos de pago diferidos desde su propio Dashboard de
+    Connect y un `checkout.session.completed` llegaría con
+    `payment_status="unpaid"` para un método que todavía no ha resuelto.
+    `client_reference_id`/`metadata` son informativos, nunca la
+    fuente de verdad para localizar el pago: el webhook busca
     siempre por `stripe_checkout_session_id`.
     """
     cliente = _cliente()
@@ -194,8 +194,8 @@ async def expirar_sesion_checkout(
     *, stripe_account_id: str, stripe_checkout_session_id: str
 ) -> None:
     """Expira una Checkout Session viva en Stripe antes de reutilizar su fila
-    de `event_payments` para una nueva sesión (hallazgo I8 del code review de
-    la fase 6): sin esto, si el comprador paga la URL antigua ya entregada por
+    de `event_payments` para una nueva sesión: sin esto, si el comprador
+    paga la URL antigua ya entregada por
     correo, el webhook no encuentra el pago por `stripe_checkout_session_id`
     (esa columna ya apunta a la sesión nueva) y el dinero queda cobrado sin
     inscripción ni entrada.
@@ -228,7 +228,7 @@ async def consultar_sesion_checkout(
     trabajo: recupera un webhook perdido en vez de cancelar una compra que sí
     se pagó). Único punto del módulo que recibe el `acct_id` como `str`
     suelto: siempre procede de `event_payments.stripe_account_id`, nunca de
-    una petición (hallazgo #8).
+    una petición.
     """
     cliente = _cliente()
     try:

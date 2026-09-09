@@ -39,8 +39,8 @@ class OrganizationStripeAccount(Base, TimestampMixin):
 
     Una organización puede tener varias filas a lo largo del tiempo, pero
     **una sola activa** (`deauthorized_at IS NULL`): el índice único es
-    parcial, no `UNIQUE(organization_id)` a secas (hallazgo #17 del red-team
-    de la fase 6). Con la constraint simple, una organización que desconecta
+    parcial, no `UNIQUE(organization_id)` a secas. Con la constraint simple,
+    una organización que desconecta
     su cuenta no podría reconectarse nunca sin tocar la base de datos a mano,
     y se perdería el `acct_id` con el que se cobraron los pagos antiguos —
     necesario para reembolsarlos. Por eso `event_payments` copia su propio
@@ -131,7 +131,7 @@ class EventTicketType(Base, TimestampMixin):
 class EventDiscountCode(Base, TimestampMixin):
     """Código de descuento de un evento, gestionado en base de datos propia.
 
-    **Sin columna `used_count`** (hallazgo #19 del red-team de la fase 6): el
+    **Sin columna `used_count`**: el
     consumo de un código se deriva de un `COUNT` sobre `event_payments` en los
     estados consumibles (`pending`, `paid`, `partially_refunded`, `refunded`),
     ejecutado con la fila del código bloqueada (`FOR UPDATE`, fase 3/4 de
@@ -195,8 +195,8 @@ class EventPayment(Base, TimestampMixin):
     """Pago de una compra de entrada, con su ciclo de vida de Checkout.
 
     `stripe_account_id` **se copia aquí**, no se resuelve consultando a la
-    organización en el momento de reembolsar (hallazgos #8 y #17 del red-team
-    de la fase 6): un pago cobrado en una cuenta que después se desconectó
+    organización en el momento de reembolsar: un pago cobrado en una cuenta
+    que después se desconectó
     solo se puede reembolsar contra *esa* cuenta.
     """
 
@@ -213,8 +213,7 @@ class EventPayment(Base, TimestampMixin):
         # que es `NOT NULL`. El borrado RGPD
         # (`app/modules/admin/service.py:borrar_inscrito_por_email`) borra la
         # fila de `event_registrations`; sin este `ondelete`, ese borrado
-        # fallaría con `IntegrityError` en cuanto exista un pago (hallazgo
-        # #15).
+        # fallaría con `IntegrityError` en cuanto exista un pago.
         ForeignKeyConstraint(
             ["registration_id", "organization_id"],
             ["event_registrations.id", "event_registrations.organization_id"],
@@ -235,7 +234,7 @@ class EventPayment(Base, TimestampMixin):
         ),
         UniqueConstraint("id", "organization_id", name="uq_event_payments_id_organization_id"),
         # Una inscripción, un pago: un reintento tras caducar reutiliza la
-        # fila (hallazgo #7), no crea una segunda.
+        # fila, no crea una segunda.
         UniqueConstraint("registration_id", name="uq_event_payments_registration_id"),
         UniqueConstraint(
             "stripe_checkout_session_id", name="uq_event_payments_stripe_checkout_session_id"
@@ -287,8 +286,8 @@ class EventPaymentRefund(Base, TimestampMixin):
     """Intención de reembolso, persistida **antes** de llamar a Stripe.
 
     Sin esta fila, un reembolso que Stripe acepta y cuya transacción de base
-    de datos falla después es dinero devuelto sin ningún registro (hallazgos
-    #11 y #12 del red-team de la fase 6). La `idempotency_key` que se envía a
+    de datos falla después es dinero devuelto sin ningún registro. La
+    `idempotency_key` que se envía a
     Stripe se deriva de esta PK (`refund_{id}`) en la fase 5 de trabajo, no se
     guarda en ninguna columna: así un reintento de la tarea no puede generar
     una clave distinta.
@@ -339,7 +338,7 @@ class StripeWebhookEvent(Base):
     `cookie_consents` (`0012_patrocinio_legal_auditoria.py`). Solo la
     escribe/lee `app_maintainer`.
 
-    `payload` **no es el evento crudo de Stripe** (hallazgo #15): es una
+    `payload` **no es el evento crudo de Stripe**: es una
     proyección con lista blanca de campos, nunca datos personales del
     comprador (`customer_details.email`/`address` de un
     `checkout.session.completed`, por ejemplo). Lo que la fase de trabajo que

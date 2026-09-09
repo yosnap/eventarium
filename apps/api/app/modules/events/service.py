@@ -47,15 +47,15 @@ async def _asegurar_venta_posible(
     tardar días. Lo único que exige `charges_enabled = true` es que el
     resultante sea `published` **y** `paid` a la vez.
 
-    Invocada desde `create_event` **y** `update_event` (hallazgo #4 del
-    red-team): `create_event` no validaba nada de estado y aceptaba un
+    Invocada desde `create_event` **y** `update_event`: `create_event` no
+    validaba nada de estado y aceptaba un
     evento ya `published`/`paid` de alta, así que la guarda no puede vivir
     solo en la edición.
 
     `event_id` solo llega desde `update_event` (`create_event` no tiene
     todavía una fila de evento sobre la que colgar tipos de entrada). Con él,
-    exige al menos un tipo de entrada vigente (hallazgo C1b del code review de
-    la fase 6): el formulario público decide si un evento «es de pago» por si
+    exige al menos un tipo de entrada vigente: el formulario público decide
+    si un evento «es de pago» por si
     la lista de tipos de entrada vendibles está vacía o no
     (`registration-page.ts`), así que un evento `paid` publicado sin ninguno
     la confundiría con uno gratuito.
@@ -103,7 +103,7 @@ async def create_event(
     # `event_id=evento.id` tras el `flush` (no antes de crearlo, como hacía
     # esta llamada originalmente): sin él, un alta directa con
     # `status=published`/`registration_mode=paid` se saltaba la exigencia de
-    # al menos un tipo de entrada vigente (hallazgo C1b), porque
+    # al menos un tipo de entrada vigente, porque
     # `_asegurar_venta_posible` solo la comprueba cuando recibe `event_id`. Si
     # esto falla, el `session.begin()` de `get_db` deshace también el
     # `flush` de arriba: nunca queda un evento a medio crear.

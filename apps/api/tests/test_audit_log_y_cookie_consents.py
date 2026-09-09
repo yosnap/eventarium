@@ -3,8 +3,8 @@
 Solo `app_maintainer` (`SessionMaintenance`, BYPASSRLS) puede escribir en
 `audit_log` — `app_user` no tiene ningún privilegio sobre ella (comprobado en
 `test_sponsors_legal_auditoria_migracion.py`). Aquí se comprueba que la
-adición de ambas tablas a `TABLAS` en `conftest.py` (hallazgo #15 del
-red-team) realmente evita que una fila de un test contamine al siguiente.
+adición de ambas tablas a `TABLAS` en `conftest.py` realmente evita que una
+fila de un test contamine al siguiente.
 """
 
 from __future__ import annotations

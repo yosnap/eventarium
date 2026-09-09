@@ -280,8 +280,8 @@ class CheckoutStartRequest(BaseModel):
 
 
 class CheckoutStartResponse(BaseModel):
-    """Respuesta siempre con la misma forma (hallazgo de no filtrar si el
-    email ya estaba inscrito): `checkout_url` es `null` cuando la
+    """Respuesta siempre con la misma forma, para no filtrar si el
+    email ya estaba inscrito: `checkout_url` es `null` cuando la
     inscripción existente no es pagable ahora mismo."""
 
     message: str

@@ -1,9 +1,8 @@
 """Compra pública de entradas: Checkout Session, enlaces de pago diferidos y
 barrido de pagos pendientes caducados (fase 6 del PRD, fase 4 de trabajo).
 
-**Nunca una llamada de red a Stripe con bloqueos de fila abiertos**
-(hallazgo #12 del red-team). Por eso la compra son dos transacciones
-distintas, nunca una sola:
+**Nunca una llamada de red a Stripe con bloqueos de fila abiertos**. Por eso
+la compra son dos transacciones distintas, nunca una sola:
 
 - **T1** (`iniciar_compra`, hasta su `await session.commit()`): con
   bloqueos, sin red. Crea o reactiva la inscripción
@@ -52,7 +51,7 @@ MENSAJE_GENERICO = (
     "Si los datos son correctos, en breve recibirás un correo con los siguientes pasos."
 )
 
-# Margen técnico sobre la ventana del evento (hallazgo #16): el tiempo entre
+# Margen técnico sobre la ventana del evento: el tiempo entre
 # calcular `expires_at` y que Stripe reciba la petición podría, sin margen,
 # cruzar su mínimo de 30 minutos cuando la ventana del evento está justo en
 # ese mínimo.
@@ -178,8 +177,8 @@ async def iniciar_compra(
                 discount_cents=tipo.price_cents - total,
                 currency=tipo.currency,
             )
-            # Persistidos en la propia inscripción (fase 6 del PRD, hallazgo
-            # C1 del code review): `approve_registration` y
+            # Persistidos en la propia inscripción (fase 6 del PRD):
+            # `approve_registration` y
             # `confirm_waitlist_promotion` no reciben ningún tipo de entrada
             # ni código de descuento por parámetro, así que sin esto no
             # tendrían forma de saber qué pago reutilizar cuando la
@@ -197,10 +196,10 @@ async def iniciar_compra(
         # la fila del pago ya persiste sin ningún bloqueo de fila abierto ---
 
         if sesion_a_expirar is not None:
-            # Fuera de cualquier bloqueo de fila (hallazgo #12), y también
+            # Fuera de cualquier bloqueo de fila, y también
             # fuera de T2: si esto fallara no debe impedir crear la sesión
             # nueva, que es la parte que de verdad bloquearía la compra
-            # (hallazgo I8, `stripe_client.expirar_sesion_checkout` no deja
+            # (`stripe_client.expirar_sesion_checkout` no deja
             # escapar el error).
             await stripe_gateway.expirar_sesion_checkout(
                 stripe_account_id=sesion_a_expirar.stripe_account_id,
@@ -262,17 +261,16 @@ async def crear_sesion_de_pago(session: AsyncSession, *, payment_id: uuid.UUID) 
     # Derivado de `payment_expires_at`, ya persistido por
     # `checkout_service.iniciar_compra`/`registrations.service` al dejar la
     # inscripción en `pending_payment` — **nunca** recalculado con
-    # `datetime.now(UTC)` en cada llamada (hallazgo I7 del code review de la
-    # fase 6): un reintento (mismo `checkout_attempts`, misma
-    # `idempotency_key`) que recalculara `expires_at` en cada intento
-    # generaría un `expires_at` distinto cada vez, y Stripe rechaza reutilizar
-    # una `idempotency_key` con parámetros distintos.
+    # `datetime.now(UTC)` en cada llamada: un reintento (mismo
+    # `checkout_attempts`, misma `idempotency_key`) que recalculara
+    # `expires_at` en cada intento generaría un `expires_at` distinto cada
+    # vez, y Stripe rechaza reutilizar una `idempotency_key` con parámetros
+    # distintos.
     if inscripcion is None or inscripcion.payment_expires_at is None:
-        # Nunca debería pasar en producción (hallazgo I7 del code review de
-        # la fase 6): todos los caminos que llegan aquí fijan
-        # `payment_expires_at` antes de llamar a esta función. Si este
-        # `logger.warning` aparece alguna vez, el bug I7 (expires_at
-        # recalculado en cada llamada, romper la idempotency_key) podría
+        # Nunca debería pasar en producción: todos los caminos que llegan
+        # aquí fijan `payment_expires_at` antes de llamar a esta función. Si
+        # este `logger.warning` aparece alguna vez, un `expires_at`
+        # recalculado en cada llamada que rompa la idempotency_key podría
         # estar volviendo de forma silenciosa.
         logger.warning(
             "Pago %s sin payment_expires_at persistido: derivando expires_at con "
@@ -338,8 +336,8 @@ async def confirmar_pago_y_registro(
     `registrations/service.py`.
 
     Exige el estado de partida exacto — `pago.status == "pending"` **y**
-    `inscripcion.status == "pending_payment"` — antes de aplicar nada
-    (hallazgo I5 del code review de la fase 6): comprobar cada campo por
+    `inscripcion.status == "pending_payment"` — antes de aplicar nada:
+    comprobar cada campo por
     separado (`pago.status != "paid"`, `inscripcion.status != "confirmed"`)
     dejaba confirmar de nuevo un pago `refunded`/`expired` o una inscripción
     `cancelled`, siempre que el otro campo aún no hubiera cambiado. Devuelve
@@ -373,15 +371,15 @@ async def confirmar_pago_y_registro(
 async def dispatch_pending_payment_links() -> None:
     """`dispatch_pending_payment_links_task`: crea (o reintenta) la Checkout
     Session de los caminos 2, 3 y 4, fuera de la petición que verificó,
-    aprobó o promovió (hallazgo #12), y encola el correo con el enlace.
+    aprobó o promovió, y encola el correo con el enlace.
     Idempotente: `crear_sesion_de_pago` no crea una segunda sesión ni un
     segundo correo una vez `checkout_link_delivered_at` está fijado.
 
-    Una `maintenance_session` **por pago**, no una sola para todo el bucle
-    (hallazgo I4 del code review de la fase 6): con una única sesión, el
+    Una `maintenance_session` **por pago**, no una sola para todo el bucle:
+    con una única sesión, el
     `flush` del pago anterior deja sus bloqueos de fila abiertos durante la
-    llamada de red a Stripe del pago siguiente — justo lo que el hallazgo #12
-    prohíbe. El correo se encola **después** de que su sesión haga `commit`
+    llamada de red a Stripe del pago siguiente — justo lo que nunca debe
+    ocurrir. El correo se encola **después** de que su sesión haga `commit`
     (fin del `async with` de ese pago), nunca antes: encolarlo dentro de la
     transacción arriesgaría enviar un enlace de una fila que después no
     llegara a persistir.
@@ -427,7 +425,7 @@ async def expirar_pagos_pendientes() -> None:
     la consulta ocurre entre dos secciones bloqueadas por separado.
 
     `repository.pagos_pendientes_caducados` devuelve dos grupos de
-    candidatos (hallazgo IMP-1 del code review de la fase 6, ronda 3): los de
+    candidatos: los de
     siempre (`pending_payment` cuya ventana ya venció, sí consultados contra
     Stripe) y los de la red de seguridad (`cancelled`/`rejected` con un pago
     todavía `pending` que se les quedó huérfano) — a estos últimos nunca se
