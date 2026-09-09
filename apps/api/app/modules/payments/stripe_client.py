@@ -157,8 +157,12 @@ async def crear_sesion_checkout(
     if metadata is not None:
         params["metadata"] = metadata
     try:
+        # `params` se construye de forma incremental (los campos opcionales
+        # solo se añaden si vienen informados), así que no encaja con el
+        # `TypedDict` estricto de los stubs del SDK sin repetir la misma
+        # llamada dos veces según haya o no `client_reference_id`/`metadata`.
         sesion = await cliente.v1.checkout.sessions.create_async(
-            params=params,
+            params=params,  # type: ignore[arg-type]
             options={
                 "stripe_account": cuenta.stripe_account_id,
                 "idempotency_key": idempotency_key,

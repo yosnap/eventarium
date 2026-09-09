@@ -53,6 +53,12 @@ def _cargar_env_de_tests() -> None:
 
 _cargar_env_de_tests()
 
+# La fijación `fake` (cliente de Stripe simulado) vive en `payments_test_helpers.py`
+# y la usan `test_payments_checkout.py` y `test_payments_webhooks.py`: registrarla
+# como plugin evita que cada módulo la importe por nombre, que chocaría (F811) con
+# el propio parámetro `fake` de cada test que la solicita como fijación.
+pytest_plugins = ["tests.payments_test_helpers"]
+
 import pytest  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
 from sqlalchemy import select, text  # noqa: E402

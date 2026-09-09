@@ -272,6 +272,32 @@ test de la función de saneado en sí (`sanitize-markdown.spec.ts`) y uno en el
 backend que confirma que el contenido viaja como string dentro de JSON, nunca
 como HTML de la propia respuesta.
 
+## Checklist manual — Fase 6 del PRD (pagos con Stripe Connect)
+
+Revisado sobre las cinco pantallas nuevas: `/admin/organization` (conexión
+Stripe, `stripe-connection.ts`), `/admin/events/:id` → tipos de entrada
+(`event-ticket-types.ts`) y códigos de descuento (`event-discount-codes.ts`),
+`/admin/events/:id` → pagos y reembolsos (`event-payments.ts`), el paso de
+compra del formulario público (`registration-page.ts`) y la pantalla de
+retorno de pago (`payment-return.ts`).
+
+| # | Criterio WCAG 2.1 AA | Cómo se ha comprobado | Resultado |
+|---|---|---|---|
+| 4.1.3 | Mensajes de estado | El estado de la conexión Stripe (`stripe-connection.ts:47`) y el de la pantalla de retorno de pago (`payment-return.ts:47`) viven en un `<div aria-live="polite">`: un lector de pantalla anuncia el cambio de "conectando"/"pendiente" a "conectado"/"pagado" sin que la persona tenga que volver a enfocar nada | ✅ |
+| 4.1.3 | Mensajes de estado | El mensaje de éxito/error tras reembolsar en `event-payments.ts:85` usa `role="status" aria-live="polite"`, mismo patrón que el resto de formularios del panel | ✅ |
+| 4.1.2 | Nombre, función, valor | Los botones de reordenar tipos de entrada (`event-ticket-types.ts:80,88`) llevan `aria-label` con el nombre de la acción, mismo patrón ya usado por `sponsor-tiers-page` en la fase 5 | ✅ |
+| 2.1.1 | Teclado | Los formularios de tipo de entrada, código de descuento y el paso de compra del formulario público usan controles nativos (`input`/`select`/`button`), sin manejadores de solo ratón | ✅ |
+| 1.3.1 | Encabezados y estructura | Cada pantalla nueva del panel tiene un único `h1`/`h2` propio dentro de su tarjeta, sin saltarse niveles | ✅ |
+| — | Cobertura automática | `stripe-connection.spec.ts`, `event-ticket-types.spec.ts`, `event-discount-codes.spec.ts`, `event-payments.spec.ts`, `registration-page.spec.ts` y `payment-return.spec.ts`: cero violaciones de axe en cada estado con datos (sin conectar/conectado/desautorizado, lista vacía/con tipos, con/sin código de descuento aplicado, pago pendiente/pagado/reembolsado) | ✅ |
+
+**El paso de compra no introduce un widget de pago propio.** Con Checkout
+hosted, la página de pago la aloja Stripe: el formulario público solo pide
+tipo de entrada, código opcional y los datos ya existentes de inscripción, y
+redirige. No hay ningún campo de tarjeta ni iframe de Stripe.js que auditar
+en el frontend de este proyecto — el único punto de accesibilidad de pago
+que corresponde a esta fase es antes (selección) y después (retorno) del
+propio Checkout.
+
 ## Al añadir una pantalla
 
 1. Externaliza todos los textos a `es-ES.json`.

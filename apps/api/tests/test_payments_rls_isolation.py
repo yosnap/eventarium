@@ -265,9 +265,7 @@ async def test_no_se_puede_crear_un_pago_sobre_un_evento_ajeno(
 
     async with SessionMaintenance() as session:
         encontrado = await session.scalar(
-            text(
-                "SELECT count(*) FROM event_payments WHERE stripe_account_id = 'acct_intruso'"
-            )
+            text("SELECT count(*) FROM event_payments WHERE stripe_account_id = 'acct_intruso'")
         )
     assert encontrado == 0
 

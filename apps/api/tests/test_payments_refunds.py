@@ -516,9 +516,7 @@ async def test_reembolso_parcial_no_revoca_salvo_casilla(
     organizacion: OrganizacionDePrueba,
 ) -> None:
     stripe_account_id = await _crear_organizacion_con_stripe(organizacion)
-    _, _, payment_id = await _crear_evento_pagado(
-        organizacion, stripe_account_id=stripe_account_id
-    )
+    _, _, payment_id = await _crear_evento_pagado(organizacion, stripe_account_id=stripe_account_id)
 
     async with SessionApp() as session:
         async with session.begin():

@@ -326,9 +326,14 @@ def _crear_tablas() -> None:
         ),
     )
     op.create_index(
-        op.f("ix_event_payments_organization_id"), "event_payments", ["organization_id"], unique=False
+        op.f("ix_event_payments_organization_id"),
+        "event_payments",
+        ["organization_id"],
+        unique=False,
     )
-    op.create_index(op.f("ix_event_payments_event_id"), "event_payments", ["event_id"], unique=False)
+    op.create_index(
+        op.f("ix_event_payments_event_id"), "event_payments", ["event_id"], unique=False
+    )
     # Consulta del panel de pagos por evento.
     op.create_index(
         "ix_event_payments_event_id_status", "event_payments", ["event_id", "status"], unique=False
@@ -551,18 +556,14 @@ def downgrade() -> None:
         op.execute(f"ALTER TABLE {tabla} NO FORCE ROW LEVEL SECURITY")
         op.execute(f"ALTER TABLE {tabla} DISABLE ROW LEVEL SECURITY")
 
-    op.drop_constraint(
-        "ck_events_payment_checkout_window_minutes_rango", "events", type_="check"
-    )
+    op.drop_constraint("ck_events_payment_checkout_window_minutes_rango", "events", type_="check")
     op.drop_column("events", "payment_checkout_window_minutes")
     op.drop_column("event_registrations", "payment_expires_at")
 
     op.drop_table("stripe_webhook_events")
 
     op.drop_index("ix_event_payment_refunds_status", table_name="event_payment_refunds")
-    op.drop_index(
-        op.f("ix_event_payment_refunds_payment_id"), table_name="event_payment_refunds"
-    )
+    op.drop_index(op.f("ix_event_payment_refunds_payment_id"), table_name="event_payment_refunds")
     op.drop_index(
         op.f("ix_event_payment_refunds_organization_id"), table_name="event_payment_refunds"
     )

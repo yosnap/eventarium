@@ -191,9 +191,7 @@ async def test_crear_reembolso_usa_la_cuenta_del_pago(fake: FakeStripeClient) ->
 
 
 def _firmar(payload: bytes, timestamp: int, secreto: str) -> str:
-    firma = stripe.WebhookSignature._compute_signature(
-        f"{timestamp}.{payload.decode()}", secreto
-    )
+    firma = stripe.WebhookSignature._compute_signature(f"{timestamp}.{payload.decode()}", secreto)
     return f"t={timestamp},v1={firma}"
 
 
