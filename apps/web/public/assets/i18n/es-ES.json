@@ -745,6 +745,47 @@
         "vigenteDesde": "Vigente desde",
         "vigenteHasta": "Vigente hasta",
         "error": "No hemos podido completar la operación."
+      },
+      "payments": {
+        "titulo": "Pagos",
+        "enlaceDesdeEvento": "Ver pagos del evento",
+        "sinPagos": "Todavía no hay ningún pago en este evento.",
+        "personaBorrada": "Persona borrada (RGPD)",
+        "columnaPersona": "Persona",
+        "columnaTipo": "Tipo de entrada",
+        "columnaEstado": "Estado",
+        "columnaImporte": "Importe",
+        "columnaReembolsado": "Reembolsado",
+        "columnaAcciones": "Acciones",
+        "reembolsar": "Reembolsar",
+        "reembolsoEnCurso": "Reembolso en curso",
+        "reembolsoAgotado": "Reembolso fallido: ha agotado sus reintentos",
+        "reembolsoSolicitado": "Reembolso en curso: se ejecutará en los próximos minutos.",
+        "error": "No hemos podido completar la operación.",
+        "estado": {
+          "pending": "Pendiente de pago",
+          "paid": "Pagado",
+          "refunded": "Reembolsado",
+          "partially_refunded": "Reembolsado parcialmente",
+          "expired": "Caducado"
+        },
+        "sinReembolsoAutomatico": {
+          "evento_ya_empezado": "Sin reembolso automático: el evento ya ha empezado",
+          "entrada_usada": "Sin reembolso automático: la entrada ya se usó",
+          "fuera_de_plazo": "Sin reembolso automático: fuera del plazo de cancelación"
+        },
+        "dialogo": {
+          "titulo": "Reembolsar pago",
+          "total": "Importe total",
+          "yaReembolsado": "Ya reembolsado",
+          "pendiente": "Pendiente",
+          "importeAReembolsar": "Importe a reembolsar (€)",
+          "importeInvalido": "Indica un importe válido, mayor que 0.",
+          "importeSuperaPendiente": "El importe supera el importe pendiente de este pago.",
+          "revocarEntrada": "Revocar también la entrada",
+          "totalSiempreRevoca": "Un reembolso total revoca siempre la entrada.",
+          "confirmar": "Confirmar reembolso"
+        }
       }
     },
     "sponsorTiersNav": "Niveles de patrocinio",

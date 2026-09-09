@@ -1,5 +1,4 @@
 import { HttpClient } from '@angular/common/http';
-import { DatePipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -75,7 +74,7 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
 @Component({
   selector: 'app-event-payments',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, DatePipe, Alert, Button, Card],
+  imports: [TranslocoDirective, Alert, Button, Card],
   template: `
     <ng-container *transloco="let t">
       <app-card [heading]="t('admin.events.payments.titulo')">

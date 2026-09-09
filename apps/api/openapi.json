@@ -4676,6 +4676,115 @@
         }
       }
     },
+    "/api/v1/events/{event_id}/payments": {
+      "get": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Listar los pagos de un evento",
+        "description": "Estado, importes y reembolsos en curso de cada pago, con el motivo de «sin reembolso automático» cuando aplica — siempre derivado, nunca una columna guardada.",
+        "operationId": "list_payments_api_v1_events__event_id__payments_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PaymentListItem"
+                  },
+                  "title": "Response List Payments Api V1 Events  Event Id  Payments Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/payments/{payment_id}/refund": {
+      "post": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Reembolsar un pago, total o parcialmente",
+        "description": "Escribe la intención en el mismo outbox que el reembolso automático de una cancelación: nunca llama a Stripe en esta petición, así que un importe superior al pendiente falla con 409 antes de cualquier llamada de red. Un reembolso total revoca siempre la entrada, ignorando `revoke_ticket`; uno parcial no revoca salvo que se pida explícitamente.",
+        "operationId": "refund_payment_api_v1_events__event_id__payments__payment_id__refund_post",
+        "parameters": [
+          {
+            "name": "payment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Payment Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundAcceptedResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/public/events/{slug}/ticket-types": {
       "get": {
         "tags": [
@@ -7901,6 +8010,187 @@
         ],
         "title": "Page[SponsorTierResponse]"
       },
+      "PaymentListItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "registration_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registration Id"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "ticket_type_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticket Type Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "paid",
+              "refunded",
+              "partially_refunded",
+              "expired"
+            ],
+            "title": "Status"
+          },
+          "amount_cents": {
+            "type": "integer",
+            "title": "Amount Cents"
+          },
+          "discount_cents": {
+            "type": "integer",
+            "title": "Discount Cents"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "refunded_cents": {
+            "type": "integer",
+            "title": "Refunded Cents"
+          },
+          "paid_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paid At"
+          },
+          "no_auto_refund_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "evento_ya_empezado",
+                  "entrada_usada",
+                  "fuera_de_plazo"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Auto Refund Reason"
+          },
+          "refunds": {
+            "items": {
+              "$ref": "#/components/schemas/PaymentRefundOut"
+            },
+            "type": "array",
+            "title": "Refunds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "registration_id",
+          "email",
+          "ticket_type_name",
+          "status",
+          "amount_cents",
+          "discount_cents",
+          "currency",
+          "refunded_cents",
+          "paid_at",
+          "no_auto_refund_reason",
+          "refunds"
+        ],
+        "title": "PaymentListItem",
+        "description": "Un pago del evento, con sus reembolsos (si los tiene) y el motivo por\nel que no se reembolsó automáticamente al cancelarse, si aplica.\n\n`no_auto_refund_reason` es siempre derivado en el momento de la lectura\n(nunca una columna guardada, mismo criterio que `used_count` de un código\nde descuento): deja de mostrarse en cuanto exista cualquier reembolso\npara el pago, automático o manual."
+      },
+      "PaymentRefundOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "amount_cents": {
+            "type": "integer",
+            "title": "Amount Cents"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "cancellation",
+              "manual"
+            ],
+            "title": "Reason"
+          },
+          "revoke_ticket": {
+            "type": "boolean",
+            "title": "Revoke Ticket"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "submitted",
+              "succeeded",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "amount_cents",
+          "reason",
+          "revoke_ticket",
+          "status",
+          "error",
+          "attempts"
+        ],
+        "title": "PaymentRefundOut",
+        "description": "Una intención de reembolso del outbox, tal como la ve el panel."
+      },
       "PaymentStatusResponse": {
         "properties": {
           "registration_status": {
@@ -8855,6 +9145,50 @@
         ],
         "title": "PublicTicketTypeResponse",
         "description": "Tipo de entrada tal como lo ve el formulario público de compra.\n\nSolo se listan los vigentes en el instante de la consulta (`is_active` y\ndentro de la ventana de venta, `service.validar_tipo_vigente`): un tipo\nfuera de ventana no debe ofrecerse para elegir, aunque su `checkout/quote`\nya lo rechace igualmente si se fuerza el `ticket_type_id` a mano."
+      },
+      "RefundAcceptedResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "in_progress",
+            "title": "Status",
+            "default": "in_progress"
+          },
+          "refund_id": {
+            "type": "string",
+            "title": "Refund Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "refund_id"
+        ],
+        "title": "RefundAcceptedResponse",
+        "description": "El reembolso no se ha ejecutado todavía: queda `pending` en el outbox\nhasta que la tarea programada lo procese contra Stripe."
+      },
+      "RefundRequest": {
+        "properties": {
+          "amount_cents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Cents"
+          },
+          "revoke_ticket": {
+            "type": "boolean",
+            "title": "Revoke Ticket",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "RefundRequest",
+        "description": "Reembolso manual desde el panel. `amount_cents` ausente = importe\npendiente íntegro (reembolso total). `revoke_ticket` solo tiene efecto en\nun reembolso parcial: uno total siempre revoca (Decisión #15 del plan)."
       },
       "RegisterRequest": {
         "properties": {
