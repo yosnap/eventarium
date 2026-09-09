@@ -20,7 +20,9 @@ from app.modules.organizations.schemas import (
     OrganizationResponse,
     OrganizationUpdate,
 )
-from app.shared.errors import NotFoundError
+from app.modules.theme_templates import repository as theme_templates_repository
+from app.modules.theme_templates.schemas import ThemeTemplateCatalogItem
+from app.shared.errors import NotFoundError, ValidationDomainError
 from app.shared.pagination import Page, PageParams, page_params
 
 router = APIRouter(prefix="/organizations", tags=["organizaciones"])
@@ -29,11 +31,10 @@ router = APIRouter(prefix="/organizations", tags=["organizaciones"])
 def _branding_response(branding: OrganizationBranding | None) -> BrandingAdminResponse:
     almacen = get_storage()
     if branding is None:
-        return BrandingAdminResponse(template_key="classic", colors={}, fonts={}, social_links=[])
+        return BrandingAdminResponse(template_key="classic", social_links=[])
     return BrandingAdminResponse(
         template_key=branding.template_key,
-        colors=branding.colors,
-        fonts=branding.fonts,
+        theme_template_id=str(branding.theme_template_id) if branding.theme_template_id else None,
         social_links=branding.social_links,
         organizer_blurb=branding.organizer_blurb,
         logo_url=almacen.public_url(branding.logo_object_key) if branding.logo_object_key else None,
@@ -102,18 +103,53 @@ async def get_branding(usuario: CurrentUserDep, session: DbDep) -> BrandingAdmin
 async def update_branding(
     datos: BrandingUpdate, usuario: CurrentUserDep, session: DbDep
 ) -> BrandingAdminResponse:
+    theme_template_id: uuid.UUID | None = None
+    if datos.theme_template_id is not None:
+        try:
+            theme_template_id = uuid.UUID(datos.theme_template_id)
+        except ValueError as exc:
+            raise ValidationDomainError(
+                f"«{datos.theme_template_id}» no es un identificador válido de plantilla."
+            ) from exc
+        plantilla = await theme_templates_repository.get_theme_template(session, theme_template_id)
+        if plantilla is None:
+            raise ValidationDomainError(
+                f"No existe ninguna plantilla de tema con el id «{datos.theme_template_id}»."
+            )
+
     branding = await repository.get_branding(session, usuario.organization_id)
     if branding is None:
         branding = OrganizationBranding(organization_id=usuario.organization_id)
         session.add(branding)
 
     branding.template_key = datos.template_key
-    branding.colors = dict(datos.colors)
-    branding.fonts = dict(datos.fonts)
+    branding.theme_template_id = theme_template_id
     branding.social_links = [enlace.model_dump() for enlace in datos.social_links]
     branding.organizer_blurb = datos.organizer_blurb
     await session.flush()
     return _branding_response(branding)
+
+
+@router.get(
+    "/me/theme-templates",
+    summary="Catálogo de plantillas de tema disponibles",
+    description=(
+        "Los tokens hacen falta para pintar la muestra de cada plantilla en el "
+        "selector de la galería del editor de branding."
+    ),
+    response_model=list[ThemeTemplateCatalogItem],
+    dependencies=[require_permission(Permission.ORGANIZATIONS_READ)],
+)
+async def list_theme_templates_catalog(
+    _: CurrentUserDep, session: DbDep
+) -> list[ThemeTemplateCatalogItem]:
+    plantillas = await theme_templates_repository.list_theme_templates(session)
+    return [
+        ThemeTemplateCatalogItem(
+            id=str(plantilla.id), key=plantilla.key, name=plantilla.name, tokens=plantilla.tokens
+        )
+        for plantilla in plantillas
+    ]
 
 
 @router.put(

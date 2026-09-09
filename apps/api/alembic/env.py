@@ -30,6 +30,7 @@ from app.modules.payments import models as payment_models  # noqa: F401
 from app.modules.registrations import models as registration_models  # noqa: F401
 from app.modules.roles import models as role_models  # noqa: F401
 from app.modules.sponsors import models as sponsor_models  # noqa: F401
+from app.modules.theme_templates import models as theme_template_models  # noqa: F401
 from app.modules.tickets import models as ticket_models  # noqa: F401
 from app.modules.users import models as user_models  # noqa: F401
 

@@ -4,32 +4,28 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-# Paleta de respaldo, usada solo cuando una organización aún no ha personalizado
-# su branding. Cumple contraste AA sobre fondo claro.
-DEFAULT_COLORS: dict[str, str] = {
-    "primary": "#1d4ed8",
-    "primary-contrast": "#ffffff",
-    "secondary": "#0f766e",
-    "surface": "#ffffff",
-    "surface-muted": "#f1f5f9",
-    "text": "#0f172a",
-    "text-muted": "#475569",
-    "border": "#cbd5e1",
-    "danger": "#b91c1c",
-    "success": "#15803d",
-}
-
-DEFAULT_FONTS: dict[str, str] = {
-    "sans": "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
-    "heading": "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
-}
-
 
 class SocialLink(BaseModel):
     """Enlace a una red social del organizador."""
 
     kind: str = Field(description="Identificador de la red: x, linkedin, instagram…")
     url: str
+
+
+class ResolvedTheme(BaseModel):
+    """La plantilla de tema de la organización, ya resuelta.
+
+    Resolución: `COALESCE(branding.theme_template_id, la que tiene
+    is_default)`, hecha en la misma consulta de `GET /tenant/branding`. `None`
+    si por lo que sea no hubiera ninguna plantilla en el catálogo — defensa
+    para que el cliente se quede con la base de `tokens.css` en vez de
+    romper.
+    """
+
+    id: str
+    key: str
+    name: str
+    tokens: dict[str, dict[str, str]]
 
 
 class BrandingResponse(BaseModel):
@@ -39,8 +35,7 @@ class BrandingResponse(BaseModel):
     organization_name: str
     organization_slug: str
     template_key: str = Field(description="Plantilla de la página pública: classic | minimal")
-    colors: dict[str, str]
-    fonts: dict[str, str]
+    theme: ResolvedTheme | None = None
     social_links: list[SocialLink]
     organizer_blurb: str | None = None
     logo_url: str | None = None

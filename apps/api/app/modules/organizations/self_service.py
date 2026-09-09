@@ -42,7 +42,6 @@ from app.modules.organizations.schemas import (
     SelfServiceOrganizationResponse,
 )
 from app.modules.roles.system_roles import OWNER_KEY
-from app.modules.tenant.schemas import DEFAULT_COLORS, DEFAULT_FONTS
 from app.shared.errors import ConflictError, ValidationDomainError
 from app.shared.identifiers import new_uuid7
 
@@ -130,8 +129,6 @@ async def create_organization(
         OrganizationBranding(
             organization_id=organization_id,
             template_key="classic",
-            colors=dict(DEFAULT_COLORS),
-            fonts=dict(DEFAULT_FONTS),
             social_links=[],
         )
     )

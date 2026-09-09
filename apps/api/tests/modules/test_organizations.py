@@ -52,8 +52,6 @@ async def test_actualizar_el_branding_y_verlo_en_el_endpoint_publico(
         headers=cabeceras,
         json={
             "template_key": "minimal",
-            "colors": {"primary": "#123456"},
-            "fonts": {"sans": "Inter, sans-serif"},
             "social_links": [{"kind": "linkedin", "url": "https://linkedin.com/company/x"}],
             "organizer_blurb": "Comunidad de IA en Valencia",
         },
@@ -63,10 +61,54 @@ async def test_actualizar_el_branding_y_verlo_en_el_endpoint_publico(
     publico = await cliente.get("/api/v1/tenant/branding", headers={"Host": organizacion.host})
     cuerpo = publico.json()
     assert cuerpo["template_key"] == "minimal"
-    assert cuerpo["colors"]["primary"] == "#123456"
-    # Los colores no definidos siguen viniendo de la paleta por defecto.
-    assert cuerpo["colors"]["surface"]
     assert cuerpo["social_links"][0]["kind"] == "linkedin"
+
+
+async def test_actualizar_el_branding_con_una_plantilla_de_tema(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+    catalogo = await cliente.get(
+        "/api/v1/organizations/me/theme-templates", headers=cabeceras
+    )
+    assert catalogo.status_code == 200
+    claro = next(p for p in catalogo.json() if p["key"] == "claro")
+
+    respuesta = await cliente.put(
+        BRANDING,
+        headers=cabeceras,
+        json={
+            "template_key": "classic",
+            "theme_template_id": claro["id"],
+            "social_links": [],
+            "organizer_blurb": "Comunidad de IA en Valencia",
+        },
+    )
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["theme_template_id"] == claro["id"]
+    # El resto de campos vivos del branding se conserva.
+    assert respuesta.json()["organizer_blurb"] == "Comunidad de IA en Valencia"
+
+    publico = await cliente.get("/api/v1/tenant/branding", headers={"Host": organizacion.host})
+    assert publico.json()["theme"]["key"] == "claro"
+
+
+async def test_actualizar_el_branding_con_una_plantilla_de_tema_inexistente(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+    respuesta = await cliente.put(
+        BRANDING,
+        headers=cabeceras,
+        json={
+            "template_key": "classic",
+            "theme_template_id": "00000000-0000-0000-0000-000000000000",
+            "social_links": [],
+        },
+    )
+    assert respuesta.status_code == 422
 
 
 async def test_subir_el_logotipo_devuelve_una_url_publica(

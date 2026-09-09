@@ -68,8 +68,10 @@ class BrandingUpdate(BaseModel):
     """Identidad visual editable desde el panel."""
 
     template_key: Annotated[str, Field(min_length=1, max_length=40)] = "classic"
-    colors: dict[str, str] = Field(default_factory=dict)
-    fonts: dict[str, str] = Field(default_factory=dict)
+    # `None` = la plantilla de tema por defecto de la plataforma. Un id que
+    # no exista en el catálogo es un 422 (comprobado en el router: aquí solo
+    # se valida la forma del dato, no su existencia).
+    theme_template_id: str | None = None
     social_links: list[SocialLinkInput] = Field(default_factory=list)
     organizer_blurb: str | None = None
 
@@ -78,8 +80,7 @@ class BrandingAdminResponse(BaseModel):
     """Branding tal y como lo ve el panel de administración."""
 
     template_key: str
-    colors: dict[str, Any]
-    fonts: dict[str, Any]
+    theme_template_id: str | None = None
     social_links: list[dict[str, Any]]
     organizer_blurb: str | None = None
     logo_url: str | None = None

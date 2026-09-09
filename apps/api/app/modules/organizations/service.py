@@ -9,7 +9,6 @@ seed o el módulo `admin`; nunca desde un router de negocio.
 from __future__ import annotations
 
 import uuid
-from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,7 +20,6 @@ from app.modules.organizations.models import (
 )
 from app.modules.roles.models import Role, RolePermission, RoleProfileField
 from app.modules.roles.system_roles import SYSTEM_ROLE_TEMPLATES
-from app.modules.tenant.schemas import DEFAULT_COLORS, DEFAULT_FONTS
 from app.shared.errors import ConflictError, NotFoundError
 
 
@@ -85,7 +83,6 @@ async def create_organization(
     host: str,
     legal_name: str | None = None,
     contact_email: str | None = None,
-    colors: dict[str, Any] | None = None,
 ) -> Organization:
     """Crea una organización con su dominio principal, branding y roles clonados."""
     slug_limpio = slug.strip().lower()
@@ -118,8 +115,6 @@ async def create_organization(
         OrganizationBranding(
             organization_id=organizacion.id,
             template_key="classic",
-            colors=colors or dict(DEFAULT_COLORS),
-            fonts=dict(DEFAULT_FONTS),
             social_links=[],
         )
     )

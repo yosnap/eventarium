@@ -2,14 +2,22 @@
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 
+from app.core.database import SessionMaintenance
 from app.core.tenant import base_url_de_organizacion, normalize_host
 from app.main import create_app
+from app.modules.organizations.models import OrganizationBranding
 from tests.conftest import OrganizacionDePrueba
 
 BRANDING = "/api/v1/tenant/branding"
+
+# Id fijo de «claro» sembrado por `0014_plantillas_de_tema`.
+_ID_PLANTILLA_CLARO = uuid.UUID("018fbb2f-0000-7000-8000-000000000002")
 
 
 @pytest.mark.parametrize(
@@ -32,8 +40,36 @@ async def test_branding_devuelve_la_organizacion_del_host(
     assert respuesta.status_code == 200
     cuerpo = respuesta.json()
     assert cuerpo["organization_slug"] == organizacion.slug
-    assert cuerpo["colors"]["primary"]
     assert cuerpo["template_key"] == "classic"
+
+
+async def test_branding_resuelve_la_plantilla_por_defecto_cuando_no_hay_ninguna_elegida(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    respuesta = await cliente.get(BRANDING, headers={"Host": organizacion.host})
+    assert respuesta.status_code == 200
+    tema = respuesta.json()["theme"]
+    assert tema is not None
+    assert tema["key"] == "oscuro"
+    assert set(tema["tokens"].keys()) == {"dark", "light"}
+
+
+async def test_branding_resuelve_la_plantilla_elegida_por_la_organizacion(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    async with SessionMaintenance() as session:
+        branding = await session.scalar(
+            select(OrganizationBranding).where(
+                OrganizationBranding.organization_id == organizacion.id
+            )
+        )
+        assert branding is not None
+        branding.theme_template_id = _ID_PLANTILLA_CLARO
+        await session.commit()
+
+    respuesta = await cliente.get(BRANDING, headers={"Host": organizacion.host})
+    assert respuesta.status_code == 200
+    assert respuesta.json()["theme"]["key"] == "claro"
 
 
 async def test_cada_host_devuelve_su_propia_organizacion(

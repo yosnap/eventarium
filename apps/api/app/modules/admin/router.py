@@ -41,7 +41,16 @@ from app.modules.organizations.schemas import (
     OrganizationCreate,
     OrganizationResponse,
 )
-from app.shared.errors import NotFoundError
+from app.modules.theme_templates import repository as theme_templates_repository
+from app.modules.theme_templates.contrast import comprobar_contraste_de_plantilla
+from app.modules.theme_templates.models import ThemeTemplate
+from app.modules.theme_templates.schemas import (
+    ThemeTemplateCreate,
+    ThemeTemplateResponse,
+    ThemeTemplateUpdate,
+)
+from app.shared.errors import ConflictError, NotFoundError, ValidationDomainError
+from app.shared.identifiers import new_uuid7
 from app.shared.pagination import Page, PageParams, page_params
 
 router = APIRouter(prefix="/admin", tags=["administración"])
@@ -279,3 +288,129 @@ async def delete_registration_by_email(
         ),
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def _to_theme_template_response(plantilla: ThemeTemplate) -> ThemeTemplateResponse:
+    return ThemeTemplateResponse(
+        id=str(plantilla.id),
+        key=plantilla.key,
+        name=plantilla.name,
+        tokens=plantilla.tokens,
+        is_default=plantilla.is_default,
+    )
+
+
+def _rechazar_si_incumple_contraste(tokens: dict[str, dict[str, str]]) -> None:
+    """422 con el detalle de cada par incumplido. Se llama **antes** del
+    `flush`, así que un rechazo no deja ninguna fila creada ni modificada
+    (decisión A de la sesión 3 de validación del plan de UX/UI)."""
+    incumplimientos = comprobar_contraste_de_plantilla(tokens)
+    if incumplimientos:
+        raise ValidationDomainError(
+            "La plantilla no supera el contraste mínimo AA (4,5:1) en alguno de sus "
+            "pares críticos.",
+            extra={
+                "errors": [
+                    {
+                        "primero": incumplimiento.primero,
+                        "segundo": incumplimiento.segundo,
+                        "modo": incumplimiento.modo,
+                        "ratio": incumplimiento.ratio,
+                    }
+                    for incumplimiento in incumplimientos
+                ]
+            },
+        )
+
+
+@router.get(
+    "/theme-templates",
+    summary="Listar el catálogo de plantillas de tema",
+    response_model=list[ThemeTemplateResponse],
+)
+async def list_theme_templates(
+    _: Superadmin, session: MaintenanceDb
+) -> list[ThemeTemplateResponse]:
+    plantillas = await theme_templates_repository.list_theme_templates(session)
+    return [_to_theme_template_response(plantilla) for plantilla in plantillas]
+
+
+@router.post(
+    "/theme-templates",
+    summary="Crear una plantilla de tema",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ThemeTemplateResponse,
+)
+async def create_theme_template(
+    datos: ThemeTemplateCreate, superadmin: Superadmin, session: MaintenanceDb
+) -> ThemeTemplateResponse:
+    _rechazar_si_incumple_contraste(datos.tokens)
+
+    existente = await theme_templates_repository.get_theme_template_by_key(session, datos.key)
+    if existente is not None:
+        raise ConflictError(f"Ya existe una plantilla con la clave «{datos.key}».")
+
+    if datos.is_default:
+        await theme_templates_repository.clear_default(session)
+
+    plantilla = ThemeTemplate(
+        id=new_uuid7(),
+        key=datos.key,
+        name=datos.name,
+        tokens=datos.tokens,
+        is_default=datos.is_default,
+    )
+    session.add(plantilla)
+    await session.flush()
+
+    await registrar_auditoria(
+        session,
+        actor_user_id=superadmin.id,
+        organization_id=None,
+        action="theme_template.created",
+        entity_type="theme_template",
+        entity_id=str(plantilla.id),
+        detail={"key": plantilla.key, "is_default": plantilla.is_default},
+    )
+    return _to_theme_template_response(plantilla)
+
+
+@router.patch(
+    "/theme-templates/{template_id}",
+    summary="Editar una plantilla de tema",
+    description="Edita `name`, `tokens` e `is_default`. No hay borrado en este pase.",
+    response_model=ThemeTemplateResponse,
+)
+async def update_theme_template(
+    template_id: uuid.UUID,
+    datos: ThemeTemplateUpdate,
+    superadmin: Superadmin,
+    session: MaintenanceDb,
+) -> ThemeTemplateResponse:
+    plantilla = await theme_templates_repository.get_theme_template(session, template_id)
+    if plantilla is None:
+        raise NotFoundError("La plantilla de tema no existe.")
+
+    tokens_nuevos = datos.tokens if datos.tokens is not None else plantilla.tokens
+    _rechazar_si_incumple_contraste(tokens_nuevos)
+
+    if datos.name is not None:
+        plantilla.name = datos.name
+    if datos.tokens is not None:
+        plantilla.tokens = datos.tokens
+    if datos.is_default is not None:
+        if datos.is_default:
+            await theme_templates_repository.clear_default(session, except_id=plantilla.id)
+        plantilla.is_default = datos.is_default
+    await session.flush()
+
+    await registrar_auditoria(
+        session,
+        actor_user_id=superadmin.id,
+        organization_id=None,
+        action="theme_template.updated",
+        entity_type="theme_template",
+        entity_id=str(plantilla.id),
+        detail={"key": plantilla.key, "is_default": plantilla.is_default},
+    )
+    return _to_theme_template_response(plantilla)

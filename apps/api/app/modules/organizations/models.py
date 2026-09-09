@@ -85,8 +85,14 @@ class OrganizationBranding(Base, TimestampMixin):
     template_key: Mapped[str] = mapped_column(String(40), nullable=False, default="classic")
     logo_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     favicon_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    colors: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
-    fonts: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    # `NULL` = la plantilla marcada `is_default` en `theme_templates`. Sin
+    # backfill (0014_plantillas_de_tema): las organizaciones existentes se
+    # quedan en `NULL` y por tanto ven «Oscuro» sin tocar una fila.
+    theme_template_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("theme_templates.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
     social_links: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
     organizer_blurb: Mapped[str | None] = mapped_column(Text, nullable=True)
 

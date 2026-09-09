@@ -28,20 +28,6 @@ DEMO_SLUG = "iawic"
 DEMO_NAME = "IA Week Valencia"
 DEMO_HOST = "localhost"
 
-# Paleta de la organización de demostración, con contraste AA sobre fondo claro.
-DEMO_COLORS = {
-    "primary": "#6d28d9",
-    "primary-contrast": "#ffffff",
-    "secondary": "#0e7490",
-    "surface": "#ffffff",
-    "surface-muted": "#f5f3ff",
-    "text": "#1e1b4b",
-    "text-muted": "#4c1d95",
-    "border": "#ddd6fe",
-    "danger": "#b91c1c",
-    "success": "#15803d",
-}
-
 
 @dataclass(frozen=True, slots=True)
 class SeedResult:
@@ -67,7 +53,6 @@ async def seed_demo(session: AsyncSession, *, reset_password: bool = False) -> S
             host=DEMO_HOST,
             legal_name="Asociación IA Week Valencia",
             contact_email="hola@example.com",
-            colors=dict(DEMO_COLORS),
         )
     else:
         # La organización existe: basta con asegurar que el dominio sigue registrado.
