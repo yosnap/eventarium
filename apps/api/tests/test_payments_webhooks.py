@@ -195,6 +195,122 @@ async def test_webhook_payment_status_no_pagado_no_confirma(
         assert tickets == []
 
 
+async def test_confirmar_pago_ya_reembolsado_no_vuelve_a_paid(
+    organizacion: OrganizacionDePrueba,
+) -> None:
+    """Hallazgo IMP-2 (I5) del code review de la fase 6, ronda 3: la prueba
+    existente de `confirmar_pago_y_registro` solo cubre el camino feliz. Un
+    pago ya `refunded` (o `expired`) que reciba una segunda confirmación —
+    reenvío de Stripe, o una carrera con el barrido de caducados — no debe
+    volver a `paid`, y la función debe devolver `"ignored"` en vez de aplicar
+    el cambio."""
+    stripe_account_id = f"acct_{organizacion.slug}"
+    async with SessionMaintenance() as session:
+        evento = Event(
+            organization_id=organizacion.id,
+            slug="reembolsado-no-revive",
+            title="Reembolsado no revive",
+            status="published",
+            visibility="public",
+            starts_at=AHORA,
+            ends_at=AHORA + timedelta(days=1),
+            location_mode="online",
+            registration_mode="paid",
+        )
+        session.add(evento)
+        await session.flush()
+        tipo = EventTicketType(
+            organization_id=organizacion.id, event_id=evento.id, name="General", price_cents=1000
+        )
+        session.add(tipo)
+        inscripcion = EventRegistration(
+            event_id=evento.id,
+            organization_id=organizacion.id,
+            email="reembolsado@example.com",
+            full_name="Reembolsado",
+            status="cancelled",
+            cancelled_at=AHORA,
+        )
+        session.add(inscripcion)
+        await session.flush()
+        pago = EventPayment(
+            organization_id=organizacion.id,
+            event_id=evento.id,
+            registration_id=inscripcion.id,
+            stripe_account_id=stripe_account_id,
+            ticket_type_id=tipo.id,
+            stripe_checkout_session_id="cs_reembolsado_1",
+            amount_cents=1000,
+            currency="eur",
+            status="refunded",
+            refunded_cents=1000,
+            refunded_at=AHORA,
+        )
+        session.add(pago)
+        await session.commit()
+        payment_id, registration_id = pago.id, inscripcion.id
+
+    async with SessionApp() as session:
+        async with session.begin():
+            await set_organization_context(session, organizacion.id)
+            pago = await session.get(EventPayment, payment_id)
+            inscripcion = await session.get(EventRegistration, registration_id)
+            resultado = await checkout_service.confirmar_pago_y_registro(
+                session, pago, inscripcion, stripe_payment_intent_id="pi_reintentado"
+            )
+            assert resultado == "ignored"
+
+    async with SessionMaintenance() as session:
+        pago_fila = await session.get(EventPayment, payment_id)
+        assert pago_fila.status == "refunded"
+        assert pago_fila.stripe_payment_intent_id is None
+        inscripcion_fila = await session.get(EventRegistration, registration_id)
+        assert inscripcion_fila.status == "cancelled"
+
+
+async def test_webhook_checkout_completed_sobre_pago_ya_expirado_no_lo_revive(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Mismo hallazgo I5, camino completo del webhook real
+    (`_handle_checkout_completed`): un `checkout.session.completed` reenviado
+    contra un pago ya `expired` (p. ej. el barrido de caducados ganó la
+    carrera) debe quedar `"ignored"` en `stripe_webhook_events`, sin volver a
+    confirmar la inscripción."""
+    monkeypatch.setattr(stripe_client, "get_settings", _settings_con_stripe)
+    stripe_account_id = await _crear_organizacion_con_stripe(organizacion)
+    registration_id, payment_id = await _crear_pago_pending(
+        organizacion, stripe_account_id=stripe_account_id, session_id="cs_expirado_ya_1"
+    )
+    async with SessionMaintenance() as session:
+        pago = await session.get(EventPayment, payment_id)
+        inscripcion = await session.get(EventRegistration, registration_id)
+        pago.status = "expired"
+        inscripcion.status = "cancelled"
+        inscripcion.cancelled_at = AHORA
+        await session.commit()
+
+    event_id = f"evt_{uuid.uuid4().hex}"
+    cuerpo = _cuerpo_checkout_completed(
+        event_id=event_id, session_id="cs_expirado_ya_1", account=stripe_account_id
+    )
+    firma = _firmar(cuerpo, int(time.time()))
+    monkeypatch.setattr(
+        "app.core.tasks.process_stripe_webhook_task.kiq",
+        AsyncMock(side_effect=payments_webhooks.procesar_evento),
+    )
+
+    respuesta = await cliente.post(WEBHOOK_URL, content=cuerpo, headers={"stripe-signature": firma})
+    assert respuesta.status_code == 200, respuesta.text
+
+    async with SessionMaintenance() as session:
+        pago_fila = await session.get(EventPayment, payment_id)
+        assert pago_fila.status == "expired"
+        inscripcion_fila = await session.get(EventRegistration, registration_id)
+        assert inscripcion_fila.status == "cancelled"
+        fila = await payments_repository.get_webhook_event(session, event_id)
+        assert fila.status == "ignored"
+
+
 async def test_webhook_organizacion_no_coincide_no_muta_nada(
     cliente: AsyncClient,
     organizacion: OrganizacionDePrueba,
@@ -492,6 +608,71 @@ async def test_barrido_no_expira_si_stripe_reporta_pagado(
             )
         )
         assert len(tickets) == 1
+
+
+async def test_barrido_red_de_seguridad_expira_pago_huerfano_de_inscripcion_rechazada(
+    fake: FakeStripeClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """Hallazgo IMP-1 del code review de la fase 6, ronda 3: red de seguridad
+    además del cambio explícito en `reject_registration`. Simula una fila que
+    se hubiera quedado huérfana por cualquier otro camino no cubierto
+    explícitamente (aquí, forzando el estado `rejected` sin pasar por
+    `reject_registration`): el barrido debe expirar igualmente el pago
+    `pending`, sin consultar Stripe (nunca hubo Checkout Session real que
+    consultar para esta inscripción)."""
+    stripe_account_id = f"acct_{organizacion.slug}"
+    async with SessionMaintenance() as session:
+        evento = Event(
+            organization_id=organizacion.id,
+            slug="barrido-red-seguridad",
+            title="Barrido red de seguridad",
+            status="published",
+            visibility="public",
+            starts_at=AHORA,
+            ends_at=AHORA + timedelta(days=1),
+            location_mode="online",
+            registration_mode="paid",
+        )
+        session.add(evento)
+        await session.flush()
+        tipo = EventTicketType(
+            organization_id=organizacion.id, event_id=evento.id, name="General", price_cents=1000
+        )
+        session.add(tipo)
+        await session.flush()
+        inscripcion = EventRegistration(
+            event_id=evento.id,
+            organization_id=organizacion.id,
+            email="huerfano@example.com",
+            full_name="Huérfano",
+            status="rejected",
+            rejected_at=AHORA,
+            ticket_type_id=tipo.id,
+        )
+        session.add(inscripcion)
+        await session.flush()
+        pago = EventPayment(
+            organization_id=organizacion.id,
+            event_id=evento.id,
+            registration_id=inscripcion.id,
+            stripe_account_id=stripe_account_id,
+            ticket_type_id=tipo.id,
+            amount_cents=1000,
+            currency="eur",
+            status="pending",
+        )
+        session.add(pago)
+        await session.commit()
+        registration_id, payment_id = inscripcion.id, pago.id
+
+    await checkout_service.expirar_pagos_pendientes()
+
+    fake.v1.checkout.sessions.retrieve_async.assert_not_awaited()
+    async with SessionMaintenance() as session:
+        pago_fila = await session.get(EventPayment, payment_id)
+        assert pago_fila.status == "expired"
+        inscripcion_fila = await session.get(EventRegistration, registration_id)
+        assert inscripcion_fila.status == "rejected"
 
 
 async def test_regresion_evento_gratuito_con_lista_de_espera_no_se_ve_afectado(

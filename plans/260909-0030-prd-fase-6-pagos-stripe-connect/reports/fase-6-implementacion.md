@@ -392,11 +392,145 @@ Regresión: 12 tests nuevos/reescritos en `test_payments_checkout.py`,
 antes de publicar, ahora obligatorio). Suite completa: `apps/api` 545 tests
 verdes, `apps/web` 193 tests verdes, `ruff`/`mypy` limpios.
 
-**Nota de entorno** (no corregida, fuera del alcance de este pase):
+**Nota de entorno** (no corregida, fuera del alcance de ese pase):
 `tests/test_payments_lint_import_stripe.py::test_import_stripe_dentro_del_wrapper_no_falla_el_lint`
-escribe contenido de prueba directamente sobre el fichero real
-`app/modules/payments/stripe_client.py` y lo borra en su `finally` — es la
-causa de que ese fichero desaparezca del disco de forma intermitente durante
-esta sesión (herramienta de prueba encontró la misma incidencia,
-documentada). El test debería escribir sobre una ruta de verdad temporal en
-vez de sobre el módulo real.
+escribía contenido de prueba directamente sobre el fichero real
+`app/modules/payments/stripe_client.py` y lo borraba en su `finally` — causa
+de que ese fichero desapareciera del disco de forma intermitente durante esa
+sesión. Corregida en la ronda 3 (ver hallazgo S1 más abajo): ahora nunca
+toca el fichero real.
+
+## Correcciones tras `ak:code-review` (high), ronda 3: hallazgos detectados al verificar la ronda 2
+
+La verificación de los 9 hallazgos cerrados en la ronda anterior encontró un
+hallazgo Important bloqueante nuevo (fuga de cupo), otro Important sobre
+cobertura de test insuficiente en 6 de esos 9 arreglos, y seis hallazgos
+menores. Decisión de producto ya confirmada y no reabierta en este pase: los
+eventos de pago sí pueden combinarse con aprobación manual y lista de
+espera; la fuga de cupo de abajo es un efecto secundario de esa
+combinación, no una razón para revertirla.
+
+- **IMP-1 — Fuga permanente de cupo de tipo de entrada y usos de código de
+  descuento.** Desde la ronda 2, `checkout_service.iniciar_compra` crea una
+  fila de `event_payments` en `pending` incluso cuando la inscripción
+  termina en `pending_approval`/`waitlisted` — y `ESTADOS_CONSUMIBLES`
+  cuenta ese `pending` como cupo/uso ocupado desde el minuto uno. El único
+  camino que liberaba un `pending` a `expired`
+  (`pagos_pendientes_caducados`) exigía `EventRegistration.status ==
+  "pending_payment"` y `payment_expires_at` no nulo, condiciones que una
+  inscripción `rejected`/`cancelled` sin pasar nunca por `pending_payment`
+  no cumple jamás: la fila quedaba huérfana reteniendo cupo para siempre.
+  Arreglado en tres capas:
+  - Nueva `payments.repository.expirar_pago_pendiente_de_inscripcion`
+    (no-op si no hay pago o si ya no está `pending`): pasa el pago a
+    `expired`, liberando el cupo/uso derivado.
+  - `registrations.service.reject_registration` la llama antes de dejar la
+    inscripción en `rejected`.
+  - `registrations.service._cancelar_inscripcion` (núcleo compartido de
+    `cancel_registration`/`cancel_registration_by_token`) también la llama:
+    `preparar_reembolso_por_cancelacion` solo actúa sobre pagos ya cobrados
+    (`ESTADOS_REEMBOLSABLES`), así que un pago todavía `pending` (p. ej. una
+    inscripción `pending_payment` cancelada por el organizador antes de
+    pagar) tampoco pasaba por ahí.
+  - Red de seguridad en el barrido: `pagos_pendientes_caducados` ahora
+    también selecciona pagos `pending` cuya inscripción ya esté
+    `cancelled`/`rejected` (`ESTADOS_TERMINALES_SIN_PAGO`), sin esperar
+    ninguna ventana de tiempo; `checkout_service.expirar_pagos_pendientes`
+    los expira sin consultar Stripe (nunca tuvieron una Checkout Session que
+    consultar) ni tocar de nuevo la inscripción, que ya está en su estado
+    terminal.
+- **IMP-2 — Faltaban tests de regresión reales para 6 de los 9 arreglos de
+  la ronda 2, y el mensaje del commit anterior afirmaba "test de regresión
+  por cada hallazgo" sin serlo para esos seis.** Añadidos en esta ronda,
+  todos verificados en rojo contra el código sin el fix correspondiente
+  antes de escribir el fix:
+  - **C2**: `test_error_directo_de_stripe_incrementa_attempts_y_deja_failed`
+    y `test_reintento_atascado_partiendo_de_failed_incrementa_attempts_y_se_detiene_en_el_tope`
+    (`test_payments_refunds.py`) — `attempts` sube tanto en el error directo
+    de `_ejecutar_reembolso` como en el reintento desde `failed`, y al llegar
+    a `_INTENTOS_MAXIMOS` deja de reencolarse y se loggea el error.
+  - **C3**: `test_dos_reembolsos_parciales_solapados_no_superan_el_importe_pendiente`
+    (`test_payments_refunds.py`) — un segundo reembolso manual mientras el
+    primero sigue `pending` no puede superar lo que de verdad queda
+    disponible.
+  - **I5**: `test_confirmar_pago_ya_reembolsado_no_vuelve_a_paid` y
+    `test_webhook_checkout_completed_sobre_pago_ya_expirado_no_lo_revive`
+    (`test_payments_webhooks.py`) — un pago `refunded`/`expired` que reciba
+    otra vez `confirmar_pago_y_registro`/el webhook no vuelve a `paid`, y
+    queda `"ignored"`.
+  - **I7**: `test_idempotency_key_mismo_expires_at_en_dos_intentos_de_la_misma_inscripcion`
+    (`test_payments_checkout.py`) — dos llamadas a `crear_sesion_de_pago`
+    sobre la misma fila de pago (simulando el reintento real: Stripe llegó a
+    crear la sesión pero el proceso murió antes de persistir el resultado)
+    reciben el mismo `expires_at`, no solo que las claves difieran entre
+    intentos distintos.
+  - **I8**: `test_reutilizar_pago_expira_la_sesion_de_stripe_anterior`
+    (`test_payments_checkout.py`) — asserta la llamada real a
+    `fake.v1.checkout.sessions.expire_async` con la sesión y la cuenta
+    correctas, no solo que el método del doble exista.
+  - **C1 (camino real de producción)**:
+    `test_camino_3_endpoint_real_en_evento_de_aprobacion_crea_el_pago` y
+    `test_camino_4_endpoint_real_con_aforo_lleno_crea_el_pago`
+    (`test_payments_checkout.py`) — un `POST
+    /public/events/{slug}/checkout` real contra un evento en modo aprobación
+    o con aforo lleno crea de verdad la fila de `event_payments`, sin
+    insertarla a mano como hacían los `test_camino_3_*`/`test_camino_4_*`
+    existentes.
+
+  Además, `test_rechazar_inscripcion_libera_el_pago_pendiente_y_el_cupo`,
+  `test_cancelar_inscripcion_pending_payment_libera_el_pago_sin_cobrar`
+  (`test_payments_checkout.py`) y
+  `test_barrido_red_de_seguridad_expira_pago_huerfano_de_inscripcion_rechazada`
+  (`test_payments_webhooks.py`) cubren IMP-1 en sus tres capas.
+
+- **M2** — `events.service.create_event` no pasaba `event_id` a
+  `_asegurar_venta_posible`: el requisito de al menos un tipo de entrada
+  vigente para publicar un evento de pago (hallazgo C1b) se saltaba en un
+  alta directamente publicada. Corregido moviendo la llamada después del
+  `flush` del evento (con `event_id=evento.id`); si falla, el
+  `session.begin()` de `get_db` deshace también ese `flush`. Como esto hace
+  literalmente imposible publicar un evento de pago con tipo de entrada en
+  una sola petición (no puede existir ningún tipo antes de que el evento
+  exista), el test `test_publicar_evento_paid_con_charges_enabled_funciona`
+  (`tests/modules/test_events_venta_posible.py`) se reescribió a la
+  secuencia de dos pasos (alta en borrador → tipo de entrada → `PATCH`
+  publicar), y se añadió
+  `test_crear_evento_paid_publicado_directamente_sin_tipo_de_entrada_da_409`
+  para la regresión de M2 en sí.
+- **M3** — `repository.suma_reembolsos_en_curso` solo contaba
+  `pending`/`submitted`; ahora también los `failed` con `attempts <
+  INTENTOS_MAXIMOS_REEMBOLSO` (los que `refunds_atascados` todavía va a
+  reintentar) — dinero potencialmente en vuelo que antes no se restaba del
+  importe pendiente.
+- **M4** — El tope de reintentos (`5`) vivía duplicado como literal en
+  `refunds_service._INTENTOS_MAXIMOS` y dos veces en
+  `repository.refunds_atascados`. Única fuente de verdad ahora:
+  `repository.INTENTOS_MAXIMOS_REEMBOLSO`, importada por `refunds_service`.
+- **S1** — `test_payments_lint_import_stripe.py::_ejecutar_ruff_sobre`
+  escribía y restauraba sobre el fichero real
+  `app/modules/payments/stripe_client.py`. Reescrita para pasar el
+  contenido por `stdin` (`ruff check --stdin-filename <ruta> -`, parámetro
+  `input=` de `subprocess.run`): nunca vuelve a tocar ningún fichero en
+  disco.
+- **S3** — `checkout_service.crear_sesion_de_pago`: cuando
+  `payment_expires_at` es nulo y se usa el fallback `datetime.now(UTC) +
+  ventana`, ahora hace `logger.warning` — si ese camino se activa en
+  producción, sirve de alarma temprana de que el bug I7 podría estar
+  volviendo de forma silenciosa.
+
+**Nota de release (S2, sin cambio de código)**: la migración `0013` de la
+fase 6 se ha seguido amendando en vez de crear una revisión nueva por cada
+ronda de correcciones, porque todavía no se ha publicado ninguna versión con
+ella. Antes de publicar cualquier release que la incluya, cualquier cambio
+posterior de esquema debe ser ya una migración `0014` nueva, nunca otro
+amend de la `0013`.
+
+Regresión de esta ronda: tests nuevos repartidos entre
+`tests/modules/test_events_venta_posible.py` (+2, M2),
+`test_payments_checkout.py` (+6: I7, I8, 2× IMP-1, 2× C1 camino real),
+`test_payments_webhooks.py` (+3: 2× I5, 1× IMP-1 red de seguridad) y
+`test_payments_refunds.py` (+3: 2× C2, 1× C3), más la reescritura de 1 test
+existente (`test_publicar_evento_paid_con_charges_enabled_funciona`, M2).
+Suite completa: `apps/api` 542 tests verdes, `ruff check`/`ruff format
+--check`/`mypy app` limpios. `apps/web` sin cambios en esta ronda (ningún
+fichero de `apps/web` tocado), no se ha vuelto a ejecutar su suite.

@@ -41,6 +41,19 @@ logger = logging.getLogger(__name__)
 # nadie lo decremente (hallazgo #19 del red-team de la fase 6).
 ESTADOS_CONSUMIBLES = ("pending", "paid", "partially_refunded", "refunded")
 
+# Tope de reintentos de un reembolso, única fuente de verdad compartida por
+# `refunds_service._ejecutar_reembolso`/`_marcar_intento_fallido` (que la
+# reexpone como `_INTENTOS_MAXIMOS`) y por `refunds_atascados`/
+# `suma_reembolsos_en_curso` de este módulo: antes vivía duplicado como
+# literal `5` en ambos sitios, con el riesgo de que uno cambiara sin el otro.
+INTENTOS_MAXIMOS_REEMBOLSO = 5
+
+# Estados de `event_registrations` que ya no van a llegar a pagar nunca
+# (hallazgo IMP-1 del code review de la fase 6): un pago `pending` cuya
+# inscripción cae en uno de estos dos no debe seguir reservando cupo/uso de
+# código para siempre, aunque nunca llegue a caducar por ventana de tiempo.
+ESTADOS_TERMINALES_SIN_PAGO = ("cancelled", "rejected")
+
 
 async def get_cuenta_activa(
     session: AsyncSession, organization_id: uuid.UUID
@@ -403,6 +416,34 @@ async def pago_reactivable(
     return pago is not None and pago.status in ("pending", "expired")
 
 
+async def expirar_pago_pendiente_de_inscripcion(
+    session: AsyncSession, organization_id: uuid.UUID, registration_id: uuid.UUID
+) -> None:
+    """Libera el cupo de tipo de entrada y el uso de código de descuento que
+    un pago `pending` sigue reteniendo cuando su inscripción sale del embudo
+    sin llegar a pagar (hallazgo IMP-1 del code review de la fase 6, ronda
+    3): `reject_registration` y `_cancelar_inscripcion` la llaman antes de
+    dejar la inscripción en `rejected`/`cancelled`.
+
+    `ESTADOS_CONSUMIBLES` cuenta un pago `pending` como cupo/uso ocupado; el
+    único camino que antes lo liberaba (`pagos_pendientes_caducados`, vía
+    `expirar_pagos_pendientes`) exige `EventRegistration.status ==
+    "pending_payment"` y `payment_expires_at` no nulo — ninguna de las dos
+    condiciones se cumple para una inscripción `pending_approval`/
+    `waitlisted` que nunca llegó a `pending_payment`, así que la fila de pago
+    quedaba huérfana reteniendo cupo para siempre.
+
+    No-op si no hay pago o si ya no está `pending` (idempotente: seguro de
+    llamar más de una vez sobre la misma inscripción, o después de que el
+    barrido de caducados ya la haya expirado).
+    """
+    pago = await get_payment_by_registration(session, organization_id, registration_id)
+    if pago is None or pago.status != "pending":
+        return
+    pago.status = "expired"
+    await session.flush()
+
+
 async def crear_o_reutilizar_pago(
     session: AsyncSession,
     *,
@@ -538,13 +579,27 @@ class _PagoPendienteLigero:
     stripe_account_id: str
     stripe_checkout_session_id: str | None
     registration_id: uuid.UUID | None
+    registration_status: str
 
 
 async def pagos_pendientes_caducados(session: AsyncSession) -> list[_PagoPendienteLigero]:
-    """Pagos `pending` cuya inscripción `pending_payment` asociada ya superó
-    su ventana — candidatos del barrido `expire_pending_payments_task`. Sin
-    `FOR UPDATE`: el bloqueo se adquiere fila a fila, después de la consulta
-    a Stripe, nunca durante ella (hallazgo #12)."""
+    """Candidatos del barrido `expire_pending_payments_task`, en dos grupos
+    (hallazgo IMP-1 del code review de la fase 6, ronda 3):
+
+    - Pagos `pending` cuya inscripción `pending_payment` asociada ya superó
+      su ventana (el camino original, consulta el estado real en Stripe antes
+      de expirar).
+    - Pagos `pending` cuya inscripción ya está `cancelled`/`rejected`
+      (`ESTADOS_TERMINALES_SIN_PAGO`): red de seguridad además del cambio
+      explícito en `reject_registration`/`_cancelar_inscripcion`, para
+      cualquier otro camino que deje una inscripción en un estado terminal
+      sin pasar por ninguna de las dos — no espera a ninguna ventana de
+      tiempo, porque ya es un estado terminal, no hay nada que Stripe pueda
+      todavía confirmar.
+
+    Sin `FOR UPDATE`: el bloqueo se adquiere fila a fila, después de la
+    consulta a Stripe, nunca durante ella (hallazgo #12).
+    """
     filas = (
         await session.execute(
             select(
@@ -553,13 +608,17 @@ async def pagos_pendientes_caducados(session: AsyncSession) -> list[_PagoPendien
                 EventPayment.stripe_account_id,
                 EventPayment.stripe_checkout_session_id,
                 EventPayment.registration_id,
+                EventRegistration.status.label("registration_status"),
             )
             .join(EventRegistration, EventRegistration.id == EventPayment.registration_id)
             .where(
                 EventPayment.status == "pending",
-                EventRegistration.status == "pending_payment",
-                EventRegistration.payment_expires_at.is_not(None),
-                EventRegistration.payment_expires_at < datetime.now(UTC),
+                (
+                    (EventRegistration.status == "pending_payment")
+                    & EventRegistration.payment_expires_at.is_not(None)
+                    & (EventRegistration.payment_expires_at < datetime.now(UTC))
+                )
+                | (EventRegistration.status.in_(ESTADOS_TERMINALES_SIN_PAGO)),
             )
         )
     ).all()
@@ -570,6 +629,7 @@ async def pagos_pendientes_caducados(session: AsyncSession) -> list[_PagoPendien
             stripe_account_id=fila.stripe_account_id,
             stripe_checkout_session_id=fila.stripe_checkout_session_id,
             registration_id=fila.registration_id,
+            registration_status=fila.registration_status,
         )
         for fila in filas
     ]
@@ -728,16 +788,23 @@ async def crear_intencion_reembolso(
 async def suma_reembolsos_en_curso(
     session: AsyncSession, organization_id: uuid.UUID, payment_id: uuid.UUID
 ) -> int:
-    """Importe de los reembolsos `pending`/`submitted` de este pago: ya están
-    en marcha (persistidos en el outbox, puede que ya cobrados en Stripe)
-    pero su `charge.refunded` todavía no ha llegado a fijar `refunded_cents`.
-    Sin restarlos del importe pendiente, dos reembolsos parciales solapados
-    podrían devolver más de lo debido."""
+    """Importe de los reembolsos `pending`/`submitted` de este pago, más los
+    `failed` que `refunds_atascados` todavía va a reintentar: todos ellos ya
+    están en marcha (persistidos en el outbox, puede que ya cobrados en
+    Stripe) pero su `charge.refunded` todavía no ha llegado a fijar
+    `refunded_cents`. Un `failed` que agotó sus reintentos (`attempts >=
+    _INTENTOS_MAXIMOS`) ya no se reencola, así que no cuenta como dinero en
+    vuelo. Sin restar todo esto del importe pendiente, dos reembolsos
+    parciales solapados podrían devolver más de lo debido."""
     total = await session.scalar(
         select(func.coalesce(func.sum(EventPaymentRefund.amount_cents), 0)).where(
             EventPaymentRefund.organization_id == organization_id,
             EventPaymentRefund.payment_id == payment_id,
-            EventPaymentRefund.status.in_(("pending", "submitted")),
+            (EventPaymentRefund.status.in_(("pending", "submitted")))
+            | (
+                (EventPaymentRefund.status == "failed")
+                & (EventPaymentRefund.attempts < INTENTOS_MAXIMOS_REEMBOLSO)
+            ),
         )
     )
     return int(total or 0)
@@ -804,14 +871,14 @@ async def refunds_atascados(session: AsyncSession) -> list[uuid.UUID]:
         await session.scalars(
             select(EventPaymentRefund.id).where(
                 EventPaymentRefund.status == "failed",
-                EventPaymentRefund.attempts < 5,
+                EventPaymentRefund.attempts < INTENTOS_MAXIMOS_REEMBOLSO,
             )
         )
     )
     agotados = await session.scalars(
         select(EventPaymentRefund.id).where(
             EventPaymentRefund.status == "failed",
-            EventPaymentRefund.attempts >= 5,
+            EventPaymentRefund.attempts >= INTENTOS_MAXIMOS_REEMBOLSO,
         )
     )
     for refund_id in agotados:

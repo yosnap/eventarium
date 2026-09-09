@@ -351,6 +351,16 @@ async def _cancelar_inscripcion(
         event_id=event_id,
         registration_id=inscripcion.id,
     )
+    # `preparar_reembolso_por_cancelacion` solo actúa sobre pagos ya cobrados
+    # (`ESTADOS_REEMBOLSABLES`): un pago todavía `pending` (p. ej. una
+    # inscripción `pending_payment` cancelada por el organizador antes de
+    # pagar) no pasa por ahí y quedaría reteniendo cupo/uso de código para
+    # siempre (hallazgo IMP-1 del code review de la fase 6, ronda 3). No-op
+    # si ya está `expired` — el barrido de caducados (`expirar_pagos_pendientes`)
+    # ya lo deja así antes de llamar a esta misma función.
+    await payments_repository.expirar_pago_pendiente_de_inscripcion(
+        session, organization_id, inscripcion.id
+    )
 
     # Antes de cambiar el estado: una entrada revocada nunca es válida al
     # escanear, aunque el JWT no haya caducado (fase 4 del PRD). No-op si la
@@ -613,6 +623,13 @@ async def reject_registration(
     Solo válida desde `pending_approval`, que nunca llegó a ocupar una plaza
     `confirmed` — a diferencia de `cancel_registration`, rechazar nunca libera
     aforo ni dispara una promoción de lista de espera.
+
+    Sí libera el pago (hallazgo IMP-1 del code review de la fase 6, ronda 3):
+    `checkout_service.iniciar_compra` ya deja un `event_payments` en
+    `pending` para una inscripción `pending_approval` (hallazgo C1), y
+    ninguna ventana de tiempo lo iba a expirar nunca si la aprobación
+    terminaba en rechazo — `expirar_pago_pendiente_de_inscripcion` es un
+    no-op si el evento es gratuito y nunca hubo pago que crear.
     """
     inscripcion = await repository.get_registration(
         session, organization_id, event_id, registration_id
@@ -622,6 +639,9 @@ async def reject_registration(
     if inscripcion.status != "pending_approval":
         raise ConflictError("Solo se puede rechazar una inscripción pendiente de aprobación.")
 
+    await payments_repository.expirar_pago_pendiente_de_inscripcion(
+        session, organization_id, inscripcion.id
+    )
     inscripcion.status = "rejected"
     inscripcion.rejected_at = datetime.now(UTC)
     await send_registration_rejected_email.kiq(inscripcion.email, str(organization_id))

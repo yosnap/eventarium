@@ -56,10 +56,12 @@ ESTADOS_REEMBOLSABLES = ("paid", "partially_refunded")
 MotivoSinReembolso = str  # "evento_ya_empezado" | "entrada_usada" | "fuera_de_plazo"
 
 # Tope de reintentos compartido por `_ejecutar_reembolso` y
-# `repository.refunds_atascados`/`eventos_para_reencolar`: pasado este número
-# de intentos fallidos, se deja de reencolar y se registra en `ERROR` en vez
-# de seguir intentando en silencio.
-_INTENTOS_MAXIMOS = 5
+# `repository.refunds_atascados`/`suma_reembolsos_en_curso`: pasado este
+# número de intentos fallidos, se deja de reencolar y se registra en `ERROR`
+# en vez de seguir intentando en silencio. Única fuente de verdad en
+# `repository.INTENTOS_MAXIMOS_REEMBOLSO` (hallazgo M4 del code review de la
+# fase 6, ronda 3): antes era un literal `5` duplicado en ambos módulos.
+_INTENTOS_MAXIMOS = repository.INTENTOS_MAXIMOS_REEMBOLSO
 
 
 @dataclass(frozen=True, slots=True)
@@ -213,9 +215,7 @@ async def _ejecutar_reembolso(refund_id: uuid.UUID, *, estados_permitidos: tuple
             return
         pago = await session.get(EventPayment, reembolso.payment_id)
         if pago is None or pago.stripe_payment_intent_id is None:
-            _marcar_intento_fallido(
-                reembolso, "El pago asociado no tiene un cobro que reembolsar."
-            )
+            _marcar_intento_fallido(reembolso, "El pago asociado no tiene un cobro que reembolsar.")
             return
         if reembolso.status == "pending":
             reembolso.status = "submitted"
