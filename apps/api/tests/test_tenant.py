@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.core.tenant import normalize_host
+from app.core.tenant import base_url_de_organizacion, normalize_host
 from app.main import create_app
 from tests.conftest import OrganizacionDePrueba
 
@@ -45,6 +45,19 @@ async def test_cada_host_devuelve_su_propia_organizacion(
     segunda = await cliente.get(BRANDING, headers={"Host": otra_organizacion.host})
     assert primera.json()["organization_slug"] == organizacion.slug
     assert segunda.json()["organization_slug"] == otra_organizacion.slug
+
+
+async def test_base_url_de_organizacion_conserva_el_puerto_en_desarrollo(
+    organizacion: OrganizacionDePrueba,
+) -> None:
+    """Fase 6 del PRD: una redirección de Stripe (`return_url`) que perdiera el
+    puerto de Caddy en desarrollo (`localhost` sin `:8080`) llevaría a una
+    página que Caddy no expone. El dominio guardado en `organization_domains`
+    nunca incluye puerto (no lo necesita en producción), así que la función
+    debe añadirlo ella misma fuera de producción.
+    """
+    url = await base_url_de_organizacion(organizacion.id)
+    assert url == "http://localhost:8080"
 
 
 @pytest.mark.parametrize("host", ["desconocido.example", "sub.localhost", ""])

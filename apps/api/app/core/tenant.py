@@ -135,4 +135,15 @@ async def base_url_de_organizacion(organization_id: uuid.UUID) -> str:
     if not host:
         return settings.web_base_url
     esquema = "https" if settings.app_env == "production" else "http"
+    if settings.app_env != "production" and ":" not in host:
+        # En desarrollo, Caddy expone la web en un puerto no estándar
+        # (`web_base_url`, p. ej. `http://localhost:8080`), pero el dominio
+        # guardado en `organization_domains.host` no incluye puerto (nunca lo
+        # necesita en producción, donde solo se usan 80/443 implícitos). Sin
+        # este puerto, una redirección de Stripe (`return_url`/`refresh_url`)
+        # o un correo generado fuera de una petición HTTP apuntaría a un host
+        # que Caddy no expone, y la persona volvería a una página en blanco.
+        puerto = settings.web_base_url.rsplit(":", 1)[-1]
+        if puerto.isdigit():
+            host = f"{host}:{puerto}"
     return f"{esquema}://{host}"
