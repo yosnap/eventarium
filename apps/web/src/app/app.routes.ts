@@ -135,6 +135,11 @@ export const routes: Routes = [
           import('./features/admin/events/event-check-in').then((m) => m.EventCheckIn),
       },
       {
+        path: 'events/:eventId/payments',
+        loadComponent: () =>
+          import('./features/admin/events/event-payments').then((m) => m.EventPayments),
+      },
+      {
         path: 'sponsor-tiers',
         loadComponent: () =>
           import('./features/admin/sponsors/sponsor-tiers-page').then((m) => m.SponsorTiersPage),

@@ -24,8 +24,8 @@ from sqlalchemy import select
 from app.core.config import Settings
 from app.core.database import SessionApp, SessionMaintenance, set_organization_context
 from app.modules.events.models import Event
-from app.modules.payments import refunds_service, repository as payments_repository
-from app.modules.payments import stripe_client
+from app.modules.payments import refunds_service, stripe_client
+from app.modules.payments import repository as payments_repository
 from app.modules.payments import webhooks as payments_webhooks
 from app.modules.payments.models import (
     EventPayment,
@@ -147,12 +147,17 @@ async def _crear_evento_pagado(
         return evento.id, inscripcion.id, pago.id
 
 
-async def _cancelar(organization_id: uuid.UUID, event_id: uuid.UUID, registration_id: uuid.UUID) -> None:
+async def _cancelar(
+    organization_id: uuid.UUID, event_id: uuid.UUID, registration_id: uuid.UUID
+) -> None:
     async with SessionApp() as session:
         async with session.begin():
             await set_organization_context(session, organization_id)
             await registrations_service.cancel_registration(
-                session, organization_id=organization_id, event_id=event_id, registration_id=registration_id
+                session,
+                organization_id=organization_id,
+                event_id=event_id,
+                registration_id=registration_id,
             )
 
 
@@ -366,10 +371,11 @@ async def test_fallo_de_escritura_tras_exito_en_stripe_deja_rastro_y_reintenta_m
 
     def _maintenance_session_que_falla_la_escritura_final():
         llamadas["n"] += 1
-        # 1ª apertura: marca `submitted`. 2ª: escribiría `succeeded` — se
-        # simula que esa segunda transacción nunca llega a persistir dejando
-        # la fila intacta en `submitted` (como si el proceso hubiera muerto).
-        if llamadas["n"] == 2:
+        # 1ª apertura: lista las filas `pending`. 2ª: marca `submitted`. 3ª:
+        # escribiría `succeeded` — se simula que esa tercera transacción
+        # nunca llega a persistir, dejando la fila en `submitted` (como si el
+        # proceso hubiera muerto justo después de la llamada a Stripe).
+        if llamadas["n"] == 3:
 
             class _SesionRota:
                 async def __aenter__(self):
@@ -594,7 +600,9 @@ async def test_acct_id_del_reembolso_sale_de_la_fila_del_pago_no_de_la_cuenta_ac
 
 
 def _firmar(payload: bytes, timestamp: int) -> str:
-    firma = stripe.WebhookSignature._compute_signature(f"{timestamp}.{payload.decode()}", SECRETO_WEBHOOK)
+    firma = stripe.WebhookSignature._compute_signature(
+        f"{timestamp}.{payload.decode()}", SECRETO_WEBHOOK
+    )
     return f"t={timestamp},v1={firma}"
 
 
@@ -607,7 +615,13 @@ def _cuerpo_charge_refunded(
         "id": event_id,
         "type": "charge.refunded",
         "account": account,
-        "data": {"object": {"id": "ch_1", "payment_intent": payment_intent, "amount_refunded": amount_refunded}},
+        "data": {
+            "object": {
+                "id": "ch_1",
+                "payment_intent": payment_intent,
+                "amount_refunded": amount_refunded,
+            }
+        },
     }
     return json.dumps(cuerpo).encode()
 
@@ -627,7 +641,10 @@ async def test_webhook_charge_refunded_total_fija_importe_y_revoca(
 
     evt_id = f"evt_{uuid.uuid4().hex}"
     cuerpo = _cuerpo_charge_refunded(
-        event_id=evt_id, payment_intent="pi_total_1", amount_refunded=1000, account=stripe_account_id
+        event_id=evt_id,
+        payment_intent="pi_total_1",
+        amount_refunded=1000,
+        account=stripe_account_id,
     )
     firma = _firmar(cuerpo, int(time.time()))
     respuesta = await cliente.post(WEBHOOK_URL, content=cuerpo, headers={"stripe-signature": firma})
@@ -731,10 +748,15 @@ async def test_dos_parciales_sucesivos_suman_total_y_revocan(
 
     primer_evento = f"evt_{uuid.uuid4().hex}"
     primer_cuerpo = _cuerpo_charge_refunded(
-        event_id=primer_evento, payment_intent="pi_parciales_1", amount_refunded=400, account=stripe_account_id
+        event_id=primer_evento,
+        payment_intent="pi_parciales_1",
+        amount_refunded=400,
+        account=stripe_account_id,
     )
     await cliente.post(
-        WEBHOOK_URL, content=primer_cuerpo, headers={"stripe-signature": _firmar(primer_cuerpo, int(time.time()))}
+        WEBHOOK_URL,
+        content=primer_cuerpo,
+        headers={"stripe-signature": _firmar(primer_cuerpo, int(time.time()))},
     )
     async with SessionMaintenance() as session:
         pago = await session.get(EventPayment, payment_id)
@@ -802,7 +824,10 @@ async def test_reembolso_con_revocacion_manual_parcial_revoca_desde_el_webhook(
     )
     evt_id = f"evt_{uuid.uuid4().hex}"
     cuerpo = _cuerpo_charge_refunded(
-        event_id=evt_id, payment_intent="pi_marcada_1", amount_refunded=300, account=stripe_account_id
+        event_id=evt_id,
+        payment_intent="pi_marcada_1",
+        amount_refunded=300,
+        account=stripe_account_id,
     )
     await cliente.post(
         WEBHOOK_URL, content=cuerpo, headers={"stripe-signature": _firmar(cuerpo, int(time.time()))}
@@ -827,6 +852,7 @@ def test_no_se_ha_anadido_ninguna_columna_a_event_tickets() -> None:
     assert columnas == {
         "id",
         "organization_id",
+        "event_id",
         "registration_id",
         "issued_at",
         "used_at",
