@@ -102,6 +102,23 @@ registro no exige verificación anti-bot. Para probarlo activado, pon
 `apps/web/src/environments/environment.development.ts`. **No puede desactivarse en
 producción**: el arranque de la API falla si lo intentas.
 
+## Webhooks de Stripe
+
+El endpoint de webhooks (`/api/v1/webhooks/stripe`) es la única ruta de la API
+sin tenant por `Host`: lleva el prefijo `/api/v1` como todas las demás, no hay
+ninguna ruta fuera de él. Está registrado en Stripe con `connect: true`
+(ámbito «cuentas conectadas»), así que en local hay que reenviar con
+`--forward-connect-to`, **no** con `--forward-to`:
+
+```
+stripe listen --forward-connect-to localhost:8000/api/v1/webhooks/stripe
+```
+
+El CLI imprime un `whsec_...` de un solo uso: cópialo a `STRIPE_WEBHOOK_SECRET`
+en el `.env` mientras dure la sesión de `stripe listen`. Sin `STRIPE_SECRET_KEY`
+ni `STRIPE_WEBHOOK_SECRET`, `payments_enabled` es `false` y toda la superficie
+de pagos responde 503.
+
 ## Accede siempre por http://localhost:8080
 
 Caddy sirve la web, la API y los ficheros bajo el mismo host. Entrar directamente por

@@ -258,6 +258,24 @@ es un **proceso aparte**, arrancado con `taskiq scheduler app.core.tasks:schedul
 de cuentas sin verificar (`core/cleanup.sweep_unverified_accounts`), que avisa a los 5
 días y borra a los 7.
 
+## Pagos con Stripe Connect
+
+Direct charges sobre Connect Standard: el cargo ocurre en la cuenta del
+organizador, la plataforma nunca custodia dinero. Todas las llamadas al SDK
+pasan por `payments/stripe_client.py`, el único fichero que lo importa.
+
+El webhook (`/api/v1/webhooks/stripe`, ámbito «cuentas conectadas») solo
+gestiona `checkout.session.completed` con `payment_method_types=["card"]`.
+`checkout.session.async_payment_succeeded`/`async_payment_failed` —los
+eventos de un método de pago diferido, que no resuelve en el mismo
+`checkout.session.completed`— están **fuera del alcance de la fase 6 del
+PRD**, documentado aquí a propósito, no ignorados en silencio: antes de
+habilitar SEPA u otro método diferido en el Dashboard de una organización,
+hace falta un handler para esos dos eventos que confirme o cancele la
+inscripción `pending_payment` cuando el pago se resuelva de forma asíncrona,
+en vez de asumir (como hoy) que `checkout.session.completed` ya trae el
+resultado final.
+
 ## Frontend
 
 Una sola aplicación Angular 21 sirve la web pública y el panel.
