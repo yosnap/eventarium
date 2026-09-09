@@ -1,0 +1,16 @@
+PENDIENTE: los .woff2 de este directorio son placeholders vacíos (0 bytes), no fuentes reales.
+
+Este directorio debe contener `space-mono-400.woff2` y `space-mono-700.woff2` (subconjunto
+latín) y la licencia real de Space Mono (SIL Open Font License 1.1,
+https://fonts.google.com/specimen/Space+Mono) antes de desplegar a producción. El entorno
+en el que se ha escrito esta fase no tiene acceso a Internet para descargar y subconjuntar
+los binarios, así que `typography.css` ya apunta a las rutas y nombres definitivos, pero
+los ficheros `.woff2` no existen todavía: el navegador cae a la familia de reserva
+(`ui-monospace`/`monospace`) sin romper nada mientras tanto.
+
+Pasos para completar, con acceso a red:
+1. Descargar Space Mono en los dos pesos (400/700) y subconjuntar a latín con
+   `pyftsubset` o `glyphhanger`.
+2. Convertir a `woff2` y guardar cada peso con el nombre exacto de arriba, en este mismo
+   directorio.
+3. Sustituir este fichero por el texto real de la licencia (SIL OFL 1.1).

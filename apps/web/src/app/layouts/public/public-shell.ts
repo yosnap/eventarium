@@ -5,6 +5,7 @@ import { TranslocoDirective } from '@jsverse/transloco';
 import { CookieBanner } from '../../shared/cookies/cookie-banner';
 import { CookieConsentService } from '../../core/cookies/cookie-consent.service';
 import { ThemingService } from '../../core/theming/theming.service';
+import { ThemeToggle } from '../../shared/ui/theme-toggle';
 
 /**
  * Estructura de la web pública: cabecera con la marca de la organización, contenido y
@@ -14,7 +15,7 @@ import { ThemingService } from '../../core/theming/theming.service';
 @Component({
   selector: 'app-public-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, TranslocoDirective, CookieBanner],
+  imports: [RouterOutlet, RouterLink, TranslocoDirective, CookieBanner, ThemeToggle],
   template: `
     <ng-container *transloco="let t">
       <a class="skip-link" href="#contenido">{{ t('comun.saltarAlContenido') }}</a>
@@ -32,6 +33,7 @@ import { ThemingService } from '../../core/theming/theming.service';
           <a routerLink="/eventos">{{ t('publico.eventos.listadoTitulo') }}</a>
           <a routerLink="/admin">{{ t('publico.accesoPanel') }}</a>
         </nav>
+        <app-theme-toggle />
       </header>
 
       <main id="contenido" tabindex="-1">

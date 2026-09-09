@@ -1,0 +1,84 @@
+/*
+ * `@font-face` de las tres familias autoalojadas. Separado de `typography.css` a
+ * propósito: esta hoja es la única que referencia binarios (`url()`), y el builder de
+ * test de Angular (`@angular/build:unit-test`) no sabe bundlear `url()` a `.woff2` en
+ * hojas cargadas por `setupFiles` (esbuild responde «No loader is configured for
+ * ".woff2" files», sin ningún ajuste disponible en su esquema para configurarlo). El
+ * entorno de test importa `tokens.css` y `typography.css` directamente y se salta esta
+ * hoja: no necesita los binarios reales para comprobar que las variables de tema
+ * existen y cambian con `data-theme`. La aplicación real sí la carga, vía `styles.css`.
+ *
+ * Tres familias, sin ningún CDN de terceros (Google Fonts enviaría la IP de quien
+ * visita a un tercero fuera del alcance del banner de consentimiento actual). Los
+ * binarios viven en `apps/web/public/assets/fonts/`.
+ *
+ * PENDIENTE antes de producción: este entorno de trabajo no tiene acceso a Internet
+ * para descargar y subconjuntar los binarios reales. Las reglas de abajo apuntan a las
+ * rutas y nombres definitivos, pero los ficheros woff2 de cada carpeta de fuentes son
+ * placeholders vacíos (ver el LICENSE de cada familia): hasta que alguien con acceso a
+ * red los sustituya, el navegador cae a la familia de reserva de cada font-family, sin
+ * romper el build ni el resto de la aplicación.
+ */
+
+@font-face {
+  font-family: 'Bebas Neue';
+  src: url('/assets/fonts/bebas-neue/bebas-neue-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122;
+}
+
+@font-face {
+  font-family: 'DM Sans';
+  src: url('/assets/fonts/dm-sans/dm-sans-300.woff2') format('woff2');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122;
+}
+
+@font-face {
+  font-family: 'DM Sans';
+  src: url('/assets/fonts/dm-sans/dm-sans-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122;
+}
+
+@font-face {
+  font-family: 'DM Sans';
+  src: url('/assets/fonts/dm-sans/dm-sans-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122;
+}
+
+@font-face {
+  font-family: 'DM Sans';
+  src: url('/assets/fonts/dm-sans/dm-sans-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122;
+}
+
+@font-face {
+  font-family: 'Space Mono';
+  src: url('/assets/fonts/space-mono/space-mono-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122;
+}
+
+@font-face {
+  font-family: 'Space Mono';
+  src: url('/assets/fonts/space-mono/space-mono-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122;
+}

@@ -8,7 +8,11 @@
     "cancelar": "Cancelar",
     "mostrarPassword": "Mostrar la contraseña",
     "ocultarPassword": "Ocultar la contraseña",
-    "corrigeErrores": "Corrige los siguientes errores:"
+    "corrigeErrores": "Corrige los siguientes errores:",
+    "tema": {
+      "activarOscuro": "Activar el tema oscuro",
+      "activarClaro": "Activar el tema claro"
+    }
   },
   "errores": {
     "sitioNoDisponible": "Sitio no disponible",
@@ -284,6 +288,10 @@
       "plantilla": "Plantilla",
       "colores": "Colores",
       "tipografias": "Tipografías",
+      "editarNombre": "Editar nombre →",
+      "plantillaDePortada": "Plantilla de portada",
+      "plantillaDeTema": "Plantilla de tema",
+      "sinPlantillasDeTema": "El catálogo de plantillas de tema todavía no tiene ninguna entrada.",
       "logotipo": "Logotipo",
       "sinLogotipo": "Todavía no has subido ningún logotipo.",
       "subirLogo": "Subir logotipo (PNG, JPEG o WebP, hasta 5 MB)",
@@ -880,6 +888,31 @@
         "correcto": "Inscripción borrada.",
         "error": "No hemos podido borrar la inscripción.",
         "confirmar": "Esta acción borra la inscripción de forma permanente. ¿Continuar?"
+      },
+      "plantillas": {
+        "titulo": "Plantillas de tema",
+        "descripcion": "Catálogo de paletas que las organizaciones pueden elegir para su web pública y su panel. Cada plantilla define los dos modos, oscuro y claro.",
+        "catalogo": "Catálogo",
+        "sinPlantillas": "Todavía no hay ninguna plantilla.",
+        "nueva": "Nueva plantilla",
+        "crear": "Crear plantilla",
+        "editar": "Editar plantilla",
+        "nombre": "Nombre",
+        "clave": "Clave",
+        "clavePista": "Identificador estable de la plantilla, en minúsculas y con guiones (p. ej. «oscuro-vibrante»). No se puede cambiar después de crearla.",
+        "claveInvalida": "La clave debe ir en minúsculas y con guiones (p. ej. «claro-vibrante»), sin espacios ni acentos, hasta 40 caracteres.",
+        "claveInmutable": "Clave",
+        "predeterminada": "Plantilla predeterminada",
+        "predeterminadaPista": "Al marcarla, deja de ser predeterminada la que lo fuera antes.",
+        "modo": {
+          "dark": "Oscuro",
+          "light": "Claro"
+        },
+        "contrasteInsuficiente": "Esta plantilla no se puede guardar: hay pares de colores por debajo del contraste mínimo (4,5:1).",
+        "parInsuficiente": "«{{primero}}» y «{{segundo}}» en modo {{modo}}: {{ratio}}:1.",
+        "guardado": "Plantilla guardada.",
+        "errorGuardar": "No hemos podido guardar la plantilla.",
+        "errorLista": "No hemos podido cargar el catálogo de plantillas."
       }
     }
   },

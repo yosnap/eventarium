@@ -1,17 +1,17 @@
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
-import { checkBrandingContrast } from '../../../core/theming/contrast';
 import { ThemingService } from '../../../core/theming/theming.service';
+import { PlantillaDeTema } from '../../../core/theming/theme-template.model';
 import { TEMPLATE_REGISTRY } from '../../../core/theming/template-registry';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
-import { Input } from '../../../shared/ui/input';
 import { Textarea } from '../../../shared/ui/textarea';
 
 interface SocialLink {
@@ -19,53 +19,41 @@ interface SocialLink {
   url: string;
 }
 
+/** Contrato de `GET`/`PUT /organizations/me/branding` tras la sesión 3 de validación
+ * del plan: sin `colors` ni `fonts` (las columnas se retiran en `0015`). */
 interface Branding {
   readonly template_key: string;
-  readonly colors: Readonly<Record<string, string>>;
-  readonly fonts: Readonly<Record<string, string>>;
+  readonly theme_template_id: string | null;
   readonly social_links: readonly SocialLink[];
   readonly organizer_blurb: string | null;
   readonly logo_url: string | null;
 }
 
-// Mismas claves que `DEFAULT_COLORS`/`DEFAULT_FONTS` en `app/modules/tenant/schemas.py`:
-// son las que `apply-tokens.ts` traduce a variables CSS y las que comprueba `contrast.ts`.
-// Si el branding guardado no trae alguna, se rellena con este valor neutro para que el
-// selector de color no empiece en negro.
-const CAMPOS_DE_COLOR: readonly { clave: string; porDefecto: string }[] = [
-  { clave: 'primary', porDefecto: '#1d4ed8' },
-  { clave: 'primary-contrast', porDefecto: '#ffffff' },
-  { clave: 'secondary', porDefecto: '#0f766e' },
-  { clave: 'surface', porDefecto: '#ffffff' },
-  { clave: 'surface-muted', porDefecto: '#f1f5f9' },
-  { clave: 'text', porDefecto: '#0f172a' },
-  { clave: 'text-muted', porDefecto: '#475569' },
-  { clave: 'border', porDefecto: '#cbd5e1' },
-  { clave: 'danger', porDefecto: '#b91c1c' },
-  { clave: 'success', porDefecto: '#15803d' },
-];
-const CAMPOS_DE_FUENTE: readonly string[] = ['sans', 'heading'];
-
-const CLAVES_DE_PLANTILLA = Array.from(TEMPLATE_REGISTRY.keys());
+const CLAVES_DE_PLANTILLA_DE_PORTADA = Array.from(TEMPLATE_REGISTRY.keys());
 
 const LOGO_MIMES_PERMITIDOS = new Set(['image/png', 'image/jpeg', 'image/webp']);
 // Coincide con `max_image_bytes` en `app/core/config.py`: si diverge, el peor caso es
 // un rechazo tardío en el servidor con el mismo mensaje, no un fallo de seguridad.
 const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
 
-const HEX_VALIDO = /^#[0-9a-f]{6}$/i;
-
 /**
- * Identidad visual editable: colores, tipografías, plantilla, redes sociales y logo.
+ * Identidad visual editable: logotipo, plantilla de tema, plantilla de portada, redes
+ * sociales y resumen del organizador.
+ *
+ * Ya no hay ningún campo de color ni de tipografía: la organización elige una
+ * plantilla completa del catálogo de la plataforma (sesión 2 de validación del plan),
+ * no un acento propio. El nombre de la organización solo se muestra aquí, con enlace a
+ * `/admin/organization`: lo edita esa pantalla, no esta (una sola fuente de escritura
+ * por dato).
  *
  * El estado en edición vive aparte de `ThemingService` (que representa lo ya
- * publicado): así la vista previa del propio panel no cambia mientras se edita, y solo
- * se sincroniza con lo publicado al guardar con éxito.
+ * publicado): así la vista previa del panel no cambia mientras se edita, y solo se
+ * sincroniza con lo publicado al guardar con éxito.
  */
 @Component({
   selector: 'app-branding-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input, Textarea],
+  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, Textarea],
   template: `
     <ng-container *transloco="let t">
       <h1>{{ t('admin.branding.titulo') }}</h1>
@@ -74,30 +62,13 @@ const HEX_VALIDO = /^#[0-9a-f]{6}$/i;
       @if (cargando()) {
         <p>{{ t('comun.cargando') }}</p>
       } @else {
-        @for (aviso of avisosDeContraste(); track aviso.primero + aviso.segundo) {
-          <app-alert tone="error">
-            {{
-              t('admin.branding.contrasteInsuficiente', {
-                primero: aviso.primero,
-                segundo: aviso.segundo,
-                ratio: aviso.ratio,
-              })
-            }}
-          </app-alert>
-        }
-
         <form (submit)="guardar($event)" novalidate>
           <div class="tarjetas">
-            <app-card [heading]="t('admin.branding.plantilla')">
-              <label for="plantilla">{{ t('admin.branding.plantilla') }}</label>
-              <select id="plantilla" (change)="alCambiarPlantilla($event)">
-                @for (clave of claves; track clave) {
-                  <option [value]="clave" [selected]="clave === templateKey()">{{ clave }}</option>
-                }
-              </select>
-            </app-card>
-
             <app-card [heading]="t('admin.branding.logotipo')">
+              <p class="nombre-organizacion">
+                {{ theming.organizationName() }}
+                <a routerLink="/admin/organization">{{ t('admin.branding.editarNombre') }}</a>
+              </p>
               @if (previaLogo(); as url) {
                 <img [src]="url" [alt]="t('admin.branding.logotipo')" height="64" />
               } @else {
@@ -115,51 +86,34 @@ const HEX_VALIDO = /^#[0-9a-f]{6}$/i;
               }
             </app-card>
 
-            <app-card [heading]="t('admin.branding.colores')">
-              <div class="colores">
-                @for (campo of camposDeColor; track campo.clave) {
-                  <div class="color-fila">
-                    <input
-                      type="color"
-                      class="muestra-editable"
-                      [value]="valorColorParaSelector(campo.clave)"
-                      (input)="alCambiarColor(campo.clave, colorDelEvento($event))"
-                      [attr.aria-label]="t('admin.branding.colorClaves.' + campo.clave)"
-                    />
-                    <app-input
-                      [label]="t('admin.branding.colorClaves.' + campo.clave)"
-                      [value]="colors()[campo.clave]"
-                      (valueChange)="alCambiarColor(campo.clave, $event)"
-                    />
-                  </div>
+            <app-card [heading]="t('admin.branding.plantillaDePortada')">
+              <label for="plantilla-portada">{{ t('admin.branding.plantillaDePortada') }}</label>
+              <select id="plantilla-portada" (change)="alCambiarPlantillaDePortada($event)">
+                @for (clave of clavesDePortada; track clave) {
+                  <option [value]="clave" [selected]="clave === templateKey()">{{ clave }}</option>
                 }
-              </div>
-            </app-card>
-
-            <app-card [heading]="t('admin.branding.tipografias')">
-              @for (clave of camposDeFuente; track clave) {
-                <app-input
-                  [label]="t('admin.branding.fuenteClaves.' + clave)"
-                  [value]="fonts()[clave]"
-                  (valueChange)="alCambiarFuente(clave, $event)"
-                />
-              }
+              </select>
             </app-card>
 
             <app-card [heading]="t('admin.branding.redesSociales')">
               @for (enlace of socialLinks(); track $index) {
                 <div class="red-fila">
-                  <app-input
-                    [label]="t('admin.branding.tipoDeRed')"
-                    [value]="enlace.kind"
-                    (valueChange)="alCambiarRed($index, 'kind', $event)"
-                  />
-                  <app-input
-                    [label]="t('admin.branding.urlDeRed')"
-                    type="url"
-                    [value]="enlace.url"
-                    (valueChange)="alCambiarRed($index, 'url', $event)"
-                  />
+                  <label
+                    >{{ t('admin.branding.tipoDeRed') }}
+                    <input
+                      type="text"
+                      [value]="enlace.kind"
+                      (input)="alCambiarRed($index, 'kind', inputDelEvento($event))"
+                    />
+                  </label>
+                  <label
+                    >{{ t('admin.branding.urlDeRed') }}
+                    <input
+                      type="url"
+                      [value]="enlace.url"
+                      (input)="alCambiarRed($index, 'url', inputDelEvento($event))"
+                    />
+                  </label>
                   <app-button variant="secundario" type="button" (pulsado)="quitarRed($index)">
                     {{ t('admin.branding.quitarRed') }}
                   </app-button>
@@ -177,6 +131,40 @@ const HEX_VALIDO = /^#[0-9a-f]{6}$/i;
               />
             </app-card>
           </div>
+
+          <fieldset class="plantillas-de-tema">
+            <legend>{{ t('admin.branding.plantillaDeTema') }}</legend>
+            @for (plantilla of plantillasDeTema(); track plantilla.id) {
+              <label class="opcion-plantilla">
+                <input
+                  type="radio"
+                  name="plantilla-de-tema"
+                  [value]="plantilla.id"
+                  [checked]="plantilla.id === themeTemplateId()"
+                  (change)="themeTemplateId.set(plantilla.id)"
+                />
+                <span class="muestras">
+                  @for (modo of modos; track modo) {
+                    <span
+                      class="muestra"
+                      [style.background]="plantilla.tokens[modo]['bg']"
+                      [style.color]="plantilla.tokens[modo]['fg']"
+                      [style.border-color]="plantilla.tokens[modo]['border']"
+                    >
+                      <span
+                        class="acento"
+                        [style.background]="plantilla.tokens[modo]['accent']"
+                      ></span>
+                    </span>
+                  }
+                </span>
+                <span class="nombre-plantilla">{{ plantilla.name }}</span>
+              </label>
+            }
+            @if (plantillasDeTema().length === 0) {
+              <p>{{ t('admin.branding.sinPlantillasDeTema') }}</p>
+            }
+          </fieldset>
 
           @if (guardado()) {
             <app-alert tone="exito">{{ t('admin.branding.guardado') }}</app-alert>
@@ -206,6 +194,12 @@ const HEX_VALIDO = /^#[0-9a-f]{6}$/i;
       gap: var(--space-md);
       grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
     }
+    .nombre-organizacion {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      font-weight: 600;
+    }
     select {
       display: block;
       width: 100%;
@@ -218,28 +212,23 @@ const HEX_VALIDO = /^#[0-9a-f]{6}$/i;
       font: inherit;
       min-height: 2.75rem;
     }
-    .colores {
-      display: grid;
-      gap: var(--space-sm);
-    }
-    .color-fila,
     .red-fila {
       display: flex;
       align-items: center;
       gap: var(--space-sm);
+      margin-bottom: var(--space-sm);
     }
-    .color-fila app-input,
-    .red-fila app-input {
+    .red-fila label {
       flex: 1;
+      display: grid;
+      gap: var(--space-xs);
+      font-size: 0.875rem;
     }
-    .muestra-editable {
-      width: 2.75rem;
-      height: 2.75rem;
-      padding: 0;
+    .red-fila input {
+      padding: 0.5rem 0.75rem;
       border: 1px solid var(--color-border);
       border-radius: var(--radius-md);
-      background: none;
-      cursor: pointer;
+      font: inherit;
     }
     .etiqueta-fichero {
       display: block;
@@ -258,17 +247,49 @@ const HEX_VALIDO = /^#[0-9a-f]{6}$/i;
       display: block;
       margin-bottom: var(--space-sm);
     }
+    .plantillas-de-tema {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: var(--space-md);
+      display: grid;
+      gap: var(--space-sm);
+    }
+    .opcion-plantilla {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      cursor: pointer;
+    }
+    .muestras {
+      display: flex;
+      gap: 2px;
+    }
+    .muestra {
+      width: 2rem;
+      height: 2rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--color-border);
+      display: grid;
+      place-items: center;
+    }
+    .acento {
+      width: 0.75rem;
+      height: 0.75rem;
+      border-radius: 50%;
+    }
+    .nombre-plantilla {
+      font-weight: 500;
+    }
   `,
 })
 export class BrandingPage {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
-  private readonly theming = inject(ThemingService);
+  protected readonly theming = inject(ThemingService);
 
-  protected readonly claves = CLAVES_DE_PLANTILLA;
-  protected readonly camposDeColor = CAMPOS_DE_COLOR;
-  protected readonly camposDeFuente = CAMPOS_DE_FUENTE;
+  protected readonly clavesDePortada = CLAVES_DE_PLANTILLA_DE_PORTADA;
+  protected readonly modos: readonly ('dark' | 'light')[] = ['dark', 'light'];
 
   protected readonly cargando = signal(true);
   protected readonly guardando = signal(false);
@@ -276,9 +297,9 @@ export class BrandingPage {
   protected readonly error = signal<string | null>(null);
   protected readonly errorLogo = signal<string | null>(null);
 
-  protected readonly templateKey = signal(CLAVES_DE_PLANTILLA[0] ?? 'classic');
-  protected readonly colors = signal<Record<string, string>>({});
-  protected readonly fonts = signal<Record<string, string>>({});
+  protected readonly templateKey = signal(CLAVES_DE_PLANTILLA_DE_PORTADA[0] ?? 'classic');
+  protected readonly themeTemplateId = signal<string | null>(null);
+  protected readonly plantillasDeTema = signal<PlantillaDeTema[]>([]);
   protected readonly socialLinks = signal<SocialLink[]>([]);
   protected readonly organizerBlurb = signal('');
   protected readonly logoUrlGuardado = signal<string | null>(null);
@@ -287,17 +308,19 @@ export class BrandingPage {
   private readonly previaLogoLocal = signal<string | null>(null);
   protected readonly previaLogo = computed(() => this.previaLogoLocal() ?? this.logoUrlGuardado());
 
-  protected readonly avisosDeContraste = computed(() => checkBrandingContrast(this.colors()));
-
   constructor() {
     void this.cargar();
   }
 
   private async cargar(): Promise<void> {
     try {
-      const branding = await firstValueFrom(
-        this.http.get<Branding>(this.api.url('/organizations/me/branding')),
-      );
+      const [branding, plantillas] = await Promise.all([
+        firstValueFrom(this.http.get<Branding>(this.api.url('/organizations/me/branding'))),
+        firstValueFrom(
+          this.http.get<PlantillaDeTema[]>(this.api.url('/organizations/me/theme-templates')),
+        ),
+      ]);
+      this.plantillasDeTema.set(plantillas);
       this.aplicarRespuesta(branding);
     } finally {
       this.cargando.set(false);
@@ -305,23 +328,14 @@ export class BrandingPage {
   }
 
   private aplicarRespuesta(branding: Branding): void {
-    this.templateKey.set(branding.template_key || CLAVES_DE_PLANTILLA[0] || 'classic');
-    const colores: Record<string, string> = {};
-    for (const campo of CAMPOS_DE_COLOR) {
-      colores[campo.clave] = branding.colors[campo.clave] ?? campo.porDefecto;
-    }
-    this.colors.set(colores);
-    const fuentes: Record<string, string> = {};
-    for (const clave of CAMPOS_DE_FUENTE) {
-      fuentes[clave] = branding.fonts[clave] ?? '';
-    }
-    this.fonts.set(fuentes);
+    this.templateKey.set(branding.template_key || CLAVES_DE_PLANTILLA_DE_PORTADA[0] || 'classic');
+    this.themeTemplateId.set(branding.theme_template_id);
     this.socialLinks.set(branding.social_links.map((enlace) => ({ ...enlace })));
     this.organizerBlurb.set(branding.organizer_blurb ?? '');
     this.logoUrlGuardado.set(branding.logo_url);
   }
 
-  protected alCambiarPlantilla(evento: Event): void {
+  protected alCambiarPlantillaDePortada(evento: Event): void {
     this.templateKey.set((evento.target as HTMLSelectElement).value);
   }
 
@@ -329,19 +343,8 @@ export class BrandingPage {
     return (evento.target as HTMLInputElement).value;
   }
 
-  /** El selector nativo de color exige `#rrggbb` exacto; un valor a medio escribir se
-   * sustituye por un neutro para no romper el control mientras la persona escribe. */
-  protected valorColorParaSelector(clave: string): string {
-    const valor = this.colors()[clave];
-    return HEX_VALIDO.test(valor) ? valor : '#000000';
-  }
-
-  protected alCambiarColor(clave: string, valor: string): void {
-    this.colors.update((actuales) => ({ ...actuales, [clave]: valor }));
-  }
-
-  protected alCambiarFuente(clave: string, valor: string): void {
-    this.fonts.update((actuales) => ({ ...actuales, [clave]: valor }));
+  protected inputDelEvento(evento: Event): string {
+    return (evento.target as HTMLInputElement).value;
   }
 
   protected alCambiarRed(indice: number, campo: 'kind' | 'url', valor: string): void {
@@ -388,8 +391,7 @@ export class BrandingPage {
       let respuesta = await firstValueFrom(
         this.http.put<Branding>(this.api.url('/organizations/me/branding'), {
           template_key: this.templateKey(),
-          colors: this.colors(),
-          fonts: this.fonts(),
+          theme_template_id: this.themeTemplateId(),
           // Una fila añadida y no rellenada no cuenta como enlace: el backend exige
           // `kind`/`url` no vacíos, y descartarla aquí evita un 422 confuso por un
           // campo que la persona nunca llegó a completar.

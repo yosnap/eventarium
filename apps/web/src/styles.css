@@ -1,9 +1,14 @@
 @import './styles/tokens.css';
+@import './styles/typography.css';
+@import './styles/font-faces.css';
 @import 'tailwindcss';
 
 /*
- * Se declaran los tokens como colores y fuentes de Tailwind. Así `bg-primary` o
- * `font-heading` responden al branding cargado en runtime.
+ * Se declaran los tokens como colores y fuentes de Tailwind. Los alias `--color-*`
+ * siguen vivos (tabla de mapeo de `tokens.css`) hasta que las fases 4-6 los retiren, así
+ * que `bg-primary` o `font-sans` siguen respondiendo igual que antes; las clases nuevas
+ * usan directamente los tokens del sistema (`bg-[var(--surface)]`, etc.) mientras no se
+ * declaren utilidades propias.
  */
 @theme inline {
   --color-primary: var(--color-primary);
@@ -19,21 +24,32 @@
 
   --font-sans: var(--font-sans);
   --font-heading: var(--font-heading);
+  --font-mono: var(--font-mono);
 
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
   --radius-lg: var(--radius-lg);
 }
 
+/*
+ * El esquema de color nativo (barras de scroll, `<select>`, calendarios) sigue al
+ * tema: oscuro por defecto, claro cuando `data-theme="light"` está en `<html>`. Fijarlo
+ * a `light` a mano (como antes) dejaría esos controles claros sobre un fondo oscuro.
+ */
 html {
+  color-scheme: dark;
+}
+
+[data-theme='light'] {
   color-scheme: light;
 }
 
 body {
   margin: 0;
-  background-color: var(--color-surface);
-  color: var(--color-text);
-  font-family: var(--font-sans);
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
   line-height: 1.5;
 }
 
@@ -41,13 +57,13 @@ h1,
 h2,
 h3,
 h4 {
-  font-family: var(--font-heading);
+  font-family: var(--font-display);
   line-height: 1.2;
 }
 
 /* Foco siempre visible: requisito WCAG 2.4.7. */
 :focus-visible {
-  outline: 3px solid var(--color-primary);
+  outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -70,8 +86,8 @@ h4 {
   top: 0;
   z-index: 100;
   padding: var(--space-sm) var(--space-md);
-  background-color: var(--color-primary);
-  color: var(--color-primary-contrast);
+  background-color: var(--accent);
+  color: var(--on-accent);
   border-radius: 0 0 var(--radius-md) 0;
 }
 

@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 
 import { authGuard } from './core/auth/auth.guard';
+import { superadminGuard } from './core/auth/superadmin.guard';
 
 export const routes: Routes = [
   {
@@ -161,8 +162,17 @@ export const routes: Routes = [
       },
       {
         path: 'superadmin',
+        canActivate: [superadminGuard],
         loadComponent: () =>
           import('./features/admin/superadmin/superadmin-page').then((m) => m.SuperadminPage),
+      },
+      {
+        path: 'superadmin/plantillas',
+        canActivate: [superadminGuard],
+        loadComponent: () =>
+          import('./features/admin/superadmin/theme-templates-page').then(
+            (m) => m.ThemeTemplatesPage,
+          ),
       },
       {
         // Catálogo interno de componentes: no forma parte del producto, pero vive

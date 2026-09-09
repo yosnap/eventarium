@@ -5,12 +5,13 @@ import { TranslocoDirective } from '@jsverse/transloco';
 import { AuthService, OrganizacionDeLaPersona, displayName } from '../../core/auth/auth.service';
 import { ThemingService } from '../../core/theming/theming.service';
 import { Button } from '../../shared/ui/button';
+import { ThemeToggle } from '../../shared/ui/theme-toggle';
 
 /** Estructura del panel de administración. */
 @Component({
   selector: 'app-admin-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, TranslocoDirective, Button],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, TranslocoDirective, Button, ThemeToggle],
   template: `
     <ng-container *transloco="let t">
       <a class="skip-link" href="#contenido-admin">{{ t('comun.saltarAlContenido') }}</a>
@@ -18,6 +19,7 @@ import { Button } from '../../shared/ui/button';
       <header>
         <p class="marca">{{ theming.organizationName() }} · {{ t('admin.titulo') }}</p>
         <div class="sesion">
+          <app-theme-toggle />
           @if (otrasOrganizaciones().length > 0) {
             <nav [attr.aria-label]="t('admin.selectorOrganizacion.titulo')" class="selector">
               @for (organizacion of organizaciones(); track organizacion.organization_id) {

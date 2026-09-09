@@ -2,31 +2,26 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
+import { provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BrandingPage } from './branding-page';
 import { ThemingService } from '../../../core/theming/theming.service';
+import { plantillaDeTemaDePrueba } from '../../../../testing/branding.fixture';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../../testing/axe';
 import es from '../../../../../public/assets/i18n/es-ES.json';
 
 const BRANDING_URL = '/api/v1/organizations/me/branding';
+const CATALOGO_URL = '/api/v1/organizations/me/theme-templates';
+
+const PLANTILLA_OSCURA = plantillaDeTemaDePrueba({ id: 'tema-oscuro', key: 'oscuro', name: 'Oscuro' });
+const PLANTILLA_CLARA = plantillaDeTemaDePrueba({ id: 'tema-claro', key: 'claro', name: 'Claro' });
+const CATALOGO = [PLANTILLA_OSCURA, PLANTILLA_CLARA];
 
 const BRANDING_VALIDO = {
   template_key: 'classic',
-  colors: {
-    primary: '#1d4ed8',
-    'primary-contrast': '#ffffff',
-    secondary: '#0f766e',
-    surface: '#ffffff',
-    'surface-muted': '#f1f5f9',
-    text: '#0f172a',
-    'text-muted': '#475569',
-    border: '#cbd5e1',
-    danger: '#b91c1c',
-    success: '#15803d',
-  },
-  fonts: { sans: 'system-ui', heading: 'system-ui' },
+  theme_template_id: PLANTILLA_OSCURA.id,
   social_links: [],
   organizer_blurb: null,
   logo_url: null,
@@ -53,9 +48,13 @@ describe('BrandingPage', () => {
       ],
       providers: [
         provideZonelessChangeDetection(),
+        provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: ThemingService, useValue: { load: themingLoad } },
+        {
+          provide: ThemingService,
+          useValue: { load: themingLoad, organizationName: () => 'Organización de prueba' },
+        },
       ],
     });
     http = TestBed.inject(HttpTestingController);
@@ -65,41 +64,69 @@ describe('BrandingPage', () => {
     http.verify();
   });
 
-  it('carga el branding y no tiene violaciones de accesibilidad', async () => {
+  async function crearYCargar(): Promise<ComponentFixture<BrandingPage>> {
     const fixture = TestBed.createComponent(BrandingPage);
     await avanzar(fixture);
     http.expectOne(BRANDING_URL).flush(BRANDING_VALIDO);
+    http.expectOne(CATALOGO_URL).flush(CATALOGO);
     await avanzar(fixture);
+    await avanzar(fixture);
+    return fixture;
+  }
 
+  it('carga el branding y el catálogo, sin violaciones de accesibilidad', async () => {
+    const fixture = await crearYCargar();
+
+    expect(fixture.nativeElement.textContent).toContain('Organización de prueba');
     expect(fixture.nativeElement.querySelector('select').value).toBe('classic');
+    const radios = fixture.nativeElement.querySelectorAll('input[type="radio"]');
+    expect(radios.length).toBe(2);
+    const marcado = Array.from(radios).find((r) => (r as HTMLInputElement).checked) as
+      | HTMLInputElement
+      | undefined;
+    expect(marcado?.value).toBe(PLANTILLA_OSCURA.id);
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
-  it('avisa de contraste insuficiente y el aviso desaparece al corregirlo', async () => {
-    const fixture = TestBed.createComponent(BrandingPage);
-    await avanzar(fixture);
-    http
-      .expectOne(BRANDING_URL)
-      .flush({ ...BRANDING_VALIDO, colors: { ...BRANDING_VALIDO.colors, text: '#f5f5f5' } });
+  it('la galería de plantillas es un grupo de radios con nombre accesible por opción', async () => {
+    const fixture = await crearYCargar();
+
+    const fieldset = fixture.nativeElement.querySelector('fieldset');
+    expect(fieldset.querySelector('legend')).toBeTruthy();
+    expect(fixture.nativeElement.textContent).toContain('Claro');
+    expect(fixture.nativeElement.textContent).toContain('Oscuro');
+  });
+
+  it('elegir otra plantilla de tema la envía en el PUT', async () => {
+    const fixture = await crearYCargar();
+
+    const radios = Array.from(
+      fixture.nativeElement.querySelectorAll('input[type="radio"]'),
+    ) as HTMLInputElement[];
+    const radioClaro = radios.find((r) => r.value === PLANTILLA_CLARA.id)!;
+    radioClaro.checked = true;
+    radioClaro.dispatchEvent(new Event('change'));
     await avanzar(fixture);
 
-    expect(fixture.nativeElement.textContent).toContain('contraste');
-
-    const campoTexto = Array.from(
-      fixture.nativeElement.querySelectorAll('input[type="text"], input:not([type])'),
-    ).find((el) => (el as HTMLInputElement).value === '#f5f5f5') as HTMLInputElement;
-    campoTexto.value = '#0f172a';
-    campoTexto.dispatchEvent(new Event('input'));
+    (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
+      new Event('submit'),
+    );
     await avanzar(fixture);
 
-    expect(fixture.nativeElement.textContent).not.toContain('contraste');
+    const peticion = http.expectOne(BRANDING_URL);
+    expect(peticion.request.method).toBe('PUT');
+    expect(peticion.request.body.theme_template_id).toBe(PLANTILLA_CLARA.id);
+    expect(peticion.request.body.colors).toBeUndefined();
+    expect(peticion.request.body.fonts).toBeUndefined();
+    peticion.flush({ ...BRANDING_VALIDO, theme_template_id: PLANTILLA_CLARA.id });
+    await avanzar(fixture);
+    await avanzar(fixture);
+
+    expect(themingLoad).toHaveBeenCalled();
   });
 
   it('guarda los cambios y refresca el branding público aplicado', async () => {
-    const fixture = TestBed.createComponent(BrandingPage);
-    await avanzar(fixture);
-    http.expectOne(BRANDING_URL).flush(BRANDING_VALIDO);
-    await avanzar(fixture);
+    const fixture = await crearYCargar();
 
     (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
       new Event('submit'),
@@ -121,10 +148,7 @@ describe('BrandingPage', () => {
   });
 
   it('rechaza en el cliente un logotipo con un tipo no permitido', async () => {
-    const fixture = TestBed.createComponent(BrandingPage);
-    await avanzar(fixture);
-    http.expectOne(BRANDING_URL).flush(BRANDING_VALIDO);
-    await avanzar(fixture);
+    const fixture = await crearYCargar();
 
     const campoFichero = fixture.nativeElement.querySelector(
       'input[type="file"]',
