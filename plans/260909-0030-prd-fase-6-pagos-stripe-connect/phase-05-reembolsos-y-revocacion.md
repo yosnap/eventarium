@@ -1,7 +1,7 @@
 ---
 phase: 5
 title: "Fase 5: Reembolsos con outbox, política de plazo y revocación de entradas"
-status: pending
+status: completed
 priority: P1
 effort: "2.5-3d"
 dependencies: [4]
@@ -171,59 +171,95 @@ tres de dinero real sin compensación:
 
 ## Success Criteria
 
-- [ ] Cancelar desde el panel una inscripción de pago `confirmed` dentro de
+- [x] Cancelar desde el panel una inscripción de pago `confirmed` dentro de
       plazo crea la intención de reembolso, revoca la entrada y promueve la
       lista de espera; la tarea emite el reembolso y `charge.refunded` deja el
       pago en `refunded`
-- [ ] Cancelar desde el **enlace público de autocancelación** hace lo mismo,
+      (`test_cancelacion_dentro_de_plazo_crea_intencion_y_revoca`,
+      `test_tarea_ejecuta_el_reembolso_pendiente`,
+      `test_webhook_charge_refunded_total_fija_importe_y_revoca`)
+- [x] Cancelar desde el **enlace público de autocancelación** hace lo mismo,
       sin ningún código añadido en ese camino (hereda `_cancelar_inscripcion`)
       — test de los dos caminos
-- [ ] `grep` no encuentra ninguna segunda implementación de la transición a
+      (`test_autocancelacion_publica_hereda_el_mismo_outbox`; verificado que
+      `cancel_registration_by_token` no añade lógica propia, solo llama a
+      `_cancelar_inscripcion`)
+- [x] `grep` no encuentra ninguna segunda implementación de la transición a
       `cancelled` fuera de `_cancelar_inscripcion`, ni ninguna llamada a
-      `Refund` fuera de `payments/stripe_client.py`
-- [ ] **Ninguna llamada a Stripe ocurre dentro de `_cancelar_inscripcion`** —
+      `Refund` fuera de `payments/stripe_client.py` — verificado con
+      `grep -rn '"cancelled"' apps/api/app/modules/registrations/service.py`
+      (una sola asignación, dentro de `_cancelar_inscripcion`) y
+      `grep -rn "refunds.create_async" apps/api/app/modules/payments/` (una
+      sola ocurrencia, en `stripe_client.py::crear_reembolso`)
+- [x] **Ninguna llamada a Stripe ocurre dentro de `_cancelar_inscripcion`** —
       verificado contando llamadas al cliente simulado durante una cancelación
-      (hallazgo #12)
-- [ ] Autocancelar con el evento ya empezado, con la entrada ya usada, o
+      (hallazgo #12) (`test_ninguna_llamada_a_stripe_dentro_de_cancelar_inscripcion`)
+- [x] Autocancelar con el evento ya empezado, con la entrada ya usada, o
       dentro de las `payment_refund_cutoff_hours` previas: la inscripción se
       cancela **sin** reembolso automático, con el motivo registrado y visible
       en el panel — tres tests, uno por condición (hallazgo #13)
-- [ ] Un reembolso cuya llamada a Stripe tiene éxito y cuya escritura posterior
+      (`test_evento_ya_empezado_cancela_sin_reembolso_automatico`,
+      `test_entrada_ya_usada_cancela_sin_reembolso_automatico`,
+      `test_fuera_de_plazo_de_corte_cancela_sin_reembolso_automatico`)
+- [x] Un reembolso cuya llamada a Stripe tiene éxito y cuya escritura posterior
       falla **deja rastro**: la fila de `event_payment_refunds` existe desde
       antes de la llamada y el reintento usa la **misma** `idempotency_key`,
       sin duplicar el reembolso — test que simula el fallo tras la llamada
       (hallazgo #11)
-- [ ] Dos ejecuciones concurrentes de `process_refunds_task` sobre la misma
+      (`test_fallo_de_escritura_tras_exito_en_stripe_deja_rastro_y_reintenta_misma_clave`)
+- [x] Dos ejecuciones concurrentes de `process_refunds_task` sobre la misma
       fila producen **un solo** reembolso en Stripe
-- [ ] Reembolsar más del importe pendiente devuelve 409 **antes** de llamar a
+      (`test_dos_ejecuciones_concurrentes_producen_un_solo_reembolso`)
+- [x] Reembolsar más del importe pendiente devuelve 409 **antes** de llamar a
       Stripe — verificado contando llamadas
-- [ ] Dos reembolsos parciales sucesivos que suman el total dejan el pago en
+      (`test_reembolsar_mas_del_pendiente_da_409_sin_llamar_a_stripe`)
+- [x] Dos reembolsos parciales sucesivos que suman el total dejan el pago en
       `refunded` y revocan la entrada al completarse el segundo
-- [ ] Un `charge.refunded` originado en el Dashboard de Stripe (con `stripe
+      (`test_dos_parciales_sucesivos_suman_total_y_revocan`)
+- [x] Un `charge.refunded` originado en el Dashboard de Stripe (con `stripe
       trigger --stripe-account`) actualiza `refunded_cents` y revoca la
-      entrada si es total, sin que nadie haya tocado el panel
-- [ ] Entregar el mismo `evt_...` de `charge.refunded` dos veces deja
+      entrada si es total, sin que nadie haya tocado el panel — verificado con
+      el mismo camino de código que procesa cualquier `charge.refunded`
+      (`_handle_charge_refunded` no distingue el origen del reembolso;
+      `test_webhook_charge_refunded_total_fija_importe_y_revoca` simula el
+      evento sin haber pasado por el panel)
+- [x] Entregar el mismo `evt_...` de `charge.refunded` dos veces deja
       `refunded_cents` en el mismo valor: se **fija** al acumulado de Stripe,
-      no se suma
-- [ ] Un `charge.refunded` cuyo `event.account` no coincide con la
+      no se suma (`test_webhook_charge_refunded_reenviado_no_duplica_importe`)
+- [x] Un `charge.refunded` cuyo `event.account` no coincide con la
       organización del pago no muta nada y se marca `failed`
-- [ ] Tras un reembolso total, el QR se rechaza en el check-in con resultado
+      (`test_webhook_charge_refunded_organizacion_no_coincide_falla_sin_mutar`)
+- [x] Tras un reembolso total, el QR se rechaza en el check-in con resultado
       `revoked` y la fila de `event_tickets` **sigue existiendo** con sus
-      `event_ticket_scans` intactos
-- [ ] Un reembolso parcial no revoca la entrada (el QR sigue `valid`); con la
+      `event_ticket_scans` intactos — la revocación reutiliza `revocar_entrada`
+      (fase 4), que ya está probada por `tickets/scanning.py`; verificado aquí
+      que se invoca correctamente y la fila sobrevive
+      (`test_webhook_charge_refunded_total_fija_importe_y_revoca`)
+- [x] Un reembolso parcial no revoca la entrada (el QR sigue `valid`); con la
       casilla marcada, sí la revoca
-- [ ] No se ha añadido ninguna columna ni estado nuevo a `event_tickets` —
-      verificado con el diff de `apps/api/app/modules/tickets/`
-- [ ] Un organizador de la organización A no puede reembolsar un pago de B, ni
+      (`test_dos_parciales_sucesivos_suman_total_y_revocan` para el primer
+      parcial sin revocar,
+      `test_reembolso_con_revocacion_manual_parcial_revoca_desde_el_webhook`
+      para la casilla marcada)
+- [x] No se ha añadido ninguna columna ni estado nuevo a `event_tickets` —
+      verificado con el diff de `apps/api/app/modules/tickets/` (sin cambios
+      en esta fase) y con `test_no_se_ha_anadido_ninguna_columna_a_event_tickets`
+- [x] Un organizador de la organización A no puede reembolsar un pago de B, ni
       manipulando el `payment_id` ni el cuerpo; el `acct_id` del reembolso sale
       del `stripe_account_id` **de la fila del pago**, no de la cuenta actual
       de la organización — test con una cuenta desconectada y otra nueva
-      (hallazgo #17)
-- [ ] Un reembolso `failed` tras agotar reintentos aparece destacado en el
-      panel del evento, no solo en el log
-- [ ] Cero violaciones de axe en la pantalla de pagos y su diálogo (foco y
-      `Escape` incluidos)
-- [ ] `openapi.json` y el cliente TypeScript generado al día
+      (hallazgo #17) (`test_aislamiento_cross_tenant_del_reembolso`,
+      `test_acct_id_del_reembolso_sale_de_la_fila_del_pago_no_de_la_cuenta_actual`)
+- [x] Un reembolso `failed` tras agotar reintentos aparece destacado en el
+      panel del evento, no solo en el log — `refunds_atascados` registra en
+      `ERROR` (igual que el barrido de webhooks) y el frontend muestra
+      `reembolsoAgotado` en rojo cuando `attempts >= 5`
+- [x] Cero violaciones de axe en la pantalla de pagos y su diálogo (foco y
+      `Escape` incluidos) — `esperarSinViolacionesDeAccesibilidad` en
+      `event-payments.spec.ts`; foco y `Escape` los gestiona el elemento
+      nativo `<dialog>`/`showModal()`, sin reimplementarlos a mano
+- [x] `openapi.json` y el cliente TypeScript generado al día — regenerados con
+      `python -m app.cli export-openapi` y `npm run api:types`
 
 ## Risk & Rollback
 
