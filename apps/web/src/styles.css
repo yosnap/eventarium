@@ -94,3 +94,69 @@ h4 {
 .skip-link:focus {
   left: 0;
 }
+
+/*
+ * Desplegable nativo con los tokens del sistema. No se construye ningún combobox
+ * custom (fase 2): el `<select>` nativo ya resuelve teclado, `aria-activedescendant`
+ * y posicionamiento sin ninguna línea propia. `color-scheme` (arriba) es lo que
+ * arregla el pintado de las opciones nativas en tema oscuro; esta regla solo pinta el
+ * control cerrado.
+ */
+select {
+  box-sizing: border-box;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background-color: var(--surface-2);
+  color: var(--fg);
+  font: inherit;
+  min-height: 2.75rem;
+}
+
+/* :focus-visible, no :focus a secas: solo refuerza el anillo global (arriba) en foco
+   por teclado, sin anularlo con `outline: none` en foco por ratón. */
+select:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/*
+ * Retícula de fondo: malla decorativa fija detrás del contenido, desvanecida hacia
+ * abajo. `pointer-events: none` para no interceptar ningún clic ni foco, y sin
+ * ninguna animación de entrada asociada (fuera de alcance, fase 2). Se comprueba en
+ * `contrast.spec.ts`/manualmente que no baja el contraste del cuerpo en ningún tema:
+ * la malla vive en un `z-index` negativo, bajo el color de fondo real del texto.
+ */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: 30px 30px;
+  opacity: 0.4;
+  mask-image: linear-gradient(to bottom, black, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, black, transparent);
+}
+
+/* Rótulo de sección: mono, mayúsculas, con tracking amplio. Regla de tipografía de
+ * tres líneas; el encabezado semántico (`<h2>`) sigue siendo responsabilidad de la
+ * pantalla que use esta clase. */
+.rotulo-seccion {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* Subrayado de acento estático, sin animación de entrada. */
+.mark {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.2em;
+}

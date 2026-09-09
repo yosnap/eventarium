@@ -51,18 +51,20 @@ import {
       width: 100%;
       box-sizing: border-box;
       padding: 1.25rem 0.75rem 0.4rem;
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border-strong);
       border-radius: var(--radius-md);
-      background-color: var(--color-surface);
-      color: var(--color-text);
+      background-color: var(--surface-2);
+      color: var(--fg);
       font: inherit;
       resize: vertical;
       transition: border-color 0.15s ease;
     }
+    /* Deuda preexistente a esta fase, sin tocar: ver el comentario de input.ts
+     * (mismo patrón, misma corrección de la descripción). */
     textarea:focus {
       outline: none;
-      border-color: var(--color-primary);
-      box-shadow: 0 0 0 1px var(--color-primary);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
     }
     label {
       position: absolute;
@@ -70,7 +72,7 @@ import {
       top: 0.9rem;
       transform-origin: left top;
       font-weight: 500;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
       pointer-events: none;
       transition:
         transform 0.15s ease,
@@ -84,16 +86,16 @@ import {
     .flotando label {
       top: 0.35rem;
       transform: scale(0.78);
-      color: var(--color-primary);
+      color: var(--accent);
     }
     .error {
       margin: 0;
-      color: var(--color-danger);
+      color: var(--danger);
       font-size: 0.875rem;
     }
     .ayuda {
       margin: 0;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
       font-size: 0.8125rem;
     }
     @media (prefers-reduced-motion: reduce) {

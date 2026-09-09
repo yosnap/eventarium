@@ -87,7 +87,7 @@ const ETIQUETAS_FUERZA = [
     .barra {
       height: 0.375rem;
       border-radius: var(--radius-md);
-      background-color: var(--color-surface-muted);
+      background-color: var(--surface-2);
       overflow: hidden;
     }
     .relleno {
@@ -95,13 +95,13 @@ const ETIQUETAS_FUERZA = [
       transition: width 0.2s ease;
     }
     .debil {
-      background-color: var(--color-danger);
+      background-color: var(--danger);
     }
     .media {
-      background-color: #d97706;
+      background-color: var(--warn);
     }
     .fuerte {
-      background-color: var(--color-success);
+      background-color: var(--accent);
     }
     .etiqueta {
       font-size: 0.8125rem;
@@ -113,10 +113,10 @@ const ETIQUETAS_FUERZA = [
       display: grid;
       gap: 0.25rem;
       font-size: 0.8125rem;
-      color: var(--color-text-muted, inherit);
+      color: var(--muted);
     }
     .requisitos li.cumplido {
-      color: var(--color-success);
+      color: var(--accent-hi);
     }
     .visualmente-oculto {
       position: absolute;

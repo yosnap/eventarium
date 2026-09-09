@@ -85,17 +85,8 @@ import { ProfileField } from './dynamic-field.model';
       display: grid;
       gap: var(--space-xs);
     }
-    .campo-select select {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 0.625rem 0.75rem;
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-md);
-      background-color: var(--color-surface);
-      color: var(--color-text);
-      font: inherit;
-      min-height: 2.75rem;
-    }
+    /* El propio \`<select>\` adopta los estilos compartidos de \`styles.css\`: fondo,
+     * borde y foco con los tokens nuevos. No se repite aquí (DRY). */
     .campo-boolean label {
       display: flex;
       align-items: center;
@@ -110,7 +101,7 @@ import { ProfileField } from './dynamic-field.model';
     }
     .error {
       margin: 0;
-      color: var(--color-danger);
+      color: var(--danger);
       font-size: 0.875rem;
     }
   `,

@@ -88,18 +88,23 @@ import { TranslocoService } from '@jsverse/transloco';
       width: 100%;
       box-sizing: border-box;
       padding: 1.25rem 0.75rem 0.4rem;
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border-strong);
       border-radius: var(--radius-md);
-      background-color: var(--color-surface);
-      color: var(--color-text);
+      background-color: var(--surface-2);
+      color: var(--fg);
       font: inherit;
       min-height: 3.25rem;
       transition: border-color 0.15s ease;
     }
+    /* Deuda preexistente a esta fase, sin tocar: outline: none aquí anula de
+     * verdad el anillo de :focus-visible global para este campo (mayor
+     * especificidad), quedando solo el borde/box-shadow como indicador de foco.
+     * No es lo que dice el comentario original ("además del global") — se corrige
+     * la descripción para no afirmar lo contrario de lo que hace la cascada. */
     input:focus {
       outline: none;
-      border-color: var(--color-primary);
-      box-shadow: 0 0 0 1px var(--color-primary);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
     }
     input.con-boton {
       padding-right: 2.75rem;
@@ -111,7 +116,7 @@ import { TranslocoService } from '@jsverse/transloco';
       transform: translateY(-50%);
       transform-origin: left top;
       font-weight: 500;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
       pointer-events: none;
       transition:
         transform 0.15s ease,
@@ -125,7 +130,7 @@ import { TranslocoService } from '@jsverse/transloco';
     .flotando label {
       top: 0.6rem;
       transform: translateY(0) scale(0.78);
-      color: var(--color-primary);
+      color: var(--accent);
     }
     .alternar {
       position: absolute;
@@ -138,15 +143,15 @@ import { TranslocoService } from '@jsverse/transloco';
       height: 2.25rem;
       border: none;
       background: none;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
       cursor: pointer;
       border-radius: var(--radius-md);
     }
     .alternar:hover {
-      color: var(--color-text);
+      color: var(--fg);
     }
     .alternar:focus-visible {
-      outline: 2px solid var(--color-primary);
+      outline: 2px solid var(--accent);
       outline-offset: 2px;
     }
     .alternar svg {
@@ -155,12 +160,12 @@ import { TranslocoService } from '@jsverse/transloco';
     }
     .error {
       margin: 0;
-      color: var(--color-danger);
+      color: var(--danger);
       font-size: 0.875rem;
     }
     .ayuda {
       margin: 0;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
       font-size: 0.8125rem;
     }
     @media (prefers-reduced-motion: reduce) {
