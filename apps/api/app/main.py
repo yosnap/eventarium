@@ -25,6 +25,7 @@ from app.modules.organizations.self_service import router as organizations_self_
 from app.modules.payments.public_router import router as payments_public_router
 from app.modules.payments.router import router as payments_router
 from app.modules.payments.router import router_discount_codes as payments_discount_codes_router
+from app.modules.payments.router import router_payments as payments_payments_router
 from app.modules.payments.router import router_ticket_types as payments_ticket_types_router
 from app.modules.payments.webhooks import router as payments_webhooks_router
 from app.modules.registrations.public_router import router as registrations_public_router
@@ -107,6 +108,7 @@ def create_app() -> FastAPI:
     api.include_router(payments_router)
     api.include_router(payments_ticket_types_router)
     api.include_router(payments_discount_codes_router)
+    api.include_router(payments_payments_router)
     api.include_router(payments_public_router)
     api.include_router(payments_webhooks_router)
     api.include_router(legal_admin_router)
