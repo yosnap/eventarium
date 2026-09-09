@@ -149,7 +149,9 @@ const VENTANA_DE_PAGO_POR_DEFECTO = 30;
                 [value]="paymentWindow()"
                 [attr.aria-invalid]="errores().paymentWindow ? 'true' : null"
                 [attr.aria-describedby]="
-                  errores().paymentWindow ? 'evento-ventana-pago-error' : 'evento-ventana-pago-ayuda'
+                  errores().paymentWindow
+                    ? 'evento-ventana-pago-error'
+                    : 'evento-ventana-pago-ayuda'
                 "
                 (input)="alCambiarVentanaDePago($event)"
                 (blur)="validar('paymentWindow')"

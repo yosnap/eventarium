@@ -1,10 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  type OnDestroy,
-  inject,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, type OnDestroy, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 
@@ -148,10 +142,7 @@ export class PaymentReturnPage implements OnDestroy {
         this.estado.set('confirmado');
         return;
       }
-      if (
-        resultado.registration_status === 'cancelled' ||
-        resultado.payment_status === 'expired'
-      ) {
+      if (resultado.registration_status === 'cancelled' || resultado.payment_status === 'expired') {
         this.estado.set('fallido');
         return;
       }

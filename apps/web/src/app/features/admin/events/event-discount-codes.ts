@@ -89,17 +89,17 @@ function vacio(): {
                       {{
                         codigo.discount_type === 'percentage'
                           ? t('admin.events.discountCodes.valorPorcentaje', {
-                              valor: codigo.discount_value
+                              valor: codigo.discount_value,
                             })
                           : t('admin.events.discountCodes.valorFijo', {
-                              valor: codigo.discount_value
+                              valor: codigo.discount_value,
                             })
                       }}
                       ·
                       {{
                         t('admin.events.discountCodes.usos', {
                           usados: codigo.used_count,
-                          max: codigo.max_uses ?? t('admin.events.discountCodes.sinLimite')
+                          max: codigo.max_uses ?? t('admin.events.discountCodes.sinLimite'),
                         })
                       }}
                       @if (codigo.ticket_type_id) {
@@ -147,7 +147,9 @@ function vacio(): {
               (change)="alCambiarTipoDescuento($event)"
             >
               <option value="percentage">{{ t('admin.events.discountCodes.porcentaje') }}</option>
-              <option value="fixed_amount">{{ t('admin.events.discountCodes.importeFijo') }}</option>
+              <option value="fixed_amount">
+                {{ t('admin.events.discountCodes.importeFijo') }}
+              </option>
             </select>
           </div>
 
@@ -358,9 +360,7 @@ export class EventDiscountCodes implements OnInit {
   private async cargarTipos(): Promise<void> {
     try {
       const tipos = await firstValueFrom(
-        this.http.get<TicketTypeOption[]>(
-          this.api.url(`/events/${this.eventId()}/ticket-types`),
-        ),
+        this.http.get<TicketTypeOption[]>(this.api.url(`/events/${this.eventId()}/ticket-types`)),
       );
       this.tiposDisponibles.set(tipos.map((tipo) => ({ id: tipo.id, name: tipo.name })));
     } catch {

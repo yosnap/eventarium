@@ -132,11 +132,13 @@ describe('StripeConnection', () => {
     await avanzar(fixture);
     http.expectOne((p) => p.url === ME_URL).flush({ id: ORG_ID });
     await avanzar(fixture);
-    http.expectOne((p) => p.method === 'GET' && p.url === STRIPE_URL).flush({
-      ...estadoOperativo(),
-      charges_enabled: false,
-      deauthorized_at: '2026-09-01T00:00:00Z',
-    });
+    http
+      .expectOne((p) => p.method === 'GET' && p.url === STRIPE_URL)
+      .flush({
+        ...estadoOperativo(),
+        charges_enabled: false,
+        deauthorized_at: '2026-09-01T00:00:00Z',
+      });
     await avanzar(fixture);
     await avanzar(fixture);
 

@@ -147,9 +147,7 @@ export const routes: Routes = [
       {
         path: 'stripe',
         loadComponent: () =>
-          import('./features/admin/organization/stripe-connection').then(
-            (m) => m.StripeConnection,
-          ),
+          import('./features/admin/organization/stripe-connection').then((m) => m.StripeConnection),
       },
       {
         path: 'legal',
