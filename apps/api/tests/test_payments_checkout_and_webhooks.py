@@ -1054,3 +1054,151 @@ async def test_regresion_evento_gratuito_con_lista_de_espera_no_se_ve_afectado(
     async with SessionMaintenance() as session:
         espera_fila = await session.get(EventRegistration, en_espera_id)
         assert espera_fila.waitlist_promoted_at is not None
+
+
+# --- Enlace de pago de los caminos 2, 3 y 4: idempotencia -------------------
+
+
+async def test_dispatch_enlaces_es_idempotente(
+    fake: FakeStripeClient, organizacion: OrganizacionDePrueba, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    stripe_account_id = await _crear_organizacion_con_stripe(organizacion)
+    async with SessionMaintenance() as session:
+        evento = Event(
+            organization_id=organizacion.id,
+            slug="dispatch-idem",
+            title="Dispatch idem",
+            status="published",
+            visibility="public",
+            starts_at=AHORA,
+            ends_at=AHORA + timedelta(days=1),
+            location_mode="online",
+            registration_mode="paid",
+        )
+        session.add(evento)
+        await session.flush()
+        tipo = EventTicketType(
+            organization_id=organizacion.id, event_id=evento.id, name="General", price_cents=1000
+        )
+        session.add(tipo)
+        inscripcion = EventRegistration(
+            event_id=evento.id,
+            organization_id=organizacion.id,
+            email="dispatch@example.com",
+            full_name="Dispatch Test",
+            status="pending_payment",
+        )
+        session.add(inscripcion)
+        await session.flush()
+        pago = EventPayment(
+            organization_id=organizacion.id,
+            event_id=evento.id,
+            registration_id=inscripcion.id,
+            stripe_account_id=stripe_account_id,
+            ticket_type_id=tipo.id,
+            amount_cents=1000,
+            currency="eur",
+            status="pending",
+        )
+        session.add(pago)
+        await session.commit()
+        payment_id = pago.id
+
+    correo_mock = AsyncMock()
+    monkeypatch.setattr(
+        "app.core.tasks.send_registration_payment_link_email.kiq", correo_mock
+    )
+    fake.v1.checkout.sessions.create_async.return_value = _sesion_creada("cs_dispatch_1")
+
+    await checkout_service.dispatch_pending_payment_links()
+    await checkout_service.dispatch_pending_payment_links()
+
+    assert fake.v1.checkout.sessions.create_async.await_count == 1
+    correo_mock.assert_awaited_once()
+
+    async with SessionMaintenance() as session:
+        pago_fila = await session.get(EventPayment, payment_id)
+        assert pago_fila.stripe_checkout_session_id == "cs_dispatch_1"
+        assert pago_fila.checkout_link_delivered_at is not None
+
+
+# --- Concurrencia: cupo de tipo de entrada y usos de código ------------------
+
+
+async def test_tres_compras_concurrentes_sobre_cupo_de_dos_solo_dos_prosperan(
+    organizacion: OrganizacionDePrueba, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import asyncio
+
+    monkeypatch.setattr(stripe_client, "get_settings", _settings_con_stripe)
+    await _crear_organizacion_con_stripe(organizacion)
+
+    async with SessionMaintenance() as session:
+        evento = Event(
+            organization_id=organizacion.id,
+            slug="concurrencia-cupo",
+            title="Concurrencia cupo",
+            status="published",
+            visibility="public",
+            starts_at=AHORA,
+            ends_at=AHORA + timedelta(days=1),
+            location_mode="online",
+            registration_mode="paid",
+            email_verification_required=False,
+        )
+        session.add(evento)
+        await session.flush()
+        tipo = EventTicketType(
+            organization_id=organizacion.id,
+            event_id=evento.id,
+            name="Limitado",
+            price_cents=1000,
+            max_quantity=2,
+        )
+        session.add(tipo)
+        await session.commit()
+        evento_id, tipo_id = evento.id, tipo.id
+
+    evento_fresco = None
+    async with SessionMaintenance() as session:
+        evento_fresco = await session.get(Event, evento_id)
+        assert evento_fresco is not None
+        session.expunge(evento_fresco)
+
+    async def _crear_sesion_id(*_args, **_kwargs):
+        return _sesion_creada(f"cs_{uuid.uuid4().hex[:8]}")
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(stripe_client, "get_settings", _settings_con_stripe)
+        instancia = FakeStripeClient()
+        instancia.v1.checkout.sessions.create_async.side_effect = _crear_sesion_id
+        mp.setattr(stripe_client.stripe, "StripeClient", lambda **_kwargs: instancia)
+
+        resultados = await asyncio.gather(
+            *[
+                checkout_service.iniciar_compra(
+                    event=evento_fresco,
+                    email=f"concurrente{i}@example.com",
+                    full_name=f"Concurrente {i}",
+                    answers=[],
+                    data_processing_accepted=True,
+                    marketing_accepted=False,
+                    recording_accepted=False,
+                    ticket_type_id=tipo_id,
+                    code=None,
+                )
+                for i in range(3)
+            ],
+            return_exceptions=True,
+        )
+
+    exitos = [r for r in resultados if not isinstance(r, Exception) and r.checkout_url is not None]
+    fallos = [r for r in resultados if isinstance(r, ValidationDomainError)]
+    assert len(exitos) == 2, resultados
+    assert len(fallos) == 1
+
+    async with SessionMaintenance() as session:
+        vendidas = await payments_repository.count_used_ticket_type(
+            session, organizacion.id, tipo_id
+        )
+        assert vendidas == 2
