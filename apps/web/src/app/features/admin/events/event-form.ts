@@ -247,6 +247,11 @@ const VENTANA_DE_PAGO_POR_DEFECTO = 30;
             </app-alert>
             <app-event-ticket-types [eventId]="eventId()!" />
             <app-event-discount-codes [eventId]="eventId()!" />
+            <a [routerLink]="['/admin/events', eventId(), 'payments']">
+              <app-button variant="secundario" type="button">
+                {{ t('admin.events.payments.enlaceDesdeEvento') }}
+              </app-button>
+            </a>
           }
           <app-event-registrations [eventId]="eventId()!" />
           <a [routerLink]="['/admin/events', eventId(), 'check-in']">
