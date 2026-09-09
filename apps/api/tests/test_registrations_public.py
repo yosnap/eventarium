@@ -240,17 +240,19 @@ async def test_evento_sin_verificacion_evalua_el_estado_al_enviar_el_formulario(
     assert await _estado(evento["id"], "asistente@example.com") == "confirmed"
 
 
-async def test_evento_de_pago_deja_la_inscripcion_en_pending_payment(
+async def test_evento_de_pago_rechaza_el_alta_gratuita(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`registration_mode == "paid"` ya no bloquea `submit_registration`
-    (fase 4 de trabajo de la fase 6 del PRD, desbloqueo del hallazgo #1): el
-    alta directa sobre el endpoint público de inscripción (sin tipo de
-    entrada, que solo recoge el endpoint de compra) deja la inscripción en
-    `pending_payment`, nunca en `confirmed` — la guarda de pago se aplica
-    igual sin pasar por el endpoint de compra. Publicar el evento exige
-    además una cuenta Stripe operativa (fase 6, fase 2 de trabajo, hallazgo
-    #4): se simula aquí para no acoplar este test a esa fase."""
+    """Un evento `paid` solo admite inscripción a través del embudo de compra
+    (`POST /public/events/{slug}/checkout`), que captura el tipo de entrada y
+    el código de descuento en la misma transacción que crea la inscripción
+    (fase 6 del PRD, hallazgo C1/C1b del code review). El endpoint gratuito
+    (`POST /public/events/{slug}/registrations`) nunca los captura, así que
+    antes dejaba una inscripción `pending_payment` sin ningún pago posible —
+    ahora responde 409 sin llegar a crear nada. Publicar el evento exige
+    además una cuenta Stripe operativa y un tipo de entrada vigente (fase 6,
+    fase 2 de trabajo, hallazgos #4 y C1b): ambos se simulan aquí para no
+    acoplar este test a esas fases."""
     from app.core.config import Settings
     from app.modules.events import service as events_service
     from app.modules.payments.models import OrganizationStripeAccount
@@ -273,18 +275,33 @@ async def test_evento_de_pago_deja_la_inscripcion_en_pending_payment(
         await session.commit()
 
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
-    evento = await _crear_y_publicar_evento(
-        cliente,
-        cabeceras,
-        "de-pago",
-        registration_mode="paid",
-        email_verification_required=False,
+    creacion = await cliente.post(
+        EVENTS,
+        headers=cabeceras,
+        json=_payload_evento(
+            "de-pago", registration_mode="paid", email_verification_required=False
+        ),
     )
+    assert creacion.status_code == 201, creacion.text
+    evento_id = creacion.json()["id"]
+    tipo = await cliente.post(
+        f"{EVENTS}/{evento_id}/ticket-types",
+        headers=cabeceras,
+        json={"name": "General", "price_cents": 1000},
+    )
+    assert tipo.status_code == 201, tipo.text
+    publicacion = await cliente.patch(
+        f"{EVENTS}/{evento_id}",
+        headers=cabeceras,
+        json={"status": "published", "visibility": "public"},
+    )
+    assert publicacion.status_code == 200, publicacion.text
+    evento = publicacion.json()
 
     respuesta = await _inscribir(cliente, organizacion.host, "de-pago")
 
-    assert respuesta.status_code == 202, respuesta.text
-    assert await _estado(evento["id"], "asistente@example.com") == "pending_payment"
+    assert respuesta.status_code == 409, respuesta.text
+    assert await _estado(evento["id"], "asistente@example.com") is None
 
 
 async def test_sin_aceptar_tratamiento_de_datos_falla(

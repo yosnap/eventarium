@@ -21,6 +21,7 @@ from app.modules.events import schemas as events_schemas
 from app.modules.events.models import Event, EventMember, EventSession, EventSessionParticipant
 from app.modules.organizations import repository as organizations_repository
 from app.modules.payments import repository as payments_repository
+from app.modules.payments import service as payments_service
 from app.shared.errors import ConflictError, NotFoundError, ValidationDomainError
 
 
@@ -38,6 +39,7 @@ async def _asegurar_venta_posible(
     *,
     status: str,
     registration_mode: str,
+    event_id: uuid.UUID | None = None,
 ) -> None:
     """Bloquea la **venta**, no la configuración (decisión #13 del plan de
     la fase 6 del PRD): crear y editar un evento `paid` sigue permitido en
@@ -49,6 +51,14 @@ async def _asegurar_venta_posible(
     red-team): `create_event` no validaba nada de estado y aceptaba un
     evento ya `published`/`paid` de alta, así que la guarda no puede vivir
     solo en la edición.
+
+    `event_id` solo llega desde `update_event` (`create_event` no tiene
+    todavía una fila de evento sobre la que colgar tipos de entrada). Con él,
+    exige al menos un tipo de entrada vigente (hallazgo C1b del code review de
+    la fase 6): el formulario público decide si un evento «es de pago» por si
+    la lista de tipos de entrada vendibles está vacía o no
+    (`registration-page.ts`), así que un evento `paid` publicado sin ninguno
+    la confundiría con uno gratuito.
     """
     if status != "published" or registration_mode != "paid":
         return
@@ -65,6 +75,14 @@ async def _asegurar_venta_posible(
             "No se puede publicar un evento de pago hasta conectar una cuenta de Stripe "
             "y completar su verificación."
         )
+
+    if event_id is not None:
+        ahora = datetime.now(UTC)
+        tipos = await payments_repository.get_ticket_types(session, organization_id, event_id)
+        if not any(payments_service.validar_tipo_vigente(tipo, ahora) for tipo in tipos):
+            raise ConflictError(
+                "No se puede publicar un evento de pago sin ningún tipo de entrada vigente."
+            )
 
 
 async def create_event(
@@ -118,6 +136,7 @@ async def update_event(
         organization_id,
         status=datos.get("status", evento.status),
         registration_mode=datos.get("registration_mode", evento.registration_mode),
+        event_id=evento.id,
     )
 
     inicio = datos.get("starts_at", evento.starts_at)

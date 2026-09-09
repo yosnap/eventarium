@@ -439,6 +439,38 @@ def _anadir_columnas() -> None:
         "event_registrations",
         sa.Column("payment_expires_at", sa.DateTime(timezone=True), nullable=True),
     )
+    # Tipo de entrada y código de descuento elegidos en el formulario público
+    # de compra (`POST /public/events/{slug}/checkout`), único punto de alta
+    # de una inscripción de un evento de pago sea cual sea su
+    # `registration_mode`. Se fijan una vez, en el alta, y sobreviven aunque
+    # la inscripción pase por `pending_approval`/`waitlisted` antes de llegar
+    # a `pending_payment`: sin esta columna, aprobar o promover una de esas
+    # dos no tiene forma de saber qué entrada cobrar.
+    op.add_column(
+        "event_registrations",
+        sa.Column("ticket_type_id", sa.UUID(), nullable=True),
+    )
+    op.add_column(
+        "event_registrations",
+        sa.Column("discount_code_id", sa.UUID(), nullable=True),
+    )
+    # Sin `ondelete`: RESTRICT por defecto, mismo criterio que
+    # `event_payments.ticket_type_id`/`discount_code_id` — no se borra un tipo
+    # de entrada ni un código de descuento con inscripciones que los eligieron.
+    op.create_foreign_key(
+        "fk_event_registrations_ticket_type_id_organization_id",
+        "event_registrations",
+        "event_ticket_types",
+        ["ticket_type_id", "organization_id"],
+        ["id", "organization_id"],
+    )
+    op.create_foreign_key(
+        "fk_event_registrations_discount_code_id_organization_id",
+        "event_registrations",
+        "event_discount_codes",
+        ["discount_code_id", "organization_id"],
+        ["id", "organization_id"],
+    )
     # `server_default="30"` para que la columna `NOT NULL` se aplique sobre
     # eventos existentes; el valor por defecto en Python lo fija el modelo
     # para altas nuevas (mismo criterio que el resto del esquema).
@@ -558,6 +590,18 @@ def downgrade() -> None:
 
     op.drop_constraint("ck_events_payment_checkout_window_minutes_rango", "events", type_="check")
     op.drop_column("events", "payment_checkout_window_minutes")
+    op.drop_constraint(
+        "fk_event_registrations_discount_code_id_organization_id",
+        "event_registrations",
+        type_="foreignkey",
+    )
+    op.drop_constraint(
+        "fk_event_registrations_ticket_type_id_organization_id",
+        "event_registrations",
+        type_="foreignkey",
+    )
+    op.drop_column("event_registrations", "discount_code_id")
+    op.drop_column("event_registrations", "ticket_type_id")
     op.drop_column("event_registrations", "payment_expires_at")
 
     op.drop_table("stripe_webhook_events")

@@ -17,6 +17,7 @@ Reglas no negociables:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 import stripe  # noqa: TID251 - unico fichero autorizado, ver pyproject.toml
@@ -25,6 +26,8 @@ from stripe._http_client import HTTPXClient
 from app.core.config import get_settings
 from app.modules.payments.models import OrganizationStripeAccount
 from app.shared.errors import ExternalServiceError, ServiceUnavailableError
+
+logger = logging.getLogger(__name__)
 
 _TIMEOUT_SEGUNDOS = 15
 
@@ -40,6 +43,12 @@ def _cliente() -> stripe.StripeClient:
 
 
 def _traducir_error(exc: stripe.StripeError) -> ExternalServiceError:
+    """Registra el error real de Stripe (hallazgo I9 del code review de la
+    fase 6: antes se descartaba sin más, sin dejar ningún rastro con el que
+    diagnosticar un fallo de la pasarela) y lo traduce a un mensaje genérico
+    para el cliente HTTP — nunca el detalle crudo del SDK, que puede llevar
+    identificadores u otra información interna de la cuenta de Stripe."""
+    logger.warning("Error de Stripe: %s", exc)
     return ExternalServiceError(
         "La pasarela de pago no ha podido completar la operacion. Intentalo de nuevo "
         "en unos minutos."
@@ -179,6 +188,36 @@ async def crear_sesion_checkout(
         checkout_url=sesion.url,
         expires_at_epoch=sesion.expires_at,
     )
+
+
+async def expirar_sesion_checkout(
+    *, stripe_account_id: str, stripe_checkout_session_id: str
+) -> None:
+    """Expira una Checkout Session viva en Stripe antes de reutilizar su fila
+    de `event_payments` para una nueva sesión (hallazgo I8 del code review de
+    la fase 6): sin esto, si el comprador paga la URL antigua ya entregada por
+    correo, el webhook no encuentra el pago por `stripe_checkout_session_id`
+    (esa columna ya apunta a la sesión nueva) y el dinero queda cobrado sin
+    inscripción ni entrada.
+
+    Igual que `_traducir_error`, nunca deja escapar el detalle crudo de
+    Stripe; a diferencia del resto de funciones de este módulo, tampoco deja
+    escapar el error en sí (`ExternalServiceError`): una sesión que ya no
+    está `open` (expirada, completada o cancelada por el comprador) no se
+    puede volver a expirar, y ese es el caso más frecuente, no uno
+    excepcional. Fallar aquí no debe impedir la reutilización de la fila de
+    pago, que ya desligó la sesión antigua en base de datos.
+    """
+    cliente = _cliente()
+    try:
+        await cliente.v1.checkout.sessions.expire_async(
+            stripe_checkout_session_id,
+            options={"stripe_account": stripe_account_id},
+        )
+    except stripe.StripeError as exc:
+        logger.warning(
+            "No se pudo expirar la sesión de Checkout %s: %s", stripe_checkout_session_id, exc
+        )
 
 
 async def consultar_sesion_checkout(

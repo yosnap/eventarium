@@ -22,14 +22,14 @@ from app.modules.payments.models import EventPayment, EventTicketType, Organizat
 from app.modules.registrations import service as registrations_service
 from app.modules.registrations.models import EventRegistration
 from app.modules.tickets.models import EventTicket
-from app.shared.errors import ValidationDomainError
+from app.shared.errors import ConflictError, ValidationDomainError
 from tests.conftest import OrganizacionDePrueba, iniciar_sesion
 from tests.payments_test_helpers import (
     AHORA,
+    EVENTS,
     FakeStripeClient,
     _crear_organizacion_con_stripe,
     _crear_publicar_evento_de_pago,
-    _crear_tipo,
     _estado_inscripcion,
     _preparar_evento_de_pago,
     _sesion_creada,
@@ -80,8 +80,25 @@ async def test_camino_2_verificacion_deja_pending_payment(
             email="camino2@example.com",
             full_name="Camino Dos",
             status="pending_verification",
+            ticket_type_id=ticket_type_id,
         )
         session.add(inscripcion)
+        await session.flush()
+        # El pago ya existe en `pending`, tal como lo deja
+        # `checkout_service.iniciar_compra` en el alta (fase 6 del PRD,
+        # hallazgo C1 del code review): `verify_registration` lo reutiliza,
+        # nunca lo crea desde cero.
+        pago = EventPayment(
+            organization_id=organizacion.id,
+            event_id=evento_id,
+            registration_id=inscripcion.id,
+            stripe_account_id="acct_camino2",
+            ticket_type_id=ticket_type_id,
+            amount_cents=1000,
+            currency="eur",
+            status="pending",
+        )
+        session.add(pago)
         await session.commit()
         await session.refresh(inscripcion)
         token = await registrations_service.generate_token(
@@ -93,10 +110,16 @@ async def test_camino_2_verificacion_deja_pending_payment(
             await set_organization_context(session, organizacion.id)
             resultado = await registrations_service.verify_registration(session, token=token)
             assert resultado.status == "pending_payment"
+            assert resultado.payment_expires_at is not None
 
     async with SessionMaintenance() as session:
         tickets = list(await session.scalars(select(EventTicket)))
         assert tickets == []
+        pago = await session.scalar(
+            select(EventPayment).where(EventPayment.registration_id == inscripcion.id)
+        )
+        assert pago is not None
+        assert pago.status == "pending"
 
 
 async def test_camino_3_aprobacion_tras_cambiar_a_paid_deja_pending_payment(
@@ -118,14 +141,36 @@ async def test_camino_3_aprobacion_tras_cambiar_a_paid_deja_pending_payment(
         )
         session.add(evento)
         await session.flush()
+        tipo = EventTicketType(
+            organization_id=organizacion.id, event_id=evento.id, name="General", price_cents=1000
+        )
+        session.add(tipo)
+        await session.flush()
         inscripcion = EventRegistration(
             event_id=evento.id,
             organization_id=organizacion.id,
             email="camino3@example.com",
             full_name="Camino Tres",
             status="pending_approval",
+            ticket_type_id=tipo.id,
         )
         session.add(inscripcion)
+        await session.flush()
+        # El pago ya existe en `pending`, tal como lo deja
+        # `checkout_service.iniciar_compra` en el alta (fase 6 del PRD,
+        # hallazgo C1 del code review): `approve_registration` lo reutiliza,
+        # nunca lo crea desde cero.
+        pago = EventPayment(
+            organization_id=organizacion.id,
+            event_id=evento.id,
+            registration_id=inscripcion.id,
+            stripe_account_id="acct_camino3",
+            ticket_type_id=tipo.id,
+            amount_cents=1000,
+            currency="eur",
+            status="pending",
+        )
+        session.add(pago)
         await session.commit()
         evento_id, registration_id = evento.id, inscripcion.id
 
@@ -139,10 +184,60 @@ async def test_camino_3_aprobacion_tras_cambiar_a_paid_deja_pending_payment(
                 registration_id=registration_id,
             )
             assert resultado.status == "pending_payment"
+            assert resultado.payment_expires_at is not None
 
     async with SessionMaintenance() as session:
         tickets = list(await session.scalars(select(EventTicket)))
         assert tickets == []
+        pago = await session.scalar(
+            select(EventPayment).where(EventPayment.registration_id == registration_id)
+        )
+        assert pago is not None
+        assert pago.status == "pending"
+
+
+async def test_camino_3_aprobacion_sin_compra_iniciada_falla(
+    organizacion: OrganizacionDePrueba,
+) -> None:
+    """Sin un `event_payments` ya creado (nunca debería ocurrir tras el
+    hallazgo C1b, que obliga a pasar por el embudo de compra) la aprobación no
+    puede dejar la inscripción colgada en `pending_payment` sin ningún pago
+    posible: falla en vez de aplicar el cambio."""
+    async with SessionMaintenance() as session:
+        evento = Event(
+            organization_id=organizacion.id,
+            slug="camino3-sin-pago",
+            title="Camino 3 sin pago",
+            status="published",
+            visibility="public",
+            starts_at=AHORA,
+            ends_at=AHORA + timedelta(days=1),
+            location_mode="online",
+            registration_mode="paid",
+        )
+        session.add(evento)
+        await session.flush()
+        inscripcion = EventRegistration(
+            event_id=evento.id,
+            organization_id=organizacion.id,
+            email="camino3-sin-pago@example.com",
+            full_name="Camino Tres Sin Pago",
+            status="pending_approval",
+        )
+        session.add(inscripcion)
+        await session.commit()
+        evento_id, registration_id = evento.id, inscripcion.id
+
+    async with SessionApp() as session:
+        async with session.begin():
+            await set_organization_context(session, organizacion.id)
+            with pytest.raises(ConflictError):
+                await registrations_service.approve_registration(
+                    session,
+                    organization_id=organizacion.id,
+                    event_id=evento_id,
+                    registration_id=registration_id,
+                )
 
 
 async def test_camino_4_promocion_de_lista_de_espera_deja_pending_payment(
@@ -163,6 +258,11 @@ async def test_camino_4_promocion_de_lista_de_espera_deja_pending_payment(
         )
         session.add(evento)
         await session.flush()
+        tipo = EventTicketType(
+            organization_id=organizacion.id, event_id=evento.id, name="General", price_cents=1000
+        )
+        session.add(tipo)
+        await session.flush()
         inscripcion = EventRegistration(
             event_id=evento.id,
             organization_id=organizacion.id,
@@ -171,8 +271,25 @@ async def test_camino_4_promocion_de_lista_de_espera_deja_pending_payment(
             status="waitlisted",
             waitlist_promoted_at=AHORA,
             waitlist_promotion_expires_at=AHORA + timedelta(hours=1),
+            ticket_type_id=tipo.id,
         )
         session.add(inscripcion)
+        await session.flush()
+        # El pago ya existe en `pending`, tal como lo deja
+        # `checkout_service.iniciar_compra` en el alta (fase 6 del PRD,
+        # hallazgo C1 del code review): `confirm_waitlist_promotion` lo
+        # reutiliza, nunca lo crea desde cero.
+        pago = EventPayment(
+            organization_id=organizacion.id,
+            event_id=evento.id,
+            registration_id=inscripcion.id,
+            stripe_account_id="acct_camino4",
+            ticket_type_id=tipo.id,
+            amount_cents=1000,
+            currency="eur",
+            status="pending",
+        )
+        session.add(pago)
         await session.commit()
         registration_id = inscripcion.id
         token = await registrations_service.generate_token(
@@ -189,6 +306,55 @@ async def test_camino_4_promocion_de_lista_de_espera_deja_pending_payment(
     async with SessionMaintenance() as session:
         tickets = list(await session.scalars(select(EventTicket)))
         assert tickets == []
+        pago = await session.scalar(
+            select(EventPayment).where(EventPayment.registration_id == registration_id)
+        )
+        assert pago is not None
+        assert pago.status == "pending"
+
+
+async def test_camino_4_promocion_sin_compra_iniciada_falla(
+    organizacion: OrganizacionDePrueba,
+) -> None:
+    """Simétrico de `test_camino_3_aprobacion_sin_compra_iniciada_falla`: sin
+    un pago ya creado, la promoción no puede dejar la inscripción colgada en
+    `pending_payment`."""
+    async with SessionMaintenance() as session:
+        evento = Event(
+            organization_id=organizacion.id,
+            slug="camino4-sin-pago",
+            title="Camino 4 sin pago",
+            status="published",
+            visibility="public",
+            starts_at=AHORA,
+            ends_at=AHORA + timedelta(days=1),
+            location_mode="online",
+            registration_mode="paid",
+            capacity=1,
+        )
+        session.add(evento)
+        await session.flush()
+        inscripcion = EventRegistration(
+            event_id=evento.id,
+            organization_id=organizacion.id,
+            email="camino4-sin-pago@example.com",
+            full_name="Camino Cuatro Sin Pago",
+            status="waitlisted",
+            waitlist_promoted_at=AHORA,
+            waitlist_promotion_expires_at=AHORA + timedelta(hours=1),
+        )
+        session.add(inscripcion)
+        await session.commit()
+        registration_id = inscripcion.id
+        token = await registrations_service.generate_token(
+            registrations_service.PROPOSITO_PROMOCION_LISTA_ESPERA, str(registration_id)
+        )
+
+    async with SessionApp() as session:
+        async with session.begin():
+            await set_organization_context(session, organizacion.id)
+            with pytest.raises(ConflictError):
+                await registrations_service.confirm_waitlist_promotion(session, token=token)
 
 
 async def _fabricar_evento_de_pago_directo(
@@ -361,7 +527,12 @@ async def test_organizacion_sin_cuenta_operativa_da_409(
     await _crear_organizacion_con_stripe(organizacion, charges_enabled=True)
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_publicar_evento_de_pago(cliente, cabeceras, organizacion, "sin-cuenta")
-    tipo = await _crear_tipo(cliente, cabeceras, evento["id"])
+    # `_crear_publicar_evento_de_pago` ya crea el tipo «General» (lo necesita
+    # para poder publicar, ver `_asegurar_venta_posible`): se recupera en vez
+    # de crear un segundo, que chocaría con `UniqueConstraint(event_id, name)`.
+    listado = await cliente.get(f"{EVENTS}/{evento['id']}/ticket-types", headers=cabeceras)
+    assert listado.status_code == 200, listado.text
+    tipo = listado.json()[0]
 
     # La cuenta se desactiva **después** de publicar: publicar ya exige
     # `charges_enabled = true` (`events/service.py::_asegurar_venta_posible`),

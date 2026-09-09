@@ -332,3 +332,71 @@ grep -rnE "sk_(test|live)_…|whsec_…|acct_…{16,}" (repo, fuera de .env) →
 `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`. `stripe listen` detenido. La
 cuenta conectada real quedó restaurada a su estado inicial
 (`charges_enabled=true`, sin `deauthorized_at`).
+
+## Correcciones tras `ak:code-review` (high), veredicto Request changes
+
+El `ak:code-review` pendiente del punto 3 de arriba se ejecutó y devolvió
+`Request changes` con 3 hallazgos Critical y 7 Important. Todos corregidos en
+la misma rama, con test de regresión propio para cada uno.
+
+- **C1 — Los caminos de aprobación y lista de espera nunca creaban el pago.**
+  `checkout_service.iniciar_compra` salía sin crear la fila de
+  `event_payments` cuando `submit_registration` dejaba la inscripción en
+  `pending_approval`/`waitlisted` en vez de `pending_payment`/
+  `pending_verification`. Se añadieron las columnas `ticket_type_id`/
+  `discount_code_id` a `event_registrations` (migración `0013`, mismo
+  fichero de esta fase — todavía sin publicar) para que `approve_registration`
+  y `confirm_waitlist_promotion` sepan qué pago reutilizar cuando la
+  inscripción llegue a `pending_payment` más tarde; `iniciar_compra` ahora
+  crea el pago (sin sesión de Stripe) en el momento del alta para las cuatro
+  resultantes posibles. Nueva función compartida
+  `registrations.service._reservar_ventana_de_pago`, que exige que ese pago
+  ya exista (409 si no) y fija `payment_expires_at` — cubre también I10.
+- **C1b — El alta gratuita no comprobaba `registration_mode`.**
+  `POST /public/events/{slug}/registrations` ahora responde 409 si el evento
+  es `paid`. `events/service._asegurar_venta_posible` exige además al menos
+  un tipo de entrada vigente para publicar un evento `paid` (el formulario
+  público decide "es de pago" por esa lista).
+- **C2 — Reembolso fallido no incrementaba `attempts`.** Nuevo
+  `refunds_service._marcar_intento_fallido`: incrementa `attempts` en toda
+  salida no exitosa de `_ejecutar_reembolso`, sin importar el estado de
+  partida, y solo entonces registra el `logger.error` de dinero pendiente.
+- **C3 — El importe pendiente de reembolso ignoraba reembolsos en vuelo.**
+  Nueva `repository.suma_reembolsos_en_curso`; los dos caminos (automático y
+  manual) restan también los `pending`/`submitted` de
+  `event_payment_refunds` antes de calcular cuánto queda disponible.
+- **I4 — `dispatch_pending_payment_links` con bloqueos abiertos durante la
+  llamada a Stripe.** Una `maintenance_session` por pago dentro del bucle; el
+  correo se encola después del `commit` de esa sesión.
+- **I5 — `confirmar_pago_y_registro` sin validar el estado de partida.**
+  Ahora exige `pago.status == "pending"` y `inscripcion.status ==
+  "pending_payment"` antes de aplicar el cambio; devuelve `"processed"`/
+  `"ignored"`, que el webhook reutiliza como `StripeWebhookEvent.status`.
+- **I7 — `idempotency_key` de checkout inestable.** `crear_sesion_de_pago`
+  deriva `expires_at` de `inscripcion.payment_expires_at` (ya persistido),
+  nunca de `datetime.now(UTC)` recalculado en cada llamada.
+- **I8 — Reutilizar un pago no expiraba la sesión de Stripe anterior.**
+  `repository.crear_o_reutilizar_pago` devuelve la sesión desligada
+  (`SesionAnterior`); `iniciar_compra` la expira con el nuevo
+  `stripe_client.expirar_sesion_checkout` fuera de cualquier bloqueo, después
+  de que T1 haga `commit`.
+- **I9 — Errores de Stripe sin registrar.** `stripe_client._traducir_error`
+  ahora hace `logger.warning` con la excepción real antes de traducirla.
+- **I10 — `payment_expires_at` a NULL fuera del alta directa.** Cubierto por
+  el mismo arreglo de C1 (`_reservar_ventana_de_pago`), aplicado también a
+  `verify_registration` (camino 2).
+
+Regresión: 12 tests nuevos/reescritos en `test_payments_checkout.py`,
+`test_registrations_public.py` y `payments_test_helpers.py` (fixture
+`_crear_publicar_evento_de_pago` actualizada para crear un tipo de entrada
+antes de publicar, ahora obligatorio). Suite completa: `apps/api` 545 tests
+verdes, `apps/web` 193 tests verdes, `ruff`/`mypy` limpios.
+
+**Nota de entorno** (no corregida, fuera del alcance de este pase):
+`tests/test_payments_lint_import_stripe.py::test_import_stripe_dentro_del_wrapper_no_falla_el_lint`
+escribe contenido de prueba directamente sobre el fichero real
+`app/modules/payments/stripe_client.py` y lo borra en su `finally` — es la
+causa de que ese fichero desaparezca del disco de forma intermitente durante
+esta sesión (herramienta de prueba encontró la misma incidencia,
+documentada). El test debería escribir sobre una ruta de verdad temporal en
+vez de sobre el módulo real.

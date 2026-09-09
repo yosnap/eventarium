@@ -264,6 +264,34 @@ async def _enviar_email_por_estado(session: AsyncSession, inscripcion: EventRegi
         )
 
 
+async def _reservar_ventana_de_pago(
+    session: AsyncSession, evento: Event, inscripcion: EventRegistration
+) -> None:
+    """Fija `payment_expires_at` al llegar a `pending_payment` fuera del alta
+    directa: verificación de email, aprobación manual o promoción de lista de
+    espera (caminos 2, 3 y 4 de la guarda de pago, fase 6 del PRD).
+
+    Exige que ya exista un `event_payments` en `pending` para esta
+    inscripción — creado por `checkout_service.iniciar_compra` en el alta,
+    el único punto que conoce el tipo de entrada y el código de descuento que
+    la persona eligió. Sin esa fila no hay nada que cobrar: dejar pasar la
+    inscripción a `pending_payment` de todos modos la dejaría colgada para
+    siempre, sin enlace de pago ni caducidad (nunca aparecería en
+    `pagos_sin_enlace_entregado` ni en `pagos_pendientes_caducados`, que
+    parten ambas de `event_payments`).
+    """
+    pago = await payments_repository.get_payment_by_registration(
+        session, evento.organization_id, inscripcion.id
+    )
+    if pago is None or pago.status != "pending":
+        raise ConflictError(
+            "No se puede confirmar el pago pendiente de una inscripción sin una compra "
+            "de entrada ya iniciada."
+        )
+    ventana = timedelta(minutes=evento.payment_checkout_window_minutes)
+    inscripcion.payment_expires_at = datetime.now(UTC) + ventana
+
+
 async def _promote_next_waitlisted(session: AsyncSession, evento: Event) -> None:
     """Promueve a la primera persona en lista de espera, si hay alguna.
 
@@ -529,6 +557,8 @@ async def verify_registration(session: AsyncSession, *, token: str) -> EventRegi
     inscripcion.status = nuevo_estado
     if nuevo_estado == "confirmed":
         inscripcion.confirmed_at = ahora
+    elif nuevo_estado == "pending_payment":
+        await _reservar_ventana_de_pago(session, evento, inscripcion)
     await _enviar_email_por_estado(session, inscripcion)
     return inscripcion
 
@@ -565,6 +595,8 @@ async def approve_registration(
     )
     if inscripcion.status == "confirmed":
         inscripcion.confirmed_at = ahora
+    elif inscripcion.status == "pending_payment":
+        await _reservar_ventana_de_pago(session, evento, inscripcion)
     await _enviar_email_por_estado(session, inscripcion)
     return inscripcion
 
@@ -690,8 +722,7 @@ async def confirm_waitlist_promotion(session: AsyncSession, *, token: str) -> Ev
     inscripcion.status = await _estado_confirmable(session, evento, inscripcion.id)
     inscripcion.confirmed_at = ahora if inscripcion.status == "confirmed" else None
     if inscripcion.status == "pending_payment":
-        ventana = timedelta(minutes=evento.payment_checkout_window_minutes)
-        inscripcion.payment_expires_at = ahora + ventana
+        await _reservar_ventana_de_pago(session, evento, inscripcion)
     await _enviar_email_por_estado(session, inscripcion)
     return inscripcion
 
