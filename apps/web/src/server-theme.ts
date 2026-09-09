@@ -15,25 +15,34 @@ import { atributoDeTemaParaHtml, leerModoDeCookie } from './app/core/theming/the
  * función en sí no depende de nada de eso, así que vive aparte para poder probarla sin
  * arrastrar ese coste.
  */
-const MARCADOR_HTML = '<html lang="es-ES">';
+// Captura la etiqueta raíz `<html ...>` completa, con cualesquiera atributos que
+// lleve. No se ancla a `lang="es-ES"` literal: el build de producción de Angular
+// (`inlineCriticalCss`, vía beasties) le añade `data-beasties-container` a esa misma
+// etiqueta, y una coincidencia literal exacta deja de encajar en cuanto el build
+// toca esos atributos — se comprobó en `serve:ssr:web` real, no solo en el spec.
+const PATRON_ETIQUETA_HTML = /<html\b([^>]*)>/;
 
 export function pintarTemaEnHtml(html: string, cabeceraCookie: string | undefined): string {
   const atributo = atributoDeTemaParaHtml(leerModoDeCookie(cabeceraCookie ?? null));
   if (!atributo) {
     return html;
   }
-  if (!html.includes(MARCADOR_HTML)) {
-    // Sustitución literal, no una expresión regular tolerante: si `index.html` cambia
-    // el `lang` del `<html>` (o le añade otro atributo) esto deja de encajar y, sin
-    // este aviso, el fallo sería mudo — se serviría el HTML tal cual, sin
-    // `data-theme`, y solo se notaría como parpadeo de tema en producción.
+  const coincidencia = PATRON_ETIQUETA_HTML.exec(html);
+  if (!coincidencia) {
+    // No hay ninguna etiqueta `<html>` en absoluto: no es el caso esperado (los
+    // atributos pueden variar, pero la etiqueta siempre debería existir). Fallo
+    // ruidoso, no mudo — se serviría el HTML tal cual, sin `data-theme`, y solo se
+    // notaría como parpadeo de tema en producción.
     if (typeof process !== 'undefined' && process.env['NODE_ENV'] !== 'production') {
       console.warn(
-        `pintarTemaEnHtml: no se ha encontrado «${MARCADOR_HTML}» en el HTML renderizado; ` +
-          'no se ha podido pintar data-theme. Revisa si index.html cambió el <html> raíz.',
+        'pintarTemaEnHtml: no se ha encontrado ninguna etiqueta <html> en el HTML ' +
+          'renderizado; no se ha podido pintar data-theme.',
       );
     }
     return html;
   }
-  return html.replace(MARCADOR_HTML, `<html lang="es-ES" data-theme="${atributo}">`);
+  const atributosActuales = coincidencia[1];
+  const atributosSinTemaPrevio = atributosActuales.replace(/\s*data-theme="[^"]*"/, '');
+  const etiquetaNueva = `<html${atributosSinTemaPrevio} data-theme="${atributo}">`;
+  return html.slice(0, coincidencia.index) + etiquetaNueva + html.slice(coincidencia.index + coincidencia[0].length);
 }
