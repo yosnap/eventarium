@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: "Fase 4: Compra pública — guarda de pago, Checkout, webhooks y confirmación"
-status: partial (backend completo y verificado; frontend del paso de compra y la pantalla de retorno pendientes — ver reports/fase-4-implementacion.md)
+status: partial (backend y frontend implementados y verificados — paso de compra, pantalla de retorno y pantalla de cancelación; un puñado de Success Criteria de detalle, todos preexistentes a esta pasada, sin test dedicado — ver reports/fase-4-implementacion.md)
 priority: P1
 effort: "4-4.5d"
 dependencies: [3]
@@ -488,9 +488,14 @@ hallazgo #20 rechaza),
 - [x] La suite completa de inscripciones de la fase 3 del PRD sigue en verde
       **sin modificar ningún test previo**, salvo uno que documentaba
       explícitamente el bloqueo que esta fase retira (ver informe)
-- [ ] La pantalla de retorno no da el pago por confirmado por el mero retorno
+- [x] La pantalla de retorno no da el pago por confirmado por el mero retorno
       de Stripe; cero violaciones de axe en el paso de compra y en el retorno
-      — **frontend no implementado en esta pasada** (ver informe)
+      — `payment-return.spec.ts` (estado inicial siempre «comprobando», solo
+      pasa a «confirmado» tras la respuesta real de
+      `GET .../checkout/{registration_id}/status`; reintentos automáticos
+      acotados + botón manual, nunca una espera indefinida) y
+      `registration-page.spec.ts` (paso de compra); ambos con
+      `esperarSinViolacionesDeAccesibilidad` en cada test, cero violaciones
 - [x] `openapi.json` y el cliente TypeScript generado al día; el endpoint de
       webhooks no genera ningún modelo tipado de cuerpo
 

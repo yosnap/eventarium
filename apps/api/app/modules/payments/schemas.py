@@ -216,6 +216,21 @@ class DiscountCodeResponse(BaseModel):
 # --- Presupuesto público -------------------------------------------------------
 
 
+class PublicTicketTypeResponse(BaseModel):
+    """Tipo de entrada tal como lo ve el formulario público de compra.
+
+    Solo se listan los vigentes en el instante de la consulta (`is_active` y
+    dentro de la ventana de venta, `service.validar_tipo_vigente`): un tipo
+    fuera de ventana no debe ofrecerse para elegir, aunque su `checkout/quote`
+    ya lo rechace igualmente si se fuerza el `ticket_type_id` a mano."""
+
+    id: str
+    name: str
+    description: str | None
+    price_cents: int
+    currency: str
+
+
 class CheckoutQuoteRequest(BaseModel):
     """Petición de presupuesto público: nunca reserva cupo ni consume un uso."""
 

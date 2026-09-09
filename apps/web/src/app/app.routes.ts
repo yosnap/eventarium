@@ -199,6 +199,18 @@ export const routes: Routes = [
           import('./features/public/events/registration-page').then((m) => m.RegistrationPage),
       },
       {
+        path: 'pago/retorno',
+        loadComponent: () =>
+          import('./features/public/events/payment-return').then((m) => m.PaymentReturnPage),
+      },
+      {
+        path: 'pago/cancelado',
+        loadComponent: () =>
+          import('./features/public/events/payment-cancelled-page').then(
+            (m) => m.PaymentCancelledPage,
+          ),
+      },
+      {
         path: 'ponentes/:publicSlug',
         loadComponent: () =>
           import('./features/public/events/speaker-page').then((m) => m.SpeakerPage),

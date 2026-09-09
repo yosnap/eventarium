@@ -21,7 +21,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request
 
 from app.core.deps import DbDep, OrganizationDep
-from app.core.ratelimit import CHECKOUT_QUOTE_POR_IP, INSCRIPCION_POR_IP, limit_per_ip
+from app.core.ratelimit import (
+    CHECKOUT_QUOTE_POR_IP,
+    INSCRIPCION_POR_IP,
+    PUBLICO_POR_IP,
+    limit_per_ip,
+)
 from app.core.turnstile import require_turnstile
 from app.modules.events import repository as events_repository
 from app.modules.events.models import Event
@@ -32,6 +37,7 @@ from app.modules.payments.schemas import (
     CheckoutStartRequest,
     CheckoutStartResponse,
     PaymentStatusResponse,
+    PublicTicketTypeResponse,
 )
 from app.modules.registrations import repository as registrations_repository
 from app.modules.registrations.schemas import RegistrationAnswerInput
@@ -45,6 +51,37 @@ async def _obtener_evento_o_404(organizacion: OrganizationDep, session: DbDep, s
     if evento is None:
         raise NotFoundError("El evento no existe.")
     return evento
+
+
+@router.get(
+    "/events/{slug}/ticket-types",
+    summary="Listar los tipos de entrada vendibles ahora mismo",
+    description=(
+        "Solo los tipos vigentes en este instante (activos y dentro de su "
+        "ventana de venta): el paso de compra del formulario público los usa "
+        "para ofrecer la selección antes de pedir un presupuesto. Sin "
+        "Turnstile: no hay nada que enumerar, es la misma información que ya "
+        "expone el propio evento publicado."
+    ),
+    response_model=list[PublicTicketTypeResponse],
+    dependencies=[limit_per_ip("public-ticket-types", PUBLICO_POR_IP)],
+)
+async def list_public_ticket_types(
+    evento: Annotated[Event, Depends(_obtener_evento_o_404)], session: DbDep
+) -> list[PublicTicketTypeResponse]:
+    tipos = await service.list_public_ticket_types(
+        session, organization_id=evento.organization_id, event_id=evento.id
+    )
+    return [
+        PublicTicketTypeResponse(
+            id=str(tipo.id),
+            name=tipo.name,
+            description=tipo.description,
+            price_cents=tipo.price_cents,
+            currency=tipo.currency,
+        )
+        for tipo in tipos
+    ]
 
 
 @router.post(

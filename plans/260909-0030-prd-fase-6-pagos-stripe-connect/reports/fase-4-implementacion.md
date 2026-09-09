@@ -169,3 +169,153 @@ intermedios a lo largo de la fase precisamente para acotar el riesgo.
 Status: DONE_WITH_CONCERNS
 Summary: Las dos capas de la guarda de pago cierran los cuatro caminos de confirmación (verificado con un test por camino más el cinturón de seguridad independiente); Checkout en dos transacciones, webhook idempotente y las cinco tareas de fondo están implementados y cubiertos por 24 tests nuevos, con la suite completa de backend (522 tests) en verde. El frontend del paso de compra y la pantalla de retorno no se implementaron en esta pasada — marcado explícitamente como pendiente en el plan, no un backend a medias.
 Concerns/Blockers: (1) Frontend pendiente por completo. (2) El camino 3 sobre inscripciones `pending_approval` anteriores a la fase 6 (sin tipo de entrada elegido) queda correctamente bloqueado pero sin enlace de pago automático — límite documentado, no arreglado. (3) Varios Success Criteria de detalle sin test dedicado (ver lista de desviaciones §7); la lógica que cubren está implementada, no verificada con un test propio de esta fase.
+
+## Segunda pasada — frontend del paso de compra y pantalla de retorno
+
+Completa el frontend que la pasada anterior dejó pendiente explícitamente.
+Antes de escribir nada se verificó el estado real del repo (`grep`/lectura de
+código, no se asumió nada de lo escrito arriba sin comprobarlo): el fichero
+que el encargo llamaba `event-registration-form.ts` es en realidad
+`apps/web/src/app/features/public/events/registration-page.ts` (393 líneas
+antes de esta pasada, muy lejos de las 1000 — se amplía en el mismo fichero,
+no se crea uno hijo).
+
+### Dos huecos de backend descubiertos y cerrados (no estaban en el alcance de la fase 4 de trabajo, pero bloqueaban por completo el frontend)
+
+1. **No existía ningún endpoint público para listar los tipos de entrada de
+   un evento.** El único listado (`GET /events/{event_id}/ticket-types`) exige
+   `PAYMENTS_READ` (sesión de organizador). El formulario público no puede
+   pedir un presupuesto (`checkout/quote`) sin conocer antes un
+   `ticket_type_id` real, así que sin este endpoint el paso de compra era
+   irrealizable, no solo incómodo. Añadido, aditivo y de solo lectura:
+   - `payments/schemas.py::PublicTicketTypeResponse`.
+   - `payments/service.py::list_public_ticket_types` (reutiliza
+     `validar_tipo_vigente`, la misma función que ya usa `checkout/quote`, para
+     que listado y validación no puedan divergir).
+   - `payments/public_router.py::GET /public/events/{slug}/ticket-types`
+     (`limit_per_ip` con `PUBLICO_POR_IP`, sin Turnstile: no hay nada que
+     enumerar, es la misma información que ya expone el evento publicado).
+   - Test nuevo: `apps/api/tests/test_payments_public_ticket_types.py` (4
+     tests: lista los vigentes, oculta un tipo inactivo, oculta uno fuera de
+     ventana de venta, 404 en evento inexistente).
+2. **`success_url`/`cancel_url` de la Checkout Session no llevaban el `slug`
+   del evento**, solo `registration_id`
+   (`checkout_service.py::crear_sesion_de_pago`). El endpoint de estado que
+   la pantalla de retorno necesita consultar
+   (`GET /public/events/{slug}/checkout/{registration_id}/status`) está
+   anidado bajo el evento — sin `slug` en la URL de retorno, la pantalla no
+   podía ni siquiera preguntar por el estado real del pago. Se añadió
+   `&slug={evento_slug}` a ambas URLs (`evento` ya se cargaba en esa función
+   para leer `payment_checkout_window_minutes`; ningún test existente asertaba
+   el contenido literal de estas URLs, verificado por `grep` antes de tocarlo).
+
+Ambos cambios son aditivos, no tocan ningún camino ya probado, y la suite
+completa de backend (526 tests: los 522 previos + los 4 nuevos) sigue en
+verde tras aplicarlos, igual que `test_payments_checkout_and_webhooks.py` y
+`test_payments_checkout_quote_public.py` en particular. `openapi.json` y el
+cliente TypeScript se regeneraron (`make api-types`).
+
+### Frontend
+
+- `apps/web/src/app/core/payments/public-checkout.service.ts` (nuevo):
+  `getTicketTypes`, `quote`, `startCheckout`, `getStatus`. Hand-rolled con
+  `HttpClient`/`ApiService.url()`, no el cliente generado
+  (`core/api/generated/`): se comprobó que **ningún** fichero de la app
+  importa hoy ese cliente generado (se regenera pero no se consume; el
+  patrón real y único del repo es un servicio fino por dominio, ver
+  `RegistrationsService`/`PaymentsService`) — seguir esa convención real pesa
+  más que introducir el primer uso del cliente generado en un solo fichero.
+- `registration-page.ts` (registro público, ampliado): `ngOnInit` pide
+  también los tipos de entrada vendibles ahora
+  (`GET .../ticket-types`). **El evento es «de pago» a ojos del formulario si
+  y solo si esa lista no está vacía** — decisión deliberada para no tener que
+  preguntar `registration_mode` aparte (evita una llamada más y una condición
+  duplicada en dos sitios). Si hay tipos: fieldset de selección, campo de
+  código de descuento opcional que repite el presupuesto
+  (`checkout/quote`) en un bloque `aria-live="polite"`, y el envío pasa por
+  `PublicCheckoutService.startCheckout` en vez de `RegistrationsService.submit`.
+  Una `checkout_url` no nula redirige el navegador — **nunca en SSR**
+  (`isPlatformBrowser`, mismo patrón que
+  `event-check-in.ts`/`offline-scan-queue.service.ts`, no `afterNextRender`:
+  ese hook es para montar algo tras el renderizado, no para una redirección
+  disparada por la respuesta de un envío).
+- `payment-return.ts` (nuevo) + spec: pantalla de `success_url`. Arranca
+  siempre en `comprobando`, pregunta el estado real
+  (`getStatus`) y **nunca** infiere éxito del simple retorno — el estado
+  inicial nunca es `confirmado`. Si sigue `pending_payment`, reintenta
+  automáticamente con esperas crecientes acotadas (2 s, 4 s, 8 s, 8 s, 8 s;
+  5 intentos como máximo) y, agotados, deja un botón manual de reintentar —
+  nunca una espera indefinida sin salida. `cancelled`/`expired` se muestran
+  como fallidos; un error de red/servidor se distingue explícitamente de
+  «pago no confirmado» (mensaje y reintento propios, no se disfraza de
+  fallido). `aria-live="polite"` envolviendo el `@switch`, mismo patrón que
+  `my-ticket-page.ts`.
+- `payment-cancelled-page.ts` (nuevo) + spec: pantalla de `cancel_url`. No
+  existía ninguna pantalla de «pago cancelado» previa (verificado por
+  `grep`); puramente informativa, sin ningún estado que consultar (Stripe
+  nunca llega a marcar nada como pagado en este camino).
+- `app.routes.ts`: rutas `pago/retorno` y `pago/cancelado` dentro del
+  `PublicShell`, cargadas de forma perezosa como el resto de páginas
+  públicas.
+- `public/assets/i18n/es-ES.json`: claves nuevas bajo `inscripcion.*` (paso
+  de compra) y `pago.*` (retorno y cancelación).
+- `registration-page.spec.ts` (ampliado, no reescrito): se separó en dos
+  `describe` (evento gratuito / evento de pago) y se añadió el mock de
+  `PublicCheckoutService` que las tres pruebas existentes necesitaban aunque
+  no lo usaran (se instancia igualmente por inyección). Pruebas nuevas:
+  selección de tipo de entrada, bloqueo si no se elige tipo, presupuesto en
+  vivo + redirección real (`window.location.href`) con
+  `Object.defineProperty` sobre `window.location`, y **la prueba explícita
+  que exige el encargo**: renderizado con `{ provide: PLATFORM_ID, useValue:
+  'server' }`, el mismo envío que en navegador dispara `startCheckout` pero
+  `window.location` nunca se toca.
+- No se creó un spec dedicado para `PublicCheckoutService`: verificado que
+  el repo no tiene tampoco ninguno para `RegistrationsService` ni
+  `PaymentsService` (los servicios finos de `HttpClient` se ejercitan
+  siempre a través del spec del componente que los mockea, nunca en
+  solitario) — mismo patrón, no una omisión.
+
+### Tests y verificación
+
+- Backend: 526 tests, suite completa en verde
+  (`uv run pytest tests/ -q`, dos pasadas limpias tras los dos cambios de
+  backend).
+- Frontend: **190 tests, suite completa en verde** (`ng test --watch=false`;
+  eran ~178 antes de esta pasada, la diferencia son los tests nuevos de esta
+  sesión). `esperarSinViolacionesDeAccesibilidad` (axe) en cada test nuevo de
+  `registration-page.spec.ts`, `payment-return.spec.ts` y
+  `payment-cancelled-page.spec.ts`: cero violaciones.
+- `npx tsc --noEmit` (app y spec) y `ng lint` limpios.
+- `ng build` (con SSR) completa sin errores nuevos; los dos avisos `NG8102`
+  que aparecen son preexistentes, en ficheros no tocados por esta fase.
+- Incidencia operativa repetida: `apps/api/app/modules/payments/stripe_client.py`
+  volvió a desaparecer del disco una vez más durante esta pasada (mismo
+  patrón ya documentado arriba); se restauró con `git checkout --` desde el
+  último commit sin pérdida de trabajo.
+- No se ejecutó un recorrido de compra real con Stripe CLI: el binario
+  (`stripe`) está disponible en el entorno, pero montar una cuenta Connect en
+  modo test conectada a esta organización de desarrollo es una tarea aparte
+  no cubierta por el alcance de esta pasada; la cobertura de tests unitarios
+  + axe se considera suficiente para esta entrega, tal como el encargo
+  contemplaba como salida válida si el CLI no estaba ya configurado contra
+  este proyecto.
+- El stack de desarrollo (`infra/scripts/dev.sh status`) ya estaba en marcha
+  al empezar (API, `ng serve` y Caddy); no se ha tocado ni se ha parado al
+  terminar, tal como pedía el encargo.
+
+### Success Criteria del plan actualizados
+
+En `phase-04-checkout-webhooks-y-confirmacion.md`: el criterio de frontend
+(pantalla de retorno + axe) pasa de `[ ]` a `[x]`, y el `status` del
+frontmatter se actualiza para reflejar que backend y frontend están
+implementados y verificados. **No se marca `status: completed`**: quedan
+varios Success Criteria de detalle sin test dedicado, todos preexistentes a
+esta pasada y ya documentados en la sección de desviaciones de arriba (§7) —
+timestamp de firma fuera de tolerancia, dos barridos solapados, dos ventanas
+de checkout distintas, manipulación del cuerpo de la petición, el webhook de
+`account.application.deauthorized` a nivel de esta fase, y el caso de
+`capacity = 1` sin test propio. Ninguno de ellos es del frontend.
+
+Status: DONE
+Summary: Frontend del paso de compra y de la pantalla de retorno implementado y verificado (190 tests frontend en verde, cero violaciones de axe, SSR nunca redirige), cerrando el único pendiente explícito de la pasada anterior. Se detectaron y cerraron dos huecos reales de backend que bloqueaban por completo el frontend (listado público de tipos de entrada, `slug` ausente en las URLs de retorno de Stripe) — aditivos, con test propio, sin tocar ningún camino ya probado (526 tests backend en verde).
+Concerns/Blockers: El plan no pasa a `status: completed` porque quedan Success Criteria de detalle sin test dedicado, todos preexistentes a esta pasada y ninguno del frontend (ver lista arriba). El recorrido de compra real con Stripe CLI en modo test sigue sin ejecutarse — requiere una cuenta Connect de prueba que no estaba configurada en este entorno.

@@ -1,7 +1,10 @@
+import { isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
   type OnInit,
+  PLATFORM_ID,
+  computed,
   inject,
   input,
   signal,
@@ -10,6 +13,11 @@ import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
 import { ApiError } from '../../../core/api/error.interceptor';
+import {
+  type CheckoutQuote,
+  type PublicTicketType,
+  PublicCheckoutService,
+} from '../../../core/payments/public-checkout.service';
 import {
   type RegistrationAnswerInput,
   type RegistrationQuestion,
@@ -23,8 +31,13 @@ import { TurnstileWidget } from '../../../shared/ui/turnstile-widget';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function precioEnEuros(cents: number): string {
+  return (cents / 100).toFixed(2);
+}
+
 /**
- * Formulario público de inscripción a un evento (fase 3 del PRD).
+ * Formulario público de inscripción a un evento (fase 3 del PRD; paso de
+ * compra añadido en la fase 6 del PRD, fase 4 de trabajo).
  *
  * CSR, como `registro`: es un flujo transaccional. Las preguntas
  * personalizadas se cargan primero (`ngOnInit`) porque su forma decide qué
@@ -34,6 +47,19 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * La respuesta de alta es siempre la misma exista o no ya el email inscrito
  * (anti-enumeración, igual que `registro`): el mensaje de éxito nunca dice
  * "ya estabas inscrito" ni "te hemos inscrito", dice lo mismo en ambos casos.
+ *
+ * **Paso de compra:** `ngOnInit` también pide los tipos de entrada vendibles
+ * ahora mismo (`GET /public/events/{slug}/ticket-types`). Un evento es «de
+ * pago» a ojos de este formulario si y solo si esa lista no está vacía — no
+ * hace falta preguntar por `registration_mode` aparte, y evita duplicar la
+ * misma condición en dos sitios. Si hay tipos, el envío pasa por
+ * `PublicCheckoutService.startCheckout` (dos transacciones en el servidor,
+ * ver `checkout_service.py`) en vez de `RegistrationsService.submit`, y una
+ * `checkout_url` no nula redirige el navegador — **nunca** en SSR
+ * (`esNavegador`, mismo patrón que `event-check-in.ts`/
+ * `offline-scan-queue.service.ts`): en el servidor no hay `window` al que
+ * redirigir, y ningún envío real puede ocurrir ahí de todos modos porque el
+ * `submit` solo lo dispara un evento de navegador.
  */
 @Component({
   selector: 'app-registration-page',
@@ -125,6 +151,50 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 </div>
               }
 
+              @if (esCompraDePago()) {
+                <fieldset class="tipo-entrada">
+                  <legend>{{ t('inscripcion.tipoEntrada.titulo') }} *</legend>
+                  @for (tipo of ticketTypes(); track tipo.id) {
+                    <label class="opcion">
+                      <input
+                        type="radio"
+                        name="tipo-entrada"
+                        [value]="tipo.id"
+                        [checked]="ticketTypeId() === tipo.id"
+                        (change)="seleccionarTipo(tipo.id)"
+                      />
+                      {{ tipo.name }} — {{ precioTipo(tipo) }} {{ tipo.currency.toUpperCase() }}
+                    </label>
+                  }
+                  @if (errorTicketType(); as mensaje) {
+                    <p class="error-pregunta">{{ mensaje }}</p>
+                  }
+                </fieldset>
+
+                <app-input
+                  [label]="t('inscripcion.codigoDescuento')"
+                  [required]="false"
+                  [(value)]="codigoDescuento"
+                  (blurred)="actualizarPresupuesto()"
+                />
+
+                <div class="presupuesto" aria-live="polite">
+                  @if (cargandoPresupuesto()) {
+                    <p>{{ t('inscripcion.presupuesto.calculando') }}</p>
+                  } @else if (errorPresupuesto(); as mensaje) {
+                    <p class="error-pregunta">{{ mensaje }}</p>
+                  } @else if (presupuesto(); as presupuesto) {
+                    <p>
+                      {{ t('inscripcion.presupuesto.total') }}:
+                      <strong>{{ precioEuros(presupuesto.total_cents) }} {{ presupuesto.currency.toUpperCase() }}</strong>
+                      @if (presupuesto.discount_cents > 0) {
+                        ({{ t('inscripcion.presupuesto.descuentoAplicado', { importe: precioEuros(presupuesto.discount_cents) }) }})
+                      }
+                    </p>
+                  }
+                </div>
+              }
+
               <label class="consentimiento">
                 <input
                   type="checkbox"
@@ -155,14 +225,20 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 {{ t('inscripcion.grabacion') }}
               </label>
 
-              <app-turnstile-widget (resuelto)="turnstileToken.set($event)" />
+              <app-turnstile-widget (resuelto)="onTurnstileResuelto($event)" />
 
               @if (error(); as mensaje) {
                 <app-alert tone="error" [title]="t('inscripcion.error')">{{ mensaje }}</app-alert>
               }
 
               <app-button type="submit" [loading]="enviando()">
-                {{ enviando() ? t('inscripcion.enviando') : t('inscripcion.inscribirse') }}
+                {{
+                  enviando()
+                    ? t('inscripcion.enviando')
+                    : esCompraDePago()
+                      ? t('inscripcion.continuarAlPago')
+                      : t('inscripcion.inscribirse')
+                }}
               </app-button>
             </form>
           }
@@ -215,13 +291,21 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       color: var(--color-danger);
       font-size: 0.875rem;
     }
+    .presupuesto {
+      min-height: 1.5rem;
+    }
+    .presupuesto p {
+      margin: 0;
+    }
   `,
 })
 export class RegistrationPage implements OnInit {
   readonly slug = input.required<string>();
 
   private readonly registrations = inject(RegistrationsService);
+  private readonly checkout = inject(PublicCheckoutService);
   private readonly transloco = inject(TranslocoService);
+  private readonly esNavegador = isPlatformBrowser(inject(PLATFORM_ID));
 
   protected readonly cargandoPreguntas = signal(true);
   protected readonly noEncontrado = signal(false);
@@ -247,8 +331,20 @@ export class RegistrationPage implements OnInit {
   protected readonly mensajeExito = signal('');
   protected readonly error = signal<string | null>(null);
 
+  /** No vacía únicamente cuando el evento vende entradas ahora mismo: ver el
+   * docstring de la clase sobre por qué esta lista basta para decidirlo. */
+  protected readonly ticketTypes = signal<PublicTicketType[]>([]);
+  protected readonly esCompraDePago = computed(() => this.ticketTypes().length > 0);
+  protected readonly ticketTypeId = signal<string | null>(null);
+  protected readonly errorTicketType = signal<string | null>(null);
+  protected readonly codigoDescuento = signal('');
+  protected readonly presupuesto = signal<CheckoutQuote | null>(null);
+  protected readonly cargandoPresupuesto = signal(false);
+  protected readonly errorPresupuesto = signal<string | null>(null);
+
   ngOnInit(): void {
     void this.cargarPreguntas();
+    void this.cargarTiposDeEntrada();
   }
 
   private async cargarPreguntas(): Promise<void> {
@@ -262,6 +358,68 @@ export class RegistrationPage implements OnInit {
       }
     } finally {
       this.cargandoPreguntas.set(false);
+    }
+  }
+
+  private async cargarTiposDeEntrada(): Promise<void> {
+    try {
+      this.ticketTypes.set(await this.checkout.getTicketTypes(this.slug()));
+    } catch {
+      // Best-effort: si esta llamada falla, el formulario se comporta como
+      // un evento gratuito. `cargarPreguntas` ya cubre el caso «evento
+      // inexistente» con su propio mensaje.
+      this.ticketTypes.set([]);
+    }
+  }
+
+  protected precioTipo(tipo: PublicTicketType): string {
+    return precioEnEuros(tipo.price_cents);
+  }
+
+  protected precioEuros(cents: number): string {
+    return precioEnEuros(cents);
+  }
+
+  protected seleccionarTipo(id: string): void {
+    this.ticketTypeId.set(id);
+    this.errorTicketType.set(null);
+    void this.actualizarPresupuesto();
+  }
+
+  protected onTurnstileResuelto(token: string): void {
+    this.turnstileToken.set(token);
+    void this.actualizarPresupuesto();
+  }
+
+  protected async actualizarPresupuesto(): Promise<void> {
+    const ticketTypeId = this.ticketTypeId();
+    if (!ticketTypeId) {
+      return;
+    }
+    // Mismo criterio que el envío final (`turnstileToken() ?? ''`): con
+    // Turnstile desactivado el token resuelve a `''` de inmediato; con
+    // Turnstile activo, un presupuesto pedido antes de resolver el reto
+    // fallará una vez (mensaje de error, autocorregible) y
+    // `onTurnstileResuelto` vuelve a pedirlo en cuanto llegue el token real.
+    this.cargandoPresupuesto.set(true);
+    this.errorPresupuesto.set(null);
+    try {
+      this.presupuesto.set(
+        await this.checkout.quote(this.slug(), {
+          ticketTypeId,
+          code: this.codigoDescuento().trim() || null,
+          turnstileToken: this.turnstileToken() ?? '',
+        }),
+      );
+    } catch (error) {
+      this.presupuesto.set(null);
+      this.errorPresupuesto.set(
+        error instanceof ApiError
+          ? error.message
+          : this.transloco.translate('inscripcion.presupuesto.error'),
+      );
+    } finally {
+      this.cargandoPresupuesto.set(false);
     }
   }
 
@@ -358,29 +516,40 @@ export class RegistrationPage implements OnInit {
         ? null
         : this.transloco.translate('inscripcion.tratamientoDatosRequerido'),
     );
+    const esCompraDePago = this.esCompraDePago();
+    if (esCompraDePago) {
+      this.errorTicketType.set(
+        this.ticketTypeId() ? null : this.transloco.translate('inscripcion.tipoEntrada.obligatorio'),
+      );
+    }
 
     if (
       this.errorEmail() ||
       this.errorNombre() ||
       !preguntasValidas ||
-      this.errorConsentimiento()
+      this.errorConsentimiento() ||
+      (esCompraDePago && this.errorTicketType())
     ) {
       return;
     }
 
     this.enviando.set(true);
     try {
-      const mensaje = await this.registrations.submit(this.slug(), {
-        email: this.email().trim(),
-        fullName: this.fullName().trim(),
-        answers: this.construirRespuestas(),
-        dataProcessingAccepted: this.dataProcessingAccepted(),
-        marketingAccepted: this.marketingAccepted(),
-        recordingAccepted: this.recordingAccepted(),
-        turnstileToken: this.turnstileToken() ?? '',
-      });
-      this.mensajeExito.set(mensaje);
-      this.enviado.set(true);
+      if (esCompraDePago) {
+        await this.enviarCompra();
+      } else {
+        const mensaje = await this.registrations.submit(this.slug(), {
+          email: this.email().trim(),
+          fullName: this.fullName().trim(),
+          answers: this.construirRespuestas(),
+          dataProcessingAccepted: this.dataProcessingAccepted(),
+          marketingAccepted: this.marketingAccepted(),
+          recordingAccepted: this.recordingAccepted(),
+          turnstileToken: this.turnstileToken() ?? '',
+        });
+        this.mensajeExito.set(mensaje);
+        this.enviado.set(true);
+      }
     } catch (error) {
       this.error.set(
         error instanceof ApiError ? error.message : this.transloco.translate('inscripcion.error'),
@@ -388,5 +557,33 @@ export class RegistrationPage implements OnInit {
     } finally {
       this.enviando.set(false);
     }
+  }
+
+  /** Extraído de `enviar` solo para no anidar el `try` de la compra dentro
+   * del `try` general: mismas reglas de error, misma señal de "enviando". */
+  private async enviarCompra(): Promise<void> {
+    const resultado = await this.checkout.startCheckout(this.slug(), {
+      email: this.email().trim(),
+      fullName: this.fullName().trim(),
+      answers: this.construirRespuestas(),
+      dataProcessingAccepted: this.dataProcessingAccepted(),
+      marketingAccepted: this.marketingAccepted(),
+      recordingAccepted: this.recordingAccepted(),
+      ticketTypeId: this.ticketTypeId()!,
+      code: this.codigoDescuento().trim() || null,
+      turnstileToken: this.turnstileToken() ?? '',
+    });
+    if (resultado.checkout_url) {
+      // Nunca en SSR: aquí no hay `window`, y un envío real nunca puede
+      // llegar a ejecutarse en el servidor (lo dispara un evento de
+      // navegador). El `if` es la comprobación explícita que lo garantiza
+      // también en las pruebas.
+      if (this.esNavegador) {
+        window.location.href = resultado.checkout_url;
+      }
+      return;
+    }
+    this.mensajeExito.set(resultado.message);
+    this.enviado.set(true);
   }
 }

@@ -4676,6 +4676,53 @@
         }
       }
     },
+    "/api/v1/public/events/{slug}/ticket-types": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Listar los tipos de entrada vendibles ahora mismo",
+        "description": "Solo los tipos vigentes en este instante (activos y dentro de su ventana de venta): el paso de compra del formulario público los usa para ofrecer la selección antes de pedir un presupuesto. Sin Turnstile: no hay nada que enumerar, es la misma información que ya expone el propio evento publicado.",
+        "operationId": "list_public_ticket_types_api_v1_public_events__slug__ticket_types_get",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublicTicketTypeResponse"
+                  },
+                  "title": "Response List Public Ticket Types Api V1 Public Events  Slug  Ticket Types Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/public/events/{slug}/checkout/quote": {
       "post": {
         "tags": [
@@ -8767,6 +8814,47 @@
         ],
         "title": "PublicSponsorTier",
         "description": "Nivel de patrocinio con sus patrocinadores, para el bloque público."
+      },
+      "PublicTicketTypeResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "price_cents": {
+            "type": "integer",
+            "title": "Price Cents"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "price_cents",
+          "currency"
+        ],
+        "title": "PublicTicketTypeResponse",
+        "description": "Tipo de entrada tal como lo ve el formulario público de compra.\n\nSolo se listan los vigentes en el instante de la consulta (`is_active` y\ndentro de la ventana de venta, `service.validar_tipo_vigente`): un tipo\nfuera de ventana no debe ofrecerse para elegir, aunque su `checkout/quote`\nya lo rechace igualmente si se fuerza el `ticket_type_id` a mano."
       },
       "RegisterRequest": {
         "properties": {

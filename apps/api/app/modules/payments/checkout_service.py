@@ -219,6 +219,10 @@ async def crear_sesion_de_pago(session: AsyncSession, *, payment_id: uuid.UUID) 
     )
     evento = await session.get(Event, pago.event_id)
     ventana_minutos = evento.payment_checkout_window_minutes if evento is not None else 30
+    # `evento` siempre existe en la práctica (la FK de `event_payments` a
+    # `events` no admite huérfanos); el `else ""` es solo defensivo, igual que
+    # el `else 30` de la línea anterior.
+    evento_slug = evento.slug if evento is not None else ""
     base = await base_url_de_organizacion(pago.organization_id)
 
     expires_at_epoch = int(
@@ -232,8 +236,17 @@ async def crear_sesion_de_pago(session: AsyncSession, *, payment_id: uuid.UUID) 
             unit_amount_cents=pago.amount_cents,
             product_name=tipo.name if tipo is not None else "Entrada",
         ),
-        success_url=f"{base}/pago/retorno?registration_id={pago.registration_id}",
-        cancel_url=f"{base}/pago/cancelado?registration_id={pago.registration_id}",
+        # `slug` viaja en la URL porque el endpoint de estado
+        # (`GET /public/events/{slug}/checkout/{registration_id}/status`) está
+        # anidado bajo el evento, no solo bajo la inscripción: sin él, la
+        # pantalla de retorno no podría ni siquiera preguntar por el estado
+        # real del pago.
+        success_url=(
+            f"{base}/pago/retorno?registration_id={pago.registration_id}&slug={evento_slug}"
+        ),
+        cancel_url=(
+            f"{base}/pago/cancelado?registration_id={pago.registration_id}&slug={evento_slug}"
+        ),
         expires_at_epoch=expires_at_epoch,
         idempotency_key=f"checkout_{pago.id}_{pago.checkout_attempts}",
         client_reference_id=str(pago.registration_id) if pago.registration_id else None,
