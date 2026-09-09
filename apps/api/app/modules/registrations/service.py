@@ -313,21 +313,18 @@ async def _cancelar_inscripcion(
     await revocar_entrada(session, organization_id=organization_id, registration_id=inscripcion.id)
 
     # Una plaza está reservada si está `confirmed`, si está `waitlisted` en
-    # mitad de una promoción, o si está `pending_payment` todavía dentro de
-    # su ventana (fase 6 del PRD, hallazgo #5) — exactamente la misma
-    # condición que `count_reserved_registrations`: si una cuenta la plaza y
-    # la otra no la libera, el aforo se pierde en silencio en cuanto caduca
-    # o se cancela la primera compra. Cancelar en cualquiera de los tres
-    # casos libera un hueco real y debe promover a la siguiente persona.
-    ahora_cancelacion = datetime.now(UTC)
-    liberaba_una_plaza = (
-        inscripcion.status == "confirmed"
-        or (inscripcion.status == "waitlisted" and inscripcion.waitlist_promoted_at is not None)
-        or (
-            inscripcion.status == "pending_payment"
-            and inscripcion.payment_expires_at is not None
-            and inscripcion.payment_expires_at >= ahora_cancelacion
-        )
+    # mitad de una promoción, o si está `pending_payment` (fase 6 del PRD,
+    # hallazgo #5) — mismo predicado de estado que usa
+    # `count_reserved_registrations` para decidir si una fila ocupa un hueco.
+    # Sin condición de vigencia aquí (igual que la rama `waitlisted`, que
+    # tampoco la lleva): esta función cancela la fila en el mismo instante en
+    # que decide liberar el hueco —incluida la que llama el barrido sobre una
+    # compra que **acaba** de caducar—, así que la plaza estaba reservada
+    # hasta este preciso momento. Si una cuenta la plaza y la otra no la
+    # libera, el aforo se pierde en silencio en cuanto caduca o se cancela la
+    # primera compra.
+    liberaba_una_plaza = inscripcion.status in ("confirmed", "pending_payment") or (
+        inscripcion.status == "waitlisted" and inscripcion.waitlist_promoted_at is not None
     )
     inscripcion.status = "cancelled"
     inscripcion.cancelled_at = datetime.now(UTC)

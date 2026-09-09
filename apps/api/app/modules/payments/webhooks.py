@@ -48,11 +48,11 @@ _CAMPOS_POR_TIPO: dict[str, tuple[str, ...]] = {
 }
 
 
-def _proyectar_payload(evento: object) -> dict[str, object]:
-    datos = evento["data"]["object"]  # type: ignore[index]
-    tipo = evento["type"]  # type: ignore[index]
+def _proyectar_payload(evento_dict: dict[str, object]) -> dict[str, object]:
+    datos = evento_dict["data"]["object"]  # type: ignore[index]
+    tipo = evento_dict["type"]
     proyeccion: dict[str, object] = {"id": datos.get("id")}
-    for campo in _CAMPOS_POR_TIPO.get(tipo, ()):
+    for campo in _CAMPOS_POR_TIPO.get(tipo, ()):  # type: ignore[arg-type]
         proyeccion[campo] = datos.get(campo)
     return proyeccion
 
@@ -77,9 +77,13 @@ async def stripe_webhook(request: Request) -> Response:
     except ExternalServiceError as exc:
         raise DomainError(exc.detail) from exc
 
-    event_id = str(evento["id"])
-    event_type = str(evento["type"])
-    stripe_account_id = evento.get("account")
+    # `stripe.Event` es un `StripeObject`, no un `dict`: `.get()` choca con su
+    # propio bloqueo de métodos de `dict` (ver `stripe._stripe_object`).
+    # `.to_dict()` evita ese caso especial para el resto del handler.
+    evento_dict: dict[str, object] = evento.to_dict()
+    event_id = str(evento_dict["id"])
+    event_type = str(evento_dict["type"])
+    stripe_account_id = evento_dict.get("account")
 
     async with maintenance_session() as session:
         if not stripe_account_id:
@@ -89,7 +93,7 @@ async def stripe_webhook(request: Request) -> Response:
                 session,
                 event_id=event_id,
                 event_type=event_type,
-                payload=_proyectar_payload(evento),
+                payload=_proyectar_payload(evento_dict),
             )
             return Response(status_code=200)
 
@@ -98,7 +102,7 @@ async def stripe_webhook(request: Request) -> Response:
             event_id=event_id,
             event_type=event_type,
             stripe_account_id=str(stripe_account_id),
-            payload=_proyectar_payload(evento),
+            payload=_proyectar_payload(evento_dict),
         )
         if not insertado:
             fila = await repository.get_webhook_event(session, event_id)
