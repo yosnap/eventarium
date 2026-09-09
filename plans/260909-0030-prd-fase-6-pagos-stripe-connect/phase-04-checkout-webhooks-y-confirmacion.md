@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: "Fase 4: Compra pública — guarda de pago, Checkout, webhooks y confirmación"
-status: pending
+status: partial (backend completo y verificado; frontend del paso de compra y la pantalla de retorno pendientes — ver reports/fase-4-implementacion.md)
 priority: P1
 effort: "4-4.5d"
 dependencies: [3]

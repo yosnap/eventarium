@@ -264,9 +264,10 @@ async def confirmar_pago_y_registro(
     """Aplica el efecto de dominio de un pago cobrado: marca el pago `paid` y
     confirma la inscripción llamando a `_enviar_email_por_estado` — el mismo
     punto único de emisión que usan los otros cuatro caminos. El módulo de
-    pagos **nunca** llama a `emitir_entrada` directamente (Decisión #6 del
-    plan). Idempotente por partida doble: no-op si el pago ya estaba `paid` o
-    la inscripción ya `confirmed`.
+    pagos nunca emite la entrada por su cuenta, ni de forma directa ni
+    indirecta (Decisión #6 del plan): ese paso vive por completo en
+    `registrations/service.py`. Idempotente por partida doble: no-op si el
+    pago ya estaba `paid` o la inscripción ya `confirmed`.
     """
     if pago.status != "paid":
         pago.status = "paid"
