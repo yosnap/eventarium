@@ -1,7 +1,7 @@
 ---
 phase: 1
 title: "Fase 1: Modelo de datos, superficie de API del estado nuevo, permisos y configuración"
-status: pending
+status: completed
 priority: P1
 effort: "2.5-3d"
 dependencies: []
@@ -322,59 +322,59 @@ TypeScript generado.
 
 ## Success Criteria
 
-- [ ] `alembic upgrade head` → `downgrade -1` → `upgrade head` limpio, y
+- [x] `alembic upgrade head` → `downgrade -1` → `upgrade head` limpio, y
       también `downgrade base` → `upgrade head` desde cero, sin duplicar ni
       perder filas de permisos
-- [ ] Dos organizaciones no pueden leer ni escribir `organization_stripe_accounts`,
+- [x] Dos organizaciones no pueden leer ni escribir `organization_stripe_accounts`,
       `event_ticket_types`, `event_discount_codes`, `event_payments` ni
       `event_payment_refunds` de la otra — test de lectura y de escritura
       cruzada para las cinco (diez casos)
-- [ ] `has_table_privilege('app_user', 'stripe_webhook_events', 'SELECT')` y
+- [x] `has_table_privilege('app_user', 'stripe_webhook_events', 'SELECT')` y
       `'DELETE'` son `false`; comprobación positiva sobre las cinco tablas de
       dominio
-- [ ] Una organización con `deauthorized_at` informado puede tener una
+- [x] Una organización con `deauthorized_at` informado puede tener una
       **segunda** fila activa en `organization_stripe_accounts`; dos filas
       activas (`deauthorized_at IS NULL`) para la misma organización son
       rechazadas por el índice único parcial — test de ambos casos
-- [ ] Borrar una `event_registrations` que tiene un `event_payments` asociado
+- [x] Borrar una `event_registrations` que tiene un `event_payments` asociado
       **no falla** y deja el pago con `registration_id IS NULL` y su
       `organization_id` intacto — test que ejecuta el borrado RGPD real
       (`admin.service.borrar_inscrito_por_email`), no un `DELETE` suelto
-- [ ] Una organización de una fase anterior tiene `payments:read`/`write` en
+- [x] Una organización de una fase anterior tiene `payments:read`/`write` en
       su rol `owner` tras la migración, sin intervención manual
-- [ ] Una organización **creada después** de la migración tiene
+- [x] Una organización **creada después** de la migración tiene
       `payments:read`/`payments:write` en su rol `organizer` clonado — test
       que crea la organización tras aplicar la migración
-- [ ] `GET /events/{id}/registrations` y `/registrations/stats` responden 200
+- [x] `GET /events/{id}/registrations` y `/registrations/stats` responden 200
       con una inscripción en `pending_payment` en la base de datos, y el
       contador `pending_payment` aparece en las estadísticas — test explícito
       (es el 500 del hallazgo #6)
-- [ ] Insertar un `event_ticket_type` con `price_cents < 0`, un
+- [x] Insertar un `event_ticket_type` con `price_cents < 0`, un
       `event_discount_code` `percentage` con `discount_value = 150`, o uno
       `fixed_amount` con `discount_value = 0` es rechazado por la base de
       datos, no solo por el servicio
-- [ ] No existe ninguna columna `used_count` en `event_discount_codes` —
+- [x] No existe ninguna columna `used_count` en `event_discount_codes` —
       verificado sobre el esquema aplicado, no sobre el modelo
-- [ ] Arrancar con `APP_ENV=production` y `STRIPE_SECRET_KEY=sk_test_...`
+- [x] Arrancar con `APP_ENV=production` y `STRIPE_SECRET_KEY=sk_test_...`
       aborta con mensaje explícito; arrancar **sin** ninguna variable de
       Stripe arranca con normalidad y `payments_enabled` es `False`; un
       secreto informado por debajo de la longitud mínima aborta
 <!-- Updated: Validation Session 1 - la ventana de pago se valida por evento, no por variable de entorno -->
-- [ ] Un evento existente antes de la migración queda con
+- [x] Un evento existente antes de la migración queda con
       `payment_checkout_window_minutes = 30` sin intervención manual; crear un
       evento sin enviar el campo también da 30
-- [ ] `POST`/`PATCH` de un evento con `payment_checkout_window_minutes = 29` o
+- [x] `POST`/`PATCH` de un evento con `payment_checkout_window_minutes = 29` o
       `= 1440` devuelve 422 citando el rango; `30` y `1439` se aceptan. Un
       `UPDATE` directo en base de datos con 29 es rechazado por el `CHECK`, no
       solo por el schema
-- [ ] `grep -rn "payment_checkout_window_minutes" apps/api/app/core/` no
+- [x] `grep -rn "payment_checkout_window_minutes" apps/api/app/core/` no
       devuelve nada: la ventana no es un ajuste de instalación
-- [ ] `import stripe` en cualquier fichero de `app/` distinto de
+- [x] `import stripe` en cualquier fichero de `app/` distinto de
       `payments/stripe_client.py` hace fallar el lint — verificado ejecutando
       ruff sobre un fichero de prueba con ese import
-- [ ] Un test que escribe en `stripe_webhook_events` y otro que asume la tabla
+- [x] Un test que escribe en `stripe_webhook_events` y otro que asume la tabla
       vacía, en el mismo run de la suite completa, no se contaminan
-- [ ] `openapi.json` y el cliente TypeScript generado al día (el `Literal` de
+- [x] `openapi.json` y el cliente TypeScript generado al día (el `Literal` de
       estados incluye `pending_payment` en los tres ficheros generados)
 
 ## Risk & Rollback

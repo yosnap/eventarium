@@ -70,6 +70,21 @@ class ServiceUnavailableError(DomainError):
     title = "Servicio no disponible"
 
 
+class ExternalServiceError(DomainError):
+    """Un proveedor externo (p. ej. Stripe) ha fallado o rechazado la petición.
+
+    Distinta de `ServiceUnavailableError`: esta última es «no configurado»
+    (falla siempre, antes de intentar nada); esta es «configurado pero la
+    llamada ha fallado» — típicamente `stripe.StripeError` traducido por
+    `payments/stripe_client.py` (fase 6 del PRD, decisión #7 del plan). Nunca
+    lleva el mensaje crudo del proveedor: solo un texto accionable para quien
+    usa el panel.
+    """
+
+    status_code = status.HTTP_502_BAD_GATEWAY
+    title = "Fallo de un servicio externo"
+
+
 def _problem_response(status_code: int, cuerpo: dict[str, Any]) -> JSONResponse:
     return JSONResponse(status_code=status_code, content=cuerpo, media_type=PROBLEM_CONTENT_TYPE)
 

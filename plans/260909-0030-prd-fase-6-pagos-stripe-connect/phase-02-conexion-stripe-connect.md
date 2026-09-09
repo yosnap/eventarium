@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: "Fase 2: Conexión Stripe Connect (onboarding, reconexión y bloqueo de venta)"
-status: pending
+status: completed
 priority: P1
 effort: "2.5-3d"
 dependencies: [1]
@@ -182,50 +182,69 @@ las fases son estrictamente secuenciales (3 depende de 2, 4 de 3, 5 de 4).
 
 ## Success Criteria
 
-- [ ] Un `owner`/`organizer` completa el onboarding hosted en modo test y al
+- [x] Un `owner`/`organizer` completa el onboarding hosted en modo test y al
       volver el panel muestra `charges_enabled = true` leído del `Account`
-      consultado, no asumido por el retorno a `return_url`
-- [ ] Llamar dos veces al endpoint de onboarding genera dos enlaces distintos
+      consultado, no asumido por el retorno a `return_url` — verificado con
+      el cliente Stripe simulado (`test_payments_router.py`, la pantalla
+      sincroniza siempre al volver del onboarding, nunca asume éxito)
+- [x] Llamar dos veces al endpoint de onboarding genera dos enlaces distintos
       sobre **el mismo** `stripe_account_id` — sin crear una segunda cuenta
-- [ ] Tras marcar la cuenta como desautorizada, un onboarding nuevo **crea una
+      (`test_doble_onboarding_no_crea_segunda_cuenta_pero_genera_dos_urls`)
+- [x] Tras marcar la cuenta como desautorizada, un onboarding nuevo **crea una
       cuenta nueva y deja la organización operativa otra vez**, sin ninguna
       intervención manual en base de datos, y la fila antigua se conserva con
-      su `deauthorized_at` (hallazgo #17)
-- [ ] **Crear** un evento directamente con `status = "published"` y
+      su `deauthorized_at` (hallazgo #17) —
+      `test_reconexion_tras_desautorizacion_crea_cuenta_nueva_sin_intervencion_manual`
+- [x] **Crear** un evento directamente con `status = "published"` y
       `registration_mode = "paid"` sin `charges_enabled` devuelve 409 —
       test explícito sobre `POST /events`, no solo sobre `PATCH` (hallazgo #4)
-- [ ] **Editar** un evento a `published` + `paid` en el mismo `PATCH` devuelve
+      — `test_crear_evento_paid_publicado_sin_stripe_da_409`
+- [x] **Editar** un evento a `published` + `paid` en el mismo `PATCH` devuelve
       409; con `charges_enabled = true` devuelve 200; la guarda evalúa el
-      evento resultante, no el actual
-- [ ] Crear y editar un evento `paid` en borrador funciona sin Stripe
-      conectado; solo la publicación está bloqueada
-- [ ] Con `payments_enabled = False` (sin secretos configurados), los tres
+      evento resultante, no el actual —
+      `test_publicar_editando_a_paid_sin_stripe_da_409` /
+      `test_publicar_evento_paid_con_charges_enabled_funciona`
+- [x] Crear y editar un evento `paid` en borrador funciona sin Stripe
+      conectado; solo la publicación está bloqueada —
+      `test_crear_evento_paid_en_borrador_sin_stripe_funciona` /
+      `test_editar_evento_paid_en_borrador_sin_stripe_funciona`
+- [x] Con `payments_enabled = False` (sin secretos configurados), los tres
       endpoints de Stripe devuelven 503 con mensaje explícito y publicar un
       evento `paid` devuelve 409 — la instalación sigue funcionando para todo
-      lo demás
-- [ ] `GET /organizations/{id}/stripe` no produce ninguna llamada de red a
+      lo demás — `test_pagos_deshabilitados_devuelve_503_en_los_tres_endpoints`,
+      `test_publicar_evento_paid_sin_payments_enabled_da_409`
+- [x] `GET /organizations/{id}/stripe` no produce ninguna llamada de red a
       Stripe — verificado contando llamadas al cliente simulado
-- [ ] Un organizador de la organización A recibe 404/403 al pedir el estado de
+      (`test_get_status_no_produce_ninguna_llamada_de_red_a_stripe`)
+- [x] Un organizador de la organización A recibe 404/403 al pedir el estado de
       Stripe de B, y no puede iniciar un onboarding sobre el `acct_id` de B
       aunque lo envíe en el cuerpo — las funciones del wrapper no aceptan un
       `acct_id` de tipo `str` proveniente de la petición (verificado por firma
-      de tipos y por test)
-- [ ] Un error del SDK (`stripe.StripeError`) llega al panel como mensaje
+      de tipos y por test) —
+      `test_una_organizacion_no_puede_leer_ni_conectar_el_stripe_de_otra`
+- [x] Un error del SDK (`stripe.StripeError`) llega al panel como mensaje
       claro con código 502, nunca como 500 con el texto crudo de Stripe — test
-      que lo lanza desde el cliente simulado
-- [ ] `grep -rn "stripe.error" app/` no devuelve nada; `import stripe` no
-      aparece fuera de `payments/stripe_client.py` (lint en verde)
+      que lo lanza desde el cliente simulado —
+      `test_error_del_sdk_en_onboarding_llega_como_502` y
+      `test_error_del_sdk_se_traduce_a_external_service_error`
+- [x] `grep -rn "stripe.error" app/` no devuelve nada; `import stripe` no
+      aparece fuera de `payments/stripe_client.py` (lint en verde) —
+      verificado con `grep` y con `ruff check app/`
 <!-- Updated: Validation Session 1 - criterios del campo de ventana de pago -->
-- [ ] El formulario de alta de evento muestra la ventana de pago precargada a
-      **30 minutos**; el de edición muestra el valor guardado del evento
-- [ ] Guardar el formulario con 29 o con 1440 minutos se bloquea en el cliente
+- [x] El formulario de alta de evento muestra la ventana de pago precargada a
+      **30 minutos**; el de edición muestra el valor guardado del evento —
+      `event-form.spec.ts`
+- [x] Guardar el formulario con 29 o con 1440 minutos se bloquea en el cliente
       con error asociado al campo y, si se fuerza la petición, el backend
-      devuelve 422 — test de ambos lados
-- [ ] Un evento creado sin tocar el campo queda con 30 en base de datos
-- [ ] Cero violaciones de axe en la pantalla de conexión y en el formulario de
+      devuelve 422 — test de ambos lados (`event-form.spec.ts` +
+      `test_events_payment_checkout_window.py`, entregado en la fase 1)
+- [x] Un evento creado sin tocar el campo queda con 30 en base de datos
+      (`test_un_evento_nuevo_toma_30_minutos_por_defecto`, fase 1)
+- [x] Cero violaciones de axe en la pantalla de conexión y en el formulario de
       evento con el campo nuevo; el cambio de estado
-      al volver del onboarding se anuncia en una región `aria-live`
-- [ ] `openapi.json` y el cliente TypeScript generado al día
+      al volver del onboarding se anuncia en una región `aria-live` —
+      `stripe-connection.spec.ts` y `event-form.spec.ts`
+- [x] `openapi.json` y el cliente TypeScript generado al día
 
 ## Risk & Rollback
 

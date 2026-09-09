@@ -10,6 +10,7 @@ from pydantic import BaseModel, EmailStr, Field
 RegistrationStatus = Literal[
     "pending_verification",
     "pending_approval",
+    "pending_payment",
     "confirmed",
     "rejected",
     "cancelled",
@@ -145,6 +146,7 @@ class RegistrationStats(BaseModel):
     initiated: int
     verified: int
     pending_approval: int
+    pending_payment: int
     confirmed: int
     rejected: int
     cancelled: int

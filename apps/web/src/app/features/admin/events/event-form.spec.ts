@@ -21,6 +21,7 @@ function eventoDetalle() {
     starts_at: '2026-10-01T09:00:00Z',
     ends_at: '2026-10-02T18:00:00Z',
     location_mode: 'in_person',
+    payment_checkout_window_minutes: 45,
   };
 }
 
@@ -65,7 +66,29 @@ describe('EventForm', () => {
     await avanzar(fixture);
 
     expect(fixture.nativeElement.querySelector('app-event-agenda')).toBeNull();
+    const campoVentana = fixture.nativeElement.querySelector(
+      '#evento-ventana-pago',
+    ) as HTMLInputElement;
+    expect(campoVentana.value).toBe('30');
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('modo alta: 29 o 1440 minutos de ventana de pago se bloquean en el cliente', async () => {
+    configurar(null);
+    http = TestBed.inject(HttpTestingController);
+
+    const fixture = TestBed.createComponent(EventForm);
+    await avanzar(fixture);
+
+    const campoVentana = fixture.nativeElement.querySelector(
+      '#evento-ventana-pago',
+    ) as HTMLInputElement;
+    campoVentana.value = '29';
+    campoVentana.dispatchEvent(new Event('input'));
+    campoVentana.dispatchEvent(new Event('blur'));
+    await avanzar(fixture);
+
+    expect(fixture.nativeElement.textContent).toContain('Debe estar entre 30 y 1439 minutos.');
   });
 
   it('modo edición: carga el evento y la agenda, sin violaciones de accesibilidad', async () => {
@@ -109,6 +132,9 @@ describe('EventForm', () => {
     expect((fixture.nativeElement.querySelector('#evento-titulo') as HTMLInputElement).value).toBe(
       'IA Week in Cascais 2026',
     );
+    expect(
+      (fixture.nativeElement.querySelector('#evento-ventana-pago') as HTMLInputElement).value,
+    ).toBe('45');
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 });

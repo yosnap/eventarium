@@ -130,7 +130,7 @@ async def test_send_registration_confirmed_email_adjunta_un_png() -> None:
     with patch("app.core.tasks.get_email_provider") as proveedor_mock:
         proveedor = AsyncMock()
         proveedor_mock.return_value = proveedor
-        with patch("app.core.tasks._base_url_de_organizacion", return_value="https://acme.test"):
+        with patch("app.core.tasks.base_url_de_organizacion", return_value="https://acme.test"):
             token = jwt.encode(
                 {"tid": str(uuid.uuid4()), "eid": str(uuid.uuid4())},
                 "secreto-de-prueba-de-mas-de-treinta-y-dos-caracteres",

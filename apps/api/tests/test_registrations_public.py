@@ -241,8 +241,34 @@ async def test_evento_sin_verificacion_evalua_el_estado_al_enviar_el_formulario(
 
 
 async def test_evento_de_pago_rechaza_la_inscripcion(
-    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """`registration_mode == "paid"` sigue bloqueado en `submit_registration`
+    (se desbloquea en la fase 4 de trabajo de la fase 6 del PRD). Publicar el
+    evento exige ahora, además, una cuenta Stripe operativa (fase 6, fase 2 de
+    trabajo, hallazgo #4): se simula aquí para no acoplar este test, anterior
+    a esa fase, a que Stripe esté fuera de alcance."""
+    from app.core.config import Settings
+    from app.modules.events import service as events_service
+    from app.modules.payments.models import OrganizationStripeAccount
+
+    monkeypatch.setattr(
+        events_service,
+        "get_settings",
+        lambda: Settings(
+            stripe_secret_key="sk_test_" + "a" * 40, stripe_webhook_secret="whsec_" + "b" * 40
+        ),
+    )
+    async with SessionMaintenance() as session:
+        session.add(
+            OrganizationStripeAccount(
+                organization_id=organizacion.id,
+                stripe_account_id=f"acct_{organizacion.slug}",
+                charges_enabled=True,
+            )
+        )
+        await session.commit()
+
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     await _crear_y_publicar_evento(cliente, cabeceras, "de-pago", registration_mode="paid")
 

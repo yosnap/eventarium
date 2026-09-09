@@ -76,6 +76,10 @@ COOKIE_CONSENT_POR_IP = 30
 AUDIT_LOG_POR_IP = 30
 RGPD_EXPORT_POR_IP = 10
 RGPD_DELETE_POR_IP = 10
+# Sincronización manual de Stripe (fase 6 del PRD): es la única ruta del
+# panel que provoca una llamada de red a Stripe por petición, así que lleva
+# un tope propio distinto del resto de escrituras de pagos.
+STRIPE_SYNC_POR_IP = 20
 
 VENTANA_SEGUNDOS = 60
 
