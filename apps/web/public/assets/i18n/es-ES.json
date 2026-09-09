@@ -123,7 +123,40 @@
     "emailInvalido": "Escribe un correo electrónico válido.",
     "nombreRequerido": "Escribe tu nombre completo.",
     "preguntaObligatoria": "Esta pregunta es obligatoria.",
-    "volverAlEvento": "← Volver al evento"
+    "volverAlEvento": "← Volver al evento",
+    "continuarAlPago": "Continuar al pago",
+    "codigoDescuento": "Código de descuento (opcional)",
+    "tipoEntrada": {
+      "titulo": "Elige tu entrada",
+      "obligatorio": "Elige un tipo de entrada."
+    },
+    "presupuesto": {
+      "calculando": "Calculando el precio…",
+      "total": "Total a pagar",
+      "descuentoAplicado": "descuento de {{importe}} € aplicado",
+      "error": "No hemos podido calcular el precio."
+    }
+  },
+  "pago": {
+    "retorno": {
+      "titulo": "Confirmando tu pago",
+      "comprobando": "Estamos comprobando tu pago con la pasarela. No cierres esta página.",
+      "confirmadoTitulo": "¡Pago confirmado!",
+      "confirmadoDetalle": "Tu inscripción está confirmada. Revisa tu correo: ahí tienes tu entrada.",
+      "pendienteTitulo": "Tu pago todavía no se ha confirmado",
+      "pendienteDetalle": "Puede tardar unos segundos en confirmarse. Si tarda más de lo normal, reintenta o contacta con la organización.",
+      "reintentar": "Comprobar de nuevo",
+      "fallidoTitulo": "No hemos podido confirmar tu pago",
+      "fallidoDetalle": "Si el cargo se realizó y este mensaje persiste, contacta con la organización del evento.",
+      "errorTitulo": "No hemos podido comprobar el estado de tu pago",
+      "errorDetalle": "Revisa tu conexión y vuelve a intentarlo.",
+      "volverAlEvento": "← Volver al evento"
+    },
+    "cancelado": {
+      "titulo": "Pago cancelado",
+      "detalle": "Has cancelado el proceso de pago. Tu plaza no se ha confirmado; puedes volver a intentarlo desde la página del evento.",
+      "volverAlEvento": "← Volver al evento"
+    }
   },
   "verificarInscripcion": {
     "titulo": "Verificación de inscripción",
@@ -459,6 +492,10 @@
         "subirPortada": "Subir portada (PNG, JPEG o WebP, hasta 5 MB)",
         "portadaNoValida": "Solo se aceptan imágenes PNG, JPEG o WebP.",
         "portadaDemasiadoGrande": "La portada no puede superar los 5 MB.",
+        "ventanaDePago": "Ventana de pago (minutos)",
+        "ventanaDePagoAyuda": "Tiempo que tiene un comprador para pagar antes de que su plaza se libere. Solo se aplica a eventos de pago.",
+        "ventanaDePagoRequerida": "Indica la ventana de pago.",
+        "ventanaDePagoFueraDeRango": "Debe estar entre 30 y 1439 minutos.",
         "estadoActual": "Estado",
         "publicar": "Publicar",
         "archivar": "Archivar",
@@ -649,9 +686,110 @@
         "logoDemasiadoGrande": "El logo no puede superar los 5 MB.",
         "error": "No hemos podido completar la operación.",
         "tipoEnespecie": "En especie"
+      },
+      "pagos": {
+        "avisoConectarStripe": "Este evento es de pago; no podrá publicarse hasta conectar y verificar una cuenta de Stripe.",
+        "irAConectarStripe": "Ir a conectar Stripe"
+      },
+      "ticketTypes": {
+        "titulo": "Tipos de entrada",
+        "sinTipos": "Todavía no hay tipos de entrada en este evento.",
+        "anadirTipo": "Añadir tipo de entrada",
+        "editarTipo": "Editar tipo de entrada",
+        "editar": "Editar",
+        "eliminar": "Eliminar",
+        "activar": "Activar",
+        "desactivar": "Desactivar",
+        "inactivo": "Inactivo",
+        "guardarCambios": "Guardar cambios",
+        "subir": "Subir en el orden",
+        "bajar": "Bajar en el orden",
+        "nombre": "Nombre",
+        "nombreRequerido": "Escribe el nombre del tipo de entrada.",
+        "descripcion": "Descripción",
+        "precio": "Precio (€)",
+        "precioAyuda": "Precio de venta en euros, con dos decimales.",
+        "precioInvalido": "Indica un precio válido, igual o mayor que 0.",
+        "cupoMaximo": "Cupo máximo",
+        "cupoAyuda": "Déjalo en blanco para no limitar las unidades disponibles.",
+        "cupo": "{{cupo}} plazas",
+        "inicioVenta": "Inicio de la venta",
+        "finVenta": "Fin de la venta",
+        "error": "No hemos podido completar la operación."
+      },
+      "discountCodes": {
+        "titulo": "Códigos de descuento",
+        "sinCodigos": "Todavía no hay códigos de descuento en este evento.",
+        "anadirCodigo": "Añadir código",
+        "editarCodigo": "Editar código",
+        "editar": "Editar",
+        "eliminar": "Eliminar",
+        "guardarCambios": "Guardar cambios",
+        "codigo": "Código",
+        "codigoRequerido": "Escribe el código de descuento.",
+        "tipoDescuento": "Tipo de descuento",
+        "porcentaje": "Porcentaje",
+        "importeFijo": "Importe fijo",
+        "valorPorcentajeLabel": "Porcentaje de descuento (%)",
+        "valorFijoLabel": "Importe de descuento (€)",
+        "valorPorcentaje": "{{valor}}%",
+        "valorFijo": "{{valor}} € fijo",
+        "valorInvalido": "Indica un valor de descuento mayor que 0.",
+        "porcentajeFueraDeRango": "Un descuento de porcentaje debe estar entre 1 y 100.",
+        "maxUsos": "Usos máximos",
+        "maxUsosAyuda": "Déjalo en blanco para no limitar el número de usos.",
+        "usos": "{{usados}} de {{max}} usos",
+        "sinLimite": "sin límite",
+        "tipoEntrada": "Tipo de entrada",
+        "todosLosTipos": "Todos los tipos de entrada",
+        "vigenteDesde": "Vigente desde",
+        "vigenteHasta": "Vigente hasta",
+        "error": "No hemos podido completar la operación."
+      },
+      "payments": {
+        "titulo": "Pagos",
+        "enlaceDesdeEvento": "Ver pagos del evento",
+        "sinPagos": "Todavía no hay ningún pago en este evento.",
+        "personaBorrada": "Persona borrada (RGPD)",
+        "columnaPersona": "Persona",
+        "columnaTipo": "Tipo de entrada",
+        "columnaEstado": "Estado",
+        "columnaImporte": "Importe",
+        "columnaReembolsado": "Reembolsado",
+        "columnaAcciones": "Acciones",
+        "reembolsar": "Reembolsar",
+        "reembolsoEnCurso": "Reembolso en curso",
+        "reembolsoAgotado": "Reembolso fallido: ha agotado sus reintentos",
+        "reembolsoSolicitado": "Reembolso en curso: se ejecutará en los próximos minutos.",
+        "error": "No hemos podido completar la operación.",
+        "estado": {
+          "pending": "Pendiente de pago",
+          "paid": "Pagado",
+          "refunded": "Reembolsado",
+          "partially_refunded": "Reembolsado parcialmente",
+          "expired": "Caducado"
+        },
+        "sinReembolsoAutomatico": {
+          "evento_ya_empezado": "Sin reembolso automático: el evento ya ha empezado",
+          "entrada_usada": "Sin reembolso automático: la entrada ya se usó",
+          "fuera_de_plazo": "Sin reembolso automático: fuera del plazo de cancelación"
+        },
+        "dialogo": {
+          "titulo": "Reembolsar pago",
+          "total": "Importe total",
+          "yaReembolsado": "Ya reembolsado",
+          "pendiente": "Pendiente",
+          "importeAReembolsar": "Importe a reembolsar (€)",
+          "importeInvalido": "Indica un importe válido, mayor que 0.",
+          "importeSuperaPendiente": "El importe supera el importe pendiente de este pago.",
+          "revocarEntrada": "Revocar también la entrada",
+          "totalSiempreRevoca": "Un reembolso total revoca siempre la entrada.",
+          "confirmar": "Confirmar reembolso"
+        }
       }
     },
     "sponsorTiersNav": "Niveles de patrocinio",
+    "stripeNav": "Pagos con Stripe",
     "superadminNav": "Superadministración",
     "sponsorTiers": {
       "titulo": "Niveles de patrocinio",
@@ -671,6 +809,20 @@
       "tamanoLogoMedium": "Mediano",
       "tamanoLogoSmall": "Pequeño",
       "beneficios": "Beneficios (texto libre)",
+      "error": "No hemos podido completar la operación."
+    },
+    "stripe": {
+      "titulo": "Pagos con Stripe",
+      "aviso": "Conecta tu propia cuenta de Stripe para cobrar tus entradas de pago. La plataforma no cobra ninguna comisión ni custodia el dinero: los cobros llegan directamente a tu cuenta.",
+      "advertenciaSalida": "Vas a salir de este sitio para completar la conexión en Stripe.",
+      "estadoSinConectar": "Todavía no has conectado ninguna cuenta de Stripe.",
+      "estadoPendiente": "Cuenta conectada, pendiente de completar la verificación en Stripe antes de poder cobrar.",
+      "estadoOperativa": "Cuenta conectada y operativa: ya puedes vender entradas de pago.",
+      "estadoDesautorizada": "Desconectaste tu cuenta de Stripe. Reconéctala para volver a vender entradas de pago.",
+      "conectar": "Conectar con Stripe",
+      "reconectar": "Reconectar con Stripe",
+      "continuarOnboarding": "Continuar la verificación en Stripe",
+      "actualizarEstado": "Actualizar estado",
       "error": "No hemos podido completar la operación."
     },
     "legalNav": "Páginas legales",

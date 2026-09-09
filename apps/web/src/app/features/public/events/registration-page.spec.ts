@@ -1,10 +1,15 @@
-import { Component, provideZonelessChangeDetection, output } from '@angular/core';
+import { PLATFORM_ID, Component, provideZonelessChangeDetection, output } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { RegistrationPage } from './registration-page';
+import {
+  type CheckoutQuote,
+  type PublicTicketType,
+  PublicCheckoutService,
+} from '../../../core/payments/public-checkout.service';
 import {
   type RegistrationQuestion,
   RegistrationsService,
@@ -45,12 +50,27 @@ const PREGUNTAS: RegistrationQuestion[] = [
   },
 ];
 
+const TIPOS_DE_ENTRADA: PublicTicketType[] = [
+  { id: 'tipo-general', name: 'General', description: null, price_cents: 2000, currency: 'eur' },
+];
+
+const PRESUPUESTO: CheckoutQuote = {
+  price_cents: 2000,
+  discount_cents: 0,
+  total_cents: 2000,
+  currency: 'eur',
+};
+
 async function avanzar(fixture: { whenStable: () => Promise<unknown> }): Promise<void> {
   await fixture.whenStable();
 }
 
 describe('RegistrationPage', () => {
-  function configurar(registrations: Partial<RegistrationsService>) {
+  function configurar(
+    registrations: Partial<RegistrationsService>,
+    checkout: Partial<PublicCheckoutService> = {},
+    plataforma: 'browser' | 'server' = 'browser',
+  ) {
     TestBed.configureTestingModule({
       imports: [
         TranslocoTestingModule.forRoot({
@@ -61,7 +81,12 @@ describe('RegistrationPage', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideRouter([]),
+        { provide: PLATFORM_ID, useValue: plataforma },
         { provide: RegistrationsService, useValue: registrations },
+        {
+          provide: PublicCheckoutService,
+          useValue: { getTicketTypes: vi.fn().mockResolvedValue([]), ...checkout },
+        },
       ],
     })
       .overrideComponent(RegistrationPage, {
@@ -77,79 +102,224 @@ describe('RegistrationPage', () => {
     return fixture;
   }
 
-  beforeEach(() => {
-    configurar({
-      getQuestions: vi.fn().mockResolvedValue(PREGUNTAS),
-      submit: vi.fn().mockResolvedValue('Si los datos son correctos, recibirás un correo.'),
+  describe('evento gratuito', () => {
+    beforeEach(() => {
+      configurar({
+        getQuestions: vi.fn().mockResolvedValue(PREGUNTAS),
+        submit: vi.fn().mockResolvedValue('Si los datos son correctos, recibirás un correo.'),
+      });
+    });
+
+    it('renderiza las preguntas por tipo sin violaciones de accesibilidad', async () => {
+      const fixture = crearFixture();
+      await avanzar(fixture);
+
+      const texto = fixture.nativeElement.textContent;
+      expect(texto).toContain('¿Empresa?');
+      expect(texto).toContain('¿Talla de camiseta?');
+      expect(texto).toContain('¿Qué talleres te interesan?');
+      expect(fixture.nativeElement.querySelectorAll('input[type="radio"]').length).toBe(3);
+      expect(fixture.nativeElement.querySelectorAll('input[type="checkbox"]').length).toBe(2 + 3); // talleres + 3 consentimientos
+      await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+    });
+
+    it('bloquea el envío si falta una pregunta obligatoria o el consentimiento', async () => {
+      const fixture = crearFixture();
+      await avanzar(fixture);
+      const registrations = TestBed.inject(RegistrationsService);
+
+      (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
+        new Event('submit'),
+      );
+      await avanzar(fixture);
+
+      expect(registrations.submit).not.toHaveBeenCalled();
+      expect(fixture.nativeElement.textContent).toContain('obligatoria');
+      await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+    });
+
+    it('con los datos obligatorios completos envía la inscripción', async () => {
+      const fixture = crearFixture();
+      await avanzar(fixture);
+      const registrations = TestBed.inject(RegistrationsService);
+      const nativeElement = fixture.nativeElement as HTMLElement;
+
+      const campoEmail = nativeElement.querySelector('input[type="email"]') as HTMLInputElement;
+      campoEmail.value = 'asistente@example.com';
+      campoEmail.dispatchEvent(new Event('input'));
+
+      const campoNombre = nativeElement.querySelectorAll('input')[1] as HTMLInputElement;
+      campoNombre.value = 'Asistente de Prueba';
+      campoNombre.dispatchEvent(new Event('input'));
+
+      const campoEmpresa = nativeElement.querySelectorAll('input')[2] as HTMLInputElement;
+      campoEmpresa.value = 'Acme';
+      campoEmpresa.dispatchEvent(new Event('input'));
+
+      // Los 2 checkboxes de "talleres" van antes que los 3 de consentimiento en el
+      // DOM; el de tratamiento de datos es el primero de los tres.
+      const checkboxes = Array.from(
+        nativeElement.querySelectorAll('input[type="checkbox"]'),
+      ) as HTMLInputElement[];
+      const checkboxDatos = checkboxes[2];
+      checkboxDatos.dispatchEvent(new Event('change'));
+
+      (nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      await avanzar(fixture);
+
+      expect(registrations.submit).toHaveBeenCalledWith(
+        'iawic-2026',
+        expect.objectContaining({
+          email: 'asistente@example.com',
+          fullName: 'Asistente de Prueba',
+          dataProcessingAccepted: true,
+        }),
+      );
+      expect(fixture.nativeElement.textContent).toContain('Si los datos son correctos');
+      await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
     });
   });
 
-  it('renderiza las preguntas por tipo sin violaciones de accesibilidad', async () => {
-    const fixture = crearFixture();
-    await avanzar(fixture);
+  describe('evento de pago', () => {
+    function rellenarCamposObligatorios(nativeElement: HTMLElement): void {
+      const campoEmail = nativeElement.querySelector('input[type="email"]') as HTMLInputElement;
+      campoEmail.value = 'asistente@example.com';
+      campoEmail.dispatchEvent(new Event('input'));
 
-    const texto = fixture.nativeElement.textContent;
-    expect(texto).toContain('¿Empresa?');
-    expect(texto).toContain('¿Talla de camiseta?');
-    expect(texto).toContain('¿Qué talleres te interesan?');
-    expect(fixture.nativeElement.querySelectorAll('input[type="radio"]').length).toBe(3);
-    expect(fixture.nativeElement.querySelectorAll('input[type="checkbox"]').length).toBe(2 + 3); // talleres + 3 consentimientos
-    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
-  });
+      const campoNombre = nativeElement.querySelectorAll('input')[1] as HTMLInputElement;
+      campoNombre.value = 'Asistente de Prueba';
+      campoNombre.dispatchEvent(new Event('input'));
 
-  it('bloquea el envío si falta una pregunta obligatoria o el consentimiento', async () => {
-    const fixture = crearFixture();
-    await avanzar(fixture);
-    const registrations = TestBed.inject(RegistrationsService);
+      const checkboxDatos = nativeElement.querySelector(
+        '.consentimiento input[type="checkbox"]',
+      ) as HTMLInputElement;
+      checkboxDatos.dispatchEvent(new Event('change'));
+    }
 
-    (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
-      new Event('submit'),
-    );
-    await avanzar(fixture);
+    it('ofrece la selección de tipo de entrada cuando el evento vende entradas', async () => {
+      configurar(
+        { getQuestions: vi.fn().mockResolvedValue([]) },
+        { getTicketTypes: vi.fn().mockResolvedValue(TIPOS_DE_ENTRADA) },
+      );
+      const fixture = crearFixture();
+      await avanzar(fixture);
 
-    expect(registrations.submit).not.toHaveBeenCalled();
-    expect(fixture.nativeElement.textContent).toContain('obligatoria');
-    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
-  });
+      expect(fixture.nativeElement.textContent).toContain('General');
+      expect(fixture.nativeElement.textContent).toContain('20.00');
+      await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+    });
 
-  it('con los datos obligatorios completos envía la inscripción', async () => {
-    const fixture = crearFixture();
-    await avanzar(fixture);
-    const registrations = TestBed.inject(RegistrationsService);
-    const nativeElement = fixture.nativeElement as HTMLElement;
+    it('bloquea el envío si no se elige un tipo de entrada', async () => {
+      configurar(
+        { getQuestions: vi.fn().mockResolvedValue([]) },
+        { getTicketTypes: vi.fn().mockResolvedValue(TIPOS_DE_ENTRADA), quote: vi.fn() },
+      );
+      const fixture = crearFixture();
+      await avanzar(fixture);
+      const checkout = TestBed.inject(PublicCheckoutService);
+      rellenarCamposObligatorios(fixture.nativeElement);
 
-    const campoEmail = nativeElement.querySelector('input[type="email"]') as HTMLInputElement;
-    campoEmail.value = 'asistente@example.com';
-    campoEmail.dispatchEvent(new Event('input'));
+      (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
+        new Event('submit'),
+      );
+      await avanzar(fixture);
 
-    const campoNombre = nativeElement.querySelectorAll('input')[1] as HTMLInputElement;
-    campoNombre.value = 'Asistente de Prueba';
-    campoNombre.dispatchEvent(new Event('input'));
+      expect(checkout.quote).not.toHaveBeenCalled();
+      expect(fixture.nativeElement.textContent).toContain('Elige un tipo de entrada');
+    });
 
-    const campoEmpresa = nativeElement.querySelectorAll('input')[2] as HTMLInputElement;
-    campoEmpresa.value = 'Acme';
-    campoEmpresa.dispatchEvent(new Event('input'));
+    it('pide presupuesto al elegir un tipo y redirige a la URL de Stripe al enviar', async () => {
+      const startCheckout = vi
+        .fn()
+        .mockResolvedValue({ message: 'ok', checkout_url: 'https://checkout.stripe.com/sesion' });
+      configurar(
+        { getQuestions: vi.fn().mockResolvedValue([]) },
+        {
+          getTicketTypes: vi.fn().mockResolvedValue(TIPOS_DE_ENTRADA),
+          quote: vi.fn().mockResolvedValue(PRESUPUESTO),
+          startCheckout,
+        },
+      );
+      const fixture = crearFixture();
+      await avanzar(fixture);
+      const checkout = TestBed.inject(PublicCheckoutService);
+      const nativeElement = fixture.nativeElement as HTMLElement;
 
-    // Los 2 checkboxes de "talleres" van antes que los 3 de consentimiento en el
-    // DOM; el de tratamiento de datos es el primero de los tres.
-    const checkboxes = Array.from(
-      nativeElement.querySelectorAll('input[type="checkbox"]'),
-    ) as HTMLInputElement[];
-    const checkboxDatos = checkboxes[2];
-    checkboxDatos.dispatchEvent(new Event('change'));
+      const radioTipo = nativeElement.querySelector(
+        'input[name="tipo-entrada"]',
+      ) as HTMLInputElement;
+      radioTipo.dispatchEvent(new Event('change'));
+      await avanzar(fixture);
 
-    (nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
-    await avanzar(fixture);
+      expect(checkout.quote).toHaveBeenCalledWith(
+        'iawic-2026',
+        expect.objectContaining({ ticketTypeId: 'tipo-general' }),
+      );
+      expect(nativeElement.textContent).toContain('20.00');
 
-    expect(registrations.submit).toHaveBeenCalledWith(
-      'iawic-2026',
-      expect.objectContaining({
-        email: 'asistente@example.com',
-        fullName: 'Asistente de Prueba',
-        dataProcessingAccepted: true,
-      }),
-    );
-    expect(fixture.nativeElement.textContent).toContain('Si los datos son correctos');
-    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+      rellenarCamposObligatorios(nativeElement);
+
+      const asignacionDeUrl = vi.fn();
+      Object.defineProperty(window, 'location', {
+        value: {
+          ...window.location,
+          set href(url: string) {
+            asignacionDeUrl(url);
+          },
+        },
+        writable: true,
+      });
+
+      (nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      await avanzar(fixture);
+
+      expect(startCheckout).toHaveBeenCalledWith(
+        'iawic-2026',
+        expect.objectContaining({ ticketTypeId: 'tipo-general', email: 'asistente@example.com' }),
+      );
+      expect(asignacionDeUrl).toHaveBeenCalledWith('https://checkout.stripe.com/sesion');
+    });
+
+    it('en modo servidor (SSR) nunca navega, aunque reciba una URL de pago', async () => {
+      const startCheckout = vi
+        .fn()
+        .mockResolvedValue({ message: 'ok', checkout_url: 'https://checkout.stripe.com/sesion' });
+      configurar(
+        { getQuestions: vi.fn().mockResolvedValue([]) },
+        {
+          getTicketTypes: vi.fn().mockResolvedValue(TIPOS_DE_ENTRADA),
+          quote: vi.fn().mockResolvedValue(PRESUPUESTO),
+          startCheckout,
+        },
+        'server',
+      );
+      const fixture = crearFixture();
+      await avanzar(fixture);
+      const nativeElement = fixture.nativeElement as HTMLElement;
+
+      const radioTipo = nativeElement.querySelector(
+        'input[name="tipo-entrada"]',
+      ) as HTMLInputElement;
+      radioTipo.dispatchEvent(new Event('change'));
+      await avanzar(fixture);
+      rellenarCamposObligatorios(nativeElement);
+
+      const asignacionDeUrl = vi.fn();
+      Object.defineProperty(window, 'location', {
+        value: {
+          ...window.location,
+          set href(url: string) {
+            asignacionDeUrl(url);
+          },
+        },
+        writable: true,
+      });
+
+      (nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      await avanzar(fixture);
+
+      expect(startCheckout).toHaveBeenCalled();
+      expect(asignacionDeUrl).not.toHaveBeenCalled();
+    });
   });
 });

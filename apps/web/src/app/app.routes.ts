@@ -135,9 +135,19 @@ export const routes: Routes = [
           import('./features/admin/events/event-check-in').then((m) => m.EventCheckIn),
       },
       {
+        path: 'events/:eventId/payments',
+        loadComponent: () =>
+          import('./features/admin/events/event-payments').then((m) => m.EventPayments),
+      },
+      {
         path: 'sponsor-tiers',
         loadComponent: () =>
           import('./features/admin/sponsors/sponsor-tiers-page').then((m) => m.SponsorTiersPage),
+      },
+      {
+        path: 'stripe',
+        loadComponent: () =>
+          import('./features/admin/organization/stripe-connection').then((m) => m.StripeConnection),
       },
       {
         path: 'legal',
@@ -190,6 +200,18 @@ export const routes: Routes = [
         path: 'eventos/:slug/inscribirse',
         loadComponent: () =>
           import('./features/public/events/registration-page').then((m) => m.RegistrationPage),
+      },
+      {
+        path: 'pago/retorno',
+        loadComponent: () =>
+          import('./features/public/events/payment-return').then((m) => m.PaymentReturnPage),
+      },
+      {
+        path: 'pago/cancelado',
+        loadComponent: () =>
+          import('./features/public/events/payment-cancelled-page').then(
+            (m) => m.PaymentCancelledPage,
+          ),
       },
       {
         path: 'ponentes/:publicSlug',

@@ -53,6 +53,12 @@ def _cargar_env_de_tests() -> None:
 
 _cargar_env_de_tests()
 
+# La fijación `fake` (cliente de Stripe simulado) vive en `payments_test_helpers.py`
+# y la usan `test_payments_checkout.py` y `test_payments_webhooks.py`: registrarla
+# como plugin evita que cada módulo la importe por nombre, que chocaría (F811) con
+# el propio parámetro `fake` de cada test que la solicita como fijación.
+pytest_plugins = ["tests.payments_test_helpers"]
+
 import pytest  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
 from sqlalchemy import select, text  # noqa: E402
@@ -87,13 +93,25 @@ TABLAS = (
     "organizations",
     # `sponsor_tiers`/`sponsors` cascadean desde `organizations`/`events` por
     # FK, pero `audit_log`/`cookie_consents` no tienen ninguna FK con
-    # `ondelete="CASCADE"` hacia una tabla de esta lista (fase 5 del PRD,
-    # hallazgo #15 del red-team) — sin listarlas explícitamente, filas de un
+    # `ondelete="CASCADE"` hacia una tabla de esta lista (fase 5 del PRD)
+    # — sin listarlas explícitamente, filas de un
     # test contaminarían al siguiente dentro de la misma suite.
     "sponsor_tiers",
     "sponsors",
     "audit_log",
     "cookie_consents",
+    # Fase 6 del PRD, fase 1 de trabajo: las cinco tablas de dominio cascadean
+    # desde `organizations`/`events` por FK, pero se listan explícitamente por
+    # el mismo criterio de arriba. `stripe_webhook_events` no tiene FK
+    # ninguna (es tabla de instalación, sin `organization_id` de confianza) —
+    # sin listarla, un `evt_...` escrito por un test haría que el siguiente lo
+    # tomara por duplicado.
+    "organization_stripe_accounts",
+    "event_ticket_types",
+    "event_discount_codes",
+    "event_payments",
+    "event_payment_refunds",
+    "stripe_webhook_events",
 )
 
 

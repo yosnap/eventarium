@@ -15,10 +15,13 @@ from sqlalchemy import delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.modules.events import repository
 from app.modules.events import schemas as events_schemas
 from app.modules.events.models import Event, EventMember, EventSession, EventSessionParticipant
 from app.modules.organizations import repository as organizations_repository
+from app.modules.payments import repository as payments_repository
+from app.modules.payments import service as payments_service
 from app.shared.errors import ConflictError, NotFoundError, ValidationDomainError
 
 
@@ -28,6 +31,58 @@ async def _asegurar_slug_disponible(
     existente = await repository.get_event_by_slug(session, organization_id, slug)
     if existente is not None:
         raise ConflictError(f"Ya existe un evento con el identificador «{slug}».")
+
+
+async def _asegurar_venta_posible(
+    session: AsyncSession,
+    organization_id: uuid.UUID,
+    *,
+    status: str,
+    registration_mode: str,
+    event_id: uuid.UUID | None = None,
+) -> None:
+    """Bloquea la **venta**, no la configuración (decisión #13 del plan de
+    la fase 6 del PRD): crear y editar un evento `paid` sigue permitido en
+    borrador, mientras el organizador completa el KYC de Stripe, que puede
+    tardar días. Lo único que exige `charges_enabled = true` es que el
+    resultante sea `published` **y** `paid` a la vez.
+
+    Invocada desde `create_event` **y** `update_event`: `create_event` no
+    validaba nada de estado y aceptaba un
+    evento ya `published`/`paid` de alta, así que la guarda no puede vivir
+    solo en la edición.
+
+    `event_id` solo llega desde `update_event` (`create_event` no tiene
+    todavía una fila de evento sobre la que colgar tipos de entrada). Con él,
+    exige al menos un tipo de entrada vigente: el formulario público decide
+    si un evento «es de pago» por si
+    la lista de tipos de entrada vendibles está vacía o no
+    (`registration-page.ts`), así que un evento `paid` publicado sin ninguno
+    la confundiría con uno gratuito.
+    """
+    if status != "published" or registration_mode != "paid":
+        return
+
+    settings = get_settings()
+    if not settings.payments_enabled:
+        raise ConflictError(
+            "No se puede publicar un evento de pago: esta instalación no tiene Stripe configurado."
+        )
+
+    cuenta = await payments_repository.get_cuenta_activa(session, organization_id)
+    if cuenta is None or not cuenta.charges_enabled:
+        raise ConflictError(
+            "No se puede publicar un evento de pago hasta conectar una cuenta de Stripe "
+            "y completar su verificación."
+        )
+
+    if event_id is not None:
+        ahora = datetime.now(UTC)
+        tipos = await payments_repository.get_ticket_types(session, organization_id, event_id)
+        if not any(payments_service.validar_tipo_vigente(tipo, ahora) for tipo in tipos):
+            raise ConflictError(
+                "No se puede publicar un evento de pago sin ningún tipo de entrada vigente."
+            )
 
 
 async def create_event(
@@ -44,6 +99,21 @@ async def create_event(
         # slug pueden llegar a la vez. El `UNIQUE(organization_id, slug)` es la
         # única fuente de verdad ante esa carrera estrecha.
         raise ConflictError(f"Ya existe un evento con el identificador «{datos['slug']}».") from exc
+
+    # `event_id=evento.id` tras el `flush` (no antes de crearlo, como hacía
+    # esta llamada originalmente): sin él, un alta directa con
+    # `status=published`/`registration_mode=paid` se saltaba la exigencia de
+    # al menos un tipo de entrada vigente, porque
+    # `_asegurar_venta_posible` solo la comprueba cuando recibe `event_id`. Si
+    # esto falla, el `session.begin()` de `get_db` deshace también el
+    # `flush` de arriba: nunca queda un evento a medio crear.
+    await _asegurar_venta_posible(
+        session,
+        organization_id,
+        status=evento.status,
+        registration_mode=evento.registration_mode,
+        event_id=evento.id,
+    )
     return evento
 
 
@@ -66,6 +136,17 @@ async def update_event(
     nuevo_estado = datos.get("status")
     if nuevo_estado is not None and nuevo_estado != evento.status:
         _validar_transicion_de_estado(evento.status, nuevo_estado)
+
+    # Evaluado sobre el evento **resultante**, no el actual: un `PATCH` que
+    # cambia `status` y `registration_mode` a la vez debe quedar bloqueado
+    # igual que si cada campo se editara por separado.
+    await _asegurar_venta_posible(
+        session,
+        organization_id,
+        status=datos.get("status", evento.status),
+        registration_mode=datos.get("registration_mode", evento.registration_mode),
+        event_id=evento.id,
+    )
 
     inicio = datos.get("starts_at", evento.starts_at)
     fin = datos.get("ends_at", evento.ends_at)

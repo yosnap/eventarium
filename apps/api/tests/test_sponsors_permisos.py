@@ -70,7 +70,7 @@ async def test_organizacion_de_fase_anterior_tiene_sponsors_en_el_owner(
 
 
 async def test_backfill_anade_sponsors_a_un_rol_preexistente_sin_recrearlo() -> None:
-    """Reproduce el escenario real del hallazgo #3 del red-team: un rol que ya
+    """Reproduce el escenario real de un rol que ya
     existía con `organizations:write` **antes** de que `sponsors:read`/
     `write` existiera. Inserta ese estado a mano (sin pasar por el enum
     `Permission`, que ya declara `SPONSORS_*` en este checkout) y comprueba

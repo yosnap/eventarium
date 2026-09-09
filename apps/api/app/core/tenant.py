@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
 from app.core.config import get_settings
+from app.core.database import maintenance_session
 from app.shared.errors import NotFoundError
 
 # Cabecera de conveniencia, aceptada solo con APP_ENV=development.
@@ -108,3 +109,41 @@ async def resolve_organization(session: AsyncSession, request: Request) -> Resol
                 return ResolvedOrganization(id=fila[0], slug=fila[1], is_active=fila[2])
 
     raise NotFoundError(f"No hay ninguna organización asociada al host «{host}».")
+
+
+async def base_url_de_organizacion(organization_id: uuid.UUID) -> str:
+    """URL pública de la organización, por su dominio primario.
+
+    Extraída de `core/tasks.py` (fase 6 del PRD, fase 2 de trabajo): un correo
+    o una redirección de Stripe (`return_url`/`refresh_url`) que llega a
+    alguien sin sesión ni contexto de organización tiene que apuntar al
+    dominio propio de esa organización — la instalación resuelve el tenant por
+    `Host`, así que un enlace al dominio equivocado no encontraría el recurso
+    al volver. Usa `maintenance_session` porque quien llama (una tarea de
+    fondo o el propio endpoint de onboarding, antes de que exista contexto de
+    organización) no siempre tiene una petición HTTP de la que resolverla.
+    """
+    settings = get_settings()
+    async with maintenance_session() as session:
+        host = await session.scalar(
+            text(
+                "SELECT host FROM organization_domains "
+                "WHERE organization_id = :id ORDER BY is_primary DESC LIMIT 1"
+            ),
+            {"id": organization_id},
+        )
+    if not host:
+        return settings.web_base_url
+    esquema = "https" if settings.app_env == "production" else "http"
+    if settings.app_env != "production" and ":" not in host:
+        # En desarrollo, Caddy expone la web en un puerto no estándar
+        # (`web_base_url`, p. ej. `http://localhost:8080`), pero el dominio
+        # guardado en `organization_domains.host` no incluye puerto (nunca lo
+        # necesita en producción, donde solo se usan 80/443 implícitos). Sin
+        # este puerto, una redirección de Stripe (`return_url`/`refresh_url`)
+        # o un correo generado fuera de una petición HTTP apuntaría a un host
+        # que Caddy no expone, y la persona volvería a una página en blanco.
+        puerto = settings.web_base_url.rsplit(":", 1)[-1]
+        if puerto.isdigit():
+            host = f"{host}:{puerto}"
+    return f"{esquema}://{host}"

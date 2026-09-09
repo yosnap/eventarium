@@ -37,13 +37,14 @@ from app.modules.registrations.schemas import (
     VerifyRegistrationRequest,
     VerifyRegistrationResponse,
 )
-from app.shared.errors import NotFoundError
+from app.shared.errors import ConflictError, NotFoundError
 
 router = APIRouter(prefix="/public", tags=["público"])
 
 _MENSAJES_POR_ESTADO = {
     "confirmed": "Tu inscripción está confirmada.",
     "pending_approval": "Tu inscripción está pendiente de aprobación por parte del organizador.",
+    "pending_payment": "Tu plaza está reservada; completa el pago para confirmarla.",
     "waitlisted": "El aforo está completo; te hemos añadido a la lista de espera.",
 }
 
@@ -99,6 +100,14 @@ async def create_registration(
     request: Request,
     session: DbDep,
 ) -> RegistrationMessageResponse:
+    if evento.registration_mode == "paid":
+        # Un evento de pago solo admite inscripción a través del embudo de
+        # compra (`POST /public/events/{slug}/checkout`), que crea la
+        # inscripción y el pago en la misma transacción: este endpoint
+        # gratuito nunca captura el tipo de entrada ni el código de
+        # descuento, así que dejarlo colar dejaría una inscripción sin pago
+        # posible (fase 6 del PRD).
+        raise ConflictError("Este evento requiere completar la compra de una entrada.")
     await require_turnstile(request, datos.turnstile_token)
     await service.submit_registration(
         session,

@@ -14,6 +14,7 @@ export interface EventCreate {
   location_mode: 'in_person' | 'online' | 'hybrid';
   location_name?: (string | null);
   online_url?: (string | null);
+  payment_checkout_window_minutes?: number;
   registration_mode?: 'free' | 'approval' | 'paid';
   slug: string;
   starts_at: string;

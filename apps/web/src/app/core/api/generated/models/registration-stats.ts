@@ -11,6 +11,7 @@ export interface RegistrationStats {
   confirmed_conversion_rate: (number | null);
   initiated: number;
   pending_approval: number;
+  pending_payment: number;
   rejected: number;
   verified: number;
   verified_conversion_rate: (number | null);

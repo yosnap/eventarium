@@ -52,6 +52,7 @@ def _event_response(evento: Event) -> EventResponse:
         capacity=evento.capacity,
         registration_mode=evento.registration_mode,  # type: ignore[arg-type]
         email_verification_required=evento.email_verification_required,
+        payment_checkout_window_minutes=evento.payment_checkout_window_minutes,
     )
 
 

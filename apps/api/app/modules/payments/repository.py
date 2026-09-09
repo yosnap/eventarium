@@ -1,0 +1,886 @@
+"""Acceso a datos de pagos con Stripe Connect.
+
+`get_cuenta_activa` es el único resolutor del `acct_id` de una organización
+(decisión #7 del plan de la fase 6): tanto el router (con contexto RLS) como
+el webhook y las tareas de fondo (sobre `maintenance_session`, sin ese
+contexto) pasan por aquí, nunca por un `acct_id` que llegue de fuera.
+
+Fase 3 de trabajo: catálogos de tipos de entrada y códigos de descuento, con
+sus dos recuentos derivados (`ESTADOS_CONSUMIBLES`) — nunca un contador
+denormalizado, ver `models.py`. Las variantes `lock_*` aplican `SELECT ...
+FOR UPDATE` y las consume la fase 4 de trabajo dentro de la transacción que
+crea un pago, respetando el orden de bloqueo único del módulo documentado en
+`service.py`.
+"""
+
+from __future__ import annotations
+
+import logging
+import uuid
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.modules.payments.models import (
+    EventDiscountCode,
+    EventPayment,
+    EventPaymentRefund,
+    EventTicketType,
+    OrganizationStripeAccount,
+    StripeWebhookEvent,
+)
+from app.modules.registrations.models import EventRegistration
+
+logger = logging.getLogger(__name__)
+
+# Estados de `event_payments` que cuentan como cupo/uso consumido: un pago
+# `pending` todavía puede completarse y uno `expired` deja de contar sin que
+# nadie lo decremente.
+ESTADOS_CONSUMIBLES = ("pending", "paid", "partially_refunded", "refunded")
+
+# Tope de reintentos de un reembolso, única fuente de verdad compartida por
+# `refunds_service._ejecutar_reembolso`/`_marcar_intento_fallido` (que la
+# reexpone como `_INTENTOS_MAXIMOS`) y por `refunds_atascados`/
+# `suma_reembolsos_en_curso` de este módulo: antes vivía duplicado como
+# literal `5` en ambos sitios, con el riesgo de que uno cambiara sin el otro.
+INTENTOS_MAXIMOS_REEMBOLSO = 5
+
+# Estados de `event_registrations` que ya no van a llegar a pagar nunca: un
+# pago `pending` cuya
+# inscripción cae en uno de estos dos no debe seguir reservando cupo/uso de
+# código para siempre, aunque nunca llegue a caducar por ventana de tiempo.
+ESTADOS_TERMINALES_SIN_PAGO = ("cancelled", "rejected")
+
+
+async def get_cuenta_activa(
+    session: AsyncSession, organization_id: uuid.UUID
+) -> OrganizationStripeAccount | None:
+    """La fila `deauthorized_at IS NULL` de la organización, o `None`.
+
+    Una organización sin ninguna fila, o cuya única fila está
+    `deauthorized_at`, se trata como «sin cuenta» — es lo que permite la
+    reconexión sin intervención manual.
+    """
+    resultado: OrganizationStripeAccount | None = await session.scalar(
+        select(OrganizationStripeAccount).where(
+            OrganizationStripeAccount.organization_id == organization_id,
+            OrganizationStripeAccount.deauthorized_at.is_(None),
+        )
+    )
+    return resultado
+
+
+async def get_cuenta_por_stripe_account_id(
+    session: AsyncSession, stripe_account_id: str
+) -> OrganizationStripeAccount | None:
+    """Resuelve una fila por `acct_...`, usada por el webhook para ubicar la
+    organización a partir de `event.account` (decisión #9 del plan): la
+    columna es única en toda la instalación, así que no hace falta acotar por
+    `organization_id`, que es precisamente lo que todavía no se conoce en ese
+    punto."""
+    resultado: OrganizationStripeAccount | None = await session.scalar(
+        select(OrganizationStripeAccount).where(
+            OrganizationStripeAccount.stripe_account_id == stripe_account_id
+        )
+    )
+    return resultado
+
+
+async def crear_cuenta(
+    session: AsyncSession, *, organization_id: uuid.UUID, stripe_account_id: str
+) -> OrganizationStripeAccount:
+    """Persiste la fila **antes** de pedir el `AccountLink` (mitigación del
+    riesgo de la fase de trabajo: un `Account` creado en Stripe no es
+    reversible desde la plataforma; si la persistencia fallara después de
+    crear la cuenta, quedaría huérfana)."""
+    cuenta = OrganizationStripeAccount(
+        organization_id=organization_id, stripe_account_id=stripe_account_id
+    )
+    session.add(cuenta)
+    await session.flush()
+    return cuenta
+
+
+async def actualizar_estado(
+    session: AsyncSession,
+    cuenta: OrganizationStripeAccount,
+    *,
+    charges_enabled: bool,
+    payouts_enabled: bool,
+    details_submitted: bool,
+    last_synced_at: datetime,
+) -> OrganizationStripeAccount:
+    """Refresca las banderas tras consultar el `Account` real (sincronización
+    manual o `account.updated` en la fase 4 de trabajo)."""
+    cuenta.charges_enabled = charges_enabled
+    cuenta.payouts_enabled = payouts_enabled
+    cuenta.details_submitted = details_submitted
+    cuenta.last_synced_at = last_synced_at
+    if charges_enabled and cuenta.connected_at is None:
+        cuenta.connected_at = last_synced_at
+    await session.flush()
+    return cuenta
+
+
+async def marcar_desautorizada(
+    session: AsyncSession, cuenta: OrganizationStripeAccount, *, momento: datetime
+) -> OrganizationStripeAccount:
+    """`account.application.deauthorized` (fase 4 de trabajo): la fila se
+    conserva con su `deauthorized_at`, no se borra — sigue haciendo falta
+    para reembolsar los pagos cobrados con esa cuenta."""
+    cuenta.deauthorized_at = momento
+    cuenta.charges_enabled = False
+    cuenta.payouts_enabled = False
+    await session.flush()
+    return cuenta
+
+
+# --- Tipos de entrada --------------------------------------------------------
+
+
+async def get_ticket_types(
+    session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID
+) -> list[EventTicketType]:
+    filas = await session.scalars(
+        select(EventTicketType)
+        .where(
+            EventTicketType.organization_id == organization_id,
+            EventTicketType.event_id == event_id,
+        )
+        .order_by(EventTicketType.sort_order, EventTicketType.created_at)
+    )
+    return list(filas)
+
+
+async def get_ticket_type(
+    session: AsyncSession,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    ticket_type_id: uuid.UUID,
+) -> EventTicketType | None:
+    resultado: EventTicketType | None = await session.scalar(
+        select(EventTicketType).where(
+            EventTicketType.id == ticket_type_id,
+            EventTicketType.event_id == event_id,
+            EventTicketType.organization_id == organization_id,
+        )
+    )
+    return resultado
+
+
+async def lock_ticket_type(
+    session: AsyncSession, organization_id: uuid.UUID, ticket_type_id: uuid.UUID
+) -> EventTicketType | None:
+    """`SELECT ... FOR UPDATE` sobre un tipo de entrada.
+
+    Contrato de bloqueo de la fase 3 de trabajo, consumido por la fase 4:
+    orden único `event_registrations` → `events` → `event_ticket_types` →
+    `event_discount_codes`, dentro de la misma transacción que crea el pago.
+    """
+    resultado: EventTicketType | None = await session.scalar(
+        select(EventTicketType)
+        .where(
+            EventTicketType.id == ticket_type_id,
+            EventTicketType.organization_id == organization_id,
+        )
+        .with_for_update()
+    )
+    return resultado
+
+
+async def count_used_ticket_type(
+    session: AsyncSession, organization_id: uuid.UUID, ticket_type_id: uuid.UUID
+) -> int:
+    """Cupo consumido de un tipo de entrada, **derivado** de `event_payments`
+    (nunca un contador denormalizado, ver `models.py:EventTicketType`)."""
+    total = await session.scalar(
+        select(func.count())
+        .select_from(EventPayment)
+        .where(
+            EventPayment.organization_id == organization_id,
+            EventPayment.ticket_type_id == ticket_type_id,
+            EventPayment.status.in_(ESTADOS_CONSUMIBLES),
+        )
+    )
+    return int(total or 0)
+
+
+async def ticket_type_has_dependencies(
+    session: AsyncSession, organization_id: uuid.UUID, ticket_type_id: uuid.UUID
+) -> bool:
+    """`True` si el tipo tiene algún código de descuento o pago asociado —
+    condición explícita antes del 409, además de la FK `RESTRICT` que actúa
+    como red de seguridad si esta comprobación se saltara."""
+    tiene_codigos = await session.scalar(
+        select(EventDiscountCode.id)
+        .where(
+            EventDiscountCode.organization_id == organization_id,
+            EventDiscountCode.ticket_type_id == ticket_type_id,
+        )
+        .limit(1)
+    )
+    if tiene_codigos is not None:
+        return True
+    tiene_pagos = await session.scalar(
+        select(EventPayment.id)
+        .where(
+            EventPayment.organization_id == organization_id,
+            EventPayment.ticket_type_id == ticket_type_id,
+        )
+        .limit(1)
+    )
+    return tiene_pagos is not None
+
+
+async def create_ticket_type(
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    datos: dict[str, object],
+) -> EventTicketType:
+    tipo = EventTicketType(organization_id=organization_id, event_id=event_id, **datos)
+    session.add(tipo)
+    await session.flush()
+    return tipo
+
+
+# --- Códigos de descuento -----------------------------------------------------
+
+
+async def get_discount_codes(
+    session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID
+) -> list[EventDiscountCode]:
+    filas = await session.scalars(
+        select(EventDiscountCode)
+        .where(
+            EventDiscountCode.organization_id == organization_id,
+            EventDiscountCode.event_id == event_id,
+        )
+        .order_by(EventDiscountCode.created_at)
+    )
+    return list(filas)
+
+
+async def get_discount_code(
+    session: AsyncSession,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    discount_code_id: uuid.UUID,
+) -> EventDiscountCode | None:
+    resultado: EventDiscountCode | None = await session.scalar(
+        select(EventDiscountCode).where(
+            EventDiscountCode.id == discount_code_id,
+            EventDiscountCode.event_id == event_id,
+            EventDiscountCode.organization_id == organization_id,
+        )
+    )
+    return resultado
+
+
+async def get_discount_code_by_code(
+    session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID, code: str
+) -> EventDiscountCode | None:
+    """`code` ya debe llegar normalizado a mayúsculas: la comparación es exacta,
+    nunca `ILIKE`, para no convertir el presupuesto en un oráculo de fuerza
+    bruta más permisivo de lo que ya es."""
+    resultado: EventDiscountCode | None = await session.scalar(
+        select(EventDiscountCode).where(
+            EventDiscountCode.organization_id == organization_id,
+            EventDiscountCode.event_id == event_id,
+            EventDiscountCode.code == code,
+        )
+    )
+    return resultado
+
+
+async def lock_discount_code(
+    session: AsyncSession, organization_id: uuid.UUID, discount_code_id: uuid.UUID
+) -> EventDiscountCode | None:
+    """`SELECT ... FOR UPDATE` sobre un código de descuento, último eslabón del
+    orden de bloqueo único del módulo (ver `lock_ticket_type`)."""
+    resultado: EventDiscountCode | None = await session.scalar(
+        select(EventDiscountCode)
+        .where(
+            EventDiscountCode.id == discount_code_id,
+            EventDiscountCode.organization_id == organization_id,
+        )
+        .with_for_update()
+    )
+    return resultado
+
+
+async def count_used_discount_code(
+    session: AsyncSession, organization_id: uuid.UUID, discount_code_id: uuid.UUID
+) -> int:
+    """Uso consumido de un código, **derivado** de `event_payments` — sin
+    columna `used_count` que respalde este número."""
+    total = await session.scalar(
+        select(func.count())
+        .select_from(EventPayment)
+        .where(
+            EventPayment.organization_id == organization_id,
+            EventPayment.discount_code_id == discount_code_id,
+            EventPayment.status.in_(ESTADOS_CONSUMIBLES),
+        )
+    )
+    return int(total or 0)
+
+
+async def discount_code_has_payments(
+    session: AsyncSession, organization_id: uuid.UUID, discount_code_id: uuid.UUID
+) -> bool:
+    existe = await session.scalar(
+        select(EventPayment.id)
+        .where(
+            EventPayment.organization_id == organization_id,
+            EventPayment.discount_code_id == discount_code_id,
+        )
+        .limit(1)
+    )
+    return existe is not None
+
+
+async def create_discount_code(
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    datos: dict[str, object],
+) -> EventDiscountCode:
+    codigo = EventDiscountCode(organization_id=organization_id, event_id=event_id, **datos)
+    session.add(codigo)
+    await session.flush()
+    return codigo
+
+
+@dataclass(frozen=True, slots=True)
+class SesionAnterior:
+    """Sesión de Checkout que `crear_o_reutilizar_pago` acaba de desligar de
+    un pago reutilizado — el llamador debe expirarla en Stripe."""
+
+    stripe_account_id: str
+    stripe_checkout_session_id: str
+
+
+# --- Guarda de pago (fase 6 del PRD, fase 4 de trabajo) ----------------------
+
+
+async def tiene_pago_confirmado(
+    session: AsyncSession, organization_id: uuid.UUID, registration_id: uuid.UUID
+) -> bool:
+    """`True` si existe un `event_payments` en `paid` para esta inscripción.
+
+    Único predicado que consultan las dos capas de la guarda de pago
+    (`registrations/service.py::_estado_confirmable` y el cinturón de
+    seguridad de `_enviar_email_por_estado`) — una sola implementación, para
+    que ninguna de las dos pueda desincronizarse de la otra.
+    """
+    existe = await session.scalar(
+        select(EventPayment.id)
+        .where(
+            EventPayment.organization_id == organization_id,
+            EventPayment.registration_id == registration_id,
+            EventPayment.status == "paid",
+        )
+        .limit(1)
+    )
+    return existe is not None
+
+
+async def get_payment_by_registration(
+    session: AsyncSession, organization_id: uuid.UUID, registration_id: uuid.UUID
+) -> EventPayment | None:
+    resultado: EventPayment | None = await session.scalar(
+        select(EventPayment).where(
+            EventPayment.organization_id == organization_id,
+            EventPayment.registration_id == registration_id,
+        )
+    )
+    return resultado
+
+
+async def pago_reactivable(
+    session: AsyncSession, organization_id: uuid.UUID, registration_id: uuid.UUID
+) -> bool:
+    """`True` si una inscripción `cancelled` se puede reactivar: su pago
+    existe y nunca llegó a moverse dinero (`pending`/`expired`).
+    `paid`/`refunded`/`partially_refunded` no se reactiva — una segunda
+    compra exigiría una segunda fila de pago, que `UNIQUE(registration_id)`
+    no admite; límite explícito de esta fase, no un olvido.
+    """
+    pago = await get_payment_by_registration(session, organization_id, registration_id)
+    return pago is not None and pago.status in ("pending", "expired")
+
+
+async def expirar_pago_pendiente_de_inscripcion(
+    session: AsyncSession, organization_id: uuid.UUID, registration_id: uuid.UUID
+) -> None:
+    """Libera el cupo de tipo de entrada y el uso de código de descuento que
+    un pago `pending` sigue reteniendo cuando su inscripción sale del embudo
+    sin llegar a pagar: `reject_registration` y `_cancelar_inscripcion` la
+    llaman antes de
+    dejar la inscripción en `rejected`/`cancelled`.
+
+    `ESTADOS_CONSUMIBLES` cuenta un pago `pending` como cupo/uso ocupado; el
+    único camino que antes lo liberaba (`pagos_pendientes_caducados`, vía
+    `expirar_pagos_pendientes`) exige `EventRegistration.status ==
+    "pending_payment"` y `payment_expires_at` no nulo — ninguna de las dos
+    condiciones se cumple para una inscripción `pending_approval`/
+    `waitlisted` que nunca llegó a `pending_payment`, así que la fila de pago
+    quedaba huérfana reteniendo cupo para siempre.
+
+    No-op si no hay pago o si ya no está `pending` (idempotente: seguro de
+    llamar más de una vez sobre la misma inscripción, o después de que el
+    barrido de caducados ya la haya expirado).
+    """
+    pago = await get_payment_by_registration(session, organization_id, registration_id)
+    if pago is None or pago.status != "pending":
+        return
+    pago.status = "expired"
+    await session.flush()
+
+
+async def crear_o_reutilizar_pago(
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    registration_id: uuid.UUID,
+    stripe_account_id: str,
+    ticket_type_id: uuid.UUID,
+    discount_code_id: uuid.UUID | None,
+    amount_cents: int,
+    discount_cents: int,
+    currency: str,
+) -> tuple[EventPayment, SesionAnterior | None]:
+    """T1 del checkout: crea la fila de pago, o reutiliza
+    la existente de una inscripción reactivada tras caducar sin cobrar —
+    nunca una segunda fila (`UNIQUE(registration_id)`). Deja siempre el pago
+    en `pending`, sin sesión de Stripe: esa la crea T2, fuera de cualquier
+    bloqueo de fila.
+
+    Devuelve también la sesión de Stripe (y la cuenta bajo la que se creó)
+    que esta llamada acaba de desligar del pago, o `None` si no había ninguna
+    o si la fila es nueva: esa sesión sigue viva en Stripe hasta que caduque
+    por sí sola, así que el llamador debe expirarla explícitamente — nunca
+    aquí, que es una función de solo base de datos, sin llamadas de red. La
+    cuenta se captura **antes** de
+    sobrescribirla con `stripe_account_id`: si la organización reconectó una
+    cuenta distinta entre intentos, la sesión antigua solo se puede expirar
+    contra la cuenta bajo la que Stripe la creó de verdad.
+    """
+    existente = await get_payment_by_registration(session, organization_id, registration_id)
+    if existente is not None:
+        sesion_anterior = (
+            SesionAnterior(
+                stripe_account_id=existente.stripe_account_id,
+                stripe_checkout_session_id=existente.stripe_checkout_session_id,
+            )
+            if existente.stripe_checkout_session_id is not None
+            else None
+        )
+        existente.stripe_account_id = stripe_account_id
+        existente.ticket_type_id = ticket_type_id
+        existente.discount_code_id = discount_code_id
+        existente.amount_cents = amount_cents
+        existente.discount_cents = discount_cents
+        existente.currency = currency
+        existente.status = "pending"
+        existente.checkout_attempts += 1
+        existente.stripe_checkout_session_id = None
+        existente.checkout_url = None
+        existente.checkout_link_delivered_at = None
+        existente.expires_at = None
+        await session.flush()
+        return existente, sesion_anterior
+
+    pago = EventPayment(
+        organization_id=organization_id,
+        event_id=event_id,
+        registration_id=registration_id,
+        stripe_account_id=stripe_account_id,
+        ticket_type_id=ticket_type_id,
+        discount_code_id=discount_code_id,
+        amount_cents=amount_cents,
+        discount_cents=discount_cents,
+        currency=currency,
+        status="pending",
+        checkout_attempts=1,
+    )
+    session.add(pago)
+    await session.flush()
+    return pago, None
+
+
+async def get_payment_by_checkout_session_id(
+    session: AsyncSession, stripe_checkout_session_id: str
+) -> EventPayment | None:
+    """Único punto de búsqueda del webhook: **nunca** por `metadata` ni
+    `client_reference_id`, que el
+    organizador de una cuenta Connect Standard controla desde su propio
+    Dashboard."""
+    resultado: EventPayment | None = await session.scalar(
+        select(EventPayment).where(
+            EventPayment.stripe_checkout_session_id == stripe_checkout_session_id
+        )
+    )
+    return resultado
+
+
+async def get_payment_by_payment_intent_id(
+    session: AsyncSession, stripe_payment_intent_id: str
+) -> EventPayment | None:
+    """Único punto de búsqueda de `charge.refunded` (ampliado en
+    la fase 5 de trabajo): **nunca** por `metadata`, que el organizador de una
+    cuenta Connect Standard controla desde su propio Dashboard."""
+    resultado: EventPayment | None = await session.scalar(
+        select(EventPayment).where(
+            EventPayment.stripe_payment_intent_id == stripe_payment_intent_id
+        )
+    )
+    return resultado
+
+
+async def get_payment(
+    session: AsyncSession, organization_id: uuid.UUID, payment_id: uuid.UUID
+) -> EventPayment | None:
+    resultado: EventPayment | None = await session.scalar(
+        select(EventPayment).where(
+            EventPayment.id == payment_id, EventPayment.organization_id == organization_id
+        )
+    )
+    return resultado
+
+
+async def list_payments_for_event(
+    session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID
+) -> list[EventPayment]:
+    filas = await session.scalars(
+        select(EventPayment)
+        .where(EventPayment.organization_id == organization_id, EventPayment.event_id == event_id)
+        .order_by(EventPayment.created_at.desc())
+    )
+    return list(filas)
+
+
+@dataclass(frozen=True, slots=True)
+class _PagoPendienteLigero:
+    """Proyección mínima para el barrido y la tarea de enlaces: nunca objetos
+    ORM que sobrevivan a una llamada de red a Stripe (evitaría instancias
+    «detached» y, sobre todo, dejaría el objeto pegado a una fila bloqueada
+    mientras dura la llamada — justo lo que nunca debe ocurrir)."""
+
+    payment_id: uuid.UUID
+    organization_id: uuid.UUID
+    stripe_account_id: str
+    stripe_checkout_session_id: str | None
+    registration_id: uuid.UUID | None
+    registration_status: str
+
+
+async def pagos_pendientes_caducados(session: AsyncSession) -> list[_PagoPendienteLigero]:
+    """Candidatos del barrido `expire_pending_payments_task`, en dos grupos:
+
+    - Pagos `pending` cuya inscripción `pending_payment` asociada ya superó
+      su ventana (el camino original, consulta el estado real en Stripe antes
+      de expirar).
+    - Pagos `pending` cuya inscripción ya está `cancelled`/`rejected`
+      (`ESTADOS_TERMINALES_SIN_PAGO`): red de seguridad además del cambio
+      explícito en `reject_registration`/`_cancelar_inscripcion`, para
+      cualquier otro camino que deje una inscripción en un estado terminal
+      sin pasar por ninguna de las dos — no espera a ninguna ventana de
+      tiempo, porque ya es un estado terminal, no hay nada que Stripe pueda
+      todavía confirmar.
+
+    Sin `FOR UPDATE`: el bloqueo se adquiere fila a fila, después de la
+    consulta a Stripe, nunca durante ella.
+    """
+    filas = (
+        await session.execute(
+            select(
+                EventPayment.id,
+                EventPayment.organization_id,
+                EventPayment.stripe_account_id,
+                EventPayment.stripe_checkout_session_id,
+                EventPayment.registration_id,
+                EventRegistration.status.label("registration_status"),
+            )
+            .join(EventRegistration, EventRegistration.id == EventPayment.registration_id)
+            .where(
+                EventPayment.status == "pending",
+                (
+                    (EventRegistration.status == "pending_payment")
+                    & EventRegistration.payment_expires_at.is_not(None)
+                    & (EventRegistration.payment_expires_at < datetime.now(UTC))
+                )
+                | (EventRegistration.status.in_(ESTADOS_TERMINALES_SIN_PAGO)),
+            )
+        )
+    ).all()
+    return [
+        _PagoPendienteLigero(
+            payment_id=fila.id,
+            organization_id=fila.organization_id,
+            stripe_account_id=fila.stripe_account_id,
+            stripe_checkout_session_id=fila.stripe_checkout_session_id,
+            registration_id=fila.registration_id,
+            registration_status=fila.registration_status,
+        )
+        for fila in filas
+    ]
+
+
+async def pagos_sin_enlace_entregado(session: AsyncSession) -> list[uuid.UUID]:
+    """`payment_id` de los caminos 2, 3 y 4 (fase 6 del PRD): la inscripción
+    ya está `pending_payment` (verificada, aprobada o promovida) y su pago
+    todavía no tiene sesión de Stripe entregada por correo —
+    `dispatch_pending_payment_links_task` la crea fuera de la petición."""
+    filas = await session.scalars(
+        select(EventPayment.id)
+        .join(EventRegistration, EventRegistration.id == EventPayment.registration_id)
+        .where(
+            EventPayment.status == "pending",
+            EventPayment.checkout_link_delivered_at.is_(None),
+            EventRegistration.status == "pending_payment",
+        )
+    )
+    return list(filas)
+
+
+# --- Idempotencia de webhooks (fase 6 del PRD, fase 4 de trabajo) -----------
+
+
+async def registrar_evento_recibido(
+    session: AsyncSession,
+    *,
+    event_id: str,
+    event_type: str,
+    stripe_account_id: str,
+    payload: dict[str, object],
+) -> bool:
+    """`INSERT ... ON CONFLICT DO NOTHING`: `True` si esta llamada ha creado
+    la fila (evento nuevo, hay que encolar la tarea), `False` si ya existía
+    (Stripe está reintentando una entrega, decisión #10 del plan)."""
+    resultado = await session.execute(
+        pg_insert(StripeWebhookEvent)
+        .values(
+            id=event_id,
+            event_type=event_type,
+            stripe_account_id=stripe_account_id,
+            payload=payload,
+            status="received",
+            received_at=datetime.now(UTC),
+        )
+        .on_conflict_do_nothing(index_elements=["id"])
+    )
+    # `session.execute` de un INSERT devuelve un `CursorResult`, que sí tiene
+    # `rowcount`; los stubs de SQLAlchemy solo tipan el `Result[Any]` genérico.
+    return bool(resultado.rowcount)  # type: ignore[attr-defined]
+
+
+async def registrar_evento_ignorado_sin_cuenta(
+    session: AsyncSession, *, event_id: str, event_type: str, payload: dict[str, object]
+) -> None:
+    """Un evento sin `account` de nivel superior se marca
+    `ignored` sin encolar ninguna tarea. `ON CONFLICT DO NOTHING`: una
+    reentrega del mismo evento no debe fallar por chocar con la PK."""
+    await session.execute(
+        pg_insert(StripeWebhookEvent)
+        .values(
+            id=event_id,
+            event_type=event_type,
+            stripe_account_id=None,
+            payload=payload,
+            status="ignored",
+            received_at=datetime.now(UTC),
+            processed_at=datetime.now(UTC),
+        )
+        .on_conflict_do_nothing(index_elements=["id"])
+    )
+
+
+async def get_webhook_event(session: AsyncSession, event_id: str) -> StripeWebhookEvent | None:
+    return await session.get(StripeWebhookEvent, event_id)
+
+
+async def eventos_para_reencolar(session: AsyncSession) -> list[str]:
+    """`sweep_stuck_webhook_events_task`: filas `received` con
+    más de 10 minutos (perdidas entre la cola y el worker) y `failed` con
+    reintentos disponibles. Las `failed` que agotaron sus reintentos se
+    registran en `ERROR` en vez de reencolarse otra vez."""
+    limite = datetime.now(UTC) - timedelta(minutes=10)
+    atascados = list(
+        await session.scalars(
+            select(StripeWebhookEvent.id).where(
+                StripeWebhookEvent.status == "received",
+                StripeWebhookEvent.received_at < limite,
+            )
+        )
+    )
+    reintentables = list(
+        await session.scalars(
+            select(StripeWebhookEvent.id).where(
+                StripeWebhookEvent.status == "failed",
+                StripeWebhookEvent.attempts < 5,
+            )
+        )
+    )
+    agotados = list(
+        await session.scalars(
+            select(StripeWebhookEvent.id).where(
+                StripeWebhookEvent.status == "failed",
+                StripeWebhookEvent.attempts >= 5,
+            )
+        )
+    )
+    for event_id in agotados:
+        logger.error("Webhook de Stripe %s ha agotado sus reintentos.", event_id)
+    return [*atascados, *reintentables]
+
+
+async def purgar_eventos_antiguos(session: AsyncSession, *, dias: int) -> int:
+    """`purge_stripe_webhook_events_task`: borra filas con más
+    de `dias` de antigüedad."""
+    limite = datetime.now(UTC) - timedelta(days=dias)
+    filas = list(
+        await session.scalars(
+            select(StripeWebhookEvent).where(StripeWebhookEvent.received_at < limite)
+        )
+    )
+    for fila in filas:
+        await session.delete(fila)
+    return len(filas)
+
+
+# --- Reembolsos: outbox (fase 6 del PRD, fase 5 de trabajo) ------------------
+
+
+async def crear_intencion_reembolso(
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    payment_id: uuid.UUID,
+    amount_cents: int,
+    reason: str,
+    revoke_ticket: bool,
+) -> EventPaymentRefund:
+    """Persiste la intención **antes** de cualquier llamada a Stripe: la
+    fila existe siempre antes de que exista la
+    posibilidad de que el dinero se mueva."""
+    intencion = EventPaymentRefund(
+        organization_id=organization_id,
+        payment_id=payment_id,
+        amount_cents=amount_cents,
+        reason=reason,
+        revoke_ticket=revoke_ticket,
+    )
+    session.add(intencion)
+    await session.flush()
+    return intencion
+
+
+async def suma_reembolsos_en_curso(
+    session: AsyncSession, organization_id: uuid.UUID, payment_id: uuid.UUID
+) -> int:
+    """Importe de los reembolsos `pending`/`submitted` de este pago, más los
+    `failed` que `refunds_atascados` todavía va a reintentar: todos ellos ya
+    están en marcha (persistidos en el outbox, puede que ya cobrados en
+    Stripe) pero su `charge.refunded` todavía no ha llegado a fijar
+    `refunded_cents`. Un `failed` que agotó sus reintentos (`attempts >=
+    _INTENTOS_MAXIMOS`) ya no se reencola, así que no cuenta como dinero en
+    vuelo. Sin restar todo esto del importe pendiente, dos reembolsos
+    parciales solapados podrían devolver más de lo debido."""
+    total = await session.scalar(
+        select(func.coalesce(func.sum(EventPaymentRefund.amount_cents), 0)).where(
+            EventPaymentRefund.organization_id == organization_id,
+            EventPaymentRefund.payment_id == payment_id,
+            (EventPaymentRefund.status.in_(("pending", "submitted")))
+            | (
+                (EventPaymentRefund.status == "failed")
+                & (EventPaymentRefund.attempts < INTENTOS_MAXIMOS_REEMBOLSO)
+            ),
+        )
+    )
+    return int(total or 0)
+
+
+async def get_refunds_for_payment(
+    session: AsyncSession, organization_id: uuid.UUID, payment_id: uuid.UUID
+) -> list[EventPaymentRefund]:
+    filas = await session.scalars(
+        select(EventPaymentRefund)
+        .where(
+            EventPaymentRefund.organization_id == organization_id,
+            EventPaymentRefund.payment_id == payment_id,
+        )
+        .order_by(EventPaymentRefund.created_at)
+    )
+    return list(filas)
+
+
+async def tiene_reembolso_con_revocacion(session: AsyncSession, payment_id: uuid.UUID) -> bool:
+    """`True` si algún reembolso ya `succeeded` de este pago pedía revocar la
+    entrada — la casilla del panel en un reembolso parcial (decisión #15).
+    El webhook de `charge.refunded` la consulta para saber si debe revocar
+    cuando el importe acumulado todavía no es el total."""
+    existe = await session.scalar(
+        select(EventPaymentRefund.id)
+        .where(
+            EventPaymentRefund.payment_id == payment_id,
+            EventPaymentRefund.revoke_ticket.is_(True),
+            EventPaymentRefund.status == "succeeded",
+        )
+        .limit(1)
+    )
+    return existe is not None
+
+
+async def refunds_pendientes(session: AsyncSession) -> list[uuid.UUID]:
+    """Filas `pending`, listas para su primer intento — la tarea principal
+    (`process_refunds_task`), nunca las `submitted` atascadas (esas las
+    recoge `refunds_atascados`, un barrido distinto para no competir con una
+    ejecución concurrente en curso)."""
+    filas = await session.scalars(
+        select(EventPaymentRefund.id).where(EventPaymentRefund.status == "pending")
+    )
+    return list(filas)
+
+
+async def refunds_atascados(session: AsyncSession) -> list[uuid.UUID]:
+    """Filas `submitted` cuya llamada a Stripe pudo tener éxito pero cuya
+    escritura posterior falló: atascadas hace más de 10
+    minutos, igual que `eventos_para_reencolar` para webhooks. Las `failed`
+    con reintentos disponibles también se retoman aquí; las agotadas se
+    registran en `ERROR`."""
+    limite = datetime.now(UTC) - timedelta(minutes=10)
+    atascados = list(
+        await session.scalars(
+            select(EventPaymentRefund.id).where(
+                EventPaymentRefund.status == "submitted",
+                EventPaymentRefund.submitted_at < limite,
+            )
+        )
+    )
+    reintentables = list(
+        await session.scalars(
+            select(EventPaymentRefund.id).where(
+                EventPaymentRefund.status == "failed",
+                EventPaymentRefund.attempts < INTENTOS_MAXIMOS_REEMBOLSO,
+            )
+        )
+    )
+    agotados = await session.scalars(
+        select(EventPaymentRefund.id).where(
+            EventPaymentRefund.status == "failed",
+            EventPaymentRefund.attempts >= INTENTOS_MAXIMOS_REEMBOLSO,
+        )
+    )
+    for refund_id in agotados:
+        logger.error(
+            "Reembolso %s ha agotado sus reintentos: dinero pendiente de devolver.", refund_id
+        )
+    return [*atascados, *reintentables]

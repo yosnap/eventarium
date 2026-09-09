@@ -65,8 +65,8 @@ ORGANIZER = SystemRoleTemplate(
         # `REGISTRATIONS_*` faltaba en esta plantilla desde la fase 3 del PRD:
         # la migración 0010 las dio de alta por backfill a los organizadores
         # ya clonados en ese momento, pero una organización creada después de
-        # esa migración clonaba un organizador sin ellas (hallazgo del
-        # code-review de la fase 4, corregido aquí en la raíz).
+        # esa migración clonaba un organizador sin ellas, corregido aquí en
+        # la raíz.
         Permission.REGISTRATIONS_READ,
         Permission.REGISTRATIONS_WRITE,
         Permission.TICKETS_READ,
@@ -77,6 +77,13 @@ ORGANIZER = SystemRoleTemplate(
         # después de esa migración clonaría un organizador sin `sponsors:*`.
         Permission.SPONSORS_READ,
         Permission.SPONSORS_WRITE,
+        # Mismo bug que `REGISTRATIONS_*`/`SPONSORS_*` (fase 6 del PRD,
+        # decisión #16 del plan): el backfill de la migración solo cubre
+        # organizaciones ya existentes; sin tocar la plantilla, una
+        # organización creada después clonaría un organizador sin
+        # `payments:*`.
+        Permission.PAYMENTS_READ,
+        Permission.PAYMENTS_WRITE,
     ),
     profile_fields=(
         ProfileFieldTemplate(key="cargo", label="Cargo", sort_order=10),

@@ -102,6 +102,63 @@ registro no exige verificación anti-bot. Para probarlo activado, pon
 `apps/web/src/environments/environment.development.ts`. **No puede desactivarse en
 producción**: el arranque de la API falla si lo intentas.
 
+## Webhooks de Stripe
+
+El endpoint de webhooks (`/api/v1/webhooks/stripe`) es la única ruta de la API
+sin tenant por `Host`: lleva el prefijo `/api/v1` como todas las demás, no hay
+ninguna ruta fuera de él. Está registrado en Stripe con `connect: true`
+(ámbito «cuentas conectadas»), así que en local hay que reenviar con
+`--forward-connect-to`, **no** con `--forward-to`:
+
+```
+stripe listen --forward-connect-to localhost:8000/api/v1/webhooks/stripe
+```
+
+El CLI imprime un `whsec_...` de un solo uso: cópialo a `STRIPE_WEBHOOK_SECRET`
+en el `.env` mientras dure la sesión de `stripe listen`. Sin `STRIPE_SECRET_KEY`
+ni `STRIPE_WEBHOOK_SECRET`, `payments_enabled` es `false` y toda la superficie
+de pagos responde 503.
+
+**Reinicia la API, el worker y el planificador tras tocar el `.env`.**
+`Settings` se lee una sola vez al arrancar cada proceso: `--reload` de
+uvicorn recarga el código pero no relee el fichero, y el worker/scheduler de
+`taskiq` son procesos aparte que tampoco lo relee. El webhook confirma la
+compra en segundo plano (`taskiq worker`), así que si solo reinicias la API,
+el evento se queda en `received` porque el worker sigue con el
+`payments_enabled` antiguo — no es un fallo del webhook, es un proceso con
+configuración obsoleta.
+
+**Variables opcionales de la fase de pagos**, todas con valor por defecto
+para que una instalación que no vende nada (o el propio CI) no deje de
+arrancar:
+
+| Variable | Por defecto | Qué deja de funcionar sin ella |
+|---|---|---|
+| `STRIPE_SECRET_KEY` | vacía | Toda la superficie de pagos responde 503 (`payments_enabled=false`) |
+| `STRIPE_WEBHOOK_SECRET` | vacía | Igual que la anterior — hacen falta las dos a la vez |
+| `PAYMENT_REFUND_CUTOFF_HOURS` | `24` | El reembolso automático de la autocancelación deja de aplicarse antes de ese margen previo al inicio del evento; fuera de ese caso la cancelación se aplica igual, sin reembolso automático |
+| `STRIPE_WEBHOOK_RETENTION_DAYS` | `90` | La purga diaria de `stripe_webhook_events` usa este umbral; con un valor muy alto, la tabla (sin datos personales, solo la proyección de campos procesados) crece más tiempo |
+
+La ventana de `pending_payment` **no** es ninguna de estas variables: se
+configura por evento (`payment_checkout_window_minutes`, 30 minutos por
+defecto) en el formulario de organizador, ver `docs/modelo-de-datos.md`.
+
+**Tarjetas y cuentas de prueba.** Con Checkout hosted, completar un pago de
+verdad exige la página de Stripe (bloquea la automatización, por diseño de
+Stripe: no admite rellenar la tarjeta por script). Para un recorrido manual:
+tarjeta `4242 4242 4242 4242`, cualquier fecha futura y CVC. Para probar sin
+navegador, `stripe payment_intents create --stripe-account <acct_id> -d
+amount=<céntimos> -d currency=eur -d payment_method=pm_card_visa -d
+confirm=true` cobra de verdad en modo test contra una cuenta conectada ya
+creada, sin pasar por Checkout — útil para preparar un pago real sobre el
+que probar reembolsos. La cuenta conectada de pruebas se crea desde el panel
+(`Conectar con Stripe`) y completa su onboarding en el propio flujo hospedado
+de Stripe; `stripe trigger --stripe-account <acct_id> checkout.session.
+completed` genera su propia sesión de prueba (útil para probar la firma y la
+idempotencia del webhook, no para confirmar una compra concreta ya
+existente) y `stripe trigger --stripe-account <acct_id> account.application.
+deauthorized` simula la desconexión.
+
 ## Accede siempre por http://localhost:8080
 
 Caddy sirve la web, la API y los ficheros bajo el mismo host. Entrar directamente por

@@ -14,6 +14,7 @@ export interface EventUpdate {
   location_mode?: ('in_person' | 'online' | 'hybrid' | null);
   location_name?: (string | null);
   online_url?: (string | null);
+  payment_checkout_window_minutes?: (number | null);
   registration_mode?: ('free' | 'approval' | 'paid' | null);
   starts_at?: (string | null);
   status?: ('draft' | 'published' | 'archived' | null);

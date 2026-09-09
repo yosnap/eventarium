@@ -14,8 +14,8 @@ constraint la FK compuesta de `sponsors` no puede crearse, PostgreSQL exige un
 política RLS, pero **tampoco** con el acceso por defecto que `app_user`
 recibiría de otro modo vía `ALTER DEFAULT PRIVILEGES`
 (`infra/postgres/sql/roles.sql:45,50-51`). El `REVOKE ALL ... FROM app_user`
-de abajo es la corrección de red-team más importante de esta fase (hallazgo
-#1 del plan): sin él, cualquier sesión de organización podría leer y
+de abajo es la corrección más importante de esta fase: sin él, cualquier
+sesión de organización podría leer y
 **borrar** el registro de auditoría completo de la instalación. `INSERT` se
 devuelve puntualmente sobre `cookie_consents` porque el endpoint público de
 la fase 3 de trabajo escribe ahí sin autenticar.
@@ -281,8 +281,7 @@ def _restringir_tablas_de_instalacion() -> None:
     acceso": `ALTER DEFAULT PRIVILEGES` (`infra/postgres/sql/roles.sql`)
     concede SELECT/INSERT/UPDATE/DELETE a `app_user` sobre toda tabla nueva
     automáticamente. Sin este `REVOKE`, cualquier sesión de organización
-    podría leer y borrar el registro de auditoría completo de la instalación
-    (hallazgo #1 del red-team)."""
+    podría leer y borrar el registro de auditoría completo de la instalación."""
     for tabla in TABLAS_DE_INSTALACION:
         op.execute(f"REVOKE ALL ON {tabla} FROM app_user")
     # El endpoint público de consentimiento (fase 3 de trabajo) escribe desde

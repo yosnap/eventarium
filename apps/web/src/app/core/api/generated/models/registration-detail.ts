@@ -18,7 +18,7 @@ export interface RegistrationDetail {
   full_name: string;
   id: string;
   rejected_at: (string | null);
-  status: 'pending_verification' | 'pending_approval' | 'confirmed' | 'rejected' | 'cancelled' | 'waitlisted';
+  status: 'pending_verification' | 'pending_approval' | 'pending_payment' | 'confirmed' | 'rejected' | 'cancelled' | 'waitlisted';
   verified_at: (string | null);
   waitlist_promoted_at: (string | null);
   waitlist_promotion_expires_at: (string | null);

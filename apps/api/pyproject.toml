@@ -29,6 +29,10 @@ dependencies = [
     # para generar PNG) — la más ligera que cubre "PNG a partir de una
     # cadena", según el plan.
     "segno>=1.6,<2.0",
+    # Pagos con Stripe Connect (fase 6 del PRD). Rango fijado a la última
+    # estable (15.6.1): desde la v13 el SDK ya no tiene `stripe.error`
+    # (excepción a capturar: `stripe.StripeError`, del módulo raíz).
+    "stripe[async]>=15.6,<16.0",
 ]
 
 [dependency-groups]
@@ -53,13 +57,23 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "S"]
+select = ["E", "F", "I", "B", "UP", "S", "TID"]
 # S101 (assert) solo se permite en tests; ver per-file-ignores.
 ignore = ["B008"]  # Depends() en argumentos por defecto es el idioma de FastAPI.
 
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+# Confina el SDK de Stripe a un único wrapper (fase 6 del PRD, decisión #7 del
+# plan): ninguna función de servicio importa `stripe` directamente, así que el
+# `acct_id` de destino siempre pasa por la resolución de ese fichero.
+"stripe" = { msg = "Importa stripe solo desde app/modules/payments/stripe_client.py" }
+
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "S105", "S106", "S107"]
+# `TID251` solo se releva en tests: la regla confina el SDK en el código de la
+# aplicación (`app/`), no en la suite, que necesita construir excepciones y
+# firmas reales del SDK para simular a Stripe sin red.
+"tests/**" = ["S101", "S105", "S106", "S107", "TID251"]
 "alembic/**" = ["E501"]
+"app/modules/payments/stripe_client.py" = ["TID251"]
 
 [tool.mypy]
 python_version = "3.12"

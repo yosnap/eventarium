@@ -2610,6 +2610,7 @@
                   "enum": [
                     "pending_verification",
                     "pending_approval",
+                    "pending_payment",
                     "confirmed",
                     "rejected",
                     "cancelled",
@@ -4144,6 +4145,871 @@
         }
       }
     },
+    "/api/v1/organizations/{organization_id}/stripe/onboarding": {
+      "post": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Iniciar (o reiniciar) el onboarding de Stripe Connect",
+        "description": "Crea una cuenta Standard si no hay ninguna activa (o si la única fila está desautorizada) y devuelve la URL de un solo uso del Account Link. Nunca crea una segunda cuenta activa.",
+        "operationId": "start_onboarding_api_v1_organizations__organization_id__stripe_onboarding_post",
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StripeOnboardingResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{organization_id}/stripe": {
+      "get": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Estado persistido de la conexión con Stripe",
+        "description": "Lee únicamente lo persistido: nunca llama a Stripe.",
+        "operationId": "get_stripe_status_api_v1_organizations__organization_id__stripe_get",
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StripeAccountResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{organization_id}/stripe/sync": {
+      "post": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Sincronizar el estado con el `Account` real de Stripe",
+        "description": "Única ruta del panel que provoca una llamada de red a Stripe por petición: el frontend la invoca al volver del onboarding y desde el botón manual.",
+        "operationId": "sync_stripe_status_api_v1_organizations__organization_id__stripe_sync_post",
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StripeAccountResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/ticket-types": {
+      "get": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Listar los tipos de entrada de un evento",
+        "operationId": "list_ticket_types_api_v1_events__event_id__ticket_types_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketTypeResponse"
+                  },
+                  "title": "Response List Ticket Types Api V1 Events  Event Id  Ticket Types Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Crear un tipo de entrada",
+        "operationId": "create_ticket_type_api_v1_events__event_id__ticket_types_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketTypeCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketTypeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/ticket-types/{ticket_type_id}": {
+      "patch": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Editar un tipo de entrada",
+        "description": "Reordenar es un caso particular de edición: el panel envía el nuevo `sort_order` de cada tipo afectado con peticiones sucesivas, mismo patrón que `sponsor_tiers`.",
+        "operationId": "update_ticket_type_api_v1_events__event_id__ticket_types__ticket_type_id__patch",
+        "parameters": [
+          {
+            "name": "ticket_type_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ticket Type Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketTypeUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketTypeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Borrar un tipo de entrada",
+        "description": "Falla con 409 si tiene códigos de descuento o pagos asociados; desactívalo (`is_active = false`) en su lugar.",
+        "operationId": "delete_ticket_type_api_v1_events__event_id__ticket_types__ticket_type_id__delete",
+        "parameters": [
+          {
+            "name": "ticket_type_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ticket Type Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/discount-codes": {
+      "get": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Listar los códigos de descuento de un evento",
+        "description": "`used_count` es siempre derivado de los pagos, nunca un contador guardado.",
+        "operationId": "list_discount_codes_api_v1_events__event_id__discount_codes_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DiscountCodeResponse"
+                  },
+                  "title": "Response List Discount Codes Api V1 Events  Event Id  Discount Codes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Crear un código de descuento",
+        "operationId": "create_discount_code_api_v1_events__event_id__discount_codes_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscountCodeCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscountCodeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/discount-codes/{discount_code_id}": {
+      "patch": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Editar un código de descuento",
+        "operationId": "update_discount_code_api_v1_events__event_id__discount_codes__discount_code_id__patch",
+        "parameters": [
+          {
+            "name": "discount_code_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Discount Code Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscountCodeUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscountCodeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Borrar un código de descuento",
+        "description": "Falla con 409 si el código tiene pagos asociados.",
+        "operationId": "delete_discount_code_api_v1_events__event_id__discount_codes__discount_code_id__delete",
+        "parameters": [
+          {
+            "name": "discount_code_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Discount Code Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/payments": {
+      "get": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Listar los pagos de un evento",
+        "description": "Estado, importes y reembolsos en curso de cada pago, con el motivo de «sin reembolso automático» cuando aplica — siempre derivado, nunca una columna guardada.",
+        "operationId": "list_payments_api_v1_events__event_id__payments_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PaymentListItem"
+                  },
+                  "title": "Response List Payments Api V1 Events  Event Id  Payments Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/payments/{payment_id}/refund": {
+      "post": {
+        "tags": [
+          "pagos"
+        ],
+        "summary": "Reembolsar un pago, total o parcialmente",
+        "description": "Escribe la intención en el mismo outbox que el reembolso automático de una cancelación: nunca llama a Stripe en esta petición, así que un importe superior al pendiente falla con 409 antes de cualquier llamada de red. Un reembolso total revoca siempre la entrada, ignorando `revoke_ticket`; uno parcial no revoca salvo que se pida explícitamente.",
+        "operationId": "refund_payment_api_v1_events__event_id__payments__payment_id__refund_post",
+        "parameters": [
+          {
+            "name": "payment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Payment Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundAcceptedResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/events/{slug}/ticket-types": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Listar los tipos de entrada vendibles ahora mismo",
+        "description": "Solo los tipos vigentes en este instante (activos y dentro de su ventana de venta): el paso de compra del formulario público los usa para ofrecer la selección antes de pedir un presupuesto. Sin Turnstile: no hay nada que enumerar, es la misma información que ya expone el propio evento publicado.",
+        "operationId": "list_public_ticket_types_api_v1_public_events__slug__ticket_types_get",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublicTicketTypeResponse"
+                  },
+                  "title": "Response List Public Ticket Types Api V1 Public Events  Slug  Ticket Types Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/events/{slug}/checkout/quote": {
+      "post": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Presupuesto de compra de una entrada",
+        "description": "Calcula el precio final de un tipo de entrada, con o sin código de descuento. Nunca reserva cupo ni consume el uso de un código: es puramente informativo.",
+        "operationId": "quote_checkout_api_v1_public_events__slug__checkout_quote_post",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutQuoteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutQuoteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/events/{slug}/checkout": {
+      "post": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Comprar una entrada de un evento de pago",
+        "description": "Inscripción + selección de tipo de entrada y código de descuento en una sola petición. Dos transacciones internas (T1 con bloqueos, sin red; T2 con red, sin bloqueos): nunca una llamada a Stripe con filas bloqueadas. Respuesta siempre con la misma forma, para no revelar si el email ya estaba inscrito.",
+        "operationId": "start_checkout_api_v1_public_events__slug__checkout_post",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutStartRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutStartResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/events/{slug}/checkout/{registration_id}/status": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Estado real de un pago, para la pantalla de retorno",
+        "description": "Consulta lo persistido, nunca da el pago por confirmado por el mero retorno desde Stripe: el webhook es la única fuente de verdad.",
+        "operationId": "get_checkout_status_api_v1_public_events__slug__checkout__registration_id__status_get",
+        "parameters": [
+          {
+            "name": "registration_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Registration Id"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/webhooks/stripe": {
+      "post": {
+        "tags": [
+          "webhooks"
+        ],
+        "summary": "Webhook de Stripe (cuentas conectadas)",
+        "description": "Único endpoint de webhooks de la instalación, registrado en Stripe con `connect: true`. Verifica la firma sobre el cuerpo crudo antes de parsear nada. Sin esquema de cuerpo: no genera ningún modelo tipado en el cliente.",
+        "operationId": "stripe_webhook_api_v1_webhooks_stripe_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/organizations/me/legal-pages": {
       "get": {
         "tags": [
@@ -4761,6 +5627,161 @@
         "title": "CheckSlugResponse",
         "description": "Disponibilidad de un identificador de organización."
       },
+      "CheckoutQuoteRequest": {
+        "properties": {
+          "ticket_type_id": {
+            "type": "string",
+            "title": "Ticket Type Id"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 60
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "turnstile_token": {
+            "type": "string",
+            "title": "Turnstile Token",
+            "description": "Token del widget de Turnstile"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ticket_type_id",
+          "turnstile_token"
+        ],
+        "title": "CheckoutQuoteRequest",
+        "description": "Petición de presupuesto público: nunca reserva cupo ni consume un uso."
+      },
+      "CheckoutQuoteResponse": {
+        "properties": {
+          "price_cents": {
+            "type": "integer",
+            "title": "Price Cents"
+          },
+          "discount_cents": {
+            "type": "integer",
+            "title": "Discount Cents"
+          },
+          "total_cents": {
+            "type": "integer",
+            "title": "Total Cents"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          }
+        },
+        "type": "object",
+        "required": [
+          "price_cents",
+          "discount_cents",
+          "total_cents",
+          "currency"
+        ],
+        "title": "CheckoutQuoteResponse",
+        "description": "Presupuesto de compra: precio de lista, descuento aplicado y total."
+      },
+      "CheckoutStartRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "full_name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Full Name"
+          },
+          "answers": {
+            "items": {
+              "$ref": "#/components/schemas/RegistrationAnswerInputPublic"
+            },
+            "type": "array",
+            "title": "Answers"
+          },
+          "data_processing_accepted": {
+            "type": "boolean",
+            "title": "Data Processing Accepted",
+            "description": "Consentimiento de tratamiento de datos, obligatorio para inscribirse."
+          },
+          "marketing_accepted": {
+            "type": "boolean",
+            "title": "Marketing Accepted",
+            "default": false
+          },
+          "recording_accepted": {
+            "type": "boolean",
+            "title": "Recording Accepted",
+            "default": false
+          },
+          "ticket_type_id": {
+            "type": "string",
+            "title": "Ticket Type Id"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 60
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "turnstile_token": {
+            "type": "string",
+            "title": "Turnstile Token",
+            "description": "Token del widget de Turnstile"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "full_name",
+          "data_processing_accepted",
+          "ticket_type_id",
+          "turnstile_token"
+        ],
+        "title": "CheckoutStartRequest",
+        "description": "Formulario público de compra: inscripción + selección de tipo de\nentrada y código de descuento opcional, en una sola petición (paso único\ndel embudo, decisión de producto de la fase 6)."
+      },
+      "CheckoutStartResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "checkout_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkout Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message",
+          "checkout_url"
+        ],
+        "title": "CheckoutStartResponse",
+        "description": "Respuesta siempre con la misma forma, para no filtrar si el\nemail ya estaba inscrito: `checkout_url` es `null` cuando la\ninscripción existente no es pagable ahora mismo."
+      },
       "ConfirmWaitlistPromotionRequest": {
         "properties": {
           "token": {
@@ -4908,6 +5929,264 @@
         ],
         "title": "DeleteRegistrationRequest",
         "description": "Cuerpo de `DELETE /admin/registrations/by-email`."
+      },
+      "DiscountCodeCreate": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Code"
+          },
+          "discount_type": {
+            "type": "string",
+            "enum": [
+              "percentage",
+              "fixed_amount"
+            ],
+            "title": "Discount Type"
+          },
+          "discount_value": {
+            "type": "integer",
+            "title": "Discount Value"
+          },
+          "max_uses": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Uses"
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
+          },
+          "ticket_type_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticket Type Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "discount_type",
+          "discount_value"
+        ],
+        "title": "DiscountCodeCreate",
+        "description": "Alta de un código de descuento desde el panel de organizador.\n\n`code` se normaliza a mayúsculas en el servicio, no aquí: la normalización\ndebe aplicarse igual en el alta y en la edición parcial, y `model_validator`\nde un `Create` no puede compartirse con la clase `Update` sin duplicarlo."
+      },
+      "DiscountCodeResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "discount_type": {
+            "type": "string",
+            "enum": [
+              "percentage",
+              "fixed_amount"
+            ],
+            "title": "Discount Type"
+          },
+          "discount_value": {
+            "type": "integer",
+            "title": "Discount Value"
+          },
+          "max_uses": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Uses"
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
+          },
+          "ticket_type_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticket Type Id"
+          },
+          "used_count": {
+            "type": "integer",
+            "title": "Used Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "discount_type",
+          "discount_value",
+          "max_uses",
+          "valid_from",
+          "valid_until",
+          "ticket_type_id",
+          "used_count"
+        ],
+        "title": "DiscountCodeResponse",
+        "description": "Código de descuento tal como lo ve el panel, con su uso derivado."
+      },
+      "DiscountCodeUpdate": {
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 60,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "discount_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "percentage",
+                  "fixed_amount"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discount Type"
+          },
+          "discount_value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discount Value"
+          },
+          "max_uses": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Uses"
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
+          },
+          "ticket_type_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticket Type Id"
+          }
+        },
+        "type": "object",
+        "title": "DiscountCodeUpdate",
+        "description": "Edición parcial de un código de descuento.\n\n`discount_type`/`discount_value` se validan juntos en el servicio si se\nedita solo uno de los dos: el esquema no conoce el valor ya guardado del\notro campo."
       },
       "DomainCreate": {
         "properties": {
@@ -5123,6 +6402,13 @@
             "type": "boolean",
             "title": "Email Verification Required",
             "default": true
+          },
+          "payment_checkout_window_minutes": {
+            "type": "integer",
+            "maximum": 1439.0,
+            "minimum": 30.0,
+            "title": "Payment Checkout Window Minutes",
+            "default": 30
           }
         },
         "type": "object",
@@ -5352,6 +6638,10 @@
           "email_verification_required": {
             "type": "boolean",
             "title": "Email Verification Required"
+          },
+          "payment_checkout_window_minutes": {
+            "type": "integer",
+            "title": "Payment Checkout Window Minutes"
           }
         },
         "type": "object",
@@ -5373,7 +6663,8 @@
           "online_url",
           "capacity",
           "registration_mode",
-          "email_verification_required"
+          "email_verification_required",
+          "payment_checkout_window_minutes"
         ],
         "title": "EventResponse",
         "description": "Evento tal y como lo ve el panel de administración."
@@ -5933,6 +7224,19 @@
               }
             ],
             "title": "Email Verification Required"
+          },
+          "payment_checkout_window_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1439.0,
+                "minimum": 30.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Checkout Window Minutes"
           }
         },
         "type": "object",
@@ -6706,6 +8010,213 @@
         ],
         "title": "Page[SponsorTierResponse]"
       },
+      "PaymentListItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "registration_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registration Id"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "ticket_type_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticket Type Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "paid",
+              "refunded",
+              "partially_refunded",
+              "expired"
+            ],
+            "title": "Status"
+          },
+          "amount_cents": {
+            "type": "integer",
+            "title": "Amount Cents"
+          },
+          "discount_cents": {
+            "type": "integer",
+            "title": "Discount Cents"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "refunded_cents": {
+            "type": "integer",
+            "title": "Refunded Cents"
+          },
+          "paid_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paid At"
+          },
+          "no_auto_refund_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "evento_ya_empezado",
+                  "entrada_usada",
+                  "fuera_de_plazo"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Auto Refund Reason"
+          },
+          "refunds": {
+            "items": {
+              "$ref": "#/components/schemas/PaymentRefundOut"
+            },
+            "type": "array",
+            "title": "Refunds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "registration_id",
+          "email",
+          "ticket_type_name",
+          "status",
+          "amount_cents",
+          "discount_cents",
+          "currency",
+          "refunded_cents",
+          "paid_at",
+          "no_auto_refund_reason",
+          "refunds"
+        ],
+        "title": "PaymentListItem",
+        "description": "Un pago del evento, con sus reembolsos (si los tiene) y el motivo por\nel que no se reembolsó automáticamente al cancelarse, si aplica.\n\n`no_auto_refund_reason` es siempre derivado en el momento de la lectura\n(nunca una columna guardada, mismo criterio que `used_count` de un código\nde descuento): deja de mostrarse en cuanto exista cualquier reembolso\npara el pago, automático o manual."
+      },
+      "PaymentRefundOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "amount_cents": {
+            "type": "integer",
+            "title": "Amount Cents"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "cancellation",
+              "manual"
+            ],
+            "title": "Reason"
+          },
+          "revoke_ticket": {
+            "type": "boolean",
+            "title": "Revoke Ticket"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "submitted",
+              "succeeded",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "amount_cents",
+          "reason",
+          "revoke_ticket",
+          "status",
+          "error",
+          "attempts"
+        ],
+        "title": "PaymentRefundOut",
+        "description": "Una intención de reembolso del outbox, tal como la ve el panel."
+      },
+      "PaymentStatusResponse": {
+        "properties": {
+          "registration_status": {
+            "type": "string",
+            "title": "Registration Status"
+          },
+          "payment_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "registration_status",
+          "payment_status"
+        ],
+        "title": "PaymentStatusResponse",
+        "description": "Estado real de un pago, para la pantalla de retorno — nunca se da el\npago por confirmado por el mero retorno desde Stripe."
+      },
       "Permission": {
         "type": "string",
         "enum": [
@@ -6724,7 +8235,9 @@
           "tickets:read",
           "tickets:write",
           "sponsors:read",
-          "sponsors:write"
+          "sponsors:write",
+          "payments:read",
+          "payments:write"
         ],
         "title": "Permission",
         "description": "Permisos disponibles en la fase 0."
@@ -7592,6 +9105,91 @@
         "title": "PublicSponsorTier",
         "description": "Nivel de patrocinio con sus patrocinadores, para el bloque público."
       },
+      "PublicTicketTypeResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "price_cents": {
+            "type": "integer",
+            "title": "Price Cents"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "price_cents",
+          "currency"
+        ],
+        "title": "PublicTicketTypeResponse",
+        "description": "Tipo de entrada tal como lo ve el formulario público de compra.\n\nSolo se listan los vigentes en el instante de la consulta (`is_active` y\ndentro de la ventana de venta, `service.validar_tipo_vigente`): un tipo\nfuera de ventana no debe ofrecerse para elegir, aunque su `checkout/quote`\nya lo rechace igualmente si se fuerza el `ticket_type_id` a mano."
+      },
+      "RefundAcceptedResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "in_progress",
+            "title": "Status",
+            "default": "in_progress"
+          },
+          "refund_id": {
+            "type": "string",
+            "title": "Refund Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "refund_id"
+        ],
+        "title": "RefundAcceptedResponse",
+        "description": "El reembolso no se ha ejecutado todavía: queda `pending` en el outbox\nhasta que la tarea programada lo procese contra Stripe."
+      },
+      "RefundRequest": {
+        "properties": {
+          "amount_cents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Cents"
+          },
+          "revoke_ticket": {
+            "type": "boolean",
+            "title": "Revoke Ticket",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "RefundRequest",
+        "description": "Reembolso manual desde el panel. `amount_cents` ausente = importe\npendiente íntegro (reembolso total). `revoke_ticket` solo tiene efecto en\nun reembolso parcial: uno total siempre revoca (Decisión #15 del plan)."
+      },
       "RegisterRequest": {
         "properties": {
           "email": {
@@ -7652,6 +9250,37 @@
         ],
         "title": "RegistrationAnswerInput",
         "description": "Respuesta a una pregunta personalizada del formulario de inscripción."
+      },
+      "RegistrationAnswerInputPublic": {
+        "properties": {
+          "question_id": {
+            "type": "string",
+            "title": "Question Id"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question_id"
+        ],
+        "title": "RegistrationAnswerInputPublic",
+        "description": "Copia de `registrations.schemas.RegistrationAnswerInput`: los módulos\nde dominio no se importan schemas entre sí (mismo criterio que\n`payments/service.py` no importa `registrations`), solo el tipo de datos\nque necesita `checkout_service` para reenviarlo tal cual."
       },
       "RegistrationAnswerOut": {
         "properties": {
@@ -7735,6 +9364,7 @@
             "enum": [
               "pending_verification",
               "pending_approval",
+              "pending_payment",
               "confirmed",
               "rejected",
               "cancelled",
@@ -7888,6 +9518,7 @@
             "enum": [
               "pending_verification",
               "pending_approval",
+              "pending_payment",
               "confirmed",
               "rejected",
               "cancelled",
@@ -8216,6 +9847,10 @@
             "type": "integer",
             "title": "Pending Approval"
           },
+          "pending_payment": {
+            "type": "integer",
+            "title": "Pending Payment"
+          },
           "confirmed": {
             "type": "integer",
             "title": "Confirmed"
@@ -8260,6 +9895,7 @@
           "initiated",
           "verified",
           "pending_approval",
+          "pending_payment",
           "confirmed",
           "rejected",
           "cancelled",
@@ -9213,6 +10849,88 @@
         "title": "SponsorUpdate",
         "description": "Campos editables de un patrocinador. Parcial: la exclusividad de la\naportación se revalida en el servicio contra el estado ya guardado."
       },
+      "StripeAccountResponse": {
+        "properties": {
+          "connected": {
+            "type": "boolean",
+            "title": "Connected"
+          },
+          "charges_enabled": {
+            "type": "boolean",
+            "title": "Charges Enabled"
+          },
+          "payouts_enabled": {
+            "type": "boolean",
+            "title": "Payouts Enabled"
+          },
+          "details_submitted": {
+            "type": "boolean",
+            "title": "Details Submitted"
+          },
+          "connected_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connected At"
+          },
+          "deauthorized_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deauthorized At"
+          },
+          "last_synced_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Synced At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "connected",
+          "charges_enabled",
+          "payouts_enabled",
+          "details_submitted",
+          "connected_at",
+          "deauthorized_at",
+          "last_synced_at"
+        ],
+        "title": "StripeAccountResponse",
+        "description": "Estado persistido de la cuenta Stripe de la organización.\n\n`connected` distingue «hay una fila activa» (aunque `charges_enabled`\ntodavía sea `False`, p. ej. durante el KYC) de «no hay ninguna cuenta o\nla única que hubo está desautorizada» — en ese segundo caso el resto de\ncampos no tiene sentido y el frontend ofrece directamente el botón de\nconectar."
+      },
+      "StripeOnboardingResponse": {
+        "properties": {
+          "onboarding_url": {
+            "type": "string",
+            "title": "Onboarding Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "onboarding_url"
+        ],
+        "title": "StripeOnboardingResponse",
+        "description": "URL de un solo uso del `AccountLink`. Nunca se persiste ni se cachea."
+      },
       "SubmitRegistrationRequest": {
         "properties": {
           "email": {
@@ -9484,6 +11202,297 @@
         ],
         "title": "TicketSearchItem",
         "description": "Fila del respaldo de búsqueda manual."
+      },
+      "TicketTypeCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "price_cents": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Price Cents"
+          },
+          "currency": {
+            "type": "string",
+            "maxLength": 3,
+            "minLength": 3,
+            "title": "Currency",
+            "default": "eur"
+          },
+          "max_quantity": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Quantity"
+          },
+          "sales_start_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sales Start At"
+          },
+          "sales_end_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sales End At"
+          },
+          "sort_order": {
+            "type": "integer",
+            "title": "Sort Order",
+            "default": 0
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "price_cents"
+        ],
+        "title": "TicketTypeCreate",
+        "description": "Alta de un tipo de entrada desde el panel de organizador."
+      },
+      "TicketTypeResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "price_cents": {
+            "type": "integer",
+            "title": "Price Cents"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "max_quantity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Quantity"
+          },
+          "sales_start_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sales Start At"
+          },
+          "sales_end_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sales End At"
+          },
+          "sort_order": {
+            "type": "integer",
+            "title": "Sort Order"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "price_cents",
+          "currency",
+          "max_quantity",
+          "sales_start_at",
+          "sales_end_at",
+          "sort_order",
+          "is_active"
+        ],
+        "title": "TicketTypeResponse",
+        "description": "Tipo de entrada tal como lo ve el panel de organizador."
+      },
+      "TicketTypeUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "price_cents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Cents"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 3,
+                "minLength": 3
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "max_quantity": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Quantity"
+          },
+          "sales_start_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sales Start At"
+          },
+          "sales_end_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sales End At"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "title": "TicketTypeUpdate",
+        "description": "Edición parcial de un tipo de entrada."
       },
       "TokenResponse": {
         "properties": {

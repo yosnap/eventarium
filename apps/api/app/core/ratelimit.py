@@ -76,6 +76,15 @@ COOKIE_CONSENT_POR_IP = 30
 AUDIT_LOG_POR_IP = 30
 RGPD_EXPORT_POR_IP = 10
 RGPD_DELETE_POR_IP = 10
+# Sincronización manual de Stripe (fase 6 del PRD): es la única ruta del
+# panel que provoca una llamada de red a Stripe por petición, así que lleva
+# un tope propio distinto del resto de escrituras de pagos.
+STRIPE_SYNC_POR_IP = 20
+# Presupuesto público de compra (fase 6 del PRD, fase 3 de trabajo): sin
+# Turnstile ni cuenta detrás, es el candidato más fácil a enumerar códigos de
+# descuento por fuerza bruta — mismo tope que `check-slug`, otro endpoint de
+# solo lectura sin más protección que este límite y Turnstile.
+CHECKOUT_QUOTE_POR_IP = 30
 
 VENTANA_SEGUNDOS = 60
 
