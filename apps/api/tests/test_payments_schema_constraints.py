@@ -88,9 +88,7 @@ async def test_una_organizacion_puede_reconectar_tras_desconectar_su_cuenta(
 
     async with SessionMaintenance() as session:
         total = await session.scalar(
-            text(
-                "SELECT count(*) FROM organization_stripe_accounts WHERE organization_id = :id"
-            ),
+            text("SELECT count(*) FROM organization_stripe_accounts WHERE organization_id = :id"),
             {"id": organizacion.id},
         )
     assert total == 2

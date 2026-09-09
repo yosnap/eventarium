@@ -102,9 +102,7 @@ async def test_un_update_directo_en_base_de_datos_con_29_lo_rechaza_el_check(
     with pytest.raises((DBAPIError, IntegrityError)):
         async with SessionMaintenance() as session:
             await session.execute(
-                text(
-                    "UPDATE events SET payment_checkout_window_minutes = 29 WHERE id = :id"
-                ),
+                text("UPDATE events SET payment_checkout_window_minutes = 29 WHERE id = :id"),
                 {"id": evento_id},
             )
             await session.commit()

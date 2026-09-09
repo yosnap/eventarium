@@ -52,9 +52,9 @@ _CAMPOS_POR_TIPO: dict[str, tuple[str, ...]] = {
 
 def _proyectar_payload(evento_dict: dict[str, object]) -> dict[str, object]:
     datos = evento_dict["data"]["object"]  # type: ignore[index]
-    tipo = evento_dict["type"]
+    tipo = str(evento_dict["type"])
     proyeccion: dict[str, object] = {"id": datos.get("id")}
-    for campo in _CAMPOS_POR_TIPO.get(tipo, ()):  # type: ignore[arg-type]
+    for campo in _CAMPOS_POR_TIPO.get(tipo, ()):
         proyeccion[campo] = datos.get(campo)
     return proyeccion
 

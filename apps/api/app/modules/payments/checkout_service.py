@@ -38,7 +38,7 @@ from app.modules.events.models import Event
 from app.modules.payments import repository
 from app.modules.payments import service as payments_service
 from app.modules.payments import stripe_client as stripe_gateway
-from app.modules.payments.models import EventPayment
+from app.modules.payments.models import EventPayment, OrganizationStripeAccount
 from app.modules.registrations import service as registrations_service
 from app.modules.registrations.models import EventRegistration
 from app.modules.registrations.schemas import RegistrationAnswerInput
@@ -65,7 +65,9 @@ class ResultadoCompra:
     checkout_url: str | None
 
 
-async def _obtener_cuenta_operativa(session: AsyncSession, organization_id: uuid.UUID):
+async def _obtener_cuenta_operativa(
+    session: AsyncSession, organization_id: uuid.UUID
+) -> OrganizationStripeAccount:
     cuenta = await repository.get_cuenta_activa(session, organization_id)
     if cuenta is None or not cuenta.charges_enabled:
         raise ConflictError("Esta organización todavía no puede cobrar entradas.")

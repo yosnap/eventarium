@@ -372,12 +372,13 @@ async def tiene_pago_confirmado(
 async def get_payment_by_registration(
     session: AsyncSession, organization_id: uuid.UUID, registration_id: uuid.UUID
 ) -> EventPayment | None:
-    return await session.scalar(
+    resultado: EventPayment | None = await session.scalar(
         select(EventPayment).where(
             EventPayment.organization_id == organization_id,
             EventPayment.registration_id == registration_id,
         )
     )
+    return resultado
 
 
 async def pago_reactivable(
@@ -454,11 +455,12 @@ async def get_payment_by_checkout_session_id(
     fase 6): **nunca** por `metadata` ni `client_reference_id`, que el
     organizador de una cuenta Connect Standard controla desde su propio
     Dashboard."""
-    return await session.scalar(
+    resultado: EventPayment | None = await session.scalar(
         select(EventPayment).where(
             EventPayment.stripe_checkout_session_id == stripe_checkout_session_id
         )
     )
+    return resultado
 
 
 async def get_payment_by_payment_intent_id(
@@ -467,21 +469,23 @@ async def get_payment_by_payment_intent_id(
     """Único punto de búsqueda de `charge.refunded` (hallazgo #2, ampliado en
     la fase 5 de trabajo): **nunca** por `metadata`, que el organizador de una
     cuenta Connect Standard controla desde su propio Dashboard."""
-    return await session.scalar(
+    resultado: EventPayment | None = await session.scalar(
         select(EventPayment).where(
             EventPayment.stripe_payment_intent_id == stripe_payment_intent_id
         )
     )
+    return resultado
 
 
 async def get_payment(
     session: AsyncSession, organization_id: uuid.UUID, payment_id: uuid.UUID
 ) -> EventPayment | None:
-    return await session.scalar(
+    resultado: EventPayment | None = await session.scalar(
         select(EventPayment).where(
             EventPayment.id == payment_id, EventPayment.organization_id == organization_id
         )
     )
+    return resultado
 
 
 async def list_payments_for_event(
@@ -588,7 +592,9 @@ async def registrar_evento_recibido(
         )
         .on_conflict_do_nothing(index_elements=["id"])
     )
-    return bool(resultado.rowcount)
+    # `session.execute` de un INSERT devuelve un `CursorResult`, que sí tiene
+    # `rowcount`; los stubs de SQLAlchemy solo tipan el `Result[Any]` genérico.
+    return bool(resultado.rowcount)  # type: ignore[attr-defined]
 
 
 async def registrar_evento_ignorado_sin_cuenta(

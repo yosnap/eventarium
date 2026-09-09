@@ -56,8 +56,7 @@ async def _asegurar_venta_posible(
     settings = get_settings()
     if not settings.payments_enabled:
         raise ConflictError(
-            "No se puede publicar un evento de pago: esta instalación no tiene Stripe "
-            "configurado."
+            "No se puede publicar un evento de pago: esta instalación no tiene Stripe configurado."
         )
 
     cuenta = await payments_repository.get_cuenta_activa(session, organization_id)

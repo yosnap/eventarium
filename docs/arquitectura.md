@@ -262,7 +262,89 @@ días y borra a los 7.
 
 Direct charges sobre Connect Standard: el cargo ocurre en la cuenta del
 organizador, la plataforma nunca custodia dinero. Todas las llamadas al SDK
-pasan por `payments/stripe_client.py`, el único fichero que lo importa.
+pasan por `payments/stripe_client.py`, el único fichero que lo importa
+(`ruff` bloquea `import stripe` en cualquier otro sitio de `app/` con la
+regla `TID251`): así el `acct_id` que viaja a Stripe siempre sale de una fila
+ya resuelta (`organization_stripe_accounts` o `event_payments.
+stripe_account_id`), nunca de un parámetro de cliente, en los tres caminos
+que llaman a Stripe (petición HTTP, webhook, tareas de fondo).
+
+### Flujo de una compra
+
+1. El formulario público (`registration-page.ts`) pide tipo de entrada y
+   código de descuento opcional, valida el precio con
+   `POST /public/events/{slug}/checkout/quote` (informativo, no reserva
+   nada) y envía la compra a `POST /public/events/{slug}/checkout`.
+2. `checkout_service.iniciar_compra` corre en dos transacciones: la primera
+   (con los bloqueos de fila del cupo del tipo de entrada y del uso del
+   código) deja la inscripción en `pending_payment` y hace `commit` antes de
+   llamar a Stripe; la segunda, sin ningún bloqueo abierto, crea la Checkout
+   Session y guarda su `id`/URL. Ninguna llamada de red a Stripe ocurre
+   nunca con una fila bloqueada.
+3. El asistente paga en la página alojada por Stripe (Checkout hosted: el
+   frontend nunca ve un `client_secret` de `PaymentIntent`).
+4. Stripe llama al webhook con `checkout.session.completed`. El handler
+   confirma la inscripción (`confirmed`) y llama a la misma
+   `_enviar_email_por_estado` que usan los demás caminos de confirmación —
+   nunca a `emitir_entrada` directamente desde `payments/` — que emite la
+   entrada y envía el correo con el QR.
+
+### La guarda de pago, en dos capas
+
+Cuatro caminos distintos pueden dejar una inscripción en `confirmed`: el
+alta directa, la verificación de email, la aprobación manual del
+organizador y la promoción de lista de espera. Una guarda puesta en uno solo
+de ellos deja los otros tres regalando entradas en un evento de pago. Por
+eso la guarda vive en dos capas:
+
+- **Capa 1** (`_estado_confirmable`, `registrations/service.py`): invocada
+  desde los dos puntos de `_evaluar_estado_por_capacidad` que devuelven
+  `"confirmed"` (cubre alta, verificación y aprobación) y desde
+  `confirm_waitlist_promotion`. En un evento de pago sin cobro verificado,
+  el estado resultante es `pending_payment`, nunca `confirmed`.
+- **Capa 2**, cinturón de seguridad (`_enviar_email_por_estado`): se niega a
+  emitir una entrada de un evento de pago si no hay un `event_payments` en
+  `paid`. Protege cualquier camino nuevo que se añada más adelante, en el
+  único sitio por el que necesariamente pasa la emisión.
+
+### Webhook: ámbito «cuentas conectadas», sin tenant por `Host`
+
+Todos los endpoints públicos resuelven la organización por el `Host` de la
+petición. Stripe llama a una URL fija (`/api/v1/webhooks/stripe`, bajo el
+mismo `API_PREFIX` que el resto de rutas — no hay ninguna ruta fuera de él),
+sin ese `Host`: es la única ruta de la instalación que no lo usa. El
+endpoint se registra en Stripe con `connect: true` (ámbito *cuentas
+conectadas*) y un único secreto de firma, porque los cuatro eventos que
+consume (`checkout.session.completed`, `charge.refunded`,
+`account.updated`, `account.application.deauthorized`) llegan todos por ese
+ámbito con direct charges. En local: `stripe listen --forward-connect-to
+localhost:8000/api/v1/webhooks/stripe`.
+
+El handler: (a) verifica la firma sobre el raw body antes de parsear nada;
+(b) resuelve la organización a partir de `event.account` contra
+`organization_stripe_accounts`, con `maintenance_session`; (c) localiza el
+pago **solo** por el identificador que emitió la plataforma
+(`stripe_checkout_session_id`/`stripe_payment_intent_id`, nunca por
+`metadata` ni `client_reference_id`, que el organizador controla desde su
+propio Dashboard de una cuenta Standard) y exige que su `organization_id`
+coincida con el resuelto desde `event.account` antes de mutar nada. La
+idempotencia se mide sobre el **proceso**, no sobre la recepción:
+`stripe_webhook_events` guarda el estado (`received`/`processed`/
+`ignored`/`failed`) y una tarea de barrido reencola lo que quedó `received`
+sin terminar de procesarse, para que un evento perdido entre la cola y el
+worker no deje un cobro sin inscripción confirmada.
+
+### Reembolsos: outbox antes de llamar a Stripe
+
+`_cancelar_inscripcion` (reutilizada por la cancelación del organizador, la
+autocancelación pública y el borrado RGPD) toma bloqueos de fila sobre la
+inscripción. Ninguna llamada de red a Stripe puede ocurrir ahí dentro: en su
+lugar, persiste una fila de intención en `event_payment_refunds` y hace
+`commit`. Una tarea de fondo, sin ningún bloqueo abierto, ejecuta el
+reembolso contra Stripe con `idempotency_key` derivada de esa fila ya
+persistida. Un reembolso total revoca la entrada con la `revocar_entrada` ya
+existente de la fase 4; uno parcial no la revoca salvo que el organizador
+marque la casilla explícita del panel.
 
 El webhook (`/api/v1/webhooks/stripe`, ámbito «cuentas conectadas») solo
 gestiona `checkout.session.completed` con `payment_method_types=["card"]`.

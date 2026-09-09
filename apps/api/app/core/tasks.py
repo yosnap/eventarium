@@ -18,7 +18,27 @@ from app.core.cleanup import sweep_unverified_accounts
 from app.core.config import get_settings
 from app.core.email import EmailAttachment, get_email_provider
 from app.core.tenant import base_url_de_organizacion
+
+# Registro de todas las tablas en `Base.metadata` antes de que cualquier tarea
+# haga un `commit`, mismo motivo y mismo patrón que `alembic/env.py`: este
+# módulo se ejecuta como punto de entrada propio (`taskiq worker
+# app.core.tasks:broker`), así que ningún router de `app.main` llega a
+# importarse nunca en el proceso del worker. Sin esto, la primera tarea que
+# haga `flush`/`commit` sobre una fila con una FK hacia una tabla cuyo modelo
+# no se haya importado todavía en *este* proceso falla con
+# `NoReferencedTableError`/`PendingRollbackError` («could not find table
+# 'users'»): SQLAlchemy resuelve las FK declaradas por nombre de tabla contra
+# `Base.metadata`, que solo se rellena importando la clase del modelo.
+from app.modules.events import models as _event_models  # noqa: F401
+from app.modules.legal import models as _legal_models  # noqa: F401
+from app.modules.organizations import models as _organization_models  # noqa: F401
+from app.modules.payments import models as _payment_models  # noqa: F401
+from app.modules.registrations import models as _registration_models  # noqa: F401
+from app.modules.roles import models as _role_models  # noqa: F401
+from app.modules.sponsors import models as _sponsor_models  # noqa: F401
+from app.modules.tickets import models as _ticket_models  # noqa: F401
 from app.modules.tickets.service import generar_imagen_qr
+from app.modules.users import models as _user_models  # noqa: F401
 
 _settings = get_settings()
 

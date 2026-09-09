@@ -299,6 +299,80 @@ publicación del evento (`published` + `public`) ya se aplica al resolver el
 evento antes de construir este bloque, así que un borrador u oculto no expone
 tampoco sus patrocinadores.
 
+### Pagos con Stripe Connect, tipos de entrada, descuentos y reembolsos (fase 6 del PRD)
+
+Seis tablas nuevas. Cinco de dominio, con RLS y `UNIQUE(id, organization_id)`
+igual que el resto del esquema, más una de instalación:
+
+- **`organization_stripe_accounts`**: una fila por cuenta Stripe Connect
+  conectada. La unicidad no es `UNIQUE(organization_id)` sino un índice único
+  **parcial** `WHERE deauthorized_at IS NULL`: así una organización que
+  desconecta su cuenta (`account.application.deauthorized`) puede volver a
+  conectarse sin tocar la base de datos a mano, y la fila antigua sobrevive
+  para poder seguir reembolsando los pagos cobrados con ella —
+  `event_payments` guarda su propio `stripe_account_id`, así que el
+  reembolso se resuelve por la cuenta **del pago**, no por la cuenta activa
+  actual de la organización.
+- **`event_ticket_types`**: nombre, precio en céntimos, `currency` fija por
+  evento, cupo (`max_quantity` nullable = sin límite) y ventana de venta.
+- **`event_discount_codes`**: código único por evento (comparado en
+  mayúsculas), tipo de descuento, límite de usos total (sin límite por
+  persona: las inscripciones no requieren cuenta de usuario). **Sin columna
+  `used_count`**: el consumo se deriva con un `COUNT` sobre
+  `event_payments` en los estados consumibles, ejecutado con la fila del
+  código bloqueada (`FOR UPDATE`) — un contador que la compra incrementa y el
+  barrido de caducados decrementa se desajusta en cuanto dos ejecuciones del
+  cron se solapan, y el derivado no puede desajustarse porque sale de la
+  misma tabla que decide si se cobró. El cupo de `event_ticket_types` se
+  deriva igual.
+- **`event_payments`**: registro de cada intento de compra
+  (`registration_id` nullable, `ondelete SET NULL` para que el borrado RGPD
+  no falle), con `stripe_account_id` propio, `stripe_checkout_session_id` y
+  `stripe_payment_intent_id` (nullable hasta que el pago completa),
+  importes en céntimos y `status`
+  (`pending`/`paid`/`refunded`/`partially_refunded`/`expired`).
+- **`event_payment_refunds`**: el outbox de reembolsos — la intención
+  persistida **antes** de llamar a Stripe (`payment_id`, importe, motivo,
+  `revoke_ticket`, `status`), para que ninguna llamada de red ocurra con un
+  bloqueo de fila abierto y para que un reembolso no pueda perderse entre la
+  respuesta de Stripe y la escritura en base de datos.
+- **`stripe_webhook_events`** (instalación, sin RLS): antirreplay del
+  webhook, con `REVOKE ALL ... FROM app_user` — solo `app_maintainer` (el
+  endpoint de webhooks y la tarea de fondo) lee/escribe, mismo patrón que
+  `audit_log`/`cookie_consents` de la fase 5. Su `payload` **no es el evento
+  crudo de Stripe**: es una proyección con lista blanca de los campos que el
+  handler procesa (nunca `customer_details.email` ni ningún otro dato
+  personal), y una tarea diaria purga las filas con más de
+  `stripe_webhook_retention_days` (90 por defecto).
+
+**`pending_payment` es un estado nuevo de `EventRegistration` que cuenta
+como plaza reservada.** El flujo es: formulario público → `pending_payment`
+→ Checkout Session → webhook `checkout.session.completed` → `confirmed`.
+Si `pending_payment` no contara para el aforo, varias personas podrían abrir
+Checkout a la vez sobre la última plaza y todas pagar. Por eso
+`count_reserved_registrations` incluye `pending_payment` cuya ventana no
+haya expirado (`payment_expires_at`), igual que ya hacía con una promoción
+de lista de espera vigente, y `_cancelar_inscripcion` libera esa misma
+condición al expirar. La ventana de pago es la columna
+`events.payment_checkout_window_minutes` (`NOT NULL DEFAULT 30`, `CHECK
+BETWEEN 30 AND 1439`) — por evento, no una variable de entorno: el aforo y
+la fila que lo retiene son ambos de nivel evento, y un pago solo afecta a un
+tipo de entrada.
+
+**La revocación de una entrada es la de la fase 4, reutilizada, no una
+nueva.** `event_tickets.revoked_at` ya existía; el reembolso total llama a
+la `revocar_entrada` ya existente en vez de añadir un segundo estado de
+validez que el escáner tendría que consultar por separado. Un reembolso
+parcial no revoca salvo que el organizador marque la casilla explícita del
+panel — es un ajuste de precio, no una anulación.
+
+**Dinero en céntimos, `currency` fija por evento.** Enteros, nunca `float`
+ni `Numeric` con decimales libres: es lo que espera la API de Stripe y
+elimina cualquier desajuste de redondeo entre lo que la plataforma calcula
+(precio − descuento) y lo que Stripe cobra. `currency` es fija por evento
+para que dos tipos de entrada en divisas distintas no puedan compartir una
+misma Checkout Session.
+
 ### Páginas legales, cookies y consentimientos (fase 5 del PRD)
 
 Las cuatro páginas legales (`legal_notice_content`, `privacy_policy_content`,
