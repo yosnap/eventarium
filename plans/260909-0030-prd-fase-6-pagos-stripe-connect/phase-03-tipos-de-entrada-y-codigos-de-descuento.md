@@ -1,7 +1,7 @@
 ---
 phase: 3
 title: "Fase 3: Tipos de entrada, códigos de descuento y cálculo de precio"
-status: pending
+status: completed
 priority: P1
 effort: "2-2.5d"
 dependencies: [2]
@@ -129,40 +129,49 @@ Cambios respecto a la versión anterior de esta fase:
 
 ## Success Criteria
 
-- [ ] Un organizador crea 3 tipos de entrada con precios, cupos y ventanas de
+- [x] Un organizador crea 3 tipos de entrada con precios, cupos y ventanas de
       venta distintas, los reordena, y el orden se refleja en el panel y en el
-      formulario público
-- [ ] Un tipo fuera de su ventana de venta no se ofrece en el formulario
-      público y su presupuesto se rechaza
-- [ ] El cálculo de precio tiene **una sola** implementación: `grep` no
+      formulario público — `test_payments_ticket_types_router.py::test_crear_reordenar_y_listar_tipos_de_entrada`
+- [x] Un tipo fuera de su ventana de venta no se ofrece en el formulario
+      público y su presupuesto se rechaza — `test_payments_checkout_quote_public.py::test_tipo_fuera_de_ventana_de_venta_rechaza_el_presupuesto`
+- [x] El cálculo de precio tiene **una sola** implementación: `grep` no
       encuentra ninguna otra multiplicación por el porcentaje ni resta del
       importe fijo en `app/modules/payments/` ni en `app/modules/registrations/`
-- [ ] Un descuento `fixed_amount` mayor que el precio produce total 0, nunca
-      negativo; un `percentage` de 100 produce 0 — test unitario sobre las
-      funciones puras
-- [ ] Un código caducado, agotado, inexistente o asociado a otro tipo de
+      — verificado con `grep -rn "discount_value\|price_cents \*\|// 100"`,
+      única ocurrencia en `service.calcular_precio_final`
+- [x] Un descuento `fixed_amount` mayor que el precio produce total 0, nunca
+      negativo; un `percentage` de 100 produce 0 — `test_payments_pricing.py`
+      (`test_importe_fijo_mayor_que_el_precio_da_cero_nunca_negativo`,
+      `test_porcentaje_100_da_cero`)
+- [x] Un código caducado, agotado, inexistente o asociado a otro tipo de
       entrada produce **un mensaje único de cara al público** («este código no
       es válido para esta entrada») con el motivo exacto solo en el log del
-      servidor — cuatro casos, un solo mensaje visible
-- [ ] El presupuesto tiene `limit_per_ip` y Turnstile; superar el límite
-      devuelve 429 — test explícito
-- [ ] Pedir 50 presupuestos sobre un código de 1 uso no consume ese uso: el
+      servidor — `test_payments_checkout_quote_public.py::test_codigo_agotado_caducado_inexistente_y_de_otro_tipo_dan_el_mismo_mensaje`
+- [x] El presupuesto tiene `limit_per_ip` y Turnstile; superar el límite
+      devuelve 429 — `test_payments_checkout_quote_public.py::test_el_presupuesto_tiene_limite_de_peticiones_por_ip`
+- [x] Pedir 50 presupuestos sobre un código de 1 uso no consume ese uso: el
       `used_count` derivado sigue en 0 porque no se ha creado ningún
-      `event_payments` — test explícito
-- [ ] `used_count` de la respuesta del panel coincide siempre con el número de
+      `event_payments` — `test_payments_checkout_quote_public.py::test_50_presupuestos_sobre_un_codigo_de_un_uso_no_lo_consumen`
+- [x] `used_count` de la respuesta del panel coincide siempre con el número de
       `event_payments` en estado consumible, incluso tras expirar un pago:
       un pago `expired` **deja de contar** sin que nadie decremente nada
-      (hallazgo #19) — test con un pago llevado a `expired`
-- [ ] Borrar un tipo de entrada con códigos o pagos asociados devuelve 409 con
-      mensaje claro; desactivarlo (`is_active = false`) sí funciona
-- [ ] Un código de descuento no puede apuntar a un `ticket_type_id` de otra
-      organización — test de escritura cruzada
-- [ ] Las pantallas de tipos y de códigos solo aparecen en un evento `paid`
-- [ ] El orden de adquisición de bloqueos está documentado en el docstring del
-      módulo de pagos y coincide con el que ya usan los caminos de
-      cancelación existentes
-- [ ] Cero violaciones de axe en ambas pantallas
-- [ ] `openapi.json` y el cliente TypeScript generado al día
+      (hallazgo #19) — `test_payments_discount_codes_router.py::test_used_count_es_derivado_y_no_una_columna`
+- [x] Borrar un tipo de entrada con códigos o pagos asociados devuelve 409 con
+      mensaje claro; desactivarlo (`is_active = false`) sí funciona —
+      `test_payments_ticket_types_router.py::test_borrar_tipo_de_entrada_con_codigo_asociado_devuelve_409_no_500`
+- [x] Un código de descuento no puede apuntar a un `ticket_type_id` de otra
+      organización — `test_payments_rls_isolation.py::test_no_se_puede_crear_un_codigo_de_descuento_con_tipo_de_entrada_ajeno`
+      (fase 2, ya cubierto) y `test_payments_discount_codes_router.py::test_no_se_puede_crear_un_codigo_con_tipo_de_entrada_de_otro_evento`
+      (mismo tenant, evento distinto)
+- [x] Las pantallas de tipos y de códigos solo aparecen en un evento `paid` —
+      `event-form.spec.ts` (dos tests: `registration_mode` `free` no las
+      muestra, `paid` sí)
+- [x] El orden de adquisición de bloqueos está documentado en el docstring del
+      módulo de pagos (`payments/service.py`) y coincide con el que ya usan
+      los caminos de cancelación existentes
+- [x] Cero violaciones de axe en ambas pantallas —
+      `event-ticket-types.spec.ts`/`event-discount-codes.spec.ts`
+- [x] `openapi.json` y el cliente TypeScript generado al día — `make api-types`
 
 ## Risk & Rollback
 
