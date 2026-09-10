@@ -139,7 +139,11 @@ async def _sesiones_publicas(
 async def list_public_events(
     organizacion: OrganizationDep, session: DbDep
 ) -> list[PublicEventSummary]:
-    eventos = (await session.execute(repository.public_events_query(organizacion.id))).scalars()
+    filas = (
+        await session.execute(
+            repository.public_events_with_confirmed_count_query(organizacion.id)
+        )
+    ).all()
     return [
         PublicEventSummary(
             slug=evento.slug,
@@ -151,8 +155,12 @@ async def list_public_events(
             ends_at=evento.ends_at,
             location_mode=evento.location_mode,  # type: ignore[arg-type]
             location_name=evento.location_name,
+            city=evento.city,
+            registration_mode=evento.registration_mode,  # type: ignore[arg-type]
+            capacity=evento.capacity,
+            reserved_count=reservadas,
         )
-        for evento in eventos
+        for evento, reservadas in filas
     ]
 
 

@@ -391,6 +391,7 @@ async def _sembrar_evento_gratuito(
                 "location_mode": "in_person",
                 "location_name": "Espacio Rambleta",
                 "location_address": "Carrer de la Ribera, 46003 València",
+                "city": "Valencia",
                 "capacity": None,
                 "registration_mode": "free",
             },

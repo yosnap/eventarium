@@ -96,6 +96,7 @@ export type { RegistrationQuestionUpdate } from './models/registration-question-
 export type { RegistrationStats } from './models/registration-stats';
 export type { ResendVerificationRequest } from './models/resend-verification-request';
 export type { ResetPasswordRequest } from './models/reset-password-request';
+export type { ResolvedTheme } from './models/resolved-theme';
 export type { RgpdExportRequest } from './models/rgpd-export-request';
 export type { RoleCreate } from './models/role-create';
 export type { RoleResponse } from './models/role-response';
@@ -120,6 +121,10 @@ export type { SponsorUpdate } from './models/sponsor-update';
 export type { StripeAccountResponse } from './models/stripe-account-response';
 export type { StripeOnboardingResponse } from './models/stripe-onboarding-response';
 export type { SubmitRegistrationRequest } from './models/submit-registration-request';
+export type { ThemeTemplateCatalogItem } from './models/theme-template-catalog-item';
+export type { ThemeTemplateCreate } from './models/theme-template-create';
+export type { ThemeTemplateResponse } from './models/theme-template-response';
+export type { ThemeTemplateUpdate } from './models/theme-template-update';
 export type { TicketDetail } from './models/ticket-detail';
 export type { TicketScanResultOut } from './models/ticket-scan-result-out';
 export type { TicketSearchItem } from './models/ticket-search-item';

@@ -230,3 +230,20 @@ body::before {
   text-decoration-thickness: 2px;
   text-underline-offset: 0.2em;
 }
+
+/* Oculta visualmente sin quitarlo del árbol de accesibilidad: patrón estándar
+ * (ancho/alto de 1px + recorte, no `display:none`/`visibility:hidden`, que sí
+ * lo sacarían del árbol). Global porque varias pantallas lo necesitan para
+ * etiquetas de formulario/tabla que deben existir para lectores de pantalla
+ * sin ocupar espacio visual. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

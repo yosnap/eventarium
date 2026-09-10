@@ -7,6 +7,7 @@
  */
 export interface EventUpdate {
   capacity?: (number | null);
+  city?: (string | null);
   description?: (string | null);
   email_verification_required?: (boolean | null);
   ends_at?: (string | null);

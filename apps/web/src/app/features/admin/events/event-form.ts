@@ -25,6 +25,7 @@ interface EventoBase {
   readonly starts_at: string;
   readonly ends_at: string;
   readonly location_mode: LocationMode;
+  readonly city: string | null;
   readonly payment_checkout_window_minutes: number;
 }
 
@@ -111,6 +112,12 @@ const VENTANA_DE_PAGO_POR_DEFECTO = 30;
                 <option value="hybrid">{{ t('admin.events.formulario.hibrido') }}</option>
               </select>
             </div>
+
+            <app-input
+              fieldId="evento-ciudad"
+              [label]="t('admin.events.formulario.ciudad')"
+              [(value)]="city"
+            />
 
             <div class="campo-numero">
               <label for="evento-ventana-pago">{{
@@ -236,6 +243,7 @@ export class EventForm {
   protected readonly startsAt = signal('');
   protected readonly endsAt = signal('');
   protected readonly locationMode = signal<LocationMode>('in_person');
+  protected readonly city = signal('');
   protected readonly paymentWindow = signal(VENTANA_DE_PAGO_POR_DEFECTO);
   protected readonly ventanaDePagoMin = VENTANA_DE_PAGO_MIN;
   protected readonly ventanaDePagoMax = VENTANA_DE_PAGO_MAX;
@@ -280,6 +288,7 @@ export class EventForm {
       this.startsAt.set(isoAValorLocal(evento.starts_at));
       this.endsAt.set(isoAValorLocal(evento.ends_at));
       this.locationMode.set(evento.location_mode);
+      this.city.set(evento.city ?? '');
       this.paymentWindow.set(evento.payment_checkout_window_minutes);
     } catch (error) {
       this.error.set(
@@ -367,6 +376,7 @@ export class EventForm {
       starts_at: new Date(this.startsAt()).toISOString(),
       ends_at: new Date(this.endsAt()).toISOString(),
       location_mode: this.locationMode(),
+      city: this.city().trim() || null,
       payment_checkout_window_minutes: this.paymentWindow(),
     };
 

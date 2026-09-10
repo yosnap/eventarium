@@ -6,17 +6,12 @@
  * Branding tal y como lo ve el panel de administración.
  */
 export interface BrandingAdminResponse {
-  colors: {
-[key: string]: any;
-};
   favicon_url?: (string | null);
-  fonts: {
-[key: string]: any;
-};
   logo_url?: (string | null);
   organizer_blurb?: (string | null);
   social_links: Array<{
 [key: string]: any;
 }>;
   template_key: string;
+  theme_template_id?: (string | null);
 }

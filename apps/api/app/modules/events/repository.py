@@ -10,11 +10,12 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.events.models import Event, EventMember, EventSession, EventSessionParticipant
 from app.modules.organizations.models import OrganizationMember
+from app.modules.registrations.models import EventRegistration
 from app.modules.roles.models import Role
 from app.modules.users.models import User
 
@@ -40,6 +41,60 @@ def public_events_query(organization_id: uuid.UUID) -> Select[tuple[Event]]:
     """
     return (
         select(Event)
+        .where(
+            Event.organization_id == organization_id,
+            Event.status == "published",
+            Event.visibility == "public",
+        )
+        .order_by(Event.starts_at)
+    )
+
+
+def public_events_with_confirmed_count_query(
+    organization_id: uuid.UUID,
+) -> Select[tuple[Event, int]]:
+    """Igual que `public_events_query`, más el nº de plazas realmente reservadas
+    de cada evento — el aforo ya ocupado que necesita el listado público.
+
+    Misma regla que `registrations.repository.count_reserved_registrations`:
+    `confirmed` + promociones de lista de espera todavía dentro de su ventana de
+    confirmación + `pending_payment` todavía dentro de su ventana de pago — las
+    tres ocupan un hueco real de aforo aunque la persona no haya confirmado ni
+    pagado todavía. La ventana se evalúa con `func.now()` (lado de la base de
+    datos), no con `datetime.now(UTC)` en Python: así toda la agregación sigue
+    resuelta en una sola consulta, sin N+1.
+
+    Un `LEFT JOIN` contra una subconsulta agregada por `event_id` (no un
+    `COUNT()` por evento en un bucle de Python): una sola consulta para todo el
+    listado, apoyada en el índice compuesto
+    `ix_event_registrations_event_id_status` (`event_id`, `status`) ya creado
+    para exactamente este tipo de agregación.
+    """
+    conteo_reservadas = (
+        select(
+            EventRegistration.event_id.label("event_id"),
+            func.count().label("reserved_count"),
+        )
+        .where(
+            or_(
+                EventRegistration.status == "confirmed",
+                and_(
+                    EventRegistration.status == "waitlisted",
+                    EventRegistration.waitlist_promoted_at.is_not(None),
+                    EventRegistration.waitlist_promotion_expires_at >= func.now(),
+                ),
+                and_(
+                    EventRegistration.status == "pending_payment",
+                    EventRegistration.payment_expires_at >= func.now(),
+                ),
+            )
+        )
+        .group_by(EventRegistration.event_id)
+        .subquery()
+    )
+    return (
+        select(Event, func.coalesce(conteo_reservadas.c.reserved_count, 0))
+        .outerjoin(conteo_reservadas, conteo_reservadas.c.event_id == Event.id)
         .where(
             Event.organization_id == organization_id,
             Event.status == "published",

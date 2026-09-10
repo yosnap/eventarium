@@ -7,6 +7,7 @@
  */
 export interface EventResponse {
   capacity: (number | null);
+  city: (string | null);
   cover_url: (string | null);
   description: (string | null);
   email_verification_required: boolean;

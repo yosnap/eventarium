@@ -324,7 +324,7 @@
           "tenant"
         ],
         "summary": "Identidad visual de la organización",
-        "description": "Devuelve colores, tipografías, logotipo y plantilla de la organización asociada al host de la petición. Host desconocido → 404.",
+        "description": "Devuelve colores, tipografías, logotipo, plantilla y tema de la organización asociada al host de la petición. Host desconocido → 404.",
         "operationId": "branding_api_v1_tenant_branding_get",
         "responses": {
           "200": {
@@ -538,6 +538,32 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me/theme-templates": {
+      "get": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Catálogo de plantillas de tema disponibles",
+        "description": "Los tokens hacen falta para pintar la muestra de cada plantilla en el selector de la galería del editor de branding.",
+        "operationId": "list_theme_templates_catalog_api_v1_organizations_me_theme_templates_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ThemeTemplateCatalogItem"
+                  },
+                  "type": "array",
+                  "title": "Response List Theme Templates Catalog Api V1 Organizations Me Theme Templates Get"
                 }
               }
             }
@@ -1684,6 +1710,124 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/theme-templates": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Listar el catálogo de plantillas de tema",
+        "operationId": "list_theme_templates_api_v1_admin_theme_templates_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ThemeTemplateResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Theme Templates Api V1 Admin Theme Templates Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Crear una plantilla de tema",
+        "operationId": "create_theme_template_api_v1_admin_theme_templates_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThemeTemplateCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThemeTemplateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/theme-templates/{template_id}": {
+      "patch": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Editar una plantilla de tema",
+        "description": "Edita `name`, `tokens` e `is_default`. No hay borrado en este pase.",
+        "operationId": "update_theme_template_api_v1_admin_theme_templates__template_id__patch",
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Template Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThemeTemplateUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThemeTemplateResponse"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -5316,15 +5460,16 @@
             "type": "string",
             "title": "Template Key"
           },
-          "colors": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Colors"
-          },
-          "fonts": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Fonts"
+          "theme_template_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Theme Template Id"
           },
           "social_links": {
             "items": {
@@ -5371,8 +5516,6 @@
         "type": "object",
         "required": [
           "template_key",
-          "colors",
-          "fonts",
           "social_links"
         ],
         "title": "BrandingAdminResponse",
@@ -5397,19 +5540,15 @@
             "title": "Template Key",
             "description": "Plantilla de la página pública: classic | minimal"
           },
-          "colors": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object",
-            "title": "Colors"
-          },
-          "fonts": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object",
-            "title": "Fonts"
+          "theme": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResolvedTheme"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "social_links": {
             "items": {
@@ -5458,8 +5597,6 @@
           "organization_name",
           "organization_slug",
           "template_key",
-          "colors",
-          "fonts",
           "social_links"
         ],
         "title": "BrandingResponse",
@@ -5474,19 +5611,16 @@
             "title": "Template Key",
             "default": "classic"
           },
-          "colors": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object",
-            "title": "Colors"
-          },
-          "fonts": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object",
-            "title": "Fonts"
+          "theme_template_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Theme Template Id"
           },
           "social_links": {
             "items": {
@@ -6364,6 +6498,18 @@
             ],
             "title": "Location Address"
           },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
           "online_url": {
             "anyOf": [
               {
@@ -6604,6 +6750,17 @@
             ],
             "title": "Location Address"
           },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
           "online_url": {
             "anyOf": [
               {
@@ -6660,6 +6817,7 @@
           "location_mode",
           "location_name",
           "location_address",
+          "city",
           "online_url",
           "capacity",
           "registration_mode",
@@ -7173,6 +7331,18 @@
               }
             ],
             "title": "Location Address"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
           },
           "online_url": {
             "anyOf": [
@@ -8689,6 +8859,41 @@
               }
             ],
             "title": "Location Name"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "registration_mode": {
+            "type": "string",
+            "enum": [
+              "free",
+              "approval",
+              "paid"
+            ],
+            "title": "Registration Mode"
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity"
+          },
+          "reserved_count": {
+            "type": "integer",
+            "title": "Reserved Count"
           }
         },
         "type": "object",
@@ -8701,10 +8906,14 @@
           "starts_at",
           "ends_at",
           "location_mode",
-          "location_name"
+          "location_name",
+          "city",
+          "registration_mode",
+          "capacity",
+          "reserved_count"
         ],
         "title": "PublicEventSummary",
-        "description": "Evento tal y como aparece en el listado público."
+        "description": "Evento tal y como aparece en el listado público.\n\n`reserved_count` es el número de plazas realmente reservadas: `confirmed` +\n`pending_payment` dentro de su ventana de pago + promociones de lista de\nespera dentro de su ventana de confirmación — misma regla que\n`registrations.repository.count_reserved_registrations`. Nunca se expone el\ndetalle de qué estado concreto ocupa cada plaza, solo el agregado."
       },
       "PublicParticipant": {
         "properties": {
@@ -9951,6 +10160,41 @@
         "title": "ResetPasswordRequest",
         "description": "Datos para completar la recuperación con el token recibido por correo."
       },
+      "ResolvedTheme": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "tokens": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Tokens"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "name",
+          "tokens"
+        ],
+        "title": "ResolvedTheme",
+        "description": "La plantilla de tema de la organización, ya resuelta.\n\nResolución: `COALESCE(branding.theme_template_id, la que tiene\nis_default)`, hecha en la misma consulta de `GET /tenant/branding`. `None`\nsi por lo que sea no hubiera ninguna plantilla en el catálogo — defensa\npara que el cliente se quede con la base de `tokens.css` en vez de\nromper."
+      },
       "RgpdExportRequest": {
         "properties": {
           "password": {
@@ -10981,6 +11225,159 @@
         ],
         "title": "SubmitRegistrationRequest",
         "description": "Datos del formulario público de inscripción a un evento."
+      },
+      "ThemeTemplateCatalogItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "tokens": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Tokens"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "name",
+          "tokens"
+        ],
+        "title": "ThemeTemplateCatalogItem",
+        "description": "Una plantilla tal y como la ve el catálogo del panel de la organización."
+      },
+      "ThemeTemplateCreate": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "tokens": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Tokens"
+          },
+          "is_default": {
+            "type": "boolean",
+            "title": "Is Default",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "tokens"
+        ],
+        "title": "ThemeTemplateCreate",
+        "description": "Alta de una plantilla de tema."
+      },
+      "ThemeTemplateResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "tokens": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Tokens"
+          },
+          "is_default": {
+            "type": "boolean",
+            "title": "Is Default"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "name",
+          "tokens",
+          "is_default"
+        ],
+        "title": "ThemeTemplateResponse",
+        "description": "Una plantilla tal y como la ve la superadministración."
+      },
+      "ThemeTemplateUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "tokens": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tokens"
+          },
+          "is_default": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Default"
+          }
+        },
+        "type": "object",
+        "title": "ThemeTemplateUpdate",
+        "description": "Edición de `name`, `tokens` e `is_default`. No se puede cambiar `key`."
       },
       "TicketDetail": {
         "properties": {

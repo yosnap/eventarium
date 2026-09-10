@@ -48,6 +48,7 @@ def _event_response(evento: Event) -> EventResponse:
         location_mode=evento.location_mode,  # type: ignore[arg-type]
         location_name=evento.location_name,
         location_address=evento.location_address,
+        city=evento.city,
         online_url=evento.online_url,
         capacity=evento.capacity,
         registration_mode=evento.registration_mode,  # type: ignore[arg-type]

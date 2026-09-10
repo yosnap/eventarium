@@ -78,6 +78,7 @@ class Event(Base, TimestampMixin):
     location_mode: Mapped[str] = mapped_column(String(20), nullable=False)
     location_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     location_address: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(120), nullable=True)
     online_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     capacity: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # free | approval | paid

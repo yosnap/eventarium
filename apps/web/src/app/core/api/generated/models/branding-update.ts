@@ -7,13 +7,8 @@ import { SocialLinkInput } from '../models/social-link-input';
  * Identidad visual editable desde el panel.
  */
 export interface BrandingUpdate {
-  colors?: {
-[key: string]: string;
-};
-  fonts?: {
-[key: string]: string;
-};
   organizer_blurb?: (string | null);
   social_links?: Array<SocialLinkInput>;
   template_key?: string;
+  theme_template_id?: (string | null);
 }

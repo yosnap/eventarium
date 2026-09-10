@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime, timedelta
 
 from httpx import AsyncClient
 
+from app.core.database import SessionMaintenance
 from app.core.ratelimit import PUBLICO_POR_IP
+from app.modules.events import repository
+from app.modules.registrations.models import EventRegistration
 from tests.conftest import OrganizacionDePrueba, crear_miembro, iniciar_sesion, iniciar_sesion_con
 
 PUBLIC_EVENTS = "/api/v1/public/events"
@@ -281,6 +285,186 @@ async def test_dos_organizaciones_no_ven_los_eventos_ni_ponentes_de_la_otra(
         f"{PUBLIC_EVENTS}/evento-de-acme", headers={"Host": otra_organizacion.host}
     )
     assert detalle_rival.status_code == 404
+
+
+async def _crear_inscripcion(
+    organization_id: uuid.UUID, event_id: uuid.UUID, email: str, **overrides: object
+) -> None:
+    """Inserta una inscripción directamente en base de datos, saltándose el
+    formulario público: los tests de `reserved_count` necesitan estados
+    (`pending_payment` con ventana concreta, promoción de lista de espera con
+    ventana concreta) que el flujo público no permite fijar a voluntad."""
+    async with SessionMaintenance() as session:
+        session.add(
+            EventRegistration(
+                organization_id=organization_id,
+                event_id=event_id,
+                email=email,
+                full_name="Persona de prueba",
+                status=overrides.pop("status", "confirmed"),
+                **overrides,
+            )
+        )
+        await session.commit()
+
+
+async def _contar_reservadas(organization_id: uuid.UUID) -> dict[str, int]:
+    """`reserved_count` de cada evento publicado de la organización, por slug —
+    ejecuta `public_events_with_confirmed_count_query` directamente contra la
+    base de datos, igual que hace `list_public_events`."""
+    async with SessionMaintenance() as session:
+        filas = (
+            await session.execute(repository.public_events_with_confirmed_count_query(organization_id))
+        ).all()
+        return {evento.slug: reservadas for evento, reservadas in filas}
+
+
+async def test_reserved_count_es_cero_sin_inscripciones(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento = await _crear_evento(cliente, cabeceras, slug="sin-inscripciones")
+    await _publicar(cliente, cabeceras, evento["id"])
+
+    conteos = await _contar_reservadas(organizacion.id)
+    assert conteos["sin-inscripciones"] == 0
+
+
+async def test_reserved_count_solo_cuenta_los_estados_que_ocupan_aforo(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento = await _crear_evento(cliente, cabeceras, slug="varios-estados")
+    await _publicar(cliente, cabeceras, evento["id"])
+    event_id = uuid.UUID(evento["id"])
+    organization_id = organizacion.id
+
+    await _crear_inscripcion(organization_id, event_id, "confirmada@example.com", status="confirmed")
+    await _crear_inscripcion(
+        organization_id, event_id, "pendiente-verificacion@example.com", status="pending_verification"
+    )
+    await _crear_inscripcion(organization_id, event_id, "rechazada@example.com", status="rejected")
+    await _crear_inscripcion(organization_id, event_id, "cancelada@example.com", status="cancelled")
+    await _crear_inscripcion(
+        organization_id,
+        event_id,
+        "pago-caducado@example.com",
+        status="pending_payment",
+        payment_expires_at=AHORA - timedelta(minutes=5),
+    )
+
+    conteos = await _contar_reservadas(organizacion.id)
+    assert conteos["varios-estados"] == 1
+
+
+async def test_reserved_count_incluye_pending_payment_dentro_de_ventana(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento = await _crear_evento(cliente, cabeceras, slug="pago-en-curso")
+    await _publicar(cliente, cabeceras, evento["id"])
+    event_id = uuid.UUID(evento["id"])
+
+    await _crear_inscripcion(
+        organizacion.id,
+        event_id,
+        "comprando@example.com",
+        status="pending_payment",
+        payment_expires_at=AHORA + timedelta(minutes=10),
+    )
+
+    conteos = await _contar_reservadas(organizacion.id)
+    assert conteos["pago-en-curso"] == 1
+
+
+async def test_reserved_count_incluye_promocion_de_lista_de_espera_dentro_de_ventana(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento = await _crear_evento(cliente, cabeceras, slug="promocion-lista-espera")
+    await _publicar(cliente, cabeceras, evento["id"])
+    event_id = uuid.UUID(evento["id"])
+
+    await _crear_inscripcion(
+        organizacion.id,
+        event_id,
+        "promovida@example.com",
+        status="waitlisted",
+        waitlist_promoted_at=AHORA,
+        waitlist_promotion_expires_at=AHORA + timedelta(hours=1),
+    )
+    await _crear_inscripcion(
+        organizacion.id,
+        event_id,
+        "promocion-caducada@example.com",
+        status="waitlisted",
+        waitlist_promoted_at=AHORA - timedelta(hours=2),
+        waitlist_promotion_expires_at=AHORA - timedelta(hours=1),
+    )
+    await _crear_inscripcion(
+        organizacion.id, event_id, "en-lista-sin-promover@example.com", status="waitlisted"
+    )
+
+    conteos = await _contar_reservadas(organizacion.id)
+    assert conteos["promocion-lista-espera"] == 1
+
+
+async def test_reserved_count_no_mezcla_eventos_distintos(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento_a = await _crear_evento(cliente, cabeceras, slug="evento-a")
+    await _publicar(cliente, cabeceras, evento_a["id"])
+    evento_b = await _crear_evento(
+        cliente,
+        cabeceras,
+        slug="evento-b",
+        starts_at=(AHORA + timedelta(days=5)).isoformat(),
+        ends_at=(AHORA + timedelta(days=6)).isoformat(),
+    )
+    await _publicar(cliente, cabeceras, evento_b["id"])
+
+    await _crear_inscripcion(
+        organizacion.id, uuid.UUID(evento_a["id"]), "una@example.com", status="confirmed"
+    )
+    for correo in ("dos@example.com", "tres@example.com"):
+        await _crear_inscripcion(
+            organizacion.id, uuid.UUID(evento_b["id"]), correo, status="confirmed"
+        )
+
+    conteos = await _contar_reservadas(organizacion.id)
+    assert conteos["evento-a"] == 1
+    assert conteos["evento-b"] == 2
+
+
+async def test_reserved_count_conserva_el_orden_por_starts_at(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    tardio = await _crear_evento(
+        cliente,
+        cabeceras,
+        slug="tardio",
+        starts_at=(AHORA + timedelta(days=10)).isoformat(),
+        ends_at=(AHORA + timedelta(days=11)).isoformat(),
+    )
+    await _publicar(cliente, cabeceras, tardio["id"])
+    temprano = await _crear_evento(
+        cliente,
+        cabeceras,
+        slug="temprano",
+        starts_at=(AHORA + timedelta(days=1)).isoformat(),
+        ends_at=(AHORA + timedelta(days=2)).isoformat(),
+    )
+    await _publicar(cliente, cabeceras, temprano["id"])
+
+    async with SessionMaintenance() as session:
+        filas = (
+            await session.execute(
+                repository.public_events_with_confirmed_count_query(organizacion.id)
+            )
+        ).all()
+    assert [evento.slug for evento, _ in filas] == ["temprano", "tardio"]
 
 
 async def test_el_listado_publico_tiene_limite_de_peticiones_por_ip(

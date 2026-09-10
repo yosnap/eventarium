@@ -33,6 +33,8 @@ export type { GetBrandingApiV1OrganizationsMeBrandingGet$Params as GetBrandingAp
 export { getBrandingApiV1OrganizationsMeBrandingGet as getBrandingApiV1OrganizationsMeBrandingGet } from './fn/organizaciones/get-branding-api-v-1-organizations-me-branding-get';
 export type { UpdateBrandingApiV1OrganizationsMeBrandingPut$Params as UpdateBrandingApiV1OrganizationsMeBrandingPut$Params } from './fn/organizaciones/update-branding-api-v-1-organizations-me-branding-put';
 export { updateBrandingApiV1OrganizationsMeBrandingPut as updateBrandingApiV1OrganizationsMeBrandingPut } from './fn/organizaciones/update-branding-api-v-1-organizations-me-branding-put';
+export type { ListThemeTemplatesCatalogApiV1OrganizationsMeThemeTemplatesGet$Params as ListThemeTemplatesCatalogApiV1OrganizationsMeThemeTemplatesGet$Params } from './fn/organizaciones/list-theme-templates-catalog-api-v-1-organizations-me-theme-templates-get';
+export { listThemeTemplatesCatalogApiV1OrganizationsMeThemeTemplatesGet as listThemeTemplatesCatalogApiV1OrganizationsMeThemeTemplatesGet } from './fn/organizaciones/list-theme-templates-catalog-api-v-1-organizations-me-theme-templates-get';
 export type { UploadLogoApiV1OrganizationsMeBrandingLogoPut$Params as UploadLogoApiV1OrganizationsMeBrandingLogoPut$Params } from './fn/organizaciones/upload-logo-api-v-1-organizations-me-branding-logo-put';
 export { uploadLogoApiV1OrganizationsMeBrandingLogoPut as uploadLogoApiV1OrganizationsMeBrandingLogoPut } from './fn/organizaciones/upload-logo-api-v-1-organizations-me-branding-logo-put';
 export type { ListMembersApiV1OrganizationsMeMembersGet$Params as ListMembersApiV1OrganizationsMeMembersGet$Params } from './fn/organizaciones/list-members-api-v-1-organizations-me-members-get';
@@ -87,6 +89,12 @@ export type { ExportEventRgpdApiV1AdminEventsEventIdRgpdExportPost$Params as Exp
 export { exportEventRgpdApiV1AdminEventsEventIdRgpdExportPost as exportEventRgpdApiV1AdminEventsEventIdRgpdExportPost } from './fn/administracion/export-event-rgpd-api-v-1-admin-events-event-id-rgpd-export-post';
 export type { DeleteRegistrationByEmailApiV1AdminRegistrationsByEmailDelete$Params as DeleteRegistrationByEmailApiV1AdminRegistrationsByEmailDelete$Params } from './fn/administracion/delete-registration-by-email-api-v-1-admin-registrations-by-email-delete';
 export { deleteRegistrationByEmailApiV1AdminRegistrationsByEmailDelete as deleteRegistrationByEmailApiV1AdminRegistrationsByEmailDelete } from './fn/administracion/delete-registration-by-email-api-v-1-admin-registrations-by-email-delete';
+export type { ListThemeTemplatesApiV1AdminThemeTemplatesGet$Params as ListThemeTemplatesApiV1AdminThemeTemplatesGet$Params } from './fn/administracion/list-theme-templates-api-v-1-admin-theme-templates-get';
+export { listThemeTemplatesApiV1AdminThemeTemplatesGet as listThemeTemplatesApiV1AdminThemeTemplatesGet } from './fn/administracion/list-theme-templates-api-v-1-admin-theme-templates-get';
+export type { CreateThemeTemplateApiV1AdminThemeTemplatesPost$Params as CreateThemeTemplateApiV1AdminThemeTemplatesPost$Params } from './fn/administracion/create-theme-template-api-v-1-admin-theme-templates-post';
+export { createThemeTemplateApiV1AdminThemeTemplatesPost as createThemeTemplateApiV1AdminThemeTemplatesPost } from './fn/administracion/create-theme-template-api-v-1-admin-theme-templates-post';
+export type { UpdateThemeTemplateApiV1AdminThemeTemplatesTemplateIdPatch$Params as UpdateThemeTemplateApiV1AdminThemeTemplatesTemplateIdPatch$Params } from './fn/administracion/update-theme-template-api-v-1-admin-theme-templates-template-id-patch';
+export { updateThemeTemplateApiV1AdminThemeTemplatesTemplateIdPatch as updateThemeTemplateApiV1AdminThemeTemplatesTemplateIdPatch } from './fn/administracion/update-theme-template-api-v-1-admin-theme-templates-template-id-patch';
 export type { ListEventsApiV1EventsGet$Params as ListEventsApiV1EventsGet$Params } from './fn/eventos/list-events-api-v-1-events-get';
 export { listEventsApiV1EventsGet as listEventsApiV1EventsGet } from './fn/eventos/list-events-api-v-1-events-get';
 export type { CreateEventApiV1EventsPost$Params as CreateEventApiV1EventsPost$Params } from './fn/eventos/create-event-api-v-1-events-post';

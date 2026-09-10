@@ -75,6 +75,7 @@ class EventCreate(BaseModel):
     location_mode: LocationMode
     location_name: Annotated[str, Field(max_length=200)] | None = None
     location_address: Annotated[str, Field(max_length=300)] | None = None
+    city: Annotated[str, Field(max_length=120)] | None = None
     online_url: Annotated[str, Field(max_length=500)] | None = None
     capacity: Annotated[int, Field(ge=1)] | None = None
     registration_mode: RegistrationMode = "free"
@@ -104,6 +105,7 @@ class EventUpdate(BaseModel):
     location_mode: LocationMode | None = None
     location_name: Annotated[str, Field(max_length=200)] | None = None
     location_address: Annotated[str, Field(max_length=300)] | None = None
+    city: Annotated[str, Field(max_length=120)] | None = None
     online_url: Annotated[str, Field(max_length=500)] | None = None
     capacity: Annotated[int, Field(ge=1)] | None = None
     registration_mode: RegistrationMode | None = None
@@ -134,6 +136,7 @@ class EventResponse(BaseModel):
     location_mode: LocationMode
     location_name: str | None
     location_address: str | None
+    city: str | None
     online_url: str | None
     capacity: int | None
     registration_mode: RegistrationMode
@@ -273,7 +276,14 @@ class PublicParticipant(BaseModel):
 
 
 class PublicEventSummary(BaseModel):
-    """Evento tal y como aparece en el listado público."""
+    """Evento tal y como aparece en el listado público.
+
+    `reserved_count` es el número de plazas realmente reservadas: `confirmed` +
+    `pending_payment` dentro de su ventana de pago + promociones de lista de
+    espera dentro de su ventana de confirmación — misma regla que
+    `registrations.repository.count_reserved_registrations`. Nunca se expone el
+    detalle de qué estado concreto ocupa cada plaza, solo el agregado.
+    """
 
     slug: str
     title: str
@@ -284,6 +294,10 @@ class PublicEventSummary(BaseModel):
     ends_at: datetime
     location_mode: LocationMode
     location_name: str | None
+    city: str | None
+    registration_mode: RegistrationMode
+    capacity: int | None
+    reserved_count: int
 
 
 class PublicEventSession(BaseModel):

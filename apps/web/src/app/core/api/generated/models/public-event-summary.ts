@@ -4,12 +4,22 @@
 
 /**
  * Evento tal y como aparece en el listado público.
+ *
+ * `reserved_count` es el número de plazas realmente reservadas: `confirmed` +
+ * `pending_payment` dentro de su ventana de pago + promociones de lista de
+ * espera dentro de su ventana de confirmación — misma regla que
+ * `registrations.repository.count_reserved_registrations`. Nunca se expone el
+ * detalle de qué estado concreto ocupa cada plaza, solo el agregado.
  */
 export interface PublicEventSummary {
+  capacity: (number | null);
+  city: (string | null);
   cover_url: (string | null);
   ends_at: string;
   location_mode: 'in_person' | 'online' | 'hybrid';
   location_name: (string | null);
+  registration_mode: 'free' | 'approval' | 'paid';
+  reserved_count: number;
   slug: string;
   starts_at: string;
   summary: (string | null);

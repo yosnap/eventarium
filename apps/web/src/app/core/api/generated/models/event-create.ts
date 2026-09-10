@@ -7,6 +7,7 @@
  */
 export interface EventCreate {
   capacity?: (number | null);
+  city?: (string | null);
   description?: (string | null);
   email_verification_required?: boolean;
   ends_at: string;
