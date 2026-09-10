@@ -39,3 +39,9 @@ infra/data/
 *.swp
 .DS_Store
 Thumbs.db
+
+# Documentos de trabajo internos (planes, journals): viven fuera del repo,
+# compartidos entre worktrees vía symlink local — nunca en el historial de
+# este proyecto MIT.
+.claude/
+/plans
