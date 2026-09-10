@@ -18,7 +18,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
     <section [attr.aria-labelledby]="heading() ? idTitulo : null">
       @if (heading(); as titulo) {
         <div class="cabecera">
-          <h2 [id]="idTitulo">{{ titulo }}</h2>
+          <h3 [id]="idTitulo">{{ titulo }}</h3>
           <div class="acciones">
             <ng-content select="[acciones]" />
           </div>
@@ -55,9 +55,10 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       gap: var(--space-sm);
       flex-shrink: 0;
     }
-    h2 {
+    /* Tamaño y tipografía vienen del h3 global (eventarium.css:120): DM Sans
+       500, sin mayúsculas — un título de tarjeta no es un titular de página. */
+    h3 {
       margin: 0;
-      font-size: 1.125rem;
     }
   `,
 })

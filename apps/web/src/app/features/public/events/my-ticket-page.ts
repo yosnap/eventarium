@@ -3,6 +3,7 @@ import { ActivatedRoute } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 
 import { RegistrationsService } from '../../../core/registrations/registrations.service';
+import { AuthFrame } from '../../../layouts/public/auth-frame';
 import { Alert } from '../../../shared/ui/alert';
 import { Card } from '../../../shared/ui/card';
 
@@ -26,10 +27,10 @@ const CLAVE_POR_ESTADO: Record<string, string> = {
 @Component({
   selector: 'app-my-ticket-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Card],
+  imports: [TranslocoDirective, AuthFrame, Alert, Card],
   template: `
     <ng-container *transloco="let t">
-      <main id="contenido" class="pagina">
+      <app-auth-frame [titulo]="t('miEntrada.titulo')">
         <app-card [heading]="t('miEntrada.titulo')">
           <div aria-live="polite">
             @switch (estado()) {
@@ -38,7 +39,9 @@ const CLAVE_POR_ESTADO: Record<string, string> = {
               }
               @case ('con-qr') {
                 <p>{{ t('miEntrada.saludo', { nombre: nombre() }) }}</p>
-                <img [src]="qrUrl()" [alt]="t('miEntrada.qrAlt')" width="240" height="240" />
+                <div class="marco-qr">
+                  <img [src]="qrUrl()" [alt]="t('miEntrada.qrAlt')" width="240" height="240" />
+                </div>
               }
               @case ('sin-qr') {
                 <app-alert tone="info" [title]="t('miEntrada.estado.' + claveEstado())">
@@ -53,25 +56,27 @@ const CLAVE_POR_ESTADO: Record<string, string> = {
             }
           </div>
         </app-card>
-      </main>
+      </app-auth-frame>
     </ng-container>
   `,
   styles: `
-    .pagina {
-      display: grid;
-      place-items: center;
-      min-height: 100vh;
-      padding: var(--space-lg);
-      background-color: var(--color-surface-muted);
-    }
     app-card {
       width: min(26rem, 100%);
       text-align: center;
     }
+    /* El QR se lee con la cámara del móvil, no con la pantalla en el modo de
+       color que tenga la persona: fondo claro fijo en los dos temas, no
+       "white" invertido a negro en oscuro, o muchos lectores de código dejan
+       de reconocerlo. Literal intencionado, no un color de marca. */
+    .marco-qr {
+      display: inline-block;
+      padding: var(--space-md);
+      background-color: white;
+      border-radius: var(--radius-md);
+    }
     img {
       display: block;
       margin: 0 auto;
-      border-radius: var(--radius-md);
     }
   `,
 })

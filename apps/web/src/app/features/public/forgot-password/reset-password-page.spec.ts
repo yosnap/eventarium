@@ -1,14 +1,26 @@
-import { provideZonelessChangeDetection } from '@angular/core';
+import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ResetPasswordPage } from './reset-password-page';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ApiError } from '../../../core/api/error.interceptor';
+import { ThemingService } from '../../../core/theming/theming.service';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../../testing/axe';
 import es from '../../../../../public/assets/i18n/es-ES.json';
+
+/** Mismo doble mínimo que `layouts/shells.spec.ts`: sin él, `AuthFrame`
+ * inyectaría el `ThemingService` real, que necesita `HttpClient`. */
+function themingDePrueba() {
+  return {
+    branding: signal(null),
+    error: signal(null),
+    templateKey: signal('classic'),
+    organizationName: signal('Organización de prueba'),
+  };
+}
 
 function rutaConToken(token: string | null) {
   return { snapshot: { queryParamMap: convertToParamMap(token ? { token } : {}) } };
@@ -25,11 +37,17 @@ describe('ResetPasswordPage', () => {
       ],
       providers: [
         provideZonelessChangeDetection(),
+        provideRouter([]),
         { provide: AuthService, useValue: auth },
         { provide: ActivatedRoute, useValue: ruta },
+        { provide: ThemingService, useValue: themingDePrueba() },
       ],
     }).compileComponents();
   }
+
+  afterEach(() => {
+    document.documentElement.removeAttribute('data-theme');
+  });
 
   it('sin token en la URL muestra el error de enlace no válido', async () => {
     configurar({}, rutaConToken(null));
@@ -39,6 +57,16 @@ describe('ResetPasswordPage', () => {
 
     const zonaAnuncio = fixture.nativeElement.querySelector('[aria-live="assertive"]');
     expect(zonaAnuncio?.textContent).toContain('no es válido o ha caducado');
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('sin token en la URL muestra el error en tema claro sin violaciones', async () => {
+    document.documentElement.setAttribute('data-theme', 'light');
+    configurar({}, rutaConToken(null));
+
+    const fixture = TestBed.createComponent(ResetPasswordPage);
+    await fixture.whenStable();
+
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 

@@ -53,12 +53,36 @@ body {
   line-height: 1.5;
 }
 
+/*
+ * Jerarquía real de la referencia (eventarium.css:116-120): h1/h2 llevan la
+ * tipografía de titular en mayúsculas y la escala fluida; h3 es DM Sans 500,
+ * no Bebas Neue — se usa para títulos de tarjeta y subtítulos, no para
+ * gritar. Antes de esta corrección los tres compartían `--font-display` sin
+ * ningún `font-size` propio, así que caían en los tamaños por defecto del
+ * navegador, desconectados de la escala fluida (`--fs-h1`/`--fs-h2`/`--fs-h3`).
+ */
 h1,
-h2,
-h3,
-h4 {
+h2 {
+  margin: 0;
   font-family: var(--font-display);
-  line-height: 1.2;
+  font-weight: 400;
+  line-height: 1.02;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+h1 {
+  font-size: var(--fs-h1);
+}
+h2 {
+  font-size: var(--fs-h2);
+}
+h3 {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--fs-h3);
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
 }
 
 /* Foco siempre visible: requisito WCAG 2.4.7. */

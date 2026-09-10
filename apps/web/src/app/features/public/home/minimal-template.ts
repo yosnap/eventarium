@@ -31,11 +31,11 @@ import { ThemingService } from '../../../core/theming/theming.service';
       text-transform: uppercase;
       letter-spacing: 0.08em;
       font-size: 0.75rem;
-      color: var(--color-text-muted);
+      color: var(--muted);
     }
     h1 {
       margin: 0;
-      font-size: 2rem;
+      font-size: var(--fs-h1);
     }
   `,
 })

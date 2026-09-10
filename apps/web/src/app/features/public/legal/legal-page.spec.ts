@@ -36,6 +36,22 @@ describe('LegalPage', () => {
 
   afterEach(() => {
     http.verify();
+    document.documentElement.removeAttribute('data-theme');
+  });
+
+  it('muestra el contenido en tema claro sin violaciones de accesibilidad', async () => {
+    document.documentElement.setAttribute('data-theme', 'light');
+    const fixture = TestBed.createComponent(LegalPage);
+    fixture.componentRef.setInput('page', 'privacidad');
+    fixture.detectChanges();
+
+    http
+      .expectOne((peticion) => peticion.url === '/api/v1/public/legal/privacidad')
+      .flush({ content: '**Responsable**\n\nAcme SL trata tus datos.' });
+    await avanzar(fixture);
+    await avanzar(fixture);
+
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
   it('muestra el contenido de la plantilla y pide la ruta correcta, sin violaciones de accesibilidad', async () => {

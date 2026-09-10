@@ -73,6 +73,21 @@ describe('EventPage', () => {
 
   afterEach(() => {
     http.verify();
+    document.documentElement.removeAttribute('data-theme');
+  });
+
+  it('muestra el evento en tema claro sin violaciones de accesibilidad', async () => {
+    document.documentElement.setAttribute('data-theme', 'light');
+    const fixture = TestBed.createComponent(EventPage);
+    fixture.componentRef.setInput('slug', 'iawic-2026');
+    fixture.detectChanges();
+    http
+      .expectOne((peticion) => peticion.url === '/api/v1/public/events/iawic-2026')
+      .flush(eventoDetalle());
+    await avanzar(fixture);
+
+    expect(fixture.nativeElement.textContent).toContain('IA Week in Cascais 2026');
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
   it('muestra el evento, su agenda y participantes, sin violaciones de accesibilidad', async () => {

@@ -75,7 +75,7 @@ const CAMPOS_A_ETIQUETA: Record<string, string> = {
       } @else if (noEncontrado()) {
         <app-alert tone="error">{{ t('publico.ponentes.noEncontrado') }}</app-alert>
       } @else if (perfil(); as perfil) {
-        <article>
+        <article class="ancho-maximo">
           <h1>{{ perfil.display_name }}</h1>
 
           @for (clave of camposOrdenados; track clave) {
@@ -126,6 +126,9 @@ const CAMPOS_A_ETIQUETA: Record<string, string> = {
     </ng-container>
   `,
   styles: `
+    .ancho-maximo {
+      padding: var(--space-lg) 0;
+    }
     h1 {
       margin: var(--space-md) 0;
     }
@@ -150,7 +153,7 @@ const CAMPOS_A_ETIQUETA: Record<string, string> = {
       gap: var(--space-md);
     }
     .rol {
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
       font-size: 0.875rem;
     }
   `,

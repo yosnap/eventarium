@@ -4,6 +4,7 @@ import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
 import { ApiError } from '../../../core/api/error.interceptor';
 import { AuthService } from '../../../core/auth/auth.service';
+import { AuthFrame } from '../../../layouts/public/auth-frame';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
@@ -34,6 +35,7 @@ type Campo = 'email' | 'password' | 'confirmPassword';
   imports: [
     TranslocoDirective,
     RouterLink,
+    AuthFrame,
     Alert,
     Button,
     Card,
@@ -43,7 +45,7 @@ type Campo = 'email' | 'password' | 'confirmPassword';
   ],
   template: `
     <ng-container *transloco="let t">
-      <main id="contenido" class="pagina">
+      <app-auth-frame [titulo]="t('registro.titulo')">
         <app-card [heading]="t('registro.titulo')">
           @if (enviado()) {
             <app-alert tone="exito" [title]="t('registro.exitoTitulo')">
@@ -99,17 +101,10 @@ type Campo = 'email' | 'password' | 'confirmPassword';
             <a routerLink="/admin/login">{{ t('registro.yaTengoCuenta') }}</a>
           </p>
         </app-card>
-      </main>
+      </app-auth-frame>
     </ng-container>
   `,
   styles: `
-    .pagina {
-      display: grid;
-      place-items: center;
-      min-height: 100vh;
-      padding: var(--space-lg);
-      background-color: var(--color-surface-muted);
-    }
     app-card {
       width: min(28rem, 100%);
     }

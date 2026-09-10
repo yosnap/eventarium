@@ -24,14 +24,14 @@ import { ThemingService } from '../../../core/theming/theming.service';
       display: grid;
       gap: var(--space-md);
       padding: var(--space-xl) var(--space-lg);
-      background-color: var(--color-surface-muted);
+      background-color: var(--surface-2);
       border-radius: var(--radius-lg);
       text-align: center;
     }
     h1 {
       margin: 0;
-      font-size: clamp(2rem, 5vw, 3rem);
-      color: var(--color-primary);
+      font-size: var(--fs-hero);
+      color: var(--accent);
     }
     .descripcion {
       margin: 0 auto;
@@ -40,7 +40,7 @@ import { ThemingService } from '../../../core/theming/theming.service';
     }
     .aviso {
       margin: 0;
-      color: var(--color-text-muted);
+      color: var(--muted);
     }
   `,
 })

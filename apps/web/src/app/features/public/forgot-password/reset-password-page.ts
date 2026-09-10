@@ -4,6 +4,7 @@ import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
 import { ApiError } from '../../../core/api/error.interceptor';
 import { AuthService } from '../../../core/auth/auth.service';
+import { AuthFrame } from '../../../layouts/public/auth-frame';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
@@ -22,10 +23,10 @@ type Estado = 'formulario' | 'exito' | 'tokenInvalido';
 @Component({
   selector: 'app-reset-password-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, Input, PasswordStrength],
+  imports: [TranslocoDirective, RouterLink, AuthFrame, Alert, Button, Card, Input, PasswordStrength],
   template: `
     <ng-container *transloco="let t">
-      <main id="contenido" class="pagina">
+      <app-auth-frame [titulo]="t('recuperarContrasena.nuevaTitulo')">
         <app-card [heading]="t('recuperarContrasena.nuevaTitulo')">
           <div aria-live="assertive">
             @switch (estado()) {
@@ -72,17 +73,10 @@ type Estado = 'formulario' | 'exito' | 'tokenInvalido';
             }
           </div>
         </app-card>
-      </main>
+      </app-auth-frame>
     </ng-container>
   `,
   styles: `
-    .pagina {
-      display: grid;
-      place-items: center;
-      min-height: 100vh;
-      padding: var(--space-lg);
-      background-color: var(--color-surface-muted);
-    }
     app-card {
       width: min(26rem, 100%);
     }

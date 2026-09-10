@@ -36,7 +36,7 @@ const ESPERAS_REINTENTO_AUTOMATICO_MS = [2000, 4000, 8000, 8000, 8000] as const;
   imports: [TranslocoDirective, RouterLink, Alert, Button, Card],
   template: `
     <ng-container *transloco="let t">
-      <main id="contenido" class="pagina">
+      <div class="pagina">
         <app-card [heading]="t('pago.retorno.titulo')">
           <div aria-live="polite">
             @switch (estado()) {
@@ -78,16 +78,14 @@ const ESPERAS_REINTENTO_AUTOMATICO_MS = [2000, 4000, 8000, 8000, 8000] as const;
             </p>
           }
         </app-card>
-      </main>
+      </div>
     </ng-container>
   `,
   styles: `
     .pagina {
       display: grid;
       place-items: center;
-      min-height: 100vh;
-      padding: var(--space-lg);
-      background-color: var(--color-surface-muted);
+      padding: var(--space-lg) 0;
     }
     app-card {
       width: min(28rem, 100%);

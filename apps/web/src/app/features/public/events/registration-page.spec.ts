@@ -2,7 +2,7 @@ import { PLATFORM_ID, Component, provideZonelessChangeDetection, output } from '
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { RegistrationPage } from './registration-page';
 import {
@@ -110,6 +110,19 @@ describe('RegistrationPage', () => {
       });
     });
 
+    afterEach(() => {
+      document.documentElement.removeAttribute('data-theme');
+    });
+
+    it('renderiza el formulario en tema claro sin violaciones de accesibilidad', async () => {
+      document.documentElement.setAttribute('data-theme', 'light');
+      const fixture = crearFixture();
+      await avanzar(fixture);
+
+      expect(fixture.nativeElement.textContent).toContain('¿Empresa?');
+      await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+    });
+
     it('renderiza las preguntas por tipo sin violaciones de accesibilidad', async () => {
       const fixture = crearFixture();
       await avanzar(fixture);
@@ -162,6 +175,7 @@ describe('RegistrationPage', () => {
         nativeElement.querySelectorAll('input[type="checkbox"]'),
       ) as HTMLInputElement[];
       const checkboxDatos = checkboxes[2];
+      checkboxDatos.checked = true;
       checkboxDatos.dispatchEvent(new Event('change'));
 
       (nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
@@ -191,8 +205,9 @@ describe('RegistrationPage', () => {
       campoNombre.dispatchEvent(new Event('input'));
 
       const checkboxDatos = nativeElement.querySelector(
-        '.consentimiento input[type="checkbox"]',
+        '#insc-tratamiento-datos',
       ) as HTMLInputElement;
+      checkboxDatos.checked = true;
       checkboxDatos.dispatchEvent(new Event('change'));
     }
 

@@ -13,6 +13,7 @@ import { TranslocoDirective } from '@jsverse/transloco';
 
 import { CookieConsentService } from '../../core/cookies/cookie-consent.service';
 import { Button } from '../ui/button';
+import { Checkbox } from '../ui/checkbox';
 
 /**
  * Banner de cookies (fase 5 del PRD): tres acciones con el mismo peso visual
@@ -29,7 +30,7 @@ import { Button } from '../ui/button';
 @Component({
   selector: 'app-cookie-banner',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, TranslocoDirective, Button],
+  imports: [RouterLink, TranslocoDirective, Button, Checkbox],
   template: `
     <ng-container *transloco="let t">
       @if (consentimiento.mostrarBanner()) {
@@ -48,26 +49,9 @@ import { Button } from '../ui/button';
           @if (personalizando()) {
             <fieldset>
               <legend>{{ t('cookies.banner.categorias') }}</legend>
-              <label class="opcion">
-                <input type="checkbox" checked disabled />
-                {{ t('cookies.banner.necesarias') }}
-              </label>
-              <label class="opcion">
-                <input
-                  type="checkbox"
-                  [checked]="analiticas()"
-                  (change)="analiticas.set(!analiticas())"
-                />
-                {{ t('cookies.banner.analiticas') }}
-              </label>
-              <label class="opcion">
-                <input
-                  type="checkbox"
-                  [checked]="marketing()"
-                  (change)="marketing.set(!marketing())"
-                />
-                {{ t('cookies.banner.marketing') }}
-              </label>
+              <app-checkbox [label]="t('cookies.banner.necesarias')" [checked]="true" [disabled]="true" />
+              <app-checkbox [label]="t('cookies.banner.analiticas')" [(checked)]="analiticas" />
+              <app-checkbox [label]="t('cookies.banner.marketing')" [(checked)]="marketing" />
             </fieldset>
             <div class="acciones">
               <app-button variant="secundario" (pulsado)="guardarPersonalizacion()">
@@ -103,9 +87,8 @@ import { Button } from '../ui/button';
       display: grid;
       gap: var(--space-md);
       padding: var(--space-lg);
-      background-color: var(--color-surface);
-      border-top: 1px solid var(--color-border);
-      box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.12);
+      background-color: var(--surface);
+      border-top: 1px solid var(--border);
     }
     .banner:focus {
       outline: none;
@@ -117,14 +100,9 @@ import { Button } from '../ui/button';
     fieldset {
       display: grid;
       gap: var(--space-xs);
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
       padding: var(--space-sm) var(--space-md);
-    }
-    .opcion {
-      display: flex;
-      align-items: center;
-      gap: var(--space-sm);
     }
     .acciones {
       display: flex;

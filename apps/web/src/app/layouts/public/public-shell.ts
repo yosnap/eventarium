@@ -116,7 +116,7 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
     /* .brand__name (eventarium.css:148): sin negrita explícita en la referencia,
        mayúsculas con tracking amplio. */
     .nombre {
-      font-family: var(--font-heading);
+      font-family: var(--font-display);
       font-size: 1.35rem;
       letter-spacing: 0.06em;
       text-transform: uppercase;
@@ -155,7 +155,7 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
          --sp-6 coincide con --space-lg (32px); --sp-7 no tiene token exacto. */
       padding: var(--space-lg) 0 3rem;
       border-top: 1px solid var(--border);
-      color: var(--color-text-muted);
+      color: var(--muted);
       display: grid;
       gap: var(--space-sm);
     }

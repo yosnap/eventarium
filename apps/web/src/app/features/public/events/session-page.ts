@@ -60,7 +60,7 @@ interface PublicSessionDetail {
       } @else if (noEncontrado()) {
         <app-alert tone="error">{{ t('publico.eventos.noEncontrado') }}</app-alert>
       } @else if (sesion(); as sesion) {
-        <article>
+        <article class="ancho-maximo">
           <a [routerLink]="['/eventos', sesion.event_slug]">{{ sesion.event_title }}</a>
           <h1>{{ sesion.title }}</h1>
           <p class="horario">
@@ -129,11 +129,14 @@ interface PublicSessionDetail {
     </ng-container>
   `,
   styles: `
+    .ancho-maximo {
+      padding: var(--space-lg) 0;
+    }
     h1 {
       margin: var(--space-md) 0 0;
     }
     .horario {
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
     }
     .participantes,
     .materiales {

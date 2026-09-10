@@ -3,6 +3,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 
 import { AuthService } from '../../../core/auth/auth.service';
+import { AuthFrame } from '../../../layouts/public/auth-frame';
 import { Alert } from '../../../shared/ui/alert';
 import { Card } from '../../../shared/ui/card';
 
@@ -16,10 +17,10 @@ type Estado = 'comprobando' | 'exito' | 'error';
 @Component({
   selector: 'app-confirm-email-change-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Card],
+  imports: [TranslocoDirective, RouterLink, AuthFrame, Alert, Card],
   template: `
     <ng-container *transloco="let t">
-      <main id="contenido" class="pagina">
+      <app-auth-frame [titulo]="t('cuenta.confirmarCorreo.titulo')">
         <app-card [heading]="t('cuenta.confirmarCorreo.titulo')">
           <div aria-live="assertive">
             @switch (estado()) {
@@ -42,17 +43,10 @@ type Estado = 'comprobando' | 'exito' | 'error';
             }
           </div>
         </app-card>
-      </main>
+      </app-auth-frame>
     </ng-container>
   `,
   styles: `
-    .pagina {
-      display: grid;
-      place-items: center;
-      min-height: 100vh;
-      padding: var(--space-lg);
-      background-color: var(--color-surface-muted);
-    }
     app-card {
       width: min(26rem, 100%);
     }

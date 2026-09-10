@@ -12,19 +12,26 @@
   --font-mono: 'Space Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
 
   /*
-   * Escala fluida con `clamp()`. Los extremos van en `rem` (no `vw` puro) para que el
-   * zoom al 200 % siga funcionando (WCAG 1.4.4): un mínimo/máximo en unidades
-   * absolutas no se congela al reescalar la página.
+   * Escala realineada con los mínimos/máximos literales de la referencia
+   * (eventarium.css:28-35): --fs-hero 3.4rem→6.5rem, --fs-h1 2.4rem→4rem,
+   * --fs-h2 1.75rem→2.5rem, --fs-metric 2rem→2.75rem. La referencia interpola
+   * con `vw` puro en el término central; aquí se ancla ese término también a
+   * `rem` (mismo patrón que ya tenía esta hoja) para que el zoom al 200 %
+   * siga funcionando (WCAG 1.4.4) sin congelarse — los extremos, que son lo
+   * que de verdad se nota en pantalla, son los literales de la referencia.
    */
-  --fs-hero: clamp(2.5rem, 1.75rem + 3vw, 5rem);
-  --fs-h1: clamp(2rem, 1.5rem + 2vw, 3.5rem);
-  --fs-h2: clamp(1.5rem, 1.25rem + 1vw, 2.25rem);
-  --fs-h3: clamp(1.25rem, 1.1rem + 0.5vw, 1.75rem);
-  --fs-body: clamp(1rem, 0.95rem + 0.15vw, 1.125rem);
-  --fs-sm: clamp(0.875rem, 0.85rem + 0.1vw, 0.9375rem);
-  /* Fijo, no `clamp()` (eventarium.css:34): la referencia usa 0.6875rem exacto en
-   * este token; un `clamp()` aquí daba un 9-18 % más de tamaño en cabeceras de
-   * tabla y chips. Solo `chip.ts` y `data-table.ts` lo consumen (grep verificado). */
+  --fs-hero: clamp(3.4rem, 3rem + 3vw, 6.5rem);
+  --fs-h1: clamp(2.4rem, 2rem + 3vw, 4rem);
+  --fs-h2: clamp(1.75rem, 1.5rem + 2vw, 2.5rem);
+  /* Fijos, no `clamp()` (eventarium.css:31-33): la referencia usa estos tres
+   * como valores estáticos, no fluidos — un `clamp()` aquí cambia el tamaño
+   * del cuerpo de lectura con el ancho de ventana, que no es lo que hace la
+   * referencia. */
+  --fs-h3: 1.25rem;
+  --fs-body: 1rem;
+  --fs-sm: 0.875rem;
+  /* Fijo (eventarium.css:34): 0.6875rem exacto, mismo motivo que arriba. Solo
+   * `chip.ts` y `data-table.ts` lo consumen (grep verificado). */
   --fs-label: 0.6875rem;
-  --fs-metric: clamp(1.75rem, 1.4rem + 1.5vw, 3rem);
+  --fs-metric: clamp(2rem, 1.7rem + 2vw, 2.75rem);
 }

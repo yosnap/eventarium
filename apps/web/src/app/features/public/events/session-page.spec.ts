@@ -56,6 +56,28 @@ describe('SessionPage', () => {
 
   afterEach(() => {
     http.verify();
+    document.documentElement.removeAttribute('data-theme');
+  });
+
+  it('ofrece el enlace directo en tema claro sin violaciones de accesibilidad', async () => {
+    document.documentElement.setAttribute('data-theme', 'light');
+    const fixture = TestBed.createComponent(SessionPage);
+    fixture.componentRef.setInput('slug', 'iawic-2026');
+    fixture.componentRef.setInput('sessionId', 's2');
+    fixture.detectChanges();
+    http
+      .expectOne((peticion) => peticion.url === '/api/v1/public/events/iawic-2026/sessions/s2')
+      .flush({
+        ...sesionDetalle(),
+        id: 's2',
+        video_platform: 'other',
+        video_url: 'https://ejemplo.com/video.mp4',
+        participants: [],
+        materials: [],
+      });
+    await avanzar(fixture);
+
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
   it('muestra la sesión, sus ponentes, materiales y el vídeo embebido', async () => {

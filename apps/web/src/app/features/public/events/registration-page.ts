@@ -26,6 +26,8 @@ import {
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
+import { Checkbox } from '../../../shared/ui/checkbox';
+import { ErrorSummary, type ResumenDeError } from '../../../shared/ui/error-summary';
 import { Input } from '../../../shared/ui/input';
 import { TurnstileWidget } from '../../../shared/ui/turnstile-widget';
 
@@ -64,10 +66,20 @@ function precioEnEuros(cents: number): string {
 @Component({
   selector: 'app-registration-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, Input, TurnstileWidget],
+  imports: [
+    TranslocoDirective,
+    RouterLink,
+    Alert,
+    Button,
+    Card,
+    Checkbox,
+    ErrorSummary,
+    Input,
+    TurnstileWidget,
+  ],
   template: `
     <ng-container *transloco="let t">
-      <main id="contenido" class="pagina">
+      <div class="pagina">
         <app-card [heading]="t('inscripcion.titulo')">
           @if (cargandoPreguntas()) {
             <p>{{ t('comun.cargando') }}</p>
@@ -79,7 +91,10 @@ function precioEnEuros(cents: number): string {
             </app-alert>
           } @else {
             <form (submit)="enviar($event)" novalidate>
+              <app-error-summary [errores]="resumenErrores()" [titulo]="t('comun.corrigeErrores')" />
+
               <app-input
+                fieldId="insc-email"
                 [label]="t('inscripcion.email')"
                 type="email"
                 autocomplete="email"
@@ -89,6 +104,7 @@ function precioEnEuros(cents: number): string {
                 (blurred)="validarEmail()"
               />
               <app-input
+                fieldId="insc-nombre"
                 [label]="t('inscripcion.nombre')"
                 autocomplete="name"
                 [required]="true"
@@ -102,6 +118,7 @@ function precioEnEuros(cents: number): string {
                   @switch (pregunta.type) {
                     @case ('short_text') {
                       <app-input
+                        [fieldId]="'insc-pregunta-' + pregunta.id"
                         [label]="etiquetaConObligatoria(pregunta)"
                         [required]="pregunta.required"
                         [error]="erroresPreguntas()[pregunta.id] ?? null"
@@ -110,7 +127,7 @@ function precioEnEuros(cents: number): string {
                       />
                     }
                     @case ('single_choice') {
-                      <fieldset>
+                      <fieldset [id]="'insc-pregunta-' + pregunta.id" tabindex="-1">
                         <legend>{{ etiquetaConObligatoria(pregunta) }}</legend>
                         @for (opcion of pregunta.options ?? []; track opcion) {
                           <label class="opcion">
@@ -130,17 +147,14 @@ function precioEnEuros(cents: number): string {
                       </fieldset>
                     }
                     @case ('multiple_choice') {
-                      <fieldset>
+                      <fieldset [id]="'insc-pregunta-' + pregunta.id" tabindex="-1">
                         <legend>{{ etiquetaConObligatoria(pregunta) }}</legend>
                         @for (opcion of pregunta.options ?? []; track opcion) {
-                          <label class="opcion">
-                            <input
-                              type="checkbox"
-                              [checked]="valorLista(pregunta.id).includes(opcion)"
-                              (change)="alternarOpcion(pregunta.id, opcion)"
-                            />
-                            {{ opcion }}
-                          </label>
+                          <app-checkbox
+                            [label]="opcion"
+                            [checked]="valorLista(pregunta.id).includes(opcion)"
+                            (checkedChange)="alternarOpcion(pregunta.id, opcion)"
+                          />
                         }
                         @if (erroresPreguntas()[pregunta.id]; as mensaje) {
                           <p class="error-pregunta">{{ mensaje }}</p>
@@ -152,7 +166,7 @@ function precioEnEuros(cents: number): string {
               }
 
               @if (esCompraDePago()) {
-                <fieldset class="tipo-entrada">
+                <fieldset id="insc-tipo-entrada" class="tipo-entrada" tabindex="-1">
                   <legend>{{ t('inscripcion.tipoEntrada.titulo') }} *</legend>
                   @for (tipo of ticketTypes(); track tipo.id) {
                     <label class="opcion">
@@ -202,35 +216,21 @@ function precioEnEuros(cents: number): string {
                 </div>
               }
 
-              <label class="consentimiento">
-                <input
-                  type="checkbox"
-                  [checked]="dataProcessingAccepted()"
-                  (change)="dataProcessingAccepted.set(!dataProcessingAccepted())"
-                />
-                {{ t('inscripcion.tratamientoDatos') }}
-              </label>
+              <app-checkbox
+                fieldId="insc-tratamiento-datos"
+                [label]="t('inscripcion.tratamientoDatos')"
+                [describedBy]="errorConsentimiento() ? 'insc-tratamiento-datos-error' : null"
+                [(checked)]="dataProcessingAccepted"
+              />
               @if (errorConsentimiento()) {
-                <p class="error-pregunta">{{ errorConsentimiento() }}</p>
+                <p id="insc-tratamiento-datos-error" class="error-pregunta">
+                  {{ errorConsentimiento() }}
+                </p>
               }
 
-              <label class="consentimiento">
-                <input
-                  type="checkbox"
-                  [checked]="marketingAccepted()"
-                  (change)="marketingAccepted.set(!marketingAccepted())"
-                />
-                {{ t('inscripcion.marketing') }}
-              </label>
+              <app-checkbox [label]="t('inscripcion.marketing')" [(checked)]="marketingAccepted" />
 
-              <label class="consentimiento">
-                <input
-                  type="checkbox"
-                  [checked]="recordingAccepted()"
-                  (change)="recordingAccepted.set(!recordingAccepted())"
-                />
-                {{ t('inscripcion.grabacion') }}
-              </label>
+              <app-checkbox [label]="t('inscripcion.grabacion')" [(checked)]="recordingAccepted" />
 
               <app-turnstile-widget (resuelto)="onTurnstileResuelto($event)" />
 
@@ -254,16 +254,14 @@ function precioEnEuros(cents: number): string {
             <a [routerLink]="['/eventos', slug()]">{{ t('inscripcion.volverAlEvento') }}</a>
           </p>
         </app-card>
-      </main>
+      </div>
     </ng-container>
   `,
   styles: `
     .pagina {
       display: grid;
       place-items: center;
-      min-height: 100vh;
-      padding: var(--space-lg);
-      background-color: var(--color-surface-muted);
+      padding: var(--space-lg) 0;
     }
     app-card {
       width: min(32rem, 100%);
@@ -273,7 +271,7 @@ function precioEnEuros(cents: number): string {
       gap: var(--space-md);
     }
     fieldset {
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
       padding: var(--space-sm) var(--space-md) var(--space-md);
       display: grid;
@@ -288,14 +286,9 @@ function precioEnEuros(cents: number): string {
       align-items: center;
       gap: var(--space-xs);
     }
-    .consentimiento {
-      display: flex;
-      align-items: flex-start;
-      gap: var(--space-xs);
-    }
     .error-pregunta {
       margin: 0;
-      color: var(--color-danger);
+      color: var(--danger);
       font-size: 0.875rem;
     }
     .presupuesto {
@@ -347,6 +340,31 @@ export class RegistrationPage implements OnInit {
   protected readonly codigoDescuento = signal('');
   protected readonly presupuesto = signal<CheckoutQuote | null>(null);
   protected readonly cargandoPresupuesto = signal(false);
+
+  /** Agrega los errores de validación visibles en un momento dado, enlazados
+   * por id a su campo: `app-error-summary` solo se pinta a partir de dos, así
+   * que un único fallo sigue resolviéndose con el mensaje inline del campo. */
+  protected readonly resumenErrores = computed<ResumenDeError[]>(() => {
+    const errores: ResumenDeError[] = [];
+    if (this.errorEmail()) {
+      errores.push({ campoId: 'insc-email', mensaje: this.errorEmail()! });
+    }
+    if (this.errorNombre()) {
+      errores.push({ campoId: 'insc-nombre', mensaje: this.errorNombre()! });
+    }
+    for (const [id, mensaje] of Object.entries(this.erroresPreguntas())) {
+      if (mensaje) {
+        errores.push({ campoId: `insc-pregunta-${id}`, mensaje });
+      }
+    }
+    if (this.errorConsentimiento()) {
+      errores.push({ campoId: 'insc-tratamiento-datos', mensaje: this.errorConsentimiento()! });
+    }
+    if (this.esCompraDePago() && this.errorTicketType()) {
+      errores.push({ campoId: 'insc-tipo-entrada', mensaje: this.errorTicketType()! });
+    }
+    return errores;
+  });
   protected readonly errorPresupuesto = signal<string | null>(null);
 
   ngOnInit(): void {

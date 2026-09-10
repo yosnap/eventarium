@@ -101,6 +101,17 @@ describe('shells', () => {
     await esperarSinViolacionesDeAccesibilidad(raiz);
   });
 
+  it('el shell público no tiene violaciones de accesibilidad en tema claro', async () => {
+    document.documentElement.setAttribute('data-theme', 'light');
+    try {
+      const fixture = TestBed.createComponent(PublicShell);
+      await fixture.whenStable();
+      await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+    } finally {
+      document.documentElement.removeAttribute('data-theme');
+    }
+  });
+
   it('el shell de administración no tiene violaciones de accesibilidad', async () => {
     const fixture = TestBed.createComponent(AdminShell);
     await fixture.whenStable();

@@ -32,6 +32,22 @@ describe('PaymentReturnPage', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    document.documentElement.removeAttribute('data-theme');
+  });
+
+  it('confirma el pago en tema claro sin violaciones de accesibilidad', async () => {
+    document.documentElement.setAttribute('data-theme', 'light');
+    const getStatus = vi.fn().mockResolvedValue({
+      registration_status: 'confirmed',
+      payment_status: 'paid',
+    });
+    configurar({ getStatus }, rutaCon({ registration_id: 'reg-1', slug: 'iawic-2026' }));
+
+    const fixture = TestBed.createComponent(PaymentReturnPage);
+    await fixture.whenStable();
+
+    expect(fixture.nativeElement.textContent).toContain('¡Pago confirmado!');
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
   it('sin `registration_id` ni `slug` en la URL muestra un error, sin consultar nada', async () => {

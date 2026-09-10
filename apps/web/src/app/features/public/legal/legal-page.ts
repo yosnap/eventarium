@@ -60,32 +60,44 @@ interface LegalPageResponse {
   imports: [TranslocoDirective, Alert],
   template: `
     <ng-container *transloco="let t">
-      <h1>{{ t(tituloClave()) }}</h1>
+      <div class="ancho-maximo">
+        <h1>{{ t(tituloClave()) }}</h1>
 
-      @if (cargando()) {
-        <p>{{ t('legal.cargando') }}</p>
-      } @else if (error()) {
-        <app-alert tone="error">{{ t('legal.error') }}</app-alert>
-      } @else if (htmlSeguro(); as html) {
-        <div class="contenido" [innerHTML]="html"></div>
-      } @else {
-        <p class="contenido-plano">{{ contenidoBruto() }}</p>
-      }
+        @if (cargando()) {
+          <p>{{ t('legal.cargando') }}</p>
+        } @else if (error()) {
+          <app-alert tone="error">{{ t('legal.error') }}</app-alert>
+        } @else if (htmlSeguro(); as html) {
+          <div class="contenido" [innerHTML]="html"></div>
+        } @else {
+          <p class="contenido-plano">{{ contenidoBruto() }}</p>
+        }
+      </div>
     </ng-container>
   `,
   styles: `
+    .ancho-maximo {
+      padding: var(--space-lg) 0;
+    }
     h1 {
       margin-top: 0;
     }
+    /* Lectura larga: medida de línea acotada a ~68 caracteres (65-75ch es el
+       rango legible recomendado), no el ancho completo de .ancho-maximo. */
     .contenido,
     .contenido-plano {
-      max-width: 48rem;
+      max-width: 42rem;
       white-space: pre-line;
-      line-height: 1.6;
+      line-height: 1.7;
+      font-size: var(--fs-body);
     }
     .contenido ::ng-deep ul,
     .contenido ::ng-deep ol {
       padding-inline-start: 1.5rem;
+    }
+    .contenido ::ng-deep h2,
+    .contenido ::ng-deep h3 {
+      margin-top: var(--space-lg);
     }
   `,
 })

@@ -1,14 +1,26 @@
-import { Component, provideZonelessChangeDetection, output } from '@angular/core';
+import { Component, provideZonelessChangeDetection, output, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ForgotPasswordPage } from './forgot-password-page';
 import { AuthService } from '../../../core/auth/auth.service';
+import { ThemingService } from '../../../core/theming/theming.service';
 import { TurnstileWidget } from '../../../shared/ui/turnstile-widget';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../../testing/axe';
 import es from '../../../../../public/assets/i18n/es-ES.json';
+
+/** Mismo doble mínimo que `layouts/shells.spec.ts`: sin él, `AuthFrame`
+ * inyectaría el `ThemingService` real, que necesita `HttpClient`. */
+function themingDePrueba() {
+  return {
+    branding: signal(null),
+    error: signal(null),
+    templateKey: signal('classic'),
+    organizationName: signal('Organización de prueba'),
+  };
+}
 
 @Component({ selector: 'app-turnstile-widget', template: '' })
 class TurnstileWidgetFalso {
@@ -31,6 +43,7 @@ describe('ForgotPasswordPage', () => {
           provide: AuthService,
           useValue: { forgotPassword: vi.fn().mockResolvedValue(undefined) },
         },
+        { provide: ThemingService, useValue: themingDePrueba() },
       ],
     })
       .overrideComponent(ForgotPasswordPage, {
@@ -40,7 +53,18 @@ describe('ForgotPasswordPage', () => {
       .compileComponents();
   });
 
+  afterEach(() => {
+    document.documentElement.removeAttribute('data-theme');
+  });
+
   it('no tiene violaciones de accesibilidad', async () => {
+    const fixture = TestBed.createComponent(ForgotPasswordPage);
+    await fixture.whenStable();
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('no tiene violaciones de accesibilidad en tema claro', async () => {
+    document.documentElement.setAttribute('data-theme', 'light');
     const fixture = TestBed.createComponent(ForgotPasswordPage);
     await fixture.whenStable();
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);

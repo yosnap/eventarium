@@ -104,7 +104,7 @@ function fechaLocal(iso: string): string {
       } @else if (noEncontrado()) {
         <app-alert tone="error">{{ t('publico.eventos.noEncontrado') }}</app-alert>
       } @else if (evento(); as evento) {
-        <article>
+        <article class="ancho-maximo">
           @if (evento.cover_url) {
             <img class="portada" [src]="evento.cover_url" [alt]="evento.title" />
           }
@@ -204,6 +204,9 @@ function fechaLocal(iso: string): string {
     </ng-container>
   `,
   styles: `
+    .ancho-maximo {
+      padding: var(--space-lg) 0;
+    }
     .portada {
       width: 100%;
       max-height: 320px;
@@ -215,23 +218,23 @@ function fechaLocal(iso: string): string {
     }
     .resumen {
       font-size: 1.125rem;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
     }
     .lugar {
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
     }
     .inscribirse {
       display: inline-block;
       margin-top: var(--space-md);
       padding: var(--space-sm) var(--space-lg);
-      border-radius: var(--radius-md);
-      background-color: var(--color-primary);
-      color: var(--color-primary-contrast, #fff);
-      font-weight: 600;
+      border-radius: var(--radius-sm);
+      background-color: var(--accent);
+      color: var(--on-accent);
+      font-weight: 700;
       text-decoration: none;
     }
     .inscribirse:hover {
-      opacity: 0.9;
+      background-color: var(--accent-hi);
     }
     .sesiones {
       list-style: none;
@@ -242,7 +245,7 @@ function fechaLocal(iso: string): string {
     }
     .horario {
       display: block;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
       font-size: 0.875rem;
     }
     .participantes {

@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { PaymentCancelledPage } from './payment-cancelled-page';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../../testing/axe';
@@ -29,6 +29,20 @@ describe('PaymentCancelledPage', () => {
       ],
     }).compileComponents();
   }
+
+  afterEach(() => {
+    document.documentElement.removeAttribute('data-theme');
+  });
+
+  it('muestra el aviso de cancelación en tema claro sin violaciones de accesibilidad', async () => {
+    document.documentElement.setAttribute('data-theme', 'light');
+    configurar(rutaCon({ slug: 'iawic-2026' }));
+
+    const fixture = TestBed.createComponent(PaymentCancelledPage);
+    await fixture.whenStable();
+
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
 
   it('muestra el aviso de cancelación y un enlace de vuelta al evento, sin violaciones de accesibilidad', async () => {
     configurar(rutaCon({ slug: 'iawic-2026' }));

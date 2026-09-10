@@ -19,7 +19,7 @@ import { Card } from '../../../shared/ui/card';
   imports: [TranslocoDirective, RouterLink, Alert, Card],
   template: `
     <ng-container *transloco="let t">
-      <main id="contenido" class="pagina">
+      <div class="pagina">
         <app-card [heading]="t('pago.cancelado.titulo')">
           <app-alert tone="info">{{ t('pago.cancelado.detalle') }}</app-alert>
           @if (slug) {
@@ -28,16 +28,14 @@ import { Card } from '../../../shared/ui/card';
             </p>
           }
         </app-card>
-      </main>
+      </div>
     </ng-container>
   `,
   styles: `
     .pagina {
       display: grid;
       place-items: center;
-      min-height: 100vh;
-      padding: var(--space-lg);
-      background-color: var(--color-surface-muted);
+      padding: var(--space-lg) 0;
     }
     app-card {
       width: min(28rem, 100%);

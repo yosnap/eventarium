@@ -43,44 +43,49 @@ const CLAVE = makeStateKey<PublicEventSummary[]>('public-events-list');
   imports: [DatePipe, RouterLink, TranslocoDirective, Alert, Card],
   template: `
     <ng-container *transloco="let t">
-      <h1>{{ t('publico.eventos.listadoTitulo') }}</h1>
+      <div class="ancho-maximo">
+        <h1>{{ t('publico.eventos.listadoTitulo') }}</h1>
 
-      @if (error(); as mensaje) {
-        <app-alert tone="error">{{ mensaje }}</app-alert>
-      }
+        @if (error(); as mensaje) {
+          <app-alert tone="error">{{ mensaje }}</app-alert>
+        }
 
-      @if (cargando()) {
-        <p>{{ t('comun.cargando') }}</p>
-      } @else if (eventos().length === 0) {
-        <p>{{ t('publico.eventos.sinEventos') }}</p>
-      } @else {
-        <ul class="eventos">
-          @for (evento of eventos(); track evento.slug) {
-            <li>
-              <app-card>
-                <a [routerLink]="['/eventos', evento.slug]">
-                  @if (evento.cover_url) {
-                    <img [src]="evento.cover_url" [alt]="evento.title" />
+        @if (cargando()) {
+          <p>{{ t('comun.cargando') }}</p>
+        } @else if (eventos().length === 0) {
+          <p>{{ t('publico.eventos.sinEventos') }}</p>
+        } @else {
+          <ul class="eventos">
+            @for (evento of eventos(); track evento.slug) {
+              <li>
+                <app-card>
+                  <a [routerLink]="['/eventos', evento.slug]">
+                    @if (evento.cover_url) {
+                      <img [src]="evento.cover_url" [alt]="evento.title" />
+                    }
+                    <h2>{{ evento.title }}</h2>
+                  </a>
+                  <p class="fecha">
+                    {{ evento.starts_at | date: 'fullDate' }}
+                    @if (evento.location_name) {
+                      · {{ evento.location_name }}
+                    }
+                  </p>
+                  @if (evento.summary) {
+                    <p>{{ evento.summary }}</p>
                   }
-                  <h2>{{ evento.title }}</h2>
-                </a>
-                <p class="fecha">
-                  {{ evento.starts_at | date: 'fullDate' }}
-                  @if (evento.location_name) {
-                    · {{ evento.location_name }}
-                  }
-                </p>
-                @if (evento.summary) {
-                  <p>{{ evento.summary }}</p>
-                }
-              </app-card>
-            </li>
-          }
-        </ul>
-      }
+                </app-card>
+              </li>
+            }
+          </ul>
+        }
+      </div>
     </ng-container>
   `,
   styles: `
+    .ancho-maximo {
+      padding: var(--space-lg) 0;
+    }
     .eventos {
       list-style: none;
       margin: 0;
@@ -104,7 +109,7 @@ const CLAVE = makeStateKey<PublicEventSummary[]>('public-events-list');
       font-size: 1.125rem;
     }
     .fecha {
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
       font-size: 0.875rem;
     }
   `,

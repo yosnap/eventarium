@@ -3,6 +3,7 @@ import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
 import { ApiError } from '../../../core/api/error.interceptor';
 import { AuthService } from '../../../core/auth/auth.service';
+import { AuthFrame } from '../../../layouts/public/auth-frame';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
@@ -39,10 +40,10 @@ function slugify(texto: string): string {
 @Component({
   selector: 'app-create-organization-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input, TurnstileWidget],
+  imports: [TranslocoDirective, AuthFrame, Alert, Button, Card, Input, TurnstileWidget],
   template: `
     <ng-container *transloco="let t">
-      <main id="contenido" class="pagina">
+      <app-auth-frame [titulo]="t('crearOrganizacion.titulo')">
         <app-card [heading]="t('crearOrganizacion.titulo')">
           @if (creada(); as organizacion) {
             <app-alert tone="exito" [title]="t('crearOrganizacion.exitoTitulo')">
@@ -101,17 +102,10 @@ function slugify(texto: string): string {
             </form>
           }
         </app-card>
-      </main>
+      </app-auth-frame>
     </ng-container>
   `,
   styles: `
-    .pagina {
-      display: grid;
-      place-items: center;
-      min-height: 100vh;
-      padding: var(--space-lg);
-      background-color: var(--color-surface-muted);
-    }
     app-card {
       width: min(28rem, 100%);
     }

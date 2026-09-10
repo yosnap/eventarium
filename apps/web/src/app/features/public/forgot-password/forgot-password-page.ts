@@ -4,6 +4,7 @@ import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
 import { ApiError } from '../../../core/api/error.interceptor';
 import { AuthService } from '../../../core/auth/auth.service';
+import { AuthFrame } from '../../../layouts/public/auth-frame';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
@@ -21,10 +22,10 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 @Component({
   selector: 'app-forgot-password-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, Input, TurnstileWidget],
+  imports: [TranslocoDirective, RouterLink, AuthFrame, Alert, Button, Card, Input, TurnstileWidget],
   template: `
     <ng-container *transloco="let t">
-      <main id="contenido" class="pagina">
+      <app-auth-frame [titulo]="t('recuperarContrasena.titulo')">
         <app-card [heading]="t('recuperarContrasena.titulo')">
           @if (enviado()) {
             <app-alert tone="exito" [title]="t('recuperarContrasena.exitoTitulo')">
@@ -56,17 +57,10 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             <a routerLink="/admin/login">{{ t('registro.yaTengoCuenta') }}</a>
           </p>
         </app-card>
-      </main>
+      </app-auth-frame>
     </ng-container>
   `,
   styles: `
-    .pagina {
-      display: grid;
-      place-items: center;
-      min-height: 100vh;
-      padding: var(--space-lg);
-      background-color: var(--color-surface-muted);
-    }
     app-card {
       width: min(26rem, 100%);
     }
