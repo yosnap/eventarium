@@ -13,7 +13,7 @@ import { TranslocoDirective } from '@jsverse/transloco';
 
 import { Chip } from '../../../../shared/ui/chip';
 import { Panel } from '../../../../shared/ui/panel';
-import { claveTipoSesion, rolLegible, type PublicEventSession } from '../event-page.types';
+import { claveTipoSesion, type PublicEventSession } from '../event-page.types';
 
 export interface DiaDeAgenda {
   readonly fecha: string;
@@ -77,35 +77,43 @@ export interface DiaDeAgenda {
                     {{ sesion.starts_at | date: 'shortTime' : eventTimezone() }}
                   </span>
                   <div class="slot__cuerpo">
-                    <a [routerLink]="['/eventos', eventSlug(), 'sesiones', sesion.id]">
-                      <h3>{{ sesion.title }}</h3>
-                    </a>
-                    <span class="slot__sala">
-                      {{ sesion.ends_at | date: 'shortTime' : eventTimezone() }}
-                      @if (sesion.room) {
-                        · {{ sesion.room }}
-                      }
-                    </span>
-                    @if (sesion.participants.length > 0) {
-                      <ul class="participantes">
-                        @for (persona of sesion.participants; track $index + persona.display_name) {
-                          <li>
-                            @if (persona.public_slug) {
-                              <a [routerLink]="['/ponentes', persona.public_slug]">
-                                {{ persona.display_name }}
-                              </a>
-                            } @else {
-                              {{ persona.display_name }}
-                            }
-                            ({{ rolLegible(persona.role_key, t) }})
-                          </li>
+                    <h3>{{ sesion.title }}</h3>
+                    @if (sesion.room || sesion.participants.length > 0) {
+                      <span class="slot__sala">
+                        @if (sesion.room) {
+                          {{ sesion.room }}
                         }
-                      </ul>
+                        @if (sesion.room && sesion.participants.length > 0) {
+                          ·
+                        }
+                        @for (
+                          persona of sesion.participants;
+                          track $index + persona.display_name;
+                          let ultimo = $last
+                        ) {
+                          @if (persona.public_slug) {
+                            <a [routerLink]="['/ponentes', persona.public_slug]">{{
+                              persona.display_name
+                            }}</a>
+                          } @else {
+                            {{ persona.display_name }}
+                          }
+                          @if (!ultimo) {
+                            ,
+                          }
+                        }
+                      </span>
                     }
                   </div>
-                  <app-chip class="slot__tipo">{{
-                    t(claveTipoSesion(sesion.session_type))
-                  }}</app-chip>
+                  <div class="slot__meta">
+                    <app-chip>{{ t(claveTipoSesion(sesion.session_type)) }}</app-chip>
+                    <a
+                      class="ficha"
+                      [routerLink]="['/eventos', eventSlug(), 'sesiones', sesion.id]"
+                    >
+                      {{ t('publico.eventos.sesion.ficha') }}
+                    </a>
+                  </div>
                 </li>
               }
             </ul>
@@ -117,6 +125,11 @@ export interface DiaDeAgenda {
   styles: `
     .dias {
       display: flex;
+      /* .days de la referencia (evento-iawic.html) vive dentro de un
+         .sec__head en flex, por eso ahí se ajusta sola al contenido. Aquí es
+         un bloque normal: sin width fit-content ocuparía todo el ancho del
+         contenedor en vez de ceñirse a los botones de día. */
+      width: fit-content;
       flex-wrap: wrap;
       gap: var(--sp-1);
       padding: 4px;
@@ -149,6 +162,13 @@ export interface DiaDeAgenda {
       background-color: var(--accent);
       color: var(--on-accent);
       font-weight: 700;
+    }
+    /* app-panel (shared/ui/panel.ts) no lleva relleno propio: en la
+       referencia lo aporta .panel__body (eventarium.css:189), aquí lo aporta
+       cada panel de día directamente. Sin esto, la fecha y las horas de cada
+       fila quedan pegadas al borde del panel. */
+    [role='tabpanel'] {
+      padding: var(--sp-5);
     }
     .dia-fecha {
       margin: 0 0 var(--sp-2);
@@ -185,24 +205,37 @@ export interface DiaDeAgenda {
       color: var(--muted);
       margin-top: 6px;
     }
-    .participantes {
-      list-style: none;
-      margin: var(--sp-2) 0 0;
-      padding: 0;
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--sp-2);
-      font-size: var(--fs-sm);
+    .slot__sala a {
+      color: inherit;
     }
-    .slot__tipo {
-      align-self: start;
+    .slot__meta {
+      display: flex;
+      gap: var(--sp-2);
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    /* .ficha replica .btn--quiet.btn--sm de la referencia (eventarium.css:170-172):
+       enlace discreto, sin fondo, min-height táctil de 36px como el resto de
+       botones --sm del sistema. */
+    .ficha {
+      display: inline-flex;
+      align-items: center;
+      min-height: 2.25rem;
+      padding: 0 0.5rem;
+      color: var(--muted);
+      font-size: var(--fs-label);
+      letter-spacing: 0.06em;
+    }
+    .ficha:hover {
+      color: var(--fg);
     }
     @media (max-width: 56.25rem) {
       .slot {
         grid-template-columns: 72px 1fr;
         gap: var(--sp-4);
       }
-      .slot__tipo {
+      .slot__meta {
         grid-column: 2;
         justify-self: start;
       }
@@ -226,10 +259,6 @@ export class EventAgendaSection {
         this.diaActivo.set(0);
       }
     });
-  }
-
-  protected rolLegible(roleKey: string, traducir: (clave: string) => string): string {
-    return rolLegible(roleKey, traducir);
   }
 
   protected seleccionar(indice: number, enfocar: boolean): void {

@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 
+import { Reveal } from '../../../../shared/ui/reveal.directive';
 import { rolLegible } from '../event-page.types';
 
 export interface Speaker {
@@ -24,12 +25,17 @@ export interface Speaker {
 @Component({
   selector: 'app-event-speakers-section',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, TranslocoDirective],
+  imports: [RouterLink, TranslocoDirective, Reveal],
   template: `
     <ng-container *transloco="let t">
       <div class="rejilla">
-        @for (ponente of ponentes(); track ponente.publicSlug) {
-          <a class="ponente" [routerLink]="['/ponentes', ponente.publicSlug]">
+        @for (ponente of ponentes(); track ponente.publicSlug; let indice = $index) {
+          <a
+            class="ponente"
+            [routerLink]="['/ponentes', ponente.publicSlug]"
+            appReveal
+            [index]="indice"
+          >
             <span class="marca" aria-hidden="true">{{ iniciales(ponente.displayName) }}</span>
             <span class="datos">
               <strong>{{ ponente.displayName }}</strong>

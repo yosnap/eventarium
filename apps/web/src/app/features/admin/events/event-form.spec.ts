@@ -62,6 +62,11 @@ async function flushEventDetailsYSusSecciones(
     .expectOne((peticion) => peticion.url === '/api/v1/events/e1' && peticion.method === 'GET')
     .flush({ cover_url: null, status: 'draft', registration_mode: 'free' });
   await avanzar(fixture);
+  // `EventVenues` y `EventAgenda` (para su selector de sede) piden las sedes cada
+  // uno por su cuenta: hay dos peticiones idénticas en vuelo a la vez.
+  for (const peticion of http.match((p) => p.url === '/api/v1/events/e1/venues')) {
+    peticion.flush([]);
+  }
   http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/sessions').flush([]);
   http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/members').flush([]);
   http

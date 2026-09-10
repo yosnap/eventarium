@@ -19,6 +19,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
+import { Select, type SelectOption } from '../../../shared/ui/select';
 import { capitalizarClaveDeTraduccion } from '../../../shared/text/capitalizar-clave-de-traduccion';
 import { isoAValorLocal } from './datetime-local';
 
@@ -36,7 +37,13 @@ interface EventSession {
   readonly video_url: string | null;
   readonly materials: readonly { url?: string }[];
   readonly sort_order: number;
+  readonly venue_id: string | null;
   readonly updated_at: string;
+}
+
+interface EventVenueOption {
+  readonly id: string;
+  readonly name: string;
 }
 
 interface Persona {
@@ -103,7 +110,7 @@ function vacio(): {
 @Component({
   selector: 'app-event-agenda',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, DatePipe, Alert, Button, Card, Input],
+  imports: [TranslocoDirective, DatePipe, Alert, Button, Card, Input, Select],
   template: `
     <ng-container *transloco="let t">
       <app-card [heading]="t('admin.events.roster.titulo')">
@@ -272,6 +279,15 @@ function vacio(): {
             [label]="t('admin.events.agenda.sala')"
             [(value)]="sala"
           />
+
+          @if (sedes().length > 0) {
+            <app-select
+              fieldId="sesion-sede"
+              [label]="t('admin.events.agenda.sede')"
+              [options]="opcionesDeSede()"
+              [(value)]="venueId"
+            />
+          }
 
           <div class="campo-select">
             <label for="sesion-video">{{ t('admin.events.agenda.plataformaVideo') }}</label>
@@ -450,6 +466,13 @@ export class EventAgenda implements OnInit {
   protected readonly editandoId = signal<string | null>(null);
   protected readonly nombreDe = displayName;
 
+  protected readonly sedes = signal<EventVenueOption[]>([]);
+  protected readonly venueId = signal('');
+  protected readonly opcionesDeSede = computed<SelectOption[]>(() => [
+    { value: '', label: this.transloco.translate('admin.events.agenda.sinSedeEspecifica') },
+    ...this.sedes().map((sede) => ({ value: sede.id, label: sede.name })),
+  ]);
+
   protected readonly roster = signal<RosterMember[]>([]);
   protected readonly rosterError = signal<string | null>(null);
   protected readonly organizationMembers = signal<OrganizationMemberOption[]>([]);
@@ -492,6 +515,19 @@ export class EventAgenda implements OnInit {
     void this.cargar();
     void this.cargarRoster();
     void this.cargarMiembrosDeLaOrganizacion();
+    void this.cargarSedes();
+  }
+
+  private async cargarSedes(): Promise<void> {
+    try {
+      const sedes = await firstValueFrom(
+        this.http.get<EventVenueOption[]>(this.api.url(`/events/${this.eventId()}/venues`)),
+      );
+      this.sedes.set([...sedes]);
+    } catch {
+      // Sin sedes cargadas, el selector de sede simplemente no aparece: el resto
+      // del editor de agenda sigue funcionando igual.
+    }
   }
 
   private async cargarRoster(): Promise<void> {
@@ -701,6 +737,7 @@ export class EventAgenda implements OnInit {
         .filter((url): url is string => !!url)
         .join('\n'),
     );
+    this.venueId.set(sesion.venue_id ?? '');
     this.formError.set(null);
   }
 
@@ -715,6 +752,7 @@ export class EventAgenda implements OnInit {
     this.videoPlatform.set(vacios.video_platform);
     this.videoUrl.set(vacios.video_url);
     this.materiales.set(vacios.materiales);
+    this.venueId.set('');
     this.formError.set(null);
   }
 
@@ -744,6 +782,7 @@ export class EventAgenda implements OnInit {
       video_platform: this.videoPlatform() || null,
       video_url: this.videoPlatform() ? this.videoUrl().trim() || null : null,
       materials: this.materialesComoLista(),
+      venue_id: this.venueId() || null,
     };
 
     this.guardando.set(true);

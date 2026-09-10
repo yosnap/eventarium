@@ -24,6 +24,8 @@ export interface PublicEventSession {
   readonly starts_at: string;
   readonly ends_at: string;
   readonly room: string | null;
+  /** Sede de la sesión; `null` si el evento no usa sedes o la sesión no tiene. */
+  readonly venue_id: string | null;
   readonly video_platform: string | null;
   readonly video_url: string | null;
   readonly materials: readonly { url?: string; label?: string }[];
@@ -42,6 +44,16 @@ export interface PublicSponsorTier {
   readonly sponsors: readonly PublicSponsor[];
 }
 
+/** Sede del evento, para la vista de programa multisede. */
+export interface PublicVenue {
+  readonly id: string;
+  readonly name: string;
+  readonly address: string | null;
+  readonly capacity: number | null;
+  readonly latitude: number | null;
+  readonly longitude: number | null;
+}
+
 export interface PublicEventDetail {
   readonly slug: string;
   readonly title: string;
@@ -57,7 +69,14 @@ export interface PublicEventDetail {
   readonly online_url: string | null;
   readonly capacity: number | null;
   readonly registration_mode: RegistrationMode;
+  /** Plazas realmente reservadas: con `capacity`, da la ocupación de la ficha. */
+  readonly reserved_count: number;
+  /** Geocodificación de `location_address`; `null` si no hay dirección o falló. */
+  readonly latitude: number | null;
+  readonly longitude: number | null;
   readonly sessions: readonly PublicEventSession[];
+  /** Con 2 o más, el evento tiene programa multisede. */
+  readonly venues: readonly PublicVenue[];
   readonly sponsor_tiers: readonly PublicSponsorTier[];
 }
 

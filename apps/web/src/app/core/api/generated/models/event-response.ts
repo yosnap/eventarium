@@ -13,9 +13,11 @@ export interface EventResponse {
   email_verification_required: boolean;
   ends_at: string;
   id: string;
+  latitude: (number | null);
   location_address: (string | null);
   location_mode: 'in_person' | 'online' | 'hybrid';
   location_name: (string | null);
+  longitude: (number | null);
   online_url: (string | null);
   payment_checkout_window_minutes: number;
   registration_mode: 'free' | 'approval' | 'paid';

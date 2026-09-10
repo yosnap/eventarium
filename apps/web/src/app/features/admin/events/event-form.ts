@@ -11,6 +11,7 @@ import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { ErrorSummary, ResumenDeError } from '../../../shared/ui/error-summary';
 import { Input } from '../../../shared/ui/input';
+import { AddressMap } from '../../../shared/ui/address-map';
 import { isoAValorLocal } from './datetime-local';
 import { EventDetails } from './event-details';
 
@@ -26,6 +27,9 @@ interface EventoBase {
   readonly ends_at: string;
   readonly location_mode: LocationMode;
   readonly city: string | null;
+  readonly location_address: string | null;
+  readonly latitude: number | null;
+  readonly longitude: number | null;
   readonly payment_checkout_window_minutes: number;
 }
 
@@ -47,7 +51,17 @@ const VENTANA_DE_PAGO_POR_DEFECTO = 30;
 @Component({
   selector: 'app-event-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, ErrorSummary, Input, EventDetails],
+  imports: [
+    TranslocoDirective,
+    RouterLink,
+    Alert,
+    Button,
+    Card,
+    ErrorSummary,
+    Input,
+    AddressMap,
+    EventDetails,
+  ],
   template: `
     <ng-container *transloco="let t">
       <h1>
@@ -112,6 +126,16 @@ const VENTANA_DE_PAGO_POR_DEFECTO = 30;
                 <option value="hybrid">{{ t('admin.events.formulario.hibrido') }}</option>
               </select>
             </div>
+
+            @if (locationMode() !== 'online') {
+              <app-address-map
+                fieldId="evento-direccion"
+                [label]="t('admin.events.formulario.direccion')"
+                [(value)]="locationAddress"
+                [initialLatitude]="latitud()"
+                [initialLongitude]="longitud()"
+              />
+            }
 
             <app-input
               fieldId="evento-ciudad"
@@ -244,6 +268,9 @@ export class EventForm {
   protected readonly endsAt = signal('');
   protected readonly locationMode = signal<LocationMode>('in_person');
   protected readonly city = signal('');
+  protected readonly locationAddress = signal('');
+  protected readonly latitud = signal<number | null>(null);
+  protected readonly longitud = signal<number | null>(null);
   protected readonly paymentWindow = signal(VENTANA_DE_PAGO_POR_DEFECTO);
   protected readonly ventanaDePagoMin = VENTANA_DE_PAGO_MIN;
   protected readonly ventanaDePagoMax = VENTANA_DE_PAGO_MAX;
@@ -289,6 +316,9 @@ export class EventForm {
       this.endsAt.set(isoAValorLocal(evento.ends_at));
       this.locationMode.set(evento.location_mode);
       this.city.set(evento.city ?? '');
+      this.locationAddress.set(evento.location_address ?? '');
+      this.latitud.set(evento.latitude);
+      this.longitud.set(evento.longitude);
       this.paymentWindow.set(evento.payment_checkout_window_minutes);
     } catch (error) {
       this.error.set(
@@ -377,6 +407,8 @@ export class EventForm {
       ends_at: new Date(this.endsAt()).toISOString(),
       location_mode: this.locationMode(),
       city: this.city().trim() || null,
+      location_address:
+        this.locationMode() !== 'online' ? this.locationAddress().trim() || null : null,
       payment_checkout_window_minutes: this.paymentWindow(),
     };
 

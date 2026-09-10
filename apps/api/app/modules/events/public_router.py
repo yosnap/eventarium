@@ -40,8 +40,10 @@ from app.modules.events.schemas import (
     PublicEventSummary,
     PublicParticipant,
     PublicSessionDetail,
+    PublicVenue,
 )
 from app.modules.organizations.models import OrganizationMember
+from app.modules.registrations import repository as registrations_repository
 from app.modules.sponsors import repository as sponsors_repository
 from app.modules.sponsors.schemas import PublicSponsor, PublicSponsorTier
 from app.modules.users.models import User, UserSocialLink
@@ -121,12 +123,32 @@ async def _sesiones_publicas(
             starts_at=sesion.starts_at,
             ends_at=sesion.ends_at,
             room=sesion.room,
+            venue_id=str(sesion.venue_id) if sesion.venue_id else None,
             video_platform=sesion.video_platform,  # type: ignore[arg-type]
             video_url=sesion.video_url,
             materials=sesion.materials,
             participants=por_sesion.get(sesion.id, []),
         )
         for sesion in sesiones
+    ]
+
+
+async def _sedes_publicas(
+    session: DbDep, organization_id: uuid.UUID, event_id: uuid.UUID
+) -> list[PublicVenue]:
+    filas = (
+        (await session.execute(repository.venues_query(organization_id, event_id))).scalars().all()
+    )
+    return [
+        PublicVenue(
+            id=str(sede.id),
+            name=sede.name,
+            address=sede.address,
+            capacity=sede.capacity,
+            latitude=float(sede.latitude) if sede.latitude is not None else None,
+            longitude=float(sede.longitude) if sede.longitude is not None else None,
+        )
+        for sede in filas
     ]
 
 
@@ -216,7 +238,11 @@ async def get_public_event(
     evento: Annotated[Event, Depends(_obtener_evento_publico_o_404)], session: DbDep
 ) -> PublicEventDetail:
     sesiones = await _sesiones_publicas(session, evento.organization_id, evento.id)
+    sedes = await _sedes_publicas(session, evento.organization_id, evento.id)
     niveles_con_patrocinadores = await _sponsor_tiers_publicos(
+        session, evento.organization_id, evento.id
+    )
+    reservadas = await registrations_repository.count_reserved_registrations(
         session, evento.organization_id, evento.id
     )
     return PublicEventDetail(
@@ -234,7 +260,11 @@ async def get_public_event(
         online_url=evento.online_url,
         capacity=evento.capacity,
         registration_mode=evento.registration_mode,  # type: ignore[arg-type]
+        reserved_count=reservadas,
+        latitude=float(evento.latitude) if evento.latitude is not None else None,
+        longitude=float(evento.longitude) if evento.longitude is not None else None,
         sessions=sesiones,
+        venues=sedes,
         sponsor_tiers=niveles_con_patrocinadores,
     )
 
@@ -291,6 +321,7 @@ async def get_public_session(
         starts_at=sesion.starts_at,
         ends_at=sesion.ends_at,
         room=sesion.room,
+        venue_id=str(sesion.venue_id) if sesion.venue_id else None,
         video_platform=sesion.video_platform,  # type: ignore[arg-type]
         video_url=sesion.video_url,
         materials=sesion.materials,

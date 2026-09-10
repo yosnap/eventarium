@@ -313,9 +313,8 @@ async def _contar_reservadas(organization_id: uuid.UUID) -> dict[str, int]:
     ejecuta `public_events_with_confirmed_count_query` directamente contra la
     base de datos, igual que hace `list_public_events`."""
     async with SessionMaintenance() as session:
-        filas = (
-            await session.execute(repository.public_events_with_confirmed_count_query(organization_id))
-        ).all()
+        consulta = repository.public_events_with_confirmed_count_query(organization_id)
+        filas = (await session.execute(consulta)).all()
         return {evento.slug: reservadas for evento, reservadas in filas}
 
 
@@ -339,9 +338,14 @@ async def test_reserved_count_solo_cuenta_los_estados_que_ocupan_aforo(
     event_id = uuid.UUID(evento["id"])
     organization_id = organizacion.id
 
-    await _crear_inscripcion(organization_id, event_id, "confirmada@example.com", status="confirmed")
     await _crear_inscripcion(
-        organization_id, event_id, "pendiente-verificacion@example.com", status="pending_verification"
+        organization_id, event_id, "confirmada@example.com", status="confirmed"
+    )
+    await _crear_inscripcion(
+        organization_id,
+        event_id,
+        "pendiente-verificacion@example.com",
+        status="pending_verification",
     )
     await _crear_inscripcion(organization_id, event_id, "rechazada@example.com", status="rejected")
     await _crear_inscripcion(organization_id, event_id, "cancelada@example.com", status="cancelled")
@@ -465,6 +469,85 @@ async def test_reserved_count_conserva_el_orden_por_starts_at(
             )
         ).all()
     assert [evento.slug for evento, _ in filas] == ["temprano", "tardio"]
+
+
+async def test_el_detalle_publico_expone_sedes_y_venue_id_de_la_sesion(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """Tanda 1 (solo backend): el detalle público debe llevar `venues` (con
+    `latitude`/`longitude`) y `venue_id` en cada sesión, aunque todavía no haya
+    ningún flujo de admin para asignar sedes a sesiones (tanda 2)."""
+    from unittest.mock import AsyncMock, patch
+
+    from sqlalchemy import text as sql_text
+
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento = await _crear_evento(cliente, cabeceras, slug="con-sedes")
+
+    with patch(
+        "app.modules.events.service.geocode_address",
+        new=AsyncMock(return_value=(39.4699, -0.3763)),
+    ):
+        sede = (
+            await cliente.post(
+                f"{EVENTS}/{evento['id']}/venues",
+                headers=cabeceras,
+                json={"name": "Las Naves", "address": "Valencia"},
+            )
+        ).json()
+
+    sesion = (
+        await cliente.post(
+            f"{EVENTS}/{evento['id']}/sessions",
+            headers=cabeceras,
+            json={
+                "session_type": "talk",
+                "title": "Charla en Las Naves",
+                "starts_at": (AHORA + timedelta(hours=1)).isoformat(),
+                "ends_at": (AHORA + timedelta(hours=2)).isoformat(),
+            },
+        )
+    ).json()
+
+    async with SessionMaintenance() as session:
+        await session.execute(
+            sql_text("UPDATE event_sessions SET venue_id = :venue_id WHERE id = :session_id"),
+            {"venue_id": sede["id"], "session_id": sesion["id"]},
+        )
+        await session.commit()
+
+    await _publicar(cliente, cabeceras, evento["id"])
+
+    detalle = await cliente.get(f"{PUBLIC_EVENTS}/con-sedes", headers={"Host": organizacion.host})
+    assert detalle.status_code == 200
+    cuerpo = detalle.json()
+    assert len(cuerpo["venues"]) == 1
+    assert cuerpo["venues"][0]["name"] == "Las Naves"
+    assert cuerpo["venues"][0]["latitude"] == 39.4699
+    assert cuerpo["sessions"][0]["venue_id"] == sede["id"]
+
+
+async def test_el_detalle_publico_expone_las_plazas_reservadas(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """La ficha de evento pinta la ocupación (barra de aforo), no solo el aforo
+    total: necesita `reserved_count`, con la misma regla que el listado."""
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento = await _crear_evento(cliente, cabeceras, slug="detalle-con-reservas", capacity=10)
+    await _publicar(cliente, cabeceras, evento["id"])
+
+    sin_reservas = await cliente.get(
+        f"{PUBLIC_EVENTS}/detalle-con-reservas", headers={"Host": organizacion.host}
+    )
+    assert sin_reservas.json()["reserved_count"] == 0
+
+    await _crear_inscripcion(organizacion.id, uuid.UUID(evento["id"]), "una@example.test")
+    await _crear_inscripcion(organizacion.id, uuid.UUID(evento["id"]), "otra@example.test")
+
+    con_reservas = await cliente.get(
+        f"{PUBLIC_EVENTS}/detalle-con-reservas", headers={"Host": organizacion.host}
+    )
+    assert con_reservas.json()["reserved_count"] == 2
 
 
 async def test_el_listado_publico_tiene_limite_de_peticiones_por_ip(

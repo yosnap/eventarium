@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
@@ -25,6 +26,7 @@ from sqlalchemy import (
     ForeignKey,
     ForeignKeyConstraint,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -92,11 +94,21 @@ class Event(Base, TimestampMixin):
     payment_checkout_window_minutes: Mapped[int] = mapped_column(
         Integer, nullable=False, default=30
     )
+    # Geocodificación de `location_address` con Nominatim (mismo mecanismo que
+    # `EventVenue`, ver ahí la justificación completa). `null` mientras no haya
+    # dirección, `location_mode` sea `online`, o la geocodificación haya
+    # fallado — nunca bloquea guardar el evento.
+    latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    geocoded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     sessions: Mapped[list[EventSession]] = relationship(
         back_populates="event", cascade="all, delete-orphan", lazy="selectin"
     )
     members: Mapped[list[EventMember]] = relationship(
+        back_populates="event", cascade="all, delete-orphan", lazy="selectin"
+    )
+    venues: Mapped[list[EventVenue]] = relationship(
         back_populates="event", cascade="all, delete-orphan", lazy="selectin"
     )
 
@@ -112,12 +124,29 @@ class EventSession(Base, TimestampMixin):
             name="fk_event_sessions_event_id_organization_id",
             ondelete="CASCADE",
         ),
+        # Sin `ondelete=CASCADE`: borrar una sede con sesiones que la referencian
+        # se bloquea explícitamente en `service.delete_venue` con un 409 legible
+        # (ver justificación ahí). `ondelete=SET NULL` es la red de seguridad de
+        # base de datos para el único camino que se salta esa comprobación de
+        # servicio: borrar la sede directamente en base de datos (rol de
+        # mantenimiento, migraciones) — la sesión queda sin sede en vez de que la
+        # fila entera desaparezca o la operación quede bloqueada a ese nivel.
+        ForeignKeyConstraint(
+            ["venue_id", "organization_id"],
+            ["event_venues.id", "event_venues.organization_id"],
+            name="fk_event_sessions_venue_id_organization_id",
+            ondelete="SET NULL",
+        ),
         UniqueConstraint("id", "organization_id", name="uq_event_sessions_id_organization_id"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=new_uuid7)
     event_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False, index=True)
     organization_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
+    # Sede (nivel superior) donde ocurre la sesión; `room` (más abajo) es la sala
+    # o espacio concreto dentro de esa sede, texto libre sin relación con `venue`.
+    # `null`: eventos de una sola sede no necesitan asignar una sede a cada sesión.
+    venue_id: Mapped[uuid.UUID | None] = mapped_column(PgUUID(as_uuid=True), nullable=True)
     # talk | break | service | other
     session_type: Mapped[str] = mapped_column(String(20), nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -138,6 +167,47 @@ class EventSession(Base, TimestampMixin):
         lazy="selectin",
         overlaps="participations,event_member",
     )
+
+
+class EventVenue(Base, TimestampMixin):
+    """Sede de un evento multisede: nombre, dirección real y aforo propios.
+
+    Nivel superior a `EventSession.room` (texto libre, la sala dentro de la
+    sede) — p. ej. la sede «Las Naves» puede tener las salas «Sala Principal»
+    y «Sala 2», ambas como `room` de sesiones con el mismo `venue_id`. También
+    se usa para geocodificar la ubicación simple de un evento de una sola sede
+    (`Event.location_address`), mismo mecanismo, distinta fila destino.
+
+    `latitude`/`longitude`/`geocoded_at` cachean el resultado de geocodificar
+    `address` con Nominatim (`geocoding.geocode_address`): el servicio solo
+    vuelve a llamar a Nominatim cuando `address` cambia respecto al valor
+    guardado, nunca en cada lectura.
+    """
+
+    __tablename__ = "event_venues"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["event_id", "organization_id"],
+            ["events.id", "events.organization_id"],
+            name="fk_event_venues_event_id_organization_id",
+            ondelete="CASCADE",
+        ),
+        # Objetivo de la FK compuesta de `event_sessions.venue_id`.
+        UniqueConstraint("id", "organization_id", name="uq_event_venues_id_organization_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=new_uuid7)
+    event_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False, index=True)
+    organization_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    address: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    capacity: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    geocoded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    event: Mapped[Event] = relationship(back_populates="venues")
 
 
 class EventMember(Base, TimestampMixin):

@@ -1,4 +1,5 @@
-import { isPlatformBrowser } from '@angular/common';
+import { DatePipe, isPlatformBrowser } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -11,7 +12,9 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
+import { firstValueFrom } from 'rxjs';
 
+import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
 import {
   type CheckoutQuote,
@@ -30,6 +33,7 @@ import { Checkbox } from '../../../shared/ui/checkbox';
 import { ErrorSummary, type ResumenDeError } from '../../../shared/ui/error-summary';
 import { Input } from '../../../shared/ui/input';
 import { TurnstileWidget } from '../../../shared/ui/turnstile-widget';
+import type { PublicEventDetail } from './event-page.types';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -67,6 +71,7 @@ function precioEnEuros(cents: number): string {
   selector: 'app-registration-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    DatePipe,
     TranslocoDirective,
     RouterLink,
     Alert,
@@ -80,6 +85,7 @@ function precioEnEuros(cents: number): string {
   template: `
     <ng-container *transloco="let t">
       <div class="pagina">
+        <div class="layout">
         <app-card [heading]="t('inscripcion.titulo')">
           @if (cargandoPreguntas()) {
             <p>{{ t('comun.cargando') }}</p>
@@ -254,17 +260,91 @@ function precioEnEuros(cents: number): string {
             <a [routerLink]="['/eventos', slug()]">{{ t('inscripcion.volverAlEvento') }}</a>
           </p>
         </app-card>
+
+        @if (evento(); as evento) {
+          <aside class="resumen">
+            <span class="rotulo-seccion">{{ t('inscripcion.resumen.titulo') }}</span>
+            <h3>{{ evento.title }}</h3>
+            <div class="resumen__fila">
+              <span class="muted">{{ t('inscripcion.resumen.fechas') }}</span>
+              <span class="num">
+                {{ evento.starts_at | date: 'dd.MM.yyyy' : evento.timezone }} –
+                {{ evento.ends_at | date: 'dd.MM.yyyy' : evento.timezone }}
+              </span>
+            </div>
+            @if (evento.location_name) {
+              <div class="resumen__fila">
+                <span class="muted">{{ t('inscripcion.resumen.lugar') }}</span>
+                <span>{{ evento.location_name }}</span>
+              </div>
+            }
+            <div class="resumen__fila">
+              <span class="muted">{{ t('inscripcion.resumen.precio') }}</span>
+              <span class="num">{{ precioResumen(t) }}</span>
+            </div>
+            @if (plazasLibresResumen(evento); as plazas) {
+              <div class="resumen__fila">
+                <span class="muted">{{ t('inscripcion.resumen.plazasLibres') }}</span>
+                <span class="num">{{ plazas }}</span>
+              </div>
+            }
+          </aside>
+        }
+        </div>
       </div>
     </ng-container>
   `,
   styles: `
     .pagina {
-      display: grid;
-      place-items: center;
       padding: var(--space-lg) 0;
     }
-    app-card {
-      width: min(32rem, 100%);
+    /* .layout de la referencia (inscripcion.html:14): formulario + resumen
+       sticky en escritorio, apilados en móvil. */
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(17.5rem, 21.25rem);
+      gap: var(--space-lg);
+      align-items: start;
+      max-width: 64rem;
+      margin-inline: auto;
+    }
+    @media (max-width: 56.25rem) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      .resumen {
+        position: static;
+      }
+    }
+    /* .summary de la referencia (inscripcion.html:27): mismo estilo de tarjeta
+       que app-card, con su propio maquetado interno en vez de su input
+       heading (necesita el rótulo mono ENCIMA del título, no un h3 suelto). */
+    .resumen {
+      position: sticky;
+      top: 5.5rem;
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+    }
+    .resumen h3 {
+      margin: 0.625rem 0 1.125rem;
+    }
+    .resumen__fila {
+      display: flex;
+      justify-content: space-between;
+      gap: var(--space-md);
+      padding: 11px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .resumen__fila:last-child {
+      border-bottom: 0;
+    }
+    .muted {
+      color: var(--muted);
+    }
+    .num {
+      font-family: var(--font-mono);
     }
     form {
       display: grid;
@@ -306,10 +386,18 @@ export class RegistrationPage implements OnInit {
   private readonly checkout = inject(PublicCheckoutService);
   private readonly transloco = inject(TranslocoService);
   private readonly esNavegador = isPlatformBrowser(inject(PLATFORM_ID));
+  private readonly http = inject(HttpClient);
+  private readonly api = inject(ApiService);
 
   protected readonly cargandoPreguntas = signal(true);
   protected readonly noEncontrado = signal(false);
   protected readonly preguntas = signal<RegistrationQuestion[]>([]);
+
+  /** Resumen del evento (`.summary` de `inscripcion.html:172-181`): consulta
+   * de solo lectura aparte de `cargarPreguntas`/`cargarTiposDeEntrada`, en
+   * mejor esfuerzo — si falla, el formulario sigue siendo usable sin resumen
+   * en vez de bloquear la inscripción por un dato accesorio. */
+  protected readonly evento = signal<PublicEventDetail | null>(null);
 
   protected readonly email = signal('');
   protected readonly fullName = signal('');
@@ -370,6 +458,23 @@ export class RegistrationPage implements OnInit {
   ngOnInit(): void {
     void this.cargarPreguntas();
     void this.cargarTiposDeEntrada();
+    void this.cargarEvento();
+  }
+
+  private async cargarEvento(): Promise<void> {
+    try {
+      this.evento.set(
+        await firstValueFrom(
+          this.http.get<PublicEventDetail>(this.api.url(`/public/events/${this.slug()}`), {
+            headers: this.api.serverForwardHeaders(),
+          }),
+        ),
+      );
+    } catch {
+      // Best-effort, igual que `cargarTiposDeEntrada`: sin resumen el
+      // formulario se sigue pudiendo enviar.
+      this.evento.set(null);
+    }
   }
 
   private async cargarPreguntas(): Promise<void> {
@@ -403,6 +508,27 @@ export class RegistrationPage implements OnInit {
 
   protected precioEuros(cents: number): string {
     return precioEnEuros(cents);
+  }
+
+  /** `.summary__row` "Precio" (`inscripcion.html:178`): el más barato de los
+   * tipos de entrada vendibles, con «Desde» si hay más de uno. Sin tipos, el
+   * evento es gratuito (mismo criterio que `esCompraDePago`). */
+  protected precioResumen(traducir: (clave: string) => string): string {
+    const tipos = this.ticketTypes();
+    if (tipos.length === 0) {
+      return traducir('inscripcion.resumen.gratis');
+    }
+    const masBarato = tipos.reduce((min, tipo) =>
+      tipo.price_cents < min.price_cents ? tipo : min,
+    );
+    const precio = `${this.precioEuros(masBarato.price_cents)} ${masBarato.currency.toUpperCase()}`;
+    return tipos.length > 1 ? `${traducir('inscripcion.resumen.desde')} ${precio}` : precio;
+  }
+
+  /** `.summary__row` "Plazas libres" (`inscripcion.html:179`): `null` con
+   * aforo sin límite, mismo criterio que la ficha del evento. */
+  protected plazasLibresResumen(evento: PublicEventDetail): number | null {
+    return evento.capacity === null ? null : Math.max(evento.capacity - evento.reserved_count, 0);
   }
 
   protected seleccionarTipo(id: string): void {

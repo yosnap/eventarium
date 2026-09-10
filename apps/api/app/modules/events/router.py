@@ -11,7 +11,7 @@ from app.core.deps import CurrentUserDep, DbDep, require_permission
 from app.core.permissions import Permission
 from app.core.storage import build_object_key, get_storage, validate_upload
 from app.modules.events import repository, service
-from app.modules.events.models import Event, EventMember, EventSession
+from app.modules.events.models import Event, EventMember, EventSession, EventVenue
 from app.modules.events.schemas import (
     EventCreate,
     EventMemberCreate,
@@ -22,6 +22,9 @@ from app.modules.events.schemas import (
     EventSessionUpdate,
     EventStatus,
     EventUpdate,
+    EventVenueCreate,
+    EventVenueResponse,
+    EventVenueUpdate,
     SessionParticipantResponse,
     SessionParticipantsUpdate,
 )
@@ -54,6 +57,21 @@ def _event_response(evento: Event) -> EventResponse:
         registration_mode=evento.registration_mode,  # type: ignore[arg-type]
         email_verification_required=evento.email_verification_required,
         payment_checkout_window_minutes=evento.payment_checkout_window_minutes,
+        latitude=float(evento.latitude) if evento.latitude is not None else None,
+        longitude=float(evento.longitude) if evento.longitude is not None else None,
+    )
+
+
+def _venue_response(sede: EventVenue) -> EventVenueResponse:
+    return EventVenueResponse(
+        id=str(sede.id),
+        name=sede.name,
+        address=sede.address,
+        capacity=sede.capacity,
+        display_order=sede.display_order,
+        latitude=float(sede.latitude) if sede.latitude is not None else None,
+        longitude=float(sede.longitude) if sede.longitude is not None else None,
+        geocoded_at=sede.geocoded_at,
     )
 
 
@@ -70,6 +88,7 @@ def _session_response(sesion: EventSession) -> EventSessionResponse:
         video_url=sesion.video_url,
         materials=sesion.materials,
         sort_order=sesion.sort_order,
+        venue_id=str(sesion.venue_id) if sesion.venue_id is not None else None,
         updated_at=sesion.updated_at,
     )
 
@@ -379,6 +398,89 @@ async def list_session_participants(
     consulta = repository.session_participants_query(evento.organization_id, sesion.id)
     filas = (await session.execute(consulta)).all()
     return [_session_participant_response(fila) for fila in filas]
+
+
+@router.get(
+    "/{event_id}/venues",
+    summary="Listar las sedes de un evento",
+    response_model=list[EventVenueResponse],
+    dependencies=[require_permission(Permission.EVENTS_READ)],
+)
+async def list_venues(
+    evento: Annotated[Event, Depends(_obtener_evento_o_404)], session: DbDep
+) -> list[EventVenueResponse]:
+    consulta = repository.venues_query(evento.organization_id, evento.id)
+    filas = (await session.execute(consulta)).scalars()
+    return [_venue_response(sede) for sede in filas]
+
+
+@router.post(
+    "/{event_id}/venues",
+    summary="Añadir una sede a un evento",
+    status_code=status.HTTP_201_CREATED,
+    response_model=EventVenueResponse,
+    dependencies=[require_permission(Permission.EVENTS_WRITE)],
+)
+async def create_venue(
+    datos: EventVenueCreate,
+    evento: Annotated[Event, Depends(_obtener_evento_o_404)],
+    usuario: CurrentUserDep,
+    session: DbDep,
+) -> EventVenueResponse:
+    sede = await service.create_venue(
+        session,
+        organization_id=usuario.organization_id,
+        event_id=evento.id,
+        datos=datos.model_dump(),
+    )
+    return _venue_response(sede)
+
+
+@router.patch(
+    "/{event_id}/venues/{venue_id}",
+    summary="Actualizar una sede",
+    response_model=EventVenueResponse,
+    dependencies=[require_permission(Permission.EVENTS_WRITE)],
+)
+async def update_venue(
+    datos: EventVenueUpdate,
+    evento: Annotated[Event, Depends(_obtener_evento_o_404)],
+    usuario: CurrentUserDep,
+    session: DbDep,
+    venue_id: str,
+) -> EventVenueResponse:
+    sede = await service.update_venue(
+        session,
+        organization_id=usuario.organization_id,
+        event_id=evento.id,
+        venue_id=uuid.UUID(venue_id),
+        datos=datos.model_dump(exclude_unset=True),
+    )
+    return _venue_response(sede)
+
+
+@router.delete(
+    "/{event_id}/venues/{venue_id}",
+    summary="Quitar una sede de un evento",
+    description=(
+        "Falla con 409 si alguna sesión de la agenda tiene esta sede asignada — "
+        "hay que reasignarla o quitarla primero de esas sesiones."
+    ),
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[require_permission(Permission.EVENTS_WRITE)],
+)
+async def delete_venue(
+    evento: Annotated[Event, Depends(_obtener_evento_o_404)],
+    usuario: CurrentUserDep,
+    session: DbDep,
+    venue_id: str,
+) -> None:
+    await service.delete_venue(
+        session,
+        organization_id=usuario.organization_id,
+        event_id=evento.id,
+        venue_id=uuid.UUID(venue_id),
+    )
 
 
 @router.put(

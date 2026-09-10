@@ -2566,6 +2566,206 @@
         }
       }
     },
+    "/api/v1/events/{event_id}/venues": {
+      "get": {
+        "tags": [
+          "eventos"
+        ],
+        "summary": "Listar las sedes de un evento",
+        "operationId": "list_venues_api_v1_events__event_id__venues_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EventVenueResponse"
+                  },
+                  "title": "Response List Venues Api V1 Events  Event Id  Venues Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "eventos"
+        ],
+        "summary": "Añadir una sede a un evento",
+        "operationId": "create_venue_api_v1_events__event_id__venues_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventVenueCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventVenueResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/venues/{venue_id}": {
+      "patch": {
+        "tags": [
+          "eventos"
+        ],
+        "summary": "Actualizar una sede",
+        "operationId": "update_venue_api_v1_events__event_id__venues__venue_id__patch",
+        "parameters": [
+          {
+            "name": "venue_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Venue Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventVenueUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventVenueResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "eventos"
+        ],
+        "summary": "Quitar una sede de un evento",
+        "description": "Falla con 409 si alguna sesión de la agenda tiene esta sede asignada — hay que reasignarla o quitarla primero de esas sesiones.",
+        "operationId": "delete_venue_api_v1_events__event_id__venues__venue_id__delete",
+        "parameters": [
+          {
+            "name": "venue_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Venue Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/public/events": {
       "get": {
         "tags": [
@@ -6799,6 +6999,28 @@
           "payment_checkout_window_minutes": {
             "type": "integer",
             "title": "Payment Checkout Window Minutes"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
           }
         },
         "type": "object",
@@ -6822,7 +7044,9 @@
           "capacity",
           "registration_mode",
           "email_verification_required",
-          "payment_checkout_window_minutes"
+          "payment_checkout_window_minutes",
+          "latitude",
+          "longitude"
         ],
         "title": "EventResponse",
         "description": "Evento tal y como lo ve el panel de administración."
@@ -6919,6 +7143,17 @@
             "type": "integer",
             "title": "Sort Order",
             "default": 0
+          },
+          "venue_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue Id"
           }
         },
         "type": "object",
@@ -7023,6 +7258,17 @@
             "type": "integer",
             "title": "Sort Order"
           },
+          "venue_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue Id"
+          },
           "updated_at": {
             "type": "string",
             "format": "date-time",
@@ -7042,6 +7288,7 @@
           "video_url",
           "materials",
           "sort_order",
+          "venue_id",
           "updated_at"
         ],
         "title": "EventSessionResponse",
@@ -7180,6 +7427,17 @@
               }
             ],
             "title": "Sort Order"
+          },
+          "venue_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue Id"
           }
         },
         "type": "object",
@@ -7412,6 +7670,191 @@
         "type": "object",
         "title": "EventUpdate",
         "description": "Campos editables de un evento. `status` incluido: así se publica o archiva."
+      },
+      "EventVenueCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity"
+          },
+          "display_order": {
+            "type": "integer",
+            "title": "Display Order",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "EventVenueCreate",
+        "description": "Alta de una sede de un evento multisede."
+      },
+      "EventVenueResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity"
+          },
+          "display_order": {
+            "type": "integer",
+            "title": "Display Order"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "geocoded_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geocoded At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "address",
+          "capacity",
+          "display_order",
+          "latitude",
+          "longitude",
+          "geocoded_at"
+        ],
+        "title": "EventVenueResponse",
+        "description": "Sede tal y como la ve el panel de administración."
+      },
+      "EventVenueUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity"
+          },
+          "display_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Order"
+          }
+        },
+        "type": "object",
+        "title": "EventVenueUpdate",
+        "description": "Campos editables de una sede."
       },
       "ForgotPasswordRequest": {
         "properties": {
@@ -8645,12 +9088,45 @@
             ],
             "title": "Registration Mode"
           },
+          "reserved_count": {
+            "type": "integer",
+            "title": "Reserved Count"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
           "sessions": {
             "items": {
               "$ref": "#/components/schemas/PublicEventSession"
             },
             "type": "array",
             "title": "Sessions"
+          },
+          "venues": {
+            "items": {
+              "$ref": "#/components/schemas/PublicVenue"
+            },
+            "type": "array",
+            "title": "Venues"
           },
           "sponsor_tiers": {
             "items": {
@@ -8676,6 +9152,9 @@
           "online_url",
           "capacity",
           "registration_mode",
+          "reserved_count",
+          "latitude",
+          "longitude",
           "sessions"
         ],
         "title": "PublicEventDetail",
@@ -8733,6 +9212,17 @@
             ],
             "title": "Room"
           },
+          "venue_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue Id"
+          },
           "video_platform": {
             "anyOf": [
               {
@@ -8786,6 +9276,7 @@
           "starts_at",
           "ends_at",
           "room",
+          "venue_id",
           "video_platform",
           "video_url",
           "materials",
@@ -9092,6 +9583,17 @@
             ],
             "title": "Room"
           },
+          "venue_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue Id"
+          },
           "video_platform": {
             "anyOf": [
               {
@@ -9153,6 +9655,7 @@
           "starts_at",
           "ends_at",
           "room",
+          "venue_id",
           "video_platform",
           "video_url",
           "materials",
@@ -9354,6 +9857,73 @@
         ],
         "title": "PublicTicketTypeResponse",
         "description": "Tipo de entrada tal como lo ve el formulario público de compra.\n\nSolo se listan los vigentes en el instante de la consulta (`is_active` y\ndentro de la ventana de venta, `service.validar_tipo_vigente`): un tipo\nfuera de ventana no debe ofrecerse para elegir, aunque su `checkout/quote`\nya lo rechace igualmente si se fuerza el `ticket_type_id` a mano."
+      },
+      "PublicVenue": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "address",
+          "capacity",
+          "latitude",
+          "longitude"
+        ],
+        "title": "PublicVenue",
+        "description": "Sede tal y como se muestra en la página pública del evento, sin campos\nde auditoría (`display_order`/`geocoded_at` son detalle interno)."
       },
       "RefundAcceptedResponse": {
         "properties": {

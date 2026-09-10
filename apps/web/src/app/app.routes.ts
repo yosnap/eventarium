@@ -236,6 +236,11 @@ export const routes: Routes = [
           import('./features/public/events/session-page').then((m) => m.SessionPage),
       },
       {
+        path: 'eventos/:slug/programa',
+        loadComponent: () =>
+          import('./features/public/events/event-venues-page').then((m) => m.EventVenuesPage),
+      },
+      {
         path: 'eventos/:slug/inscribirse',
         loadComponent: () =>
           import('./features/public/events/registration-page').then((m) => m.RegistrationPage),

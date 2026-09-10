@@ -22,6 +22,8 @@ import { SeoMetaService } from '../../../core/seo/meta.service';
 import { NotFoundStatusService } from '../../../core/ssr/not-found-status.service';
 import { Alert } from '../../../shared/ui/alert';
 import { Chip, type ChipTone } from '../../../shared/ui/chip';
+import { Reveal } from '../../../shared/ui/reveal.directive';
+import { VenueMap } from '../../../shared/ui/venue-map';
 import type { LocationMode, PublicEventDetail, RegistrationMode } from './event-page.types';
 import { type DiaDeAgenda, EventAgendaSection } from './sections/event-agenda-section';
 import { type Speaker, EventSpeakersSection } from './sections/event-speakers-section';
@@ -76,6 +78,8 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
     TranslocoDirective,
     Alert,
     Chip,
+    VenueMap,
+    Reveal,
     EventAgendaSection,
     EventSpeakersSection,
   ],
@@ -90,6 +94,9 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
       } @else if (evento(); as evento) {
         <article>
           <section class="hero">
+            <div class="ancho-maximo">
+              <a class="volver" routerLink="/eventos">{{ t('publico.eventos.todosLosEventos') }}</a>
+            </div>
             <div class="ancho-maximo hero__grid">
               <div>
                 <div class="hero__kicker">
@@ -101,6 +108,15 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                     }
                   </span>
                   <app-chip [tone]="registro().tono">{{ t(registro().clave) }}</app-chip>
+                  <app-chip [tone]="entradaGratuita() ? 'ok' : 'neutro'">
+                    {{
+                      t(
+                        entradaGratuita()
+                          ? 'publico.eventos.registro.gratuitaCorta'
+                          : 'publico.eventos.registro.pagoCorto'
+                      )
+                    }}
+                  </app-chip>
                 </div>
                 @if (evento.cover_url) {
                   <img class="portada" [src]="evento.cover_url" [alt]="evento.title" />
@@ -139,31 +155,69 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                     </span>
                     <span>{{ evento.timezone }}</span>
                   </div>
-                  @if (evento.capacity !== null) {
-                    <div class="ficha__fila">
-                      <span class="ficha__etiqueta">{{ t('publico.eventos.ficha.aforo') }}</span>
-                      <span>
-                        {{ t('publico.eventos.ficha.plazas', { n: evento.capacity }) }}
-                      </span>
-                    </div>
-                  }
+                  <!-- Idioma: el modelo de datos todavía no lo guarda. Se muestra la
+                       fila con el aviso de dato pendiente, sin inventar el valor. -->
+                  <div class="ficha__fila">
+                    <span class="ficha__etiqueta">{{ t('publico.eventos.ficha.idioma') }}</span>
+                    <span class="pendiente">{{ t('publico.eventos.datoPendiente') }}</span>
+                  </div>
                 </div>
                 <div class="ficha__cta">
+                  @if (evento.capacity !== null) {
+                    <div class="ficha__aforo">
+                      <span class="rotulo-seccion">
+                        {{ t('publico.eventos.ficha.aforo') }} · {{ evento.capacity }}
+                      </span>
+                      <div
+                        class="seats"
+                        role="img"
+                        [attr.aria-label]="
+                          t('publico.eventos.ficha.aforoAria', {
+                            reservadas: evento.reserved_count,
+                            total: evento.capacity,
+                            porcentaje: ocupacion(),
+                          })
+                        "
+                      >
+                        <span [style.width.%]="ocupacion()"></span>
+                      </div>
+                      <p class="hint">
+                        <span class="num">{{ evento.reserved_count }}</span>
+                        {{ t('publico.eventos.ficha.confirmadas') }} ·
+                        <span class="num">{{ plazasDisponibles() }}</span>
+                        {{ t('publico.eventos.ficha.disponibles') }}
+                      </p>
+                    </div>
+                  }
                   <a
                     class="ficha__inscribirse"
                     [routerLink]="['/eventos', evento.slug, 'inscribirse']"
                   >
                     {{ t('publico.eventos.inscribirse') }}
                   </a>
+                  <p class="ficha__nota">{{ t('publico.eventos.ficha.sinCuenta') }}</p>
                 </div>
               </div>
             </div>
           </section>
 
           <section class="seccion" aria-labelledby="agenda-h2">
-            <div class="ancho-maximo">
+            <div class="ancho-maximo" appReveal>
               <div class="seccion__cabecera">
-                <h2 id="agenda-h2">{{ t('publico.eventos.agenda') }}</h2>
+                <div>
+                  <span class="rotulo-seccion">{{ t('publico.eventos.multisede.rotulo') }}</span>
+                  <h2 id="agenda-h2">{{ t('publico.eventos.agenda') }}</h2>
+                  <!-- .hint de evento-iawic.html:126-127: solo se ofrece el programa
+                       por sede cuando el evento tiene más de una. -->
+                  @if (evento.venues.length > 1) {
+                    <p class="hint">
+                      {{ t('publico.eventos.multisede.pregunta') }}
+                      <a class="mark" [routerLink]="['/eventos', evento.slug, 'programa']">
+                        {{ t('publico.eventos.multisede.enlace') }}
+                      </a>
+                    </p>
+                  }
+                </div>
               </div>
               @if (dias().length === 0) {
                 <p class="vacio">{{ t('publico.eventos.sinAgenda') }}</p>
@@ -179,9 +233,10 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
 
           @if (ponentes().length > 0) {
             <section class="seccion" aria-labelledby="ponentes-h2">
-              <div class="ancho-maximo">
+              <div class="ancho-maximo" appReveal>
                 <div class="seccion__cabecera">
-                  <h2 id="ponentes-h2">{{ t('publico.eventos.ponentes') }}</h2>
+                  <span class="rotulo-seccion">{{ t('publico.eventos.ponentes') }}</span>
+                  <h2 id="ponentes-h2">{{ t('publico.eventos.ponentesTitulo') }}</h2>
                 </div>
                 <app-event-speakers-section [ponentes]="ponentes()" />
               </div>
@@ -190,14 +245,24 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
 
           @if (evento.sponsor_tiers.length > 0) {
             <section class="seccion" aria-labelledby="patrocinadores-h2">
-              <div class="ancho-maximo">
+              <div class="ancho-maximo" appReveal>
                 <div class="seccion__cabecera">
-                  <h2 id="patrocinadores-h2">{{ t('publico.eventos.patrocinadores.titulo') }}</h2>
+                  <span class="rotulo-seccion">{{ t('publico.eventos.patrocinadores.titulo') }}</span>
+                  <h2 id="patrocinadores-h2">
+                    {{ t('publico.eventos.patrocinadores.tituloExtendido') }}
+                  </h2>
                 </div>
                 @for (nivel of evento.sponsor_tiers; track $index + nivel.name) {
-                  <div class="tier">
+                  <div class="tier" [class]="'tier--' + nivel.logo_size">
                     <div class="tier__cabecera">
                       <span class="rotulo-seccion">{{ nivel.name }}</span>
+                      <span
+                        class="tier__barra"
+                        role="img"
+                        [attr.aria-label]="t(clavePresencia(nivel.logo_size))"
+                      >
+                        <span [style.width.%]="presencia(nivel.logo_size)"></span>
+                      </span>
                     </div>
                     <ul class="tier__logos" [class]="'tamano-' + nivel.logo_size">
                       @for (patrocinador of nivel.sponsors; track $index + patrocinador.name) {
@@ -230,23 +295,47 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
 
           @if (evento.location_name || evento.location_address || evento.online_url) {
             <section class="seccion" aria-labelledby="lugar-h2">
-              <div class="ancho-maximo">
-                <div class="seccion__cabecera">
+              <div class="ancho-maximo lugar__grid" appReveal>
+                <div>
                   <span class="rotulo-seccion">{{ t('publico.eventos.lugar.rotulo') }}</span>
                   <h2 id="lugar-h2">
                     {{ evento.location_name || t('publico.eventos.lugar.titulo') }}
                   </h2>
+                  @if (evento.location_address) {
+                    <p class="lugar__direccion">{{ evento.location_address }}</p>
+                  }
+                  @if (evento.location_mode !== 'in_person' && evento.online_url) {
+                    <p>
+                      <a [href]="evento.online_url" rel="noopener noreferrer" target="_blank">
+                        {{ t('publico.eventos.enlaceOnline') }}
+                      </a>
+                    </p>
+                  }
+                  @if (evento.latitude !== null && evento.longitude !== null) {
+                    <app-venue-map
+                      class="lugar__mapa"
+                      [marcadores]="[
+                        { lat: evento.latitude, lng: evento.longitude, label: evento.location_name },
+                      ]"
+                      [ariaLabel]="
+                        t('publico.eventos.lugar.mapaAria', {
+                          lugar: evento.location_name || evento.title,
+                        })
+                      "
+                    />
+                  } @else {
+                    <!-- Sin geocodificar (sin dirección, evento online, o falló):
+                         no se inventa un mapa ni un esquema con datos de ejemplo. -->
+                    <p class="hint pendiente lugar__mapa">{{ t('publico.eventos.datoPendiente') }}</p>
+                  }
                 </div>
-                @if (evento.location_address) {
-                  <p class="lugar__direccion">{{ evento.location_address }}</p>
-                }
-                @if (evento.location_mode !== 'in_person' && evento.online_url) {
-                  <p>
-                    <a [href]="evento.online_url" rel="noopener noreferrer" target="_blank">
-                      {{ t('publico.eventos.enlaceOnline') }}
-                    </a>
-                  </p>
-                }
+                <div>
+                  <span class="rotulo-seccion">{{ t('publico.eventos.lugar.cercaRotulo') }}</span>
+                  <h2>{{ t('publico.eventos.lugar.cercaTitulo') }}</h2>
+                  <!-- Alojamiento y locales cercanos: sin modelo de datos todavía, se
+                       declara el hueco en vez de rellenarlo con ejemplos. -->
+                  <p class="hint pendiente">{{ t('publico.eventos.lugar.cercaPendiente') }}</p>
+                </div>
               </div>
             </section>
           }
@@ -258,6 +347,18 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
     .hero {
       padding: var(--sp-8) 0 var(--sp-7);
       border-bottom: 1px solid var(--border);
+    }
+    .volver {
+      display: inline-flex;
+      font-family: var(--font-mono);
+      font-size: var(--fs-label);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: var(--sp-5);
+    }
+    .volver:hover {
+      color: var(--fg);
     }
     .hero__grid {
       display: grid;
@@ -316,6 +417,36 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
       border-top: 1px solid var(--border);
       background-color: var(--surface-2);
       border-radius: 0 0 var(--radius-md) var(--radius-md);
+      display: grid;
+      gap: var(--sp-4);
+    }
+    /* .seats (evento-iawic.html:21): barra de ocupación del aforo. */
+    .ficha__aforo {
+      display: grid;
+      gap: 2px;
+    }
+    .seats {
+      height: 6px;
+      border: 1px solid var(--border-strong);
+      border-radius: 2px;
+      overflow: hidden;
+      background-color: var(--bg);
+      margin: 10px 0 8px;
+    }
+    .seats > span {
+      display: block;
+      height: 100%;
+      background-color: var(--accent);
+    }
+    .ficha__nota {
+      margin: 0;
+      text-align: center;
+      font-size: var(--fs-sm);
+      color: var(--muted);
+    }
+    .pendiente {
+      color: var(--muted);
+      font-style: italic;
     }
     .ficha__inscribirse {
       display: flex;
@@ -360,6 +491,24 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
       background-color: var(--surface-2);
       border-bottom: 1px solid var(--border);
     }
+    /* .tier__bar (evento-iawic.html:47-49): presencia del nivel, no una métrica. */
+    .tier__barra {
+      flex: 1;
+      max-width: 13.75rem;
+      height: 8px;
+      border: 1px solid var(--border-strong);
+      border-radius: 2px;
+      background-color: var(--bg);
+      overflow: hidden;
+    }
+    .tier__barra > span {
+      display: block;
+      height: 100%;
+      background-color: var(--muted);
+    }
+    .tier--large .tier__barra > span {
+      background-color: var(--accent);
+    }
     .tier__logos {
       list-style: none;
       margin: 0;
@@ -389,6 +538,21 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
     .lugar__direccion {
       color: var(--muted);
       white-space: pre-line;
+    }
+    /* .cols2 (evento-iawic.html:58): dos columnas que se apilan en pantalla estrecha. */
+    .lugar__grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(18.75rem, 1fr));
+      gap: var(--sp-6);
+    }
+    .lugar__grid h2 {
+      margin: 12px 0 20px;
+    }
+    /* Sustituye al esquema SVG de .map (evento-iawic.html:61): mapa real
+       (Leaflet, componente app-venue-map) en el mismo hueco visual. */
+    .lugar__mapa {
+      display: block;
+      margin-top: var(--sp-5);
     }
     @media (max-width: 56.25rem) {
       .hero__grid {
@@ -458,6 +622,45 @@ export class EventPage implements OnInit {
     return CLAVES_REGISTRO[modo];
   });
 
+  /** El chip de precio solo distingue gratis de pago: la ficha no expone los
+   * tipos de entrada, así que no se muestra ningún importe. */
+  protected readonly entradaGratuita = computed(
+    () => (this.evento()?.registration_mode ?? 'free') === 'free',
+  );
+
+  /** Ocupación del aforo en porcentaje entero, acotada a 100: `reserved_count`
+   * puede superar `capacity` (sobreventa o aforo ampliado a la baja). */
+  protected readonly ocupacion = computed(() => {
+    const evento = this.evento();
+    if (!evento?.capacity) {
+      return 0;
+    }
+    return Math.min(100, Math.round((evento.reserved_count / evento.capacity) * 100));
+  });
+
+  protected readonly plazasDisponibles = computed(() => {
+    const evento = this.evento();
+    if (!evento?.capacity) {
+      return 0;
+    }
+    return Math.max(0, evento.capacity - evento.reserved_count);
+  });
+
+  /** Presencia del nivel de patrocinio, según el tamaño de logo que ya define
+   * el backend (`logo_size`): no es una métrica de aportación. */
+  protected presencia(tamano: string): number {
+    return tamano === 'large' ? 100 : tamano === 'medium' ? 62 : 30;
+  }
+
+  protected clavePresencia(tamano: string): string {
+    if (tamano === 'large') {
+      return 'publico.eventos.patrocinadores.presenciaOro';
+    }
+    return tamano === 'medium'
+      ? 'publico.eventos.patrocinadores.presenciaMedia'
+      : 'publico.eventos.patrocinadores.presenciaBasica';
+  }
+
   ngOnInit(): void {
     void this.tareasPendientes.run(() => this.cargar());
   }
@@ -468,6 +671,7 @@ export class EventPage implements OnInit {
     if (transferido) {
       this.transferState.remove(clave);
       this.aplicar(transferido);
+      this.cargando.set(false);
       return;
     }
 

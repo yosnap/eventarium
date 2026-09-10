@@ -19,7 +19,9 @@ import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { SeoMetaService } from '../../../core/seo/meta.service';
 import { Alert } from '../../../shared/ui/alert';
+import { Button } from '../../../shared/ui/button';
 import { Chip } from '../../../shared/ui/chip';
+import { Reveal } from '../../../shared/ui/reveal.directive';
 import { Select, type SelectOption } from '../../../shared/ui/select';
 
 type LocationMode = 'in_person' | 'online' | 'hybrid';
@@ -106,16 +108,16 @@ function normalizarCiudad(ciudad: string): string {
 @Component({
   selector: 'app-events-list-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, RouterLink, TranslocoDirective, Alert, Chip, Select],
+  imports: [DatePipe, RouterLink, TranslocoDirective, Alert, Button, Chip, Select, Reveal],
   template: `
     <ng-container *transloco="let t">
       <section class="hero">
-        <div class="ancho-maximo">
+        <div class="ancho-maximo" appReveal>
           <p class="rotulo-seccion etiqueta-acento">{{ t('publico.eventos.rotulo') }}</p>
           <h1>{{ t('publico.eventos.listadoTitulo') }}</h1>
 
           @if (!cargando() && eventos().length > 0) {
-            <div class="searchbar" role="search">
+            <form class="searchbar" role="search" (submit)="alEnviarBusqueda($event)">
               <label class="sr-only" for="q">{{ t('publico.eventos.buscarEtiqueta') }}</label>
               <input
                 id="q"
@@ -128,12 +130,14 @@ function normalizarCiudad(ciudad: string): string {
                 <app-select
                   fieldId="ciudad"
                   [label]="t('publico.eventos.ciudadEtiqueta')"
+                  [etiquetaOculta]="true"
                   [options]="opcionesCiudad(t('publico.eventos.ciudadTodas'))"
                   [value]="filtroCiudad()"
                   (valueChange)="filtroCiudad.set($event)"
                 />
               }
-            </div>
+              <app-button type="submit">{{ t('publico.eventos.buscar') }}</app-button>
+            </form>
           }
         </div>
       </section>
@@ -188,8 +192,13 @@ function normalizarCiudad(ciudad: string): string {
               <p class="vacio">{{ t('publico.eventos.sinResultados') }}</p>
             } @else {
               <div class="lista">
-                @for (evento of eventosFiltrados(); track evento.slug) {
-                  <a class="ev" [routerLink]="['/eventos', evento.slug]">
+                @for (evento of eventosFiltrados(); track evento.slug; let indice = $index) {
+                  <a
+                    class="ev"
+                    [routerLink]="['/eventos', evento.slug]"
+                    appReveal
+                    [index]="indice"
+                  >
                     <span class="ev-fecha">
                       <span class="ev-dia">{{ evento.starts_at | date: 'dd' : evento.timezone }}</span>
                       <span class="ev-mes">{{ evento.starts_at | date: 'MMM' : evento.timezone }}</span>
@@ -197,34 +206,27 @@ function normalizarCiudad(ciudad: string): string {
                     <span class="ev-cuerpo">
                       <h3>{{ evento.title }}</h3>
                       <span class="ev-meta">
-                        @if (evento.location_name || evento.city) {
-                          <span>
-                            {{ evento.location_name }}{{ evento.location_name && evento.city ? ' · ' : '' }}{{
-                              evento.city
-                            }}
-                          </span>
-                        }
-                        @if (evento.summary) {
-                          <span>{{ evento.summary }}</span>
+                        <span>
+                          @if (evento.location_name || evento.city) {
+                            {{ evento.location_name
+                            }}{{ evento.location_name && evento.city ? ' · ' : '' }}{{ evento.city }}
+                          } @else {
+                            {{ t(claveFormato(evento)) }}
+                          }
+                        </span>
+                        <span class="num">{{ duracionTexto(evento, t) }}</span>
+                        @if (plazasLibres(evento); as plazas) {
+                          <span>{{ t('publico.eventos.plazasLibres', { n: plazas }) }}</span>
+                        } @else if (evento.capacity === null) {
+                          <span>{{ t('publico.eventos.sinLimite') }}</span>
                         }
                       </span>
+                      @if (evento.summary) {
+                        <span class="ev-resumen">{{ evento.summary }}</span>
+                      }
                     </span>
                     <span class="ev-lado">
-                      <span class="ev-lado-chips">
-                        <app-chip>{{ t(claveFormato(evento)) }}</app-chip>
-                        <app-chip [tone]="claveRegistroTono(evento)">{{
-                          t(claveRegistro(evento))
-                        }}</app-chip>
-                      </span>
-                      <span class="ev-plazas">
-                        @if (plazasLibres(evento); as plazas) {
-                          {{ t('publico.eventos.plazasLibres', { n: plazas }) }}
-                        } @else if (evento.capacity === null) {
-                          {{ t('publico.eventos.sinLimite') }}
-                        } @else {
-                          <app-chip tone="apagado">{{ t('publico.eventos.completo') }}</app-chip>
-                        }
-                      </span>
+                      <app-chip [tone]="chipFila(evento).tono">{{ t(chipFila(evento).clave) }}</app-chip>
                     </span>
                   </a>
                 }
@@ -248,18 +250,22 @@ function normalizarCiudad(ciudad: string): string {
     .hero h1 {
       margin: 6px 0 0;
     }
-    /* .searchbar (descubrir-eventos.html:16-19). */
+    /* .searchbar (descubrir-eventos.html:16-19): buscador + ciudad + botón
+       Buscar en una fila que envuelve en pantallas estrechas. */
     .searchbar {
       display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--sp-3);
       margin-top: var(--sp-6);
       padding: 10px;
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
       background-color: var(--surface);
-      max-width: 32rem;
+      max-width: 45rem;
     }
     .searchbar input {
-      flex: 1 1 auto;
+      flex: 1 1 11.875rem;
       min-height: 44px;
       padding: 0 14px;
       background-color: var(--bg);
@@ -275,9 +281,11 @@ function normalizarCiudad(ciudad: string): string {
     /* Select de ciudad (app-select): junto al buscador de texto, sin
        estirarse a todo el ancho disponible del .searchbar. */
     .searchbar app-select {
-      flex: 0 0 auto;
+      flex: 1 1 11.875rem;
       min-width: 12rem;
-      margin-left: var(--sp-3);
+    }
+    .searchbar app-button {
+      flex: 0 0 auto;
     }
     .cuerpo {
       padding: var(--sp-6) 0 var(--sp-9);
@@ -384,6 +392,8 @@ function normalizarCiudad(ciudad: string): string {
     .ev-cuerpo h3 {
       margin: 0;
     }
+    /* .ev__meta de la referencia (descubrir-eventos.html:106): fila plana de
+       lugar/duración/plazas, no dos líneas. */
     .ev-meta {
       display: flex;
       flex-wrap: wrap;
@@ -392,22 +402,15 @@ function normalizarCiudad(ciudad: string): string {
       font-size: var(--fs-sm);
       color: var(--muted);
     }
-    .ev-lado {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: var(--sp-2);
-    }
-    .ev-lado-chips {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-      gap: var(--sp-2);
-    }
-    .ev-plazas {
+    .ev-resumen {
+      display: block;
+      margin-top: var(--sp-2);
       font-size: var(--fs-sm);
       color: var(--muted);
-      white-space: nowrap;
+    }
+    .ev-lado {
+      display: flex;
+      align-items: flex-start;
     }
     @media (max-width: 47.5rem) {
       .ev {
@@ -416,9 +419,6 @@ function normalizarCiudad(ciudad: string): string {
       }
       .ev-lado {
         grid-column: 2;
-        align-items: flex-start;
-      }
-      .ev-lado-chips {
         justify-content: flex-start;
       }
     }
@@ -497,6 +497,15 @@ export class EventsListPage implements OnInit {
     this.busqueda.set((evento.target as HTMLInputElement).value);
   }
 
+  /** El filtrado ya es instantáneo (`alBuscar`, en cada pulsación): este botón
+   * solo evita el envío real del formulario (recarga de página) al pulsar
+   * Intro o hacer clic, para quien espera ese botón por venir de la
+   * referencia (descubrir-eventos.html:73-80) o por completado de formulario
+   * del navegador sin evento `input`. */
+  protected alEnviarBusqueda(evento: Event): void {
+    evento.preventDefault();
+  }
+
   protected claveFormato(evento: PublicEventSummary): string {
     return CLAVE_FORMATO[evento.location_mode];
   }
@@ -513,8 +522,46 @@ export class EventsListPage implements OnInit {
     return CLAVE_REGISTRO[evento.registration_mode].clave;
   }
 
-  protected claveRegistroTono(evento: PublicEventSummary): 'ok' | 'espera' | 'neutro' {
-    return CLAVE_REGISTRO[evento.registration_mode].tono;
+  /** Chip único de la fila (`.ev__side .chip` de `descubrir-eventos.html:110-155`):
+   * la referencia usa un solo hueco de chip cuyo contenido cambia según qué
+   * importa más. Prioridad: sin plazas > requiere aprobación > abierto — la
+   * referencia nunca combina ambos estados en su demo, pero con datos reales
+   * un evento con aprobación puede estar también agotado, y no tener plazas
+   * es la información más urgente de las dos. "Próximamente" (inscripción
+   * aún no abierta) no tiene contrapartida real (`events/models.py` no
+   * guarda una fecha de apertura), así que no se reproduce ese tercer
+   * estado. */
+  protected chipFila(evento: PublicEventSummary): { clave: string; tono: 'ok' | 'espera' | 'apagado' } {
+    if (evento.capacity !== null && evento.reserved_count >= evento.capacity) {
+      return { clave: 'publico.eventos.completo', tono: 'apagado' };
+    }
+    if (evento.registration_mode === 'approval') {
+      return { clave: this.claveRegistro(evento), tono: 'espera' };
+    }
+    return { clave: 'publico.eventos.disponibilidad.abierto', tono: 'ok' };
+  }
+
+  /** Duración real (`.ev__meta .num` de `descubrir-eventos.html:106`, p.ej.
+   * "5 días"/"4 h"/"90 min"): derivada de `starts_at`/`ends_at`, sin ningún
+   * hueco de backend. */
+  protected duracionTexto(
+    evento: PublicEventSummary,
+    traducir: (clave: string, params?: Record<string, unknown>) => string,
+  ): string {
+    const minutos = Math.round(
+      (new Date(evento.ends_at).getTime() - new Date(evento.starts_at).getTime()) / 60_000,
+    );
+    if (minutos < 60) {
+      return traducir('publico.eventos.duracion.minutos', { n: minutos });
+    }
+    const horas = Math.round(minutos / 60);
+    if (horas < 24) {
+      return traducir('publico.eventos.duracion.horas', { n: horas });
+    }
+    const dias = Math.round(horas / 24);
+    return dias === 1
+      ? traducir('publico.eventos.duracion.dia')
+      : traducir('publico.eventos.duracion.dias', { n: dias });
   }
 
   /** Plazas libres reales: `null` cuando el evento no tiene `capacity` (sin

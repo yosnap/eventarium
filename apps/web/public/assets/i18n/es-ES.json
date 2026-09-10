@@ -24,9 +24,11 @@
     "inicio": "Inicio",
     "eventos": {
       "listadoTitulo": "Eventos",
+      "todosLosEventos": "← Todos los eventos",
       "rotulo": "Descubrir",
       "buscarEtiqueta": "Buscar evento",
       "buscarPlaceholder": "Buscar por título o tema",
+      "buscar": "Buscar",
       "ciudadEtiqueta": "Ciudad",
       "ciudadTodas": "Cualquier ciudad",
       "filtrarRotulo": "Filtrar",
@@ -39,6 +41,15 @@
       "plazasLibres": "{{n}} plazas libres",
       "sinLimite": "Sin límite",
       "completo": "Completo",
+      "duracion": {
+        "minutos": "{{n}} min",
+        "horas": "{{n}} h",
+        "dia": "1 día",
+        "dias": "{{n}} días"
+      },
+      "disponibilidad": {
+        "abierto": "Abierto"
+      },
       "sinEventos": "Todavía no hay eventos publicados.",
       "error": "No hemos podido cargar los eventos.",
       "noEncontrado": "No hemos encontrado este evento.",
@@ -47,12 +58,17 @@
       "enlaceOnline": "Enlace de acceso online",
       "sinResumen": "Descubre este evento.",
       "ponentes": "Ponentes",
+      "ponentesTitulo": "El perfil de ponente se mantiene entre ediciones",
       "video": "Vídeo",
       "verVideo": "Ver el vídeo",
       "materiales": "Materiales",
       "inscribirse": "Inscribirme",
       "patrocinadores": {
-        "titulo": "Patrocinadores"
+        "titulo": "Patrocinadores",
+        "tituloExtendido": "Patrocinio por niveles, con aportación en especie incluida",
+        "presenciaOro": "Nivel Oro: presencia máxima",
+        "presenciaMedia": "Nivel Plata: presencia media",
+        "presenciaBasica": "Nivel Colaborador: presencia básica"
       },
       "diasAria": "Días del programa",
       "formato": {
@@ -63,7 +79,9 @@
       "registro": {
         "gratuita": "Inscripción gratuita",
         "aprobacion": "Inscripción con aprobación",
-        "pago": "Inscripción de pago"
+        "pago": "Inscripción de pago",
+        "gratuitaCorta": "Entrada gratuita",
+        "pagoCorto": "Entrada de pago"
       },
       "sesion": {
         "tipo": {
@@ -71,7 +89,8 @@
           "break": "Descanso",
           "service": "Servicio",
           "other": "Otro"
-        }
+        },
+        "ficha": "Ficha"
       },
       "rol": {
         "speaker": "Ponente",
@@ -84,15 +103,50 @@
         "formato": "Formato",
         "zonaHoraria": "Zona horaria",
         "aforo": "Aforo",
-        "plazas": "{{n}} plazas"
+        "plazas": "{{n}} plazas",
+        "idioma": "Idioma",
+        "idiomaValor": "Castellano",
+        "confirmadas": "confirmadas",
+        "disponibles": "disponibles",
+        "sinCuenta": "Sin crear cuenta. Verificación por email.",
+        "aforoAria": "{{reservadas}} de {{total}} plazas confirmadas, un {{porcentaje}} por ciento del aforo",
+        "sinLimite": "Aforo sin límite"
       },
       "lugar": {
         "rotulo": "Cómo llegar",
-        "titulo": "Lugar del evento"
+        "titulo": "Lugar del evento",
+        "cercaRotulo": "Cerca del recinto",
+        "cercaTitulo": "Dónde dormir y comer",
+        "cercaPendiente": "El organizador todavía no ha publicado alojamiento ni locales cercanos.",
+        "mapaAria": "Mapa con la ubicación de {{lugar}}"
       },
       "proximosRotulo": "Próximamente",
       "proximosTitulo": "Próximos eventos",
-      "verEvento": "Ver el evento"
+      "verEvento": "Ver el evento",
+      "datoPendiente": "Dato pendiente",
+      "multisede": {
+        "pregunta": "¿El evento ocupa varias sedes?",
+        "enlace": "Ver la parrilla por sede",
+        "rotulo": "Programa",
+        "tituloIntro": "días repartidos en",
+        "sedesSufijo": "sedes de la ciudad",
+        "intro": "Cada día tiene su parrilla y cada sede su itinerario. Elige el día y quita las sedes a las que no vas a ir: el programa se queda solo con lo tuyo.",
+        "sedeSingular": "sede",
+        "sedePlural": "sedes",
+        "sesionSingular": "sesión",
+        "sesionPlural": "sesiones",
+        "sedesAria": "Sedes visibles",
+        "verSedeAria": "Mostrar u ocultar la sede {{nombre}}",
+        "sinSedes": "No has dejado ninguna sede visible. Vuelve a activar al menos una.",
+        "hora": "Hora",
+        "parrillaAria": "Parrilla del programa por sede y hora",
+        "mover": "Moverse entre sedes",
+        "moverTitulo": "Tiempos de trayecto",
+        "moverPendiente": "Los tiempos de traslado entre sedes todavía no se han publicado.",
+        "tarjetaSede": "{{salas}} · aforo {{aforo}}",
+        "aforoSede": "aforo {{n}}",
+        "mapaAria": "Mapa con la ubicación de las sedes"
+      }
     },
     "accesoPanel": "Acceso al panel",
     "organizadoPor": "Organizado por {{nombre}}",
@@ -102,14 +156,19 @@
     "piePagina": "Pie de página",
     "ponentes": {
       "noEncontrado": "No hemos encontrado este perfil.",
+      "perfil": "Perfil de ponente",
       "redes": "Redes sociales",
-      "historial": "Historial de sesiones",
+      "historial": "Historial entre ediciones",
       "bio": "Biografía",
       "titular": "Titular profesional",
       "empresa": "Empresa u organización",
       "curriculum": "Currículum",
       "web": "Sitio web",
-      "contacto": "Contacto"
+      "contacto": "Contacto",
+      "ediciones": "Ediciones",
+      "ponencias": "Ponencias",
+      "idiomas": "Idiomas",
+      "proxima": "Próxima participación"
     },
     "enlacesLegales": "Información legal"
   },
@@ -193,6 +252,15 @@
       "total": "Total a pagar",
       "descuentoAplicado": "descuento de {{importe}} € aplicado",
       "error": "No hemos podido calcular el precio."
+    },
+    "resumen": {
+      "titulo": "Te inscribes a",
+      "fechas": "Fechas",
+      "lugar": "Lugar",
+      "precio": "Precio",
+      "plazasLibres": "Plazas libres",
+      "gratis": "Gratis",
+      "desde": "Desde"
     }
   },
   "pago": {
@@ -743,7 +811,8 @@
         "guardar": "Guardar",
         "guardando": "Guardando…",
         "exito": "Cambios guardados.",
-        "error": "No hemos podido guardar los cambios."
+        "error": "No hemos podido guardar los cambios.",
+        "direccion": "Dirección"
       },
       "agenda": {
         "titulo": "Agenda",
@@ -776,7 +845,9 @@
           "rolesAyuda": "Uno o varios roles separados por comas, p. ej. «ponente, moderador». Vacío para quitarla de esta sesión.",
           "guardar": "Guardar participantes",
           "error": "No hemos podido guardar los participantes."
-        }
+        },
+        "sede": "Sede",
+        "sinSedeEspecifica": "Sin sede específica"
       },
       "roster": {
         "titulo": "Participantes del evento",
@@ -1029,6 +1100,23 @@
           "totalSiempreRevoca": "Un reembolso total revoca siempre la entrada.",
           "confirmar": "Confirmar reembolso"
         }
+      },
+      "venues": {
+        "titulo": "Sedes",
+        "sinSedes": "Todavía no hay sedes en este evento.",
+        "anadirSede": "Añadir sede",
+        "editarSede": "Editar sede",
+        "editar": "Editar",
+        "eliminar": "Eliminar",
+        "guardarCambios": "Guardar cambios",
+        "nombre": "Nombre",
+        "direccion": "Dirección",
+        "aforo": "Aforo",
+        "orden": "Orden",
+        "geocodificada": "Geolocalizada",
+        "sinGeocodificar": "Sin geolocalizar",
+        "camposRequeridos": "Escribe el nombre de la sede.",
+        "error": "No hemos podido completar la operación."
       }
     },
     "sponsorTiersNav": "Niveles de patrocinio",
@@ -1200,5 +1288,11 @@
     "condicionesInscripcion": "Condiciones de inscripción",
     "cargando": "Cargando…",
     "error": "No hemos podido cargar esta página."
+  },
+  "direccionMapa": {
+    "buscando": "Buscando direcciones…",
+    "error": "No hemos podido buscar direcciones ahora mismo.",
+    "sinMapa": "El mapa aparece al elegir una sugerencia o si la dirección ya está geolocalizada.",
+    "mapaEtiqueta": "Mapa de la dirección"
   }
 }

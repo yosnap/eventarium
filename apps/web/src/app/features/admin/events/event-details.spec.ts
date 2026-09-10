@@ -53,7 +53,16 @@ function flushCargaBase(
     });
 }
 
+function flushSedes(http: HttpTestingController): void {
+  // `EventVenues` y `EventAgenda` (para su selector de sede) piden las sedes cada
+  // uno por su cuenta: hay dos peticiones idénticas en vuelo a la vez.
+  for (const peticion of http.match((p) => p.url === '/api/v1/events/e1/venues')) {
+    peticion.flush([]);
+  }
+}
+
 function flushSeccionesLibresDePago(http: HttpTestingController): void {
+  flushSedes(http);
   http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/sessions').flush([]);
   http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/members').flush([]);
   http
@@ -101,6 +110,7 @@ describe('EventDetails', () => {
     await avanzar(fixture);
 
     const raiz = fixture.nativeElement as HTMLElement;
+    expect(raiz.querySelector('app-event-venues')).not.toBeNull();
     expect(raiz.querySelector('app-event-agenda')).not.toBeNull();
     expect(raiz.querySelector('app-event-sponsors')).not.toBeNull();
     expect(raiz.querySelector('app-event-registrations')).not.toBeNull();
@@ -115,6 +125,7 @@ describe('EventDetails', () => {
     const fixture = await crearComponente();
     flushCargaBase(http, { registration_mode: 'paid' });
     await avanzar(fixture);
+    flushSedes(http);
     http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/sessions').flush([]);
     http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/members').flush([]);
     http

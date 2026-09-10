@@ -20,6 +20,7 @@ export interface PublicSessionDetail {
   session_type: 'talk' | 'break' | 'service' | 'other';
   starts_at: string;
   title: string;
+  venue_id: (string | null);
   video_platform: ('youtube' | 'vimeo' | 'twitch' | 'other' | null);
   video_url: (string | null);
 }

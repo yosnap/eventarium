@@ -3,6 +3,7 @@
 
 import { PublicEventSession } from '../models/public-event-session';
 import { PublicSponsorTier } from '../models/public-sponsor-tier';
+import { PublicVenue } from '../models/public-venue';
 
 /**
  * Evento publicado con su agenda completa, para la página pública de detalle.
@@ -12,11 +13,14 @@ export interface PublicEventDetail {
   cover_url: (string | null);
   description: (string | null);
   ends_at: string;
+  latitude: (number | null);
   location_address: (string | null);
   location_mode: 'in_person' | 'online' | 'hybrid';
   location_name: (string | null);
+  longitude: (number | null);
   online_url: (string | null);
   registration_mode: 'free' | 'approval' | 'paid';
+  reserved_count: number;
   sessions: Array<PublicEventSession>;
   slug: string;
   sponsor_tiers?: Array<PublicSponsorTier>;
@@ -24,4 +28,5 @@ export interface PublicEventDetail {
   summary: (string | null);
   timezone: string;
   title: string;
+  venues?: Array<PublicVenue>;
 }

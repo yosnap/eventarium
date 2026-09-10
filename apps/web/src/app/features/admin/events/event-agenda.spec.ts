@@ -40,6 +40,12 @@ function flushRoster(http: HttpTestingController): void {
     .flush({ items: [], total: 0, limit: 200, offset: 0 });
 }
 
+/** Las sedes del evento también se piden en paralelo a la agenda, para el
+ * selector de sede del formulario de sesión. */
+function flushVenues(http: HttpTestingController): void {
+  http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/venues').flush([]);
+}
+
 describe('EventAgenda', () => {
   let http: HttpTestingController;
 
@@ -71,6 +77,7 @@ describe('EventAgenda', () => {
     await avanzar(fixture);
     http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/sessions').flush(sesiones());
     flushRoster(http);
+    flushVenues(http);
     await avanzar(fixture);
 
     expect(fixture.nativeElement.textContent).toContain('Charla de apertura');
@@ -83,6 +90,7 @@ describe('EventAgenda', () => {
     await avanzar(fixture);
     http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/sessions').flush([]);
     flushRoster(http);
+    flushVenues(http);
     await avanzar(fixture);
 
     const titulo = fixture.nativeElement.querySelector('#sesion-titulo') as HTMLInputElement;

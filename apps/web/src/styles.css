@@ -247,3 +247,20 @@ body::before {
   white-space: nowrap;
   border: 0;
 }
+
+/* Marcador de `app-address-map`/`app-venue-map` (`shared/ui/leaflet-icons.ts`):
+ * Leaflet inyecta este `div` fuera del árbol de Angular (dentro de su propio
+ * `<div class="mapa">`), así que necesita CSS global, no el `styles:` con
+ * ámbito de componente del componente que lo pinta. */
+.marcador-punto {
+  display: grid;
+  place-items: center;
+}
+.marcador-punto span {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--on-accent, #fff);
+  box-shadow: var(--shadow-md, 0 2px 6px rgba(0, 0, 0, 0.35));
+}

@@ -119,15 +119,19 @@
 }
 
 [data-theme='light'] {
-  /* Superficie. Papel neutro: L alta, C≈0. Nunca crema. */
-  --bg: oklch(97% 0 90);
-  --surface: oklch(100% 0 0);
-  --surface-2: oklch(96% 0 90);
-  --surface-hi: oklch(93% 0 90);
+  /* Superficie. Papel neutro: L alta, C≈0. Nunca crema. Gradiente
+     bg > surface > surface-2 > surface-hi literal de la referencia
+     (eventarium.css:58-63): antes `--surface` estaba en blanco puro (100%),
+     más claro que `--bg` en vez de más oscuro, así que ninguna tarjeta ni
+     panel contrastaba contra el fondo de la página. */
+  --bg: oklch(97.5% 0 90);
+  --surface: oklch(95.8% 0 90);
+  --surface-2: oklch(93.9% 0 90);
+  --surface-hi: oklch(90.5% 0 90);
 
   /* Borde. */
-  --border: oklch(88% 0 90);
-  --border-strong: oklch(78% 0 90);
+  --border: oklch(87% 0 90);
+  --border-strong: oklch(80% 0 90);
 
   /* Texto. */
   --fg: oklch(15% 0 90);

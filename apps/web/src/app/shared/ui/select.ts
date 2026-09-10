@@ -54,7 +54,9 @@ const PAUSA_BUSQUEDA_MS = 500;
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="campo">
-      <span class="rotulo" [id]="idEtiqueta()">{{ label() }}</span>
+      <span class="rotulo" [class.sr-only]="etiquetaOculta()" [id]="idEtiqueta()">{{
+        label()
+      }}</span>
       <div class="sel" [class.sel--up]="haciaArriba()">
         <select
           class="sel__native"
@@ -287,6 +289,11 @@ export class Select {
   readonly placeholder = input<string | null>(null);
   readonly disabled = input(false);
   readonly required = input(false);
+  /** Oculta visualmente el rótulo (`.sr-only`), sin quitarlo del árbol de
+   * accesibilidad: para contextos donde el propio control ya deja claro qué
+   * es (p. ej. el select de ciudad de `descubrir-eventos.html`, que muestra
+   * "Cualquier ciudad" dentro del botón en vez de un rótulo "Ciudad" aparte). */
+  readonly etiquetaOculta = input(false);
   readonly error = input<string | null>(null);
   /** Texto de ayuda bajo el campo, oculto mientras haya un error que mostrar. */
   readonly hint = input<string | null>(null);

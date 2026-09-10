@@ -18,6 +18,7 @@ export interface EventSessionResponse {
   starts_at: string;
   title: string;
   updated_at: string;
+  venue_id: (string | null);
   video_platform: ('youtube' | 'vimeo' | 'twitch' | 'other' | null);
   video_url: (string | null);
 }

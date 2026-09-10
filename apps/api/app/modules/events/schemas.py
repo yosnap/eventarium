@@ -142,6 +142,41 @@ class EventResponse(BaseModel):
     registration_mode: RegistrationMode
     email_verification_required: bool
     payment_checkout_window_minutes: int
+    # Resultado de geocodificar `location_address` (Nominatim); nunca los rellena
+    # el organizador directamente, ver `EventCreate`/`EventUpdate`.
+    latitude: float | None
+    longitude: float | None
+
+
+class EventVenueCreate(BaseModel):
+    """Alta de una sede de un evento multisede."""
+
+    name: Annotated[str, Field(min_length=1, max_length=160)]
+    address: Annotated[str, Field(max_length=300)] | None = None
+    capacity: Annotated[int, Field(ge=1)] | None = None
+    display_order: int = 0
+
+
+class EventVenueUpdate(BaseModel):
+    """Campos editables de una sede."""
+
+    name: Annotated[str, Field(min_length=1, max_length=160)] | None = None
+    address: Annotated[str, Field(max_length=300)] | None = None
+    capacity: Annotated[int, Field(ge=1)] | None = None
+    display_order: int | None = None
+
+
+class EventVenueResponse(BaseModel):
+    """Sede tal y como la ve el panel de administración."""
+
+    id: str
+    name: str
+    address: str | None
+    capacity: int | None
+    display_order: int
+    latitude: float | None
+    longitude: float | None
+    geocoded_at: datetime | None
 
 
 class EventSessionCreate(BaseModel):
@@ -157,6 +192,7 @@ class EventSessionCreate(BaseModel):
     video_url: Annotated[str, Field(max_length=500)] | None = None
     materials: list[dict[str, Any]] = Field(default_factory=list)
     sort_order: int = 0
+    venue_id: str | None = None
 
     @model_validator(mode="after")
     def _validar_fechas(self) -> EventSessionCreate:
@@ -179,6 +215,7 @@ class EventSessionUpdate(BaseModel):
     video_url: Annotated[str, Field(max_length=500)] | None = None
     materials: list[dict[str, Any]] | None = None
     sort_order: int | None = None
+    venue_id: str | None = None
 
     @model_validator(mode="after")
     def _validar_fechas(self) -> EventSessionUpdate:
@@ -201,6 +238,7 @@ class EventSessionResponse(BaseModel):
     video_url: str | None
     materials: list[dict[str, Any]]
     sort_order: int
+    venue_id: str | None
     # Necesario para el control de concurrencia optimista del `PUT` de
     # participantes: el cliente lo envía de vuelta como `expected_updated_at`.
     updated_at: datetime
@@ -310,6 +348,10 @@ class PublicEventSession(BaseModel):
     starts_at: datetime
     ends_at: datetime
     room: str | None
+    # Sede (nivel superior a `room`) de la sesión; `None` si el evento no usa
+    # sedes múltiples o la sesión no tiene ninguna asignada. Permite al
+    # frontend agrupar la agenda por sede cuando el evento tiene 2 o más.
+    venue_id: str | None
     video_platform: VideoPlatform | None
     video_url: str | None
     materials: list[dict[str, Any]]
@@ -321,6 +363,18 @@ class PublicSessionDetail(PublicEventSession):
 
     event_slug: str
     event_title: str
+
+
+class PublicVenue(BaseModel):
+    """Sede tal y como se muestra en la página pública del evento, sin campos
+    de auditoría (`display_order`/`geocoded_at` son detalle interno)."""
+
+    id: str
+    name: str
+    address: str | None
+    capacity: int | None
+    latitude: float | None
+    longitude: float | None
 
 
 class PublicEventDetail(BaseModel):
@@ -340,5 +394,17 @@ class PublicEventDetail(BaseModel):
     online_url: str | None
     capacity: int | None
     registration_mode: RegistrationMode
+    # Plazas realmente reservadas, misma regla que `PublicEventSummary.reserved_count`
+    # (`registrations.repository.count_reserved_registrations`): permite a la ficha
+    # pintar la ocupación, no solo el aforo total.
+    reserved_count: int
+    # Geocodificación de `location_address`, para el mapa del evento de una
+    # sola sede. `None` si no hay dirección, el evento es `online` o falló.
+    latitude: float | None
+    longitude: float | None
     sessions: list[PublicEventSession]
+    # Ordenadas por `display_order`. El frontend decide, a partir de su
+    # longitud, si activa la vista de "programa por sede" (2 sedes o más) —
+    # decisión de tanda 3, aquí solo se exponen los datos.
+    venues: list[PublicVenue] = Field(default_factory=list)
     sponsor_tiers: list[PublicSponsorTier] = Field(default_factory=list)

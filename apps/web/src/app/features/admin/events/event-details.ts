@@ -26,6 +26,7 @@ import { EventDiscountCodes } from './event-discount-codes';
 import { EventRegistrations } from './event-registrations';
 import { EventSponsors } from './event-sponsors';
 import { EventTicketTypes } from './event-ticket-types';
+import { EventVenues } from './event-venues';
 
 type EventStatus = 'draft' | 'published' | 'archived';
 type RegistrationMode = 'free' | 'approval' | 'paid';
@@ -59,6 +60,7 @@ interface EventoResumen {
     EventRegistrations,
     EventSponsors,
     EventTicketTypes,
+    EventVenues,
   ],
   template: `
     <ng-container *transloco="let t">
@@ -116,6 +118,7 @@ interface EventoResumen {
           }
         </app-card>
 
+        <app-event-venues [eventId]="eventId()" />
         <app-event-agenda [eventId]="eventId()" />
         <app-event-sponsors [eventId]="eventId()" />
         @if (registrationMode() === 'paid') {

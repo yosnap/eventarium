@@ -13,7 +13,13 @@ from typing import Any
 from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.events.models import Event, EventMember, EventSession, EventSessionParticipant
+from app.modules.events.models import (
+    Event,
+    EventMember,
+    EventSession,
+    EventSessionParticipant,
+    EventVenue,
+)
 from app.modules.organizations.models import OrganizationMember
 from app.modules.registrations.models import EventRegistration
 from app.modules.roles.models import Role
@@ -235,6 +241,42 @@ def session_participants_query(organization_id: uuid.UUID, session_id: uuid.UUID
         )
         .order_by(EventSessionParticipant.sort_order)
     )
+
+
+def venues_query(organization_id: uuid.UUID, event_id: uuid.UUID) -> Select[tuple[EventVenue]]:
+    return (
+        select(EventVenue)
+        .where(EventVenue.organization_id == organization_id, EventVenue.event_id == event_id)
+        .order_by(EventVenue.display_order, EventVenue.created_at)
+    )
+
+
+async def get_event_venue(
+    session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID, venue_id: uuid.UUID
+) -> EventVenue | None:
+    resultado: EventVenue | None = await session.scalar(
+        select(EventVenue).where(
+            EventVenue.id == venue_id,
+            EventVenue.event_id == event_id,
+            EventVenue.organization_id == organization_id,
+        )
+    )
+    return resultado
+
+
+async def count_sessions_using_venue(
+    session: AsyncSession, organization_id: uuid.UUID, venue_id: uuid.UUID
+) -> int:
+    """Sesiones que referencian `venue_id`, para el 409 al intentar borrar la sede."""
+    total = await session.scalar(
+        select(func.count())
+        .select_from(EventSession)
+        .where(
+            EventSession.organization_id == organization_id,
+            EventSession.venue_id == venue_id,
+        )
+    )
+    return int(total or 0)
 
 
 async def event_member_ids(

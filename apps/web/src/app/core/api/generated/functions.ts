@@ -123,6 +123,14 @@ export type { ListSessionParticipantsApiV1EventsEventIdSessionsSessionIdParticip
 export { listSessionParticipantsApiV1EventsEventIdSessionsSessionIdParticipantsGet as listSessionParticipantsApiV1EventsEventIdSessionsSessionIdParticipantsGet } from './fn/eventos/list-session-participants-api-v-1-events-event-id-sessions-session-id-participants-get';
 export type { ReplaceSessionParticipantsApiV1EventsEventIdSessionsSessionIdParticipantsPut$Params as ReplaceSessionParticipantsApiV1EventsEventIdSessionsSessionIdParticipantsPut$Params } from './fn/eventos/replace-session-participants-api-v-1-events-event-id-sessions-session-id-participants-put';
 export { replaceSessionParticipantsApiV1EventsEventIdSessionsSessionIdParticipantsPut as replaceSessionParticipantsApiV1EventsEventIdSessionsSessionIdParticipantsPut } from './fn/eventos/replace-session-participants-api-v-1-events-event-id-sessions-session-id-participants-put';
+export type { ListVenuesApiV1EventsEventIdVenuesGet$Params as ListVenuesApiV1EventsEventIdVenuesGet$Params } from './fn/eventos/list-venues-api-v-1-events-event-id-venues-get';
+export { listVenuesApiV1EventsEventIdVenuesGet as listVenuesApiV1EventsEventIdVenuesGet } from './fn/eventos/list-venues-api-v-1-events-event-id-venues-get';
+export type { CreateVenueApiV1EventsEventIdVenuesPost$Params as CreateVenueApiV1EventsEventIdVenuesPost$Params } from './fn/eventos/create-venue-api-v-1-events-event-id-venues-post';
+export { createVenueApiV1EventsEventIdVenuesPost as createVenueApiV1EventsEventIdVenuesPost } from './fn/eventos/create-venue-api-v-1-events-event-id-venues-post';
+export type { DeleteVenueApiV1EventsEventIdVenuesVenueIdDelete$Params as DeleteVenueApiV1EventsEventIdVenuesVenueIdDelete$Params } from './fn/eventos/delete-venue-api-v-1-events-event-id-venues-venue-id-delete';
+export { deleteVenueApiV1EventsEventIdVenuesVenueIdDelete as deleteVenueApiV1EventsEventIdVenuesVenueIdDelete } from './fn/eventos/delete-venue-api-v-1-events-event-id-venues-venue-id-delete';
+export type { UpdateVenueApiV1EventsEventIdVenuesVenueIdPatch$Params as UpdateVenueApiV1EventsEventIdVenuesVenueIdPatch$Params } from './fn/eventos/update-venue-api-v-1-events-event-id-venues-venue-id-patch';
+export { updateVenueApiV1EventsEventIdVenuesVenueIdPatch as updateVenueApiV1EventsEventIdVenuesVenueIdPatch } from './fn/eventos/update-venue-api-v-1-events-event-id-venues-venue-id-patch';
 export type { ListPublicEventsApiV1PublicEventsGet$Params as ListPublicEventsApiV1PublicEventsGet$Params } from './fn/publico/list-public-events-api-v-1-public-events-get';
 export { listPublicEventsApiV1PublicEventsGet as listPublicEventsApiV1PublicEventsGet } from './fn/publico/list-public-events-api-v-1-public-events-get';
 export type { GetPublicEventApiV1PublicEventsSlugGet$Params as GetPublicEventApiV1PublicEventsSlugGet$Params } from './fn/publico/get-public-event-api-v-1-public-events-slug-get';

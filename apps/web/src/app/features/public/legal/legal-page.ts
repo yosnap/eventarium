@@ -143,6 +143,7 @@ export class LegalPage implements OnInit {
     if (transferido) {
       this.transferState.remove(clave);
       this.aplicar(transferido);
+      this.cargando.set(false);
       return;
     }
 

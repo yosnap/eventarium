@@ -16,6 +16,7 @@ export interface EventSessionCreate {
   sort_order?: number;
   starts_at: string;
   title: string;
+  venue_id?: (string | null);
   video_platform?: ('youtube' | 'vimeo' | 'twitch' | 'other' | null);
   video_url?: (string | null);
 }

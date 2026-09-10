@@ -1,6 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideZonelessChangeDetection } from '@angular/core';
+import { TransferState, makeStateKey, provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import es from '../../../../../public/assets/i18n/es-ES.json';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../../testing/axe';
 import { EventPage } from './event-page';
+import type { PublicEventDetail } from './event-page.types';
 
 function eventoDetalle() {
   return {
@@ -26,6 +27,9 @@ function eventoDetalle() {
     online_url: null,
     capacity: null,
     registration_mode: 'free',
+    reserved_count: 0,
+    latitude: null,
+    longitude: null,
     sessions: [
       {
         id: 's1',
@@ -35,12 +39,14 @@ function eventoDetalle() {
         starts_at: '2026-10-01T09:00:00Z',
         ends_at: '2026-10-01T10:00:00Z',
         room: 'Sala A',
+        venue_id: null,
         video_platform: null,
         video_url: null,
         materials: [],
         participants: [{ display_name: 'Ana Ponente', role_key: 'speaker', public_slug: 'ana' }],
       },
     ],
+    venues: [],
     sponsor_tiers: [],
   };
 }
@@ -74,6 +80,26 @@ describe('EventPage', () => {
   afterEach(() => {
     http.verify();
     document.documentElement.removeAttribute('data-theme');
+  });
+
+  it('deja de mostrar «cargando» cuando el dato llega por TransferState (hidratación), sin llamar a la API', async () => {
+    // Regresión: hasta corregirlo, la rama de `TransferState` no ponía
+    // `cargando` a `false`, así que tras una carga completa de página (la
+    // hidratación SSR real, no la navegación SPA que sí dispara la petición
+    // HTTP) la ficha se quedaba en «Cargando…» para siempre aunque el dato ya
+    // estuviera disponible.
+    const clave = makeStateKey<PublicEventDetail>('public-event:iawic-2026');
+    const transferState = TestBed.inject(TransferState);
+    transferState.set(clave, eventoDetalle() as PublicEventDetail);
+
+    const fixture = TestBed.createComponent(EventPage);
+    fixture.componentRef.setInput('slug', 'iawic-2026');
+    fixture.detectChanges();
+    await avanzar(fixture);
+
+    http.expectNone((peticion) => peticion.url === '/api/v1/public/events/iawic-2026');
+    expect(fixture.nativeElement.textContent).toContain('IA Week in Cascais 2026');
+    expect(fixture.nativeElement.textContent).not.toContain('Cargando');
   });
 
   it('muestra el evento en tema claro sin violaciones de accesibilidad', async () => {
@@ -151,7 +177,9 @@ describe('EventPage', () => {
     await avanzar(fixture);
 
     const texto = fixture.nativeElement.textContent;
-    expect(texto).toContain('120 plazas');
+    expect(texto).toContain('Aforo · 120');
+    expect(texto).toContain('confirmadas');
+    expect(texto).toContain('disponibles');
     expect(texto).toContain('Inscripción con aprobación');
     expect(texto).toContain('Ponente');
     expect(texto).not.toContain('speaker');

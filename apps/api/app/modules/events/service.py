@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import delete
@@ -18,7 +19,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.modules.events import repository
 from app.modules.events import schemas as events_schemas
-from app.modules.events.models import Event, EventMember, EventSession, EventSessionParticipant
+from app.modules.events.geocoding import geocode_address
+from app.modules.events.models import (
+    Event,
+    EventMember,
+    EventSession,
+    EventSessionParticipant,
+    EventVenue,
+)
 from app.modules.organizations import repository as organizations_repository
 from app.modules.payments import repository as payments_repository
 from app.modules.payments import service as payments_service
@@ -85,6 +93,43 @@ async def _asegurar_venta_posible(
             )
 
 
+async def _geocodificar_direccion(address: str) -> tuple[Decimal, Decimal, datetime] | None:
+    """Geocodifica `address` y empaqueta el resultado listo para persistir, o
+    `None` si Nominatim no devolvió coordenadas (fallo de red, sin resultados,
+    respuesta inesperada — `geocode_address` ya absorbe esos casos, aquí solo
+    se traduce a los tipos de columna)."""
+    resultado = await geocode_address(address)
+    if resultado is None:
+        return None
+    latitud, longitud = resultado
+    return (Decimal(str(latitud)), Decimal(str(longitud)), datetime.now(UTC))
+
+
+async def _sincronizar_geocodificacion_evento(
+    evento: Event, *, location_mode: str, address: str | None, direccion_anterior: str | None
+) -> None:
+    """Geocodifica `Event.location_address` con el mismo mecanismo que
+    `EventVenue.address` (decisión #4 del encargo: un único mecanismo de
+    dirección+geocodificación para ambos). Solo llama a Nominatim cuando la
+    dirección cambió (o nunca se geocodificó) respecto al valor guardado — la
+    comparación vive aquí, `geocode_address` es una función pura sin acceso a
+    base de datos."""
+    if location_mode == "online" or not address:
+        evento.latitude = None
+        evento.longitude = None
+        evento.geocoded_at = None
+        return
+    if address == direccion_anterior and evento.geocoded_at is not None:
+        return
+    resultado = await _geocodificar_direccion(address)
+    if resultado is None:
+        evento.latitude = None
+        evento.longitude = None
+        evento.geocoded_at = None
+        return
+    evento.latitude, evento.longitude, evento.geocoded_at = resultado
+
+
 async def create_event(
     session: AsyncSession, *, organization_id: uuid.UUID, datos: dict[str, Any]
 ) -> Event:
@@ -114,6 +159,13 @@ async def create_event(
         registration_mode=evento.registration_mode,
         event_id=evento.id,
     )
+    await _sincronizar_geocodificacion_evento(
+        evento,
+        location_mode=evento.location_mode,
+        address=evento.location_address,
+        direccion_anterior=None,
+    )
+    await session.flush()
     return evento
 
 
@@ -153,8 +205,16 @@ async def update_event(
     if fin <= inicio:
         raise ValidationDomainError("La fecha de fin debe ser posterior a la de inicio.")
 
+    direccion_anterior = evento.location_address
     for campo, valor in datos.items():
         setattr(evento, campo, valor)
+
+    await _sincronizar_geocodificacion_evento(
+        evento,
+        location_mode=evento.location_mode,
+        address=evento.location_address,
+        direccion_anterior=direccion_anterior,
+    )
 
     try:
         await session.flush()
@@ -170,6 +230,21 @@ def _validar_sesion_dentro_del_evento(
         raise ValidationDomainError("La sesión debe caer dentro del rango de fechas del evento.")
 
 
+async def _validar_sede_del_evento(
+    session: AsyncSession,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    venue_id: str,
+) -> None:
+    try:
+        venue_uuid = uuid.UUID(venue_id)
+    except ValueError as exc:
+        raise ValidationDomainError("El identificador de la sede no es válido.") from exc
+    sede = await repository.get_event_venue(session, organization_id, event_id, venue_uuid)
+    if sede is None:
+        raise ValidationDomainError("La sede indicada no pertenece a este evento.")
+
+
 async def create_session(
     session: AsyncSession,
     *,
@@ -181,6 +256,8 @@ async def create_session(
     if evento is None:
         raise NotFoundError("El evento no existe.")
     _validar_sesion_dentro_del_evento(evento, datos["starts_at"], datos["ends_at"])
+    if datos.get("venue_id") is not None:
+        await _validar_sede_del_evento(session, organization_id, event_id, datos["venue_id"])
 
     sesion = EventSession(event_id=event_id, organization_id=organization_id, **datos)
     session.add(sesion)
@@ -208,6 +285,8 @@ async def update_session(
     if fin <= inicio:
         raise ValidationDomainError("La fecha de fin debe ser posterior a la de inicio.")
     _validar_sesion_dentro_del_evento(evento, inicio, fin)
+    if "venue_id" in datos and datos["venue_id"] is not None:
+        await _validar_sede_del_evento(session, organization_id, event_id, datos["venue_id"])
 
     # `EventSessionUpdate` valida `video_url`/`materials` campo a campo, pero un
     # `PATCH` parcial puede tocar solo uno de los dos (p. ej. cambiar la URL sin
@@ -361,3 +440,93 @@ async def replace_session_participants(
             "Dos guardados de la agenda han chocado. Recarga e inténtalo de nuevo."
         ) from exc
     return sesion
+
+
+async def _sincronizar_geocodificacion_sede(
+    sede: EventVenue, *, address: str | None, direccion_anterior: str | None
+) -> None:
+    """Misma lógica que `_sincronizar_geocodificacion_evento`, sin el concepto de
+    `location_mode`: una sede siempre es un sitio físico, así que basta con que
+    tenga dirección."""
+    if not address:
+        sede.latitude = None
+        sede.longitude = None
+        sede.geocoded_at = None
+        return
+    if address == direccion_anterior and sede.geocoded_at is not None:
+        return
+    resultado = await _geocodificar_direccion(address)
+    if resultado is None:
+        sede.latitude = None
+        sede.longitude = None
+        sede.geocoded_at = None
+        return
+    sede.latitude, sede.longitude, sede.geocoded_at = resultado
+
+
+async def create_venue(
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    datos: dict[str, Any],
+) -> EventVenue:
+    evento = await repository.get_event(session, organization_id, event_id)
+    if evento is None:
+        raise NotFoundError("El evento no existe.")
+
+    sede = EventVenue(event_id=event_id, organization_id=organization_id, **datos)
+    session.add(sede)
+    await _sincronizar_geocodificacion_sede(sede, address=sede.address, direccion_anterior=None)
+    await session.flush()
+    return sede
+
+
+async def update_venue(
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    venue_id: uuid.UUID,
+    datos: dict[str, Any],
+) -> EventVenue:
+    evento = await repository.get_event(session, organization_id, event_id)
+    if evento is None:
+        raise NotFoundError("El evento no existe.")
+    sede = await repository.get_event_venue(session, organization_id, event_id, venue_id)
+    if sede is None:
+        raise NotFoundError("La sede no existe.")
+
+    direccion_anterior = sede.address
+    for campo, valor in datos.items():
+        setattr(sede, campo, valor)
+
+    await _sincronizar_geocodificacion_sede(
+        sede, address=sede.address, direccion_anterior=direccion_anterior
+    )
+    await session.flush()
+    return sede
+
+
+async def delete_venue(
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    venue_id: uuid.UUID,
+) -> None:
+    evento = await repository.get_event(session, organization_id, event_id)
+    if evento is None:
+        raise NotFoundError("El evento no existe.")
+    sede = await repository.get_event_venue(session, organization_id, event_id, venue_id)
+    if sede is None:
+        raise NotFoundError("La sede no existe.")
+
+    en_uso = await repository.count_sessions_using_venue(session, organization_id, sede.id)
+    if en_uso > 0:
+        raise ConflictError(
+            f"No se puede borrar la sede: {en_uso} sesión(es) de la agenda la tienen asignada."
+        )
+
+    await session.delete(sede)
+    await session.flush()

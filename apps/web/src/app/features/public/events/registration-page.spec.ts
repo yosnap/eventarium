@@ -1,3 +1,5 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { PLATFORM_ID, Component, provideZonelessChangeDetection, output } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
@@ -81,6 +83,8 @@ describe('RegistrationPage', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
         { provide: PLATFORM_ID, useValue: plataforma },
         { provide: RegistrationsService, useValue: registrations },
         {
