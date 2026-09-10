@@ -5,6 +5,7 @@ import { TranslocoDirective } from '@jsverse/transloco';
 import { CookieBanner } from '../../shared/cookies/cookie-banner';
 import { CookieConsentService } from '../../core/cookies/cookie-consent.service';
 import { ThemingService } from '../../core/theming/theming.service';
+import { BrandMark } from '../../shared/ui/brand-mark';
 import { ThemeToggle } from '../../shared/ui/theme-toggle';
 
 /**
@@ -15,7 +16,7 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
 @Component({
   selector: 'app-public-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, TranslocoDirective, CookieBanner, ThemeToggle],
+  imports: [RouterOutlet, RouterLink, TranslocoDirective, CookieBanner, ThemeToggle, BrandMark],
   template: `
     <ng-container *transloco="let t">
       <a class="skip-link" href="#contenido">{{ t('comun.saltarAlContenido') }}</a>
@@ -25,6 +26,7 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
           @if (theming.branding()?.logo_url; as logo) {
             <img [src]="logo" [alt]="theming.organizationName()" height="40" />
           } @else {
+            <app-brand-mark [nombre]="theming.organizationName()" />
             <span class="nombre">{{ theming.organizationName() }}</span>
           }
         </a>
@@ -110,6 +112,7 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
     .marca {
       display: inline-flex;
       align-items: center;
+      gap: 10px;
       text-decoration: none;
       color: inherit;
     }

@@ -13,6 +13,7 @@ import { TranslocoDirective } from '@jsverse/transloco';
 
 import { AuthService, OrganizacionDeLaPersona, displayName } from '../../core/auth/auth.service';
 import { ThemingService } from '../../core/theming/theming.service';
+import { BrandMark } from '../../shared/ui/brand-mark';
 import { Button } from '../../shared/ui/button';
 import { ThemeToggle } from '../../shared/ui/theme-toggle';
 import { AdminNav } from './admin-nav';
@@ -26,13 +27,16 @@ import { EventScope } from './event-scope';
 @Component({
   selector: 'app-admin-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, TranslocoDirective, Button, ThemeToggle, AdminNav],
+  imports: [RouterOutlet, RouterLink, TranslocoDirective, Button, ThemeToggle, AdminNav, BrandMark],
   template: `
     <ng-container *transloco="let t">
       <a class="skip-link" href="#contenido-admin">{{ t('comun.saltarAlContenido') }}</a>
 
       <header>
-        <p class="marca">{{ theming.organizationName() }} · {{ t('admin.titulo') }}</p>
+        <p class="marca">
+          <app-brand-mark [nombre]="theming.organizationName()" />
+          {{ theming.organizationName() }} · {{ t('admin.titulo') }}
+        </p>
         <div class="sesion">
           <app-theme-toggle />
           @if (otrasOrganizaciones().length > 0) {
@@ -113,6 +117,9 @@ import { EventScope } from './event-scope';
       border-bottom: 1px solid var(--border);
     }
     .marca {
+      display: flex;
+      align-items: center;
+      gap: 10px;
       margin: 0;
       /* Tipografía de marca de .brand__name (eventarium.css:148): mono display,
          mayúsculas, tracking amplio, en vez de sans en negrita. */

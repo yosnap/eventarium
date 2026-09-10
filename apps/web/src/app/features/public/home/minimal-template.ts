@@ -11,10 +11,10 @@ import { ThemingService } from '../../../core/theming/theming.service';
   template: `
     <ng-container *transloco="let t">
       <section class="minimal">
-        <p class="etiqueta">{{ t('publico.proximamente') }}</p>
+        <p class="rotulo-seccion etiqueta-acento">{{ t('publico.proximamente') }}</p>
         <h1>{{ theming.organizationName() }}</h1>
         @if (theming.branding()?.organizer_blurb; as descripcion) {
-          <p>{{ descripcion }}</p>
+          <p class="descripcion">{{ descripcion }}</p>
         }
       </section>
     </ng-container>
@@ -24,18 +24,19 @@ import { ThemingService } from '../../../core/theming/theming.service';
       display: grid;
       gap: var(--space-sm);
       max-width: 42rem;
-      padding: var(--space-lg) 0;
+      padding: var(--space-lg) 0 var(--space-lg);
+      border-bottom: 1px solid var(--border);
     }
-    .etiqueta {
-      margin: 0;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-size: 0.75rem;
-      color: var(--muted);
+    .etiqueta-acento {
+      color: var(--accent);
     }
     h1 {
       margin: 0;
       font-size: var(--fs-h1);
+    }
+    .descripcion {
+      margin: 0;
+      color: var(--muted);
     }
   `,
 })

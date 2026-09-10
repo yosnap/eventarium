@@ -1,15 +1,20 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { TranslocoDirective } from '@jsverse/transloco';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
+
+import { Select, type SelectOption } from '../../../../shared/ui/select';
 
 /**
- * Sección «Select»: el `<select>` nativo con los estilos globales del sistema
- * (`styles.css`). La fase 2 decidió explícitamente no construir un combobox custom:
- * esta sección muestra el control nativo tal cual, con una nota que lo deja claro.
+ * Sección «Select»: `app-select`, el select moderno de la referencia
+ * (`eventarium.css:214-251`, `sistema-componentes.html#select`) — mejora progresiva
+ * sobre un `<select>` nativo real, no un combobox sin equivalente en el marcado.
+ * Sustituye a la sección anterior, que mostraba el `<select>` nativo suelo: el
+ * propietario del producto pidió fidelidad literal con el catálogo de componentes
+ * real, revirtiendo aquí la decisión de la fase 2.
  */
 @Component({
   selector: 'app-style-guide-select-section',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective],
+  imports: [TranslocoDirective, Select],
   template: `
     <ng-container *transloco="let t">
       <section class="sec" id="select" aria-labelledby="select-h2">
@@ -18,26 +23,20 @@ import { TranslocoDirective } from '@jsverse/transloco';
           <span class="rotulo-seccion">{{ t('admin.catalogoEstilo.select.uso') }}</span>
         </div>
         <div class="demo columna">
-          <label class="campo">
-            <span>{{ t('admin.catalogoEstilo.select.motivo') }}</span>
-            <select>
-              <option>{{ t('admin.catalogoEstilo.select.motivoAprender') }}</option>
-              <option>{{ t('admin.catalogoEstilo.select.motivoConocer') }}</option>
-              <option>{{ t('admin.catalogoEstilo.select.motivoBuscar') }}</option>
-              <option>{{ t('admin.catalogoEstilo.select.motivoPresentar') }}</option>
-            </select>
-          </label>
-          <label class="campo">
-            <span>{{ t('admin.catalogoEstilo.select.ciudad') }}</span>
-            <select>
-              <option value="">{{ t('admin.catalogoEstilo.select.ciudadCualquiera') }}</option>
-              <option>{{ t('admin.catalogoEstilo.select.ciudadValencia') }}</option>
-              <option>{{ t('admin.catalogoEstilo.select.ciudadBarcelona') }}</option>
-              <option>{{ t('admin.catalogoEstilo.select.ciudadOnline') }}</option>
-            </select>
-          </label>
+          <app-select
+            [label]="t('admin.catalogoEstilo.select.motivo')"
+            [options]="opcionesMotivo()"
+            [(value)]="motivo"
+          />
+          <app-select
+            [label]="t('admin.catalogoEstilo.select.ciudad')"
+            [options]="opcionesCiudad()"
+            [placeholder]="t('admin.catalogoEstilo.select.ciudadCualquiera')"
+            [(value)]="ciudad"
+          />
         </div>
         <p class="nota">{{ t('admin.catalogoEstilo.select.nota') }}</p>
+        <p class="nota">{{ t('admin.catalogoEstilo.select.notaTeclado') }}</p>
       </section>
     </ng-container>
   `,
@@ -67,14 +66,6 @@ import { TranslocoDirective } from '@jsverse/transloco';
       gap: var(--space-md);
       max-width: 32rem;
     }
-    .campo {
-      display: grid;
-      gap: var(--space-xs);
-      color: var(--fg);
-    }
-    .campo select {
-      width: 100%;
-    }
     .nota {
       font-size: var(--fs-sm);
       color: var(--muted);
@@ -83,4 +74,28 @@ import { TranslocoDirective } from '@jsverse/transloco';
     }
   `,
 })
-export class SelectSection {}
+export class SelectSection {
+  private readonly transloco = inject(TranslocoService);
+
+  /** Sin `placeholder`: como en un `<select>` nativo sin opción vacía, el valor
+   * inicial es la primera opción («Aprender de las charlas»), no un valor vacío. */
+  protected readonly motivo = signal('aprender');
+  protected readonly ciudad = signal('');
+
+  protected readonly opcionesMotivo = computed<readonly SelectOption[]>(() => [
+    { value: 'aprender', label: this.t('admin.catalogoEstilo.select.motivoAprender') },
+    { value: 'conocer', label: this.t('admin.catalogoEstilo.select.motivoConocer') },
+    { value: 'buscar', label: this.t('admin.catalogoEstilo.select.motivoBuscar') },
+    { value: 'presentar', label: this.t('admin.catalogoEstilo.select.motivoPresentar') },
+  ]);
+
+  protected readonly opcionesCiudad = computed<readonly SelectOption[]>(() => [
+    { value: 'valencia', label: this.t('admin.catalogoEstilo.select.ciudadValencia') },
+    { value: 'barcelona', label: this.t('admin.catalogoEstilo.select.ciudadBarcelona') },
+    { value: 'online', label: this.t('admin.catalogoEstilo.select.ciudadOnline') },
+  ]);
+
+  private t(clave: string): string {
+    return this.transloco.translate(clave);
+  }
+}

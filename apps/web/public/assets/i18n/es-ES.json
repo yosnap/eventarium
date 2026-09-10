@@ -340,7 +340,7 @@
       },
       "select": {
         "titulo": "Select",
-        "uso": "select nativo · inscripción, descubrir",
+        "uso": "app-select · inscripción, descubrir",
         "motivo": "¿Qué te trae al evento?",
         "motivoAprender": "Aprender de las charlas",
         "motivoConocer": "Conocer gente del sector",
@@ -351,7 +351,8 @@
         "ciudadValencia": "Valencia",
         "ciudadBarcelona": "Barcelona",
         "ciudadOnline": "Online",
-        "nota": "Mejora progresiva sobre el select nativo del navegador, con los tokens de color y tipografía del sistema: no hay ningún JavaScript de reemplazo, así que el teclado, el desplegable y el guardado del valor siguen siendo los del navegador."
+        "nota": "Sustituye al desplegable del navegador, que no acepta tipografía ni color del sistema. Es mejora progresiva sobre un select real: el nativo sigue en el marcado y guarda el valor, así que el formulario funciona igual y, si el script no arranca, aparece el control del navegador en su lugar.",
+        "notaTeclado": "Teclado completo: las flechas arriba y abajo recorren, Inicio y Fin saltan a los extremos, una letra busca la opción que empieza por ella, Intro elige, Esc cierra devolviendo el foco al botón. Si no cabe hacia abajo, el panel se despliega hacia arriba."
       },
       "superficies": {
         "titulo": "Superficies",

@@ -205,9 +205,12 @@ describe('componentes compartidos', () => {
       },
     });
 
+    const boton = fixture.nativeElement.querySelector('.sel__btn') as HTMLButtonElement;
     const select = fixture.nativeElement.querySelector('select') as HTMLSelectElement;
-    const etiqueta = fixture.nativeElement.querySelector('label') as HTMLLabelElement;
-    expect(etiqueta.getAttribute('for')).toBe(select.id);
+    const etiqueta = fixture.nativeElement.querySelector('.rotulo') as HTMLElement;
+    // El nombre accesible del botón debe incluir tanto la etiqueta como la opción
+    // elegida (que vive en el propio botón): patrón APG de combobox de solo lectura.
+    expect(boton.getAttribute('aria-labelledby')).toBe(`${etiqueta.id} ${boton.id}`);
     expect(select.querySelectorAll('option').length).toBe(4); // placeholder + 3 opciones
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
