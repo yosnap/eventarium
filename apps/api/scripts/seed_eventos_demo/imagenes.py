@@ -74,7 +74,9 @@ def _logo(nombre: str) -> bytes:
     for y in range(LADO_LOGO):
         en_borde_y = y < grosor or y >= LADO_LOGO - grosor
         if en_borde_y:
-            fila = bytes(borde)
+            # El color del borde se repite a todo lo ancho: una fila de scanline
+            # debe medir ancho×3 bytes o el PNG queda truncado y no decodifica.
+            fila = bytes(borde) * LADO_LOGO
         else:
             fila = (
                 bytes(borde) * grosor
