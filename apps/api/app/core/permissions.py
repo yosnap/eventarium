@@ -4,8 +4,8 @@ Los permisos se declaran en código, nunca en base de datos: así una migración
 puede introducir un permiso que el código no conoce ni al revés. `role_permissions`
 guarda únicamente valores de este enum.
 
-Prefijos reservados para fases posteriores del PRD (no usar todavía):
-`accounting:*`, `emails:*`.
+Prefijo reservado para fases posteriores del PRD (no usar todavía): `emails:*`.
+`accounting:*` ya está en uso desde la fase 7 del PRD.
 
 `AUDIT_READ` no vive aquí a propósito (fase 5 del PRD, decisión #7 del plan):
 `OWNER` se define como `permissions=tuple(Permission)` en
@@ -42,6 +42,8 @@ class Permission(StrEnum):
     SPONSORS_WRITE = "sponsors:write"
     PAYMENTS_READ = "payments:read"
     PAYMENTS_WRITE = "payments:write"
+    ACCOUNTING_READ = "accounting:read"
+    ACCOUNTING_WRITE = "accounting:write"
 
 
 ALL_PERMISSIONS: frozenset[Permission] = frozenset(Permission)

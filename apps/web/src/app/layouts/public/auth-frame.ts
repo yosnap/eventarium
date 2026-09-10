@@ -31,15 +31,17 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       <a class="skip-link" href="#contenido">{{ t('comun.saltarAlContenido') }}</a>
 
       <header>
-        <a routerLink="/" class="marca">
-          @if (theming.branding()?.logo_url; as logo) {
-            <img [src]="logo" [alt]="theming.organizationName()" height="40" />
-          } @else {
-            <app-brand-mark [nombre]="theming.organizationName()" />
-            <span class="nombre">{{ theming.organizationName() }}</span>
-          }
-        </a>
-        <app-theme-toggle />
+        <div class="ancho-maximo header-en">
+          <a routerLink="/" class="marca">
+            @if (theming.branding()?.logo_url; as logo) {
+              <img [src]="logo" [alt]="theming.organizationName()" height="40" />
+            } @else {
+              <app-brand-mark [nombre]="theming.organizationName()" />
+              <span class="nombre">{{ theming.organizationName() }}</span>
+            }
+          </a>
+          <app-theme-toggle />
+        </div>
       </header>
 
       <main id="contenido" tabindex="-1">
@@ -72,16 +74,20 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       grid-template-rows: auto 1fr auto;
       min-height: 100vh;
     }
+    /* A sangre completa como en PublicShell y AdminShell; el contenido interno
+       (.header-en) es quien se centra al ancho máximo. */
     header {
+      background: var(--nav-bg);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .header-en {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: var(--space-md);
       padding: var(--space-md) var(--space-lg);
       min-height: 64px;
-      background: var(--nav-bg);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
     }
     .marca {
       display: inline-flex;

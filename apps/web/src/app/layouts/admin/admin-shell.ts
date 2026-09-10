@@ -33,29 +33,31 @@ import { EventScope } from './event-scope';
       <a class="skip-link" href="#contenido-admin">{{ t('comun.saltarAlContenido') }}</a>
 
       <header>
-        <p class="marca">
-          <app-brand-mark [nombre]="theming.organizationName()" />
-          {{ theming.organizationName() }} · {{ t('admin.titulo') }}
-        </p>
-        <div class="sesion">
-          <app-theme-toggle />
-          @if (otrasOrganizaciones().length > 0) {
-            <nav [attr.aria-label]="t('admin.selectorOrganizacion.titulo')" class="selector">
-              @for (organizacion of organizaciones(); track organizacion.organization_id) {
-                @if (organizacion.host) {
-                  <a [href]="'https://' + organizacion.host + '/admin'">{{ organizacion.name }}</a>
+        <div class="ancho-maximo header-en">
+          <p class="marca">
+            <app-brand-mark [nombre]="theming.organizationName()" />
+            {{ theming.organizationName() }} · {{ t('admin.titulo') }}
+          </p>
+          <div class="sesion">
+            <app-theme-toggle />
+            @if (otrasOrganizaciones().length > 0) {
+              <nav [attr.aria-label]="t('admin.selectorOrganizacion.titulo')" class="selector">
+                @for (organizacion of organizaciones(); track organizacion.organization_id) {
+                  @if (organizacion.host) {
+                    <a [href]="'https://' + organizacion.host + '/admin'">{{ organizacion.name }}</a>
+                  }
                 }
-              }
-            </nav>
-          }
-          @if (auth.currentUser(); as usuario) {
-            <a routerLink="/admin/account">{{
-              t('admin.sesionDe', { nombre: nombreDe(usuario) })
-            }}</a>
-          }
-          <app-button variant="secundario" (pulsado)="cerrarSesion()">
-            {{ t('admin.cerrarSesion') }}
-          </app-button>
+              </nav>
+            }
+            @if (auth.currentUser(); as usuario) {
+              <a routerLink="/admin/account">{{
+                t('admin.sesionDe', { nombre: nombreDe(usuario) })
+              }}</a>
+            }
+            <app-button variant="secundario" (pulsado)="cerrarSesion()">
+              {{ t('admin.cerrarSesion') }}
+            </app-button>
+          </div>
         </div>
       </header>
 
@@ -98,23 +100,26 @@ import { EventScope } from './event-scope';
       min-height: 100vh;
     }
     /* .nav (eventarium.css:137-141): fija arriba, con desenfoque de fondo y borde
-       inferior. El panel sigue con navegación lateral (fase 3), así que solo se
-       adopta aquí el lenguaje visual de la cabecera, no su estructura. */
+       inferior, a sangre completa; el contenido interno (.nav__in.wrap) es quien
+       se centra al ancho máximo, no la barra en sí — mismo patrón que
+       PublicShell y AuthFrame, para que la cabecera sea igual en toda la web. */
     header {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: var(--nav-bg);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    /* .nav__in (eventarium.css:141): min-height:64px. */
+    .header-en {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
       gap: var(--space-md);
       padding: var(--space-md) var(--space-lg);
-      position: sticky;
-      top: 0;
-      z-index: 40;
-      /* min-height:64px de .nav__in (eventarium.css:141). */
       min-height: 64px;
-      background: var(--nav-bg);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
     }
     .marca {
       display: flex;

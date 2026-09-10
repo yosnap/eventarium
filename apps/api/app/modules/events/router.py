@@ -60,6 +60,10 @@ def _event_response(evento: Event) -> EventResponse:
         payment_checkout_window_minutes=evento.payment_checkout_window_minutes,
         latitude=float(evento.latitude) if evento.latitude is not None else None,
         longitude=float(evento.longitude) if evento.longitude is not None else None,
+        contingency_fund_percent=evento.contingency_fund_percent,
+        budget_approved_at=evento.budget_approved_at,
+        contingency_fund_cents=evento.contingency_fund_cents,
+        accounting_currency=evento.accounting_currency,
     )
 
 

@@ -6,8 +6,12 @@
  * Evento tal y como lo ve el panel de administración.
  */
 export interface EventResponse {
+  accounting_currency: string;
+  budget_approved_at: (string | null);
   capacity: (number | null);
   city: (string | null);
+  contingency_fund_cents: (number | null);
+  contingency_fund_percent: string;
   cover_url: (string | null);
   description: (string | null);
   email_verification_required: boolean;

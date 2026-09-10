@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Annotated, Any, Literal
 from urllib.parse import urlparse
 
@@ -116,11 +117,32 @@ class EventUpdate(BaseModel):
     registration_opens_at: datetime | None = None
     email_verification_required: bool | None = None
     payment_checkout_window_minutes: Annotated[int, Field(ge=30, le=1439)] | None = None
+    # Único campo de contabilidad editable desde este esquema (plan.md
+    # Decisión #6): `budget_approved_at`/`contingency_fund_cents` nunca
+    # viajan por aquí, solo por el servicio de `accounting`. El servicio de
+    # eventos rechaza este campo si el presupuesto ya está aprobado.
+    contingency_fund_percent: Annotated[Decimal, Field(ge=0, le=100)] | None = None
 
     @model_validator(mode="after")
     def _validar_fechas(self) -> EventUpdate:
         if self.starts_at is not None and self.ends_at is not None:
             _validar_rango_de_fechas(self.starts_at, self.ends_at)
+        return self
+
+    @model_validator(mode="after")
+    def _rechazar_null_explicito_en_contingency_fund_percent(self) -> EventUpdate:
+        # `NUMERIC(5,2) NOT NULL` en `events`: a diferencia del resto de
+        # campos de este schema, un `null` explícito aquí no significa "sin
+        # cambios" (eso ya lo cubre `exclude_unset`), significa un valor
+        # inválido que llegaría al `setattr` genérico de `update_event` y
+        # rompería la constraint `NOT NULL` — y ese `IntegrityError` lo
+        # capturaba la rama de conflicto de `slug`, devolviendo un 409 con el
+        # mensaje falso "ya existe un evento con el identificador «None»".
+        if (
+            "contingency_fund_percent" in self.model_fields_set
+            and self.contingency_fund_percent is None
+        ):
+            raise ValueError("`contingency_fund_percent` no admite `null`.")
         return self
 
 
@@ -152,6 +174,14 @@ class EventResponse(BaseModel):
     # el organizador directamente, ver `EventCreate`/`EventUpdate`.
     latitude: float | None
     longitude: float | None
+    # Contabilidad por evento (PRD fase 7, plan.md Decisión #6): de solo
+    # lectura aquí — `EventUpdate` no las incluye. `contingency_fund_percent`
+    # es la única de las cuatro editable, y solo por el servicio de eventos,
+    # no por `EventUpdate` genérico (fase 3 de trabajo de la contabilidad).
+    contingency_fund_percent: Decimal
+    budget_approved_at: datetime | None
+    contingency_fund_cents: int | None
+    accounting_currency: str
 
 
 class EventVenueCreate(BaseModel):

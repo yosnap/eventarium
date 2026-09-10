@@ -24,5 +24,7 @@ export const PERMISSION: Permission[] = [
   'sponsors:read',
   'sponsors:write',
   'payments:read',
-  'payments:write'
+  'payments:write',
+  'accounting:read',
+  'accounting:write'
 ];

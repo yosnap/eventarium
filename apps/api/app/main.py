@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.redis_client import close_redis
 from app.core.storage import get_storage
+from app.modules.accounting.router import router as accounting_router
 from app.modules.admin.router import router as admin_router
 from app.modules.auth.router import router as auth_router
 from app.modules.events.public_router import router as events_public_router
@@ -114,6 +115,7 @@ def create_app() -> FastAPI:
     api.include_router(legal_admin_router)
     api.include_router(legal_public_router)
     api.include_router(cookie_consent_router)
+    api.include_router(accounting_router)
     app.include_router(api)
 
     return app

@@ -5585,10 +5585,1011 @@
           }
         }
       }
+    },
+    "/api/v1/accounting/receipts/{object_key}": {
+      "get": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Descargar un justificante de gasto",
+        "description": "Exige `accounting:read`. Sirve el objeto con `Content-Disposition: attachment`, nunca `inline` — un PDF admite JavaScript y navegación activa, y no debe ejecutarse en el origen de la plataforma.",
+        "operationId": "download_receipt_api_v1_accounting_receipts__object_key__get",
+        "parameters": [
+          {
+            "name": "object_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Object Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/events/{event_id}/incomes": {
+      "get": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Ingresos y comprometido de un evento",
+        "description": "Vista compuesta: patrocinios cobrados + entradas netas de reembolso + subvenciones cobradas van a «ingresos»; lo pendiente de cobrar va a «comprometido». Un ingreso en moneda distinta de la del evento se excluye del total con aviso, nunca se suma.",
+        "operationId": "list_incomes_api_v1_accounting_events__event_id__incomes_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncomesViewOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Dar de alta un ingreso manual (subvención)",
+        "description": "El único `origin` admitido es `subvencion`; cualquier otro valor devuelve 422.",
+        "operationId": "create_income_api_v1_accounting_events__event_id__incomes_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountingIncomeCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountingIncomeOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/incomes/{income_id}": {
+      "patch": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Editar un ingreso manual",
+        "operationId": "update_income_api_v1_accounting_incomes__income_id__patch",
+        "parameters": [
+          {
+            "name": "income_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Income Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountingIncomeUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountingIncomeOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/sponsors/{sponsor_id}/payment-details": {
+      "put": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Fijar los datos de cobro de un patrocinador",
+        "description": "Upsert: 1:1 por patrocinador (`UNIQUE(sponsor_id)`). Marcar `collected_at` mueve al patrocinador de «comprometido» a «ingresos» en la siguiente consulta de `GET .../incomes`, sin crear ninguna fila nueva.",
+        "operationId": "upsert_sponsor_payment_details_api_v1_accounting_sponsors__sponsor_id__payment_details_put",
+        "parameters": [
+          {
+            "name": "sponsor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sponsor Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SponsorPaymentDetailUpsert"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SponsorPaymentDetailOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/events/{event_id}/budget-lines": {
+      "get": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Listar las partidas de presupuesto de un evento",
+        "operationId": "list_budget_lines_api_v1_accounting_events__event_id__budget_lines_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BudgetLineOut"
+                  },
+                  "title": "Response List Budget Lines Api V1 Accounting Events  Event Id  Budget Lines Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Dar de alta una partida de presupuesto",
+        "description": "409 si el presupuesto del evento ya está aprobado.",
+        "operationId": "create_budget_line_api_v1_accounting_events__event_id__budget_lines_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BudgetLineCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetLineOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/budget-lines/{budget_line_id}": {
+      "patch": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Editar una partida de presupuesto",
+        "description": "409 si el presupuesto del evento ya está aprobado.",
+        "operationId": "update_budget_line_api_v1_accounting_budget_lines__budget_line_id__patch",
+        "parameters": [
+          {
+            "name": "budget_line_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Budget Line Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BudgetLineUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetLineOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Borrar una partida de presupuesto",
+        "description": "409 si el presupuesto del evento ya está aprobado o si la partida tiene gastos enlazados.",
+        "operationId": "delete_budget_line_api_v1_accounting_budget_lines__budget_line_id__delete",
+        "parameters": [
+          {
+            "name": "budget_line_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Budget Line Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/events/{event_id}/budget/approve": {
+      "post": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Aprobar el presupuesto de un evento",
+        "description": "Dota `contingency_fund_cents` sobre la suma de partidas y el `contingency_fund_percent` del evento. 409 si ya estaba aprobado.",
+        "operationId": "approve_budget_api_v1_accounting_events__event_id__budget_approve_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetApprovalOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/events/{event_id}/budget/reopen": {
+      "post": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Reabrir el presupuesto de un evento",
+        "description": "Exige `motivo`. Vuelve a hacer editables las partidas; no borra `contingency_fund_cents`.",
+        "operationId": "reopen_budget_api_v1_accounting_events__event_id__budget_reopen_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BudgetReopenIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetApprovalOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/events/{event_id}/budget/summary": {
+      "get": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Resumen de presupuesto y contingencia de un evento",
+        "description": "Presupuesto total, contingencia consumida/disponible y «gasto sin partida» — insumo del panel de la fase 5, ya expuesto en esta fase.",
+        "operationId": "get_budget_summary_api_v1_accounting_events__event_id__budget_summary_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetSummaryOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/events/{event_id}/expenses": {
+      "get": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Listar los gastos de un evento",
+        "operationId": "list_expenses_api_v1_accounting_events__event_id__expenses_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExpenseOut"
+                  },
+                  "title": "Response List Expenses Api V1 Accounting Events  Event Id  Expenses Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Dar de alta un gasto manual",
+        "description": "Sin `sponsor_id`: el gasto en especie se da de alta desde `in-kind-valuation`.",
+        "operationId": "create_expense_api_v1_accounting_events__event_id__expenses_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpenseCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/expenses/{expense_id}": {
+      "patch": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Editar un gasto manual",
+        "description": "409 si el gasto es en especie (se edita fijando la valoración del patrocinador).",
+        "operationId": "update_expense_api_v1_accounting_expenses__expense_id__patch",
+        "parameters": [
+          {
+            "name": "expense_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Expense Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpenseUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Borrar un gasto manual",
+        "description": "409 si el gasto es en especie.",
+        "operationId": "delete_expense_api_v1_accounting_expenses__expense_id__delete",
+        "parameters": [
+          {
+            "name": "expense_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Expense Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/sponsors/{sponsor_id}/in-kind-valuation": {
+      "put": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Fijar (o borrar) la valoración en especie de un patrocinador",
+        "description": "Crea/actualiza en la misma transacción el gasto enlazado (`UNIQUE(sponsor_id)`). `valoracion_cents=null` borra el gasto enlazado. Solo para patrocinadores `en_especie` (422 en cualquier otro caso).",
+        "operationId": "set_in_kind_valuation_api_v1_accounting_sponsors__sponsor_id__in_kind_valuation_put",
+        "parameters": [
+          {
+            "name": "sponsor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sponsor Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InKindValuationIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InKindValuationOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AccountingIncomeCreate": {
+        "properties": {
+          "origin": {
+            "type": "string",
+            "const": "subvencion",
+            "title": "Origin"
+          },
+          "concept": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Concept"
+          },
+          "amount_cents": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Amount Cents"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "collected"
+            ],
+            "title": "Status",
+            "default": "pending"
+          },
+          "expected_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected At"
+          },
+          "collected_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collected At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "origin",
+          "concept",
+          "amount_cents"
+        ],
+        "title": "AccountingIncomeCreate",
+        "description": "Alta de un ingreso manual. Único `origin` admitido: `subvencion`\n(plan.md Decisión #1 — no existe ya `colaborador`, un colaborador es un\n`Sponsor` en especie)."
+      },
+      "AccountingIncomeOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "origin": {
+            "type": "string",
+            "const": "subvencion",
+            "title": "Origin"
+          },
+          "concept": {
+            "type": "string",
+            "title": "Concept"
+          },
+          "amount_cents": {
+            "type": "integer",
+            "title": "Amount Cents"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "collected"
+            ],
+            "title": "Status"
+          },
+          "expected_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected At"
+          },
+          "collected_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collected At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "event_id",
+          "origin",
+          "concept",
+          "amount_cents",
+          "status",
+          "expected_at",
+          "collected_at"
+        ],
+        "title": "AccountingIncomeOut"
+      },
+      "AccountingIncomeUpdate": {
+        "properties": {
+          "concept": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Concept"
+          },
+          "amount_cents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Cents"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "collected"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "expected_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected At"
+          },
+          "collected_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collected At"
+          }
+        },
+        "type": "object",
+        "title": "AccountingIncomeUpdate",
+        "description": "Campos editables de un ingreso manual. Parcial (`PATCH`)."
+      },
       "AuditLogEntry": {
         "properties": {
           "id": {
@@ -5897,6 +6898,249 @@
         "title": "BrandingUpdate",
         "description": "Identidad visual editable desde el panel."
       },
+      "BudgetApprovalOut": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "budget_approved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Approved At"
+          },
+          "contingency_fund_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contingency Fund Cents"
+          },
+          "total_budgeted_cents": {
+            "type": "integer",
+            "title": "Total Budgeted Cents"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "budget_approved_at",
+          "contingency_fund_cents",
+          "total_budgeted_cents"
+        ],
+        "title": "BudgetApprovalOut",
+        "description": "Respuesta de aprobar/reabrir el presupuesto."
+      },
+      "BudgetLineCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "budgeted_cents": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Budgeted Cents"
+          },
+          "sort_order": {
+            "type": "integer",
+            "title": "Sort Order",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "budgeted_cents"
+        ],
+        "title": "BudgetLineCreate",
+        "description": "Alta de una partida de presupuesto. Rechazada por el servicio (409)\nmientras `budget_approved_at IS NOT NULL`."
+      },
+      "BudgetLineOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "budgeted_cents": {
+            "type": "integer",
+            "title": "Budgeted Cents"
+          },
+          "sort_order": {
+            "type": "integer",
+            "title": "Sort Order"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "event_id",
+          "name",
+          "budgeted_cents",
+          "sort_order"
+        ],
+        "title": "BudgetLineOut"
+      },
+      "BudgetLineUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "budgeted_cents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budgeted Cents"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          }
+        },
+        "type": "object",
+        "title": "BudgetLineUpdate",
+        "description": "Campos editables de una partida. Parcial (`PATCH`)."
+      },
+      "BudgetReopenIn": {
+        "properties": {
+          "motivo": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Motivo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "motivo"
+        ],
+        "title": "BudgetReopenIn",
+        "description": "Reapertura del presupuesto: exige un motivo no vacío (plan.md\nDecisión #5) — sin flujo de revisión en dos pasos, es una acción de\n`accounting:write` con motivo obligatorio."
+      },
+      "BudgetSummaryOut": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "budget_approved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Approved At"
+          },
+          "total_budgeted_cents": {
+            "type": "integer",
+            "title": "Total Budgeted Cents"
+          },
+          "contingency_fund_percent": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Contingency Fund Percent"
+          },
+          "contingency_fund_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contingency Fund Cents"
+          },
+          "consumido_contingencia_cents": {
+            "type": "integer",
+            "title": "Consumido Contingencia Cents"
+          },
+          "disponible_contingencia_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disponible Contingencia Cents"
+          },
+          "gasto_sin_partida_cents": {
+            "type": "integer",
+            "title": "Gasto Sin Partida Cents"
+          },
+          "por_partida": {
+            "items": {
+              "$ref": "#/components/schemas/ContingencyLineOut"
+            },
+            "type": "array",
+            "title": "Por Partida"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "budget_approved_at",
+          "total_budgeted_cents",
+          "contingency_fund_percent",
+          "contingency_fund_cents",
+          "consumido_contingencia_cents",
+          "disponible_contingencia_cents",
+          "gasto_sin_partida_cents",
+          "por_partida"
+        ],
+        "title": "BudgetSummaryOut",
+        "description": "Resumen numérico de presupuesto/contingencia de un evento — insumo del\npanel de la fase 5, expuesto ya en esta fase (plan.md, arquitectura de la\nfase 3: \"expuestos en el endpoint de resumen\")."
+      },
       "CancelRegistrationRequest": {
         "properties": {
           "token": {
@@ -6195,6 +7439,42 @@
         ],
         "title": "ConfirmWaitlistPromotionResponse",
         "description": "Resultado de confirmar una promoción de lista de espera."
+      },
+      "ContingencyLineOut": {
+        "properties": {
+          "budget_line_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Line Id"
+          },
+          "ejecutado_cents": {
+            "type": "integer",
+            "title": "Ejecutado Cents"
+          },
+          "budgeted_cents": {
+            "type": "integer",
+            "title": "Budgeted Cents"
+          },
+          "exceso_cents": {
+            "type": "integer",
+            "title": "Exceso Cents"
+          }
+        },
+        "type": "object",
+        "required": [
+          "budget_line_id",
+          "ejecutado_cents",
+          "budgeted_cents",
+          "exceso_cents"
+        ],
+        "title": "ContingencyLineOut",
+        "description": "Consumo de contingencia de una partida (`budget_line_id=null` es la\nfila \"Sin partida\")."
       },
       "CookieConsentCreate": {
         "properties": {
@@ -7097,6 +8377,38 @@
               }
             ],
             "title": "Longitude"
+          },
+          "contingency_fund_percent": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Contingency Fund Percent"
+          },
+          "budget_approved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Approved At"
+          },
+          "contingency_fund_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contingency Fund Cents"
+          },
+          "accounting_currency": {
+            "type": "string",
+            "title": "Accounting Currency"
           }
         },
         "type": "object",
@@ -7123,7 +8435,11 @@
           "email_verification_required",
           "payment_checkout_window_minutes",
           "latitude",
-          "longitude"
+          "longitude",
+          "contingency_fund_percent",
+          "budget_approved_at",
+          "contingency_fund_cents",
+          "accounting_currency"
         ],
         "title": "EventResponse",
         "description": "Evento tal y como lo ve el panel de administración."
@@ -7754,6 +9070,23 @@
               }
             ],
             "title": "Payment Checkout Window Minutes"
+          },
+          "contingency_fund_percent": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contingency Fund Percent"
           }
         },
         "type": "object",
@@ -7945,6 +9278,241 @@
         "title": "EventVenueUpdate",
         "description": "Campos editables de una sede."
       },
+      "ExpenseCreate": {
+        "properties": {
+          "budget_line_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Line Id"
+          },
+          "provider_name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Provider Name"
+          },
+          "expense_date": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expense Date"
+          },
+          "base_cents": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Base Cents"
+          },
+          "vat_cents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vat Cents"
+          },
+          "total_cents": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Cents"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider_name",
+          "expense_date",
+          "base_cents",
+          "total_cents"
+        ],
+        "title": "ExpenseCreate",
+        "description": "Alta de un gasto manual. Sin `sponsor_id`: ese campo es exclusivo de\n`fijar_valoracion_en_especie` (plan.md Decisión #3), nunca se informa\ndesde este endpoint — ni siquiera existe en este esquema."
+      },
+      "ExpenseOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "budget_line_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Line Id"
+          },
+          "sponsor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sponsor Id"
+          },
+          "provider_name": {
+            "type": "string",
+            "title": "Provider Name"
+          },
+          "expense_date": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expense Date"
+          },
+          "base_cents": {
+            "type": "integer",
+            "title": "Base Cents"
+          },
+          "vat_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vat Cents"
+          },
+          "total_cents": {
+            "type": "integer",
+            "title": "Total Cents"
+          },
+          "receipt_object_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Receipt Object Key"
+          },
+          "receipt_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Receipt Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "event_id",
+          "budget_line_id",
+          "sponsor_id",
+          "provider_name",
+          "expense_date",
+          "base_cents",
+          "vat_cents",
+          "total_cents",
+          "receipt_object_key",
+          "receipt_status"
+        ],
+        "title": "ExpenseOut"
+      },
+      "ExpenseUpdate": {
+        "properties": {
+          "budget_line_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Line Id"
+          },
+          "provider_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Name"
+          },
+          "expense_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expense Date"
+          },
+          "base_cents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Cents"
+          },
+          "vat_cents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vat Cents"
+          },
+          "total_cents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Cents"
+          }
+        },
+        "type": "object",
+        "title": "ExpenseUpdate",
+        "description": "Campos editables de un gasto manual. Parcial (`PATCH`). Sin\n`sponsor_id` por el mismo motivo que `ExpenseCreate`."
+      },
       "ForgotPasswordRequest": {
         "properties": {
           "email": {
@@ -8029,6 +9597,176 @@
         ],
         "title": "HealthResponse",
         "description": "Estado de cada dependencia."
+      },
+      "InKindValuationIn": {
+        "properties": {
+          "valoracion_cents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valoracion Cents"
+          },
+          "budget_line_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Line Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "valoracion_cents"
+        ],
+        "title": "InKindValuationIn",
+        "description": "Fija (o borra, con `null`) la valoración en especie de un\npatrocinador. `budget_line_id` obligatorio salvo cuando se borra la\nvaloración (plan.md Decisión #3)."
+      },
+      "InKindValuationOut": {
+        "properties": {
+          "sponsor_id": {
+            "type": "string",
+            "title": "Sponsor Id"
+          },
+          "in_kind_valuation_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Kind Valuation Cents"
+          },
+          "expense_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expense Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sponsor_id",
+          "in_kind_valuation_cents",
+          "expense_id"
+        ],
+        "title": "InKindValuationOut"
+      },
+      "IncomeLineOut": {
+        "properties": {
+          "origen": {
+            "type": "string",
+            "enum": [
+              "patrocinio",
+              "entradas",
+              "subvencion"
+            ],
+            "title": "Origen"
+          },
+          "concepto": {
+            "type": "string",
+            "title": "Concepto"
+          },
+          "importe_cents": {
+            "type": "integer",
+            "title": "Importe Cents"
+          },
+          "fecha": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha"
+          },
+          "peso_sobre_el_total": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d{0,6}0*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peso Sobre El Total"
+          },
+          "referencia_id": {
+            "type": "string",
+            "title": "Referencia Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "origen",
+          "concepto",
+          "importe_cents",
+          "fecha",
+          "peso_sobre_el_total",
+          "referencia_id"
+        ],
+        "title": "IncomeLineOut",
+        "description": "Una fila de \"Ingresos\" o \"Comprometido\" en el panel."
+      },
+      "IncomesViewOut": {
+        "properties": {
+          "ingresos": {
+            "items": {
+              "$ref": "#/components/schemas/IncomeLineOut"
+            },
+            "type": "array",
+            "title": "Ingresos"
+          },
+          "comprometido": {
+            "items": {
+              "$ref": "#/components/schemas/IncomeLineOut"
+            },
+            "type": "array",
+            "title": "Comprometido"
+          },
+          "total_ingresos_cents": {
+            "type": "integer",
+            "title": "Total Ingresos Cents"
+          },
+          "moneda": {
+            "type": "string",
+            "title": "Moneda"
+          },
+          "ingresos_excluidos_por_moneda": {
+            "type": "integer",
+            "title": "Ingresos Excluidos Por Moneda"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ingresos",
+          "comprometido",
+          "total_ingresos_cents",
+          "moneda",
+          "ingresos_excluidos_por_moneda"
+        ],
+        "title": "IncomesViewOut",
+        "description": "Vista compuesta de `GET /accounting/events/{event_id}/incomes`."
       },
       "LegalPageAdminItem": {
         "properties": {
@@ -8939,7 +10677,9 @@
           "sponsors:read",
           "sponsors:write",
           "payments:read",
-          "payments:write"
+          "payments:write",
+          "accounting:read",
+          "accounting:write"
         ],
         "title": "Permission",
         "description": "Permisos disponibles en la fase 0."
@@ -11674,6 +13414,80 @@
         ],
         "title": "SponsorCreate",
         "description": "Alta de un patrocinador en un evento."
+      },
+      "SponsorPaymentDetailOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "sponsor_id": {
+            "type": "string",
+            "title": "Sponsor Id"
+          },
+          "collected_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collected At"
+          },
+          "contact_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "sponsor_id",
+          "collected_at",
+          "contact_name"
+        ],
+        "title": "SponsorPaymentDetailOut"
+      },
+      "SponsorPaymentDetailUpsert": {
+        "properties": {
+          "collected_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collected At"
+          },
+          "contact_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Name"
+          }
+        },
+        "type": "object",
+        "title": "SponsorPaymentDetailUpsert",
+        "description": "Alta/edición de los datos de cobro de un patrocinador.\n`UNIQUE(sponsor_id)`: como máximo una fila por patrocinador (un\npatrocinador que paga en dos plazos registra dos fechas dentro de la\nmisma fila, no dos filas — plan.md Decisión #21)."
       },
       "SponsorResponse": {
         "properties": {

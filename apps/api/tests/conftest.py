@@ -112,6 +112,14 @@ TABLAS = (
     "event_payments",
     "event_payment_refunds",
     "stripe_webhook_events",
+    # Fase 7 del PRD, fase 1 de trabajo: mismo criterio que arriba — cascadean
+    # desde `organizations`/`events`/`sponsors` por FK, pero se listan
+    # explícitamente para que una fila de un test no contamine al siguiente.
+    "accounting_budget_lines",
+    "accounting_incomes",
+    "accounting_expenses",
+    "accounting_expense_drafts",
+    "sponsor_payment_details",
 )
 
 

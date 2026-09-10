@@ -826,6 +826,33 @@ async def suma_reembolsos_en_curso(
     return int(total or 0)
 
 
+async def reembolsos_en_curso_por_pago(
+    session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID
+) -> dict[uuid.UUID, int]:
+    """Mismo predicado que `suma_reembolsos_en_curso`, agregado por
+    `payment_id` para todo un evento en una sola consulta — el libro
+    contable de la fase 7 necesita el neto de todas las entradas del evento
+    a la vez; llamar a `suma_reembolsos_en_curso` una vez por pago sería un
+    N+1 real (uno de los hallazgos del red-team de esa fase)."""
+    filas = (
+        await session.execute(
+            select(EventPaymentRefund.payment_id, func.sum(EventPaymentRefund.amount_cents))
+            .join(EventPayment, EventPayment.id == EventPaymentRefund.payment_id)
+            .where(
+                EventPaymentRefund.organization_id == organization_id,
+                EventPayment.event_id == event_id,
+                (EventPaymentRefund.status.in_(("pending", "submitted")))
+                | (
+                    (EventPaymentRefund.status == "failed")
+                    & (EventPaymentRefund.attempts < INTENTOS_MAXIMOS_REEMBOLSO)
+                ),
+            )
+            .group_by(EventPaymentRefund.payment_id)
+        )
+    ).all()
+    return {payment_id: int(total or 0) for payment_id, total in filas}
+
+
 async def get_refunds_for_payment(
     session: AsyncSession, organization_id: uuid.UUID, payment_id: uuid.UUID
 ) -> list[EventPaymentRefund]:

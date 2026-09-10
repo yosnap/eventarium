@@ -189,6 +189,20 @@ async def update_event(
     if nuevo_estado is not None and nuevo_estado != evento.status:
         _validar_transicion_de_estado(evento.status, nuevo_estado)
 
+    # `contingency_fund_percent` es el único campo de contabilidad editable
+    # desde `EventUpdate` (plan.md Decisión #6) y solo mientras el
+    # presupuesto no esté aprobado: una vez aprobado, `contingency_fund_cents`
+    # ya está dotado sobre el porcentaje congelado en ese momento — cambiar el
+    # porcentaje después desincronizaría el fondo ya dotado del que se
+    # recalcularía en la siguiente aprobación, sin que nadie lo audite (esa
+    # auditoría vive en `accounting.aprobar_presupuesto`/`reabrir_presupuesto`,
+    # no aquí).
+    if "contingency_fund_percent" in datos and evento.budget_approved_at is not None:
+        raise ConflictError(
+            "El fondo de contingencia ya está aprobado; reabre el presupuesto "
+            "antes de cambiar el porcentaje."
+        )
+
     # Evaluado sobre el evento **resultante**, no el actual: un `PATCH` que
     # cambia `status` y `registration_mode` a la vez debe quedar bloqueado
     # igual que si cada campo se editara por separado.

@@ -76,6 +76,10 @@ class Settings(BaseSettings):
 
     # Límites de subida.
     max_image_bytes: int = Field(default=5 * 1024 * 1024, gt=0)
+    # Justificantes de gasto (fase 7 del PRD): admiten PDF además de imagen,
+    # de ahí un límite propio distinto de `max_image_bytes` (plan.md Decisión
+    # #9) — nunca se mezclan.
+    max_document_bytes: int = Field(default=10 * 1024 * 1024, gt=0)
 
     # Correo saliente (Mailpit en desarrollo, SMTP genérico en producción).
     smtp_host: str = "localhost"

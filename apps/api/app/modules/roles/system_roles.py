@@ -84,6 +84,13 @@ ORGANIZER = SystemRoleTemplate(
         # `payments:*`.
         Permission.PAYMENTS_READ,
         Permission.PAYMENTS_WRITE,
+        # Mismo bug que `REGISTRATIONS_*`/`SPONSORS_*`/`PAYMENTS_*` (fase 7 del
+        # PRD, decisión #16 del plan): el backfill de la migración solo cubre
+        # organizaciones ya existentes; sin tocar la plantilla, una
+        # organización creada después clonaría un organizador sin
+        # `accounting:*`.
+        Permission.ACCOUNTING_READ,
+        Permission.ACCOUNTING_WRITE,
     ),
     profile_fields=(
         ProfileFieldTemplate(key="cargo", label="Cargo", sort_order=10),

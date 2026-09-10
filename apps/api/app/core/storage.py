@@ -26,6 +26,16 @@ ALLOWED_IMAGE_MIMES: dict[str, str] = {
     "image/webp": "webp",
 }
 
+# Justificantes de gasto (fase 7 del PRD): las tres imágenes de siempre más
+# PDF. Nunca se usa como valor por defecto de `validate_upload` — todo
+# llamador de esta fase lo pasa explícito junto con `max_bytes=
+# settings.max_document_bytes`, para no dejar que un justificante de 6 MB
+# pase por el límite pensado para logos (plan.md Decisión #9).
+ALLOWED_DOCUMENT_MIMES: dict[str, str] = {
+    **ALLOWED_IMAGE_MIMES,
+    "application/pdf": "pdf",
+}
+
 
 class UploadedObject:
     """Resultado de una subida."""
@@ -46,14 +56,22 @@ def build_object_key(organization_id: uuid.UUID, kind: str, extension: str) -> s
     return f"orgs/{organization_id}/{kind_limpio}/{uuid.uuid4().hex}.{extension}"
 
 
-def validate_upload(contenido: bytes, *, max_bytes: int | None = None) -> tuple[str, str]:
-    """Valida una imagen por sus bytes reales.
+def validate_upload(
+    contenido: bytes,
+    *,
+    max_bytes: int | None = None,
+    allowed_mimes: dict[str, str] | None = None,
+) -> tuple[str, str]:
+    """Valida un fichero por sus bytes reales, nunca por su extensión o `Content-Type` declarado.
 
     Devuelve `(mime, extensión)`. Lanza `ValidationDomainError` si el tipo no está
-    permitido o si excede el tamaño máximo.
+    permitido o si excede el tamaño máximo. `allowed_mimes` por defecto es
+    `ALLOWED_IMAGE_MIMES` (retrocompatible con las llamadas de branding/portada/logo
+    existentes); los justificantes de gasto pasan `ALLOWED_DOCUMENT_MIMES` explícito.
     """
     settings = get_settings()
     limite = max_bytes if max_bytes is not None else settings.max_image_bytes
+    mimes = allowed_mimes if allowed_mimes is not None else ALLOWED_IMAGE_MIMES
 
     if not contenido:
         raise ValidationDomainError("El fichero está vacío.")
@@ -63,11 +81,10 @@ def validate_upload(contenido: bytes, *, max_bytes: int | None = None) -> tuple[
         )
 
     mime = magic.from_buffer(contenido[:2048], mime=True)
-    extension = ALLOWED_IMAGE_MIMES.get(mime)
+    extension = mimes.get(mime)
     if extension is None:
-        raise ValidationDomainError(
-            f"Tipo de fichero no permitido: {mime}. Se aceptan PNG, JPEG y WebP."
-        )
+        tipos = ", ".join(sorted(mimes))
+        raise ValidationDomainError(f"Tipo de fichero no permitido: {mime}. Se aceptan {tipos}.")
     return mime, extension
 
 
@@ -76,7 +93,11 @@ class StorageProvider(Protocol):
 
     async def ensure_bucket(self) -> None: ...
 
-    async def put_object(self, key: str, contenido: bytes, content_type: str) -> None: ...
+    async def put_object(
+        self, key: str, contenido: bytes, content_type: str, *, content_disposition: str = "inline"
+    ) -> None: ...
+
+    async def get_object(self, key: str) -> tuple[bytes, str]: ...
 
     async def delete_object(self, key: str) -> None: ...
 
@@ -119,16 +140,30 @@ class S3StorageProvider:
             except Exception:
                 await s3.create_bucket(Bucket=self._bucket)
 
-    async def put_object(self, key: str, contenido: bytes, content_type: str) -> None:
+    async def put_object(
+        self, key: str, contenido: bytes, content_type: str, *, content_disposition: str = "inline"
+    ) -> None:
         async with self._client() as s3:
             await s3.put_object(
                 Bucket=self._bucket,
                 Key=key,
                 Body=contenido,
                 ContentType=content_type,
-                # `inline` solo es seguro porque el tipo ya está en la lista permitida.
-                ContentDisposition="inline",
+                # `inline` solo es seguro porque el tipo por defecto ya está en la
+                # lista de imágenes permitidas; los justificantes de gasto (que
+                # admiten PDF, capaz de ejecutar JavaScript) pasan `attachment`
+                # explícito — nunca se sirven `inline` desde nuestro origen.
+                ContentDisposition=content_disposition,
             )
+
+    async def get_object(self, key: str) -> tuple[bytes, str]:
+        """Lee un objeto completo. Solo para el proxy autenticado de descarga
+        (justificantes): nunca se expone por `public_url`."""
+        async with self._client() as s3:
+            respuesta = await s3.get_object(Bucket=self._bucket, Key=key)
+            contenido: bytes = await respuesta["Body"].read()
+            content_type: str = respuesta.get("ContentType", "application/octet-stream")
+            return contenido, content_type
 
     async def delete_object(self, key: str) -> None:
         async with self._client() as s3:

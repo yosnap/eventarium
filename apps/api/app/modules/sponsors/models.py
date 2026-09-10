@@ -98,3 +98,9 @@ class Sponsor(Base, TimestampMixin):
     contribution_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     # Solo si `contribution_type == "en_especie"`.
     contribution_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Valoración económica de una aportación en especie (PRD fase 7, plan.md
+    # Decisión #3): solo relevante si `contribution_type == "en_especie"`,
+    # sin exclusividad impuesta aquí (la valida el servicio de contabilidad).
+    # Al informarla, el servicio da de alta/actualiza en la misma transacción
+    # el gasto enlazado en `accounting_expenses.sponsor_id`.
+    in_kind_valuation_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)

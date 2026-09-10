@@ -110,6 +110,24 @@ class Event(Base, TimestampMixin):
     latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
     longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
     geocoded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Contabilidad por evento (PRD fase 7). Las tres siguientes son de solo
+    # lectura en `EventResponse` y **nunca** viajan por `EventUpdate`
+    # (plan.md Decisión #6): solo el servicio de `accounting`, con
+    # `accounting:write`, las escribe — `PATCH /events/{id}` solo exige
+    # `EVENTS_WRITE`, bastante más común, y no debe poder anular una
+    # aprobación de presupuesto sin pasar por `aprobar_presupuesto`/
+    # `reabrir_presupuesto` ni dejar auditoría.
+    contingency_fund_percent: Mapped[Decimal] = mapped_column(
+        Numeric(5, 2), nullable=False, default=Decimal("5.00")
+    )
+    budget_approved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    contingency_fund_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Moneda única del libro contable del evento (plan.md Decisión #15):
+    # formato de Stripe, ISO 4217 en minúsculas, igual que
+    # `EventTicketType.currency`.
+    accounting_currency: Mapped[str] = mapped_column(String(3), nullable=False, default="eur")
 
     sessions: Mapped[list[EventSession]] = relationship(
         back_populates="event", cascade="all, delete-orphan", lazy="selectin"

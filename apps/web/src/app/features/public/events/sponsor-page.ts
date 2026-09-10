@@ -101,7 +101,9 @@ const CLAVE_TIPO_APORTACION: Record<ContributionType, string> = {
                 <div>
                   <h1>{{ patrocinador.name }}</h1>
                   <div class="rol">
-                    <span class="nivel">{{ patrocinador.tier_name }}</span>
+                    <span class="nivel"
+                      >{{ t('publico.patrocinador.nivel') }} {{ patrocinador.tier_name }}</span
+                    >
                     <app-chip tone="neutro">{{ t(claveTipo(patrocinador)) }}</app-chip>
                   </div>
                   @if (patrocinador.contribution_description; as descripcion) {
