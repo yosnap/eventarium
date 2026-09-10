@@ -2,6 +2,8 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
 
 import { ThemingService } from '../../../core/theming/theming.service';
+import { Reveal } from '../../../shared/ui/reveal.directive';
+import { UpcomingEvents } from './upcoming-events';
 
 /**
  * Plantilla pública «classic»: portada amplia con la marca del organizador.
@@ -16,25 +18,30 @@ import { ThemingService } from '../../../core/theming/theming.service';
 @Component({
   selector: 'app-classic-template',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective],
+  imports: [TranslocoDirective, Reveal, UpcomingEvents],
   template: `
     <ng-container *transloco="let t">
-      <section class="portada">
-        <p class="rotulo-seccion etiqueta-acento">{{ t('publico.proximamente') }}</p>
-        <h1>{{ theming.organizationName() }}</h1>
-        @if (theming.branding()?.organizer_blurb; as descripcion) {
-          <p class="descripcion">{{ descripcion }}</p>
-        }
-        <p class="aviso">{{ t('publico.proximamenteDetalle') }}</p>
+      <section class="portada" appReveal>
+        <div class="ancho-maximo portada-en">
+          <p class="rotulo-seccion etiqueta-acento">{{ t('publico.proximamente') }}</p>
+          <h1>{{ theming.organizationName() }}</h1>
+          @if (theming.branding()?.organizer_blurb; as descripcion) {
+            <p class="descripcion">{{ descripcion }}</p>
+          }
+          <p class="aviso">{{ t('publico.proximamenteDetalle') }}</p>
+        </div>
       </section>
+      <app-upcoming-events />
     </ng-container>
   `,
   styles: `
     .portada {
+      border-bottom: 1px solid var(--border);
+    }
+    .portada-en {
       display: grid;
       gap: var(--space-md);
       padding: var(--space-xl) 0 var(--space-lg);
-      border-bottom: 1px solid var(--border);
     }
     .etiqueta-acento {
       color: var(--accent);

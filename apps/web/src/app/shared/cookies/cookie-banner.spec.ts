@@ -11,7 +11,16 @@ import { CookieConsentService } from '../../core/cookies/cookie-consent.service'
 import { esperarSinViolacionesDeAccesibilidad } from '../../../testing/axe';
 import es from '../../../../public/assets/i18n/es-ES.json';
 
+/**
+ * Dos rondas de estabilización, no una: los métodos del banner encadenan
+ * varios `await` (componente → `CookieConsentService.personalizar()` →
+ * `decidir()` → `firstValueFrom(http.post())`), y una sola ronda de
+ * `whenStable()` puede devolver el control antes de que la última promesa de
+ * esa cadena se resuelva del todo en modo zoneless.
+ */
 async function avanzar(fixture: ComponentFixture<unknown>): Promise<void> {
+  await fixture.whenStable();
+  fixture.detectChanges();
   await fixture.whenStable();
   fixture.detectChanges();
 }
@@ -55,26 +64,29 @@ describe('CookieBanner', () => {
     await esperarSinViolacionesDeAccesibilidad(raiz);
   });
 
-  it('"aceptar todo" y "rechazar todo" tienen el mismo peso visual (misma variante de botón)', async () => {
+  it('"solo las necesarias" y "aceptar todas" tienen el mismo peso visual (misma variante de botón)', async () => {
     const fixture = TestBed.createComponent(CookieBanner);
     await avanzar(fixture);
 
     const botones = Array.from(
-      (fixture.nativeElement as HTMLElement).querySelectorAll('button'),
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.cookies button'),
     ) as HTMLButtonElement[];
     const clases = botones.map((boton) => boton.className);
-    // Las tres acciones principales usan la misma clase de variante: ninguna
-    // lleva la clase `primario`, que sí destacaría una sobre las demás.
+    // Las dos decisiones directas usan la misma clase de variante: ninguna
+    // lleva la clase `primario`, que sí destacaría una sobre la otra. "Elegir"
+    // es un tercer control, pero un enlace de texto, no un botón con esa clase.
     expect(clases.some((c) => c.includes('primario'))).toBe(false);
-    expect(new Set(clases.slice(0, 3)).size).toBe(1);
+    expect(new Set(clases.filter((c) => c.includes('secundario'))).size).toBe(1);
   });
 
-  it('rechazar todo no activa el script de ejemplo y registra el consentimiento', async () => {
+  it('"solo las necesarias" no activa el script de ejemplo y registra el consentimiento', async () => {
     const fixture = TestBed.createComponent(CookieBanner);
     await avanzar(fixture);
 
     const botones = (fixture.nativeElement as HTMLElement).querySelectorAll('button');
-    const rechazar = Array.from(botones).find((b) => b.textContent?.includes('Rechazar todo'));
+    const rechazar = Array.from(botones).find((b) =>
+      b.textContent?.includes('Solo las necesarias'),
+    );
     rechazar?.dispatchEvent(new Event('click'));
     await avanzar(fixture);
 
@@ -90,12 +102,12 @@ describe('CookieBanner', () => {
     ]);
   });
 
-  it('aceptar todo activa el script de ejemplo no esencial', async () => {
+  it('aceptar todas activa el script de ejemplo no esencial', async () => {
     const fixture = TestBed.createComponent(CookieBanner);
     await avanzar(fixture);
 
     const botones = (fixture.nativeElement as HTMLElement).querySelectorAll('button');
-    const aceptar = Array.from(botones).find((b) => b.textContent?.includes('Aceptar todo'));
+    const aceptar = Array.from(botones).find((b) => b.textContent?.includes('Aceptar todas'));
     aceptar?.dispatchEvent(new Event('click'));
     await avanzar(fixture);
 
@@ -109,27 +121,30 @@ describe('CookieBanner', () => {
     expect(document.getElementById('dummy-analytics-script')).not.toBeNull();
   });
 
-  it('personalizar solo activa las categorías marcadas', async () => {
+  it('"Elegir" abre la ventana de personalización y solo activa las categorías marcadas', async () => {
     const fixture = TestBed.createComponent(CookieBanner);
     await avanzar(fixture);
     const raiz = fixture.nativeElement as HTMLElement;
 
-    const personalizar = Array.from(raiz.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('Personalizar'),
+    const elegir = Array.from(raiz.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Elegir'),
     );
-    personalizar?.dispatchEvent(new Event('click'));
+    elegir?.dispatchEvent(new Event('click'));
     await avanzar(fixture);
 
-    const checkboxes = Array.from(
-      raiz.querySelectorAll('input[type="checkbox"]:not([disabled])'),
-    ) as HTMLInputElement[];
-    expect(checkboxes.length).toBe(2);
-    checkboxes[0].checked = true;
-    checkboxes[0].dispatchEvent(new Event('change'));
+    const dialogo = raiz.querySelector('dialog') as HTMLDialogElement;
+    expect(dialogo.hasAttribute('open')).toBe(true);
+    await esperarSinViolacionesDeAccesibilidad(raiz);
+
+    const interruptores = Array.from(
+      dialogo.querySelectorAll('button[role="switch"]:not([disabled])'),
+    ) as HTMLButtonElement[];
+    expect(interruptores.length).toBe(2);
+    interruptores[0].dispatchEvent(new Event('click'));
     await avanzar(fixture);
 
-    const guardar = Array.from(raiz.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('Guardar preferencias'),
+    const guardar = Array.from(dialogo.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Guardar mi elección'),
     );
     guardar?.dispatchEvent(new Event('click'));
     await avanzar(fixture);
@@ -137,6 +152,9 @@ describe('CookieBanner', () => {
     const peticion = http.expectOne('/api/v1/public/cookie-consent');
     expect(new Set(peticion.request.body.categories)).toEqual(new Set(['necessary', 'analytics']));
     peticion.flush(null, { status: 204, statusText: 'No Content' });
+    await avanzar(fixture);
+
+    expect(dialogo.hasAttribute('open')).toBe(false);
   });
 
   it('no vuelve a mostrarse si ya hay una decisión guardada', async () => {
@@ -152,7 +170,7 @@ describe('CookieBanner', () => {
     await avanzar(fixture);
 
     const botones = (fixture.nativeElement as HTMLElement).querySelectorAll('button');
-    const aceptar = Array.from(botones).find((b) => b.textContent?.includes('Aceptar todo'));
+    const aceptar = Array.from(botones).find((b) => b.textContent?.includes('Aceptar todas'));
     aceptar?.dispatchEvent(new Event('click'));
     await avanzar(fixture);
     http
@@ -166,7 +184,7 @@ describe('CookieBanner', () => {
     expect(Number.isNaN(Date.parse(guardado.created_at))).toBe(false);
   });
 
-  it('"Gestionar cookies" reabre el banner con las categorías previamente elegidas ya marcadas', async () => {
+  it('"Preferencias de cookies" reabre la ventana con las categorías previamente elegidas ya marcadas', async () => {
     localStorage.setItem(
       'cookie-consent',
       JSON.stringify({ categories: ['necessary', 'analytics'], version: 1, created_at: 'x' }),
@@ -175,29 +193,31 @@ describe('CookieBanner', () => {
     await avanzar(fixture);
     const raiz = fixture.nativeElement as HTMLElement;
 
-    // Ya hay una decisión guardada: el banner no se muestra hasta reabrir la gestión.
+    // Ya hay una decisión guardada: ni el banner ni la ventana se muestran
+    // hasta reabrir la gestión.
     expect(raiz.querySelector('[role="region"]')).toBeNull();
+    expect((raiz.querySelector('dialog') as HTMLDialogElement).hasAttribute('open')).toBe(false);
 
     const consentimiento = TestBed.inject(CookieConsentService);
     consentimiento.abrirGestionDeCookies();
     await avanzar(fixture);
 
-    expect(raiz.querySelector('[role="region"]')).not.toBeNull();
-    const checkboxes = Array.from(
-      raiz.querySelectorAll('input[type="checkbox"]:not([disabled])'),
-    ) as HTMLInputElement[];
-    // Analíticas (ya elegida antes) viene precargada; marketing no.
-    expect(checkboxes[0].checked).toBe(true);
-    expect(checkboxes[1].checked).toBe(false);
+    const dialogo = raiz.querySelector('dialog') as HTMLDialogElement;
+    expect(dialogo.hasAttribute('open')).toBe(true);
+    const interruptores = Array.from(
+      dialogo.querySelectorAll('button[role="switch"]:not([disabled])'),
+    ) as HTMLButtonElement[];
+    // Medición (ya elegida antes) viene precargada; comunicación no.
+    expect(interruptores[0].getAttribute('aria-checked')).toBe('true');
+    expect(interruptores[1].getAttribute('aria-checked')).toBe('false');
     await esperarSinViolacionesDeAccesibilidad(raiz);
 
     // Cambia una categoría y guarda: la nueva decisión sobrescribe la anterior.
-    checkboxes[1].checked = true;
-    checkboxes[1].dispatchEvent(new Event('change'));
+    interruptores[1].dispatchEvent(new Event('click'));
     await avanzar(fixture);
 
-    const guardar = Array.from(raiz.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('Guardar preferencias'),
+    const guardar = Array.from(dialogo.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Guardar mi elección'),
     );
     guardar?.dispatchEvent(new Event('click'));
     await avanzar(fixture);
@@ -209,14 +229,14 @@ describe('CookieBanner', () => {
     peticion.flush(null, { status: 204, statusText: 'No Content' });
     await avanzar(fixture);
 
-    expect(raiz.querySelector('[role="region"]')).toBeNull();
+    expect(dialogo.hasAttribute('open')).toBe(false);
     const persistido = JSON.parse(localStorage.getItem('cookie-consent') ?? '{}');
     expect(new Set(persistido.categories)).toEqual(
       new Set(['necessary', 'analytics', 'marketing']),
     );
   });
 
-  it('"Volver" tras reabrir "Gestionar cookies" cierra sin cambiar la decisión guardada', async () => {
+  it('"Cancelar" tras reabrir "Preferencias de cookies" cierra sin cambiar la decisión guardada', async () => {
     localStorage.setItem(
       'cookie-consent',
       JSON.stringify({ categories: ['necessary'], version: 1, created_at: 'x' }),
@@ -228,15 +248,16 @@ describe('CookieBanner', () => {
     const consentimiento = TestBed.inject(CookieConsentService);
     consentimiento.abrirGestionDeCookies();
     await avanzar(fixture);
-    expect(raiz.querySelector('[role="region"]')).not.toBeNull();
+    const dialogo = raiz.querySelector('dialog') as HTMLDialogElement;
+    expect(dialogo.hasAttribute('open')).toBe(true);
 
-    const volver = Array.from(raiz.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('Volver'),
+    const cancelar = Array.from(dialogo.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Cancelar'),
     );
-    volver?.dispatchEvent(new Event('click'));
+    cancelar?.dispatchEvent(new Event('click'));
     await avanzar(fixture);
 
-    expect(raiz.querySelector('[role="region"]')).toBeNull();
+    expect(dialogo.hasAttribute('open')).toBe(false);
     expect(JSON.parse(localStorage.getItem('cookie-consent') ?? '{}').categories).toEqual([
       'necessary',
     ]);
@@ -258,7 +279,7 @@ describe('CookieBanner', () => {
     await avanzar(fixture);
     const rechazar = Array.from(
       (fixture.nativeElement as HTMLElement).querySelectorAll('button'),
-    ).find((b) => b.textContent?.includes('Rechazar todo'));
+    ).find((b) => b.textContent?.includes('Solo las necesarias'));
     rechazar?.dispatchEvent(new Event('click'));
     await avanzar(fixture);
     http.expectOne('/api/v1/public/cookie-consent').flush(null, {

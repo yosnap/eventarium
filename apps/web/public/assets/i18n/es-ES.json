@@ -38,7 +38,46 @@
       "inscribirse": "Inscribirme",
       "patrocinadores": {
         "titulo": "Patrocinadores"
-      }
+      },
+      "diasAria": "Días del programa",
+      "formato": {
+        "presencial": "Presencial",
+        "online": "Online",
+        "hibrido": "Híbrido"
+      },
+      "registro": {
+        "gratuita": "Inscripción gratuita",
+        "aprobacion": "Inscripción con aprobación",
+        "pago": "Inscripción de pago"
+      },
+      "sesion": {
+        "tipo": {
+          "talk": "Charla",
+          "break": "Descanso",
+          "service": "Servicio",
+          "other": "Otro"
+        }
+      },
+      "rol": {
+        "speaker": "Ponente",
+        "moderator": "Moderador/a",
+        "presenter": "Presentador/a"
+      },
+      "ficha": {
+        "fechas": "Fechas",
+        "lugar": "Lugar",
+        "formato": "Formato",
+        "zonaHoraria": "Zona horaria",
+        "aforo": "Aforo",
+        "plazas": "{{n}} plazas"
+      },
+      "lugar": {
+        "rotulo": "Cómo llegar",
+        "titulo": "Lugar del evento"
+      },
+      "proximosRotulo": "Próximamente",
+      "proximosTitulo": "Próximos eventos",
+      "verEvento": "Ver el evento"
     },
     "accesoPanel": "Acceso al panel",
     "organizadoPor": "Organizado por {{nombre}}",
@@ -1114,20 +1153,28 @@
     "errorDetalle": "Revisa el correo de confirmación de tu inscripción para volver a intentarlo."
   },
   "cookies": {
-    "gestionar": "Gestionar cookies",
+    "gestionar": "Preferencias de cookies",
     "banner": {
-      "titulo": "Preferencias de cookies",
-      "texto": "Usamos cookies necesarias para que la web funcione y, solo si lo aceptas, cookies analíticas y de marketing. Puedes cambiar tu decisión cuando quieras.",
-      "aceptarTodo": "Aceptar todo",
-      "rechazarTodo": "Rechazar todo",
-      "personalizar": "Personalizar",
-      "guardarPreferencias": "Guardar preferencias",
-      "volver": "Volver",
-      "categorias": "Categorías de cookies",
-      "necesarias": "Necesarias (siempre activas)",
-      "analiticas": "Analíticas",
-      "marketing": "Marketing",
-      "masInfo": "Más información en nuestra {{enlace}}."
+      "titulo": "Cookies",
+      "textoDestacado": "Usamos cookies necesarias para que la inscripción funcione.",
+      "texto": "Las de medición y comunicación solo se activan si tú lo dices, y puedes cambiar de idea cuando quieras.",
+      "aceptarTodo": "Aceptar todas",
+      "rechazarTodo": "Solo las necesarias",
+      "personalizar": "Elegir",
+      "necesarias": "Necesarias",
+      "analiticas": "Medición",
+      "marketing": "Comunicación"
+    },
+    "ventana": {
+      "titulo": "Decide qué se activa",
+      "intro": "Puedes volver a esta ventana desde el pie de cualquier página.",
+      "estadoSiempre": "Siempre",
+      "estadoSi": "Sí",
+      "estadoNo": "No",
+      "necesariasDetalle": "Mantienen tu sesión, tu idioma y el estado de tu inscripción. Sin ellas la plataforma no funciona.",
+      "analiticasDetalle": "Cuántas personas empiezan el formulario y cuántas lo terminan. Se usa de forma agregada para mejorar el registro.",
+      "marketingDetalle": "Permite avisarte de próximas ediciones de esta organización. Nunca se comparte con terceros.",
+      "guardar": "Guardar mi elección"
     }
   },
   "legal": {

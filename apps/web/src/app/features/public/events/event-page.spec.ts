@@ -106,6 +106,7 @@ describe('EventPage', () => {
     expect(texto).toContain('IA Week in Cascais 2026');
     expect(texto).toContain('Charla de apertura');
     expect(texto).toContain('Ana Ponente');
+    expect(texto).toContain('Descripción larga del evento.');
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
@@ -137,6 +138,66 @@ describe('EventPage', () => {
     expect(texto).toContain('Acme Corp');
     expect(texto).toContain('Colaboradores');
     expect(texto).toContain('Espacio Cedido');
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('muestra el aforo, el chip de inscripción y los ponentes derivados de la agenda', async () => {
+    const fixture = TestBed.createComponent(EventPage);
+    fixture.componentRef.setInput('slug', 'iawic-2026');
+    fixture.detectChanges();
+    http
+      .expectOne((peticion) => peticion.url === '/api/v1/public/events/iawic-2026')
+      .flush({ ...eventoDetalle(), capacity: 120, registration_mode: 'approval' });
+    await avanzar(fixture);
+
+    const texto = fixture.nativeElement.textContent;
+    expect(texto).toContain('120 plazas');
+    expect(texto).toContain('Inscripción con aprobación');
+    expect(texto).toContain('Ponente');
+    expect(texto).not.toContain('speaker');
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('cambia de día de agenda con las flechas del teclado en las pestañas', async () => {
+    const fixture = TestBed.createComponent(EventPage);
+    fixture.componentRef.setInput('slug', 'iawic-2026');
+    fixture.detectChanges();
+    http
+      .expectOne((peticion) => peticion.url === '/api/v1/public/events/iawic-2026')
+      .flush({
+        ...eventoDetalle(),
+        sessions: [
+          ...eventoDetalle().sessions,
+          {
+            id: 's2',
+            session_type: 'break',
+            title: 'Pausa del segundo día',
+            description: null,
+            starts_at: '2026-10-02T09:00:00Z',
+            ends_at: '2026-10-02T09:30:00Z',
+            room: null,
+            video_platform: null,
+            video_url: null,
+            materials: [],
+            participants: [],
+          },
+        ],
+      });
+    await avanzar(fixture);
+
+    const pestanas = fixture.nativeElement.querySelectorAll('[role="tab"]');
+    const paneles = fixture.nativeElement.querySelectorAll('[role="tabpanel"]');
+    expect(pestanas.length).toBe(2);
+    expect(paneles[1].hasAttribute('hidden')).toBe(true);
+
+    pestanas[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    await avanzar(fixture);
+
+    expect(pestanas[1].getAttribute('aria-selected')).toBe('true');
+    expect(paneles[1].hasAttribute('hidden')).toBe(false);
+    expect(paneles[1].textContent).toContain('Pausa del segundo día');
+    expect(paneles[1].textContent).toContain('Descanso');
+    expect(paneles[1].textContent).not.toContain('break');
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 

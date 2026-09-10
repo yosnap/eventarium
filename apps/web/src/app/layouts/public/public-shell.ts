@@ -6,6 +6,7 @@ import { CookieBanner } from '../../shared/cookies/cookie-banner';
 import { CookieConsentService } from '../../core/cookies/cookie-consent.service';
 import { ThemingService } from '../../core/theming/theming.service';
 import { BrandMark } from '../../shared/ui/brand-mark';
+import { Button } from '../../shared/ui/button';
 import { ThemeToggle } from '../../shared/ui/theme-toggle';
 
 /**
@@ -16,26 +17,28 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
 @Component({
   selector: 'app-public-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, TranslocoDirective, CookieBanner, ThemeToggle, BrandMark],
+  imports: [RouterOutlet, RouterLink, TranslocoDirective, CookieBanner, ThemeToggle, BrandMark, Button],
   template: `
     <ng-container *transloco="let t">
       <a class="skip-link" href="#contenido">{{ t('comun.saltarAlContenido') }}</a>
 
       <header>
-        <a routerLink="/" class="marca">
-          @if (theming.branding()?.logo_url; as logo) {
-            <img [src]="logo" [alt]="theming.organizationName()" height="40" />
-          } @else {
-            <app-brand-mark [nombre]="theming.organizationName()" />
-            <span class="nombre">{{ theming.organizationName() }}</span>
-          }
-        </a>
-        <nav [attr.aria-label]="t('publico.navegacion')">
-          <a routerLink="/">{{ t('publico.inicio') }}</a>
-          <a routerLink="/eventos">{{ t('publico.eventos.listadoTitulo') }}</a>
-          <a routerLink="/admin">{{ t('publico.accesoPanel') }}</a>
-        </nav>
-        <app-theme-toggle />
+        <div class="ancho-maximo header-en">
+          <a routerLink="/" class="marca">
+            @if (theming.branding()?.logo_url; as logo) {
+              <img [src]="logo" [alt]="theming.organizationName()" height="40" />
+            } @else {
+              <app-brand-mark [nombre]="theming.organizationName()" />
+              <span class="nombre">{{ theming.organizationName() }}</span>
+            }
+          </a>
+          <nav [attr.aria-label]="t('publico.navegacion')">
+            <a routerLink="/">{{ t('publico.inicio') }}</a>
+            <a routerLink="/eventos">{{ t('publico.eventos.listadoTitulo') }}</a>
+            <a routerLink="/admin">{{ t('publico.accesoPanel') }}</a>
+          </nav>
+          <app-theme-toggle />
+        </div>
       </header>
 
       <main id="contenido" tabindex="-1">
@@ -43,43 +46,43 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       </main>
 
       <footer [attr.aria-label]="t('publico.piePagina')">
-        <p>{{ t('publico.organizadoPor', { nombre: theming.organizationName() }) }}</p>
-        @if (theming.branding()?.social_links?.length) {
-          <nav [attr.aria-label]="t('publico.redesSociales')">
+        <div class="ancho-maximo footer-en">
+          <p>{{ t('publico.organizadoPor', { nombre: theming.organizationName() }) }}</p>
+          @if (theming.branding()?.social_links?.length) {
+            <nav [attr.aria-label]="t('publico.redesSociales')">
+              <ul>
+                @for (enlace of theming.branding()!.social_links; track enlace.url) {
+                  <li>
+                    <a [href]="enlace.url" rel="noopener noreferrer" target="_blank">
+                      {{ enlace.kind }}
+                    </a>
+                  </li>
+                }
+              </ul>
+            </nav>
+          }
+          <nav [attr.aria-label]="t('publico.enlacesLegales')" class="enlaces-legales">
             <ul>
-              @for (enlace of theming.branding()!.social_links; track enlace.url) {
-                <li>
-                  <a [href]="enlace.url" rel="noopener noreferrer" target="_blank">
-                    {{ enlace.kind }}
-                  </a>
-                </li>
-              }
+              <li>
+                <a routerLink="/legal/aviso-legal">{{ t('legal.avisoLegal') }}</a>
+              </li>
+              <li>
+                <a routerLink="/legal/privacidad">{{ t('legal.privacidad') }}</a>
+              </li>
+              <li>
+                <a routerLink="/legal/cookies">{{ t('legal.cookies') }}</a>
+              </li>
+              <li>
+                <a routerLink="/legal/condiciones-de-inscripcion">
+                  {{ t('legal.condicionesInscripcion') }}
+                </a>
+              </li>
             </ul>
           </nav>
-        }
-        <nav [attr.aria-label]="t('publico.enlacesLegales')" class="enlaces-legales">
-          <ul>
-            <li>
-              <a routerLink="/legal/aviso-legal">{{ t('legal.avisoLegal') }}</a>
-            </li>
-            <li>
-              <a routerLink="/legal/privacidad">{{ t('legal.privacidad') }}</a>
-            </li>
-            <li>
-              <a routerLink="/legal/cookies">{{ t('legal.cookies') }}</a>
-            </li>
-            <li>
-              <a routerLink="/legal/condiciones-de-inscripcion">
-                {{ t('legal.condicionesInscripcion') }}
-              </a>
-            </li>
-            <li>
-              <button type="button" class="enlace-boton" (click)="gestionarCookies()">
-                {{ t('cookies.gestionar') }}
-              </button>
-            </li>
-          </ul>
-        </nav>
+          <app-button variant="terciario" [compacto]="true" (pulsado)="gestionarCookies()">
+            {{ t('cookies.gestionar') }}
+          </app-button>
+        </div>
       </footer>
 
       <app-cookie-banner />
@@ -91,23 +94,25 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       grid-template-rows: auto 1fr auto;
       min-height: 100vh;
     }
-    /* .nav (eventarium.css:137-141): fija arriba con desenfoque y borde inferior;
-       este chrome ya es una barra superior, así que se adopta literal. */
+    /* .nav (eventarium.css:137-141): fija arriba con desenfoque y borde inferior,
+       a sangre completa; el contenido interno (.nav__in.wrap) es quien se centra
+       al ancho máximo, no la barra en sí. */
     header {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: var(--nav-bg);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    /* .nav__in (eventarium.css:141): min-height:64px, gap:var(--sp-5)=24px. */
+    .header-en {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
       gap: var(--space-md);
-      padding: var(--space-md) var(--space-lg);
-      position: sticky;
-      top: 0;
-      z-index: 40;
-      /* min-height:64px de .nav__in (eventarium.css:141). */
       min-height: 64px;
-      background: var(--nav-bg);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
     }
     .marca {
       display: inline-flex;
@@ -147,18 +152,22 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       color: var(--fg);
       border-bottom-color: var(--accent);
     }
+    /* Sin padding propio: cada página gestiona su spacing vertical, y el ancho
+       horizontal lo impone siempre .ancho-maximo dentro de la página, nunca
+       este contenedor — así una sección puede seguir siendo a sangre completa
+       (fondo, borde) con su contenido centrado dentro, igual que el header. */
     main {
-      padding: var(--space-lg);
+      display: block;
     }
-    /* .foot (eventarium.css:271-272): separador con borde superior, sin relleno
-       de fondo — no es un panel. */
+    /* .foot (eventarium.css:271-272): separador con borde superior a sangre
+       completa, sin relleno de fondo — no es un panel. */
     footer {
-      margin-top: 7rem; /* --sp-9 = 112px (eventarium.css:38), sin token exacto. */
-      /* padding:var(--sp-6) 0 var(--sp-7) = 32px 0 48px (eventarium.css:38,271).
-         --sp-6 coincide con --space-lg (32px); --sp-7 no tiene token exacto. */
-      padding: var(--space-lg) 0 3rem;
+      margin-top: var(--sp-9);
       border-top: 1px solid var(--border);
       color: var(--muted);
+    }
+    .footer-en {
+      padding: var(--sp-6) 0 var(--sp-7);
       display: grid;
       gap: var(--space-sm);
     }
@@ -168,16 +177,6 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       list-style: none;
       margin: 0;
       padding: 0;
-    }
-    .enlace-boton {
-      background: none;
-      border: none;
-      padding: 0;
-      margin: 0;
-      font: inherit;
-      color: inherit;
-      text-decoration: underline;
-      cursor: pointer;
     }
   `,
 })

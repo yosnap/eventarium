@@ -2,30 +2,37 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
 
 import { ThemingService } from '../../../core/theming/theming.service';
+import { Reveal } from '../../../shared/ui/reveal.directive';
+import { UpcomingEvents } from './upcoming-events';
 
 /** Plantilla pública «minimal»: texto alineado a la izquierda, sin bloque destacado. */
 @Component({
   selector: 'app-minimal-template',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective],
+  imports: [TranslocoDirective, Reveal, UpcomingEvents],
   template: `
     <ng-container *transloco="let t">
-      <section class="minimal">
-        <p class="rotulo-seccion etiqueta-acento">{{ t('publico.proximamente') }}</p>
-        <h1>{{ theming.organizationName() }}</h1>
-        @if (theming.branding()?.organizer_blurb; as descripcion) {
-          <p class="descripcion">{{ descripcion }}</p>
-        }
+      <section class="minimal" appReveal>
+        <div class="ancho-maximo minimal-en">
+          <p class="rotulo-seccion etiqueta-acento">{{ t('publico.proximamente') }}</p>
+          <h1>{{ theming.organizationName() }}</h1>
+          @if (theming.branding()?.organizer_blurb; as descripcion) {
+            <p class="descripcion">{{ descripcion }}</p>
+          }
+        </div>
       </section>
+      <app-upcoming-events />
     </ng-container>
   `,
   styles: `
     .minimal {
+      border-bottom: 1px solid var(--border);
+    }
+    .minimal-en {
       display: grid;
       gap: var(--space-sm);
       max-width: 42rem;
       padding: var(--space-lg) 0 var(--space-lg);
-      border-bottom: 1px solid var(--border);
     }
     .etiqueta-acento {
       color: var(--accent);

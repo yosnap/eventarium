@@ -21,267 +21,379 @@ import { ApiError } from '../../../core/api/error.interceptor';
 import { SeoMetaService } from '../../../core/seo/meta.service';
 import { NotFoundStatusService } from '../../../core/ssr/not-found-status.service';
 import { Alert } from '../../../shared/ui/alert';
-import { Card } from '../../../shared/ui/card';
+import { Chip, type ChipTone } from '../../../shared/ui/chip';
+import type { LocationMode, PublicEventDetail, RegistrationMode } from './event-page.types';
+import { type DiaDeAgenda, EventAgendaSection } from './sections/event-agenda-section';
+import { type Speaker, EventSpeakersSection } from './sections/event-speakers-section';
 
-interface PublicParticipant {
-  readonly display_name: string;
-  readonly role_key: string;
-  readonly public_slug: string | null;
+/** `starts_at` (UTC) al día calendario en la zona del evento, sin arrastrar la
+ * zona horaria del entorno de ejecución (navegador o SSR) al agrupar por fecha:
+ * usar `getTimezoneOffset()` movía sesiones cercanas a medianoche a días
+ * distintos según dónde se ejecutara. `en-CA` da directamente `AAAA-MM-DD`. */
+function fechaEnZona(iso: string, zona: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: zona,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(iso));
 }
 
-interface PublicEventSession {
-  readonly id: string;
-  readonly session_type: string;
-  readonly title: string;
-  readonly description: string | null;
-  readonly starts_at: string;
-  readonly ends_at: string;
-  readonly room: string | null;
-  readonly video_platform: string | null;
-  readonly video_url: string | null;
-  readonly materials: readonly { url?: string; label?: string }[];
-  readonly participants: readonly PublicParticipant[];
-}
+const CLAVES_FORMATO: Record<LocationMode, string> = {
+  in_person: 'publico.eventos.formato.presencial',
+  online: 'publico.eventos.formato.online',
+  hybrid: 'publico.eventos.formato.hibrido',
+};
 
-interface PublicSponsor {
-  readonly name: string;
-  readonly logo_url: string | null;
-  readonly website: string | null;
-}
-
-interface PublicSponsorTier {
-  readonly name: string;
-  readonly logo_size: 'large' | 'medium' | 'small';
-  readonly sponsors: readonly PublicSponsor[];
-}
-
-interface PublicEventDetail {
-  readonly slug: string;
-  readonly title: string;
-  readonly summary: string | null;
-  readonly description: string | null;
-  readonly cover_url: string | null;
-  readonly timezone: string;
-  readonly starts_at: string;
-  readonly ends_at: string;
-  readonly location_mode: string;
-  readonly location_name: string | null;
-  readonly location_address: string | null;
-  readonly online_url: string | null;
-  readonly sessions: readonly PublicEventSession[];
-  readonly sponsor_tiers: readonly PublicSponsorTier[];
-}
-
-interface DiaDeAgenda {
-  readonly fecha: string;
-  readonly sesiones: readonly PublicEventSession[];
-}
-
-/** `starts_at` (UTC) al día en hora local, sin arrastrar la zona horaria del navegador
- * al agrupar por fecha (mismo criterio que el editor de agenda del panel). */
-function fechaLocal(iso: string): string {
-  const fecha = new Date(iso);
-  return new Date(fecha.getTime() - fecha.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-}
+const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone }> = {
+  free: { clave: 'publico.eventos.registro.gratuita', tono: 'ok' },
+  approval: { clave: 'publico.eventos.registro.aprobacion', tono: 'espera' },
+  paid: { clave: 'publico.eventos.registro.pago', tono: 'neutro' },
+};
 
 /**
- * Página pública de un evento: hero, lugar, agenda agrupada por día con sus
- * sesiones y participantes, y etiquetas OG para compartir.
+ * Página pública de un evento, sobre `evento-iawic.html` del prototipo de
+ * OpenDesign: hero con ficha de datos reales, agenda por día con pestañas
+ * accesibles, ponentes derivados de la agenda, patrocinadores por nivel y
+ * lugar — sin ningún dato que la API no devuelva (ver cabecera de
+ * `event-page.types.ts`).
  *
- * Carga los datos con `serverForwardHeaders()` + `TransferState`, siguiendo el
- * mismo patrón que `ThemingService` — nunca el de una página que solo espera un
- * `import()` sin pedir nada a la API, que en SSR serviría el hueco vacío o, peor,
- * datos de otra organización.
+ * No se construyen: la barra de aforo confirmado/disponible (no hay ese dato
+ * en `PublicEventDetail`), el bloque "cerca del recinto"/mapa SVG (sin modelo
+ * de datos), el enlace a programa multisede (non-goal del plan) ni el botón
+ * de descarga de dossier de patrocinadores (sin URL real).
+ *
+ * Carga los datos con `serverForwardHeaders()` + `TransferState`, igual que
+ * antes de esta reescritura — ver el resto de páginas públicas de eventos
+ * para el mismo patrón.
  */
 @Component({
   selector: 'app-event-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, RouterLink, TranslocoDirective, Alert, Card],
+  imports: [
+    DatePipe,
+    RouterLink,
+    TranslocoDirective,
+    Alert,
+    Chip,
+    EventAgendaSection,
+    EventSpeakersSection,
+  ],
   template: `
     <ng-container *transloco="let t">
       @if (cargando()) {
-        <p>{{ t('comun.cargando') }}</p>
+        <p class="ancho-maximo">{{ t('comun.cargando') }}</p>
       } @else if (noEncontrado()) {
-        <app-alert tone="error">{{ t('publico.eventos.noEncontrado') }}</app-alert>
+        <div class="ancho-maximo">
+          <app-alert tone="error">{{ t('publico.eventos.noEncontrado') }}</app-alert>
+        </div>
       } @else if (evento(); as evento) {
-        <article class="ancho-maximo">
-          @if (evento.cover_url) {
-            <img class="portada" [src]="evento.cover_url" [alt]="evento.title" />
-          }
-          <h1>{{ evento.title }}</h1>
-          @if (evento.summary) {
-            <p class="resumen">{{ evento.summary }}</p>
-          }
-          <p class="lugar">
-            {{ evento.starts_at | date: 'fullDate' }}
-            @if (evento.location_name) {
-              · {{ evento.location_name }}
-            }
-            @if (evento.location_mode === 'online' && evento.online_url) {
-              ·
-              <a [href]="evento.online_url" rel="noopener noreferrer" target="_blank">
-                {{ t('publico.eventos.enlaceOnline') }}
-              </a>
-            }
-          </p>
-          @if (evento.description) {
-            <p class="descripcion">{{ evento.description }}</p>
-          }
-
-          <a class="inscribirse" [routerLink]="['/eventos', evento.slug, 'inscribirse']">
-            {{ t('publico.eventos.inscribirse') }}
-          </a>
-
-          <h2>{{ t('publico.eventos.agenda') }}</h2>
-          @if (dias().length === 0) {
-            <p>{{ t('publico.eventos.sinAgenda') }}</p>
-          }
-          @for (dia of dias(); track dia.fecha) {
-            <h3>{{ dia.fecha + 'T00:00:00' | date: 'fullDate' }}</h3>
-            <ul class="sesiones">
-              @for (sesion of dia.sesiones; track sesion.id) {
-                <li>
-                  <app-card>
-                    <a [routerLink]="['/eventos', evento.slug, 'sesiones', sesion.id]">
-                      <strong>{{ sesion.title }}</strong>
-                    </a>
-                    <span class="horario">
-                      {{ sesion.starts_at | date: 'shortTime' }} –
-                      {{ sesion.ends_at | date: 'shortTime' }}
-                      @if (sesion.room) {
-                        · {{ sesion.room }}
-                      }
-                    </span>
-                    @if (sesion.participants.length > 0) {
-                      <ul class="participantes">
-                        @for (persona of sesion.participants; track persona.display_name) {
-                          <li>
-                            @if (persona.public_slug) {
-                              <a [routerLink]="['/ponentes', persona.public_slug]">
-                                {{ persona.display_name }}
-                              </a>
-                            } @else {
-                              {{ persona.display_name }}
-                            }
-                            ({{ persona.role_key }})
-                          </li>
-                        }
-                      </ul>
+        <article>
+          <section class="hero">
+            <div class="ancho-maximo hero__grid">
+              <div>
+                <div class="hero__kicker">
+                  <span class="rotulo-seccion">
+                    {{ evento.starts_at | date: 'd MMM' : evento.timezone }} –
+                    {{ evento.ends_at | date: 'd MMM yyyy' : evento.timezone }}
+                    @if (evento.location_name) {
+                      · {{ evento.location_name }}
                     }
-                  </app-card>
-                </li>
+                  </span>
+                  <app-chip [tone]="registro().tono">{{ t(registro().clave) }}</app-chip>
+                </div>
+                @if (evento.cover_url) {
+                  <img class="portada" [src]="evento.cover_url" [alt]="evento.title" />
+                }
+                <h1>{{ evento.title }}</h1>
+                @if (evento.summary) {
+                  <p class="hero__lede">{{ evento.summary }}</p>
+                }
+                @if (evento.description) {
+                  <p class="hero__descripcion">{{ evento.description }}</p>
+                }
+              </div>
+
+              <div class="ficha">
+                <div class="ficha__filas">
+                  <div class="ficha__fila">
+                    <span class="ficha__etiqueta">{{ t('publico.eventos.ficha.fechas') }}</span>
+                    <span>
+                      {{ evento.starts_at | date: 'dd.MM.yyyy' : evento.timezone }} –
+                      {{ evento.ends_at | date: 'dd.MM.yyyy' : evento.timezone }}
+                    </span>
+                  </div>
+                  @if (evento.location_name) {
+                    <div class="ficha__fila">
+                      <span class="ficha__etiqueta">{{ t('publico.eventos.ficha.lugar') }}</span>
+                      <span>{{ evento.location_name }}</span>
+                    </div>
+                  }
+                  <div class="ficha__fila">
+                    <span class="ficha__etiqueta">{{ t('publico.eventos.ficha.formato') }}</span>
+                    <span>{{ t(formato().clave) }}</span>
+                  </div>
+                  <div class="ficha__fila">
+                    <span class="ficha__etiqueta">
+                      {{ t('publico.eventos.ficha.zonaHoraria') }}
+                    </span>
+                    <span>{{ evento.timezone }}</span>
+                  </div>
+                  @if (evento.capacity !== null) {
+                    <div class="ficha__fila">
+                      <span class="ficha__etiqueta">{{ t('publico.eventos.ficha.aforo') }}</span>
+                      <span>
+                        {{ t('publico.eventos.ficha.plazas', { n: evento.capacity }) }}
+                      </span>
+                    </div>
+                  }
+                </div>
+                <div class="ficha__cta">
+                  <a
+                    class="ficha__inscribirse"
+                    [routerLink]="['/eventos', evento.slug, 'inscribirse']"
+                  >
+                    {{ t('publico.eventos.inscribirse') }}
+                  </a>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="seccion" aria-labelledby="agenda-h2">
+            <div class="ancho-maximo">
+              <div class="seccion__cabecera">
+                <h2 id="agenda-h2">{{ t('publico.eventos.agenda') }}</h2>
+              </div>
+              @if (dias().length === 0) {
+                <p class="vacio">{{ t('publico.eventos.sinAgenda') }}</p>
+              } @else {
+                <app-event-agenda-section
+                  [dias]="dias()"
+                  [eventSlug]="evento.slug"
+                  [eventTimezone]="evento.timezone"
+                />
               }
-            </ul>
+            </div>
+          </section>
+
+          @if (ponentes().length > 0) {
+            <section class="seccion" aria-labelledby="ponentes-h2">
+              <div class="ancho-maximo">
+                <div class="seccion__cabecera">
+                  <h2 id="ponentes-h2">{{ t('publico.eventos.ponentes') }}</h2>
+                </div>
+                <app-event-speakers-section [ponentes]="ponentes()" />
+              </div>
+            </section>
           }
 
           @if (evento.sponsor_tiers.length > 0) {
-            <h2>{{ t('publico.eventos.patrocinadores.titulo') }}</h2>
-            @for (nivel of evento.sponsor_tiers; track nivel.name) {
-              <h3>{{ nivel.name }}</h3>
-              <ul class="patrocinadores" [class]="'tamano-' + nivel.logo_size">
-                @for (patrocinador of nivel.sponsors; track patrocinador.name) {
-                  <li>
-                    @if (patrocinador.website) {
-                      <a [href]="patrocinador.website" rel="noopener noreferrer" target="_blank">
-                        @if (patrocinador.logo_url) {
-                          <img [src]="patrocinador.logo_url" [alt]="patrocinador.name" />
-                        } @else {
-                          {{ patrocinador.name }}
-                        }
-                      </a>
-                    } @else if (patrocinador.logo_url) {
-                      <img [src]="patrocinador.logo_url" [alt]="patrocinador.name" />
-                    } @else {
-                      <span>{{ patrocinador.name }}</span>
-                    }
-                  </li>
+            <section class="seccion" aria-labelledby="patrocinadores-h2">
+              <div class="ancho-maximo">
+                <div class="seccion__cabecera">
+                  <h2 id="patrocinadores-h2">{{ t('publico.eventos.patrocinadores.titulo') }}</h2>
+                </div>
+                @for (nivel of evento.sponsor_tiers; track $index + nivel.name) {
+                  <div class="tier">
+                    <div class="tier__cabecera">
+                      <span class="rotulo-seccion">{{ nivel.name }}</span>
+                    </div>
+                    <ul class="tier__logos" [class]="'tamano-' + nivel.logo_size">
+                      @for (patrocinador of nivel.sponsors; track $index + patrocinador.name) {
+                        <li>
+                          @if (patrocinador.website) {
+                            <a
+                              [href]="patrocinador.website"
+                              rel="noopener noreferrer"
+                              target="_blank"
+                            >
+                              @if (patrocinador.logo_url) {
+                                <img [src]="patrocinador.logo_url" [alt]="patrocinador.name" />
+                              } @else {
+                                {{ patrocinador.name }}
+                              }
+                            </a>
+                          } @else if (patrocinador.logo_url) {
+                            <img [src]="patrocinador.logo_url" [alt]="patrocinador.name" />
+                          } @else {
+                            <span>{{ patrocinador.name }}</span>
+                          }
+                        </li>
+                      }
+                    </ul>
+                  </div>
                 }
-              </ul>
-            }
+              </div>
+            </section>
+          }
+
+          @if (evento.location_name || evento.location_address || evento.online_url) {
+            <section class="seccion" aria-labelledby="lugar-h2">
+              <div class="ancho-maximo">
+                <div class="seccion__cabecera">
+                  <span class="rotulo-seccion">{{ t('publico.eventos.lugar.rotulo') }}</span>
+                  <h2 id="lugar-h2">
+                    {{ evento.location_name || t('publico.eventos.lugar.titulo') }}
+                  </h2>
+                </div>
+                @if (evento.location_address) {
+                  <p class="lugar__direccion">{{ evento.location_address }}</p>
+                }
+                @if (evento.location_mode !== 'in_person' && evento.online_url) {
+                  <p>
+                    <a [href]="evento.online_url" rel="noopener noreferrer" target="_blank">
+                      {{ t('publico.eventos.enlaceOnline') }}
+                    </a>
+                  </p>
+                }
+              </div>
+            </section>
           }
         </article>
       }
     </ng-container>
   `,
   styles: `
-    .ancho-maximo {
-      padding: var(--space-lg) 0;
+    .hero {
+      padding: var(--sp-8) 0 var(--sp-7);
+      border-bottom: 1px solid var(--border);
+    }
+    .hero__grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(18.75rem, 0.65fr);
+      gap: var(--sp-7);
+      align-items: start;
+    }
+    .hero__kicker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--sp-4);
+      align-items: center;
+      margin-bottom: var(--sp-5);
     }
     .portada {
       width: 100%;
-      max-height: 320px;
+      max-height: 20rem;
       object-fit: cover;
       border-radius: var(--radius-lg);
+      margin-bottom: var(--sp-4);
     }
     h1 {
-      margin: var(--space-md) 0 0;
+      margin: 0;
     }
-    .resumen {
-      font-size: 1.125rem;
+    .hero__lede {
+      max-width: 56ch;
+      color: var(--muted);
+      margin-top: var(--sp-5);
+    }
+    .hero__descripcion {
+      max-width: 64ch;
+      margin-top: var(--sp-5);
+      white-space: pre-line;
+    }
+    .ficha {
+      display: grid;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background-color: var(--surface);
+    }
+    .ficha__fila {
+      display: flex;
+      justify-content: space-between;
+      gap: var(--sp-4);
+      padding: 14px var(--sp-5);
+      border-bottom: 1px solid var(--border);
+    }
+    .ficha__fila:last-of-type {
+      border-bottom: 0;
+    }
+    .ficha__etiqueta {
       color: var(--muted);
     }
-    .lugar {
-      color: var(--muted);
+    .ficha__cta {
+      padding: var(--sp-5);
+      border-top: 1px solid var(--border);
+      background-color: var(--surface-2);
+      border-radius: 0 0 var(--radius-md) var(--radius-md);
     }
-    .inscribirse {
-      display: inline-block;
-      margin-top: var(--space-md);
-      padding: var(--space-sm) var(--space-lg);
+    .ficha__inscribirse {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 2.75rem;
+      padding: 0 1.25rem;
       border-radius: var(--radius-sm);
       background-color: var(--accent);
       color: var(--on-accent);
       font-weight: 700;
       text-decoration: none;
+      transition: background-color 0.15s ease;
     }
-    .inscribirse:hover {
+    .ficha__inscribirse:hover {
       background-color: var(--accent-hi);
     }
-    .sesiones {
+    .seccion {
+      padding: var(--sp-8) 0;
+    }
+    .seccion__cabecera {
+      margin-bottom: var(--sp-6);
+    }
+    .seccion__cabecera h2 {
+      margin-top: var(--sp-1);
+    }
+    .vacio {
+      color: var(--muted);
+    }
+    .tier {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--sp-4);
+      overflow: hidden;
+    }
+    .tier__cabecera {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-4);
+      padding: 12px var(--sp-5);
+      background-color: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+    }
+    .tier__logos {
       list-style: none;
       margin: 0;
-      padding: 0;
-      display: grid;
-      gap: var(--space-md);
-    }
-    .horario {
-      display: block;
-      color: var(--muted);
-      font-size: 0.875rem;
-    }
-    .participantes {
-      list-style: none;
-      margin: var(--space-sm) 0 0;
-      padding: 0;
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--space-sm);
-      font-size: 0.875rem;
-    }
-    .patrocinadores {
-      list-style: none;
-      margin: 0 0 var(--space-md);
-      padding: 0;
+      padding: var(--sp-5);
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: var(--space-lg);
+      gap: var(--sp-4);
     }
-    .patrocinadores img {
+    .tier__logos img {
       display: block;
       width: auto;
       object-fit: contain;
     }
-    .patrocinadores.tamano-large img {
+    .tier__logos.tamano-large img {
       height: 4.5rem;
     }
-    .patrocinadores.tamano-medium img {
+    .tier__logos.tamano-medium img {
       height: 3rem;
     }
-    .patrocinadores.tamano-small img {
+    .tier__logos.tamano-small img {
       height: 2rem;
     }
-    .patrocinadores a {
+    .tier__logos a {
       display: inline-block;
+    }
+    .lugar__direccion {
+      color: var(--muted);
+      white-space: pre-line;
+    }
+    @media (max-width: 56.25rem) {
+      .hero__grid {
+        grid-template-columns: 1fr;
+      }
     }
   `,
 })
@@ -301,10 +413,12 @@ export class EventPage implements OnInit {
   protected readonly noEncontrado = signal(false);
 
   protected readonly dias = computed<DiaDeAgenda[]>(() => {
-    const sesiones = this.evento()?.sessions ?? [];
-    const grupos = new Map<string, PublicEventSession[]>();
+    const evento = this.evento();
+    const sesiones = evento?.sessions ?? [];
+    const zona = evento?.timezone ?? 'UTC';
+    const grupos = new Map<string, (typeof sesiones)[number][]>();
     for (const sesion of sesiones) {
-      const fecha = fechaLocal(sesion.starts_at);
+      const fecha = fechaEnZona(sesion.starts_at, zona);
       const lista = grupos.get(fecha) ?? [];
       lista.push(sesion);
       grupos.set(fecha, lista);
@@ -312,6 +426,36 @@ export class EventPage implements OnInit {
     return [...grupos.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([fecha, sesiones]) => ({ fecha, sesiones }));
+  });
+
+  /** Ponentes reales derivados de la agenda: no existe ningún endpoint
+   * aparte de la agenda, así que se agrupan los participantes con perfil
+   * público (`public_slug`), sin duplicar a quien participa en varias
+   * sesiones (se queda con el primer rol con el que aparece). */
+  protected readonly ponentes = computed<Speaker[]>(() => {
+    const vistos = new Map<string, Speaker>();
+    for (const sesion of this.evento()?.sessions ?? []) {
+      for (const persona of sesion.participants) {
+        if (persona.public_slug && !vistos.has(persona.public_slug)) {
+          vistos.set(persona.public_slug, {
+            publicSlug: persona.public_slug,
+            displayName: persona.display_name,
+            roleKey: persona.role_key,
+          });
+        }
+      }
+    }
+    return [...vistos.values()];
+  });
+
+  protected readonly formato = computed(() => {
+    const modo = this.evento()?.location_mode ?? 'in_person';
+    return { clave: CLAVES_FORMATO[modo] };
+  });
+
+  protected readonly registro = computed(() => {
+    const modo = this.evento()?.registration_mode ?? 'free';
+    return CLAVES_REGISTRO[modo];
   });
 
   ngOnInit(): void {

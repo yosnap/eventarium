@@ -125,7 +125,7 @@ describe('shells', () => {
     await esperarSinViolacionesDeAccesibilidad(raiz);
   });
 
-  it('"Gestionar cookies" del pie reabre el banner de cookies', async () => {
+  it('"Preferencias de cookies" del pie reabre la ventana de personalización de cookies', async () => {
     localStorage.setItem(
       'cookie-consent',
       JSON.stringify({ categories: ['necessary'], version: 1, created_at: 'x' }),
@@ -135,16 +135,16 @@ describe('shells', () => {
     fixture.detectChanges();
     const raiz = fixture.nativeElement as HTMLElement;
 
-    expect(raiz.querySelector('[role="region"]')).toBeNull();
+    expect((raiz.querySelector('dialog') as HTMLDialogElement).hasAttribute('open')).toBe(false);
     const gestionar = Array.from(raiz.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('Gestionar cookies'),
+      b.textContent?.includes('Preferencias de cookies'),
     );
     expect(gestionar).toBeTruthy();
     gestionar?.dispatchEvent(new Event('click'));
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(raiz.querySelector('[role="region"]')).not.toBeNull();
+    expect((raiz.querySelector('dialog') as HTMLDialogElement).hasAttribute('open')).toBe(true);
   });
 
   it('el shell público muestra el logotipo con texto alternativo cuando existe', async () => {

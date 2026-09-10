@@ -92,7 +92,34 @@ h3 {
 }
 
 /* Respeta a quien ha pedido menos animación en su sistema (WCAG 2.3.3). */
+/*
+ * Revelado sutil al entrar en pantalla, sobre `[data-reveal]`/`reveal.js` de
+ * la referencia (`eventarium.css:281-294`). Dos salvaguardas, no una:
+ * - `.js-activo` solo lo añade `Reveal` (`shared/ui/reveal.directive.ts`)
+ *   cuando confirma que el JS arrancó — sin esa clase, `[appReveal]` no
+ *   tiene ninguna regla que lo oculte, así que el HTML servido por SSR (o
+ *   cualquier caso en que el bootstrap fallara) se queda visible tal cual.
+ * - `prefers-reduced-motion` anula la ocultación por completo más abajo, no
+ *   solo acorta la transición.
+ */
+.js-activo [appReveal] {
+  opacity: 0;
+  transform: translateY(14px);
+}
+.js-activo [appReveal].es-visible {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.55s cubic-bezier(0.2, 0.6, 0.2, 1),
+    transform 0.55s cubic-bezier(0.2, 0.6, 0.2, 1);
+  transition-delay: calc(var(--i, 0) * 70ms);
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .js-activo [appReveal] {
+    opacity: 1;
+    transform: none;
+  }
   *,
   *::before,
   *::after {

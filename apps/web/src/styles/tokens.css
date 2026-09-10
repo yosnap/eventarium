@@ -98,6 +98,24 @@
   --space-md: 1rem;
   --space-lg: 2rem;
   --space-xl: 4rem;
+
+  /*
+   * Escala completa de la referencia (`eventarium.css:37-38`, `--sp-1`..`--sp-9`):
+   * los alias `--space-*` de arriba solo cubren 5 de los 9 pasos y con --space-xl
+   * (64px) sin equivalente real en la referencia. Se añaden los pasos que faltan
+   * con los mismos nombres que usa el prototipo, para las pantallas que necesiten
+   * fidelidad exacta (24/48/72/112px) sin remapear los `--space-*` ya en uso en
+   * el resto de la aplicación.
+   */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.5rem;
+  --sp-6: 2rem;
+  --sp-7: 3rem;
+  --sp-8: 4.5rem;
+  --sp-9: 7rem;
 }
 
 [data-theme='light'] {
