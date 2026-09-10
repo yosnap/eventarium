@@ -1,10 +1,13 @@
 import {
   ApplicationConfig,
+  LOCALE_ID,
   inject,
   provideAppInitializer,
   provideBrowserGlobalErrorListeners,
   provideZonelessChangeDetection,
 } from '@angular/core';
+import { registerLocaleData } from '@angular/common';
+import localeEs from '@angular/common/locales/es';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
@@ -18,8 +21,16 @@ import { ThemingService } from './core/theming/theming.service';
 import { environment } from '../environments/environment';
 import { routes } from './app.routes';
 
+// Sin esto, DatePipe/DecimalPipe caen al 'en-US' que Angular trae integrado por
+// defecto: las fechas de la app (creada íntegramente en castellano) salían en
+// inglés ("Friday, January 15, 2027") pese a que Transloco sí traduce el resto
+// de textos — son dos mecanismos de localización distintos, y solo se había
+// configurado uno.
+registerLocaleData(localeEs, 'es-ES');
+
 export const appConfig: ApplicationConfig = {
   providers: [
+    { provide: LOCALE_ID, useValue: 'es-ES' },
     provideBrowserGlobalErrorListeners(),
     provideZonelessChangeDetection(),
     provideRouter(routes, withComponentInputBinding()),
