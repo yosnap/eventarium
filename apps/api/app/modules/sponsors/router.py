@@ -258,9 +258,9 @@ async def upload_sponsor_logo(
     mime, extension = validate_upload(contenido)
 
     almacen = get_storage()
-    clave = build_object_key(
-        evento.organization_id, f"sponsors/{evento.id}/{patrocinador.id}", extension
-    )
+    # Misma forma que el seed y que la portada de evento: {entidad}/{id}/{propósito}.
+    # El id del patrocinador ya es único, así que el id del evento sobraba en la ruta.
+    clave = build_object_key(evento.organization_id, f"sponsors/{patrocinador.id}/logo", extension)
     await almacen.put_object(clave, contenido, mime)
 
     anterior = patrocinador.logo_object_key
