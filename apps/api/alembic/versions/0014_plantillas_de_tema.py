@@ -24,12 +24,17 @@ sistema.
 Semilla de dos plantillas, «oscuro» (`is_default = true`) y «claro», copia
 literal token por token de los dos bloques de
 `apps/web/src/styles/tokens.css` (`:root` y `[data-theme='light']`, valor
-final ya cerrado por la fase de cliente). Cada plantilla usa su propio
-juego en los dos campos (`dark`/`light` de `tokens`): son los dos temas ya
-diseñados en esta fase, no un par oscuro/claro para alternar dentro de la
-misma plantilla — de ahí que las dos filas sean deliberadamente distintas
-entre sí. Los literales van aquí, no importados de la aplicación: una
-migración es un registro histórico.
+final ya cerrado por la fase de cliente). Las dos plantillas usan el MISMO
+par `{dark: _TOKENS_OSCURO, light: _TOKENS_CLARO}` en `tokens` — decisión
+revertida tras verificar en runtime que la lectura anterior («cada
+plantilla fija un solo aspecto, ignora el conmutador») deja el conmutador
+oscuro/claro sin ningún efecto visible para cualquier organización con una
+plantilla aplicada, que es toda organización. Las dos filas son hoy
+idénticas en contenido (solo hay un diseño real): lo que las distingue es
+el nombre/clave y cuál es la de por defecto, no la paleta. El mecanismo
+admite plantillas futuras con paletas realmente distintas sin cambiar
+nada de este esquema. Los literales van aquí, no importados de la
+aplicación: una migración es un registro histórico.
 
 Los pares críticos de las dos plantillas se han verificado con
 `app/modules/theme_templates/contrast.py` antes de fijar estos literales
@@ -77,13 +82,13 @@ _TOKENS_OSCURO: dict[str, str] = {
     "accent-dim": "oklch(87.61% 0.2286 152.37 / 0.1)",
     "on-accent": "oklch(13.44% 0 89.88)",
     "warn": "oklch(66.96% 0.222 37.42)",
-    "warn-dim": "oklch(66.96% 0.222 37.42 / 0.1)",
+    "warn-dim": "oklch(66.96% 0.222 37.42 / 0.14)",
     "danger": "oklch(67.32% 0.2143 24.47)",
-    "danger-dim": "oklch(67.32% 0.2143 24.47 / 0.1)",
-    "nav-bg": "oklch(16.84% 0 89.88)",
-    "backdrop": "oklch(0% 0 0 / 0.6)",
-    "shadow-md": "0 4px 12px oklch(0% 0 0 / 0.35)",
-    "shadow-lg": "0 12px 32px oklch(0% 0 0 / 0.45)",
+    "danger-dim": "oklch(67.32% 0.2143 24.47 / 0.14)",
+    "nav-bg": "oklch(13.4% 0 90 / 0.88)",
+    "backdrop": "oklch(13.4% 0 90 / 0.72)",
+    "shadow-md": "0 18px 40px oklch(0% 0 0 / 0.55)",
+    "shadow-lg": "0 24px 60px oklch(0% 0 0 / 0.55)",
 }
 
 # Tokens del modo claro. Copia literal, token por token, del bloque
@@ -107,10 +112,10 @@ _TOKENS_CLARO: dict[str, str] = {
     "warn-dim": "oklch(48% 0.18 37.42 / 0.1)",
     "danger": "oklch(48% 0.17 24.47)",
     "danger-dim": "oklch(48% 0.17 24.47 / 0.1)",
-    "nav-bg": "oklch(96% 0 90)",
-    "backdrop": "oklch(0% 0 0 / 0.5)",
-    "shadow-md": "0 4px 12px oklch(0% 0 0 / 0.12)",
-    "shadow-lg": "0 12px 32px oklch(0% 0 0 / 0.16)",
+    "nav-bg": "oklch(97.5% 0 90 / 0.88)",
+    "backdrop": "oklch(19.5% 0 90 / 0.42)",
+    "shadow-md": "0 18px 40px oklch(19.5% 0 90 / 0.14)",
+    "shadow-lg": "0 24px 60px oklch(19.5% 0 90 / 0.18)",
 }
 
 
@@ -180,18 +185,21 @@ def _sembrar_plantillas() -> None:
                 "id": "018fbb2f-0000-7000-8000-000000000001",
                 "key": "oscuro",
                 "name": "Oscuro",
-                # El juego oscuro en los dos campos: esta plantilla es el tema oscuro
-                # ya diseñado en la fase 1, no un par oscuro/claro para alternar.
-                "tokens": {"dark": _TOKENS_OSCURO, "light": _TOKENS_OSCURO},
+                # Par real oscuro/claro: el conmutador de la persona sigue
+                # decidiendo el modo dentro de esta plantilla, como exige el
+                # Success Criteria de la fase 1 («son dos dimensiones
+                # independientes»).
+                "tokens": {"dark": _TOKENS_OSCURO, "light": _TOKENS_CLARO},
                 "is_default": True,
             },
             {
                 "id": "018fbb2f-0000-7000-8000-000000000002",
                 "key": "claro",
                 "name": "Claro",
-                # El juego claro en los dos campos: el otro tema ya diseñado en la
-                # fase 1. Debe ser distinto de la plantilla «oscuro» de arriba.
-                "tokens": {"dark": _TOKENS_CLARO, "light": _TOKENS_CLARO},
+                # Mismo par que «oscuro»: hoy solo hay un diseño real, así que las
+                # dos filas son idénticas en contenido. Lo que las distingue es
+                # el nombre/clave y `is_default`, no la paleta.
+                "tokens": {"dark": _TOKENS_OSCURO, "light": _TOKENS_CLARO},
                 "is_default": False,
             },
         ],

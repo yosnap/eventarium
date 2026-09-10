@@ -121,11 +121,12 @@ select:focus-visible {
 }
 
 /*
- * Retícula de fondo: malla decorativa fija detrás del contenido, desvanecida hacia
- * abajo. `pointer-events: none` para no interceptar ningún clic ni foco, y sin
- * ninguna animación de entrada asociada (fuera de alcance, fase 2). Se comprueba en
- * `contrast.spec.ts`/manualmente que no baja el contraste del cuerpo en ningún tema:
- * la malla vive en un `z-index` negativo, bajo el color de fondo real del texto.
+ * Retícula de fondo: geometría y fórmula copiadas literalmente del prototipo de
+ * referencia (`eventarium.css`, celda 30px, línea de 1px, sobre `--grid-line` y
+ * `--grid-fade` dedicados, no sobre `--border`). Capa fija con `z-index:-1`, así que
+ * nunca se interpone entre el texto y su fondo, y se disuelve antes de la mitad del
+ * alto de ventana: acompaña la entrada de la página y desaparece en cuanto empieza la
+ * zona de lectura y datos — textura de papel, no una cuadrícula dibujada.
  */
 body::before {
   content: '';
@@ -133,13 +134,31 @@ body::before {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image:
-    linear-gradient(to right, var(--border) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
-  background-size: 30px 30px;
-  opacity: 0.4;
-  mask-image: linear-gradient(to bottom, black, transparent);
-  -webkit-mask-image: linear-gradient(to bottom, black, transparent);
+  background:
+    linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0 / 100% var(--grid-size),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid-size) 100%;
+  mask-image: linear-gradient(
+    180deg,
+    #000 0,
+    rgba(0, 0, 0, 0.55) calc(var(--grid-fade) * 0.6),
+    transparent var(--grid-fade)
+  );
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    #000 0,
+    rgba(0, 0, 0, 0.55) calc(var(--grid-fade) * 0.6),
+    transparent var(--grid-fade)
+  );
+}
+
+/* Contenedor de ancho máximo de la referencia (`.wrap`). Nombre específico
+ * (`.ancho-maximo`, no `.contenedor`) para no colisionar por nombre con clases
+ * de componentes: Angular View Encapsulation solo aísla los estilos DE un
+ * componente hacia fuera, nunca protege a un componente de una clase global
+ * que coincida por nombre (ver app-data-table, que ya sufrió esta colisión). */
+.ancho-maximo {
+  width: min(100% - 40px, var(--max));
+  margin-inline: auto;
 }
 
 /* Rótulo de sección: mono, mayúsculas, con tracking amplio. Regla de tipografía de

@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { Panel } from './panel';
 
 /** Una columna de la tabla. `numerica` alinea a la derecha y activa cifras tabulares. */
 export interface DataTableColumn {
@@ -12,48 +13,61 @@ export interface DataTableColumn {
  *
  * El contenido de cada celda se proyecta con `<ng-content>` desde quien consume el
  * componente (esta fase no migra ninguna de las 5 tablas existentes, solo aporta el
- * envoltorio accesible que la fase 5 usará). El contenedor de scroll horizontal es
- * navegable por teclado (`tabindex="0"` + `role="region"` + `aria-label`), que es lo
- * que hace falta a 320 px sin recortar columnas. Las cabeceras llevan rótulo mono en
- * mayúsculas con tracking; las celdas numéricas usan `font-variant-numeric:
- * tabular-nums` alineadas a la derecha, para que las cifras no bailen entre filas.
+ * envoltorio accesible que la fase 5 usará). La referencia envuelve siempre la tabla
+ * en `.panel` (eventarium.css:184, 258-267): aquí se reutiliza `<app-panel>` de
+ * verdad en vez de duplicar su fondo/borde/radio a mano, y este componente solo
+ * aporta la ranura de scroll horizontal, navegable por teclado (`tabindex="0"` +
+ * `role="region"` + `aria-label`), que es lo que hace falta a 320 px sin recortar
+ * columnas. Las cabeceras llevan rótulo mono en mayúsculas con tracking; las celdas
+ * numéricas usan `font-variant-numeric: tabular-nums` alineadas a la derecha, para
+ * que las cifras no bailen entre filas.
  */
 @Component({
   selector: 'app-data-table',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [Panel],
   template: `
-    <div class="contenedor" tabindex="0" role="region" [attr.aria-label]="etiquetaEfectiva()">
-      <table>
-        <caption>
-          {{ caption() }}
-        </caption>
-        <thead>
-          <tr>
-            @for (columna of columnas(); track columna.key) {
-              <th scope="col" [class.numerica]="columna.numerica">{{ columna.label }}</th>
-            }
-          </tr>
-        </thead>
-        <tbody>
-          <ng-content />
-        </tbody>
-      </table>
-    </div>
+    <app-panel>
+      <div
+        class="ranura-scroll"
+        tabindex="0"
+        role="region"
+        [attr.aria-label]="etiquetaEfectiva()"
+      >
+        <table>
+          <caption>
+            {{ caption() }}
+          </caption>
+          <thead>
+            <tr>
+              @for (columna of columnas(); track columna.key) {
+                <th scope="col" [class.numerica]="columna.numerica">{{ columna.label }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            <ng-content />
+          </tbody>
+        </table>
+      </div>
+    </app-panel>
   `,
   styles: `
-    .contenedor {
+    /* Solo el comportamiento de scroll: el fondo/borde/radio de la referencia los
+       aporta <app-panel>, que envuelve esta ranura. La tabla de dentro es
+       transparente, así que no hace falta recortar esquinas aquí. */
+    .ranura-scroll {
       overflow-x: auto;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
     }
-    .contenedor:focus-visible {
+    .ranura-scroll:focus-visible {
       outline: 3px solid var(--accent);
       outline-offset: 2px;
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      background-color: var(--surface);
+      /* Sin fondo propio: dentro de <app-panel>, el fondo lo da el panel. */
+      background-color: transparent;
     }
     caption {
       position: absolute;
@@ -65,13 +79,17 @@ export interface DataTableColumn {
     }
     th {
       text-align: left;
-      padding: var(--space-sm) var(--space-md);
+      /* padding:10px 14px (eventarium.css:261). */
+      padding: 10px 14px;
       font-family: var(--font-mono);
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-size: 0.75rem;
+      /* letter-spacing:.14em, no .08em (eventarium.css:262). */
+      letter-spacing: 0.14em;
+      font-size: var(--fs-label);
+      font-weight: 400;
       color: var(--muted);
-      border-bottom: 1px solid var(--border-strong);
+      /* border-bottom con --border, no --border-strong (eventarium.css:263). */
+      border-bottom: 1px solid var(--border);
       white-space: nowrap;
     }
     th.numerica {
@@ -81,7 +99,8 @@ export interface DataTableColumn {
        atributo de encapsulación y sale como "td { … }" global, repintando cualquier
        otra tabla de la app en cuanto este componente se instancia una sola vez. */
     :host ::ng-deep td {
-      padding: var(--space-sm) var(--space-md);
+      /* padding:13px 14px (eventarium.css:265). */
+      padding: 13px 14px;
       border-bottom: 1px solid var(--border);
       color: var(--fg);
     }
@@ -89,9 +108,13 @@ export interface DataTableColumn {
       text-align: right;
       font-variant-numeric: tabular-nums;
     }
-    /* Realce de fila sin reducir el contraste del texto: solo cambia el fondo. */
+    /* Realce de fila: la referencia usa --surface, no --surface-hi
+       (eventarium.css:266) — literal, aunque no sea el mismo tono que el fondo del
+       panel envolvente (--surface-2): en el tema oscuro actual --surface es
+       19,13 % de luminosidad y --surface-2 es 16,84 %, así que la fila sí se
+       distingue visualmente al pasar el ratón. */
     :host ::ng-deep tbody tr:hover td {
-      background-color: var(--surface-hi);
+      background-color: var(--surface);
     }
     :host ::ng-deep tbody tr:last-child td {
       border-bottom: none;

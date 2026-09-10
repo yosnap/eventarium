@@ -93,6 +93,9 @@ import { EventScope } from './event-scope';
       grid-template-rows: auto 1fr;
       min-height: 100vh;
     }
+    /* .nav (eventarium.css:137-141): fija arriba, con desenfoque de fondo y borde
+       inferior. El panel sigue con navegación lateral (fase 3), así que solo se
+       adopta aquí el lenguaje visual de la cabecera, no su estructura. */
     header {
       display: flex;
       flex-wrap: wrap;
@@ -100,11 +103,23 @@ import { EventScope } from './event-scope';
       justify-content: space-between;
       gap: var(--space-md);
       padding: var(--space-md) var(--space-lg);
-      border-bottom: 1px solid var(--color-border);
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      /* min-height:64px de .nav__in (eventarium.css:141). */
+      min-height: 64px;
+      background: var(--nav-bg);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
     }
     .marca {
       margin: 0;
-      font-weight: 700;
+      /* Tipografía de marca de .brand__name (eventarium.css:148): mono display,
+         mayúsculas, tracking amplio, en vez de sans en negrita. */
+      font-family: var(--font-heading);
+      font-size: 1.35rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
     }
     .sesion {
       display: flex;

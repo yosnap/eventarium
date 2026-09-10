@@ -89,6 +89,8 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       grid-template-rows: auto 1fr auto;
       min-height: 100vh;
     }
+    /* .nav (eventarium.css:137-141): fija arriba con desenfoque y borde inferior;
+       este chrome ya es una barra superior, así que se adopta literal. */
     header {
       display: flex;
       flex-wrap: wrap;
@@ -96,7 +98,14 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       justify-content: space-between;
       gap: var(--space-md);
       padding: var(--space-md) var(--space-lg);
-      border-bottom: 1px solid var(--color-border);
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      /* min-height:64px de .nav__in (eventarium.css:141). */
+      min-height: 64px;
+      background: var(--nav-bg);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
     }
     .marca {
       display: inline-flex;
@@ -104,24 +113,48 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       text-decoration: none;
       color: inherit;
     }
+    /* .brand__name (eventarium.css:148): sin negrita explícita en la referencia,
+       mayúsculas con tracking amplio. */
     .nombre {
       font-family: var(--font-heading);
-      font-size: 1.25rem;
-      font-weight: 700;
+      font-size: 1.35rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
     }
     nav {
       display: flex;
-      gap: var(--space-md);
+      /* gap:var(--sp-5) = 24px (eventarium.css:149/37): sin token exacto en
+         nuestra escala de espaciado (--space-md es 16px). */
+      gap: 1.5rem;
     }
-    nav a {
-      color: var(--color-primary);
+    /* .nav__links a (eventarium.css:150-155): color muted en reposo, con
+       subrayado en acento al hover/foco — no un color de acento fijo. */
+    header nav a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: var(--fs-sm);
+      padding: 6px 2px;
+      border-bottom: 1px solid transparent;
+      transition:
+        color 0.15s,
+        border-color 0.15s;
+    }
+    header nav a:hover,
+    header nav a:focus-visible {
+      color: var(--fg);
+      border-bottom-color: var(--accent);
     }
     main {
       padding: var(--space-lg);
     }
+    /* .foot (eventarium.css:271-272): separador con borde superior, sin relleno
+       de fondo — no es un panel. */
     footer {
-      padding: var(--space-lg);
-      background-color: var(--color-surface-muted);
+      margin-top: 7rem; /* --sp-9 = 112px (eventarium.css:38), sin token exacto. */
+      /* padding:var(--sp-6) 0 var(--sp-7) = 32px 0 48px (eventarium.css:38,271).
+         --sp-6 coincide con --space-lg (32px); --sp-7 no tiene token exacto. */
+      padding: var(--space-lg) 0 3rem;
+      border-top: 1px solid var(--border);
       color: var(--color-text-muted);
       display: grid;
       gap: var(--space-sm);
@@ -139,7 +172,7 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       padding: 0;
       margin: 0;
       font: inherit;
-      color: var(--color-primary);
+      color: inherit;
       text-decoration: underline;
       cursor: pointer;
     }

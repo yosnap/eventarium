@@ -21,34 +21,53 @@ export type ChipTone = 'neutro' | 'ok' | 'espera' | 'apagado';
     </span>
   `,
   styles: `
+    /* .chip (eventarium.css:192-199) es mono, en mayúsculas y con tracking amplio:
+       nada que ver con un chip sans de peso 600 en minúsculas. */
     .chip {
       display: inline-flex;
       align-items: center;
-      gap: var(--space-xs);
-      padding: 0.25rem 0.625rem;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
-      font-size: 0.8125rem;
-      font-weight: 600;
+      gap: 6px;
+      /* padding:3px 9px (eventarium.css:193). */
+      padding: 3px 9px;
+      /* border-radius:3px literal (eventarium.css:193): no es --r-sm (4px), es su
+         propio valor, así que se deja como número. */
+      border-radius: 3px;
+      font-family: var(--font-mono);
+      font-size: var(--fs-label);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border: 1px solid var(--border-strong);
+      font-weight: 400;
       line-height: 1.4;
-      color: var(--fg);
+      color: var(--muted);
       white-space: nowrap;
     }
     .neutro {
-      background-color: var(--surface-hi);
-      border-color: var(--border);
+      background-color: transparent;
+      border-color: var(--border-strong);
+      color: var(--muted);
     }
+    /* Los tonos con color usan el -dim del tono como fondo y un borde al tono base
+       con alfa .45-.5 (eventarium.css:197-199), nunca un background-color sólido.
+       El color y el fondo ya usaban el token de plantilla (--accent/--warn/
+       --danger), pero el borde estaba en un oklch() literal copiado del tema
+       oscuro del prototipo: una organización con otra plantilla (otro acento) veía
+       el chip con el acento correcto pero el borde siempre verde. color-mix() con
+       el propio token reproduce la alfa de la referencia sin fijar el tono. */
     .ok {
-      background-color: var(--accent-dim);
-      border-color: var(--accent);
+      color: var(--accent);
+      border-color: color-mix(in oklch, var(--accent), transparent 55%);
+      background: var(--accent-dim);
     }
     .espera {
-      background-color: var(--warn-dim);
-      border-color: var(--warn);
+      color: var(--warn);
+      border-color: color-mix(in oklch, var(--warn), transparent 50%);
+      background: var(--warn-dim);
     }
     .apagado {
-      background-color: var(--danger-dim);
-      border-color: var(--danger);
+      color: var(--danger);
+      border-color: color-mix(in oklch, var(--danger), transparent 50%);
+      background: var(--danger-dim);
     }
   `,
 })

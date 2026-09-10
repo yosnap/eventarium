@@ -52,7 +52,8 @@ import {
       box-sizing: border-box;
       padding: 1.25rem 0.75rem 0.4rem;
       border: 1px solid var(--border-strong);
-      border-radius: var(--radius-md);
+      /* .textarea usa --r-sm (4px), no --r-md (eventarium.css:206,209). */
+      border-radius: var(--radius-sm);
       background-color: var(--surface-2);
       color: var(--fg);
       font: inherit;

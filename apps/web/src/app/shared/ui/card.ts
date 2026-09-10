@@ -31,9 +31,13 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
     section {
       background-color: var(--surface);
       border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-md);
-      padding: var(--space-lg);
+      /* .card usa --r-md (eventarium.css:183), que en nuestro sistema es --radius-md
+         (8px), no --radius-lg (16px). */
+      border-radius: var(--radius-md);
+      /* .card no lleva box-shadow en la referencia (eventarium.css:183). */
+      /* .card usa padding:var(--sp-5) (eventarium.css:183/37), 24px: no hay token
+         de espaciado exacto en nuestra escala (--space-md es 16px, --space-lg 32px). */
+      padding: 1.5rem;
       display: grid;
       gap: var(--space-md);
     }

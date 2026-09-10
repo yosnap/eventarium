@@ -37,18 +37,35 @@
   --accent-dim: oklch(87.61% 0.2286 152.37 / 0.1);
   --on-accent: oklch(13.44% 0 89.88);
 
-  /* Señales. */
+  /* Señales. Alfa .14 en el -dim (eventarium.css:20,22), no .1: la referencia usa
+   * más opacidad en el tema oscuro para que el chip de aviso/peligro se distinga
+   * del fondo sin depender solo del texto. */
   --warn: oklch(66.96% 0.222 37.42);
-  --warn-dim: oklch(66.96% 0.222 37.42 / 0.1);
+  --warn-dim: oklch(66.96% 0.222 37.42 / 0.14);
   --danger: oklch(67.32% 0.2143 24.47);
-  --danger-dim: oklch(67.32% 0.2143 24.47 / 0.1);
+  --danger-dim: oklch(67.32% 0.2143 24.47 / 0.14);
 
   /* Chrome. `--shadow-md`/`--shadow-lg` son valores completos de `box-shadow`, no
-   * colores sueltos: los usa directamente cualquier regla con `box-shadow: var(--shadow-md)`. */
-  --nav-bg: oklch(16.84% 0 89.88);
-  --backdrop: oklch(0% 0 0 / 0.6);
-  --shadow-md: 0 4px 12px oklch(0% 0 0 / 0.35);
-  --shadow-lg: 0 12px 32px oklch(0% 0 0 / 0.45);
+   * colores sueltos: los usa directamente cualquier regla con `box-shadow: var(--shadow-md)`.
+   * Valores realineados con el prototipo de referencia (`eventarium.css`): el nav lleva
+   * transparencia para el `backdrop-filter: blur()`, y las sombras son más grandes/suaves
+   * de lo que tenía esta hoja antes de la corrección de fidelidad de la fase 4. */
+  --nav-bg: oklch(13.4% 0 90 / 0.88);
+  --backdrop: oklch(13.4% 0 90 / 0.72);
+  --shadow-md: 0 18px 40px oklch(0% 0 0 / 0.55);
+  --shadow-lg: 0 24px 60px oklch(0% 0 0 / 0.55);
+
+  /*
+   * Retícula de fondo — geometría tomada literalmente de la referencia (celda 30px,
+   * línea de 1px): no se toca. Lo único que cambia por tema es la opacidad de la línea
+   * y hasta dónde llega el desvanecido (`--grid-fade`, en `styles.css`).
+   */
+  --grid-size: 30px;
+  --grid-line: oklch(28.5% 0 90 / 0.5);
+  --grid-fade: 42vh;
+
+  /* Ancho máximo de contenedor de la referencia (`.wrap`). */
+  --max: 1240px;
 
   /*
    * Alias de compatibilidad — vigentes durante las fases 2 a 5, se retiran en la 6.
@@ -110,15 +127,23 @@
   --accent-dim: oklch(45% 0.15 152.4 / 0.1);
   --on-accent: oklch(100% 0 0);
 
-  /* Señales, mismo tono que el modo oscuro, oscurecidas para AA sobre papel claro. */
+  /* Señales, mismo tono que el modo oscuro, oscurecidas para AA sobre papel claro.
+   * Alfa del -dim en .1, no .14: la referencia (eventarium.css) es un tema único
+   * oscuro, así que este valor claro no tiene contraparte en el prototipo; se deja
+   * como estaba en vez de copiar la alfa del oscuro sin verificar contraste sobre
+   * papel. */
   --warn: oklch(48% 0.18 37.42);
   --warn-dim: oklch(48% 0.18 37.42 / 0.1);
   --danger: oklch(48% 0.17 24.47);
   --danger-dim: oklch(48% 0.17 24.47 / 0.1);
 
   /* Chrome. */
-  --nav-bg: oklch(96% 0 90);
-  --backdrop: oklch(0% 0 0 / 0.5);
-  --shadow-md: 0 4px 12px oklch(0% 0 0 / 0.12);
-  --shadow-lg: 0 12px 32px oklch(0% 0 0 / 0.16);
+  --nav-bg: oklch(97.5% 0 90 / 0.88);
+  --backdrop: oklch(19.5% 0 90 / 0.42);
+  --shadow-md: 0 18px 40px oklch(19.5% 0 90 / 0.14);
+  --shadow-lg: 0 24px 60px oklch(19.5% 0 90 / 0.18);
+
+  /* Retícula: la referencia sirve dos valores para su token de papel (.07 y .045);
+   * sobre papel se nota más, así que se toma el discreto y se baja un punto más. */
+  --grid-line: rgba(40, 70, 120, 0.04);
 }

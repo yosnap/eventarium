@@ -22,6 +22,9 @@
   --fs-h3: clamp(1.25rem, 1.1rem + 0.5vw, 1.75rem);
   --fs-body: clamp(1rem, 0.95rem + 0.15vw, 1.125rem);
   --fs-sm: clamp(0.875rem, 0.85rem + 0.1vw, 0.9375rem);
-  --fs-label: clamp(0.75rem, 0.73rem + 0.1vw, 0.8125rem);
+  /* Fijo, no `clamp()` (eventarium.css:34): la referencia usa 0.6875rem exacto en
+   * este token; un `clamp()` aquí daba un 9-18 % más de tamaño en cabeceras de
+   * tabla y chips. Solo `chip.ts` y `data-table.ts` lo consumen (grep verificado). */
+  --fs-label: 0.6875rem;
   --fs-metric: clamp(1.75rem, 1.4rem + 1.5vw, 3rem);
 }
