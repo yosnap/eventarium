@@ -4,6 +4,7 @@ import { TranslocoDirective } from '@jsverse/transloco';
 
 import { Alert } from '../../../shared/ui/alert';
 import { Card } from '../../../shared/ui/card';
+import { Reveal } from '../../../shared/ui/reveal.directive';
 
 /**
  * Pantalla de `cancel_url` de la Checkout Session de Stripe (fase 6 del PRD,
@@ -16,11 +17,11 @@ import { Card } from '../../../shared/ui/card';
 @Component({
   selector: 'app-payment-cancelled-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Card],
+  imports: [TranslocoDirective, RouterLink, Alert, Card, Reveal],
   template: `
     <ng-container *transloco="let t">
       <div class="pagina">
-        <app-card [heading]="t('pago.cancelado.titulo')">
+        <app-card [heading]="t('pago.cancelado.titulo')" appReveal>
           <app-alert tone="info">{{ t('pago.cancelado.detalle') }}</app-alert>
           @if (slug) {
             <p>

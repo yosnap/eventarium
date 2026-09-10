@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from httpx import AsyncClient
 
 from app.core.database import SessionMaintenance
@@ -12,6 +13,11 @@ from app.core.ratelimit import PUBLICO_POR_IP
 from app.modules.events import repository
 from app.modules.registrations.models import EventRegistration
 from tests.conftest import OrganizacionDePrueba, crear_miembro, iniciar_sesion, iniciar_sesion_con
+from tests.payments_test_helpers import (
+    _crear_publicar_evento_de_pago,
+    _crear_tipo,
+    _preparar_evento_de_pago,
+)
 
 PUBLIC_EVENTS = "/api/v1/public/events"
 PUBLIC_SPEAKERS = "/api/v1/public/speakers"
@@ -69,6 +75,80 @@ async def test_el_listado_publico_solo_incluye_published_public(
     slugs = [e["slug"] for e in listado.json()]
     assert slugs == ["publico"]
     assert borrador["slug"] not in slugs
+
+
+async def test_el_listado_y_el_detalle_incluyen_el_precio_desde_del_tipo_mas_barato(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+    gratis = await _crear_evento(cliente, cabeceras, slug="precio-gratis")
+    await _publicar(cliente, cabeceras, gratis["id"])
+
+    # `_preparar_evento_de_pago` publica con un tipo «General» a 1000 céntimos
+    # (exige al menos uno vigente para publicar un evento `paid`); se añade
+    # aquí un segundo tipo más barato para comprobar que gana el más barato.
+    de_pago, tipo_general = await _preparar_evento_de_pago(
+        cliente, organizacion, monkeypatch, "precio-pago"
+    )
+    await _crear_tipo(cliente, cabeceras, de_pago["id"], name="Early bird", price_cents=750)
+
+    # A partir de aquí no se reusa `_preparar_evento_de_pago`: conecta una
+    # cuenta Stripe nueva y la organización solo puede tener una activa a la
+    # vez (índice único parcial en `organization_stripe_accounts`). La cuenta
+    # que ya conectó la primera llamada sirve igual para el resto.
+    de_pago_sin_tipos = await _crear_publicar_evento_de_pago(
+        cliente, cabeceras, organizacion, "precio-pago-sin-tipos"
+    )
+    listado_tipos = await cliente.get(
+        f"{EVENTS}/{de_pago_sin_tipos['id']}/ticket-types", headers=cabeceras
+    )
+    assert listado_tipos.status_code == 200, listado_tipos.text
+    tipo_desactivado = listado_tipos.json()[0]
+    desactivacion = await cliente.patch(
+        f"{EVENTS}/{de_pago_sin_tipos['id']}/ticket-types/{tipo_desactivado['id']}",
+        headers=cabeceras,
+        json={"is_active": False},
+    )
+    assert desactivacion.status_code == 200, desactivacion.text
+
+    # Un solo tipo de entrada: precio único, sin «Desde».
+    await _crear_publicar_evento_de_pago(cliente, cabeceras, organizacion, "precio-pago-unico")
+
+    # Dos tipos de entrada al mismo precio: sigue siendo un precio único, la
+    # variación real es lo que dispara «Desde», no el número de tipos.
+    de_pago_mismo_precio = await _crear_publicar_evento_de_pago(
+        cliente, cabeceras, organizacion, "precio-pago-mismo-precio"
+    )
+    await _crear_tipo(
+        cliente, cabeceras, de_pago_mismo_precio["id"], name="Estudiante", price_cents=1000
+    )
+
+    cabeceras_publicas = {"Host": organizacion.host}
+    listado = await cliente.get(PUBLIC_EVENTS, headers=cabeceras_publicas)
+    assert listado.status_code == 200
+    por_slug = {evento["slug"]: evento for evento in listado.json()}
+    assert por_slug["precio-gratis"]["price_from_cents"] is None
+    assert por_slug["precio-pago-sin-tipos"]["price_from_cents"] is None
+    assert por_slug["precio-pago"]["price_from_cents"] == 750
+    assert por_slug["precio-pago"]["price_currency"] == "eur"
+    assert por_slug["precio-pago"]["price_multiple"] is True
+    assert por_slug["precio-pago-unico"]["price_from_cents"] == 1000
+    assert por_slug["precio-pago-unico"]["price_multiple"] is False
+    assert por_slug["precio-pago-mismo-precio"]["price_from_cents"] == 1000
+    assert por_slug["precio-pago-mismo-precio"]["price_multiple"] is False
+
+    detalle = await cliente.get(f"{PUBLIC_EVENTS}/precio-pago", headers=cabeceras_publicas)
+    assert detalle.status_code == 200
+    assert detalle.json()["price_from_cents"] == 750
+    assert detalle.json()["price_currency"] == "eur"
+    assert detalle.json()["price_multiple"] is True
+
+    detalle_unico = await cliente.get(
+        f"{PUBLIC_EVENTS}/precio-pago-unico", headers=cabeceras_publicas
+    )
+    assert detalle_unico.status_code == 200
+    assert detalle_unico.json()["price_multiple"] is False
 
 
 async def test_el_detalle_de_un_evento_no_publico_da_404_uniforme(

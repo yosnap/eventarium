@@ -6,6 +6,7 @@ import { RegistrationsService } from '../../../core/registrations/registrations.
 import { AuthFrame } from '../../../layouts/public/auth-frame';
 import { Alert } from '../../../shared/ui/alert';
 import { Card } from '../../../shared/ui/card';
+import { Reveal } from '../../../shared/ui/reveal.directive';
 
 type Estado = 'comprobando' | 'exito' | 'error';
 
@@ -18,34 +19,36 @@ type Estado = 'comprobando' | 'exito' | 'error';
 @Component({
   selector: 'app-confirm-waitlist-promotion-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, AuthFrame, Alert, Card],
+  imports: [TranslocoDirective, AuthFrame, Alert, Card, Reveal],
   template: `
     <ng-container *transloco="let t">
       <app-auth-frame [titulo]="t('confirmarPromocion.titulo')">
-        <app-card [heading]="t('confirmarPromocion.titulo')">
-          <div aria-live="assertive">
-            @switch (estado()) {
-              @case ('comprobando') {
-                <app-alert tone="info">{{ t('confirmarPromocion.comprobando') }}</app-alert>
+        <div class="envoltura" appReveal>
+          <app-card [heading]="t('confirmarPromocion.titulo')">
+            <div aria-live="assertive">
+              @switch (estado()) {
+                @case ('comprobando') {
+                  <app-alert tone="info">{{ t('confirmarPromocion.comprobando') }}</app-alert>
+                }
+                @case ('exito') {
+                  <app-alert tone="exito" [title]="t('confirmarPromocion.exitoTitulo')">
+                    {{ mensaje() }}
+                  </app-alert>
+                }
+                @case ('error') {
+                  <app-alert tone="error" [title]="t('confirmarPromocion.errorTitulo')">
+                    {{ t('confirmarPromocion.errorDetalle') }}
+                  </app-alert>
+                }
               }
-              @case ('exito') {
-                <app-alert tone="exito" [title]="t('confirmarPromocion.exitoTitulo')">
-                  {{ mensaje() }}
-                </app-alert>
-              }
-              @case ('error') {
-                <app-alert tone="error" [title]="t('confirmarPromocion.errorTitulo')">
-                  {{ t('confirmarPromocion.errorDetalle') }}
-                </app-alert>
-              }
-            }
-          </div>
-        </app-card>
+            </div>
+          </app-card>
+        </div>
       </app-auth-frame>
     </ng-container>
   `,
   styles: `
-    app-card {
+    .envoltura {
       width: min(26rem, 100%);
     }
   `,

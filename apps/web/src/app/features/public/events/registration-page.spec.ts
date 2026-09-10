@@ -155,6 +155,16 @@ describe('RegistrationPage', () => {
       await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
     });
 
+    it('muestra los pasos y el texto de un evento gratuito', async () => {
+      const fixture = crearFixture();
+      await avanzar(fixture);
+
+      const texto = fixture.nativeElement.textContent;
+      expect(texto).toContain('Tus datos');
+      expect(texto).toContain('Confirmación por email');
+      expect(texto).toContain('Este evento es gratuito');
+    });
+
     it('con los datos obligatorios completos envía la inscripción', async () => {
       const fixture = crearFixture();
       await avanzar(fixture);
@@ -226,6 +236,20 @@ describe('RegistrationPage', () => {
       expect(fixture.nativeElement.textContent).toContain('General');
       expect(fixture.nativeElement.textContent).toContain('20.00');
       await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+    });
+
+    it('muestra los pasos y el texto de un evento de pago', async () => {
+      configurar(
+        { getQuestions: vi.fn().mockResolvedValue([]) },
+        { getTicketTypes: vi.fn().mockResolvedValue(TIPOS_DE_ENTRADA) },
+      );
+      const fixture = crearFixture();
+      await avanzar(fixture);
+
+      const texto = fixture.nativeElement.textContent;
+      expect(texto).toContain('Tus datos y entrada');
+      expect(texto).toContain('Pago');
+      expect(texto).toContain('pago seguro');
     });
 
     it('bloquea el envío si no se elige un tipo de entrada', async () => {

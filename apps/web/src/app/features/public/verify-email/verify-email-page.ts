@@ -9,6 +9,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
+import { Reveal } from '../../../shared/ui/reveal.directive';
 import { TurnstileWidget } from '../../../shared/ui/turnstile-widget';
 
 type Estado = 'comprobando' | 'exito' | 'error';
@@ -24,62 +25,74 @@ type Estado = 'comprobando' | 'exito' | 'error';
 @Component({
   selector: 'app-verify-email-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, AuthFrame, Alert, Button, Card, Input, TurnstileWidget],
+  imports: [
+    TranslocoDirective,
+    RouterLink,
+    AuthFrame,
+    Alert,
+    Button,
+    Card,
+    Input,
+    Reveal,
+    TurnstileWidget,
+  ],
   template: `
     <ng-container *transloco="let t">
       <app-auth-frame [titulo]="t('verificarCorreo.titulo')">
-        <app-card [heading]="t('verificarCorreo.titulo')">
-          <div aria-live="assertive">
-            @switch (estado()) {
-              @case ('comprobando') {
-                <app-alert tone="info">{{ t('verificarCorreo.verificando') }}</app-alert>
+        <div class="envoltura" appReveal>
+          <app-card [heading]="t('verificarCorreo.titulo')">
+            <div aria-live="assertive">
+              @switch (estado()) {
+                @case ('comprobando') {
+                  <app-alert tone="info">{{ t('verificarCorreo.verificando') }}</app-alert>
+                }
+                @case ('exito') {
+                  <app-alert tone="exito" [title]="t('verificarCorreo.exitoTitulo')">
+                    {{ t('verificarCorreo.exitoDetalle') }}
+                    <p>
+                      <a routerLink="/crear-organizacion">{{ t('verificarCorreo.continuar') }}</a>
+                    </p>
+                  </app-alert>
+                }
+                @case ('error') {
+                  <app-alert tone="error" [title]="t('verificarCorreo.errorTitulo')">
+                    {{ t('verificarCorreo.errorDetalle') }}
+                  </app-alert>
+                }
               }
-              @case ('exito') {
-                <app-alert tone="exito" [title]="t('verificarCorreo.exitoTitulo')">
-                  {{ t('verificarCorreo.exitoDetalle') }}
-                  <p>
-                    <a routerLink="/crear-organizacion">{{ t('verificarCorreo.continuar') }}</a>
-                  </p>
-                </app-alert>
-              }
-              @case ('error') {
-                <app-alert tone="error" [title]="t('verificarCorreo.errorTitulo')">
-                  {{ t('verificarCorreo.errorDetalle') }}
-                </app-alert>
-              }
-            }
-          </div>
+            </div>
 
-          @if (estado() === 'error') {
-            @if (reenviado()) {
-              <app-alert tone="exito" [title]="t('verificarCorreo.reenviadoTitulo')">
-                {{ t('verificarCorreo.reenviadoDetalle') }}
-              </app-alert>
-            } @else {
-              <form (submit)="reenviar($event)" novalidate>
-                <app-input
-                  [label]="t('verificarCorreo.email')"
-                  type="email"
-                  autocomplete="email"
-                  [required]="true"
-                  [error]="errorEmail()"
-                  [(value)]="email"
-                />
-                <app-turnstile-widget (resuelto)="turnstileToken.set($event)" />
-                <app-button type="submit" [loading]="reenviando()">
-                  {{
-                    reenviando() ? t('verificarCorreo.reenviando') : t('verificarCorreo.reenviar')
-                  }}
-                </app-button>
-              </form>
+            @if (estado() === 'error') {
+              @if (reenviado()) {
+                <app-alert tone="exito" [title]="t('verificarCorreo.reenviadoTitulo')">
+                  {{ t('verificarCorreo.reenviadoDetalle') }}
+                </app-alert>
+              } @else {
+                <form (submit)="reenviar($event)" novalidate>
+                  <app-input
+                    [label]="t('verificarCorreo.email')"
+                    type="email"
+                    autocomplete="email"
+                    [required]="true"
+                    [error]="errorEmail()"
+                    [(value)]="email"
+                  />
+                  <app-turnstile-widget (resuelto)="turnstileToken.set($event)" />
+                  <app-button type="submit" [loading]="reenviando()">
+                    {{
+                      reenviando() ? t('verificarCorreo.reenviando') : t('verificarCorreo.reenviar')
+                    }}
+                  </app-button>
+                </form>
+              }
             }
-          }
-        </app-card>
+          </app-card>
+        </div>
       </app-auth-frame>
     </ng-container>
   `,
   styles: `
-    app-card {
+    .envoltura {
       width: min(26rem, 100%);
     }
     form {

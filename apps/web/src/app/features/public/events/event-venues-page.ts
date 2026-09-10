@@ -23,6 +23,7 @@ import { ApiError } from '../../../core/api/error.interceptor';
 import { SeoMetaService } from '../../../core/seo/meta.service';
 import { NotFoundStatusService } from '../../../core/ssr/not-found-status.service';
 import { Alert } from '../../../shared/ui/alert';
+import { Breadcrumb, type BreadcrumbItem } from '../../../shared/ui/breadcrumb';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 import { type MarcadorDeMapa, VenueMap } from '../../../shared/ui/venue-map';
 import type { PublicEventDetail, PublicEventSession, PublicVenue } from './event-page.types';
@@ -66,6 +67,7 @@ function fechaEnZona(iso: string, zona: string): string {
     RouterLink,
     TranslocoDirective,
     Alert,
+    Breadcrumb,
     Reveal,
     VenueMap,
     VenueGridSection,
@@ -83,7 +85,10 @@ function fechaEnZona(iso: string, zona: string): string {
         <article>
           <section class="hero">
             <div class="ancho-maximo" appReveal>
-              <a class="volver" routerLink="/eventos">{{ t('publico.eventos.todosLosEventos') }}</a>
+              <app-breadcrumb
+                [items]="migasDePan(evento)"
+                [ariaLabel]="t('publico.eventos.ruta')"
+              />
               <span class="rotulo-seccion">{{ evento.title }}</span>
               <h1>
                 {{ dias().length }} {{ t('publico.eventos.multisede.tituloIntro') }}
@@ -123,11 +128,7 @@ function fechaEnZona(iso: string, zona: string): string {
           @if (dias().length > 0) {
             <div class="controles">
               <div class="ancho-maximo controles__in">
-                <div
-                  class="dias"
-                  role="tablist"
-                  [attr.aria-label]="t('publico.eventos.diasAria')"
-                >
+                <div class="dias" role="tablist" [attr.aria-label]="t('publico.eventos.diasAria')">
                   @for (dia of dias(); track dia.fecha; let indice = $index) {
                     <button
                       #pestana
@@ -145,7 +146,11 @@ function fechaEnZona(iso: string, zona: string): string {
                 </div>
 
                 @if (sedes().length > 1) {
-                  <div class="sedes" role="group" [attr.aria-label]="t('publico.eventos.multisede.sedesAria')">
+                  <div
+                    class="sedes"
+                    role="group"
+                    [attr.aria-label]="t('publico.eventos.multisede.sedesAria')"
+                  >
                     @for (sede of sedes(); track sede.id; let i = $index) {
                       <button
                         type="button"
@@ -231,17 +236,9 @@ function fechaEnZona(iso: string, zona: string): string {
       padding: var(--sp-8) 0 var(--sp-6);
       border-bottom: 1px solid var(--border);
     }
-    .volver {
-      display: inline-flex;
-      font-family: var(--font-mono);
-      font-size: var(--fs-label);
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
+    app-breadcrumb {
+      display: block;
       margin-bottom: var(--sp-5);
-    }
-    .volver:hover {
-      color: var(--fg);
     }
     .hero h1 {
       font-size: var(--fs-h1);
@@ -417,6 +414,17 @@ export class EventVenuesPage implements OnInit {
   protected readonly sedesVisibles = signal<readonly string[]>([]);
 
   protected readonly sedes = computed<readonly PublicVenue[]>(() => this.evento()?.venues ?? []);
+
+  protected migasDePan(evento: PublicEventDetail): BreadcrumbItem[] {
+    return [
+      {
+        label: this.transloco.translate('publico.eventos.listadoTitulo'),
+        routerLink: ['/eventos'],
+      },
+      { label: evento.title, routerLink: ['/eventos', evento.slug] },
+      { label: this.transloco.translate('publico.eventos.multisede.rotulo') },
+    ];
+  }
 
   /** Sedes visibles con coordenadas conocidas, listas para `app-venue-map`. Si
    * ninguna tiene coordenadas (geocodificación fail-open, puede fallar), el

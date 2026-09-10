@@ -135,6 +135,8 @@ export type { ListPublicEventsApiV1PublicEventsGet$Params as ListPublicEventsApi
 export { listPublicEventsApiV1PublicEventsGet as listPublicEventsApiV1PublicEventsGet } from './fn/publico/list-public-events-api-v-1-public-events-get';
 export type { GetPublicEventApiV1PublicEventsSlugGet$Params as GetPublicEventApiV1PublicEventsSlugGet$Params } from './fn/publico/get-public-event-api-v-1-public-events-slug-get';
 export { getPublicEventApiV1PublicEventsSlugGet as getPublicEventApiV1PublicEventsSlugGet } from './fn/publico/get-public-event-api-v-1-public-events-slug-get';
+export type { GetPublicSponsorApiV1PublicEventsSlugSponsorsSponsorIdGet$Params as GetPublicSponsorApiV1PublicEventsSlugSponsorsSponsorIdGet$Params } from './fn/publico/get-public-sponsor-api-v-1-public-events-slug-sponsors-sponsor-id-get';
+export { getPublicSponsorApiV1PublicEventsSlugSponsorsSponsorIdGet as getPublicSponsorApiV1PublicEventsSlugSponsorsSponsorIdGet } from './fn/publico/get-public-sponsor-api-v-1-public-events-slug-sponsors-sponsor-id-get';
 export type { GetPublicSessionApiV1PublicEventsSlugSessionsSessionIdGet$Params as GetPublicSessionApiV1PublicEventsSlugSessionsSessionIdGet$Params } from './fn/publico/get-public-session-api-v-1-public-events-slug-sessions-session-id-get';
 export { getPublicSessionApiV1PublicEventsSlugSessionsSessionIdGet as getPublicSessionApiV1PublicEventsSlugSessionsSessionIdGet } from './fn/publico/get-public-session-api-v-1-public-events-slug-sessions-session-id-get';
 export type { GetPublicSpeakerApiV1PublicSpeakersPublicSlugGet$Params as GetPublicSpeakerApiV1PublicSpeakersPublicSlugGet$Params } from './fn/publico/get-public-speaker-api-v-1-public-speakers-public-slug-get';

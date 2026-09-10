@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections import defaultdict
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -198,6 +200,40 @@ async def list_public_ticket_types(
     ahora = datetime.now(UTC)
     tipos = await repository.get_ticket_types(session, organization_id, event_id)
     return [tipo for tipo in tipos if validar_tipo_vigente(tipo, ahora)]
+
+
+@dataclass(frozen=True)
+class PrecioPublico:
+    """Precio «desde» de un evento: el tipo de entrada vigente más barato, y
+    si hace falta el prefijo «Desde» — solo cuando entre los tipos vigentes
+    hay más de un precio *distinto*; dos tipos vigentes al mismo precio
+    (p. ej. «General» y «Estudiante» ambos a 10 €) muestran el importe solo,
+    sin «Desde»."""
+
+    tipo: EventTicketType
+    varios_precios: bool
+
+
+async def get_min_public_prices(
+    session: AsyncSession, *, organization_id: uuid.UUID, event_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, PrecioPublico]:
+    """Precio «desde» de cada evento, para `PublicEventSummary.price_from_cents`
+    /`price_multiple`. Un evento sin ningún tipo vigente (p. ej. todos fuera
+    de su ventana de venta) no aparece en el resultado — no hay precio que
+    mostrar, mejor omitirlo que inventar un valor."""
+    ahora = datetime.now(UTC)
+    tipos = await repository.get_ticket_types_for_events(session, organization_id, event_ids)
+    vigentes_por_evento: dict[uuid.UUID, list[EventTicketType]] = defaultdict(list)
+    for tipo in tipos:
+        if validar_tipo_vigente(tipo, ahora):
+            vigentes_por_evento[tipo.event_id].append(tipo)
+
+    resultado: dict[uuid.UUID, PrecioPublico] = {}
+    for event_id, vigentes in vigentes_por_evento.items():
+        mas_barato = min(vigentes, key=lambda tipo: tipo.price_cents)
+        varios_precios = len({tipo.price_cents for tipo in vigentes}) > 1
+        resultado[event_id] = PrecioPublico(tipo=mas_barato, varios_precios=varios_precios)
+    return resultado
 
 
 async def create_ticket_type(

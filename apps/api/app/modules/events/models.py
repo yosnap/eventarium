@@ -85,6 +85,15 @@ class Event(Base, TimestampMixin):
     capacity: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # free | approval | paid
     registration_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="free")
+    # Fecha a partir de la que se admiten inscripciones; `null` significa que ya
+    # están abiertas (comportamiento previo a este campo, sigue siendo el
+    # valor por defecto). Antes de esta fecha el listado y la ficha públicos
+    # muestran el evento como «próximamente» en vez de «abierto», pero
+    # `Event.status`/`visibility` siguen mandando sobre si se lista o no —
+    # este campo no oculta el evento, solo cambia el rótulo de disponibilidad.
+    registration_opens_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     email_verification_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     # Ventana que tiene un comprador para pagar antes de que su
     # `pending_payment` caduque y libere la plaza (fase 6 del PRD). Por

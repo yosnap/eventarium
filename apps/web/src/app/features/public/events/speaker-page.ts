@@ -19,7 +19,10 @@ import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { SeoMetaService } from '../../../core/seo/meta.service';
 import { NotFoundStatusService } from '../../../core/ssr/not-found-status.service';
+import { iniciales } from '../../../shared/text/iniciales';
 import { Alert } from '../../../shared/ui/alert';
+import { Breadcrumb, type BreadcrumbItem } from '../../../shared/ui/breadcrumb';
+import { Reveal } from '../../../shared/ui/reveal.directive';
 import { rolLegible } from './event-page.types';
 
 interface SocialLink {
@@ -72,18 +75,6 @@ function etiquetaEnlace(kind: string, traducir: (clave: string) => string): stri
   return etiqueta.includes('.') ? traducir(etiqueta) : etiqueta;
 }
 
-/** Iniciales del monograma (`.mono-mark` de `ponente-perfil.html:76`): hasta
- * dos letras de las primeras dos palabras del nombre, sin foto real posible
- * (`PUBLIC_PROFILE_FIELDS` no tiene ninguna URL de imagen). */
-function iniciales(nombre: string): string {
-  return nombre
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((palabra) => palabra[0]?.toUpperCase() ?? '')
-    .join('');
-}
-
 /**
  * Página pública de un ponente, sobre `.top`/`.side`/`.hist`/`.cv` de la
  * referencia (`ponente-perfil.html`): la lista blanca de campos de la fase 3
@@ -100,7 +91,7 @@ function iniciales(nombre: string): string {
 @Component({
   selector: 'app-speaker-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, TranslocoDirective, Alert],
+  imports: [RouterLink, TranslocoDirective, Alert, Breadcrumb, Reveal],
   template: `
     <ng-container *transloco="let t">
       @if (cargando()) {
@@ -111,7 +102,8 @@ function iniciales(nombre: string): string {
         </p>
       } @else if (perfil(); as perfil) {
         <article class="ancho-maximo">
-          <div class="top">
+          <app-breadcrumb [items]="migasDePan(perfil)" [ariaLabel]="t('publico.eventos.ruta')" />
+          <div class="top" appReveal>
             <div>
               <span class="rotulo-seccion">{{ t('publico.ponentes.perfil') }}</span>
               <div class="who">
@@ -124,7 +116,12 @@ function iniciales(nombre: string): string {
                   @if (enlaces(perfil, t).length > 0) {
                     <div class="enlaces">
                       @for (enlace of enlaces(perfil, t); track enlace.etiqueta) {
-                        <a class="enlace" [href]="enlace.url" rel="noopener noreferrer" target="_blank">
+                        <a
+                          class="enlace"
+                          [href]="enlace.url"
+                          rel="noopener noreferrer"
+                          target="_blank"
+                        >
                           {{ enlace.etiqueta }}
                         </a>
                       }
@@ -164,27 +161,39 @@ function iniciales(nombre: string): string {
                 <span class="pendiente">{{ t('publico.eventos.datoPendiente') }}</span>
               </div>
               @if (proximaParticipacion(); as proxima) {
-                <div class="lateral__fila">
+                <div class="lateral__fila lateral__fila--proxima">
                   <span class="muted">{{ t('publico.ponentes.proxima') }}</span>
-                  <span class="valor-acento">{{ proxima.event_title }}</span>
+                  <a class="valor-acento" [routerLink]="['/eventos', proxima.event_slug]">{{
+                    proxima.event_title
+                  }}</a>
                 </div>
               }
             </aside>
           </div>
 
           @if (perfil.fields['bio']; as bio) {
-            <section>
+            <section appReveal>
               <h2>{{ t('publico.ponentes.bio') }}</h2>
               <p class="prosa">{{ bio }}</p>
             </section>
           }
 
           @if (ediciones().length > 0) {
-            <section>
+            <section appReveal>
               <h2>{{ t('publico.ponentes.historial') }}</h2>
               <div class="linea">
-                @for (edicion of ediciones(); track edicion.slug; let primera = $first) {
-                  <article class="edicion" [class.edicion--actual]="primera">
+                @for (
+                  edicion of ediciones();
+                  track edicion.slug;
+                  let primera = $first;
+                  let indice = $index
+                ) {
+                  <article
+                    class="edicion"
+                    [class.edicion--actual]="primera"
+                    appReveal
+                    [index]="indice"
+                  >
                     <div class="edicion__cabecera">
                       <h3>
                         <a [routerLink]="['/eventos', edicion.slug]">{{ edicion.title }}</a>
@@ -215,7 +224,7 @@ function iniciales(nombre: string): string {
                  estructurados; el backend real solo guarda un único bloque de
                  texto libre (campo curriculum), así que se pinta como prosa,
                  no como esa rejilla. -->
-            <section>
+            <section appReveal>
               <h2>{{ t('publico.ponentes.curriculum') }}</h2>
               <p class="prosa">{{ curriculum }}</p>
             </section>
@@ -228,11 +237,15 @@ function iniciales(nombre: string): string {
     .ancho-maximo {
       padding: var(--space-lg) 0;
     }
+    app-breadcrumb {
+      display: block;
+      margin-bottom: var(--sp-5);
+    }
     /* .top (ponente-perfil.html:13-14): cabecera + panel lateral, apilados
        bajo el punto de corte de la referencia (860px). */
     .top {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(16.25rem, 20rem);
+      grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
       gap: var(--space-lg);
       align-items: start;
       padding-bottom: var(--space-lg);
@@ -326,7 +339,20 @@ function iniciales(nombre: string): string {
     }
     .lateral__fila > span:last-child {
       text-align: right;
-      max-width: 65%;
+      max-width: 75%;
+      overflow-wrap: anywhere;
+    }
+    /* Próxima participación: enlace a la edición. El título puede ser largo,
+       así que esta fila apila etiqueta y enlace en vez de ponerlos en la
+       misma línea, y el enlace usa todo el ancho para no cortarse. */
+    .lateral__fila--proxima {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .lateral__fila--proxima > a:last-child {
+      text-align: left;
+      max-width: 100%;
+      overflow-wrap: anywhere;
     }
     .num {
       font-family: var(--font-mono);
@@ -338,6 +364,10 @@ function iniciales(nombre: string): string {
     .valor-acento {
       color: var(--accent);
       font-weight: 500;
+      text-decoration: none;
+    }
+    a.valor-acento:hover {
+      text-decoration: underline;
     }
     section {
       padding-top: var(--space-lg);
@@ -459,6 +489,16 @@ export class SpeakerPage implements OnInit {
     void this.tareasPendientes.run(() => this.cargar());
   }
 
+  protected migasDePan(perfil: PublicSpeakerProfile): BreadcrumbItem[] {
+    return [
+      {
+        label: this.transloco.translate('publico.eventos.listadoTitulo'),
+        routerLink: ['/eventos'],
+      },
+      { label: perfil.display_name },
+    ];
+  }
+
   protected enlaces(
     perfil: PublicSpeakerProfile,
     traducir: (clave: string) => string,
@@ -473,7 +513,10 @@ export class SpeakerPage implements OnInit {
     return [...propios, ...sociales];
   }
 
-  protected rolesDeLaEdicion(sesiones: readonly HistoryItem[], traducir: (clave: string) => string): string {
+  protected rolesDeLaEdicion(
+    sesiones: readonly HistoryItem[],
+    traducir: (clave: string) => string,
+  ): string {
     const roles = [...new Set(sesiones.map((sesion) => rolLegible(sesion.role_key, traducir)))];
     if (roles.length <= 1) {
       return roles[0] ?? '';

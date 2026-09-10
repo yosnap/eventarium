@@ -10,6 +10,7 @@ import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
 import { PasswordStrength, isPasswordValid } from '../../../shared/ui/password-strength';
+import { Reveal } from '../../../shared/ui/reveal.directive';
 
 type Estado = 'formulario' | 'exito' | 'tokenInvalido';
 
@@ -23,61 +24,73 @@ type Estado = 'formulario' | 'exito' | 'tokenInvalido';
 @Component({
   selector: 'app-reset-password-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, AuthFrame, Alert, Button, Card, Input, PasswordStrength],
+  imports: [
+    TranslocoDirective,
+    RouterLink,
+    AuthFrame,
+    Alert,
+    Button,
+    Card,
+    Input,
+    PasswordStrength,
+    Reveal,
+  ],
   template: `
     <ng-container *transloco="let t">
       <app-auth-frame [titulo]="t('recuperarContrasena.nuevaTitulo')">
-        <app-card [heading]="t('recuperarContrasena.nuevaTitulo')">
-          <div aria-live="assertive">
-            @switch (estado()) {
-              @case ('tokenInvalido') {
-                <app-alert tone="error" [title]="t('verificarCorreo.errorTitulo')">
-                  {{ t('recuperarContrasena.tokenInvalido') }}
-                  <p>
-                    <a routerLink="/recuperar-contrasena">{{
-                      t('recuperarContrasena.pedirOtro')
-                    }}</a>
-                  </p>
-                </app-alert>
+        <div class="envoltura" appReveal>
+          <app-card [heading]="t('recuperarContrasena.nuevaTitulo')">
+            <div aria-live="assertive">
+              @switch (estado()) {
+                @case ('tokenInvalido') {
+                  <app-alert tone="error" [title]="t('verificarCorreo.errorTitulo')">
+                    {{ t('recuperarContrasena.tokenInvalido') }}
+                    <p>
+                      <a routerLink="/recuperar-contrasena">{{
+                        t('recuperarContrasena.pedirOtro')
+                      }}</a>
+                    </p>
+                  </app-alert>
+                }
+                @case ('exito') {
+                  <app-alert tone="exito" [title]="t('recuperarContrasena.exitoNuevaTitulo')">
+                    {{ t('recuperarContrasena.exitoNuevaDetalle') }}
+                    <p>
+                      <a routerLink="/admin/login">{{ t('registro.yaTengoCuenta') }}</a>
+                    </p>
+                  </app-alert>
+                }
+                @case ('formulario') {
+                  <form (submit)="enviar($event)" novalidate>
+                    <app-input
+                      [label]="t('recuperarContrasena.nueva')"
+                      type="password"
+                      autocomplete="new-password"
+                      [required]="true"
+                      [(value)]="password"
+                    />
+                    <app-password-strength [password]="password()" />
+                    @if (error(); as mensaje) {
+                      <app-alert tone="error">{{ mensaje }}</app-alert>
+                    }
+                    <app-button type="submit" [loading]="enviando()">
+                      {{
+                        enviando()
+                          ? t('recuperarContrasena.guardando')
+                          : t('recuperarContrasena.guardar')
+                      }}
+                    </app-button>
+                  </form>
+                }
               }
-              @case ('exito') {
-                <app-alert tone="exito" [title]="t('recuperarContrasena.exitoNuevaTitulo')">
-                  {{ t('recuperarContrasena.exitoNuevaDetalle') }}
-                  <p>
-                    <a routerLink="/admin/login">{{ t('registro.yaTengoCuenta') }}</a>
-                  </p>
-                </app-alert>
-              }
-              @case ('formulario') {
-                <form (submit)="enviar($event)" novalidate>
-                  <app-input
-                    [label]="t('recuperarContrasena.nueva')"
-                    type="password"
-                    autocomplete="new-password"
-                    [required]="true"
-                    [(value)]="password"
-                  />
-                  <app-password-strength [password]="password()" />
-                  @if (error(); as mensaje) {
-                    <app-alert tone="error">{{ mensaje }}</app-alert>
-                  }
-                  <app-button type="submit" [loading]="enviando()">
-                    {{
-                      enviando()
-                        ? t('recuperarContrasena.guardando')
-                        : t('recuperarContrasena.guardar')
-                    }}
-                  </app-button>
-                </form>
-              }
-            }
-          </div>
-        </app-card>
+            </div>
+          </app-card>
+        </div>
       </app-auth-frame>
     </ng-container>
   `,
   styles: `
-    app-card {
+    .envoltura {
       width: min(26rem, 100%);
     }
     form {

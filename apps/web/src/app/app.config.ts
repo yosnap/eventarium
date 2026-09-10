@@ -10,7 +10,7 @@ import { registerLocaleData } from '@angular/common';
 import localeEs from '@angular/common/locales/es';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
-import { provideRouter, withComponentInputBinding } from '@angular/router';
+import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from '@angular/router';
 import { provideServiceWorker } from '@angular/service-worker';
 import { provideTransloco } from '@jsverse/transloco';
 
@@ -33,7 +33,14 @@ export const appConfig: ApplicationConfig = {
     { provide: LOCALE_ID, useValue: 'es-ES' },
     provideBrowserGlobalErrorListeners(),
     provideZonelessChangeDetection(),
-    provideRouter(routes, withComponentInputBinding()),
+    // Sin esto, un `routerLink` con `fragment` (p. ej. la miga de pan
+    // "Programa" enlazando a `#agenda-h2`) cambia la URL pero no hace scroll:
+    // Angular no activa el desplazamiento a anclas por defecto.
+    provideRouter(
+      routes,
+      withComponentInputBinding(),
+      withInMemoryScrolling({ anchorScrolling: 'enabled', scrollPositionRestoration: 'enabled' }),
+    ),
     provideClientHydration(withEventReplay()),
     // `withFetch` es necesario para que las peticiones funcionen igual en SSR.
     provideHttpClient(withFetch(), withInterceptors([errorInterceptor, authInterceptor])),

@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, ViewportScroller } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
@@ -7,12 +7,13 @@ import {
   PendingTasks,
   TransferState,
   computed,
+  effect,
   inject,
   input,
   makeStateKey,
   signal,
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
@@ -20,7 +21,9 @@ import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { SeoMetaService } from '../../../core/seo/meta.service';
 import { NotFoundStatusService } from '../../../core/ssr/not-found-status.service';
+import { formatearPrecio } from '../../../shared/text/formatear-precio';
 import { Alert } from '../../../shared/ui/alert';
+import { Breadcrumb, type BreadcrumbItem } from '../../../shared/ui/breadcrumb';
 import { Chip, type ChipTone } from '../../../shared/ui/chip';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 import { VenueMap } from '../../../shared/ui/venue-map';
@@ -77,6 +80,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
     RouterLink,
     TranslocoDirective,
     Alert,
+    Breadcrumb,
     Chip,
     VenueMap,
     Reveal,
@@ -95,7 +99,10 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
         <article>
           <section class="hero">
             <div class="ancho-maximo">
-              <a class="volver" routerLink="/eventos">{{ t('publico.eventos.todosLosEventos') }}</a>
+              <app-breadcrumb
+                [items]="migasDePan(evento)"
+                [ariaLabel]="t('publico.eventos.ruta')"
+              />
             </div>
             <div class="ancho-maximo hero__grid">
               <div>
@@ -108,15 +115,6 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                     }
                   </span>
                   <app-chip [tone]="registro().tono">{{ t(registro().clave) }}</app-chip>
-                  <app-chip [tone]="entradaGratuita() ? 'ok' : 'neutro'">
-                    {{
-                      t(
-                        entradaGratuita()
-                          ? 'publico.eventos.registro.gratuitaCorta'
-                          : 'publico.eventos.registro.pagoCorto'
-                      )
-                    }}
-                  </app-chip>
                 </div>
                 @if (evento.cover_url) {
                   <img class="portada" [src]="evento.cover_url" [alt]="evento.title" />
@@ -161,6 +159,22 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                     <span class="ficha__etiqueta">{{ t('publico.eventos.ficha.idioma') }}</span>
                     <span class="pendiente">{{ t('publico.eventos.datoPendiente') }}</span>
                   </div>
+                  @if (!entradaGratuita()) {
+                    <div class="ficha__fila">
+                      <span class="ficha__etiqueta">{{ t('publico.eventos.ficha.precio') }}</span>
+                      @if (precioDesde(); as precio) {
+                        <span class="ficha__precio">
+                          {{
+                            evento.price_multiple
+                              ? t('publico.eventos.precio.desde', { precio })
+                              : precio
+                          }}
+                        </span>
+                      } @else {
+                        <span>{{ t('publico.eventos.registro.pagoCorto') }}</span>
+                      }
+                    </div>
+                  }
                 </div>
                 <div class="ficha__cta">
                   @if (evento.capacity !== null) {
@@ -247,7 +261,9 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
             <section class="seccion" aria-labelledby="patrocinadores-h2">
               <div class="ancho-maximo" appReveal>
                 <div class="seccion__cabecera">
-                  <span class="rotulo-seccion">{{ t('publico.eventos.patrocinadores.titulo') }}</span>
+                  <span class="rotulo-seccion">{{
+                    t('publico.eventos.patrocinadores.titulo')
+                  }}</span>
                   <h2 id="patrocinadores-h2">
                     {{ t('publico.eventos.patrocinadores.tituloExtendido') }}
                   </h2>
@@ -267,23 +283,20 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                     <ul class="tier__logos" [class]="'tamano-' + nivel.logo_size">
                       @for (patrocinador of nivel.sponsors; track $index + patrocinador.name) {
                         <li>
-                          @if (patrocinador.website) {
-                            <a
-                              [href]="patrocinador.website"
-                              rel="noopener noreferrer"
-                              target="_blank"
-                            >
-                              @if (patrocinador.logo_url) {
-                                <img [src]="patrocinador.logo_url" [alt]="patrocinador.name" />
-                              } @else {
-                                {{ patrocinador.name }}
-                              }
-                            </a>
-                          } @else if (patrocinador.logo_url) {
-                            <img [src]="patrocinador.logo_url" [alt]="patrocinador.name" />
-                          } @else {
-                            <span>{{ patrocinador.name }}</span>
-                          }
+                          <a
+                            [routerLink]="[
+                              '/eventos',
+                              evento.slug,
+                              'patrocinadores',
+                              patrocinador.id,
+                            ]"
+                          >
+                            @if (patrocinador.logo_url) {
+                              <img [src]="patrocinador.logo_url" [alt]="patrocinador.name" />
+                            } @else {
+                              {{ patrocinador.name }}
+                            }
+                          </a>
                         </li>
                       }
                     </ul>
@@ -315,7 +328,11 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                     <app-venue-map
                       class="lugar__mapa"
                       [marcadores]="[
-                        { lat: evento.latitude, lng: evento.longitude, label: evento.location_name },
+                        {
+                          lat: evento.latitude,
+                          lng: evento.longitude,
+                          label: evento.location_name,
+                        },
                       ]"
                       [ariaLabel]="
                         t('publico.eventos.lugar.mapaAria', {
@@ -326,7 +343,9 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                   } @else {
                     <!-- Sin geocodificar (sin dirección, evento online, o falló):
                          no se inventa un mapa ni un esquema con datos de ejemplo. -->
-                    <p class="hint pendiente lugar__mapa">{{ t('publico.eventos.datoPendiente') }}</p>
+                    <p class="hint pendiente lugar__mapa">
+                      {{ t('publico.eventos.datoPendiente') }}
+                    </p>
                   }
                 </div>
                 <div>
@@ -348,17 +367,9 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
       padding: var(--sp-8) 0 var(--sp-7);
       border-bottom: 1px solid var(--border);
     }
-    .volver {
-      display: inline-flex;
-      font-family: var(--font-mono);
-      font-size: var(--fs-label);
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
+    .hero app-breadcrumb {
+      display: block;
       margin-bottom: var(--sp-5);
-    }
-    .volver:hover {
-      color: var(--fg);
     }
     .hero__grid {
       display: grid;
@@ -411,6 +422,14 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
     }
     .ficha__etiqueta {
       color: var(--muted);
+    }
+    /* Único valor de la ficha con refuerzo visual propio: es el dato que más
+       empuja a la persona a inscribirse, así que se destaca en verde y con
+       más peso que el resto de filas (texto plano en gris). */
+    .ficha__precio {
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 1.25rem;
     }
     .ficha__cta {
       padding: var(--sp-5);
@@ -571,10 +590,33 @@ export class EventPage implements OnInit {
   private readonly seo = inject(SeoMetaService);
   private readonly notFound = inject(NotFoundStatusService);
   private readonly transloco = inject(TranslocoService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly viewportScroller = inject(ViewportScroller);
 
   protected readonly evento = signal<PublicEventDetail | null>(null);
   protected readonly cargando = signal(true);
   protected readonly noEncontrado = signal(false);
+
+  /** Desplaza al ancla de la URL (p. ej. `#agenda-h2` desde la miga de pan
+   * "Programa" de `session-page.ts`/`sponsor-page.ts`) una vez el evento ya
+   * está pintado. El `anchorScrolling` del router por sí solo no basta: el
+   * contenido llega en una petición HTTP aparte (`cargar()`), así que en la
+   * navegación el elemento del ancla todavía no existe en el DOM cuando el
+   * router intenta desplazarse — mismo motivo por el que `legal-page.ts` usa
+   * un `effect()` en vez de un `afterNextRender` de una sola vez. */
+  private readonly _scrollAlAncla = effect(() => {
+    if (!this.evento() || this.api.isServer) {
+      return;
+    }
+    const fragmento = this.route.snapshot.fragment;
+    if (fragmento) {
+      // La cabecera es `position: sticky` (64px, `public-shell.ts`): sin este
+      // desplazamiento, `scrollToAnchor` deja el título de la sección tapado
+      // debajo de ella en vez de justo por debajo.
+      this.viewportScroller.setOffset([0, 116]);
+      queueMicrotask(() => this.viewportScroller.scrollToAnchor(fragmento));
+    }
+  });
 
   protected readonly dias = computed<DiaDeAgenda[]>(() => {
     const evento = this.evento();
@@ -612,6 +654,16 @@ export class EventPage implements OnInit {
     return [...vistos.values()];
   });
 
+  protected migasDePan(evento: PublicEventDetail): BreadcrumbItem[] {
+    return [
+      {
+        label: this.transloco.translate('publico.eventos.listadoTitulo'),
+        routerLink: ['/eventos'],
+      },
+      { label: evento.title },
+    ];
+  }
+
   protected readonly formato = computed(() => {
     const modo = this.evento()?.location_mode ?? 'in_person';
     return { clave: CLAVES_FORMATO[modo] };
@@ -622,11 +674,21 @@ export class EventPage implements OnInit {
     return CLAVES_REGISTRO[modo];
   });
 
-  /** El chip de precio solo distingue gratis de pago: la ficha no expone los
-   * tipos de entrada, así que no se muestra ningún importe. */
   protected readonly entradaGratuita = computed(
     () => (this.evento()?.registration_mode ?? 'free') === 'free',
   );
+
+  /** «Desde X €» con el tipo de entrada vigente más barato
+   * (`price_from_cents`/`price_currency`). `null` si el evento es gratis o,
+   * siendo de pago, no tiene ningún tipo vigente ahora mismo — el chip cae
+   * entonces a la etiqueta genérica «Entrada de pago». */
+  protected readonly precioDesde = computed(() => {
+    const evento = this.evento();
+    if (!evento || evento.price_from_cents === null || evento.price_currency === null) {
+      return null;
+    }
+    return formatearPrecio(evento.price_from_cents, evento.price_currency);
+  });
 
   /** Ocupación del aforo en porcentaje entero, acotada a 100: `reserved_count`
    * puede superar `capacity` (sobreventa o aforo ampliado a la baja). */

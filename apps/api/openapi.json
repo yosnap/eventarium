@@ -2833,6 +2833,58 @@
         }
       }
     },
+    "/api/v1/public/events/{slug}/sponsors/{sponsor_id}": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Ver la ficha pública de un patrocinador",
+        "description": "Anidado bajo el evento, mismo criterio que la sesión: exige `published` + `public` además de que el patrocinador pertenezca a este evento. Nunca lleva el importe de la aportación (ver `PublicSponsor`).",
+        "operationId": "get_public_sponsor_api_v1_public_events__slug__sponsors__sponsor_id__get",
+        "parameters": [
+          {
+            "name": "sponsor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sponsor Id"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSponsorDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/public/events/{slug}/sessions/{session_id}": {
       "get": {
         "tags": [
@@ -6744,6 +6796,18 @@
             "title": "Registration Mode",
             "default": "free"
           },
+          "registration_opens_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registration Opens At"
+          },
           "email_verification_required": {
             "type": "boolean",
             "title": "Email Verification Required",
@@ -6992,6 +7056,18 @@
             ],
             "title": "Registration Mode"
           },
+          "registration_opens_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registration Opens At"
+          },
           "email_verification_required": {
             "type": "boolean",
             "title": "Email Verification Required"
@@ -7043,6 +7119,7 @@
           "online_url",
           "capacity",
           "registration_mode",
+          "registration_opens_at",
           "email_verification_required",
           "payment_checkout_window_minutes",
           "latitude",
@@ -7641,6 +7718,18 @@
               }
             ],
             "title": "Registration Mode"
+          },
+          "registration_opens_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registration Opens At"
           },
           "email_verification_required": {
             "anyOf": [
@@ -9088,9 +9177,47 @@
             ],
             "title": "Registration Mode"
           },
+          "registration_opens_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registration Opens At"
+          },
           "reserved_count": {
             "type": "integer",
             "title": "Reserved Count"
+          },
+          "price_from_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price From Cents"
+          },
+          "price_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Currency"
+          },
+          "price_multiple": {
+            "type": "boolean",
+            "title": "Price Multiple"
           },
           "latitude": {
             "anyOf": [
@@ -9152,7 +9279,11 @@
           "online_url",
           "capacity",
           "registration_mode",
+          "registration_opens_at",
           "reserved_count",
+          "price_from_cents",
+          "price_currency",
+          "price_multiple",
           "latitude",
           "longitude",
           "sessions"
@@ -9371,6 +9502,18 @@
             ],
             "title": "Registration Mode"
           },
+          "registration_opens_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registration Opens At"
+          },
           "capacity": {
             "anyOf": [
               {
@@ -9385,6 +9528,32 @@
           "reserved_count": {
             "type": "integer",
             "title": "Reserved Count"
+          },
+          "price_from_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price From Cents"
+          },
+          "price_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Currency"
+          },
+          "price_multiple": {
+            "type": "boolean",
+            "title": "Price Multiple"
           }
         },
         "type": "object",
@@ -9400,8 +9569,12 @@
           "location_name",
           "city",
           "registration_mode",
+          "registration_opens_at",
           "capacity",
-          "reserved_count"
+          "reserved_count",
+          "price_from_cents",
+          "price_currency",
+          "price_multiple"
         ],
         "title": "PublicEventSummary",
         "description": "Evento tal y como aparece en el listado público.\n\n`reserved_count` es el número de plazas realmente reservadas: `confirmed` +\n`pending_payment` dentro de su ventana de pago + promociones de lista de\nespera dentro de su ventana de confirmación — misma regla que\n`registrations.repository.count_reserved_registrations`. Nunca se expone el\ndetalle de qué estado concreto ocupa cada plaza, solo el agregado."
@@ -9749,6 +9922,10 @@
       },
       "PublicSponsor": {
         "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
           "name": {
             "type": "string",
             "title": "Name"
@@ -9774,16 +9951,167 @@
               }
             ],
             "title": "Website"
+          },
+          "contribution_type": {
+            "type": "string",
+            "enum": [
+              "monetaria",
+              "en_especie"
+            ],
+            "title": "Contribution Type"
+          },
+          "contribution_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contribution Description"
           }
         },
         "type": "object",
         "required": [
+          "id",
           "name",
           "logo_url",
-          "website"
+          "website",
+          "contribution_type",
+          "contribution_description"
         ],
         "title": "PublicSponsor",
-        "description": "Patrocinador tal y como se muestra en la página pública del evento.\n\nNunca lleva la aportación (ni importe ni descripción): el PRD no pide hacer\npública la valoración económica de nadie, solo el logo/nombre/web agrupados\npor nivel (ver Fase 2 de trabajo del plan, Requirements)."
+        "description": "Patrocinador tal y como se muestra en la página pública del evento.\n\nNunca lleva el importe de la aportación: el PRD no pide hacer pública la\nvaloración económica de nadie (ver Fase 2 de trabajo del plan,\nRequirements). `contribution_description` sí se expone cuando la\naportación es en especie — describe *qué* aporta, no cuánto vale."
+      },
+      "PublicSponsorDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "logo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Url"
+          },
+          "website": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Website"
+          },
+          "contribution_type": {
+            "type": "string",
+            "enum": [
+              "monetaria",
+              "en_especie"
+            ],
+            "title": "Contribution Type"
+          },
+          "contribution_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contribution Description"
+          },
+          "tier_name": {
+            "type": "string",
+            "title": "Tier Name"
+          },
+          "tier_benefits": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tier Benefits"
+          },
+          "event_slug": {
+            "type": "string",
+            "title": "Event Slug"
+          },
+          "event_title": {
+            "type": "string",
+            "title": "Event Title"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/PublicSponsorHistoryItem"
+            },
+            "type": "array",
+            "title": "History"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "logo_url",
+          "website",
+          "contribution_type",
+          "contribution_description",
+          "tier_name",
+          "tier_benefits",
+          "event_slug",
+          "event_title",
+          "history"
+        ],
+        "title": "PublicSponsorDetail",
+        "description": "Ficha pública de un patrocinador concreto."
+      },
+      "PublicSponsorHistoryItem": {
+        "properties": {
+          "event_slug": {
+            "type": "string",
+            "title": "Event Slug"
+          },
+          "event_title": {
+            "type": "string",
+            "title": "Event Title"
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Starts At"
+          },
+          "tier_name": {
+            "type": "string",
+            "title": "Tier Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_slug",
+          "event_title",
+          "starts_at",
+          "tier_name"
+        ],
+        "title": "PublicSponsorHistoryItem",
+        "description": "Otra edición en la que este mismo patrocinador (mismo nombre, misma\norganización) ha aparecido — derivado de los patrocinadores reales de\notros eventos publicados, nunca de un importe inventado."
       },
       "PublicSponsorTier": {
         "properties": {

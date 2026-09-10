@@ -6,6 +6,8 @@ import { RegistrationsService } from '../../../core/registrations/registrations.
 import { AuthFrame } from '../../../layouts/public/auth-frame';
 import { Alert } from '../../../shared/ui/alert';
 import { Card } from '../../../shared/ui/card';
+import { Chip } from '../../../shared/ui/chip';
+import { Reveal } from '../../../shared/ui/reveal.directive';
 
 type Estado = 'comprobando' | 'con-qr' | 'sin-qr' | 'error';
 
@@ -23,46 +25,74 @@ const CLAVE_POR_ESTADO: Record<string, string> = {
  * de una entrada reutilizando el token de autocancelación — nunca genera uno
  * nuevo (`RegistrationsService.getMyTicket` hace un `GET`, no lo consume).
  * Mismo patrón que `verify-registration-page`/`cancel-registration-page`.
+ *
+ * El maquetado del estado `con-qr` sigue la tarjeta `.ticket` de la
+ * referencia (`inscripcion.html:148-161`): rótulo + nombre arriba, QR grande
+ * en el centro, chip de validez abajo. `MyTicketInfo` no trae fecha, lugar ni
+ * código de entrada — solo `status`/`full_name`/`has_qr` —, así que esos
+ * campos del prototipo no se replican aquí: mostrar un dato inventado sería
+ * peor que no mostrarlo.
  */
 @Component({
   selector: 'app-my-ticket-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, AuthFrame, Alert, Card],
+  imports: [TranslocoDirective, AuthFrame, Alert, Card, Chip, Reveal],
   template: `
     <ng-container *transloco="let t">
       <app-auth-frame [titulo]="t('miEntrada.titulo')">
-        <app-card [heading]="t('miEntrada.titulo')">
-          <div aria-live="polite">
-            @switch (estado()) {
-              @case ('comprobando') {
-                <app-alert tone="info">{{ t('miEntrada.comprobando') }}</app-alert>
+        <div class="envoltura" appReveal>
+          <app-card [heading]="t('miEntrada.titulo')">
+            <div aria-live="polite">
+              @switch (estado()) {
+                @case ('comprobando') {
+                  <app-alert tone="info">{{ t('miEntrada.comprobando') }}</app-alert>
+                }
+                @case ('con-qr') {
+                  <div class="ticket">
+                    <div class="ticket__top">
+                      <span class="rotulo-seccion">{{ t('miEntrada.titulo') }}</span>
+                      <p class="ticket__nombre">{{ t('miEntrada.saludo', { nombre: nombre() }) }}</p>
+                    </div>
+                    <div class="marco-qr">
+                      <img [src]="qrUrl()" [alt]="t('miEntrada.qrAlt')" width="220" height="220" />
+                    </div>
+                    <div class="ticket__pie">
+                      <app-chip tone="ok">{{ t('miEntrada.chipValida') }}</app-chip>
+                    </div>
+                  </div>
+                }
+                @case ('sin-qr') {
+                  <app-alert tone="info" [title]="t('miEntrada.estado.' + claveEstado())">
+                    {{ t('miEntrada.sinQrDetalle') }}
+                  </app-alert>
+                }
+                @case ('error') {
+                  <app-alert tone="error" [title]="t('miEntrada.errorTitulo')">
+                    {{ t('miEntrada.errorDetalle') }}
+                  </app-alert>
+                }
               }
-              @case ('con-qr') {
-                <p>{{ t('miEntrada.saludo', { nombre: nombre() }) }}</p>
-                <div class="marco-qr">
-                  <img [src]="qrUrl()" [alt]="t('miEntrada.qrAlt')" width="240" height="240" />
-                </div>
-              }
-              @case ('sin-qr') {
-                <app-alert tone="info" [title]="t('miEntrada.estado.' + claveEstado())">
-                  {{ t('miEntrada.sinQrDetalle') }}
-                </app-alert>
-              }
-              @case ('error') {
-                <app-alert tone="error" [title]="t('miEntrada.errorTitulo')">
-                  {{ t('miEntrada.errorDetalle') }}
-                </app-alert>
-              }
-            }
-          </div>
-        </app-card>
+            </div>
+          </app-card>
+        </div>
       </app-auth-frame>
     </ng-container>
   `,
   styles: `
-    app-card {
+    .envoltura {
       width: min(26rem, 100%);
       text-align: center;
+    }
+    .ticket {
+      display: grid;
+      gap: var(--space-md);
+    }
+    .ticket__top {
+      padding-bottom: var(--space-md);
+      border-bottom: 1px dashed var(--border-strong);
+    }
+    .ticket__nombre {
+      margin: 0.5rem 0 0;
     }
     /* El QR se lee con la cámara del móvil, no con la pantalla en el modo de
        color que tenga la persona: fondo claro fijo en los dos temas, no
@@ -77,6 +107,10 @@ const CLAVE_POR_ESTADO: Record<string, string> = {
     img {
       display: block;
       margin: 0 auto;
+    }
+    .ticket__pie {
+      display: flex;
+      justify-content: center;
     }
   `,
 })

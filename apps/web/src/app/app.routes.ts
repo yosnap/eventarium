@@ -241,6 +241,11 @@ export const routes: Routes = [
           import('./features/public/events/event-venues-page').then((m) => m.EventVenuesPage),
       },
       {
+        path: 'eventos/:slug/patrocinadores/:sponsorId',
+        loadComponent: () =>
+          import('./features/public/events/sponsor-page').then((m) => m.SponsorPage),
+      },
+      {
         path: 'eventos/:slug/inscribirse',
         loadComponent: () =>
           import('./features/public/events/registration-page').then((m) => m.RegistrationPage),

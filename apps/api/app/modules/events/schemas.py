@@ -79,6 +79,10 @@ class EventCreate(BaseModel):
     online_url: Annotated[str, Field(max_length=500)] | None = None
     capacity: Annotated[int, Field(ge=1)] | None = None
     registration_mode: RegistrationMode = "free"
+    # `None` (por defecto): la inscripción ya está abierta. Con fecha, el
+    # listado y la ficha públicos muestran el evento como «próximamente»
+    # mientras no se alcance.
+    registration_opens_at: datetime | None = None
     email_verification_required: bool = True
     # Ventana de pago (fase 6 del PRD): minutos que tiene un comprador para
     # pagar antes de que su plaza reservada caduque. Rango igual al `CHECK` de
@@ -109,6 +113,7 @@ class EventUpdate(BaseModel):
     online_url: Annotated[str, Field(max_length=500)] | None = None
     capacity: Annotated[int, Field(ge=1)] | None = None
     registration_mode: RegistrationMode | None = None
+    registration_opens_at: datetime | None = None
     email_verification_required: bool | None = None
     payment_checkout_window_minutes: Annotated[int, Field(ge=30, le=1439)] | None = None
 
@@ -140,6 +145,7 @@ class EventResponse(BaseModel):
     online_url: str | None
     capacity: int | None
     registration_mode: RegistrationMode
+    registration_opens_at: datetime | None
     email_verification_required: bool
     payment_checkout_window_minutes: int
     # Resultado de geocodificar `location_address` (Nominatim); nunca los rellena
@@ -334,8 +340,21 @@ class PublicEventSummary(BaseModel):
     location_name: str | None
     city: str | None
     registration_mode: RegistrationMode
+    # `None`: la inscripción ya está abierta. Con fecha futura, el listado
+    # muestra «próximamente» en vez de «abierto» (ver `Event.registration_opens_at`).
+    registration_opens_at: datetime | None
     capacity: int | None
     reserved_count: int
+    # Precio «desde» del tipo de entrada vigente más barato (`EventTicketType`,
+    # módulo `payments`), solo con `registration_mode == "paid"`. `None` si el
+    # evento es gratis o, siendo de pago, no tiene ningún tipo vigente ahora
+    # mismo — nunca un precio inventado.
+    price_from_cents: int | None
+    price_currency: str | None
+    # `True` solo si entre los tipos vigentes hay más de un precio *distinto*
+    # (el front antepone «Desde»); con un único precio —un solo tipo o varios
+    # al mismo importe— este campo va en `False` y se muestra el importe solo.
+    price_multiple: bool
 
 
 class PublicEventSession(BaseModel):
@@ -394,10 +413,15 @@ class PublicEventDetail(BaseModel):
     online_url: str | None
     capacity: int | None
     registration_mode: RegistrationMode
+    registration_opens_at: datetime | None
     # Plazas realmente reservadas, misma regla que `PublicEventSummary.reserved_count`
     # (`registrations.repository.count_reserved_registrations`): permite a la ficha
     # pintar la ocupación, no solo el aforo total.
     reserved_count: int
+    # Mismo criterio que `PublicEventSummary.price_from_cents`/`price_multiple`.
+    price_from_cents: int | None
+    price_currency: str | None
+    price_multiple: bool
     # Geocodificación de `location_address`, para el mapa del evento de una
     # sola sede. `None` si no hay dirección, el evento es `online` o falló.
     latitude: float | None

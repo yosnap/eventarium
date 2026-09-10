@@ -303,8 +303,84 @@ async def test_bloque_publico_agrupa_por_nivel_muestra_el_logo_y_oculta_aportaci
     primer_patrocinador = cuerpo["sponsor_tiers"][0]["sponsors"][0]
     assert primer_patrocinador["name"] == "Patrocinador monetario"
     assert primer_patrocinador["logo_url"]
+    assert primer_patrocinador["contribution_type"] == "monetaria"
     assert "contribution_amount" not in primer_patrocinador
-    assert "contribution_description" not in cuerpo["sponsor_tiers"][1]["sponsors"][0]
+    # La descripción de una aportación en especie sí es pública: describe qué
+    # se aporta, no cuánto vale (a diferencia del importe monetario, que
+    # nunca se expone).
+    segundo_patrocinador = cuerpo["sponsor_tiers"][1]["sponsors"][0]
+    assert segundo_patrocinador["contribution_type"] == "en_especie"
+    assert segundo_patrocinador["contribution_description"] == "Cesión de espacio"
+
+
+async def test_ficha_publica_de_patrocinador_incluye_nivel_e_historial_por_nombre(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    oro = await _crear_tier(cliente, cabeceras, "Oro", 1)
+    plata = await _crear_tier(cliente, cabeceras, "Plata", 2)
+
+    evento_anterior = await _crear_evento(cliente, cabeceras, "ficha-patrocinador-2025")
+    await _publicar(cliente, cabeceras, evento_anterior["id"])
+    await cliente.post(
+        f"{EVENTS}/{evento_anterior['id']}/sponsors",
+        headers=cabeceras,
+        json={"tier_id": plata["id"], "name": "Empresa Repetida", "contribution_type": "en_especie",
+              "contribution_description": "Catering"},
+    )
+
+    evento_actual = await _crear_evento(cliente, cabeceras, "ficha-patrocinador-2026")
+    await _publicar(cliente, cabeceras, evento_actual["id"])
+    patrocinador = (
+        await cliente.post(
+            f"{EVENTS}/{evento_actual['id']}/sponsors",
+            headers=cabeceras,
+            json={
+                "tier_id": oro["id"],
+                "name": "Empresa Repetida",
+                "website": "https://example.com",
+                "contribution_type": "monetaria",
+                "contribution_amount": "1000.00",
+            },
+        )
+    ).json()
+
+    respuesta = await cliente.get(
+        f"{PUBLIC_EVENTS}/{evento_actual['slug']}/sponsors/{patrocinador['id']}",
+        headers={"Host": organizacion.host},
+    )
+    assert respuesta.status_code == 200, respuesta.text
+    cuerpo = respuesta.json()
+    assert cuerpo["name"] == "Empresa Repetida"
+    assert cuerpo["tier_name"] == "Oro"
+    assert cuerpo["contribution_type"] == "monetaria"
+    assert "contribution_amount" not in cuerpo
+    assert cuerpo["event_slug"] == "ficha-patrocinador-2026"
+    assert len(cuerpo["history"]) == 1
+    assert cuerpo["history"][0]["event_slug"] == "ficha-patrocinador-2025"
+    assert cuerpo["history"][0]["tier_name"] == "Plata"
+
+
+async def test_ficha_publica_de_patrocinador_404_si_el_evento_no_es_publico(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    nivel = await _crear_tier(cliente, cabeceras, "Oro", 1)
+    evento = await _crear_evento(cliente, cabeceras, "ficha-patrocinador-borrador")
+    patrocinador = (
+        await cliente.post(
+            f"{EVENTS}/{evento['id']}/sponsors",
+            headers=cabeceras,
+            json={"tier_id": nivel["id"], "name": "Sin publicar", "contribution_type": "en_especie",
+                  "contribution_description": "Material"},
+        )
+    ).json()
+
+    respuesta = await cliente.get(
+        f"{PUBLIC_EVENTS}/{evento['slug']}/sponsors/{patrocinador['id']}",
+        headers={"Host": organizacion.host},
+    )
+    assert respuesta.status_code == 404
 
 
 async def test_evento_en_borrador_no_expone_su_bloque_de_patrocinadores(

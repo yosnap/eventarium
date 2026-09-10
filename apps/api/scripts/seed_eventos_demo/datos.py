@@ -785,6 +785,32 @@ EVENTOS: list[dict[str, Any]] = [
         ],
     },
     {
+        "slug": "demo-proximamente",
+        "title": "Evento con inscripción próxima a abrir",
+        "summary": (
+            "La inscripción todavía no está abierta: el listado debe mostrarlo "
+            "como próximamente, no como abierto."
+        ),
+        "starts_at": datetime(2027, 11, 20, 10, 0, tzinfo=UTC),
+        "ends_at": datetime(2027, 11, 20, 13, 0, tzinfo=UTC),
+        "location_mode": "in_person",
+        "location_name": "Espacio Fundación Telefónica",
+        "location_address": "Calle Fuencarral, 3, 28004 Madrid",
+        "city": "Madrid",
+        "registration_mode": "free",
+        "registration_opens_at": datetime(2027, 10, 1, 9, 0, tzinfo=UTC),
+        "portada": False,
+        "sedes": [],
+        "sesiones": [
+            {
+                "session_type": "talk",
+                "title": "Charla pendiente de apertura de inscripción",
+                "starts_offset": (0, 10, 30, 1, 0),
+                "ponentes": [("marc.oliver.demo@example.test", "speaker")],
+            }
+        ],
+    },
+    {
         "slug": "demo-oculto",
         "title": "Evento oculto (no debe aparecer en público)",
         "summary": (

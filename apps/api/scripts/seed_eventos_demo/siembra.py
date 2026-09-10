@@ -162,6 +162,11 @@ async def _get_or_create_evento(
             "online_url": spec.get("online_url"),
             "capacity": spec.get("capacity"),
             "registration_mode": spec["registration_mode"],
+            "registration_opens_at": (
+                _local_a_utc(spec["registration_opens_at"], zona)
+                if spec.get("registration_opens_at")
+                else None
+            ),
             "email_verification_required": False,
         },
     )

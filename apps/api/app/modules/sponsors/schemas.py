@@ -9,6 +9,7 @@ parcial, donde el esquema por sí solo no conoce los valores ya guardados.
 
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
@@ -148,13 +149,17 @@ class SponsorResponse(BaseModel):
 class PublicSponsor(BaseModel):
     """Patrocinador tal y como se muestra en la página pública del evento.
 
-    Nunca lleva la aportación (ni importe ni descripción): el PRD no pide hacer
-    pública la valoración económica de nadie, solo el logo/nombre/web agrupados
-    por nivel (ver Fase 2 de trabajo del plan, Requirements)."""
+    Nunca lleva el importe de la aportación: el PRD no pide hacer pública la
+    valoración económica de nadie (ver Fase 2 de trabajo del plan,
+    Requirements). `contribution_description` sí se expone cuando la
+    aportación es en especie — describe *qué* aporta, no cuánto vale."""
 
+    id: str
     name: str
     logo_url: str | None
     website: str | None
+    contribution_type: ContributionType
+    contribution_description: str | None
 
 
 class PublicSponsorTier(BaseModel):
@@ -163,3 +168,30 @@ class PublicSponsorTier(BaseModel):
     name: str
     logo_size: LogoSize
     sponsors: list[PublicSponsor]
+
+
+class PublicSponsorHistoryItem(BaseModel):
+    """Otra edición en la que este mismo patrocinador (mismo nombre, misma
+    organización) ha aparecido — derivado de los patrocinadores reales de
+    otros eventos publicados, nunca de un importe inventado."""
+
+    event_slug: str
+    event_title: str
+    starts_at: datetime
+    tier_name: str
+
+
+class PublicSponsorDetail(BaseModel):
+    """Ficha pública de un patrocinador concreto."""
+
+    id: str
+    name: str
+    logo_url: str | None
+    website: str | None
+    contribution_type: ContributionType
+    contribution_description: str | None
+    tier_name: str
+    tier_benefits: str | None
+    event_slug: str
+    event_title: str
+    history: list[PublicSponsorHistoryItem]

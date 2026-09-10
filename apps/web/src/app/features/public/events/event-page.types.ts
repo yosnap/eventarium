@@ -33,9 +33,14 @@ export interface PublicEventSession {
 }
 
 export interface PublicSponsor {
+  readonly id: string;
   readonly name: string;
   readonly logo_url: string | null;
   readonly website: string | null;
+  readonly contribution_type: 'monetaria' | 'en_especie';
+  /** Solo con aportación en especie: describe qué se aporta, nunca cuánto
+   * vale — el importe monetario nunca se expone en público. */
+  readonly contribution_description: string | null;
 }
 
 export interface PublicSponsorTier {
@@ -69,6 +74,14 @@ export interface PublicEventDetail {
   readonly online_url: string | null;
   readonly capacity: number | null;
   readonly registration_mode: RegistrationMode;
+  /** Precio «desde» del tipo de entrada vigente más barato; `null` si el
+   * evento es gratis o, siendo de pago, no tiene ningún tipo vigente ahora
+   * mismo. */
+  readonly price_from_cents: number | null;
+  readonly price_currency: string | null;
+  /** `true` solo si entre los tipos vigentes hay más de un precio distinto
+   * — con un único precio se muestra el importe solo, sin «Desde». */
+  readonly price_multiple: boolean;
   /** Plazas realmente reservadas: con `capacity`, da la ocupación de la ficha. */
   readonly reserved_count: number;
   /** Geocodificación de `location_address`; `null` si no hay dirección o falló. */

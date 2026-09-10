@@ -8,6 +8,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
+import { Reveal } from '../../../shared/ui/reveal.directive';
 import { TurnstileWidget } from '../../../shared/ui/turnstile-widget';
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -40,73 +41,75 @@ function slugify(texto: string): string {
 @Component({
   selector: 'app-create-organization-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, AuthFrame, Alert, Button, Card, Input, TurnstileWidget],
+  imports: [TranslocoDirective, AuthFrame, Alert, Button, Card, Input, Reveal, TurnstileWidget],
   template: `
     <ng-container *transloco="let t">
       <app-auth-frame [titulo]="t('crearOrganizacion.titulo')">
-        <app-card [heading]="t('crearOrganizacion.titulo')">
-          @if (creada(); as organizacion) {
-            <app-alert tone="exito" [title]="t('crearOrganizacion.exitoTitulo')">
-              {{ t('crearOrganizacion.exitoDetalle') }}
-              <p>
-                <a [href]="urlPanel(organizacion.host)">{{ t('crearOrganizacion.irAlPanel') }}</a>
-              </p>
-            </app-alert>
-          } @else {
-            <form (submit)="enviar($event)" novalidate>
-              <app-input
-                [label]="t('crearOrganizacion.nombre')"
-                [required]="true"
-                [error]="errores().name"
-                [value]="name()"
-                (valueChange)="alEscribirNombre($event)"
-                (blurred)="validar('name')"
-              />
-              <app-input
-                [label]="t('crearOrganizacion.slug')"
-                [required]="true"
-                [error]="errores().slug"
-                [hint]="ayudaSlug(t)"
-                [value]="slug()"
-                (valueChange)="alEscribirSlug($event)"
-                (blurred)="validar('slug')"
-              />
-              <app-input
-                [label]="t('crearOrganizacion.nombrePersona')"
-                autocomplete="given-name"
-                [required]="true"
-                [error]="errores().firstName"
-                [(value)]="firstName"
-                (blurred)="validar('firstName')"
-              />
-              <app-input
-                [label]="t('crearOrganizacion.apellidos')"
-                autocomplete="family-name"
-                [required]="true"
-                [error]="errores().lastName"
-                [(value)]="lastName"
-                (blurred)="validar('lastName')"
-              />
+        <div class="envoltura" appReveal>
+          <app-card [heading]="t('crearOrganizacion.titulo')">
+            @if (creada(); as organizacion) {
+              <app-alert tone="exito" [title]="t('crearOrganizacion.exitoTitulo')">
+                {{ t('crearOrganizacion.exitoDetalle') }}
+                <p>
+                  <a [href]="urlPanel(organizacion.host)">{{ t('crearOrganizacion.irAlPanel') }}</a>
+                </p>
+              </app-alert>
+            } @else {
+              <form (submit)="enviar($event)" novalidate>
+                <app-input
+                  [label]="t('crearOrganizacion.nombre')"
+                  [required]="true"
+                  [error]="errores().name"
+                  [value]="name()"
+                  (valueChange)="alEscribirNombre($event)"
+                  (blurred)="validar('name')"
+                />
+                <app-input
+                  [label]="t('crearOrganizacion.slug')"
+                  [required]="true"
+                  [error]="errores().slug"
+                  [hint]="ayudaSlug(t)"
+                  [value]="slug()"
+                  (valueChange)="alEscribirSlug($event)"
+                  (blurred)="validar('slug')"
+                />
+                <app-input
+                  [label]="t('crearOrganizacion.nombrePersona')"
+                  autocomplete="given-name"
+                  [required]="true"
+                  [error]="errores().firstName"
+                  [(value)]="firstName"
+                  (blurred)="validar('firstName')"
+                />
+                <app-input
+                  [label]="t('crearOrganizacion.apellidos')"
+                  autocomplete="family-name"
+                  [required]="true"
+                  [error]="errores().lastName"
+                  [(value)]="lastName"
+                  (blurred)="validar('lastName')"
+                />
 
-              <app-turnstile-widget (resuelto)="turnstileToken.set($event)" />
+                <app-turnstile-widget (resuelto)="turnstileToken.set($event)" />
 
-              @if (error(); as mensaje) {
-                <app-alert tone="error" [title]="t('crearOrganizacion.error')">{{
-                  mensaje
-                }}</app-alert>
-              }
+                @if (error(); as mensaje) {
+                  <app-alert tone="error" [title]="t('crearOrganizacion.error')">{{
+                    mensaje
+                  }}</app-alert>
+                }
 
-              <app-button type="submit" [loading]="enviando()">
-                {{ enviando() ? t('crearOrganizacion.creando') : t('crearOrganizacion.crear') }}
-              </app-button>
-            </form>
-          }
-        </app-card>
+                <app-button type="submit" [loading]="enviando()">
+                  {{ enviando() ? t('crearOrganizacion.creando') : t('crearOrganizacion.crear') }}
+                </app-button>
+              </form>
+            }
+          </app-card>
+        </div>
       </app-auth-frame>
     </ng-container>
   `,
   styles: `
-    app-card {
+    .envoltura {
       width: min(28rem, 100%);
     }
     form {

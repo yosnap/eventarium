@@ -43,9 +43,15 @@ from app.modules.events.schemas import (
     PublicVenue,
 )
 from app.modules.organizations.models import OrganizationMember
+from app.modules.payments import service as payments_service
 from app.modules.registrations import repository as registrations_repository
 from app.modules.sponsors import repository as sponsors_repository
-from app.modules.sponsors.schemas import PublicSponsor, PublicSponsorTier
+from app.modules.sponsors.schemas import (
+    PublicSponsor,
+    PublicSponsorDetail,
+    PublicSponsorHistoryItem,
+    PublicSponsorTier,
+)
 from app.modules.users.models import User, UserSocialLink
 from app.modules.users.schemas import (
     PublicSpeakerHistoryItem,
@@ -166,6 +172,10 @@ async def list_public_events(
             repository.public_events_with_confirmed_count_query(organizacion.id)
         )
     ).all()
+    ids_de_pago = [evento.id for evento, _ in filas if evento.registration_mode == "paid"]
+    precios = await payments_service.get_min_public_prices(
+        session, organization_id=organizacion.id, event_ids=ids_de_pago
+    )
     return [
         PublicEventSummary(
             slug=evento.slug,
@@ -179,8 +189,12 @@ async def list_public_events(
             location_name=evento.location_name,
             city=evento.city,
             registration_mode=evento.registration_mode,  # type: ignore[arg-type]
+            registration_opens_at=evento.registration_opens_at,
             capacity=evento.capacity,
             reserved_count=reservadas,
+            price_from_cents=precios[evento.id].tipo.price_cents if evento.id in precios else None,
+            price_currency=precios[evento.id].tipo.currency if evento.id in precios else None,
+            price_multiple=precios[evento.id].varios_precios if evento.id in precios else False,
         )
         for evento, reservadas in filas
     ]
@@ -218,11 +232,14 @@ async def _sponsor_tiers_publicos(
             orden.append(nivel.id)
         grupos[nivel.id].sponsors.append(
             PublicSponsor(
+                id=str(patrocinador.id),
                 name=patrocinador.name,
                 logo_url=almacen.public_url(patrocinador.logo_object_key)
                 if patrocinador.logo_object_key
                 else None,
                 website=patrocinador.website,
+                contribution_type=patrocinador.contribution_type,
+                contribution_description=patrocinador.contribution_description,
             )
         )
     return [grupos[tier_id] for tier_id in orden]
@@ -245,6 +262,12 @@ async def get_public_event(
     reservadas = await registrations_repository.count_reserved_registrations(
         session, evento.organization_id, evento.id
     )
+    precio = None
+    if evento.registration_mode == "paid":
+        precios = await payments_service.get_min_public_prices(
+            session, organization_id=evento.organization_id, event_ids=[evento.id]
+        )
+        precio = precios.get(evento.id)
     return PublicEventDetail(
         slug=evento.slug,
         title=evento.title,
@@ -260,12 +283,84 @@ async def get_public_event(
         online_url=evento.online_url,
         capacity=evento.capacity,
         registration_mode=evento.registration_mode,  # type: ignore[arg-type]
+        registration_opens_at=evento.registration_opens_at,
         reserved_count=reservadas,
+        price_from_cents=precio.tipo.price_cents if precio else None,
+        price_currency=precio.tipo.currency if precio else None,
+        price_multiple=precio.varios_precios if precio else False,
         latitude=float(evento.latitude) if evento.latitude is not None else None,
         longitude=float(evento.longitude) if evento.longitude is not None else None,
         sessions=sesiones,
         venues=sedes,
         sponsor_tiers=niveles_con_patrocinadores,
+    )
+
+
+@router.get(
+    "/events/{slug}/sponsors/{sponsor_id}",
+    summary="Ver la ficha pública de un patrocinador",
+    description=(
+        "Anidado bajo el evento, mismo criterio que la sesión: exige "
+        "`published` + `public` además de que el patrocinador pertenezca a "
+        "este evento. Nunca lleva el importe de la aportación (ver "
+        "`PublicSponsor`)."
+    ),
+    response_model=PublicSponsorDetail,
+    dependencies=[limit_per_ip("public-sponsor-detail", PUBLICO_POR_IP)],
+)
+async def get_public_sponsor(
+    evento: Annotated[Event, Depends(_obtener_evento_publico_o_404)],
+    session: DbDep,
+    sponsor_id: str,
+) -> PublicSponsorDetail:
+    try:
+        id_patrocinador = uuid.UUID(sponsor_id)
+    except ValueError as exc:
+        raise NotFoundError("El patrocinador no existe.") from exc
+
+    patrocinador = await sponsors_repository.get_sponsor(
+        session, evento.organization_id, evento.id, id_patrocinador
+    )
+    if patrocinador is None:
+        raise NotFoundError("El patrocinador no existe.")
+
+    nivel = await sponsors_repository.get_tier(
+        session, evento.organization_id, patrocinador.tier_id
+    )
+    if nivel is None:
+        raise NotFoundError("El patrocinador no existe.")
+
+    filas_historial = (
+        await session.execute(
+            sponsors_repository.public_sponsor_history_query(
+                evento.organization_id, patrocinador.name, evento.id
+            )
+        )
+    ).all()
+
+    almacen = get_storage()
+    return PublicSponsorDetail(
+        id=str(patrocinador.id),
+        name=patrocinador.name,
+        logo_url=almacen.public_url(patrocinador.logo_object_key)
+        if patrocinador.logo_object_key
+        else None,
+        website=patrocinador.website,
+        contribution_type=patrocinador.contribution_type,  # type: ignore[arg-type]
+        contribution_description=patrocinador.contribution_description,
+        tier_name=nivel.name,
+        tier_benefits=nivel.benefits,
+        event_slug=evento.slug,
+        event_title=evento.title,
+        history=[
+            PublicSponsorHistoryItem(
+                event_slug=otro_evento.slug,
+                event_title=otro_evento.title,
+                starts_at=otro_evento.starts_at,
+                tier_name=otro_nivel.name,
+            )
+            for otro_evento, otro_nivel in filas_historial
+        ],
     )
 
 

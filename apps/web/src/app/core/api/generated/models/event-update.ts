@@ -17,6 +17,7 @@ export interface EventUpdate {
   online_url?: (string | null);
   payment_checkout_window_minutes?: (number | null);
   registration_mode?: ('free' | 'approval' | 'paid' | null);
+  registration_opens_at?: (string | null);
   starts_at?: (string | null);
   status?: ('draft' | 'published' | 'archived' | null);
   summary?: (string | null);

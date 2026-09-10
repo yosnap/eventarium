@@ -18,7 +18,11 @@ export interface PublicEventSummary {
   ends_at: string;
   location_mode: 'in_person' | 'online' | 'hybrid';
   location_name: (string | null);
+  price_currency: (string | null);
+  price_from_cents: (number | null);
+  price_multiple: boolean;
   registration_mode: 'free' | 'approval' | 'paid';
+  registration_opens_at: (string | null);
   reserved_count: number;
   slug: string;
   starts_at: string;

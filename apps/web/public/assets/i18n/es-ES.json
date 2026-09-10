@@ -24,6 +24,7 @@
     "inicio": "Inicio",
     "eventos": {
       "listadoTitulo": "Eventos",
+      "ruta": "Ruta",
       "todosLosEventos": "← Todos los eventos",
       "rotulo": "Descubrir",
       "buscarEtiqueta": "Buscar evento",
@@ -48,7 +49,8 @@
         "dias": "{{n}} días"
       },
       "disponibilidad": {
-        "abierto": "Abierto"
+        "abierto": "Abierto",
+        "proximamente": "Próximamente"
       },
       "sinEventos": "Todavía no hay eventos publicados.",
       "error": "No hemos podido cargar los eventos.",
@@ -90,7 +92,19 @@
           "service": "Servicio",
           "other": "Otro"
         },
-        "ficha": "Ficha"
+        "ficha": "Ficha",
+        "ruta": "Ruta",
+        "datosAria": "Datos de la sesión",
+        "lado": {
+          "formato": "Formato",
+          "sala": "Sala"
+        },
+        "agenda": {
+          "guardar": "Guardar en mi agenda",
+          "quitar": "Quitar de mi agenda",
+          "notaGuardada": "Guardada en este navegador. Aparecerá en tu agenda del evento.",
+          "notaNoGuardada": "Se queda en este navegador; no hace falta cuenta."
+        }
       },
       "rol": {
         "speaker": "Ponente",
@@ -102,6 +116,7 @@
         "lugar": "Lugar",
         "formato": "Formato",
         "zonaHoraria": "Zona horaria",
+        "precio": "Precio",
         "aforo": "Aforo",
         "plazas": "{{n}} plazas",
         "idioma": "Idioma",
@@ -146,6 +161,11 @@
         "tarjetaSede": "{{salas}} · aforo {{aforo}}",
         "aforoSede": "aforo {{n}}",
         "mapaAria": "Mapa con la ubicación de las sedes"
+      },
+      "precio": {
+        "gratis": "Gratis",
+        "pago": "De pago",
+        "desde": "Desde {{precio}}"
       }
     },
     "accesoPanel": "Acceso al panel",
@@ -169,6 +189,17 @@
       "ponencias": "Ponencias",
       "idiomas": "Idiomas",
       "proxima": "Próxima participación"
+    },
+    "patrocinador": {
+      "noEncontrado": "No hemos encontrado este patrocinador.",
+      "ruta": "Ruta",
+      "rotulo": "Patrocinador del evento",
+      "datosAria": "Datos del patrocinio",
+      "nivel": "Nivel",
+      "aportacion": "Tipo de aportación",
+      "web": "Su web",
+      "beneficios": "Beneficios de este nivel",
+      "historial": "Historial entre ediciones"
     },
     "enlacesLegales": "Información legal"
   },
@@ -225,7 +256,7 @@
     "reenviadoDetalle": "Si la cuenta existe y no está verificada, recibirás un nuevo enlace."
   },
   "inscripcion": {
-    "titulo": "Inscripción al evento",
+    "rotulo": "Inscripción",
     "email": "Correo electrónico",
     "nombre": "Nombre completo",
     "tratamientoDatos": "Acepto el tratamiento de mis datos para gestionar la inscripción.",
@@ -261,6 +292,25 @@
       "plazasLibres": "Plazas libres",
       "gratis": "Gratis",
       "desde": "Desde"
+    },
+    "pasos": {
+      "rotulo": "Progreso de la inscripción",
+      "datos": "Tus datos",
+      "datosYEntrada": "Tus datos y entrada",
+      "confirmacionEmail": "Confirmación por email",
+      "revision": "Revisión del organizador",
+      "pago": "Pago"
+    },
+    "modo": {
+      "gratisTexto": "Este evento es gratuito: te inscribes en un minuto y sin pagos.",
+      "aprobacionTexto": "Este evento requiere aprobación del organizador: revisamos tu solicitud antes de confirmar tu plaza.",
+      "pagoTexto": "Este evento es de pago: elige tu entrada para continuar al pago seguro."
+    },
+    "titulos": {
+      "formularioGratis": "Te inscribes en un minuto y sin crear cuenta",
+      "formularioAprobacion": "Solicita tu plaza: revisamos tu inscripción antes de confirmarla",
+      "formularioPago": "Elige tu entrada y completa el pago",
+      "enviado": "Ya casi está"
     }
   },
   "pago": {
@@ -289,7 +339,13 @@
     "verificando": "Comprobando el enlace…",
     "exitoTitulo": "Inscripción verificada",
     "errorTitulo": "El enlace no es válido o ha caducado",
-    "errorDetalle": "Vuelve a la página del evento para inscribirte de nuevo."
+    "errorDetalle": "Vuelve a la página del evento para inscribirte de nuevo.",
+    "estado": {
+      "confirmada": "Inscripción confirmada",
+      "pendienteAprobacion": "Pendiente de aprobación",
+      "pendientePago": "Pendiente de pago",
+      "listaEspera": "Lista de espera"
+    }
   },
   "confirmarPromocion": {
     "titulo": "Confirmar tu plaza",
@@ -1244,6 +1300,7 @@
     "comprobando": "Comprobando el enlace…",
     "saludo": "Hola {{nombre}}, aquí tienes tu entrada:",
     "qrAlt": "Código QR de tu entrada",
+    "chipValida": "Válida",
     "sinQrDetalle": "Esta inscripción no tiene ninguna entrada disponible para mostrar.",
     "estado": {
       "confirmada": "Tu inscripción está confirmada",

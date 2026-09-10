@@ -27,13 +27,14 @@ import {
   RegistrationsService,
 } from '../../../core/registrations/registrations.service';
 import { Alert } from '../../../shared/ui/alert';
+import { Breadcrumb, type BreadcrumbItem } from '../../../shared/ui/breadcrumb';
 import { Button } from '../../../shared/ui/button';
-import { Card } from '../../../shared/ui/card';
 import { Checkbox } from '../../../shared/ui/checkbox';
 import { ErrorSummary, type ResumenDeError } from '../../../shared/ui/error-summary';
 import { Input } from '../../../shared/ui/input';
+import { Reveal } from '../../../shared/ui/reveal.directive';
 import { TurnstileWidget } from '../../../shared/ui/turnstile-widget';
-import type { PublicEventDetail } from './event-page.types';
+import type { PublicEventDetail, RegistrationMode } from './event-page.types';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -75,221 +76,271 @@ function precioEnEuros(cents: number): string {
     TranslocoDirective,
     RouterLink,
     Alert,
+    Breadcrumb,
     Button,
-    Card,
     Checkbox,
     ErrorSummary,
     Input,
+    Reveal,
     TurnstileWidget,
   ],
   template: `
     <ng-container *transloco="let t">
       <div class="pagina">
-        <div class="layout">
-        <app-card [heading]="t('inscripcion.titulo')">
-          @if (cargandoPreguntas()) {
-            <p>{{ t('comun.cargando') }}</p>
-          } @else if (noEncontrado()) {
-            <app-alert tone="error">{{ t('publico.eventos.noEncontrado') }}</app-alert>
-          } @else if (enviado()) {
-            <app-alert tone="exito" [title]="t('inscripcion.exitoTitulo')">
-              {{ mensajeExito() }}
-            </app-alert>
-          } @else {
-            <form (submit)="enviar($event)" novalidate>
-              <app-error-summary [errores]="resumenErrores()" [titulo]="t('comun.corrigeErrores')" />
+        @if (evento(); as evento) {
+          <div class="ancho-maximo">
+            <app-breadcrumb [items]="migasDePan(evento)" [ariaLabel]="t('publico.eventos.ruta')" />
+          </div>
+        }
+        <div class="ancho-maximo layout" appReveal>
+          <div>
+            @if (cargandoPreguntas()) {
+              <p>{{ t('comun.cargando') }}</p>
+            } @else if (noEncontrado()) {
+              <app-alert tone="error">{{ t('publico.eventos.noEncontrado') }}</app-alert>
+            } @else {
+              <!-- Pasos de la referencia (inscripcion.html:55-59): mono, mayúsculas,
+                 con conector entre etiquetas, fuera y antes de cualquier título —
+                 no dentro de una tarjeta. Las etiquetas y su número dependen del
+                 modo de inscripción — gratis/aprobación no pasan por pago, y pago no
+                 pasa por revisión manual. -->
+              <ol class="pasos" [attr.aria-label]="t('inscripcion.pasos.rotulo')">
+                @for (etiqueta of etiquetasPasos(t); track $index) {
+                  <li [attr.data-estado]="estadoPaso($index)">{{ $index + 1 }} · {{ etiqueta }}</li>
+                }
+              </ol>
 
-              <app-input
-                fieldId="insc-email"
-                [label]="t('inscripcion.email')"
-                type="email"
-                autocomplete="email"
-                [required]="true"
-                [error]="errorEmail()"
-                [(value)]="email"
-                (blurred)="validarEmail()"
-              />
-              <app-input
-                fieldId="insc-nombre"
-                [label]="t('inscripcion.nombre')"
-                autocomplete="name"
-                [required]="true"
-                [error]="errorNombre()"
-                [(value)]="fullName"
-                (blurred)="validarNombre()"
-              />
+              <!-- Subtítulo mono + h1 de la referencia (inscripcion.html:63-64):
+                 la etiqueta "Inscripción" seguida del titular, sin tarjeta
+                 alrededor — la tarjeta de la referencia es solo el resumen de
+                 la derecha. -->
+              <span class="rotulo-seccion">{{ t('inscripcion.rotulo') }}</span>
+              <h1>{{ tituloPaso(t) }}</h1>
 
-              @for (pregunta of preguntas(); track pregunta.id) {
-                <div class="pregunta">
-                  @switch (pregunta.type) {
-                    @case ('short_text') {
-                      <app-input
-                        [fieldId]="'insc-pregunta-' + pregunta.id"
-                        [label]="etiquetaConObligatoria(pregunta)"
-                        [required]="pregunta.required"
-                        [error]="erroresPreguntas()[pregunta.id] ?? null"
-                        [value]="valorTexto(pregunta.id)"
-                        (valueChange)="fijarTexto(pregunta.id, $event)"
-                      />
-                    }
-                    @case ('single_choice') {
-                      <fieldset [id]="'insc-pregunta-' + pregunta.id" tabindex="-1">
-                        <legend>{{ etiquetaConObligatoria(pregunta) }}</legend>
-                        @for (opcion of pregunta.options ?? []; track opcion) {
-                          <label class="opcion">
-                            <input
-                              type="radio"
-                              [name]="'pregunta-' + pregunta.id"
-                              [value]="opcion"
-                              [checked]="valorTexto(pregunta.id) === opcion"
-                              (change)="fijarTexto(pregunta.id, opcion)"
-                            />
-                            {{ opcion }}
-                          </label>
-                        }
-                        @if (erroresPreguntas()[pregunta.id]; as mensaje) {
-                          <p class="error-pregunta">{{ mensaje }}</p>
-                        }
-                      </fieldset>
-                    }
-                    @case ('multiple_choice') {
-                      <fieldset [id]="'insc-pregunta-' + pregunta.id" tabindex="-1">
-                        <legend>{{ etiquetaConObligatoria(pregunta) }}</legend>
-                        @for (opcion of pregunta.options ?? []; track opcion) {
-                          <app-checkbox
-                            [label]="opcion"
-                            [checked]="valorLista(pregunta.id).includes(opcion)"
-                            (checkedChange)="alternarOpcion(pregunta.id, opcion)"
+              @if (enviado()) {
+                <app-alert tone="exito" [title]="t('inscripcion.exitoTitulo')">
+                  {{ mensajeExito() }}
+                </app-alert>
+              } @else {
+                <p class="explicacion">{{ textoModo(t) }}</p>
+
+                <form (submit)="enviar($event)" novalidate>
+                  <app-error-summary
+                    [errores]="resumenErrores()"
+                    [titulo]="t('comun.corrigeErrores')"
+                  />
+
+                  <!-- .row2 de la referencia (inscripcion.html:69-78): los campos
+                     cortos van de dos en dos, no cada uno en su propia fila. -->
+                  <div class="fila-doble">
+                    <app-input
+                      fieldId="insc-email"
+                      [label]="t('inscripcion.email')"
+                      type="email"
+                      autocomplete="email"
+                      [required]="true"
+                      [error]="errorEmail()"
+                      [(value)]="email"
+                      (blurred)="validarEmail()"
+                    />
+                    <app-input
+                      fieldId="insc-nombre"
+                      [label]="t('inscripcion.nombre')"
+                      autocomplete="name"
+                      [required]="true"
+                      [error]="errorNombre()"
+                      [(value)]="fullName"
+                      (blurred)="validarNombre()"
+                    />
+                  </div>
+
+                  @for (pregunta of preguntas(); track pregunta.id) {
+                    <div class="pregunta">
+                      @switch (pregunta.type) {
+                        @case ('short_text') {
+                          <app-input
+                            [fieldId]="'insc-pregunta-' + pregunta.id"
+                            [label]="etiquetaConObligatoria(pregunta)"
+                            [required]="pregunta.required"
+                            [error]="erroresPreguntas()[pregunta.id] ?? null"
+                            [value]="valorTexto(pregunta.id)"
+                            (valueChange)="fijarTexto(pregunta.id, $event)"
                           />
                         }
-                        @if (erroresPreguntas()[pregunta.id]; as mensaje) {
-                          <p class="error-pregunta">{{ mensaje }}</p>
+                        @case ('single_choice') {
+                          <fieldset [id]="'insc-pregunta-' + pregunta.id" tabindex="-1">
+                            <legend>{{ etiquetaConObligatoria(pregunta) }}</legend>
+                            @for (opcion of pregunta.options ?? []; track opcion) {
+                              <label class="opcion">
+                                <input
+                                  type="radio"
+                                  [name]="'pregunta-' + pregunta.id"
+                                  [value]="opcion"
+                                  [checked]="valorTexto(pregunta.id) === opcion"
+                                  (change)="fijarTexto(pregunta.id, opcion)"
+                                />
+                                {{ opcion }}
+                              </label>
+                            }
+                            @if (erroresPreguntas()[pregunta.id]; as mensaje) {
+                              <p class="error-pregunta">{{ mensaje }}</p>
+                            }
+                          </fieldset>
                         }
-                      </fieldset>
-                    }
-                  }
-                </div>
-              }
-
-              @if (esCompraDePago()) {
-                <fieldset id="insc-tipo-entrada" class="tipo-entrada" tabindex="-1">
-                  <legend>{{ t('inscripcion.tipoEntrada.titulo') }} *</legend>
-                  @for (tipo of ticketTypes(); track tipo.id) {
-                    <label class="opcion">
-                      <input
-                        type="radio"
-                        name="tipo-entrada"
-                        [value]="tipo.id"
-                        [checked]="ticketTypeId() === tipo.id"
-                        (change)="seleccionarTipo(tipo.id)"
-                      />
-                      {{ tipo.name }} — {{ precioTipo(tipo) }} {{ tipo.currency.toUpperCase() }}
-                    </label>
-                  }
-                  @if (errorTicketType(); as mensaje) {
-                    <p class="error-pregunta">{{ mensaje }}</p>
-                  }
-                </fieldset>
-
-                <app-input
-                  [label]="t('inscripcion.codigoDescuento')"
-                  [required]="false"
-                  [(value)]="codigoDescuento"
-                  (blurred)="actualizarPresupuesto()"
-                />
-
-                <div class="presupuesto" aria-live="polite">
-                  @if (cargandoPresupuesto()) {
-                    <p>{{ t('inscripcion.presupuesto.calculando') }}</p>
-                  } @else if (errorPresupuesto(); as mensaje) {
-                    <p class="error-pregunta">{{ mensaje }}</p>
-                  } @else if (presupuesto(); as presupuesto) {
-                    <p>
-                      {{ t('inscripcion.presupuesto.total') }}:
-                      <strong
-                        >{{ precioEuros(presupuesto.total_cents) }}
-                        {{ presupuesto.currency.toUpperCase() }}</strong
-                      >
-                      @if (presupuesto.discount_cents > 0) {
-                        ({{
-                          t('inscripcion.presupuesto.descuentoAplicado', {
-                            importe: precioEuros(presupuesto.discount_cents),
-                          })
-                        }})
+                        @case ('multiple_choice') {
+                          <fieldset [id]="'insc-pregunta-' + pregunta.id" tabindex="-1">
+                            <legend>{{ etiquetaConObligatoria(pregunta) }}</legend>
+                            @for (opcion of pregunta.options ?? []; track opcion) {
+                              <app-checkbox
+                                [label]="opcion"
+                                [checked]="valorLista(pregunta.id).includes(opcion)"
+                                (checkedChange)="alternarOpcion(pregunta.id, opcion)"
+                              />
+                            }
+                            @if (erroresPreguntas()[pregunta.id]; as mensaje) {
+                              <p class="error-pregunta">{{ mensaje }}</p>
+                            }
+                          </fieldset>
+                        }
                       }
+                    </div>
+                  }
+
+                  @if (esCompraDePago()) {
+                    <fieldset id="insc-tipo-entrada" class="tipo-entrada" tabindex="-1">
+                      <legend>{{ t('inscripcion.tipoEntrada.titulo') }} *</legend>
+                      @for (tipo of ticketTypes(); track tipo.id) {
+                        <label class="opcion">
+                          <input
+                            type="radio"
+                            name="tipo-entrada"
+                            [value]="tipo.id"
+                            [checked]="ticketTypeId() === tipo.id"
+                            (change)="seleccionarTipo(tipo.id)"
+                          />
+                          {{ tipo.name }} — {{ precioTipo(tipo) }} {{ tipo.currency.toUpperCase() }}
+                        </label>
+                      }
+                      @if (errorTicketType(); as mensaje) {
+                        <p class="error-pregunta">{{ mensaje }}</p>
+                      }
+                    </fieldset>
+
+                    <app-input
+                      [label]="t('inscripcion.codigoDescuento')"
+                      [required]="false"
+                      [(value)]="codigoDescuento"
+                      (blurred)="actualizarPresupuesto()"
+                    />
+
+                    <div class="presupuesto" aria-live="polite">
+                      @if (cargandoPresupuesto()) {
+                        <p>{{ t('inscripcion.presupuesto.calculando') }}</p>
+                      } @else if (errorPresupuesto(); as mensaje) {
+                        <p class="error-pregunta">{{ mensaje }}</p>
+                      } @else if (presupuesto(); as presupuesto) {
+                        <p>
+                          {{ t('inscripcion.presupuesto.total') }}:
+                          <strong
+                            >{{ precioEuros(presupuesto.total_cents) }}
+                            {{ presupuesto.currency.toUpperCase() }}</strong
+                          >
+                          @if (presupuesto.discount_cents > 0) {
+                            ({{
+                              t('inscripcion.presupuesto.descuentoAplicado', {
+                                importe: precioEuros(presupuesto.discount_cents),
+                              })
+                            }})
+                          }
+                        </p>
+                      }
+                    </div>
+                  }
+
+                  <app-checkbox
+                    fieldId="insc-tratamiento-datos"
+                    [label]="t('inscripcion.tratamientoDatos')"
+                    [describedBy]="errorConsentimiento() ? 'insc-tratamiento-datos-error' : null"
+                    [(checked)]="dataProcessingAccepted"
+                  />
+                  @if (errorConsentimiento()) {
+                    <p id="insc-tratamiento-datos-error" class="error-pregunta">
+                      {{ errorConsentimiento() }}
                     </p>
                   }
+
+                  <app-checkbox
+                    [label]="t('inscripcion.marketing')"
+                    [(checked)]="marketingAccepted"
+                  />
+
+                  <app-checkbox
+                    [label]="t('inscripcion.grabacion')"
+                    [(checked)]="recordingAccepted"
+                  />
+
+                  <app-turnstile-widget (resuelto)="onTurnstileResuelto($event)" />
+
+                  @if (error(); as mensaje) {
+                    <app-alert tone="error" [title]="t('inscripcion.error')">{{
+                      mensaje
+                    }}</app-alert>
+                  }
+
+                  <!-- Sin botón "volver al evento" junto al de envío: la miga
+                     de pan de arriba ya cubre esa navegación, un segundo
+                     enlace sería redundante. -->
+                  <div class="acciones">
+                    <app-button type="submit" [loading]="enviando()">
+                      {{
+                        enviando()
+                          ? t('inscripcion.enviando')
+                          : esCompraDePago()
+                            ? t('inscripcion.continuarAlPago')
+                            : t('inscripcion.inscribirse')
+                      }}
+                    </app-button>
+                  </div>
+                </form>
+              }
+            }
+
+            @if (enviado() || noEncontrado()) {
+              <p>
+                <a [routerLink]="['/eventos', slug()]">{{ t('inscripcion.volverAlEvento') }}</a>
+              </p>
+            }
+          </div>
+
+          @if (evento(); as evento) {
+            <aside class="resumen">
+              <span class="rotulo-seccion">{{ t('inscripcion.resumen.titulo') }}</span>
+              <h3>{{ evento.title }}</h3>
+              <div class="resumen__fila">
+                <span class="muted">{{ t('inscripcion.resumen.fechas') }}</span>
+                <span class="num sin-salto">
+                  {{ evento.starts_at | date: 'dd.MM.yyyy' : evento.timezone }} –
+                  {{ evento.ends_at | date: 'dd.MM.yyyy' : evento.timezone }}
+                </span>
+              </div>
+              @if (evento.location_name) {
+                <div class="resumen__fila">
+                  <span class="muted">{{ t('inscripcion.resumen.lugar') }}</span>
+                  <span>{{ evento.location_name }}</span>
                 </div>
               }
-
-              <app-checkbox
-                fieldId="insc-tratamiento-datos"
-                [label]="t('inscripcion.tratamientoDatos')"
-                [describedBy]="errorConsentimiento() ? 'insc-tratamiento-datos-error' : null"
-                [(checked)]="dataProcessingAccepted"
-              />
-              @if (errorConsentimiento()) {
-                <p id="insc-tratamiento-datos-error" class="error-pregunta">
-                  {{ errorConsentimiento() }}
-                </p>
+              <div class="resumen__fila">
+                <span class="muted">{{ t('inscripcion.resumen.precio') }}</span>
+                <span class="num">{{ precioResumen(t) }}</span>
+              </div>
+              @if (plazasLibresResumen(evento); as plazas) {
+                <div class="resumen__fila">
+                  <span class="muted">{{ t('inscripcion.resumen.plazasLibres') }}</span>
+                  <span class="num">{{ plazas }}</span>
+                </div>
               }
-
-              <app-checkbox [label]="t('inscripcion.marketing')" [(checked)]="marketingAccepted" />
-
-              <app-checkbox [label]="t('inscripcion.grabacion')" [(checked)]="recordingAccepted" />
-
-              <app-turnstile-widget (resuelto)="onTurnstileResuelto($event)" />
-
-              @if (error(); as mensaje) {
-                <app-alert tone="error" [title]="t('inscripcion.error')">{{ mensaje }}</app-alert>
-              }
-
-              <app-button type="submit" [loading]="enviando()">
-                {{
-                  enviando()
-                    ? t('inscripcion.enviando')
-                    : esCompraDePago()
-                      ? t('inscripcion.continuarAlPago')
-                      : t('inscripcion.inscribirse')
-                }}
-              </app-button>
-            </form>
+            </aside>
           }
-
-          <p>
-            <a [routerLink]="['/eventos', slug()]">{{ t('inscripcion.volverAlEvento') }}</a>
-          </p>
-        </app-card>
-
-        @if (evento(); as evento) {
-          <aside class="resumen">
-            <span class="rotulo-seccion">{{ t('inscripcion.resumen.titulo') }}</span>
-            <h3>{{ evento.title }}</h3>
-            <div class="resumen__fila">
-              <span class="muted">{{ t('inscripcion.resumen.fechas') }}</span>
-              <span class="num">
-                {{ evento.starts_at | date: 'dd.MM.yyyy' : evento.timezone }} –
-                {{ evento.ends_at | date: 'dd.MM.yyyy' : evento.timezone }}
-              </span>
-            </div>
-            @if (evento.location_name) {
-              <div class="resumen__fila">
-                <span class="muted">{{ t('inscripcion.resumen.lugar') }}</span>
-                <span>{{ evento.location_name }}</span>
-              </div>
-            }
-            <div class="resumen__fila">
-              <span class="muted">{{ t('inscripcion.resumen.precio') }}</span>
-              <span class="num">{{ precioResumen(t) }}</span>
-            </div>
-            @if (plazasLibresResumen(evento); as plazas) {
-              <div class="resumen__fila">
-                <span class="muted">{{ t('inscripcion.resumen.plazasLibres') }}</span>
-                <span class="num">{{ plazas }}</span>
-              </div>
-            }
-          </aside>
-        }
         </div>
       </div>
     </ng-container>
@@ -298,15 +349,23 @@ function precioEnEuros(cents: number): string {
     .pagina {
       padding: var(--space-lg) 0;
     }
+    app-breadcrumb {
+      display: block;
+      margin-bottom: var(--space-md);
+    }
     /* .layout de la referencia (inscripcion.html:14): formulario + resumen
-       sticky en escritorio, apilados en móvil. */
+       sticky en escritorio, apilados en móvil. Ancho del contenedor
+       estándar del sitio (clase ancho-maximo, hasta 1240px) — nada de un
+       tope propio más estrecho: la referencia no recorta .layout, hereda el
+       ancho de .wrap, igual que el resto de páginas públicas. */
     .layout {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(17.5rem, 21.25rem);
+      /* Mismo mínimo que .ficha en event-page.ts (18.75rem): con el de aquí
+         (17.5rem) el rango de fechas no cabía en una línea y se partía en
+         dos, a la izquierda en vez de pegado al borde derecho. */
+      grid-template-columns: minmax(0, 1fr) minmax(18.75rem, 25rem);
       gap: var(--space-lg);
       align-items: start;
-      max-width: 64rem;
-      margin-inline: auto;
     }
     @media (max-width: 56.25rem) {
       .layout {
@@ -318,7 +377,11 @@ function precioEnEuros(cents: number): string {
     }
     /* .summary de la referencia (inscripcion.html:27): mismo estilo de tarjeta
        que app-card, con su propio maquetado interno en vez de su input
-       heading (necesita el rótulo mono ENCIMA del título, no un h3 suelto). */
+       heading (necesita el rótulo mono ENCIMA del título, no un h3 suelto).
+       Ritmo de fila tomado de .ficha__fila (event-page.ts, 14px de padding
+       vertical) — aquí sí hace falta padding propio en la tarjeta, a
+       diferencia de .ficha, porque encima de las filas va la cabecera
+       (rótulo + título) que .ficha no tiene. */
     .resumen {
       position: sticky;
       top: 5.5rem;
@@ -334,7 +397,7 @@ function precioEnEuros(cents: number): string {
       display: flex;
       justify-content: space-between;
       gap: var(--space-md);
-      padding: 11px 0;
+      padding: 14px 0;
       border-bottom: 1px solid var(--border);
     }
     .resumen__fila:last-child {
@@ -346,8 +409,73 @@ function precioEnEuros(cents: number): string {
     .num {
       font-family: var(--font-mono);
     }
+    /* El rango de fechas de .ficha__fila nunca se parte en dos líneas: se
+       queda pegado al borde derecho de la fila en una sola línea. */
+    .sin-salto {
+      white-space: nowrap;
+    }
+    /* .steps de la referencia (inscripcion.html:14-19): mono, mayúsculas, con
+       un conector de 24px entre etiquetas — el pseudoelemento vive dentro de
+       cada <li> (segundo en adelante) porque el propio <li> es un flex row. */
+    .pasos {
+      display: flex;
+      gap: var(--space-sm);
+      list-style: none;
+      padding: 0;
+      margin: 0 0 var(--space-lg);
+      flex-wrap: wrap;
+    }
+    .pasos li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .pasos li + li::before {
+      content: '';
+      width: 24px;
+      height: 1px;
+      background: var(--border-strong);
+    }
+    .pasos li[data-estado='hecho'] {
+      color: var(--faint);
+      text-decoration: line-through;
+      text-decoration-color: var(--faint);
+    }
+    .pasos li[data-estado='actual'] {
+      color: var(--accent);
+    }
+    /* h1/label de la referencia (inscripcion.html:63-64): margen propio,
+       distinto del h1 de titular de sección de otras páginas. */
+    .layout h1 {
+      margin: 0.75rem 0 1rem;
+    }
+    .explicacion {
+      color: var(--muted);
+      max-width: 56ch;
+      margin: 0 0 var(--space-md);
+    }
     form {
       display: grid;
+      gap: var(--space-md);
+    }
+    /* .actions (inscripcion.html:25): botón de envío y "volver al evento"
+       en la misma fila. */
+    .acciones {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      flex-wrap: wrap;
+    }
+    /* .row2 (inscripcion.html:23): campos cortos de dos en dos, apilados por
+       debajo de 220px cada uno. */
+    .fila-doble {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(13.75rem, 1fr));
       gap: var(--space-md);
     }
     fieldset {
@@ -392,6 +520,17 @@ export class RegistrationPage implements OnInit {
   protected readonly cargandoPreguntas = signal(true);
   protected readonly noEncontrado = signal(false);
   protected readonly preguntas = signal<RegistrationQuestion[]>([]);
+
+  protected migasDePan(evento: PublicEventDetail): BreadcrumbItem[] {
+    return [
+      {
+        label: this.transloco.translate('publico.eventos.listadoTitulo'),
+        routerLink: ['/eventos'],
+      },
+      { label: evento.title, routerLink: ['/eventos', this.slug()] },
+      { label: this.transloco.translate('publico.eventos.inscribirse') },
+    ];
+  }
 
   /** Resumen del evento (`.summary` de `inscripcion.html:172-181`): consulta
    * de solo lectura aparte de `cargarPreguntas`/`cargarTiposDeEntrada`, en
@@ -454,6 +593,73 @@ export class RegistrationPage implements OnInit {
     return errores;
   });
   protected readonly errorPresupuesto = signal<string | null>(null);
+
+  /** Modo de inscripción a efectos de visualización (pasos + texto
+   * explicativo): "pago" se decide por `esCompraDePago()`, la misma condición
+   * que ya gobierna qué endpoint dispara `enviar()` — así los pasos nunca
+   * pueden prometer un camino distinto del que de verdad va a seguir el
+   * envío. Entre gratis y aprobación no hay divergencia funcional posible
+   * (los dos envían por `RegistrationsService.submit`), así que ahí sí basta
+   * con `evento().registration_mode`, que es el dato real del backend. */
+  protected readonly modoInscripcion = computed<RegistrationMode>(() => {
+    if (this.esCompraDePago()) {
+      return 'paid';
+    }
+    return this.evento()?.registration_mode === 'approval' ? 'approval' : 'free';
+  });
+
+  private static readonly CLAVES_PASOS_POR_MODO: Record<
+    RegistrationMode,
+    readonly [string, string]
+  > = {
+    free: ['inscripcion.pasos.datos', 'inscripcion.pasos.confirmacionEmail'],
+    approval: ['inscripcion.pasos.datos', 'inscripcion.pasos.revision'],
+    paid: ['inscripcion.pasos.datosYEntrada', 'inscripcion.pasos.pago'],
+  };
+
+  private static readonly CLAVE_TEXTO_POR_MODO: Record<RegistrationMode, string> = {
+    free: 'inscripcion.modo.gratisTexto',
+    approval: 'inscripcion.modo.aprobacionTexto',
+    paid: 'inscripcion.modo.pagoTexto',
+  };
+
+  /** Titular (`<h1>`) de la referencia (inscripcion.html:64/122/144): cambia
+   * con el modo mientras se rellena el formulario, y con un titular propio
+   * una vez enviado — el mismo hueco visual que en la referencia ocupan los
+   * pasos 2/3, aunque aquí no sean pantallas propias (ver
+   * `indicePasoActivo`). */
+  private static readonly CLAVE_TITULO_FORMULARIO_POR_MODO: Record<RegistrationMode, string> = {
+    free: 'inscripcion.titulos.formularioGratis',
+    approval: 'inscripcion.titulos.formularioAprobacion',
+    paid: 'inscripcion.titulos.formularioPago',
+  };
+
+  /** Índice del paso resaltado (0 = "Tus datos…", 1 = el paso siguiente):
+   * también en pago, donde no hay una pantalla propia de "paso 2" — el envío
+   * redirige fuera de la app —, resaltarlo mientras `enviando()` es cierto
+   * confirma visualmente que el clic sí iba camino del pago. */
+  protected readonly indicePasoActivo = computed(() => (this.enviando() || this.enviado() ? 1 : 0));
+
+  protected etiquetasPasos(traducir: (clave: string) => string): readonly [string, string] {
+    const [primero, segundo] = RegistrationPage.CLAVES_PASOS_POR_MODO[this.modoInscripcion()];
+    return [traducir(primero), traducir(segundo)];
+  }
+
+  protected textoModo(traducir: (clave: string) => string): string {
+    return traducir(RegistrationPage.CLAVE_TEXTO_POR_MODO[this.modoInscripcion()]);
+  }
+
+  protected tituloPaso(traducir: (clave: string) => string): string {
+    if (this.enviado()) {
+      return traducir('inscripcion.titulos.enviado');
+    }
+    return traducir(RegistrationPage.CLAVE_TITULO_FORMULARIO_POR_MODO[this.modoInscripcion()]);
+  }
+
+  protected estadoPaso(indice: number): 'hecho' | 'actual' | null {
+    const activo = this.indicePasoActivo();
+    return indice < activo ? 'hecho' : indice === activo ? 'actual' : null;
+  }
 
   ngOnInit(): void {
     void this.cargarPreguntas();

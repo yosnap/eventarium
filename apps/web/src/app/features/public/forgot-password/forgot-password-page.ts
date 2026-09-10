@@ -9,6 +9,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
+import { Reveal } from '../../../shared/ui/reveal.directive';
 import { TurnstileWidget } from '../../../shared/ui/turnstile-widget';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -22,46 +23,58 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 @Component({
   selector: 'app-forgot-password-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, AuthFrame, Alert, Button, Card, Input, TurnstileWidget],
+  imports: [
+    TranslocoDirective,
+    RouterLink,
+    AuthFrame,
+    Alert,
+    Button,
+    Card,
+    Input,
+    Reveal,
+    TurnstileWidget,
+  ],
   template: `
     <ng-container *transloco="let t">
       <app-auth-frame [titulo]="t('recuperarContrasena.titulo')">
-        <app-card [heading]="t('recuperarContrasena.titulo')">
-          @if (enviado()) {
-            <app-alert tone="exito" [title]="t('recuperarContrasena.exitoTitulo')">
-              {{ t('recuperarContrasena.exitoDetalle') }}
-            </app-alert>
-          } @else {
-            <form (submit)="enviar($event)" novalidate>
-              <p>{{ t('recuperarContrasena.instrucciones') }}</p>
-              <app-input
-                [label]="t('recuperarContrasena.email')"
-                type="email"
-                autocomplete="email"
-                [required]="true"
-                [error]="errorEmail()"
-                [(value)]="email"
-              />
-              <app-turnstile-widget (resuelto)="turnstileToken.set($event)" />
-              @if (error(); as mensaje) {
-                <app-alert tone="error">{{ mensaje }}</app-alert>
-              }
-              <app-button type="submit" [loading]="enviando()">
-                {{
-                  enviando() ? t('recuperarContrasena.enviando') : t('recuperarContrasena.enviar')
-                }}
-              </app-button>
-            </form>
-          }
-          <p>
-            <a routerLink="/admin/login">{{ t('registro.yaTengoCuenta') }}</a>
-          </p>
-        </app-card>
+        <div class="envoltura" appReveal>
+          <app-card [heading]="t('recuperarContrasena.titulo')">
+            @if (enviado()) {
+              <app-alert tone="exito" [title]="t('recuperarContrasena.exitoTitulo')">
+                {{ t('recuperarContrasena.exitoDetalle') }}
+              </app-alert>
+            } @else {
+              <form (submit)="enviar($event)" novalidate>
+                <p>{{ t('recuperarContrasena.instrucciones') }}</p>
+                <app-input
+                  [label]="t('recuperarContrasena.email')"
+                  type="email"
+                  autocomplete="email"
+                  [required]="true"
+                  [error]="errorEmail()"
+                  [(value)]="email"
+                />
+                <app-turnstile-widget (resuelto)="turnstileToken.set($event)" />
+                @if (error(); as mensaje) {
+                  <app-alert tone="error">{{ mensaje }}</app-alert>
+                }
+                <app-button type="submit" [loading]="enviando()">
+                  {{
+                    enviando() ? t('recuperarContrasena.enviando') : t('recuperarContrasena.enviar')
+                  }}
+                </app-button>
+              </form>
+            }
+            <p>
+              <a routerLink="/admin/login">{{ t('registro.yaTengoCuenta') }}</a>
+            </p>
+          </app-card>
+        </div>
       </app-auth-frame>
     </ng-container>
   `,
   styles: `
-    app-card {
+    .envoltura {
       width: min(26rem, 100%);
     }
     form {

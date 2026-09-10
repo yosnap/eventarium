@@ -55,6 +55,7 @@ def _event_response(evento: Event) -> EventResponse:
         online_url=evento.online_url,
         capacity=evento.capacity,
         registration_mode=evento.registration_mode,  # type: ignore[arg-type]
+        registration_opens_at=evento.registration_opens_at,
         email_verification_required=evento.email_verification_required,
         payment_checkout_window_minutes=evento.payment_checkout_window_minutes,
         latitude=float(evento.latitude) if evento.latitude is not None else None,

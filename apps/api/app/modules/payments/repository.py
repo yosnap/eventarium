@@ -155,6 +155,24 @@ async def get_ticket_types(
     return list(filas)
 
 
+async def get_ticket_types_for_events(
+    session: AsyncSession, organization_id: uuid.UUID, event_ids: list[uuid.UUID]
+) -> list[EventTicketType]:
+    """Todos los tipos de entrada de varios eventos en una sola consulta —
+    para el precio «desde» del listado público, que si no sería una consulta
+    por evento (N+1). El filtro de vigencia (`validar_tipo_vigente`) se
+    aplica después, en Python, igual que en `list_public_ticket_types`."""
+    if not event_ids:
+        return []
+    filas = await session.scalars(
+        select(EventTicketType).where(
+            EventTicketType.organization_id == organization_id,
+            EventTicketType.event_id.in_(event_ids),
+        )
+    )
+    return list(filas)
+
+
 async def get_ticket_type(
     session: AsyncSession,
     organization_id: uuid.UUID,

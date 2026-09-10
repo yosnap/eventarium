@@ -19,6 +19,7 @@ import { ApiService } from '../../../core/api/api.service';
 import { SeoMetaService } from '../../../core/seo/meta.service';
 import { markdownToSafeHtml } from '../../../shared/legal/sanitize-markdown';
 import { Alert } from '../../../shared/ui/alert';
+import { Reveal } from '../../../shared/ui/reveal.directive';
 
 /** Ruta pública → título traducible y ruta de la API. */
 const PAGINAS = {
@@ -57,10 +58,10 @@ interface LegalPageResponse {
 @Component({
   selector: 'app-legal-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert],
+  imports: [TranslocoDirective, Alert, Reveal],
   template: `
     <ng-container *transloco="let t">
-      <div class="ancho-maximo">
+      <div class="ancho-maximo" appReveal>
         <h1>{{ t(tituloClave()) }}</h1>
 
         @if (cargando()) {

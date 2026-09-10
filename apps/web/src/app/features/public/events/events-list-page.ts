@@ -18,6 +18,7 @@ import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { SeoMetaService } from '../../../core/seo/meta.service';
+import { formatearPrecio } from '../../../shared/text/formatear-precio';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Chip } from '../../../shared/ui/chip';
@@ -41,8 +42,19 @@ interface PublicEventSummary {
   readonly location_name: string | null;
   readonly city: string | null;
   readonly registration_mode: RegistrationMode;
+  /** `null`: la inscripción ya está abierta. Con fecha futura, la fila
+   * muestra «próximamente» en vez de «abierto» (`Event.registration_opens_at`). */
+  readonly registration_opens_at: string | null;
   readonly capacity: number | null;
   readonly reserved_count: number;
+  /** Precio «desde» del tipo de entrada vigente más barato; `null` si el
+   * evento es gratis o, siendo de pago, no tiene ningún tipo vigente ahora
+   * mismo. */
+  readonly price_from_cents: number | null;
+  readonly price_currency: string | null;
+  /** `true` solo si entre los tipos vigentes hay más de un precio distinto
+   * — con un único precio se muestra el importe solo, sin «Desde». */
+  readonly price_multiple: boolean;
 }
 
 const CLAVE = makeStateKey<PublicEventSummary[]>('public-events-list');
@@ -63,7 +75,10 @@ const CLAVE_TAG: Record<FiltroModo, string> = {
 const MODOS_FILTRABLES: readonly FiltroModo[] = ['todos', 'in_person', 'online', 'hybrid'];
 
 /** Tono del chip de modo de registro, mismo mapeo que `event-page.ts`. */
-const CLAVE_REGISTRO: Record<RegistrationMode, { clave: string; tono: 'ok' | 'espera' | 'neutro' }> = {
+const CLAVE_REGISTRO: Record<
+  RegistrationMode,
+  { clave: string; tono: 'ok' | 'espera' | 'neutro' }
+> = {
   free: { clave: 'publico.eventos.registro.gratuita', tono: 'ok' },
   approval: { clave: 'publico.eventos.registro.aprobacion', tono: 'espera' },
   paid: { clave: 'publico.eventos.registro.pago', tono: 'neutro' },
@@ -98,9 +113,12 @@ function normalizarCiudad(ciudad: string): string {
  * `registration_mode`, y el select de ciudad usa `city` — los tres son datos
  * reales de `PublicEventSummary`, con las opciones de ciudad calculadas a
  * partir de los eventos cargados (no una lista fija como en la referencia).
- * El lado derecho de cada fila añade el estado real de plazas (`capacity` -
- * `reserved_count`, o "sin límite" si no hay `capacity`) y el modo de
- * registro, sin inventar ningún precio.
+ * El lado derecho de cada fila añade el precio (gratis/de pago, derivado de
+ * `registration_mode` — el listado no trae el precio exacto de cada tipo de
+ * entrada, eso solo se pide, por evento, en el paso de inscripción) y un chip
+ * de disponibilidad con el estado real de plazas (`capacity` -
+ * `reserved_count`, o "sin límite" si no hay `capacity`) y de apertura
+ * (`registration_opens_at`).
  *
  * No se muestra `cover_url` en la fila: la referencia no lleva imagen en
  * este patrón de lista (sí la lleva la ficha del evento).
@@ -193,15 +211,14 @@ function normalizarCiudad(ciudad: string): string {
             } @else {
               <div class="lista">
                 @for (evento of eventosFiltrados(); track evento.slug; let indice = $index) {
-                  <a
-                    class="ev"
-                    [routerLink]="['/eventos', evento.slug]"
-                    appReveal
-                    [index]="indice"
-                  >
+                  <a class="ev" [routerLink]="['/eventos', evento.slug]" appReveal [index]="indice">
                     <span class="ev-fecha">
-                      <span class="ev-dia">{{ evento.starts_at | date: 'dd' : evento.timezone }}</span>
-                      <span class="ev-mes">{{ evento.starts_at | date: 'MMM' : evento.timezone }}</span>
+                      <span class="ev-dia">{{
+                        evento.starts_at | date: 'dd' : evento.timezone
+                      }}</span>
+                      <span class="ev-mes">{{
+                        evento.starts_at | date: 'MMM' : evento.timezone
+                      }}</span>
                     </span>
                     <span class="ev-cuerpo">
                       <h3>{{ evento.title }}</h3>
@@ -209,7 +226,8 @@ function normalizarCiudad(ciudad: string): string {
                         <span>
                           @if (evento.location_name || evento.city) {
                             {{ evento.location_name
-                            }}{{ evento.location_name && evento.city ? ' · ' : '' }}{{ evento.city }}
+                            }}{{ evento.location_name && evento.city ? ' · ' : ''
+                            }}{{ evento.city }}
                           } @else {
                             {{ t(claveFormato(evento)) }}
                           }
@@ -226,7 +244,10 @@ function normalizarCiudad(ciudad: string): string {
                       }
                     </span>
                     <span class="ev-lado">
-                      <app-chip [tone]="chipFila(evento).tono">{{ t(chipFila(evento).clave) }}</app-chip>
+                      <span class="precio">{{ precioTexto(evento, t) }}</span>
+                      <app-chip [tone]="chipFila(evento).tono">{{
+                        t(chipFila(evento).clave)
+                      }}</app-chip>
                     </span>
                   </a>
                 }
@@ -408,9 +429,19 @@ function normalizarCiudad(ciudad: string): string {
       font-size: var(--fs-sm);
       color: var(--muted);
     }
+    /* .ev__side (descubrir-eventos.html:34): precio arriba, chip de
+       disponibilidad debajo, ambos alineados a la derecha. */
     .ev-lado {
       display: flex;
-      align-items: flex-start;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+      text-align: right;
+    }
+    /* .price (descubrir-eventos.html:33). */
+    .precio {
+      font-family: var(--font-mono);
+      font-size: 1.05rem;
     }
     @media (max-width: 47.5rem) {
       .ev {
@@ -419,7 +450,10 @@ function normalizarCiudad(ciudad: string): string {
       }
       .ev-lado {
         grid-column: 2;
+        flex-direction: row;
+        align-items: center;
         justify-content: flex-start;
+        text-align: left;
       }
     }
   `,
@@ -524,14 +558,22 @@ export class EventsListPage implements OnInit {
 
   /** Chip único de la fila (`.ev__side .chip` de `descubrir-eventos.html:110-155`):
    * la referencia usa un solo hueco de chip cuyo contenido cambia según qué
-   * importa más. Prioridad: sin plazas > requiere aprobación > abierto — la
-   * referencia nunca combina ambos estados en su demo, pero con datos reales
-   * un evento con aprobación puede estar también agotado, y no tener plazas
-   * es la información más urgente de las dos. "Próximamente" (inscripción
-   * aún no abierta) no tiene contrapartida real (`events/models.py` no
-   * guarda una fecha de apertura), así que no se reproduce ese tercer
-   * estado. */
-  protected chipFila(evento: PublicEventSummary): { clave: string; tono: 'ok' | 'espera' | 'apagado' } {
+   * importa más. Prioridad: próximamente > sin plazas > requiere aprobación >
+   * abierto. "Próximamente" va primero porque, mientras no se alcanza
+   * `registration_opens_at`, ningún otro estado es real todavía (no puede
+   * haber plazas agotadas de una inscripción que aún no se puede hacer). Con
+   * la inscripción ya abierta, un evento con aprobación puede estar también
+   * agotado, y no tener plazas es la información más urgente de las dos. */
+  protected chipFila(evento: PublicEventSummary): {
+    clave: string;
+    tono: 'neutro' | 'ok' | 'espera' | 'apagado';
+  } {
+    if (
+      evento.registration_opens_at !== null &&
+      new Date(evento.registration_opens_at) > new Date()
+    ) {
+      return { clave: 'publico.eventos.disponibilidad.proximamente', tono: 'neutro' };
+    }
     if (evento.capacity !== null && evento.reserved_count >= evento.capacity) {
       return { clave: 'publico.eventos.completo', tono: 'apagado' };
     }
@@ -539,6 +581,28 @@ export class EventsListPage implements OnInit {
       return { clave: this.claveRegistro(evento), tono: 'espera' };
     }
     return { clave: 'publico.eventos.disponibilidad.abierto', tono: 'ok' };
+  }
+
+  /** `.price` de la fila (descubrir-eventos.html:33): el importe solo
+   * (`price_from_cents`/`price_currency`, calculado en el backend a partir de
+   * `EventTicketType` — sin N+1, una sola consulta agrupada para todo el
+   * listado) o «Desde X €» si `price_multiple` — solo hay más de un precio
+   * *distinto* entre los tipos vigentes, no simplemente más de un tipo. Un
+   * evento de pago sin ningún tipo vigente ahora mismo no tiene precio que
+   * mostrar: cae a la etiqueta genérica «De pago», nunca un importe
+   * inventado. */
+  protected precioTexto(
+    evento: PublicEventSummary,
+    traducir: (clave: string, params?: object) => string,
+  ): string {
+    if (evento.registration_mode !== 'paid') {
+      return traducir('publico.eventos.precio.gratis');
+    }
+    if (evento.price_from_cents === null || evento.price_currency === null) {
+      return traducir('publico.eventos.precio.pago');
+    }
+    const precio = formatearPrecio(evento.price_from_cents, evento.price_currency);
+    return evento.price_multiple ? traducir('publico.eventos.precio.desde', { precio }) : precio;
   }
 
   /** Duración real (`.ev__meta .num` de `descubrir-eventos.html:106`, p.ej.

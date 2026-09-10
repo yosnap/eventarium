@@ -5,11 +5,15 @@
 /**
  * Patrocinador tal y como se muestra en la página pública del evento.
  *
- * Nunca lleva la aportación (ni importe ni descripción): el PRD no pide hacer
- * pública la valoración económica de nadie, solo el logo/nombre/web agrupados
- * por nivel (ver Fase 2 de trabajo del plan, Requirements).
+ * Nunca lleva el importe de la aportación: el PRD no pide hacer pública la
+ * valoración económica de nadie (ver Fase 2 de trabajo del plan,
+ * Requirements). `contribution_description` sí se expone cuando la
+ * aportación es en especie — describe *qué* aporta, no cuánto vale.
  */
 export interface PublicSponsor {
+  contribution_description: (string | null);
+  contribution_type: 'monetaria' | 'en_especie';
+  id: string;
   logo_url: (string | null);
   name: string;
   website: (string | null);

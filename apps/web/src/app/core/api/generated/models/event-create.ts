@@ -17,6 +17,7 @@ export interface EventCreate {
   online_url?: (string | null);
   payment_checkout_window_minutes?: number;
   registration_mode?: 'free' | 'approval' | 'paid';
+  registration_opens_at?: (string | null);
   slug: string;
   starts_at: string;
   status?: 'draft' | 'published' | 'archived';

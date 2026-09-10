@@ -6,6 +6,7 @@ import { PublicCheckoutService } from '../../../core/payments/public-checkout.se
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
+import { Reveal } from '../../../shared/ui/reveal.directive';
 
 type Estado = 'comprobando' | 'confirmado' | 'pendiente' | 'fallido' | 'error';
 
@@ -33,11 +34,11 @@ const ESPERAS_REINTENTO_AUTOMATICO_MS = [2000, 4000, 8000, 8000, 8000] as const;
 @Component({
   selector: 'app-payment-return',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, Card],
+  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, Reveal],
   template: `
     <ng-container *transloco="let t">
       <div class="pagina">
-        <app-card [heading]="t('pago.retorno.titulo')">
+        <app-card [heading]="t('pago.retorno.titulo')" appReveal>
           <div aria-live="polite">
             @switch (estado()) {
               @case ('comprobando') {

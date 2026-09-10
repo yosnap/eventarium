@@ -80,6 +80,8 @@ export type { PublicSessionDetail } from './models/public-session-detail';
 export type { PublicSpeakerHistoryItem } from './models/public-speaker-history-item';
 export type { PublicSpeakerProfile } from './models/public-speaker-profile';
 export type { PublicSponsor } from './models/public-sponsor';
+export type { PublicSponsorDetail } from './models/public-sponsor-detail';
+export type { PublicSponsorHistoryItem } from './models/public-sponsor-history-item';
 export type { PublicSponsorTier } from './models/public-sponsor-tier';
 export type { PublicTicketTypeResponse } from './models/public-ticket-type-response';
 export type { PublicVenue } from './models/public-venue';

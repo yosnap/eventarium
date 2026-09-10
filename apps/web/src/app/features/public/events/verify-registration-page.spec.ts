@@ -79,6 +79,21 @@ describe('VerifyRegistrationPage', () => {
 
     expect(verify).toHaveBeenCalledWith('token-valido');
     expect(fixture.nativeElement.textContent).toContain('Tu inscripción está confirmada.');
+    expect(fixture.nativeElement.textContent).toContain('Inscripción confirmada');
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('con estado pendiente de aprobación muestra el chip correspondiente', async () => {
+    const verify = vi.fn().mockResolvedValue({
+      message: 'Tu inscripción está pendiente de aprobación.',
+      status: 'pending_approval',
+    });
+    configurar({ verify }, rutaConToken('token-valido'));
+
+    const fixture = TestBed.createComponent(VerifyRegistrationPage);
+    await fixture.whenStable();
+
+    expect(fixture.nativeElement.textContent).toContain('Pendiente de aprobación');
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 

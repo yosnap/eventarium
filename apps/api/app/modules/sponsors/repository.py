@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.events.models import Event
 from app.modules.sponsors.models import Sponsor, SponsorTier
 
 
@@ -55,6 +56,29 @@ async def get_sponsor(
         )
     )
     return resultado
+
+
+def public_sponsor_history_query(
+    organization_id: uuid.UUID, sponsor_name: str, exclude_event_id: uuid.UUID
+) -> Select[tuple[Event, SponsorTier]]:
+    """Otras ediciones publicadas y públicas en las que aparece un
+    patrocinador con este mismo nombre (comparación insensible a mayúsculas),
+    excluyendo el evento actual. Coincide por nombre porque `Sponsor` no
+    tiene identidad propia entre eventos — es la única señal real
+    disponible, sin inventar un enlace que el modelo no guarda."""
+    return (
+        select(Event, SponsorTier)
+        .join(Sponsor, Sponsor.event_id == Event.id)
+        .join(SponsorTier, SponsorTier.id == Sponsor.tier_id)
+        .where(
+            Sponsor.organization_id == organization_id,
+            func.lower(Sponsor.name) == sponsor_name.lower(),
+            Event.id != exclude_event_id,
+            Event.status == "published",
+            Event.visibility == "public",
+        )
+        .order_by(Event.starts_at.desc())
+    )
 
 
 def public_sponsors_query(

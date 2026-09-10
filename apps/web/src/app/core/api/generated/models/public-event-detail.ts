@@ -19,7 +19,11 @@ export interface PublicEventDetail {
   location_name: (string | null);
   longitude: (number | null);
   online_url: (string | null);
+  price_currency: (string | null);
+  price_from_cents: (number | null);
+  price_multiple: boolean;
   registration_mode: 'free' | 'approval' | 'paid';
+  registration_opens_at: (string | null);
   reserved_count: number;
   sessions: Array<PublicEventSession>;
   slug: string;
