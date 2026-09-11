@@ -2,36 +2,89 @@
 
 from __future__ import annotations
 
-from typing import Annotated
-
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Request
 from sqlalchemy import text
 
-from app.core.deps import DbDep, get_current_organization
+from app.core.deps import DbPlataformaDep
 from app.core.storage import get_storage
-from app.core.tenant import ResolvedOrganization
+from app.core.tenant import extract_host
+from app.modules.platform import service as platform_service
+from app.modules.platform.host import resolve_host
 from app.modules.tenant.schemas import (
     BrandingResponse,
+    PlatformBrandingBlock,
     ResolvedTheme,
     SocialLink,
 )
+from app.shared.errors import NotFoundError
 
 router = APIRouter(prefix="/tenant", tags=["tenant"])
 
 
 @router.get(
     "/branding",
-    summary="Identidad visual de la organización",
+    summary="Identidad visual de la instalación y, si la hay, de la organización",
     description=(
-        "Devuelve colores, tipografías, logotipo, plantilla y tema de la "
-        "organización asociada al host de la petición. Host desconocido → 404."
+        "Resuelve el host de la petición: si es un host de plataforma, devuelve "
+        "solo la identidad de la instalación; si es el host de una organización, "
+        "devuelve además la suya. Host de organización desconocido → 404.\n\n"
+        "Los campos de nivel raíz (`organization_name`, `template_key`, `theme`…) "
+        "se mantienen por compatibilidad con el cliente actual; el bloque "
+        "`platform` es el nuevo. Los de raíz se retiran cuando el cliente "
+        "consuma el bloque de plataforma."
     ),
     response_model=BrandingResponse,
 )
-async def branding(
-    session: DbDep,
-    organizacion: Annotated[ResolvedOrganization, Depends(get_current_organization)],
-) -> BrandingResponse:
+async def branding(session: DbPlataformaDep, request: Request) -> BrandingResponse:
+    """Identidad pública resuelta por host.
+
+    Un host de plataforma sirve la identidad de la instalación **sin
+    organización**: antes esto era imposible (cualquier host sin organización
+    registrada daba 404 y el frontend pintaba «sitio no disponible»). Un host
+    de organización sigue exigiéndola, con el mismo fail-closed de siempre.
+    """
+    plataforma = await platform_service.branding_publico(session)
+    bloque_plataforma = PlatformBrandingBlock(
+        name=plataforma.name,
+        logo_url=plataforma.logo_url,
+        favicon_url=plataforma.favicon_url,
+        social_links=[dict(enlace) for enlace in plataforma.social_links],
+        theme_template_id=plataforma.theme_template_id,
+        theme=(
+            ResolvedTheme(
+                id=plataforma.theme.id,
+                key=plataforma.theme.key,
+                name=plataforma.theme.name,
+                tokens=plataforma.theme.tokens,
+            )
+            if plataforma.theme is not None
+            else None
+        ),
+    )
+
+    resuelto = await resolve_host(session, extract_host(request))
+    organizacion = resuelto.organization
+
+    if resuelto.kind == "platform":
+        return BrandingResponse(
+            organization_id=None,
+            organization_name=None,
+            organization_slug=None,
+            template_key="classic",
+            theme=None,
+            social_links=[],
+            organizer_blurb=None,
+            logo_url=None,
+            favicon_url=None,
+            platform=bloque_plataforma,
+        )
+
+    if organizacion is None:
+        # Host sin organización y sin ser de plataforma: se conserva el 404 de
+        # siempre en lugar de servir una identidad vacía que el cliente no
+        # sabría distinguir de un fallo de configuración.
+        raise NotFoundError("No hay ninguna organización asociada al host de esta petición.")
+
     almacen = get_storage()
 
     fila = (
@@ -74,4 +127,5 @@ async def branding(
         organizer_blurb=blurb,
         logo_url=almacen.public_url(logo) if logo else None,
         favicon_url=almacen.public_url(favicon) if favicon else None,
+        platform=bloque_plataforma,
     )

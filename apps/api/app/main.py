@@ -13,6 +13,7 @@ from app.core.config import get_settings
 from app.core.redis_client import close_redis
 from app.core.storage import get_storage
 from app.modules.accounting.router import router as accounting_router
+from app.modules.admin.platform_router import router as admin_platform_router
 from app.modules.admin.router import router as admin_router
 from app.modules.auth.router import router as auth_router
 from app.modules.events.public_router import router as events_public_router
@@ -98,6 +99,7 @@ def create_app() -> FastAPI:
     api.include_router(users_router)
     api.include_router(roles_router)
     api.include_router(admin_router)
+    api.include_router(admin_platform_router)
     api.include_router(events_router)
     api.include_router(events_public_router)
     api.include_router(registrations_router)

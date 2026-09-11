@@ -323,8 +323,8 @@
         "tags": [
           "tenant"
         ],
-        "summary": "Identidad visual de la organización",
-        "description": "Devuelve colores, tipografías, logotipo, plantilla y tema de la organización asociada al host de la petición. Host desconocido → 404.",
+        "summary": "Identidad visual de la instalación y, si la hay, de la organización",
+        "description": "Resuelve el host de la petición: si es un host de plataforma, devuelve solo la identidad de la instalación; si es el host de una organización, devuelve además la suya. Host de organización desconocido → 404.\n\nLos campos de nivel raíz (`organization_name`, `template_key`, `theme`…) se mantienen por compatibilidad con el cliente actual; el bloque `platform` es el nuevo. Los de raíz se retiran cuando el cliente consuma el bloque de plataforma.",
         "operationId": "branding_api_v1_tenant_branding_get",
         "responses": {
           "200": {
@@ -1825,6 +1825,282 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ThemeTemplateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/identity": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Identidad de la plataforma",
+        "description": "Nombre, logotipo, favicon, redes y plantilla del chrome de la web de la instalación (no de una organización). El endpoint público `GET /tenant/branding` la sirve en su bloque `platform`.",
+        "operationId": "get_platform_identity_api_v1_admin_identity_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformBrandingResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Editar la identidad de la plataforma",
+        "description": "Un campo ausente no se toca; `social_links` se reemplaza entero cuando viene.",
+        "operationId": "update_platform_identity_api_v1_admin_identity_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformBrandingUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformBrandingResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/identity/logo": {
+      "put": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Subir el logotipo de la plataforma",
+        "description": "Acepta PNG, JPEG o WebP de hasta 5 MB. El tipo se comprueba por contenido.",
+        "operationId": "upload_platform_logo_api_v1_admin_identity_logo_put",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_platform_logo_api_v1_admin_identity_logo_put"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformBrandingResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/identity/favicon": {
+      "put": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Subir el favicon de la plataforma",
+        "description": "Mismas reglas que el logotipo.",
+        "operationId": "upload_platform_favicon_api_v1_admin_identity_favicon_put",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_platform_favicon_api_v1_admin_identity_favicon_put"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformBrandingResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/legal-pages": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Páginas legales de la plataforma",
+        "operationId": "get_platform_legal_pages_api_v1_admin_legal_pages_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformLegalPagesResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Editar las páginas legales de la plataforma",
+        "description": "Un campo ausente no se toca; un campo presente con `null` restaura la plantilla por defecto de esa página.",
+        "operationId": "update_platform_legal_pages_api_v1_admin_legal_pages_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformLegalPagesUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformLegalPagesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/platform-domains": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Hosts de la web de la plataforma",
+        "operationId": "list_platform_domains_api_v1_admin_platform_domains_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PlatformDomainOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Platform Domains Api V1 Admin Platform Domains Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Reemplazar los hosts de la web de la plataforma",
+        "description": "Sustituye la lista completa. Un host de plataforma se comprueba antes que los de organización, así que deja de resolverse como organización.",
+        "operationId": "replace_platform_domains_api_v1_admin_platform_domains_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformDomainsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PlatformDomainOut"
+                  },
+                  "type": "array",
+                  "title": "Response Replace Platform Domains Api V1 Admin Platform Domains Put"
                 }
               }
             }
@@ -6826,6 +7102,36 @@
         ],
         "title": "Body_upload_logo_api_v1_organizations_me_branding_logo_put"
       },
+      "Body_upload_platform_favicon_api_v1_admin_identity_favicon_put": {
+        "properties": {
+          "fichero": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Fichero",
+            "description": "Imagen del favicon"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fichero"
+        ],
+        "title": "Body_upload_platform_favicon_api_v1_admin_identity_favicon_put"
+      },
+      "Body_upload_platform_logo_api_v1_admin_identity_logo_put": {
+        "properties": {
+          "fichero": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Fichero",
+            "description": "Imagen del logotipo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fichero"
+        ],
+        "title": "Body_upload_platform_logo_api_v1_admin_identity_logo_put"
+      },
       "Body_upload_sponsor_logo_api_v1_events__event_id__sponsors__sponsor_id__logo_put": {
         "properties": {
           "fichero": {
@@ -6910,20 +7216,51 @@
       },
       "BrandingResponse": {
         "properties": {
+          "platform": {
+            "$ref": "#/components/schemas/PlatformBrandingBlock"
+          },
           "organization_id": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Organization Id"
           },
           "organization_name": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Organization Name"
           },
           "organization_slug": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Organization Slug"
           },
           "template_key": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Template Key",
             "description": "Plantilla de la página pública: classic | minimal"
           },
@@ -6980,14 +7317,10 @@
         },
         "type": "object",
         "required": [
-          "organization_id",
-          "organization_name",
-          "organization_slug",
-          "template_key",
-          "social_links"
+          "platform"
         ],
         "title": "BrandingResponse",
-        "description": "Identidad visual de la organización resuelta por host."
+        "description": "Identidad visual resuelta por host.\n\nDos bloques: `platform` (siempre presente, identidad de la instalación) y\nlos campos de nivel raíz (`organization_*`, `template_key`, `theme`,\n`logo_url`…) que describen la organización y son `None` en un host de\nplataforma. Los campos de raíz se conservan mientras el cliente actual los\nsiga consumiendo; el bloque `platform` es el contrato nuevo."
       },
       "BrandingUpdate": {
         "properties": {
@@ -10840,6 +11173,300 @@
         "title": "Permission",
         "description": "Permisos disponibles en la fase 0."
       },
+      "PlatformBrandingBlock": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "logo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Url"
+          },
+          "favicon_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favicon Url"
+          },
+          "social_links": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Social Links"
+          },
+          "theme_template_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Theme Template Id"
+          },
+          "theme": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResolvedTheme"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "PlatformBrandingBlock",
+        "description": "Identidad de la plataforma, presente en cualquier host.\n\nEs el bloque que el chrome de la web pública debe usar: la marca global de\nla instalación, no la de la organización. Un host de plataforma lo sirve\nsin organización ninguna; un host de organización lo sirve además de la\nsuya. Reproduce a propósito los campos del schema de `modules.platform`,\npara que el contrato público del tenant no dependa del módulo interno."
+      },
+      "PlatformBrandingResponse": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "logo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Url"
+          },
+          "favicon_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favicon Url"
+          },
+          "social_links": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Social Links"
+          },
+          "theme_template_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Theme Template Id"
+          },
+          "theme": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ThemeResolved"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "PlatformBrandingResponse",
+        "description": "Identidad de la plataforma tal y como la consume el endpoint público."
+      },
+      "PlatformBrandingUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "social_links": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Social Links"
+          },
+          "theme_template_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Theme Template Id"
+          }
+        },
+        "type": "object",
+        "title": "PlatformBrandingUpdate",
+        "description": "Actualización de la identidad de plataforma.\n\nTodos los campos son opcionales: un campo ausente no se toca. `social_links`\nse reemplaza entero cuando viene (mismo contrato que `BrandingUpdate` de\norganización); `None` lo vacía."
+      },
+      "PlatformDomainOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "host": {
+            "type": "string",
+            "title": "Host"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "host"
+        ],
+        "title": "PlatformDomainOut",
+        "description": "Un host de la web de la plataforma."
+      },
+      "PlatformDomainsUpdate": {
+        "properties": {
+          "hosts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Hosts",
+            "description": "Hosts que sirven la web de la instalación. Se normalizan al guardar."
+          }
+        },
+        "type": "object",
+        "title": "PlatformDomainsUpdate",
+        "description": "Reemplazo completo de los hosts de plataforma."
+      },
+      "PlatformLegalPageItem": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "is_custom": {
+            "type": "boolean",
+            "title": "Is Custom",
+            "description": "`true` si el admin ha editado esta página."
+          }
+        },
+        "type": "object",
+        "required": [
+          "content",
+          "is_custom"
+        ],
+        "title": "PlatformLegalPageItem",
+        "description": "Una página legal de plataforma, con su contenido efectivo."
+      },
+      "PlatformLegalPagesResponse": {
+        "properties": {
+          "legal_notice": {
+            "$ref": "#/components/schemas/PlatformLegalPageItem"
+          },
+          "privacy_policy": {
+            "$ref": "#/components/schemas/PlatformLegalPageItem"
+          },
+          "cookies_policy": {
+            "$ref": "#/components/schemas/PlatformLegalPageItem"
+          }
+        },
+        "type": "object",
+        "required": [
+          "legal_notice",
+          "privacy_policy",
+          "cookies_policy"
+        ],
+        "title": "PlatformLegalPagesResponse",
+        "description": "Las tres páginas legales de la plataforma."
+      },
+      "PlatformLegalPagesUpdate": {
+        "properties": {
+          "legal_notice_content": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legal Notice Content"
+          },
+          "privacy_policy_content": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Privacy Policy Content"
+          },
+          "cookies_policy_content": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cookies Policy Content"
+          }
+        },
+        "type": "object",
+        "title": "PlatformLegalPagesUpdate",
+        "description": "Actualización parcial de las páginas legales de plataforma.\n\nUn campo ausente no se toca; presente con `null` restaura la plantilla por\ndefecto (misma convención que las páginas de organización)."
+      },
       "ProfileFieldInput": {
         "properties": {
           "key": {
@@ -14093,6 +14720,36 @@
         ],
         "title": "SubmitRegistrationRequest",
         "description": "Datos del formulario público de inscripción a un evento."
+      },
+      "ThemeResolved": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "tokens": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Tokens"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "name",
+          "tokens"
+        ],
+        "title": "ThemeResolved",
+        "description": "Plantilla de tema efectiva del chrome de plataforma."
       },
       "ThemeTemplateCatalogItem": {
         "properties": {

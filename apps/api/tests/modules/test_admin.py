@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from httpx import AsyncClient
 from sqlalchemy import select
 
 from app.core.database import SessionMaintenance
+from app.main import app
 from app.modules.users.models import User
 from tests.conftest import OrganizacionDePrueba, iniciar_sesion
 
@@ -113,3 +115,64 @@ def test_solo_el_modulo_admin_usa_el_motor_de_mantenimiento() -> None:
         if fichero.parent.name != "admin" and "get_maintenance_db" in fichero.read_text()
     ]
     assert not infractores, f"get_maintenance_db usado fuera de modules/admin: {infractores}"
+
+
+def _rutas_de_app() -> list[Any]:
+    """Todas las rutas de la aplicación, incluidas las de los routers incluidos.
+
+    `app.routes` del proyecto monta los routers como `_IncludedRouter`, que no
+    expone `.routes` sino `.original_router`; un recorrido que solo mirara
+    `app.routes` (o solo `.routes`) devolvería cero rutas y el test pasaría sin
+    comprobar nada.
+    """
+    from fastapi.routing import APIRoute
+
+    encontradas: list[Any] = []
+    pendientes: list[Any] = list(app.routes)
+    vistos: set[int] = set()
+    while pendientes:
+        objeto = pendientes.pop()
+        if id(objeto) in vistos:
+            continue
+        vistos.add(id(objeto))
+
+        if isinstance(objeto, APIRoute):
+            encontradas.append(objeto)
+            continue
+
+        for atributo in ("routes", "original_router", "router", "app"):
+            hijo = getattr(objeto, atributo, None)
+            if hijo is None:
+                continue
+            pendientes.extend(getattr(hijo, "routes", []) or [hijo])
+    return encontradas
+
+
+def test_todas_las_rutas_de_admin_exigen_superadmin() -> None:
+    """Recorre las rutas del router de administración y exige su dependencia de gate.
+
+    `get_maintenance_db` (BYPASSRLS) no autentica por sí solo: la única barrera
+    de los endpoints de administración es el `Depends(require_superadmin)` que
+    cada función declara a mano. Un endpoint nuevo que lo olvide quedaría
+    expuesto con permisos de mantenimiento y sin autenticar, y ningún test
+    funcional de otro camino lo detectaría.
+    """
+    # El prefijo `/api/v1` lo aplica el `include_router` de `main.py`, no la ruta
+    # en sí: filtrar por `/api/v1/admin` devolvería vacío y el test pasaría sin
+    # comprobar nada. Las rutas del módulo llevan `/admin` en su propio path.
+    rutas = [ruta for ruta in _rutas_de_app() if ruta.path.startswith("/admin")]
+    assert rutas, "el recorrido no encontró ninguna ruta de /admin: el test no comprobaría nada"
+
+    sin_gate = []
+    for ruta in rutas:
+        nombres = {
+            dependencia.call.__name__
+            for dependencia in ruta.dependant.dependencies
+            if dependencia.call is not None
+        }
+        # El gate se declara como `Depends(require_superadmin)`, directo o como
+        # alias `Superadmin`; en ambos casos la dependencia resuelta es la misma.
+        if "require_superadmin" not in nombres:
+            sin_gate.append(ruta.path)
+
+    assert not sin_gate, f"rutas de /admin sin require_superadmin: {sin_gate}"

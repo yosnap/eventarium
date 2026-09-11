@@ -28,15 +28,44 @@ class ResolvedTheme(BaseModel):
     tokens: dict[str, dict[str, str]]
 
 
-class BrandingResponse(BaseModel):
-    """Identidad visual de la organización resuelta por host."""
+class PlatformBrandingBlock(BaseModel):
+    """Identidad de la plataforma, presente en cualquier host.
 
-    organization_id: str
-    organization_name: str
-    organization_slug: str
-    template_key: str = Field(description="Plantilla de la página pública: classic | minimal")
+    Es el bloque que el chrome de la web pública debe usar: la marca global de
+    la instalación, no la de la organización. Un host de plataforma lo sirve
+    sin organización ninguna; un host de organización lo sirve además de la
+    suya. Reproduce a propósito los campos del schema de `modules.platform`,
+    para que el contrato público del tenant no dependa del módulo interno.
+    """
+
+    name: str
+    logo_url: str | None = None
+    favicon_url: str | None = None
+    social_links: list[dict[str, object]] = Field(default_factory=list)
+    theme_template_id: str | None = None
     theme: ResolvedTheme | None = None
-    social_links: list[SocialLink]
+
+
+class BrandingResponse(BaseModel):
+    """Identidad visual resuelta por host.
+
+    Dos bloques: `platform` (siempre presente, identidad de la instalación) y
+    los campos de nivel raíz (`organization_*`, `template_key`, `theme`,
+    `logo_url`…) que describen la organización y son `None` en un host de
+    plataforma. Los campos de raíz se conservan mientras el cliente actual los
+    siga consumiendo; el bloque `platform` es el contrato nuevo.
+    """
+
+    platform: PlatformBrandingBlock
+
+    organization_id: str | None = None
+    organization_name: str | None = None
+    organization_slug: str | None = None
+    template_key: str | None = Field(
+        default=None, description="Plantilla de la página pública: classic | minimal"
+    )
+    theme: ResolvedTheme | None = None
+    social_links: list[SocialLink] = Field(default_factory=list)
     organizer_blurb: str | None = None
     logo_url: str | None = None
     favicon_url: str | None = None

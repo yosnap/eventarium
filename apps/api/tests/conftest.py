@@ -120,6 +120,13 @@ TABLAS = (
     "accounting_expenses",
     "accounting_expense_drafts",
     "sponsor_payment_details",
+    # Identidad de plataforma: tablas de instalación sin `organization_id` ni
+    # FK hacia ninguna de las anteriores. Sin listarlas, el `platform_domains`
+    # que un test registra se cuela en el siguiente (y el `TRUNCATE` de abajo
+    # se lleva por delante justo lo que el test acaba de crear).
+    "platform_branding",
+    "platform_domains",
+    "platform_legal_pages",
 )
 
 

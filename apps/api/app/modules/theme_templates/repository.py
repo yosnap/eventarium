@@ -7,6 +7,7 @@ plataforma.
 from __future__ import annotations
 
 import uuid
+from typing import cast
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,11 +25,17 @@ async def get_theme_template(session: AsyncSession, template_id: uuid.UUID) -> T
 
 
 async def get_theme_template_by_key(session: AsyncSession, key: str) -> ThemeTemplate | None:
-    return await session.scalar(select(ThemeTemplate).where(ThemeTemplate.key == key))
+    return cast(
+        "ThemeTemplate | None",
+        await session.scalar(select(ThemeTemplate).where(ThemeTemplate.key == key)),
+    )
 
 
 async def get_default_theme_template(session: AsyncSession) -> ThemeTemplate | None:
-    return await session.scalar(select(ThemeTemplate).where(ThemeTemplate.is_default.is_(True)))
+    return cast(
+        "ThemeTemplate | None",
+        await session.scalar(select(ThemeTemplate).where(ThemeTemplate.is_default.is_(True))),
+    )
 
 
 async def clear_default(session: AsyncSession, *, except_id: uuid.UUID | None = None) -> None:

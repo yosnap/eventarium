@@ -56,6 +56,20 @@ def build_object_key(organization_id: uuid.UUID, kind: str, extension: str) -> s
     return f"orgs/{organization_id}/{kind_limpio}/{uuid.uuid4().hex}.{extension}"
 
 
+def build_platform_object_key(kind: str, extension: str) -> str:
+    """`platform/{kind}/{uuid}.{ext}` — objetos de la instalación, no de un tenant.
+
+    Mismo contrato que `build_object_key` (la clave la construye siempre el
+    servidor, nunca un valor de la petición), pero con prefijo propio para que
+    los objetos de plataforma no se confundan con los de una organización en el
+    mismo bucket. No lleva `organization_id` porque no pertenecen a ninguna.
+    """
+    kind_limpio = kind.strip("/").replace("..", "")
+    if not kind_limpio:
+        raise ValueError("El tipo de objeto no puede estar vacío")
+    return f"platform/{kind_limpio}/{uuid.uuid4().hex}.{extension}"
+
+
 def validate_upload(
     contenido: bytes,
     *,

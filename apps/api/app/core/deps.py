@@ -41,7 +41,11 @@ async def get_current_organization(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ResolvedOrganization:
     """Organización resuelta por host. 404 si el host no está registrado."""
-    organizacion = await resolve_organization(session, request)
+    organizacion = await resolve_organization(request, session)
+    if organizacion is None:
+        # `required=True` ya lanzó 404 dentro de `resolve_organization`; esto
+        # solo deja el tipo cerrado para el llamante.
+        raise NotFoundError("No hay ninguna organización asociada al host de esta petición.")
     if not organizacion.is_active:
         raise NotFoundError("La organización no está activa.")
     request.state.organization = organizacion
@@ -54,6 +58,25 @@ async def get_db(
 ) -> AsyncSession:
     """Sesión con el contexto RLS de la organización ya fijado."""
     await set_organization_context(session, organizacion.id)
+    return session
+
+
+async def get_db_o_plataforma(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> AsyncSession:
+    """Sesión para endpoints públicos que también sirven al host de plataforma.
+
+    `get_db` exige que el host resuelva a una organización (404 si no), que es
+    lo correcto para todo lo que es de un tenant. La web de la instalación, en
+    cambio, tiene que servirse en un host que no pertenece a ninguna
+    organización: aquí el contexto RLS se fija **solo si hay** una, así que en
+    un host de plataforma la sesión queda sin contexto y solo puede leer las
+    tablas de instalación — que es exactamente lo que necesita.
+    """
+    organizacion = await resolve_organization(request, session, required=False)
+    if organizacion is not None:
+        await set_organization_context(session, organizacion.id)
     return session
 
 
@@ -183,6 +206,9 @@ async def get_user_permissions(session: AsyncSession, usuario: CurrentUser) -> s
 
 CurrentUserDep = Annotated[CurrentUser, Depends(get_current_user)]
 DbDep = Annotated[AsyncSession, Depends(get_db)]
+#: Sesión para endpoints públicos que también sirven al host de plataforma.
+#: A diferencia de `DbDep`, no exige que el host resuelva a una organización.
+DbPlataformaDep = Annotated[AsyncSession, Depends(get_db_o_plataforma)]
 
 
 async def current_permissions(usuario: CurrentUserDep, session: DbDep) -> set[Permission]:

@@ -70,15 +70,24 @@ def extract_host(request: Request) -> str:
     return normalize_host(request.headers.get("host", ""))
 
 
-async def resolve_organization(session: AsyncSession, request: Request) -> ResolvedOrganization:
-    """Resuelve la organización de la petición o lanza 404.
+async def resolve_organization(
+    request: Request, session: AsyncSession, *, required: bool = True
+) -> ResolvedOrganization | None:
+    """Resuelve la organización de la petición.
 
-    Esta lectura es el único punto que ocurre necesariamente *antes* de conocer la
-    organización, así que no puede depender del contexto RLS. En lugar de dar
+    Con `required=True` (el caso normal) lanza 404 si el host no resuelve a
+    ninguna organización registrada: es la garantía **fail-closed** de siempre,
+    la que impide que un `Host` no verificado seleccione un tenant. Con
+    `required=False` devuelve `None` en vez de lanzar, para los endpoints
+    públicos que también sirven al host de plataforma (que por definición no
+    tiene organización).
+
+    Esta lectura es el único punto que ocurre necesariamente *antes* de conocer
+    la organización, así que no puede depender del contexto RLS. En lugar de dar
     `BYPASSRLS` al rol de la API se usa `app_resolve_organization`, una función
     `SECURITY DEFINER` (creada en la migración de políticas) que devuelve solo
-    `id`, `slug` e `is_active` para un host exacto: el bypass queda acotado a esta
-    consulta concreta y auditable, en vez de a todo el rol.
+    `id`, `slug` e `is_active` para un host exacto: el bypass queda acotado a
+    esta consulta concreta y auditable, en vez de a todo el rol.
     """
     settings = get_settings()
     host = extract_host(request)
@@ -107,6 +116,9 @@ async def resolve_organization(session: AsyncSession, request: Request) -> Resol
             ).first()
             if fila is not None:
                 return ResolvedOrganization(id=fila[0], slug=fila[1], is_active=fila[2])
+
+    if not required:
+        return None
 
     raise NotFoundError(f"No hay ninguna organización asociada al host «{host}».")
 
