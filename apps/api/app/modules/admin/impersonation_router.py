@@ -37,13 +37,14 @@ from app.core.security import (
     decode_access_token,
     verify_password,
 )
+from app.core.tasks import send_impersonation_notice
 from app.modules.admin import impersonation
 from app.modules.admin.schemas import (
     ImpersonableMember,
     ImpersonationRequest,
     ImpersonationResponse,
 )
-from app.modules.organizations.models import OrganizationMember
+from app.modules.organizations.models import Organization, OrganizationMember
 from app.modules.roles.models import Role
 from app.modules.users.models import User
 from app.shared.errors import AuthenticationError, NotFoundError, PermissionDeniedError
@@ -132,6 +133,19 @@ async def impersonate(
         detail={"reason": datos.reason, "expires_in": segundos},
         subject_user_id=objetivo.id,
         session_id=session_id,
+    )
+
+    # Aviso a la persona suplantada. Se envía como tarea de fondo (no en el
+    # camino de la respuesta): que el correo falle no puede impedir que el
+    # administrador entre, y el acceso ya queda registrado en la auditoría en
+    # cualquier caso. Es su única vía de enterarse: el registro de auditoría no
+    # está a su alcance.
+    organizacion = await session.get(Organization, datos.organization_id)
+    await send_impersonation_notice.kiq(
+        objetivo.email,
+        reason=datos.reason,
+        minutos=_TTL_MINUTOS,
+        organizacion=organizacion.name if organizacion else "la plataforma",
     )
 
     return ImpersonationResponse(

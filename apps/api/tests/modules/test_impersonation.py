@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import uuid
 
+import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 
@@ -254,3 +255,46 @@ async def test_la_lista_de_suplantables_enmascara_el_correo_y_marca_a_los_admin(
     # El propio administrador aparece, pero marcado como no suplantable.
     admin = next(m for m in miembros if not m["suplantable"])
     assert admin is not None
+
+
+async def test_se_avisa_a_la_persona_suplantada(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Quien es suplantado tiene que poder enterarse.
+
+    Sin este aviso no se enteraría de ninguna forma: el registro de auditoría
+    está restringido al personal de plataforma. Se comprueba que la tarea se
+    encola con el correo de la persona suplantada y el motivo indicado.
+    """
+    enviados: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+    async def _capturar(*args: object, **kwargs: object) -> None:
+        enviados.append((args, kwargs))
+
+    from app.modules.admin import impersonation_router
+
+    monkeypatch.setattr(impersonation_router.send_impersonation_notice, "kiq", _capturar)
+
+    await _hacer_superadmin(organizacion.owner_email)
+    await crear_rol(organizacion, key="avisado", permisos=[])
+    persona = await crear_miembro(organizacion, "avisado")
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+    respuesta = await cliente.post(
+        IMPERSONATE,
+        headers=cabeceras,
+        json={
+            "user_id": str(persona.user_id),
+            "organization_id": str(organizacion.id),
+            "reason": "Comprobar una incidencia",
+            "password": organizacion.owner_password,
+        },
+    )
+    assert respuesta.status_code == 201, respuesta.text
+
+    assert len(enviados) == 1
+    argumentos, opciones = enviados[0]
+    # El aviso va al correo de la persona suplantada, no al del administrador.
+    assert argumentos[0] == persona.email
+    assert opciones["reason"] == "Comprobar una incidencia"
+    assert "organizacion" in opciones

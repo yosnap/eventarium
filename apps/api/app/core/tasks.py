@@ -125,6 +125,35 @@ async def send_email_change_warning(to_email: str, new_email: str) -> None:
 
 
 @broker.task(retry_on_error=True, max_retries=5)
+async def send_impersonation_notice(
+    to_email: str, *, reason: str, minutos: int, organizacion: str
+) -> None:
+    """Avisa a la persona de que el equipo de la plataforma ha entrado a su cuenta.
+
+    Sin enlace y sin token: es un aviso, no una acción que la persona tenga que
+    hacer. Va al suplantado y no al administrador porque suplantar da acceso a
+    datos personales de alguien que, sin este correo, no tendría forma de
+    enterarse (el registro de auditoría está restringido al personal de
+    plataforma).
+    """
+    await get_email_provider().send(
+        to=to_email,
+        subject="El equipo de la plataforma ha accedido a tu cuenta",
+        body=(
+            "Hola,\n\n"
+            f"El equipo de soporte ha accedido a tu cuenta de {organizacion} durante "
+            f"unos {minutos} minutos para revisar una incidencia. El motivo indicado "
+            f"es: «{reason}».\n\n"
+            "El acceso es de solo lectura: durante ese tiempo no se ha modificado "
+            "nada de tu cuenta ni de tus eventos. Queda registrado quién lo hizo y "
+            "cuándo.\n\n"
+            "Si no esperabas este acceso, responde a este correo para que lo "
+            "revisemos."
+        ),
+    )
+
+
+@broker.task(retry_on_error=True, max_retries=5)
 async def send_email_change_confirmation(to_email: str, token: str) -> None:
     """Envía el enlace de confirmación al correo **nuevo**."""
     settings = get_settings()
