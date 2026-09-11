@@ -44,4 +44,7 @@ Thumbs.db
 # compartidos entre worktrees vía symlink local — nunca en el historial de
 # este proyecto MIT.
 .claude/
-/plans
+# El symlink `plans` SÍ se versiona (una entrada de enlace, no su contenido):
+# es lo que hace que `plans/` aparezca también en cada worktree nuevo, ya que
+# git solo recrea lo versionado. El contenido sigue fuera del repo.
+!/plans
