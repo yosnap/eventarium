@@ -151,7 +151,7 @@ Prioridad: **M** = MVP IAWIC Valencia · **S** = siguiente · **P** = posterior.
 ### 4.8 Contabilidad por evento — S
 
 - Cada evento tiene su libro: presupuesto inicial por partidas, ingresos (patrocinios, colaboradores, entradas, subvenciones), gastos (con categoría, proveedor, fecha, importe, IVA), aportaciones en especie valoradas (constan como ingreso y gasto).
-- Subida de facturas y tickets (imagen/PDF) a almacenamiento; **OCR** (PaddleOCR + respaldo LLM vision) que propone proveedor, fecha, base, IVA y total para confirmar.
+- Subida de facturas y tickets (imagen/PDF) a almacenamiento; **OCR** vía la pasarela de IA multi-proveedor de la organización (LLM vision — OpenRouter/Anthropic/OpenAI/Gemini/personalizado, sin motor autoalojado) que propone proveedor, fecha, base, IVA y total para confirmar. Ver `plans/260911-0325-prd-pasarela-ia-multiproveedor/plan.md`.
 - Panel: presupuesto vs ejecutado, recaudado por origen, saldo, fondo de contingencia, evolución temporal; balance final exportable (CSV/PDF).
 - Acceso restringido a administradores de la organización (`accounting:*`).
 
@@ -212,7 +212,7 @@ Marketplace público de eventos, app nativa, seating/mapas de asientos, POS fís
 | Antibot | Cloudflare Turnstile (verificación server-side) |
 | Vídeo | Embeds de plataformas externas |
 | Cookies | Orejime (Klaro accesible) — a confirmar frente a Klaro en la fase 5 según auditoría WCAG |
-| OCR | PaddleOCR self-hosted + LLM vision de respaldo |
+| OCR | LLM vision vía pasarela de IA multi-proveedor propia (LiteLLM SDK embebido; sin motor autoalojado) |
 | Despliegue | Docker Compose (api, web, worker, postgres, redis, seaweedfs, caddy); Caddy con TLS on-demand para dominios propios; GitHub Actions; Coolify/Dokploy opcionales |
 | Repositorio | Monorepo `apps/api`, `apps/web`, `infra/`, `docs/`, `plans/` |
 
