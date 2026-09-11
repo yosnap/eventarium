@@ -209,6 +209,22 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'superadmin/identidad',
+        canActivate: [superadminGuard],
+        loadComponent: () =>
+          import('./features/admin/superadmin/platform-identity-page').then(
+            (m) => m.PlatformIdentityPage,
+          ),
+      },
+      {
+        path: 'superadmin/legales',
+        canActivate: [superadminGuard],
+        loadComponent: () =>
+          import('./features/admin/superadmin/platform-legal-page').then(
+            (m) => m.PlatformLegalPage,
+          ),
+      },
+      {
         // Catálogo interno de componentes: no forma parte del producto, pero vive
         // dentro del panel (autenticado) para revisarlos en el mismo contexto donde
         // se usan, en vez de una ruta pública sin enlace desde ningún sitio.

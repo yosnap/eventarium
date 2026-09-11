@@ -1311,6 +1311,40 @@
       "guardado": "Cambios guardados.",
       "error": "No hemos podido guardar los cambios."
     },
+    "plataforma": {
+      "identidad": {
+        "titulo": "Identidad de la plataforma",
+        "descripcion": "Nombre, logotipo, favicon y plantilla de la web de Eventarium. Es la marca de la instalación, no la de una organización.",
+        "marca": "Marca",
+        "nombre": "Nombre de la plataforma",
+        "plantilla": "Plantilla del chrome",
+        "plantillaAyuda": "Se aplica a la cabecera, el pie y los botones de la web pública.",
+        "plantillaPorDefecto": "La de por defecto del catálogo",
+        "imagenes": "Logotipo y favicon",
+        "logotipo": "Logotipo",
+        "favicon": "Favicon",
+        "sinLogotipo": "Sin logotipo subido.",
+        "sinFavicon": "Sin favicon subido.",
+        "subirLogotipo": "Subir logotipo",
+        "subirFavicon": "Subir favicon",
+        "guardado": "Identidad de la plataforma actualizada.",
+        "errorCarga": "No hemos podido cargar la identidad de la plataforma.",
+        "errorGuardar": "No hemos podido guardar la identidad.",
+        "errorSubida": "No hemos podido subir la imagen."
+      },
+      "legales": {
+        "titulo": "Páginas legales de la plataforma",
+        "descripcion": "Aviso legal, privacidad y cookies de Eventarium. Cada organización tiene además las suyas, que edita en su propio panel.",
+        "avisoLegal": "Aviso legal",
+        "privacidad": "Política de privacidad",
+        "cookies": "Política de cookies",
+        "personalizada": "Personalizada: se está sirviendo este texto.",
+        "plantillaPorDefecto": "Usando la plantilla por defecto. Escribe un texto para personalizarla.",
+        "guardado": "Páginas legales actualizadas.",
+        "errorCarga": "No hemos podido cargar las páginas legales de la plataforma.",
+        "errorGuardar": "No hemos podido guardar las páginas legales."
+      }
+    },
     "superadmin": {
       "titulo": "Superadministración",
       "descripcion": "Auditoría de la instalación, exportación RGPD y borrado de inscritos bajo solicitud. Ninguna de estas acciones está disponible para un organizador.",

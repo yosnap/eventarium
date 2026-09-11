@@ -41,6 +41,16 @@ export const ORGANIZATION_NAV_LINKS: readonly AdminNavLink[] = [
 export const PLATFORM_NAV_LINKS: readonly AdminNavLink[] = [
   { path: ['/admin/superadmin'], labelKey: 'admin.superadminNav', soloSuperadmin: true },
   {
+    path: ['/admin/superadmin/identidad'],
+    labelKey: 'admin.plataforma.identidad.titulo',
+    soloSuperadmin: true,
+  },
+  {
+    path: ['/admin/superadmin/legales'],
+    labelKey: 'admin.plataforma.legales.titulo',
+    soloSuperadmin: true,
+  },
+  {
     path: ['/admin/superadmin/plantillas'],
     labelKey: 'admin.superadmin.plantillas.titulo',
     soloSuperadmin: true,
