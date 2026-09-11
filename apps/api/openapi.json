@@ -2118,6 +2118,63 @@
         }
       }
     },
+    "/api/v1/admin/impersonate": {
+      "post": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Entrar a la cuenta de un usuario (solo lectura)",
+        "description": "Abre una sesión de suplantación sobre `user_id` en la organización indicada. Exige la contraseña del administrador y un motivo, y queda registrada en la auditoría. La sesión es de solo lectura.",
+        "operationId": "impersonate_api_v1_admin_impersonate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImpersonationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImpersonationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/impersonate/stop": {
+      "post": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Salir de la sesión de suplantación",
+        "description": "Revoca la sesión **en el servidor**, no solo en el cliente.\n\nSe llama con el token de impersonación (no con el del administrador): el\n`jti` de ese token es la clave que hay que borrar de Redis.",
+        "operationId": "stop_impersonating_api_v1_admin_impersonate_stop_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
     "/api/v1/events": {
       "get": {
         "tags": [
@@ -10000,6 +10057,76 @@
         ],
         "title": "HealthResponse",
         "description": "Estado de cada dependencia."
+      },
+      "ImpersonationRequest": {
+        "properties": {
+          "password": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Password"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Organization Id"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "password",
+          "user_id",
+          "organization_id",
+          "reason"
+        ],
+        "title": "ImpersonationRequest",
+        "description": "Cuerpo de `POST /admin/impersonate`.\n\nLa contraseña se exige igual que en las operaciones RGPD, que son menos\nsensibles: suplantar da acceso a **todos** los datos de una persona."
+      },
+      "ImpersonationResponse": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "impersonated_user_id": {
+            "type": "string",
+            "title": "Impersonated User Id"
+          },
+          "organization_id": {
+            "type": "string",
+            "title": "Organization Id"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In",
+            "description": "Segundos de vida del token."
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "session_id",
+          "impersonated_user_id",
+          "organization_id",
+          "expires_in"
+        ],
+        "title": "ImpersonationResponse",
+        "description": "Sesión de impersonación recién abierta."
       },
       "InKindValuationIn": {
         "properties": {

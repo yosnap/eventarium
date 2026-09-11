@@ -160,7 +160,16 @@ def test_todas_las_rutas_de_admin_exigen_superadmin() -> None:
     # El prefijo `/api/v1` lo aplica el `include_router` de `main.py`, no la ruta
     # en sí: filtrar por `/api/v1/admin` devolvería vacío y el test pasaría sin
     # comprobar nada. Las rutas del módulo llevan `/admin` en su propio path.
-    rutas = [ruta for ruta in _rutas_de_app() if ruta.path.startswith("/admin")]
+    #
+    # Excepción documentada: `impersonate/stop` se llama **con el token de
+    # suplantación**, no con el del administrador, así que no puede exigir
+    # `require_superadmin` (lo rechazaría por ser un token de impersonación).
+    # Su propia barrera es exigir que el token sea de suplantación.
+    rutas = [
+        ruta
+        for ruta in _rutas_de_app()
+        if ruta.path.startswith("/admin") and not ruta.path.endswith("/impersonate/stop")
+    ]
     assert rutas, "el recorrido no encontró ninguna ruta de /admin: el test no comprobaría nada"
 
     sin_gate = []

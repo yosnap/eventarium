@@ -6,13 +6,15 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
+from app.core.deps import bloquear_escritura_si_impersona
 from app.core.redis_client import close_redis
 from app.core.storage import get_storage
 from app.modules.accounting.router import router as accounting_router
+from app.modules.admin.impersonation_router import router as admin_impersonation_router
 from app.modules.admin.platform_router import router as admin_platform_router
 from app.modules.admin.router import router as admin_router
 from app.modules.auth.router import router as auth_router
@@ -90,7 +92,14 @@ def create_app() -> FastAPI:
 
     register_exception_handlers(app)
 
-    api = APIRouter(prefix=API_PREFIX)
+    # La dependencia de solo lectura se aplica aquí, al router raíz de la API,
+    # y no endpoint a endpoint: una sesión de suplantación no debe poder
+    # escribir en ningún sitio, y un endpoint nuevo no puede quedarse fuera por
+    # olvido. Es inerte para una sesión normal.
+    api = APIRouter(
+        prefix=API_PREFIX,
+        dependencies=[Depends(bloquear_escritura_si_impersona)],
+    )
     api.include_router(health_router)
     api.include_router(auth_router)
     api.include_router(tenant_router)
@@ -100,6 +109,7 @@ def create_app() -> FastAPI:
     api.include_router(roles_router)
     api.include_router(admin_router)
     api.include_router(admin_platform_router)
+    api.include_router(admin_impersonation_router)
     api.include_router(events_router)
     api.include_router(events_public_router)
     api.include_router(registrations_router)

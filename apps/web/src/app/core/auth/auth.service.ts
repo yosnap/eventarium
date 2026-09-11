@@ -89,10 +89,32 @@ export class AuthService {
    */
   private readonly bridge = signal<string | null>(null);
 
+  /**
+   * Sesión de impersonación activa: a quién se suplanta y con qué token.
+   *
+   * El token del administrador **no se toca**: se guarda aparte el de la
+   * suplantación, que es el que viaja en las peticiones mientras dura. Así
+   * «salir» es simplemente descartar este estado y volver al del admin, y una
+   * recarga de página pierde la suplantación (el token vive en memoria, nunca
+   * en `localStorage`) — documentado como comportamiento esperado.
+   */
+  private readonly impersonacion = signal<{ token: string; usuarioId: string; nombre: string } | null>(
+    null,
+  );
+
   readonly accessToken = this.token.asReadonly();
   readonly currentUser = this.usuario.asReadonly();
   readonly isAuthenticated = computed(() => this.token() !== null);
   readonly bridgeToken = this.bridge.asReadonly();
+  /** Datos de la suplantación en curso, o `null` si no la hay. */
+  readonly suplantando = this.impersonacion.asReadonly();
+
+  /**
+   * Token que deben usar las peticiones: el de la suplantación si la hay, y si
+   * no el de la sesión normal. El interceptor lee `accessToken`, así que este
+   * es el punto donde una suplantación toma el relevo.
+   */
+  readonly tokenEfectivo = computed(() => this.impersonacion()?.token ?? this.token());
 
   /**
    * Recarga el usuario actual desde la API.
@@ -321,9 +343,59 @@ export class AuthService {
     }
   }
 
+  /**
+   * Abre una sesión de impersonación sobre otro usuario (solo lectura).
+   *
+   * Exige la contraseña del propio administrador y un motivo, y la organización
+   * en la que se suplanta: el usuario puede pertenecer a varias y el token fija
+   * una, así que hay que decir cuál. El token del administrador se conserva
+   * intacto para poder salir.
+   */
+  async impersonar(datos: {
+    userId: string;
+    organizationId: string;
+    reason: string;
+    password: string;
+    nombreVisible: string;
+  }): Promise<void> {
+    const respuesta = await firstValueFrom(
+      this.http.post<{ access_token: string }>(this.api.url('/admin/impersonate'), {
+        user_id: datos.userId,
+        organization_id: datos.organizationId,
+        reason: datos.reason,
+        password: datos.password,
+      }),
+    );
+    this.impersonacion.set({
+      token: respuesta.access_token,
+      usuarioId: datos.userId,
+      nombre: datos.nombreVisible,
+    });
+  }
+
+  /**
+   * Sale de la suplantación.
+   *
+   * El `POST` de salida se hace **con el token de suplantación** (que es lo que
+   * el interceptor pone ahora en la cabecera), y es lo que revoca la sesión en
+   * el servidor. Después se descarta el estado local: el administrador vuelve a
+   * su propia sesión, que nunca se había tocado.
+   */
+  async salirDeImpersonacion(): Promise<void> {
+    if (this.impersonacion() === null) {
+      return;
+    }
+    try {
+      await firstValueFrom(this.http.post(this.api.url('/admin/impersonate/stop'), null));
+    } finally {
+      this.impersonacion.set(null);
+    }
+  }
+
   clear(): void {
     this.token.set(null);
     this.usuario.set(null);
     this.bridge.set(null);
+    this.impersonacion.set(null);
   }
 }

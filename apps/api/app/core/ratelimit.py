@@ -76,6 +76,11 @@ COOKIE_CONSENT_POR_IP = 30
 AUDIT_LOG_POR_IP = 30
 RGPD_EXPORT_POR_IP = 10
 RGPD_DELETE_POR_IP = 10
+# Impersonación: abre acceso a la cuenta y los datos de otra persona, así que
+# lleva tope propio y bajo — una sesión de administrador robada no debe poder
+# suplantar en masa. Va junto a los de RGPD, que son la operación más parecida
+# en sensibilidad.
+IMPERSONATION_POR_IP = 5
 # Sincronización manual de Stripe (fase 6 del PRD): es la única ruta del
 # panel que provoca una llamada de red a Stripe por petición, así que lleva
 # un tope propio distinto del resto de escrituras de pagos.

@@ -55,6 +55,11 @@ export const PLATFORM_NAV_LINKS: readonly AdminNavLink[] = [
     labelKey: 'admin.superadmin.plantillas.titulo',
     soloSuperadmin: true,
   },
+  {
+    path: ['/admin/superadmin/suplantar'],
+    labelKey: 'admin.plataforma.impersonar.titulo',
+    soloSuperadmin: true,
+  },
   { path: ['/admin/estilo'], labelKey: 'admin.catalogoDeComponentes' },
 ];
 

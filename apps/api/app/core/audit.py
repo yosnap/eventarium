@@ -59,6 +59,16 @@ class AuditLog(Base):
     organization_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), nullable=True, index=True
     )
+    #: Persona **sobre la que** se actúa, cuando no es la misma que el actor.
+    #: El caso que lo motivó es la impersonación: el actor es el administrador
+    #: y el sujeto el usuario suplantado. Sin esta columna, esa relación no
+    #: cabía en el registro salvo metiéndola en `detail` (sin índice ni FK).
+    subject_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    #: Agrupa las filas de una misma sesión de impersonación (su entrada, sus
+    #: acciones y su salida), para poder reconstruirla y medir su duración.
+    session_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # Ej.: `role.permissions_changed`, `organization.created`,
     # `organization_domain.created`, `registration.rgpd_export`,
     # `registration.rgpd_delete`.
@@ -80,6 +90,8 @@ async def registrar_auditoria(
     entity_type: str,
     entity_id: str | None,
     detail: dict[str, Any] | None = None,
+    subject_user_id: uuid.UUID | None = None,
+    session_id: str | None = None,
 ) -> None:
     """Único punto de escritura de `audit_log` (fase 4 de trabajo).
 
@@ -99,6 +111,8 @@ async def registrar_auditoria(
             entity_type=entity_type,
             entity_id=entity_id,
             detail=detail or {},
+            subject_user_id=subject_user_id,
+            session_id=session_id,
         )
     )
     await session.flush()

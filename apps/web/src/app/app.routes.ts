@@ -225,6 +225,14 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'superadmin/suplantar',
+        canActivate: [superadminGuard],
+        loadComponent: () =>
+          import('./features/admin/superadmin/impersonation-page').then(
+            (m) => m.ImpersonationPage,
+          ),
+      },
+      {
         // Catálogo interno de componentes: no forma parte del producto, pero vive
         // dentro del panel (autenticado) para revisarlos en el mismo contexto donde
         // se usan, en vez de una ruta pública sin enlace desde ningún sitio.

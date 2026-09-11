@@ -7,7 +7,6 @@ from sqlalchemy import text
 
 from app.core.deps import DbPlataformaDep
 from app.core.storage import get_storage
-from app.core.tenant import extract_host
 from app.modules.platform import service as platform_service
 from app.modules.platform.host import resolve_host
 from app.modules.tenant.schemas import (
@@ -61,7 +60,7 @@ async def branding(session: DbPlataformaDep, request: Request) -> BrandingRespon
         ),
     )
 
-    resuelto = await resolve_host(session, extract_host(request))
+    resuelto = await resolve_host(session, request)
     organizacion = resuelto.organization
 
     if resuelto.kind == "platform":

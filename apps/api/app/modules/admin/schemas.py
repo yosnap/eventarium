@@ -5,6 +5,7 @@ Fase 5 del PRD, fase 4 de trabajo.
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -42,3 +43,42 @@ class DeleteRegistrationRequest(Reauthentication):
 
     event_id: str
     email: EmailStr
+
+
+class ImpersonationRequest(Reauthentication):
+    """Cuerpo de `POST /admin/impersonate`.
+
+    La contraseña se exige igual que en las operaciones RGPD, que son menos
+    sensibles: suplantar da acceso a **todos** los datos de una persona.
+    """
+
+    user_id: uuid.UUID
+    organization_id: uuid.UUID
+    reason: Annotated[str, Field(min_length=1, max_length=200)]
+
+
+class ImpersonationResponse(BaseModel):
+    """Sesión de impersonación recién abierta."""
+
+    access_token: str
+    session_id: str
+    impersonated_user_id: str
+    organization_id: str
+    expires_in: int = Field(description="Segundos de vida del token.")
+
+
+class ImpersonableMember(BaseModel):
+    """Miembro de una organización, para el selector de impersonación.
+
+    Solo lo imprescindible para elegir a quién suplantar: el correo está
+    enmascarado (es dato personal, y la lista la consume el panel de
+    plataforma, que no necesita el correo completo para nada).
+    """
+
+    user_id: str
+    nombre: str
+    email_enmascarado: str
+    role_key: str
+    # `false` si no es suplantable (es superadmin): el panel lo deshabilita en
+    # vez de ofrecer un botón que daría 403.
+    suplantable: bool

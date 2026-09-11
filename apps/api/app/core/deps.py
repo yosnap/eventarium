@@ -106,8 +106,20 @@ def _extraer_token(request: Request) -> str:
 
 
 async def get_token_claims(request: Request) -> AccessTokenClaims:
-    """Contenido verificado del access token, sin tocar la base de datos."""
-    return decode_access_token(_extraer_token(request))
+    """Contenido verificado del access token, sin tocar la base de datos.
+
+    La única excepción es una sesión de impersonación: se comprueba contra
+    Redis que siga viva. Un JWT no se puede invalidar por sí solo, así que sin
+    esta consulta «salir de la suplantación» solo borraría el token del cliente
+    y el token robado seguiría valiendo hasta su `exp`.
+    """
+    claims = decode_access_token(_extraer_token(request))
+    if claims.impersonated_by is not None:
+        from app.modules.admin import impersonation
+
+        if not await impersonation.sesion_activa(claims.jti):
+            raise AuthenticationError("La suplantación ha terminado.")
+    return claims
 
 
 class CurrentUser:
@@ -218,6 +230,55 @@ async def current_permissions(usuario: CurrentUserDep, session: DbDep) -> set[Pe
 
 PermissionsDep = Annotated[set[Permission], Depends(current_permissions)]
 
+#: Métodos que una sesión de impersonación puede usar. Todo lo demás se rechaza:
+#: la suplantación es de **solo lectura**, y esa garantía tiene que vivir en el
+#: backend, no en el banner del cliente (una petición directa no lo pinta).
+_METODOS_DE_LECTURA = frozenset({"GET", "HEAD", "OPTIONS"})
+
+
+async def bloquear_escritura_si_impersona(request: Request) -> None:
+    """Impide escribir durante una sesión de impersonación.
+
+    Se aplica como dependencia **global** (ver `main.py`), no endpoint a
+    endpoint: así cubre los ~120 endpoints de la API sin tocar ninguno y sin
+    que un endpoint nuevo se quede fuera por olvido. Una suplantación sirve para
+    ver lo que ve la persona suplantada, no para actuar en su nombre.
+
+    Es deliberadamente **opcional** respecto al token: se aplica a rutas
+    públicas (login, registro, webhooks) que no llevan `Authorization`. Sin
+    token no hay sesión de suplantación, así que se deja pasar; la exigencia de
+    autenticación es cosa de cada endpoint, no de esta dependencia.
+    """
+    cabecera = request.headers.get("authorization", "")
+    _, _, token = cabecera.partition(" ")
+    if not token:
+        return
+
+    try:
+        claims = decode_access_token(token)
+    except AuthenticationError:
+        # Un token inválido lo rechazará la autenticación del endpoint con su
+        # propio mensaje; aquí no se adelanta ese juicio.
+        return
+
+    if claims.impersonated_by is None:
+        return
+
+    if request.method.upper() in _METODOS_DE_LECTURA:
+        return
+
+    # Salir de la suplantación es un `POST`, y tiene que poder hacerse desde la
+    # propia sesión de suplantación: sin esta excepción, la regla de solo
+    # lectura encerraría al administrador dentro de la sesión hasta que
+    # caducase. Es la única escritura permitida, y no toca datos de nadie.
+    if request.url.path.endswith("/impersonate/stop"):
+        return
+
+    raise PermissionDeniedError(
+        "Una sesión de suplantación solo puede consultar, no modificar.",
+        extra={"metodo": request.method},
+    )
+
 
 def require_permission(*requeridos: Permission):  # type: ignore[no-untyped-def]
     """Exige que el usuario tenga **todos** los permisos indicados."""
@@ -243,7 +304,18 @@ async def require_superadmin(
     Los endpoints de administración son globales, así que no exigen organización en
     el token. `is_superadmin` se comprueba **en base de datos** en cada petición: un
     token antiguo no puede conservar el privilegio si se revocó.
+
+    Un token de **impersonación** se rechaza siempre, aunque el usuario suplantado
+    sea superadmin en la base de datos: el claim `sa` no es la defensa (este gate
+    lee `users`, no el claim), así que sin esta comprobación una sesión de
+    suplantación sobre un superadmin pasaría los endpoints de administración —
+    que son, precisamente, los que no debe poder usar.
     """
+    if claims.impersonated_by is not None:
+        raise PermissionDeniedError(
+            "Una sesión de suplantación no puede usar los endpoints de administración."
+        )
+
     fila = (
         await session.execute(
             text(

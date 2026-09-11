@@ -1343,6 +1343,22 @@
         "guardado": "Páginas legales actualizadas.",
         "errorCarga": "No hemos podido cargar las páginas legales de la plataforma.",
         "errorGuardar": "No hemos podido guardar las páginas legales."
+      },
+      "impersonar": {
+        "titulo": "Suplantar una cuenta",
+        "descripcion": "Entra a la cuenta de una persona para ver lo que ella ve. La sesión es de solo lectura, queda registrada en la auditoría y caduca sola.",
+        "destino": "A quién",
+        "organizacion": "Organización",
+        "eligeOrganizacion": "Elige una organización",
+        "persona": "Persona",
+        "eligePersona": "Elige una persona",
+        "soloSuplantables": "Solo aparecen las cuentas que se pueden suplantar.",
+        "motivo": "Motivo",
+        "contrasena": "Tu contraseña",
+        "contrasenaAyuda": "Se pide para confirmar que eres tú quien entra, no solo alguien con tu sesión abierta.",
+        "entrar": "Entrar como esa persona",
+        "errorCarga": "No hemos podido cargar los datos.",
+        "errorEntrar": "No hemos podido abrir la suplantación."
       }
     },
     "superadmin": {
@@ -1468,5 +1484,9 @@
     "error": "No hemos podido buscar direcciones ahora mismo.",
     "sinMapa": "El mapa aparece al elegir una sugerencia o si la dirección ya está geolocalizada.",
     "mapaEtiqueta": "Mapa de la dirección"
+  },
+  "impersonacion": {
+    "aviso": "Estás suplantando a {nombre}. La sesión es de solo lectura.",
+    "salir": "Salir de la suplantación"
   }
 }

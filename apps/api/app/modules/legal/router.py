@@ -27,7 +27,6 @@ from app.core.deps import (
 )
 from app.core.permissions import Permission
 from app.core.ratelimit import COOKIE_CONSENT_POR_IP, LEGAL_PAGES_POR_IP, limit_per_ip
-from app.core.tenant import extract_host
 from app.modules.legal.models import CookieConsent
 from app.modules.legal.schemas import (
     CookieConsentCreate,
@@ -120,7 +119,7 @@ async def _pagina_publica(
     organización con quien se inscribe a su evento, así que en un host de
     plataforma esa página es un 404 explícito y no un texto vacío.
     """
-    resuelto = await resolve_host(session, extract_host(request))
+    resuelto = await resolve_host(session, request)
 
     if resuelto.kind == "platform":
         if clave not in PLATFORM_LEGAL_PAGE_KINDS:
