@@ -1157,6 +1157,89 @@
           "confirmar": "Confirmar reembolso"
         }
       },
+      "accounting": {
+        "titulo": "Contabilidad",
+        "error": "No hemos podido completar la operación.",
+        "exportado": "Balance exportado.",
+        "exportarCsv": "Exportar CSV",
+        "exportarPdf": "Exportar PDF",
+        "kpis": {
+          "titulo": "Resumen del presupuesto",
+          "presupuesto": "Presupuesto",
+          "ejecutadoMetalico": "Ejecutado en metálico",
+          "ejecutadoEnEspecie": "Ejecutado en especie",
+          "ejecutadoTotal": "Ejecutado total",
+          "ingresos": "Ingresos",
+          "comprometido": "Comprometido",
+          "saldo": "Saldo",
+          "contingencia": "Contingencia"
+        },
+        "partidas": {
+          "titulo": "Presupuesto frente a ejecutado",
+          "sinDatos": "Todavía no hay partidas de presupuesto en este evento.",
+          "sinPartida": "Sin partida",
+          "columnaPartida": "Partida",
+          "columnaPresupuesto": "Presupuesto",
+          "columnaEjecutado": "Ejecutado",
+          "columnaPorcentaje": "%"
+        },
+        "contingencia": {
+          "titulo": "Fondo de contingencia",
+          "dotacion": "Dotación inicial: {{porcentaje}}% del presupuesto ({{total}} €)",
+          "consumido": "Consumido",
+          "disponible": "Disponible"
+        },
+        "evolucion": {
+          "titulo": "Evolución temporal",
+          "sinDatos": "Todavía no hay movimientos con fecha para mostrar la evolución temporal.",
+          "columnaPeriodo": "Periodo",
+          "columnaIngresos": "Ingresos",
+          "columnaGastos": "Gastos"
+        },
+        "movimientos": {
+          "titulo": "Movimientos",
+          "pestanaIngresos": "Ingresos",
+          "pestanaGastos": "Gastos",
+          "pestanaEspecie": "En especie",
+          "columnaOrigen": "Origen",
+          "columnaConcepto": "Concepto",
+          "columnaFecha": "Fecha",
+          "columnaEstado": "Estado",
+          "columnaImporte": "Importe",
+          "columnaProveedor": "Proveedor",
+          "columnaBase": "Base",
+          "columnaIva": "IVA",
+          "columnaTotal": "Total",
+          "exento": "Exento",
+          "estadoCobrado": "Cobrado",
+          "estadoComprometido": "Comprometido"
+        },
+        "origen": {
+          "patrocinio": "Patrocinio",
+          "entradas": "Entradas",
+          "subvencion": "Subvención"
+        },
+        "altaPartida": {
+          "titulo": "Añadir una partida de presupuesto",
+          "nombre": "Nombre",
+          "importe": "Importe presupuestado (€)",
+          "boton": "Añadir partida",
+          "nombreRequerido": "Escribe el nombre de la partida.",
+          "importeInvalido": "Indica un importe válido, mayor o igual que 0.",
+          "creada": "Partida creada."
+        },
+        "altaGasto": {
+          "titulo": "Añadir un gasto",
+          "proveedor": "Proveedor",
+          "sinPartida": "Sin partida",
+          "boton": "Añadir gasto",
+          "proveedorRequerido": "Escribe el nombre del proveedor.",
+          "fechaRequerida": "Indica la fecha del gasto.",
+          "importeInvalido": "Indica un importe base válido, mayor o igual que 0.",
+          "creado": "Gasto anotado.",
+          "ocrDeshabilitado": "Añadir un gasto leyendo una factura o ticket (OCR) todavía no está disponible en esta instalación. Da de alta el gasto a mano con el formulario de arriba."
+        }
+      },
       "venues": {
         "titulo": "Sedes",
         "sinSedes": "Todavía no hay sedes en este evento.",

@@ -87,6 +87,10 @@ export function enlacesDeEvento(eventId: string, aceptaPagos: boolean): readonly
       labelKey: 'admin.events.payments.titulo',
     });
   }
+  enlaces.push({
+    path: ['/admin/events', eventId, 'contabilidad'],
+    labelKey: 'admin.events.accounting.titulo',
+  });
   return enlaces;
 }
 

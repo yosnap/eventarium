@@ -32,7 +32,7 @@ from app.modules.accounting.models import (
     AccountingIncome,
     SponsorPaymentDetail,
 )
-from app.modules.accounting.repository import LineaConsumoContingencia
+from app.modules.accounting.repository import LineaConsumoContingencia, PuntoSerieTemporal
 from app.modules.events import repository as events_repository
 from app.modules.events.models import Event
 from app.modules.sponsors.models import Sponsor
@@ -404,6 +404,36 @@ class ResumenPresupuesto:
     gasto_sin_partida_cents: int
     ejecutado_en_especie_cents: int
     por_partida: list[LineaConsumoContingencia]
+    # Evolución temporal (fase 5 de trabajo, plan.md §4.8: requisito literal
+    # ausente en las fases 1-3): nunca revienta con un evento sin movimientos,
+    # `repository.serie_temporal` devuelve lista vacía en ese caso.
+    serie_temporal: list[PuntoSerieTemporal]
+
+    @property
+    def ejecutado_metalico_cents(self) -> int:
+        """Ejecutado en metálico total: suma de `por_partida`, que **ya**
+        incluye la fila "sin partida" (`budget_line_id is None`) — sumar
+        `gasto_sin_partida_cents` aparte lo contaría dos veces (hallazgo
+        Crítico C1 del code review de la fase 5). Única definición del módulo;
+        `export.py` la reutiliza en vez de recalcularla por su cuenta."""
+        return sum(linea.ejecutado_cents for linea in self.por_partida)
+
+
+def saldo_cents(resumen: ResumenPresupuesto, total_ingresos_cents: int) -> int:
+    """Saldo de caja del evento: ingresos ya cobrados (incluida la valoración
+    en especie, que plan.md Decisión #3 computa como ingreso desde que se
+    valora) menos todo lo ejecutado, en metálico **y** en especie —
+    simétrico con "Ingresos", que también suma la especie.
+
+    Única función del módulo que calcula el saldo: el panel y `export.py`
+    deben reutilizarla siempre con el mismo `total_ingresos_cents`
+    (`repository.listar_ingresos(...).total_ingresos_cents`), nunca
+    reimplementar la resta por separado (hallazgo Crítico C1 del code review
+    de la fase 5: la fórmula de `export.py` restaba `gasto_sin_partida_cents`
+    dos veces y nunca restaba la especie)."""
+    return total_ingresos_cents - (
+        resumen.ejecutado_metalico_cents + resumen.ejecutado_en_especie_cents
+    )
 
 
 async def resumen_presupuesto(
@@ -429,6 +459,14 @@ async def resumen_presupuesto(
         if evento.contingency_fund_cents is not None
         else None
     )
+    serie = await repository.serie_temporal(
+        session,
+        organization_id=organization_id,
+        event_id=event_id,
+        moneda_evento=evento.accounting_currency,
+        starts_at=evento.starts_at,
+        ends_at=evento.ends_at,
+    )
 
     return ResumenPresupuesto(
         event_id=event_id,
@@ -441,6 +479,7 @@ async def resumen_presupuesto(
         gasto_sin_partida_cents=gasto_sin_partida_cents,
         ejecutado_en_especie_cents=ejecutado_en_especie_cents,
         por_partida=lineas_consumo,
+        serie_temporal=serie,
     )
 
 

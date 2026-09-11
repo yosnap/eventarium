@@ -141,6 +141,11 @@ export const routes: Routes = [
           import('./features/admin/events/event-payments').then((m) => m.EventPayments),
       },
       {
+        path: 'events/:eventId/contabilidad',
+        loadComponent: () =>
+          import('./features/admin/events/event-accounting').then((m) => m.EventAccounting),
+      },
+      {
         // Rutas hermanas de fase 3: solo adiciones, con el parámetro `eventId` (no
         // `id`, que usa la ruta de detalle de arriba) porque `withComponentInputBinding()`
         // vincula por nombre exacto y estos 5 componentes ya declaran

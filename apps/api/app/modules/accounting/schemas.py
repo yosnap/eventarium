@@ -161,6 +161,16 @@ class ContingencyLineOut(BaseModel):
     exceso_cents: int
 
 
+class TimeSeriesPointOut(BaseModel):
+    """Un punto de la evolución temporal (fase 5 de trabajo): `periodo` es
+    `AAAA-Www` (semana ISO) o `AAAA-MM` (mes), según decida el propio
+    endpoint la granularidad a partir de la duración del evento."""
+
+    periodo: str
+    ingresos_cents: int
+    gastos_cents: int
+
+
 class BudgetSummaryOut(BaseModel):
     """Resumen numérico de presupuesto/contingencia de un evento — insumo del
     panel de la fase 5, expuesto ya en esta fase (plan.md, arquitectura de la
@@ -179,6 +189,10 @@ class BudgetSummaryOut(BaseModel):
     # Decisión #4). Cifra separada, no oculta.
     ejecutado_en_especie_cents: int
     por_partida: list[ContingencyLineOut]
+    # Evolución temporal (plan.md §4.8, requisito literal ausente en las
+    # fases 1-3 de trabajo). Lista vacía, nunca 500, si el evento no tiene
+    # ingresos ni gastos todavía.
+    evolucion_temporal: list[TimeSeriesPointOut]
 
 
 class ExpenseCreate(BaseModel):

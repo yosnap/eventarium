@@ -34,7 +34,7 @@ from sqlalchemy import select
 from app.core.deps import CurrentUserDep, DbDep, require_permission
 from app.core.permissions import Permission
 from app.core.storage import get_storage
-from app.modules.accounting import repository, service
+from app.modules.accounting import export, repository, service
 from app.modules.accounting.models import (
     AccountingBudgetLine,
     AccountingExpense,
@@ -61,6 +61,7 @@ from app.modules.accounting.schemas import (
     InKindValuationOut,
     SponsorPaymentDetailOut,
     SponsorPaymentDetailUpsert,
+    TimeSeriesPointOut,
 )
 from app.modules.events import repository as events_repository
 from app.modules.events.models import Event
@@ -516,6 +517,14 @@ async def get_budget_summary(evento: EventoDep, session: DbDep) -> BudgetSummary
             )
             for linea in resumen.por_partida
         ],
+        evolucion_temporal=[
+            TimeSeriesPointOut(
+                periodo=punto.periodo,
+                ingresos_cents=punto.ingresos_cents,
+                gastos_cents=punto.gastos_cents,
+            )
+            for punto in resumen.serie_temporal
+        ],
     )
 
 
@@ -653,3 +662,93 @@ async def set_in_kind_valuation(
         in_kind_valuation_cents=resultado.sponsor.in_kind_valuation_cents,
         expense_id=str(resultado.gasto.id) if resultado.gasto is not None else None,
     )
+
+
+# --- Exportación de balance: snapshot inmutable (fase 5 de trabajo) ----------
+
+
+def _export_response(
+    snapshot: export.AccountingExportSnapshot, contenido: bytes, *, descarga: bool = True
+) -> Response:
+    content_type = export.CONTENT_TYPES[snapshot.format]  # type: ignore[index]
+    nombre = f"balance-{snapshot.event_id}.{snapshot.format}"
+    headers = {"X-Accounting-Export-Snapshot-Id": str(snapshot.id)}
+    if descarga:
+        headers["Content-Disposition"] = f'attachment; filename="{nombre}"'
+    return Response(content=contenido, media_type=content_type, headers=headers)
+
+
+@router.get(
+    "/events/{event_id}/export.csv",
+    summary="Exportar el balance del evento en CSV",
+    description=(
+        "Genera un snapshot nuevo cada vez (no hay forma de «exportar sin dejar "
+        "rastro»): las cifras quedan congeladas en `accounting_export_snapshots` "
+        "antes de responder. Toda celda de texto externo va saneada contra "
+        "inyección de fórmulas (plan.md Decisión #20)."
+    ),
+    dependencies=[require_permission(Permission.ACCOUNTING_WRITE)],
+)
+async def export_csv(
+    evento: EventoDep,
+    session: DbDep,
+    usuario: CurrentUserDep,
+    background_tasks: BackgroundTasks,
+) -> Response:
+    snapshot, contenido = await export.generar_snapshot_csv(
+        session,
+        background_tasks,
+        actor_user_id=usuario.id,
+        organization_id=evento.organization_id,
+        event_id=evento.id,
+        evento=evento,
+    )
+    return _export_response(snapshot, contenido)
+
+
+@router.get(
+    "/events/{event_id}/export.pdf",
+    summary="Exportar el balance del evento en PDF",
+    description="Genera un snapshot nuevo cada vez, igual que `export.csv`.",
+    dependencies=[require_permission(Permission.ACCOUNTING_WRITE)],
+)
+async def export_pdf(
+    evento: EventoDep,
+    session: DbDep,
+    usuario: CurrentUserDep,
+    background_tasks: BackgroundTasks,
+) -> Response:
+    snapshot, contenido = await export.generar_snapshot_pdf(
+        session,
+        background_tasks,
+        actor_user_id=usuario.id,
+        organization_id=evento.organization_id,
+        event_id=evento.id,
+        evento=evento,
+    )
+    return _export_response(snapshot, contenido)
+
+
+@router.get(
+    "/events/{event_id}/export/{snapshot_id}",
+    summary="Redescargar un balance ya exportado",
+    description=(
+        "Lee `payload_object_key` tal cual: no recalcula ninguna cifra, así que "
+        "editar un patrocinador o reabrir el presupuesto después de exportar no "
+        "cambia lo que devuelve este endpoint."
+    ),
+    dependencies=[require_permission(Permission.ACCOUNTING_READ)],
+)
+async def redownload_export(
+    evento: EventoDep,
+    session: DbDep,
+    snapshot_id: str,
+) -> Response:
+    snapshot, contenido = await export.redescargar_snapshot(
+        session,
+        organization_id=evento.organization_id,
+        snapshot_id=_uuid_o_422(snapshot_id, "snapshot_id"),
+    )
+    if snapshot.event_id != evento.id:
+        raise NotFoundError("Ese balance exportado no existe.")
+    return _export_response(snapshot, contenido)

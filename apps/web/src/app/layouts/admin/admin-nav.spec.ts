@@ -33,6 +33,11 @@ describe('enlacesDeEvento', () => {
     expect(enlaces.some((e) => e.path.includes('descuentos'))).toBe(true);
     expect(enlaces.some((e) => e.path.includes('payments'))).toBe(true);
   });
+
+  it('contabilidad aparece siempre, con o sin pagos habilitados', () => {
+    expect(enlacesDeEvento('e1', false).some((e) => e.path.includes('contabilidad'))).toBe(true);
+    expect(enlacesDeEvento('e1', true).some((e) => e.path.includes('contabilidad'))).toBe(true);
+  });
 });
 
 describe('AdminNav', () => {

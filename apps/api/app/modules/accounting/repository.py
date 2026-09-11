@@ -474,6 +474,82 @@ async def consumo_contingencia(
     return resultado
 
 
+# --- Evolución temporal (fase 5 de trabajo) ----------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class PuntoSerieTemporal:
+    """Un punto de la evolución temporal del panel: ingresos y gastos
+    confirmados agregados en el mismo periodo (plan.md §4.8, requisito
+    literal ausente en las fases 1-3)."""
+
+    periodo: str
+    ingresos_cents: int
+    gastos_cents: int
+
+
+def _clave_periodo(fecha: datetime, granularidad: str) -> str:
+    if granularidad == "semana":
+        anio_iso, semana_iso, _ = fecha.isocalendar()
+        return f"{anio_iso}-W{semana_iso:02d}"
+    return fecha.strftime("%Y-%m")
+
+
+async def serie_temporal(
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    moneda_evento: str,
+    starts_at: datetime,
+    ends_at: datetime,
+) -> list[PuntoSerieTemporal]:
+    """Agrega ingresos cobrados (con fecha conocida) y gastos por semana o
+    mes, según la duración del evento — el propio endpoint decide la
+    granularidad (plan.md, arquitectura de la fase 5). Nunca revienta con un
+    evento sin ingresos ni gastos: devuelve una lista vacía.
+
+    Decisión (hallazgo Alto A2 del code review de la fase 5): esta serie es
+    una vista de **caja real**, simétrica en ambos lados. Toda aportación en
+    especie tiene `fecha=None` en el lado de ingresos (`_lineas_de_patrocinio`,
+    arriba) porque no representa un cobro real — por eso se excluye también
+    del lado de gastos (`sponsor_id IS NOT NULL`), el mismo filtro que ya usa
+    `consumo_contingencia` para el mismo motivo. Sin este filtro simétrico, la
+    serie sumaba el gasto en especie sin sumar nunca el ingreso en especie que
+    lo compensa, exagerando el gasto de un periodo (reproducido: serie
+    1.000 €/350 € frente a KPI 1.200 €/150 € en metálico). La especie sigue
+    visible, íntegra, en el KPI "Ejecutado en especie" — solo desaparece de
+    esta serie temporal."""
+    duracion_dias = (ends_at - starts_at).days
+    granularidad = "semana" if duracion_dias <= 60 else "mes"
+
+    vista_ingresos = await listar_ingresos(
+        session, organization_id=organization_id, event_id=event_id, moneda_evento=moneda_evento
+    )
+    gastos = await list_expenses(session, organization_id, event_id)
+
+    acumulado: dict[str, dict[str, int]] = {}
+    for linea in vista_ingresos.ingresos:
+        if linea.fecha is None:
+            continue
+        clave = _clave_periodo(linea.fecha, granularidad)
+        fila = acumulado.setdefault(clave, {"ingresos": 0, "gastos": 0})
+        fila["ingresos"] += linea.importe_cents
+    for gasto in gastos:
+        if gasto.sponsor_id is not None:
+            continue
+        clave = _clave_periodo(gasto.expense_date, granularidad)
+        fila = acumulado.setdefault(clave, {"ingresos": 0, "gastos": 0})
+        fila["gastos"] += gasto.total_cents
+
+    return [
+        PuntoSerieTemporal(
+            periodo=clave, ingresos_cents=valores["ingresos"], gastos_cents=valores["gastos"]
+        )
+        for clave, valores in sorted(acumulado.items())
+    ]
+
+
 async def ejecutado_en_especie_cents(
     session: AsyncSession, *, organization_id: uuid.UUID, event_id: uuid.UUID
 ) -> int:

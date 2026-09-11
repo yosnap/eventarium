@@ -156,6 +156,7 @@ export type { TicketSearchItem } from './models/ticket-search-item';
 export type { TicketTypeCreate } from './models/ticket-type-create';
 export type { TicketTypeResponse } from './models/ticket-type-response';
 export type { TicketTypeUpdate } from './models/ticket-type-update';
+export type { TimeSeriesPointOut } from './models/time-series-point-out';
 export type { TokenResponse } from './models/token-response';
 export type { UserMeUpdate } from './models/user-me-update';
 export type { UserSummary } from './models/user-summary';
