@@ -46,26 +46,33 @@ class PlatformBrandingBlock(BaseModel):
     theme: ResolvedTheme | None = None
 
 
-class BrandingResponse(BaseModel):
-    """Identidad visual resuelta por host.
+class OrganizationBrandingBlock(BaseModel):
+    """Identidad de la organización del host.
 
-    Dos bloques: `platform` (siempre presente, identidad de la instalación) y
-    los campos de nivel raíz (`organization_*`, `template_key`, `theme`,
-    `logo_url`…) que describen la organización y son `None` en un host de
-    plataforma. Los campos de raíz se conservan mientras el cliente actual los
-    siga consumiendo; el bloque `platform` es el contrato nuevo.
+    Su marca y su plantilla se aplican a las **páginas de evento**, no al chrome
+    de la web pública (que es de plataforma).
     """
 
-    platform: PlatformBrandingBlock
-
-    organization_id: str | None = None
-    organization_name: str | None = None
-    organization_slug: str | None = None
-    template_key: str | None = Field(
-        default=None, description="Plantilla de la página pública: classic | minimal"
+    id: str
+    name: str
+    slug: str
+    template_key: str = Field(
+        description="Plantilla de la página pública: classic | minimal"
     )
     theme: ResolvedTheme | None = None
     social_links: list[SocialLink] = Field(default_factory=list)
     organizer_blurb: str | None = None
     logo_url: str | None = None
     favicon_url: str | None = None
+
+
+class BrandingResponse(BaseModel):
+    """Identidad visual resuelta por host.
+
+    Dos bloques: `platform` (siempre presente, identidad de la instalación) y
+    `organization`, que es `null` en un host de plataforma — el caso que antes
+    era imposible servir, porque cualquier host sin organización daba 404.
+    """
+
+    platform: PlatformBrandingBlock
+    organization: OrganizationBrandingBlock | None = None

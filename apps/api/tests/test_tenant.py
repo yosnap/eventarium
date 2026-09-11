@@ -39,8 +39,8 @@ async def test_branding_devuelve_la_organizacion_del_host(
     respuesta = await cliente.get(BRANDING, headers={"Host": organizacion.host})
     assert respuesta.status_code == 200
     cuerpo = respuesta.json()
-    assert cuerpo["organization_slug"] == organizacion.slug
-    assert cuerpo["template_key"] == "classic"
+    assert cuerpo["organization"]["slug"] == organizacion.slug
+    assert cuerpo["organization"]["template_key"] == "classic"
 
 
 async def test_branding_resuelve_la_plantilla_por_defecto_cuando_no_hay_ninguna_elegida(
@@ -48,7 +48,7 @@ async def test_branding_resuelve_la_plantilla_por_defecto_cuando_no_hay_ninguna_
 ) -> None:
     respuesta = await cliente.get(BRANDING, headers={"Host": organizacion.host})
     assert respuesta.status_code == 200
-    tema = respuesta.json()["theme"]
+    tema = respuesta.json()["organization"]["theme"]
     assert tema is not None
     assert tema["key"] == "oscuro"
     assert set(tema["tokens"].keys()) == {"dark", "light"}
@@ -69,7 +69,7 @@ async def test_branding_resuelve_la_plantilla_elegida_por_la_organizacion(
 
     respuesta = await cliente.get(BRANDING, headers={"Host": organizacion.host})
     assert respuesta.status_code == 200
-    assert respuesta.json()["theme"]["key"] == "claro"
+    assert respuesta.json()["organization"]["theme"]["key"] == "claro"
 
 
 async def test_cada_host_devuelve_su_propia_organizacion(
@@ -79,8 +79,8 @@ async def test_cada_host_devuelve_su_propia_organizacion(
 ) -> None:
     primera = await cliente.get(BRANDING, headers={"Host": organizacion.host})
     segunda = await cliente.get(BRANDING, headers={"Host": otra_organizacion.host})
-    assert primera.json()["organization_slug"] == organizacion.slug
-    assert segunda.json()["organization_slug"] == otra_organizacion.slug
+    assert primera.json()["organization"]["slug"] == organizacion.slug
+    assert segunda.json()["organization"]["slug"] == otra_organizacion.slug
 
 
 async def test_base_url_de_organizacion_conserva_el_puerto_en_desarrollo(
@@ -116,7 +116,7 @@ async def test_x_forwarded_host_se_ignora_desde_origen_no_confiable(
             headers={"Host": organizacion.host, "X-Forwarded-Host": otra_organizacion.host},
         )
     assert respuesta.status_code == 200
-    assert respuesta.json()["organization_slug"] == organizacion.slug
+    assert respuesta.json()["organization"]["slug"] == organizacion.slug
 
 
 async def test_x_forwarded_host_se_acepta_desde_el_proxy_de_confianza(
@@ -130,7 +130,7 @@ async def test_x_forwarded_host_se_acepta_desde_el_proxy_de_confianza(
             headers={"Host": organizacion.host, "X-Forwarded-Host": otra_organizacion.host},
         )
     assert respuesta.status_code == 200
-    assert respuesta.json()["organization_slug"] == otra_organizacion.slug
+    assert respuesta.json()["organization"]["slug"] == otra_organizacion.slug
 
 
 async def test_cabecera_de_desarrollo_se_ignora_fuera_de_desarrollo(

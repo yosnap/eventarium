@@ -66,7 +66,7 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
           <div class="tarjetas">
             <app-card [heading]="t('admin.branding.logotipo')">
               <p class="nombre-organizacion">
-                {{ theming.organizationName() }}
+                {{ theming.nombreDeOrganizacion() }}
                 <a routerLink="/admin/organization">{{ t('admin.branding.editarNombre') }}</a>
               </p>
               @if (previaLogo(); as url) {

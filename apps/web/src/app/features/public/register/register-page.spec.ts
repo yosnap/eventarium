@@ -10,17 +10,10 @@ import { ThemingService } from '../../../core/theming/theming.service';
 import { TurnstileWidget } from '../../../shared/ui/turnstile-widget';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../../testing/axe';
 import es from '../../../../../public/assets/i18n/es-ES.json';
+import { themingDePrueba } from '../../../../testing/theming.fixture';
 
 /** Mismo doble mínimo que `layouts/shells.spec.ts`: sin él, `AuthFrame`
  * inyectaría el `ThemingService` real, que necesita `HttpClient`. */
-function themingDePrueba() {
-  return {
-    branding: signal(null),
-    error: signal(null),
-    templateKey: signal('classic'),
-    organizationName: signal('Organización de prueba'),
-  };
-}
 
 /**
  * Sustituye el widget real: es un iframe de terceros que carga un script externo y no

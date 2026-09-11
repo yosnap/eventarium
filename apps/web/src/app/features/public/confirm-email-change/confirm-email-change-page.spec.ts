@@ -10,17 +10,10 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { ThemingService } from '../../../core/theming/theming.service';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../../testing/axe';
 import es from '../../../../../public/assets/i18n/es-ES.json';
+import { themingDePrueba } from '../../../../testing/theming.fixture';
 
 /** Mismo doble mínimo que `layouts/shells.spec.ts`: sin él, `AuthFrame`
  * inyectaría el `ThemingService` real, que necesita `HttpClient`. */
-function themingDePrueba() {
-  return {
-    branding: signal(null),
-    error: signal(null),
-    templateKey: signal('classic'),
-    organizationName: signal('Organización de prueba'),
-  };
-}
 
 function rutaConToken(token: string | null) {
   return { snapshot: { queryParamMap: convertToParamMap(token ? { token } : {}) } };

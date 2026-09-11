@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { provideZonelessChangeDetection, signal } from '@angular/core';
+import { computed, provideZonelessChangeDetection, signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,13 +14,15 @@ import { ThemingService } from '../core/theming/theming.service';
 import { esperarSinViolacionesDeAccesibilidad } from '../../testing/axe';
 import { brandingDePrueba } from '../../testing/branding.fixture';
 import es from '../../../public/assets/i18n/es-ES.json';
+import { themingDePrueba } from '../../testing/theming.fixture';
 
 /**
  * Los shells contienen los landmarks, el enlace de salto y la navegación: son la parte
  * de la aplicación donde más fácil se cuela un fallo de accesibilidad estructural.
  */
 describe('shells', () => {
-  const branding = signal(brandingDePrueba());
+  const theming = themingDePrueba();
+  const branding = theming.estado;
   const eventId = signal<string | null>(null);
   const falloCarga = signal(false);
   const nombreEvento = signal<string | null>(null);
@@ -65,10 +67,15 @@ describe('shells', () => {
         {
           provide: ThemingService,
           useValue: {
-            branding,
+            branding: theming.estado.asReadonly(),
             error: signal(null),
-            templateKey: signal('classic'),
-            organizationName: signal('Organización de prueba'),
+            templateKey: computed(() => theming.estado().organization?.template_key ?? 'classic'),
+            plataforma: computed(() => theming.estado().platform),
+            organizacion: computed(() => theming.estado().organization),
+            nombreDeMarca: computed(() => theming.estado().platform.name),
+            nombreDeOrganizacion: computed(
+              () => theming.estado().organization?.name ?? theming.estado().platform.name,
+            ),
           },
         },
         {
@@ -147,13 +154,15 @@ describe('shells', () => {
     expect((raiz.querySelector('dialog') as HTMLDialogElement).hasAttribute('open')).toBe(true);
   });
 
-  it('el shell público muestra el logotipo con texto alternativo cuando existe', async () => {
-    branding.set(brandingDePrueba({ logo_url: 'https://ejemplo.com/logo.png' }));
+  it('el shell público muestra el logotipo de la plataforma con texto alternativo', async () => {
+    branding.set(
+      brandingDePrueba({ platform: { logo_url: 'https://ejemplo.com/logo.png' } }),
+    );
     const fixture = TestBed.createComponent(PublicShell);
     await fixture.whenStable();
 
     const logo = fixture.nativeElement.querySelector('img') as HTMLImageElement;
-    expect(logo.alt).toBe('Organización de prueba');
+    expect(logo.alt).toBe('Eventarium');
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 

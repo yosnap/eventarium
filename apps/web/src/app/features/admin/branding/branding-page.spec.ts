@@ -53,7 +53,7 @@ describe('BrandingPage', () => {
         provideHttpClientTesting(),
         {
           provide: ThemingService,
-          useValue: { load: themingLoad, organizationName: () => 'Organización de prueba' },
+          useValue: { load: themingLoad, nombreDeOrganizacion: () => 'Organización de prueba' },
         },
       ],
     });

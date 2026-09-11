@@ -1,7 +1,17 @@
-import { Branding } from './branding.model';
-import { TOKENS_DE_PLANTILLA, TokensDePlantilla } from './theme-template.model';
+import { TOKENS_DE_PLANTILLA, PlantillaDeTema, TokensDePlantilla } from './theme-template.model';
 
-const ID_ESTILO = 'tema-organizacion';
+/** Identidad del chrome de la web pública: se aplica al documento entero. */
+const ID_ESTILO_PLATAFORMA = 'tema-plataforma';
+
+/** Plantilla de la organización: se aplica solo a sus páginas de evento. */
+const ID_ESTILO_ORGANIZACION = 'tema-organizacion';
+
+/**
+ * Marcador del ámbito de la organización. Las páginas de evento lo llevan en su
+ * contenedor raíz, así que heredan los tokens de su plantilla sin que el resto
+ * de la web (que se queda con los de plataforma) cambie.
+ */
+export const SELECTOR_AMBITO_ORGANIZACION = '[data-ambito="organizacion"]';
 
 /** Hex de 6 dígitos u `oklch()`: los dos formatos que también valida el backend. */
 const FORMATO_HEX = /^#[0-9a-f]{6}$/i;
@@ -54,42 +64,83 @@ function bloqueDeDeclaraciones(tokens: Record<string, string>): string {
 }
 
 /**
- * Traduce `branding.theme.tokens` al bloque de dos reglas que se inyecta en `<head>`:
- * `:root{…}` con el modo oscuro y `[data-theme="light"]{…}` con el claro, en ese
- * orden, para que el modo claro de la plantilla gane al oscuro de la propia plantilla.
- * `''` si no hay ninguna plantilla (branding.theme es `null`): no se inyecta nada y la
- * aplicación se queda con la base de reserva de `tokens.css`.
+ * Traduce los tokens de una plantilla al bloque de dos reglas que se inyecta en
+ * `<head>`: el modo oscuro con el selector base y el claro con
+ * `[data-theme="light"]`, en ese orden, para que el modo claro de la plantilla
+ * gane al oscuro de la propia plantilla.
+ *
+ * `selector` es el ámbito al que se aplican: `:root` para la identidad de la
+ * plataforma (el chrome) y un contenedor para la plantilla de la organización
+ * (sus páginas de evento). Como las custom properties se heredan, redefinirlas
+ * en un contenedor basta para scoping sin tocar cada componente.
+ *
+ * `''` si no hay plantilla (`theme` es `null`): no se inyecta nada y el ámbito
+ * se queda con la base de reserva de `tokens.css`.
  */
-export function brandingToStyleBlock(branding: Branding): string {
-  if (!branding.theme) {
+export function brandingToStyleBlock(tema: PlantillaDeTema | null, selector: string): string {
+  if (!tema) {
     return '';
   }
-  const oscuro = bloqueDeDeclaraciones(tokensValidos(branding.theme.tokens.dark));
-  const claro = bloqueDeDeclaraciones(tokensValidos(branding.theme.tokens.light));
-  return `:root{${oscuro}}[data-theme="light"]{${claro}}`;
+  const oscuro = bloqueDeDeclaraciones(tokensValidos(tema.tokens.dark));
+  const claro = bloqueDeDeclaraciones(tokensValidos(tema.tokens.light));
+  const selectorClaro = selectorDeModoClaro(selector);
+  return `${selector}{${oscuro}}${selectorClaro}{${claro}}`;
 }
 
 /**
- * Aplica la plantilla de tema de la organización al documento.
+ * Selector del modo claro para un ámbito dado.
  *
- * No se puede aplicar como estilo inline sobre `<html>` (`el.style.setProperty`): un
- * valor inline no distingue entre `:root` y `[data-theme="light"]`, así que cualquier
- * organización con plantilla propia dejaría muerto el conmutador de tema. En su lugar
- * se inyecta un `<style id="tema-organizacion">` en `<head>`, después de las hojas del
- * build, así que sus reglas ganan a las homónimas de `tokens.css` con la misma
- * especificidad. Si `branding.theme` es `null`, no se inyecta nada.
+ * El modo oscuro va en el selector base y el claro lo sobreescribe cuando el
+ * documento lleva `data-theme="light"` (lo pone el conmutador de tema). Para
+ * `:root` hay que escribirlo como `:root[data-theme="light"]` (compuesto, no
+ * descendiente); para un contenedor, `[data-theme="light"] <contenedor>`.
  */
-export function applyTokens(branding: Branding, documento: Document): void {
-  const bloque = brandingToStyleBlock(branding);
-  const existente = documento.getElementById(ID_ESTILO);
+function selectorDeModoClaro(selector: string): string {
+  if (selector === ':root') {
+    return ':root[data-theme="light"]';
+  }
+  return `[data-theme="light"] ${selector}`;
+}
+
+function _inyectar(documento: Document, id: string, bloque: string): void {
+  const existente = documento.getElementById(id);
   if (!bloque) {
     existente?.remove();
     return;
   }
   const estilo = existente ?? documento.createElement('style');
-  estilo.id = ID_ESTILO;
+  estilo.id = id;
   estilo.textContent = bloque;
   if (!existente) {
     documento.head.appendChild(estilo);
   }
+}
+
+/**
+ * Aplica la plantilla de la **plataforma** al documento entero: es la identidad
+ * del chrome de la web pública (header, pie, botones), presente en cualquier
+ * host. Si no hay plantilla de plataforma, el documento se queda con la base de
+ * reserva de `tokens.css`.
+ */
+export function applyTokensDePlataforma(
+  plataforma: { theme: PlantillaDeTema | null },
+  documento: Document,
+): void {
+  _inyectar(documento, ID_ESTILO_PLATAFORMA, brandingToStyleBlock(plataforma.theme, ':root'));
+}
+
+/**
+ * Aplica la plantilla de la **organización** a su propio ámbito.
+ *
+ * No se aplica al documento entero: el chrome es de plataforma, y una
+ * organización solo pone su marca en sus páginas de evento. Se emite como una
+ * regla con selector de contenedor, así que cualquier página de evento que se
+ * marque con ese atributo hereda sus tokens sin que el resto de la web cambie.
+ */
+export function applyTokensDeOrganizacion(
+  organizacion: { theme: PlantillaDeTema | null } | null,
+  documento: Document,
+): void {
+  const bloque = brandingToStyleBlock(organizacion?.theme ?? null, SELECTOR_AMBITO_ORGANIZACION);
+  _inyectar(documento, ID_ESTILO_ORGANIZACION, bloque);
 }

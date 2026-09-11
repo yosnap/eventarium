@@ -66,7 +66,7 @@ async def test_el_branding_de_demostracion_responde_en_su_host(cliente: AsyncCli
 
     respuesta = await cliente.get("/api/v1/tenant/branding", headers={"Host": DEMO_HOST})
     assert respuesta.status_code == 200
-    assert respuesta.json()["organization_slug"] == DEMO_SLUG
+    assert respuesta.json()["organization"]["slug"] == DEMO_SLUG
 
 
 async def test_reset_password_regenera_la_contrasena() -> None:

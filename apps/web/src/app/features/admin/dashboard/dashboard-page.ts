@@ -43,7 +43,7 @@ interface UsuarioActual {
 
         <div class="tarjetas">
           <app-card [heading]="t('admin.escritorioPagina.organizacion')">
-            <p>{{ theming.organizationName() }}</p>
+            <p>{{ theming.nombreDeOrganizacion() }}</p>
           </app-card>
 
           <app-card [heading]="t('admin.escritorioPagina.rolesAsignados')">

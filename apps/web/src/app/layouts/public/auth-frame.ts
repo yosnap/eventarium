@@ -33,11 +33,11 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       <header>
         <div class="ancho-maximo header-en">
           <a routerLink="/" class="marca">
-            @if (theming.branding()?.logo_url; as logo) {
-              <img [src]="logo" [alt]="theming.organizationName()" height="40" />
+            @if (theming.plataforma()?.logo_url; as logo) {
+              <img [src]="logo" [alt]="theming.nombreDeMarca()" height="40" />
             } @else {
-              <app-brand-mark [nombre]="theming.organizationName()" />
-              <span class="nombre">{{ theming.organizationName() }}</span>
+              <app-brand-mark [nombre]="theming.nombreDeMarca()" />
+              <span class="nombre">{{ theming.nombreDeMarca() }}</span>
             }
           </a>
           <app-theme-toggle />

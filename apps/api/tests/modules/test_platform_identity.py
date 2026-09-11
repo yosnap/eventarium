@@ -53,9 +53,8 @@ async def test_host_de_plataforma_sirve_el_branding_sin_organizacion(
 
         cuerpo = respuesta.json()
         assert cuerpo["platform"]["name"] == "Eventarium"
-        # Sin organización: los campos de raíz van nulos, no ausentes.
-        assert cuerpo["organization_id"] is None
-        assert cuerpo["organization_slug"] is None
+        # Sin organización: el bloque entero es `null`, no un objeto a medias.
+        assert cuerpo["organization"] is None
     finally:
         await _limpiar_hosts_de_plataforma()
 
@@ -68,7 +67,7 @@ async def test_host_de_organizacion_trae_los_dos_bloques(
     assert respuesta.status_code == 200, respuesta.text
 
     cuerpo = respuesta.json()
-    assert cuerpo["organization_slug"] == organizacion.slug
+    assert cuerpo["organization"]["slug"] == organizacion.slug
     assert cuerpo["platform"]["name"] == "Eventarium"
 
 

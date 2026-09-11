@@ -19,6 +19,7 @@ import { EventRegistrations } from './features/admin/events/event-registrations'
 import { EventSponsors } from './features/admin/events/event-sponsors';
 import { EventTicketTypes } from './features/admin/events/event-ticket-types';
 import es from '../../public/assets/i18n/es-ES.json';
+import { themingDePrueba } from '../testing/theming.fixture';
 
 /**
  * Recorre las rutas de `app.routes.ts` de verdad, sin espiar el router: cada caso
@@ -42,12 +43,7 @@ function configurar(usuario: { is_superadmin: boolean } | null) {
       provideHttpClientTesting(),
       {
         provide: ThemingService,
-        useValue: {
-          branding: signal(null),
-          error: signal(null),
-          templateKey: signal('classic'),
-          organizationName: signal('Organización de prueba'),
-        },
+        useValue: themingDePrueba(),
       },
       {
         provide: AuthService,

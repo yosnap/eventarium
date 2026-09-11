@@ -25,11 +25,11 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       <header>
         <div class="ancho-maximo header-en">
           <a routerLink="/" class="marca">
-            @if (theming.branding()?.logo_url; as logo) {
-              <img [src]="logo" [alt]="theming.organizationName()" height="40" />
+            @if (theming.plataforma()?.logo_url; as logo) {
+              <img [src]="logo" [alt]="theming.nombreDeMarca()" height="40" />
             } @else {
-              <app-brand-mark [nombre]="theming.organizationName()" />
-              <span class="nombre">{{ theming.organizationName() }}</span>
+              <app-brand-mark [nombre]="theming.nombreDeMarca()" />
+              <span class="nombre">{{ theming.nombreDeMarca() }}</span>
             }
           </a>
           <nav [attr.aria-label]="t('publico.navegacion')">
@@ -47,11 +47,13 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
 
       <footer [attr.aria-label]="t('publico.piePagina')">
         <div class="ancho-maximo footer-en">
-          <p>{{ t('publico.organizadoPor', { nombre: theming.organizationName() }) }}</p>
-          @if (theming.branding()?.social_links?.length) {
+          @if (theming.organizacion(); as organizacion) {
+            <p>{{ t('publico.organizadoPor', { nombre: organizacion.name }) }}</p>
+          }
+          @if (theming.plataforma()?.social_links?.length) {
             <nav [attr.aria-label]="t('publico.redesSociales')">
               <ul>
-                @for (enlace of theming.branding()!.social_links; track enlace.url) {
+                @for (enlace of theming.plataforma()!.social_links; track enlace.url) {
                   <li>
                     <a [href]="enlace.url" rel="noopener noreferrer" target="_blank">
                       {{ enlace.kind }}

@@ -1,4 +1,4 @@
-import { Branding } from '../app/core/theming/branding.model';
+import { Branding, OrganizationBranding, PlatformBranding } from '../app/core/theming/branding.model';
 import { PlantillaDeTema } from '../app/core/theming/theme-template.model';
 
 /** Plantilla de tema de ejemplo para los tests: valores mínimos, no los reales de `tokens.css`. */
@@ -35,12 +35,32 @@ export function plantillaDeTemaDePrueba(sobrescribir: Partial<PlantillaDeTema> =
   };
 }
 
-/** Branding de ejemplo para los tests. */
-export function brandingDePrueba(sobrescribir: Partial<Branding> = {}): Branding {
+/** Identidad de plataforma de ejemplo (Eventarium). */
+export function plataformaDePrueba(sobrescribir: Partial<PlatformBranding> = {}): PlatformBranding {
   return {
-    organization_id: '01920000-0000-7000-8000-000000000001',
-    organization_name: 'Organización de prueba',
-    organization_slug: 'prueba',
+    name: 'Eventarium',
+    logo_url: null,
+    favicon_url: null,
+    social_links: [],
+    theme_template_id: null,
+    theme: null,
+    ...sobrescribir,
+  };
+}
+
+/**
+ * Identidad de organización de ejemplo.
+ *
+ * `brandingDePrueba()` monta el caso típico: un host de organización, con los
+ * dos bloques.
+ */
+export function organizacionDePruebaDeBranding(
+  sobrescribir: Partial<OrganizationBranding> = {},
+): OrganizationBranding {
+  return {
+    id: '01920000-0000-7000-8000-000000000001',
+    name: 'Organización de prueba',
+    slug: 'prueba',
     template_key: 'classic',
     theme: plantillaDeTemaDePrueba(),
     social_links: [{ kind: 'linkedin', url: 'https://linkedin.com/company/prueba' }],
@@ -49,4 +69,24 @@ export function brandingDePrueba(sobrescribir: Partial<Branding> = {}): Branding
     favicon_url: null,
     ...sobrescribir,
   };
+}
+
+/** Respuesta pública de branding de ejemplo. */
+export function brandingDePrueba(
+  sobrescribir: { platform?: Partial<PlatformBranding>; organization?: OrganizationBranding | null } = {},
+): Branding {
+  return {
+    platform: plataformaDePrueba(sobrescribir.platform),
+    organization:
+      sobrescribir.organization === undefined
+        ? organizacionDePruebaDeBranding()
+        : sobrescribir.organization,
+  };
+}
+
+/** Respuesta pública de branding en un **host de plataforma** (sin organización). */
+export function brandingDePlataformaDePrueba(
+  sobrescribir: Partial<PlatformBranding> = {},
+): Branding {
+  return { platform: plataformaDePrueba(sobrescribir), organization: null };
 }

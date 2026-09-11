@@ -12,6 +12,7 @@ from app.modules.platform import service as platform_service
 from app.modules.platform.host import resolve_host
 from app.modules.tenant.schemas import (
     BrandingResponse,
+    OrganizationBrandingBlock,
     PlatformBrandingBlock,
     ResolvedTheme,
     SocialLink,
@@ -28,10 +29,8 @@ router = APIRouter(prefix="/tenant", tags=["tenant"])
         "Resuelve el host de la petición: si es un host de plataforma, devuelve "
         "solo la identidad de la instalación; si es el host de una organización, "
         "devuelve además la suya. Host de organización desconocido → 404.\n\n"
-        "Los campos de nivel raíz (`organization_name`, `template_key`, `theme`…) "
-        "se mantienen por compatibilidad con el cliente actual; el bloque "
-        "`platform` es el nuevo. Los de raíz se retiran cuando el cliente "
-        "consuma el bloque de plataforma."
+        "El bloque `platform` (identidad de la instalación) llega siempre; "
+        "`organization` es `null` en un host de plataforma."
     ),
     response_model=BrandingResponse,
 )
@@ -66,18 +65,7 @@ async def branding(session: DbPlataformaDep, request: Request) -> BrandingRespon
     organizacion = resuelto.organization
 
     if resuelto.kind == "platform":
-        return BrandingResponse(
-            organization_id=None,
-            organization_name=None,
-            organization_slug=None,
-            template_key="classic",
-            theme=None,
-            social_links=[],
-            organizer_blurb=None,
-            logo_url=None,
-            favicon_url=None,
-            platform=bloque_plataforma,
-        )
+        return BrandingResponse(platform=bloque_plataforma, organization=None)
 
     if organizacion is None:
         # Host sin organización y sin ser de plataforma: se conserva el 404 de
@@ -118,14 +106,16 @@ async def branding(session: DbPlataformaDep, request: Request) -> BrandingRespon
     )
 
     return BrandingResponse(
-        organization_id=str(organizacion.id),
-        organization_name=nombre,
-        organization_slug=organizacion.slug,
-        template_key=plantilla,
-        theme=tema,
-        social_links=[SocialLink(**enlace) for enlace in redes],
-        organizer_blurb=blurb,
-        logo_url=almacen.public_url(logo) if logo else None,
-        favicon_url=almacen.public_url(favicon) if favicon else None,
         platform=bloque_plataforma,
+        organization=OrganizationBrandingBlock(
+            id=str(organizacion.id),
+            name=nombre,
+            slug=organizacion.slug,
+            template_key=plantilla,
+            theme=tema,
+            social_links=[SocialLink(**enlace) for enlace in redes],
+            organizer_blurb=blurb,
+            logo_url=almacen.public_url(logo) if logo else None,
+            favicon_url=almacen.public_url(favicon) if favicon else None,
+        ),
     )

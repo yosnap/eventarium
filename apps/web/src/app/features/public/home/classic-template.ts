@@ -24,8 +24,8 @@ import { UpcomingEvents } from './upcoming-events';
       <section class="portada" appReveal>
         <div class="ancho-maximo portada-en">
           <p class="rotulo-seccion etiqueta-acento">{{ t('publico.proximamente') }}</p>
-          <h1>{{ theming.organizationName() }}</h1>
-          @if (theming.branding()?.organizer_blurb; as descripcion) {
+          <h1>{{ theming.nombreDeMarca() }}</h1>
+          @if (theming.organizacion()?.organizer_blurb; as descripcion) {
             <p class="descripcion">{{ descripcion }}</p>
           }
           <p class="aviso">{{ t('publico.proximamenteDetalle') }}</p>

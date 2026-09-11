@@ -35,8 +35,8 @@ import { EventScope } from './event-scope';
       <header>
         <div class="ancho-maximo header-en">
           <p class="marca">
-            <app-brand-mark [nombre]="theming.organizationName()" />
-            {{ theming.organizationName() }} · {{ t('admin.titulo') }}
+            <app-brand-mark [nombre]="theming.nombreDeOrganizacion()" />
+            {{ theming.nombreDeOrganizacion() }} · {{ t('admin.titulo') }}
           </p>
           <div class="sesion">
             <app-theme-toggle />

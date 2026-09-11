@@ -57,7 +57,7 @@ async def test_un_superadmin_crea_una_organizacion_completa(
     # La organización queda operativa: su host resuelve y trae branding y roles.
     branding = await cliente.get("/api/v1/tenant/branding", headers={"Host": "nueva.example"})
     assert branding.status_code == 200
-    assert branding.json()["organization_slug"] == "nueva"
+    assert branding.json()["organization"]["slug"] == "nueva"
 
     dominios = await cliente.get(f"{ADMIN}/{nueva['id']}/domains", headers=cabeceras)
     assert [d["host"] for d in dominios.json()] == ["nueva.example"]
@@ -99,7 +99,7 @@ async def test_anadir_un_dominio_a_una_organizacion(
     assert respuesta.json()["host"] == "eventos.example", "el host se normaliza"
 
     branding = await cliente.get("/api/v1/tenant/branding", headers={"Host": "eventos.example"})
-    assert branding.json()["organization_slug"] == organizacion.slug
+    assert branding.json()["organization"]["slug"] == organizacion.slug
 
 
 def test_solo_el_modulo_admin_usa_el_motor_de_mantenimiento() -> None:

@@ -60,8 +60,8 @@ async def test_actualizar_el_branding_y_verlo_en_el_endpoint_publico(
 
     publico = await cliente.get("/api/v1/tenant/branding", headers={"Host": organizacion.host})
     cuerpo = publico.json()
-    assert cuerpo["template_key"] == "minimal"
-    assert cuerpo["social_links"][0]["kind"] == "linkedin"
+    assert cuerpo["organization"]["template_key"] == "minimal"
+    assert cuerpo["organization"]["social_links"][0]["kind"] == "linkedin"
 
 
 async def test_actualizar_el_branding_con_una_plantilla_de_tema(
@@ -91,7 +91,7 @@ async def test_actualizar_el_branding_con_una_plantilla_de_tema(
     assert respuesta.json()["organizer_blurb"] == "Comunidad de IA en Valencia"
 
     publico = await cliente.get("/api/v1/tenant/branding", headers={"Host": organizacion.host})
-    assert publico.json()["theme"]["key"] == "claro"
+    assert publico.json()["organization"]["theme"]["key"] == "claro"
 
 
 async def test_actualizar_el_branding_con_una_plantilla_de_tema_inexistente(
@@ -126,7 +126,7 @@ async def test_subir_el_logotipo_devuelve_una_url_publica(
     assert url and f"orgs/{organizacion.id}/branding/logo/" in url
 
     publico = await cliente.get("/api/v1/tenant/branding", headers={"Host": organizacion.host})
-    assert publico.json()["logo_url"] == url
+    assert publico.json()["organization"]["logo_url"] == url
 
 
 async def test_no_se_puede_subir_un_svg_como_logotipo(
