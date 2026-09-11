@@ -280,6 +280,15 @@ async def replace_platform_domains(
     session: MaintenanceDb,
 ) -> list[PlatformDomainOut]:
     limpios = sorted({normalize_host(host) for host in datos.hosts if normalize_host(host)})
+    if not limpios:
+        # Un reemplazo vacío dejaría la instalación sin ningún host de plataforma:
+        # la web de Eventarium pasaría a responder 404 en todas partes. Es una
+        # operación que ningún caso de uso legítimo pide, así que se rechaza en
+        # vez de dejar la instalación sin identidad alcanzable.
+        raise ValidationDomainError(
+            "La lista de hosts de plataforma no puede quedar vacía: dejaría la web de la "
+            "instalación sin ningún dominio que la sirva."
+        )
 
     await session.execute(delete(PlatformDomain))
     for host in limpios:

@@ -10,12 +10,21 @@ sesión de organización.
 from __future__ import annotations
 
 from httpx import AsyncClient
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 from app.core.database import SessionApp, SessionMaintenance
-from tests.conftest import OrganizacionDePrueba
+from app.modules.users.models import User
+from tests.conftest import OrganizacionDePrueba, iniciar_sesion
 
 HOST_PLATAFORMA = "eventarium.test"
+
+
+async def _hacer_superadmin(email: str) -> None:
+    async with SessionMaintenance() as session:
+        usuario = await session.scalar(select(User).where(User.email == email))
+        assert usuario is not None
+        usuario.is_superadmin = True
+        await session.commit()
 
 
 async def _registrar_host_de_plataforma(host: str) -> None:
@@ -120,3 +129,53 @@ async def test_una_sesion_de_organizacion_no_puede_escribir_las_tablas_de_plataf
                 await session.rollback()
             else:
                 raise AssertionError(f"una sesión de organización pudo ejecutar: {sentencia}")
+
+
+async def test_una_sesion_sin_contexto_rls_no_ve_datos_de_ninguna_organizacion() -> None:
+    """La sesión de plataforma no puede leer datos de nadie.
+
+    `get_db_o_plataforma` deja la sesión **sin** contexto de organización en un
+    host de plataforma. Esto solo es seguro porque las políticas RLS comparan
+    contra `app_current_organization()`, que sin contexto es NULL y por tanto no
+    devuelve ninguna fila. Se verifica aquí para que un cambio futuro en las
+    políticas no convierta esa sesión en una lectura global silenciosa.
+    """
+    # Consultas literales, una por tabla: el nombre de la tabla nunca se
+    # interpola desde una variable.
+    consultas = (
+        "SELECT count(*) FROM organizations",
+        "SELECT count(*) FROM events",
+        "SELECT count(*) FROM users",
+        "SELECT count(*) FROM organization_members",
+    )
+    async with SessionApp() as session:
+        for consulta in consultas:
+            total = await session.scalar(text(consulta))
+            assert total == 0, f"sin contexto RLS, «{consulta}» devolvió {total} filas"
+
+
+async def test_reemplazar_los_hosts_de_plataforma_por_una_lista_vacia_se_rechaza(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """Un reemplazo vacío dejaría la web de Eventarium sin ningún host que la sirva.
+
+    Sin esta guarda, `PUT /admin/platform-domains` con `{"hosts": []}` borraría
+    todos los dominios de plataforma y la instalación pasaría a responder 404 en
+    todas partes, sin forma de recuperarla desde la UI (no quedaría ningún host
+    desde el que alcanzar el panel).
+    """
+    await _registrar_host_de_plataforma(HOST_PLATAFORMA)
+    try:
+        await _hacer_superadmin(organizacion.owner_email)
+        _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+        respuesta = await cliente.put(
+            "/api/v1/admin/platform-domains", headers=cabeceras, json={"hosts": []}
+        )
+        assert respuesta.status_code == 422, respuesta.text
+
+        # El host anterior sigue ahí: la operación se rechazó entera.
+        actuales = await cliente.get("/api/v1/admin/platform-domains", headers=cabeceras)
+        assert [d["host"] for d in actuales.json()] == [HOST_PLATAFORMA]
+    finally:
+        await _limpiar_hosts_de_plataforma()
