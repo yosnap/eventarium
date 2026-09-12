@@ -4,10 +4,12 @@ import { TestBed } from '@angular/core/testing';
 import { computed, provideZonelessChangeDetection, signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdminShell } from './admin/admin-shell';
 import { EventScope } from './admin/event-scope';
+import { PanelScope } from './admin/panel-scope';
 import { PublicShell } from './public/public-shell';
 import { AuthService } from '../core/auth/auth.service';
 import { ThemingService } from '../core/theming/theming.service';
@@ -28,6 +30,8 @@ describe('shells', () => {
   const nombreEvento = signal<string | null>(null);
   const cargandoEvento = signal(false);
   const registrationMode = signal<'free' | 'approval' | 'paid' | null>(null);
+  /** URL que ve el shell: decide por ella en qué panel está (`/admin` o `/dashboard`). */
+  const url = signal('/dashboard');
 
   function configurarAuth(esSuperadmin: boolean) {
     return {
@@ -51,6 +55,7 @@ describe('shells', () => {
     nombreEvento.set(null);
     cargandoEvento.set(false);
     registrationMode.set(null);
+    url.set('/dashboard');
 
     TestBed.configureTestingModule({
       imports: [
@@ -62,6 +67,14 @@ describe('shells', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideRouter([]),
+        // `PanelScope` decide, leyendo la URL, qué navegación pinta el shell. Se
+        // sustituye aquí porque montar el árbol de rutas real arrastraría guards
+        // y peticiones ajenas a estas pruebas; el doble expone lo mismo que el
+        // servicio: una señal.
+        {
+          provide: PanelScope,
+          useValue: { esPlataforma: computed(() => url().startsWith('/admin')) },
+        },
         provideHttpClient(),
         provideHttpClientTesting(),
         {
@@ -167,13 +180,16 @@ describe('shells', () => {
   });
 
   describe('navegación del panel de administración', () => {
-    it('agrupa los enlaces en tres regiones con nombre accesible propio', async () => {
+    it('el panel de organización agrupa sus enlaces en las regiones de organización y evento', async () => {
+      url.set('/dashboard');
       const fixture = TestBed.createComponent(AdminShell);
       await fixture.whenStable();
       const raiz = fixture.nativeElement as HTMLElement;
 
+      // Organización y, cuando hay evento activo, Evento. Nunca Plataforma: ese
+      // panel es otro árbol de ruta.
       const navs = Array.from(raiz.querySelectorAll('nav[aria-labelledby]'));
-      expect(navs.length).toBe(2); // Organización y Plataforma; el de evento no está activo
+      expect(navs.length).toBe(1);
       for (const nav of navs) {
         const idEncabezado = nav.getAttribute('aria-labelledby');
         expect(idEncabezado).toBeTruthy();
@@ -181,6 +197,18 @@ describe('shells', () => {
         expect(encabezado?.tagName).toBe('H2');
         expect(encabezado?.textContent?.trim().length).toBeGreaterThan(0);
       }
+    });
+
+    it('el panel de plataforma solo agrupa las secciones de la instalación', async () => {
+      url.set('/admin');
+      const fixture = TestBed.createComponent(AdminShell);
+      await fixture.whenStable();
+      const raiz = fixture.nativeElement as HTMLElement;
+
+      const navs = Array.from(raiz.querySelectorAll('nav[aria-labelledby]'));
+      expect(navs.length).toBe(1);
+      expect(raiz.querySelector('#admin-nav-plataforma-titulo')).not.toBeNull();
+      expect(raiz.querySelector('#admin-nav-organizacion-titulo')).toBeNull();
     });
 
     it('el grupo de evento no existe fuera del ámbito de un evento', async () => {
@@ -219,7 +247,7 @@ describe('shells', () => {
       expect(encabezado?.textContent?.trim()).toBe('Cargando evento…');
     });
 
-    it('si la carga del evento falla, la navegación conserva los dos grupos estables', async () => {
+    it('si la carga del evento falla, la navegación conserva el grupo de organización', async () => {
       eventId.set('e1');
       falloCarga.set(true);
       const fixture = TestBed.createComponent(AdminShell);
@@ -227,22 +255,28 @@ describe('shells', () => {
       const raiz = fixture.nativeElement as HTMLElement;
 
       expect(raiz.querySelector('#admin-nav-evento-titulo')).toBeNull();
-      expect(raiz.querySelectorAll('nav[aria-labelledby]').length).toBe(2);
+      expect(raiz.querySelectorAll('nav[aria-labelledby]').length).toBe(1);
     });
 
-    it('el enlace de superadministración solo aparece para is_superadmin', async () => {
-      TestBed.overrideProvider(AuthService, { useValue: configurarAuth(true) });
+    it('la cabecera del panel de organización muestra su nombre, no el de la instalación', async () => {
+      url.set('/dashboard');
       const fixture = TestBed.createComponent(AdminShell);
       await fixture.whenStable();
       const raiz = fixture.nativeElement as HTMLElement;
 
-      const enlace = Array.from(raiz.querySelectorAll('a')).find(
-        (a) => a.getAttribute('href') === '/admin/superadmin',
-      );
-      expect(enlace).toBeTruthy();
+      expect(raiz.querySelector('.marca')?.textContent).toContain('Panel de la organización');
     });
 
-    it('"/admin/account" no está en la barra lateral y sigue accesible desde la cabecera', async () => {
+    it('la cabecera del panel de plataforma se identifica como la instalación', async () => {
+      url.set('/admin');
+      const fixture = TestBed.createComponent(AdminShell);
+      await fixture.whenStable();
+      const raiz = fixture.nativeElement as HTMLElement;
+
+      expect(raiz.querySelector('.marca')?.textContent).toContain('Administración de Eventarium');
+    });
+
+    it('"/dashboard/account" no está en la barra lateral y sigue accesible desde la cabecera', async () => {
       const fixture = TestBed.createComponent(AdminShell);
       await fixture.whenStable();
       const raiz = fixture.nativeElement as HTMLElement;
@@ -251,23 +285,23 @@ describe('shells', () => {
       const panel = raiz.querySelector('.panel-navegacion');
       expect(
         Array.from(cabecera?.querySelectorAll('a') ?? []).some(
-          (a) => a.getAttribute('href') === '/admin/account',
+          (a) => a.getAttribute('href') === '/dashboard/account',
         ),
       ).toBe(true);
       expect(
         Array.from(panel?.querySelectorAll('a') ?? []).some(
-          (a) => a.getAttribute('href') === '/admin/account',
+          (a) => a.getAttribute('href') === '/dashboard/account',
         ),
       ).toBe(false);
     });
 
-    it('el catálogo de componentes sigue accesible sin is_superadmin', async () => {
+    it('el catálogo de componentes sigue accesible en el panel de organización', async () => {
       const fixture = TestBed.createComponent(AdminShell);
       await fixture.whenStable();
       const raiz = fixture.nativeElement as HTMLElement;
 
       const enlace = Array.from(raiz.querySelectorAll('a')).find(
-        (a) => a.getAttribute('href') === '/admin/estilo',
+        (a) => a.getAttribute('href') === '/dashboard/estilo',
       );
       expect(enlace).toBeTruthy();
     });

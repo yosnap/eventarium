@@ -1,4 +1,4 @@
-import { Component, provideZonelessChangeDetection, output, signal } from '@angular/core';
+import { Component, provideZonelessChangeDetection, output } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';

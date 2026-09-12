@@ -28,6 +28,11 @@ function eventoDetalle() {
     capacity: null,
     registration_mode: 'free',
     reserved_count: 0,
+    // Un evento gratuito no tiene precio que mostrar: los tres campos van a su
+    // valor neutro para que el mock siga representando el caso que prueba.
+    price_from_cents: null,
+    price_currency: null,
+    price_multiple: false,
     latitude: null,
     longitude: null,
     sessions: [

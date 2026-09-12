@@ -239,7 +239,7 @@ function campoDesdeApi(campo: RoleField): CampoDeFormulario {
           }
 
           <div class="acciones-finales">
-            <a routerLink="/admin/roles">
+            <a routerLink="/dashboard/roles">
               <app-button variant="secundario" type="button">{{
                 t('admin.roles.cancelar')
               }}</app-button>

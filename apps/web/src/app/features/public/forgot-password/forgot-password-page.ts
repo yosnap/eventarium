@@ -66,7 +66,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
               </form>
             }
             <p>
-              <a routerLink="/admin/login">{{ t('registro.yaTengoCuenta') }}</a>
+              <a routerLink="/acceder">{{ t('registro.yaTengoCuenta') }}</a>
             </p>
           </app-card>
         </div>

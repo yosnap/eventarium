@@ -35,7 +35,7 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
           <nav [attr.aria-label]="t('publico.navegacion')">
             <a routerLink="/">{{ t('publico.inicio') }}</a>
             <a routerLink="/eventos">{{ t('publico.eventos.listadoTitulo') }}</a>
-            <a routerLink="/admin">{{ t('publico.accesoPanel') }}</a>
+            <a routerLink="/acceder">{{ t('publico.accesoPanel') }}</a>
           </nav>
           <app-theme-toggle />
         </div>

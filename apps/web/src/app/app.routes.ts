@@ -5,7 +5,7 @@ import { superadminGuard } from './core/auth/superadmin.guard';
 
 export const routes: Routes = [
   {
-    path: 'admin/login',
+    path: 'acceder',
     loadComponent: () => import('./features/admin/login/login-page').then((m) => m.LoginPage),
   },
   {
@@ -72,8 +72,70 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/public/events/my-ticket-page').then((m) => m.MyTicketPage),
   },
+
+  // Redirecciones de las rutas antiguas del panel, que vivía bajo `/admin` para
+  // **ambos** ámbitos. Ahora el panel de organización está en `/dashboard` y
+  // `/admin` es solo la plataforma.
+  //
+  // Van **antes** del árbol `admin` y son **explícitas**, no paramétricas: el
+  // matcher de Angular no reintenta con la siguiente configuración cuando un
+  // padre matchea y ningún hijo lo hace, así que un `admin/:a` genérico o no se
+  // alcanzaría nunca, o capturaría las rutas nuevas de plataforma (`/admin/plantillas`
+  // acabaría en `/dashboard/plantillas`). Enumerarlas evita las dos cosas.
+  //
+  // `/admin` a secas **no** se redirige: esa ruta es ahora el escritorio de
+  // plataforma, y un marcador antiguo del organizador apuntará ahí (y el guard
+  // lo devolverá a `/dashboard`). Es el precio de reutilizar el nombre, y está
+  // documentado en el PRD.
+  { path: 'admin/login', redirectTo: '/acceder', pathMatch: 'full' },
+  { path: 'admin/superadmin', redirectTo: '/admin', pathMatch: 'full' },
+  { path: 'admin/superadmin/plantillas', redirectTo: '/admin/plantillas', pathMatch: 'full' },
+  { path: 'admin/superadmin/identidad', redirectTo: '/admin/identidad', pathMatch: 'full' },
+  { path: 'admin/superadmin/legales', redirectTo: '/admin/legales', pathMatch: 'full' },
+  { path: 'admin/superadmin/suplantar', redirectTo: '/admin/suplantar', pathMatch: 'full' },
+
+  { path: 'admin/organization', redirectTo: '/dashboard/organization', pathMatch: 'full' },
+  { path: 'admin/branding', redirectTo: '/dashboard/branding', pathMatch: 'full' },
+  { path: 'admin/roles', redirectTo: '/dashboard/roles', pathMatch: 'full' },
+  { path: 'admin/roles/:id', redirectTo: '/dashboard/roles/:id' },
+  { path: 'admin/members', redirectTo: '/dashboard/members', pathMatch: 'full' },
+  { path: 'admin/members/nuevo', redirectTo: '/dashboard/members/nuevo', pathMatch: 'full' },
+  { path: 'admin/events', redirectTo: '/dashboard/events', pathMatch: 'full' },
+  { path: 'admin/events/nuevo', redirectTo: '/dashboard/events/nuevo', pathMatch: 'full' },
+  // De la más específica a la más general: `events/:id` captura cualquier cosa
+  // que empiece por `events/`, así que las secciones anidadas van **antes** o
+  // nunca se alcanzan (y `pathMatch: 'full'` no basta, porque `:id` matchea el
+  // segmento y el resto se pierde).
   {
-    path: 'admin',
+    path: 'admin/events/:id/registrations/:registrationId',
+    redirectTo: '/dashboard/events/:id/registrations/:registrationId',
+  },
+  { path: 'admin/events/:eventId/check-in', redirectTo: '/dashboard/events/:eventId/check-in' },
+  { path: 'admin/events/:eventId/payments', redirectTo: '/dashboard/events/:eventId/payments' },
+  {
+    path: 'admin/events/:eventId/contabilidad',
+    redirectTo: '/dashboard/events/:eventId/contabilidad',
+  },
+  { path: 'admin/events/:eventId/agenda', redirectTo: '/dashboard/events/:eventId/agenda' },
+  { path: 'admin/events/:eventId/entradas', redirectTo: '/dashboard/events/:eventId/entradas' },
+  { path: 'admin/events/:eventId/descuentos', redirectTo: '/dashboard/events/:eventId/descuentos' },
+  {
+    path: 'admin/events/:eventId/patrocinadores',
+    redirectTo: '/dashboard/events/:eventId/patrocinadores',
+  },
+  {
+    path: 'admin/events/:eventId/inscripciones',
+    redirectTo: '/dashboard/events/:eventId/inscripciones',
+  },
+  { path: 'admin/events/:id', redirectTo: '/dashboard/events/:id' },
+  { path: 'admin/sponsor-tiers', redirectTo: '/dashboard/sponsor-tiers', pathMatch: 'full' },
+  { path: 'admin/stripe', redirectTo: '/dashboard/stripe', pathMatch: 'full' },
+  { path: 'admin/legal', redirectTo: '/dashboard/legal', pathMatch: 'full' },
+  { path: 'admin/account', redirectTo: '/dashboard/account', pathMatch: 'full' },
+  { path: 'admin/estilo', redirectTo: '/dashboard/estilo', pathMatch: 'full' },
+
+  {
+    path: 'dashboard',
     loadComponent: () => import('./layouts/admin/admin-shell').then((m) => m.AdminShell),
     canActivate: [authGuard],
     children: [
@@ -195,53 +257,68 @@ export const routes: Routes = [
           import('./features/admin/account/account-page').then((m) => m.AccountPage),
       },
       {
-        path: 'superadmin',
-        canActivate: [superadminGuard],
-        loadComponent: () =>
-          import('./features/admin/superadmin/superadmin-page').then((m) => m.SuperadminPage),
-      },
-      {
-        path: 'superadmin/plantillas',
-        canActivate: [superadminGuard],
-        loadComponent: () =>
-          import('./features/admin/superadmin/theme-templates-page').then(
-            (m) => m.ThemeTemplatesPage,
-          ),
-      },
-      {
-        path: 'superadmin/identidad',
-        canActivate: [superadminGuard],
-        loadComponent: () =>
-          import('./features/admin/superadmin/platform-identity-page').then(
-            (m) => m.PlatformIdentityPage,
-          ),
-      },
-      {
-        path: 'superadmin/legales',
-        canActivate: [superadminGuard],
-        loadComponent: () =>
-          import('./features/admin/superadmin/platform-legal-page').then(
-            (m) => m.PlatformLegalPage,
-          ),
-      },
-      {
-        path: 'superadmin/suplantar',
-        canActivate: [superadminGuard],
-        loadComponent: () =>
-          import('./features/admin/superadmin/impersonation-page').then(
-            (m) => m.ImpersonationPage,
-          ),
-      },
-      {
         // Catálogo interno de componentes: no forma parte del producto, pero vive
         // dentro del panel (autenticado) para revisarlos en el mismo contexto donde
         // se usan, en vez de una ruta pública sin enlace desde ningún sitio.
+        // No lleva `superadminGuard`: es una herramienta de desarrollo, no
+        // administración de la plataforma (ver `admin-nav.ts`).
         path: 'estilo',
         loadComponent: () =>
           import('./features/dev/style-guide/style-guide-page').then((m) => m.StyleGuidePage),
       },
     ],
   },
+
+  {
+    // Panel de la plataforma: solo quien administra la instalación. Antes vivía
+    // bajo `/admin/superadmin`; ahora ocupa la raíz `/admin`, que es lo que su
+    // nombre siempre quiso decir.
+    path: 'admin',
+    loadComponent: () => import('./layouts/admin/admin-shell').then((m) => m.AdminShell),
+    canActivate: [superadminGuard],
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./features/admin/superadmin/superadmin-page').then((m) => m.SuperadminPage),
+      },
+      {
+        path: 'plantillas',
+        loadComponent: () =>
+          import('./features/admin/superadmin/theme-templates-page').then(
+            (m) => m.ThemeTemplatesPage,
+          ),
+      },
+      {
+        path: 'identidad',
+        loadComponent: () =>
+          import('./features/admin/superadmin/platform-identity-page').then(
+            (m) => m.PlatformIdentityPage,
+          ),
+      },
+      {
+        path: 'legales',
+        loadComponent: () =>
+          import('./features/admin/superadmin/platform-legal-page').then(
+            (m) => m.PlatformLegalPage,
+          ),
+      },
+      {
+        path: 'suplantar',
+        loadComponent: () =>
+          import('./features/admin/superadmin/impersonation-page').then(
+            (m) => m.ImpersonationPage,
+          ),
+      },
+    ],
+  },
+
+  // Enlaces antiguos del panel de organización: se van al árbol `dashboard` con
+  // el mismo resto de ruta. Están enumerados arriba, uno por uno, en vez de con
+  // un `admin/:a` genérico, porque un comodín aquí capturaría las rutas nuevas
+  // de plataforma y no habría forma de distinguir «enlace viejo del organizador»
+  // de «ruta nueva del admin».
+
   {
     path: '',
     loadComponent: () => import('./layouts/public/public-shell').then((m) => m.PublicShell),

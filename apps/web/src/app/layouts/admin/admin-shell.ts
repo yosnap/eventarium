@@ -18,6 +18,7 @@ import { Button } from '../../shared/ui/button';
 import { ThemeToggle } from '../../shared/ui/theme-toggle';
 import { AdminNav } from './admin-nav';
 import { EventScope } from './event-scope';
+import { PanelScope } from './panel-scope';
 
 /**
  * Estructura del panel de administración: cabecera con marca, selector de
@@ -36,21 +37,27 @@ import { EventScope } from './event-scope';
         <div class="ancho-maximo header-en">
           <p class="marca">
             <app-brand-mark [nombre]="theming.nombreDeOrganizacion()" />
-            {{ theming.nombreDeOrganizacion() }} · {{ t('admin.titulo') }}
+            @if (esPanelPlataforma()) {
+              {{ t('admin.tituloPlataforma') }}
+            } @else {
+              {{ theming.nombreDeOrganizacion() }} · {{ t('admin.titulo') }}
+            }
           </p>
           <div class="sesion">
             <app-theme-toggle />
             @if (otrasOrganizaciones().length > 0) {
               <nav [attr.aria-label]="t('admin.selectorOrganizacion.titulo')" class="selector">
-                @for (organizacion of organizaciones(); track organizacion.organization_id) {
+                @for (organizacion of otrasOrganizaciones(); track organizacion.organization_id) {
                   @if (organizacion.host) {
-                    <a [href]="'https://' + organizacion.host + '/admin'">{{ organizacion.name }}</a>
+                    <a [href]="'https://' + organizacion.host + '/dashboard'">{{
+                      organizacion.name
+                    }}</a>
                   }
                 }
               </nav>
             }
             @if (auth.currentUser(); as usuario) {
-              <a routerLink="/admin/account">{{
+              <a routerLink="/dashboard/account">{{
                 t('admin.sesionDe', { nombre: nombreDe(usuario) })
               }}</a>
             }
@@ -84,7 +91,7 @@ import { EventScope } from './event-scope';
           [attr.aria-label]="t('admin.navegacion')"
           (keydown.escape)="cerrarNavegacion()"
         >
-          <app-admin-nav [isSuperadmin]="esSuperadmin()" [evento]="grupoEvento()" />
+          <app-admin-nav [plataforma]="esPanelPlataforma()" [evento]="grupoEvento()" />
         </nav>
 
         <main id="contenido-admin" tabindex="-1">
@@ -177,12 +184,19 @@ export class AdminShell {
   protected readonly nombreDe = displayName;
   private readonly router = inject(Router);
   private readonly eventScope = inject(EventScope);
+  private readonly panelScope = inject(PanelScope);
+
+  /** En qué panel está el shell (`/admin` plataforma, `/dashboard` organización). */
+  protected readonly esPanelPlataforma = this.panelScope.esPlataforma;
 
   protected readonly organizaciones = signal<readonly OrganizacionDeLaPersona[]>([]);
-  /** El selector solo tiene sentido con más de una organización. */
-  protected readonly otrasOrganizaciones = signal<readonly OrganizacionDeLaPersona[]>([]);
-
-  protected readonly esSuperadmin = computed(() => !!this.auth.currentUser()?.is_superadmin);
+  /** El selector solo tiene sentido con más de una organización, y **solo** en el
+   * panel de organización: en el de plataforma no se navega entre organizaciones. */
+  protected readonly otrasOrganizaciones = computed(() =>
+    this.esPanelPlataforma() || this.organizaciones().length <= 1
+      ? []
+      : this.organizaciones(),
+  );
 
   /** `null` sin evento activo o con fallo de carga: en ambos casos la navegación
    * conserva solo los dos grupos estables. */
@@ -224,7 +238,6 @@ export class AdminShell {
     try {
       const lista = await this.auth.listMyOrganizations();
       this.organizaciones.set(lista);
-      this.otrasOrganizaciones.set(lista.length > 1 ? lista : []);
     } catch {
       // El selector es una ayuda de navegación, no algo crítico: un fallo aquí no
       // debe impedir usar el resto del panel.
@@ -241,6 +254,6 @@ export class AdminShell {
 
   protected async cerrarSesion(): Promise<void> {
     await this.auth.logout();
-    await this.router.navigate(['/admin/login']);
+    await this.router.navigate(['/acceder']);
   }
 }

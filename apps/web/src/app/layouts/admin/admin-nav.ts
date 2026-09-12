@@ -27,40 +27,28 @@ export interface AdminNavEvento {
 }
 
 export const ORGANIZATION_NAV_LINKS: readonly AdminNavLink[] = [
-  { path: ['/admin'], labelKey: 'admin.escritorio', exact: true },
-  { path: ['/admin/organization'], labelKey: 'admin.organizacion.titulo' },
-  { path: ['/admin/branding'], labelKey: 'admin.identidadVisual' },
-  { path: ['/admin/roles'], labelKey: 'admin.rolesNav' },
-  { path: ['/admin/members'], labelKey: 'admin.miembrosNav' },
-  { path: ['/admin/events'], labelKey: 'admin.eventsNav' },
-  { path: ['/admin/sponsor-tiers'], labelKey: 'admin.sponsorTiersNav' },
-  { path: ['/admin/stripe'], labelKey: 'admin.stripeNav' },
-  { path: ['/admin/legal'], labelKey: 'admin.legalNav' },
+  { path: ['/dashboard'], labelKey: 'admin.escritorio', exact: true },
+  { path: ['/dashboard/organization'], labelKey: 'admin.organizacion.titulo' },
+  { path: ['/dashboard/branding'], labelKey: 'admin.identidadVisual' },
+  { path: ['/dashboard/roles'], labelKey: 'admin.rolesNav' },
+  { path: ['/dashboard/members'], labelKey: 'admin.miembrosNav' },
+  { path: ['/dashboard/events'], labelKey: 'admin.eventsNav' },
+  { path: ['/dashboard/sponsor-tiers'], labelKey: 'admin.sponsorTiersNav' },
+  { path: ['/dashboard/stripe'], labelKey: 'admin.stripeNav' },
+  { path: ['/dashboard/legal'], labelKey: 'admin.legalNav' },
+  // Herramienta de desarrollo, no administración de nada: vive aquí, con el
+  // panel de organización, y **no** exige `is_superadmin` (pregunta abierta 3 de
+  // `plan.md`). No es una sección de la plataforma aunque antes se pintara junto
+  // a ellas.
+  { path: ['/dashboard/estilo'], labelKey: 'admin.catalogoDeComponentes' },
 ];
 
 export const PLATFORM_NAV_LINKS: readonly AdminNavLink[] = [
-  { path: ['/admin/superadmin'], labelKey: 'admin.superadminNav', soloSuperadmin: true },
-  {
-    path: ['/admin/superadmin/identidad'],
-    labelKey: 'admin.plataforma.identidad.titulo',
-    soloSuperadmin: true,
-  },
-  {
-    path: ['/admin/superadmin/legales'],
-    labelKey: 'admin.plataforma.legales.titulo',
-    soloSuperadmin: true,
-  },
-  {
-    path: ['/admin/superadmin/plantillas'],
-    labelKey: 'admin.superadmin.plantillas.titulo',
-    soloSuperadmin: true,
-  },
-  {
-    path: ['/admin/superadmin/suplantar'],
-    labelKey: 'admin.plataforma.impersonar.titulo',
-    soloSuperadmin: true,
-  },
-  { path: ['/admin/estilo'], labelKey: 'admin.catalogoDeComponentes' },
+  { path: ['/admin'], labelKey: 'admin.superadminNav', exact: true },
+  { path: ['/admin/identidad'], labelKey: 'admin.plataforma.identidad.titulo' },
+  { path: ['/admin/legales'], labelKey: 'admin.plataforma.legales.titulo' },
+  { path: ['/admin/plantillas'], labelKey: 'admin.superadmin.plantillas.titulo' },
+  { path: ['/admin/suplantar'], labelKey: 'admin.plataforma.impersonar.titulo' },
 ];
 
 /**
@@ -73,47 +61,56 @@ export const PLATFORM_NAV_LINKS: readonly AdminNavLink[] = [
  */
 export function enlacesDeEvento(eventId: string, aceptaPagos: boolean): readonly AdminNavLink[] {
   const enlaces: AdminNavLink[] = [
-    { path: ['/admin/events', eventId, 'agenda'], labelKey: 'admin.events.agenda.titulo' },
+    { path: ['/dashboard/events', eventId, 'agenda'], labelKey: 'admin.events.agenda.titulo' },
     {
-      path: ['/admin/events', eventId, 'patrocinadores'],
+      path: ['/dashboard/events', eventId, 'patrocinadores'],
       labelKey: 'admin.events.sponsors.titulo',
     },
   ];
   if (aceptaPagos) {
     enlaces.push(
-      { path: ['/admin/events', eventId, 'entradas'], labelKey: 'admin.events.ticketTypes.titulo' },
       {
-        path: ['/admin/events', eventId, 'descuentos'],
+        path: ['/dashboard/events', eventId, 'entradas'],
+        labelKey: 'admin.events.ticketTypes.titulo',
+      },
+      {
+        path: ['/dashboard/events', eventId, 'descuentos'],
         labelKey: 'admin.events.discountCodes.titulo',
       },
     );
   }
   enlaces.push({
-    path: ['/admin/events', eventId, 'inscripciones'],
+    path: ['/dashboard/events', eventId, 'inscripciones'],
     labelKey: 'admin.events.registrations.titulo',
   });
   enlaces.push({
-    path: ['/admin/events', eventId, 'check-in'],
+    path: ['/dashboard/events', eventId, 'check-in'],
     labelKey: 'admin.events.checkIn.titulo',
   });
   if (aceptaPagos) {
     enlaces.push({
-      path: ['/admin/events', eventId, 'payments'],
+      path: ['/dashboard/events', eventId, 'payments'],
       labelKey: 'admin.events.payments.titulo',
     });
   }
   enlaces.push({
-    path: ['/admin/events', eventId, 'contabilidad'],
+    path: ['/dashboard/events', eventId, 'contabilidad'],
     labelKey: 'admin.events.accounting.titulo',
   });
   return enlaces;
 }
 
 /**
- * Navegación del panel agrupada por ámbito: Organización, Evento (contextual) y
- * Plataforma. Cada grupo es un `<nav>` con `aria-labelledby` hacia su propio
- * encabezado — nunca un `<div>` con texto en negrita, que un lector de pantalla no
- * anuncia como agrupación.
+ * Navegación del panel, agrupada por ámbito y **acotada al panel en el que está**.
+ *
+ * Los dos paneles son árboles de ruta distintos —`/dashboard` (organización) y
+ * `/admin` (plataforma)— y comparten este componente, así que la plantilla decide
+ * qué grupo pinta. Ofrecer los enlaces del otro panel no solo sobra: manda a quien
+ * navega a un árbol donde el guard lo va a rebotar.
+ *
+ * Cada grupo es un `<nav>` con `aria-labelledby` hacia su propio encabezado —
+ * nunca un `<div>` con texto en negrita, que un lector de pantalla no anuncia como
+ * agrupación.
  */
 @Component({
   selector: 'app-admin-nav',
@@ -121,68 +118,74 @@ export function enlacesDeEvento(eventId: string, aceptaPagos: boolean): readonly
   imports: [RouterLink, RouterLinkActive, TranslocoDirective],
   template: `
     <ng-container *transloco="let t">
-      <h2 id="admin-nav-organizacion-titulo" class="grupo-titulo">
-        {{ t('admin.nav.grupoOrganizacion') }}
-      </h2>
-      <nav [attr.aria-labelledby]="'admin-nav-organizacion-titulo'">
-        <ul>
-          @for (enlace of ORGANIZATION_NAV_LINKS; track enlace.path.join('/')) {
-            <li>
-              <a
-                [routerLink]="enlace.path"
-                routerLinkActive="activo"
-                [routerLinkActiveOptions]="{ exact: !!enlace.exact }"
-              >
-                {{ t(enlace.labelKey) }}
-              </a>
-            </li>
-          }
-        </ul>
-      </nav>
-
-      @if (evento(); as datosEvento) {
-        <h2 id="admin-nav-evento-titulo" class="grupo-titulo">
-          {{ datosEvento.nombre ?? t('admin.nav.eventoCargando') }}
+      @if (plataforma()) {
+        <h2 id="admin-nav-plataforma-titulo" class="grupo-titulo">
+          {{ t('admin.nav.grupoPlataforma') }}
         </h2>
-        <nav [attr.aria-labelledby]="'admin-nav-evento-titulo'">
+        <nav [attr.aria-labelledby]="'admin-nav-plataforma-titulo'">
           <ul>
-            <li>
-              <a
-                [routerLink]="['/admin/events', datosEvento.id]"
-                routerLinkActive="activo"
-                [routerLinkActiveOptions]="{ exact: true }"
-              >
-                {{ t('admin.nav.detallesEvento') }}
-              </a>
-            </li>
-            @for (enlace of enlacesEvento(); track enlace.path.join('/')) {
+            @for (enlace of PLATFORM_NAV_LINKS; track enlace.path.join('/')) {
               <li>
-                <a [routerLink]="enlace.path" routerLinkActive="activo">
+                <a
+                  [routerLink]="enlace.path"
+                  routerLinkActive="activo"
+                  [routerLinkActiveOptions]="{ exact: !!enlace.exact }"
+                >
                   {{ t(enlace.labelKey) }}
                 </a>
               </li>
             }
-            <li>
-              <a routerLink="/admin/events">{{ t('admin.nav.volverAEventos') }}</a>
-            </li>
           </ul>
         </nav>
-      }
+      } @else {
+        <h2 id="admin-nav-organizacion-titulo" class="grupo-titulo">
+          {{ t('admin.nav.grupoOrganizacion') }}
+        </h2>
+        <nav [attr.aria-labelledby]="'admin-nav-organizacion-titulo'">
+          <ul>
+            @for (enlace of ORGANIZATION_NAV_LINKS; track enlace.path.join('/')) {
+              <li>
+                <a
+                  [routerLink]="enlace.path"
+                  routerLinkActive="activo"
+                  [routerLinkActiveOptions]="{ exact: !!enlace.exact }"
+                >
+                  {{ t(enlace.labelKey) }}
+                </a>
+              </li>
+            }
+          </ul>
+        </nav>
 
-      <h2 id="admin-nav-plataforma-titulo" class="grupo-titulo">
-        {{ t('admin.nav.grupoPlataforma') }}
-      </h2>
-      <nav [attr.aria-labelledby]="'admin-nav-plataforma-titulo'">
-        <ul>
-          @for (enlace of plataforma(); track enlace.path.join('/')) {
-            <li>
-              <a [routerLink]="enlace.path" routerLinkActive="activo">
-                {{ t(enlace.labelKey) }}
-              </a>
-            </li>
-          }
-        </ul>
-      </nav>
+        @if (evento(); as datosEvento) {
+          <h2 id="admin-nav-evento-titulo" class="grupo-titulo">
+            {{ datosEvento.nombre ?? t('admin.nav.eventoCargando') }}
+          </h2>
+          <nav [attr.aria-labelledby]="'admin-nav-evento-titulo'">
+            <ul>
+              <li>
+                <a
+                  [routerLink]="['/dashboard/events', datosEvento.id]"
+                  routerLinkActive="activo"
+                  [routerLinkActiveOptions]="{ exact: true }"
+                >
+                  {{ t('admin.nav.detallesEvento') }}
+                </a>
+              </li>
+              @for (enlace of enlacesEvento(); track enlace.path.join('/')) {
+                <li>
+                  <a [routerLink]="enlace.path" routerLinkActive="activo">
+                    {{ t(enlace.labelKey) }}
+                  </a>
+                </li>
+              }
+              <li>
+                <a routerLink="/dashboard/events">{{ t('admin.nav.volverAEventos') }}</a>
+              </li>
+            </ul>
+          </nav>
+        }
+      }
     </ng-container>
   `,
   styles: `
@@ -225,17 +228,14 @@ export function enlacesDeEvento(eventId: string, aceptaPagos: boolean): readonly
   `,
 })
 export class AdminNav {
-  /** Persona superadministradora: gobierna solo los enlaces con `soloSuperadmin`. */
-  readonly isSuperadmin = input<boolean>(false);
+  /** `true` cuando el panel pintado es el de la plataforma (`/admin`). */
+  readonly plataforma = input<boolean>(false);
   /** `null` cuando no hay evento activo o cuando su carga ha fallado: en ambos casos
-   * el grupo desaparece y la navegación vuelve a los dos grupos estables. */
+   * el grupo desaparece y la navegación vuelve a los grupos estables. */
   readonly evento = input<AdminNavEvento | null>(null);
 
   protected readonly ORGANIZATION_NAV_LINKS = ORGANIZATION_NAV_LINKS;
-
-  protected readonly plataforma = computed(() =>
-    PLATFORM_NAV_LINKS.filter((enlace) => !enlace.soloSuperadmin || this.isSuperadmin()),
-  );
+  protected readonly PLATFORM_NAV_LINKS = PLATFORM_NAV_LINKS;
 
   protected readonly enlacesEvento = computed(() => {
     const datosEvento = this.evento();

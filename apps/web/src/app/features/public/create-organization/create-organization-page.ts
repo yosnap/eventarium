@@ -224,7 +224,7 @@ export class CreateOrganizationPage {
   }
 
   protected urlPanel(host: string): string {
-    return `${typeof window === 'undefined' ? 'https:' : window.location.protocol}//${host}/admin/login`;
+    return `${typeof window === 'undefined' ? 'https:' : window.location.protocol}//${host}/dashboard`;
   }
 
   protected async enviar(evento: Event): Promise<void> {

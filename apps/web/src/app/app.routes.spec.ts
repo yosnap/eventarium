@@ -3,7 +3,7 @@ import 'fake-indexeddb/auto';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
-import { provideRouter, withComponentInputBinding } from '@angular/router';
+import { provideRouter, withComponentInputBinding, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
@@ -76,24 +76,24 @@ function configurar(usuario: { is_superadmin: boolean } | null) {
  * tema, que añadió la fase 1), con el selector del componente al que deben seguir
  * resolviendo. */
 const RUTAS_EXISTENTES: readonly [string, string][] = [
-  ['/admin', 'app-dashboard-page'],
-  ['/admin/organization', 'app-organization-page'],
-  ['/admin/branding', 'app-branding-page'],
-  ['/admin/roles', 'app-roles-page'],
-  ['/admin/roles/r1', 'app-role-form'],
-  ['/admin/members', 'app-members-page'],
-  ['/admin/members/nuevo', 'app-member-form'],
-  ['/admin/events', 'app-events-page'],
-  ['/admin/events/nuevo', 'app-event-form'],
-  ['/admin/events/e1', 'app-event-form'],
-  ['/admin/events/e1/registrations/reg1', 'app-registration-detail-page'],
-  ['/admin/events/e1/check-in', 'app-event-check-in'],
-  ['/admin/events/e1/payments', 'app-event-payments'],
-  ['/admin/sponsor-tiers', 'app-sponsor-tiers-page'],
-  ['/admin/stripe', 'app-stripe-connection'],
-  ['/admin/legal', 'app-legal-pages-page'],
-  ['/admin/account', 'app-account-page'],
-  ['/admin/estilo', 'app-style-guide-page'],
+  ['/dashboard', 'app-dashboard-page'],
+  ['/dashboard/organization', 'app-organization-page'],
+  ['/dashboard/branding', 'app-branding-page'],
+  ['/dashboard/roles', 'app-roles-page'],
+  ['/dashboard/roles/r1', 'app-role-form'],
+  ['/dashboard/members', 'app-members-page'],
+  ['/dashboard/members/nuevo', 'app-member-form'],
+  ['/dashboard/events', 'app-events-page'],
+  ['/dashboard/events/nuevo', 'app-event-form'],
+  ['/dashboard/events/e1', 'app-event-form'],
+  ['/dashboard/events/e1/registrations/reg1', 'app-registration-detail-page'],
+  ['/dashboard/events/e1/check-in', 'app-event-check-in'],
+  ['/dashboard/events/e1/payments', 'app-event-payments'],
+  ['/dashboard/sponsor-tiers', 'app-sponsor-tiers-page'],
+  ['/dashboard/stripe', 'app-stripe-connection'],
+  ['/dashboard/legal', 'app-legal-pages-page'],
+  ['/dashboard/account', 'app-account-page'],
+  ['/dashboard/estilo', 'app-style-guide-page'],
 ];
 
 describe('rutas existentes: siguen resolviendo al mismo componente', () => {
@@ -109,43 +109,43 @@ describe('rutas existentes: siguen resolviendo al mismo componente', () => {
   }
 });
 
-describe('rutas de superadministración: guard, no solo visibilidad', () => {
-  it('/admin/superadmin sigue protegida por superadminGuard', async () => {
+describe('rutas de plataforma: guard, no solo visibilidad', () => {
+  it('/admin está protegida por superadminGuard', async () => {
     configurar({ is_superadmin: true });
     const harness = await RouterTestingHarness.create();
-    await harness.navigateByUrl('/admin/superadmin');
+    await harness.navigateByUrl('/admin');
 
     expect(harness.routeNativeElement?.querySelector('app-superadmin-page')).not.toBeNull();
   });
 
-  it('/admin/superadmin/plantillas sigue protegida por superadminGuard', async () => {
+  it('/admin/plantillas está protegida por superadminGuard', async () => {
     configurar({ is_superadmin: true });
     const harness = await RouterTestingHarness.create();
-    await harness.navigateByUrl('/admin/superadmin/plantillas');
+    await harness.navigateByUrl('/admin/plantillas');
 
     expect(harness.routeNativeElement?.querySelector('app-theme-templates-page')).not.toBeNull();
   });
 
-  it('un autenticado sin is_superadmin no alcanza /admin/superadmin', async () => {
+  it('un autenticado sin is_superadmin no alcanza /admin', async () => {
     configurar({ is_superadmin: false });
     const harness = await RouterTestingHarness.create();
-    await harness.navigateByUrl('/admin/superadmin');
+    await harness.navigateByUrl('/admin');
 
     expect(harness.routeNativeElement?.querySelector('app-superadmin-page')).toBeNull();
   });
 
-  it('un autenticado sin is_superadmin no alcanza /admin/superadmin/plantillas', async () => {
+  it('un autenticado sin is_superadmin no alcanza /admin/plantillas', async () => {
     configurar({ is_superadmin: false });
     const harness = await RouterTestingHarness.create();
-    await harness.navigateByUrl('/admin/superadmin/plantillas');
+    await harness.navigateByUrl('/admin/plantillas');
 
     expect(harness.routeNativeElement?.querySelector('app-theme-templates-page')).toBeNull();
   });
 
-  it('el mismo usuario sin is_superadmin sí alcanza /admin/estilo', async () => {
+  it('el mismo usuario sin is_superadmin sí alcanza /dashboard/estilo', async () => {
     configurar({ is_superadmin: false });
     const harness = await RouterTestingHarness.create();
-    await harness.navigateByUrl('/admin/estilo');
+    await harness.navigateByUrl('/dashboard/estilo');
 
     expect(harness.routeNativeElement?.querySelector('app-style-guide-page')).not.toBeNull();
   });
@@ -155,11 +155,11 @@ describe('rutas de sección nuevas: entregan eventId al componente, no solo resu
   beforeEach(() => configurar({ is_superadmin: false }));
 
   const CASOS: readonly [string, string, new (...args: never[]) => { eventId: () => string }][] = [
-    ['/admin/events/e1/agenda', 'app-event-agenda', EventAgenda],
-    ['/admin/events/e1/entradas', 'app-event-ticket-types', EventTicketTypes],
-    ['/admin/events/e1/descuentos', 'app-event-discount-codes', EventDiscountCodes],
-    ['/admin/events/e1/patrocinadores', 'app-event-sponsors', EventSponsors],
-    ['/admin/events/e1/inscripciones', 'app-event-registrations', EventRegistrations],
+    ['/dashboard/events/e1/agenda', 'app-event-agenda', EventAgenda],
+    ['/dashboard/events/e1/entradas', 'app-event-ticket-types', EventTicketTypes],
+    ['/dashboard/events/e1/descuentos', 'app-event-discount-codes', EventDiscountCodes],
+    ['/dashboard/events/e1/patrocinadores', 'app-event-sponsors', EventSponsors],
+    ['/dashboard/events/e1/inscripciones', 'app-event-registrations', EventRegistrations],
   ];
 
   for (const [url, selector, tipo] of CASOS) {
@@ -173,4 +173,52 @@ describe('rutas de sección nuevas: entregan eventId al componente, no solo resu
       expect(instancia.eventId()).toBe('e1');
     });
   }
+});
+
+describe('redirecciones de las rutas antiguas del panel', () => {
+  beforeEach(() => configurar({ is_superadmin: true }));
+
+  // Las rutas del panel vivían todas bajo `/admin`, sin distinguir ámbito. Al
+  // separar los dos paneles (organización en `/dashboard`, plataforma en
+  // `/admin`), los enlaces guardados y los marcadores tienen que seguir
+  // llegando a su sitio. Estas pruebas fijan el destino de cada una, porque el
+  // orden y la forma de las redirecciones son justo lo que se rompe en silencio:
+  // un comodín de más capturaría las rutas nuevas de plataforma.
+  const CASOS: readonly [string, string][] = [
+    ['/admin/login', '/acceder'],
+    ['/admin/superadmin', '/admin'],
+    ['/admin/superadmin/plantillas', '/admin/plantillas'],
+    ['/admin/superadmin/identidad', '/admin/identidad'],
+    ['/admin/superadmin/legales', '/admin/legales'],
+    ['/admin/superadmin/suplantar', '/admin/suplantar'],
+    ['/admin/organization', '/dashboard/organization'],
+    ['/admin/branding', '/dashboard/branding'],
+    ['/admin/roles', '/dashboard/roles'],
+    ['/admin/roles/r1', '/dashboard/roles/r1'],
+    ['/admin/members', '/dashboard/members'],
+    ['/admin/members/nuevo', '/dashboard/members/nuevo'],
+    ['/admin/events', '/dashboard/events'],
+    ['/admin/events/e1', '/dashboard/events/e1'],
+    ['/admin/events/e1/inscripciones', '/dashboard/events/e1/inscripciones'],
+    ['/admin/events/e1/registrations/reg1', '/dashboard/events/e1/registrations/reg1'],
+    ['/admin/stripe', '/dashboard/stripe'],
+    ['/admin/estilo', '/dashboard/estilo'],
+  ];
+
+  for (const [origen, destino] of CASOS) {
+    it(`${origen} → ${destino}`, async () => {
+      const router = TestBed.inject(Router);
+      await router.navigateByUrl(origen);
+      expect(router.url).toBe(destino);
+    });
+  }
+
+  it('las rutas nuevas de plataforma NO las captura la redirección del organizador', async () => {
+    // El fallo que esto previene: con un `admin/:a` genérico, `/admin/plantillas`
+    // acabaría en `/dashboard/plantillas` y el panel de plataforma sería
+    // inalcanzable por URL.
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl('/admin/plantillas');
+    expect(router.url).toBe('/admin/plantillas');
+  });
 });

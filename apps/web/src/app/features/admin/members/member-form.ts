@@ -113,7 +113,7 @@ type CampoBase = 'email' | 'firstName' | 'lastName' | 'roleId';
           }
 
           <div class="acciones-finales">
-            <a routerLink="/admin/members">
+            <a routerLink="/dashboard/members">
               <app-button variant="secundario" type="button">{{
                 t('admin.roles.cancelar')
               }}</app-button>

@@ -411,7 +411,7 @@
     "irAlPanel": "Ir a mi panel →"
   },
   "admin": {
-    "titulo": "Panel de administración",
+    "titulo": "Panel de la organización",
     "navegacion": "Navegación del panel",
     "nav": {
       "grupoOrganizacion": "Organización",
@@ -1260,7 +1260,7 @@
     },
     "sponsorTiersNav": "Niveles de patrocinio",
     "stripeNav": "Pagos con Stripe",
-    "superadminNav": "Superadministración",
+    "superadminNav": "Instalación",
     "sponsorTiers": {
       "titulo": "Niveles de patrocinio",
       "descripcion": "Define los niveles de patrocinio de tu organización (ej. Oro, Plata, Bronce). Se reutilizan entre eventos.",
@@ -1426,7 +1426,8 @@
         "errorGuardar": "No hemos podido guardar la plantilla.",
         "errorLista": "No hemos podido cargar el catálogo de plantillas."
       }
-    }
+    },
+    "tituloPlataforma": "Administración de Eventarium"
   },
   "miEntrada": {
     "titulo": "Tu entrada",

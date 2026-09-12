@@ -5,13 +5,13 @@ import { ApiService } from '../api/api.service';
 import { AuthService } from './auth.service';
 
 /**
- * Protege las rutas que edita el equipo de plataforma: `/admin/superadmin` y
- * `/admin/superadmin/plantillas`. El backend ya exige `is_superadmin` en cada
- * endpoint (`require_superadmin`); este guard cierra el hueco de que, hasta ahora,
- * `/admin/superadmin` solo estaba oculta por un enlace condicional en `admin-shell.ts`
- * y alcanzable por URL directa a cualquier autenticado. `/admin/estilo` no lleva este
- * guard: sigue accesible a cualquier persona autenticada (pregunta abierta 3 de
- * `plan.md`).
+ * Protege el panel de la plataforma (`/admin` y sus secciones). El backend ya
+ * exige `is_superadmin` en cada endpoint (`require_superadmin`); este guard cierra
+ * el hueco de que, hasta ahora, el panel solo estaba oculto por un enlace
+ * condicional en `admin-shell.ts` y era alcanzable por URL directa a cualquier
+ * autenticado. Las herramienta de desarrollo (`/dashboard/estilo`) **no** lleva
+ * este guard: sigue accesible a cualquier persona autenticada (pregunta abierta 3
+ * de `plan.md`).
  */
 export const superadminGuard: CanActivateFn = async () => {
   const auth = inject(AuthService);
@@ -29,9 +29,11 @@ export const superadminGuard: CanActivateFn = async () => {
     try {
       usuario = await auth.loadCurrentUser();
     } catch {
-      return router.createUrlTree(['/admin/login']);
+      return router.createUrlTree(['/acceder']);
     }
   }
 
-  return usuario.is_superadmin ? true : router.createUrlTree(['/admin']);
+  // Quien no administra la instalación vuelve a **su** panel, que es `/dashboard`.
+  // Redirigir a `/admin` lo dejaría rebotando contra este mismo guard.
+  return usuario.is_superadmin ? true : router.createUrlTree(['/dashboard']);
 };

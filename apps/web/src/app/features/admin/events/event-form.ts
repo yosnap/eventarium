@@ -181,7 +181,7 @@ const VENTANA_DE_PAGO_POR_DEFECTO = 30;
           }
 
           <div class="acciones-finales">
-            <a routerLink="/admin/events">
+            <a routerLink="/dashboard/events">
               <app-button variant="secundario" type="button">{{
                 t('admin.roles.cancelar')
               }}</app-button>

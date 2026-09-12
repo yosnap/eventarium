@@ -25,7 +25,7 @@ import { claveDeEstado, type RegistrationDetail } from './registration-types';
     <ng-container *transloco="let t">
       <div class="cabecera">
         <h1>{{ t('admin.events.registrations.detalle.titulo') }}</h1>
-        <a [routerLink]="['/admin/events', eventId()]">
+        <a [routerLink]="['/dashboard/events', eventId()]">
           <app-button variant="secundario" type="button">
             {{ t('admin.events.registrations.detalle.volver') }}
           </app-button>

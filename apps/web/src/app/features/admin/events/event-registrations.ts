@@ -130,7 +130,7 @@ const LIMITE = 20;
               @for (item of items(); track item.id) {
                 <tr>
                   <td>
-                    <a [routerLink]="['/admin/events', eventId(), 'registrations', item.id]">
+                    <a [routerLink]="['/dashboard/events', eventId(), 'registrations', item.id]">
                       {{ item.email }}
                     </a>
                   </td>

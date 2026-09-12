@@ -124,18 +124,18 @@ interface EventoResumen {
         @if (registrationMode() === 'paid') {
           <app-alert tone="info">
             {{ t('admin.events.pagos.avisoConectarStripe') }}
-            <a routerLink="/admin/stripe">{{ t('admin.events.pagos.irAConectarStripe') }}</a>
+            <a routerLink="/dashboard/stripe">{{ t('admin.events.pagos.irAConectarStripe') }}</a>
           </app-alert>
           <app-event-ticket-types [eventId]="eventId()" />
           <app-event-discount-codes [eventId]="eventId()" />
-          <a [routerLink]="['/admin/events', eventId(), 'payments']">
+          <a [routerLink]="['/dashboard/events', eventId(), 'payments']">
             <app-button variant="secundario" type="button">
               {{ t('admin.events.payments.enlaceDesdeEvento') }}
             </app-button>
           </a>
         }
         <app-event-registrations [eventId]="eventId()" />
-        <a [routerLink]="['/admin/events', eventId(), 'check-in']">
+        <a [routerLink]="['/dashboard/events', eventId(), 'check-in']">
           <app-button variant="secundario" type="button">
             {{ t('admin.events.checkIn.enlaceDesdeEvento') }}
           </app-button>

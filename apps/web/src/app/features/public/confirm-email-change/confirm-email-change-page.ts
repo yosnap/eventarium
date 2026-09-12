@@ -33,7 +33,7 @@ type Estado = 'comprobando' | 'exito' | 'error';
                   <app-alert tone="exito" [title]="t('cuenta.confirmarCorreo.exitoTitulo')">
                     {{ t('cuenta.confirmarCorreo.exitoDetalle') }}
                     <p>
-                      <a routerLink="/admin/login">{{ t('registro.yaTengoCuenta') }}</a>
+                      <a routerLink="/acceder">{{ t('registro.yaTengoCuenta') }}</a>
                     </p>
                   </app-alert>
                 }

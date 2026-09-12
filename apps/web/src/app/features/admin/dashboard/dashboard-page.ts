@@ -34,10 +34,10 @@ interface UsuarioActual {
         <app-card [heading]="t('admin.escritorioPagina.proximamenteTitulo')">
           <p>{{ t('admin.escritorioPagina.proximamenteDetalle') }}</p>
           <p class="enlaces">
-            <a routerLink="/admin/organization">{{
+            <a routerLink="/dashboard/organization">{{
               t('admin.escritorioPagina.irAOrganizacion')
             }}</a>
-            <a routerLink="/admin/branding">{{ t('admin.escritorioPagina.irABranding') }}</a>
+            <a routerLink="/dashboard/branding">{{ t('admin.escritorioPagina.irABranding') }}</a>
           </p>
         </app-card>
 

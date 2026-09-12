@@ -56,7 +56,7 @@ type Estado = 'formulario' | 'exito' | 'tokenInvalido';
                   <app-alert tone="exito" [title]="t('recuperarContrasena.exitoNuevaTitulo')">
                     {{ t('recuperarContrasena.exitoNuevaDetalle') }}
                     <p>
-                      <a routerLink="/admin/login">{{ t('registro.yaTengoCuenta') }}</a>
+                      <a routerLink="/acceder">{{ t('registro.yaTengoCuenta') }}</a>
                     </p>
                   </app-alert>
                 }

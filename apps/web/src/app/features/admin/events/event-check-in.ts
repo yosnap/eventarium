@@ -325,7 +325,7 @@ export class EventCheckIn implements OnInit, OnDestroy {
       name: 'IA Week — Check-in',
       short_name: 'Check-in',
       description: 'Escaneo de entradas y control de acceso',
-      start_url: `/admin/events/${this.eventId()}/check-in`,
+      start_url: `/dashboard/events/${this.eventId()}/check-in`,
       display: 'standalone',
       background_color: '#111827',
       theme_color: '#111827',

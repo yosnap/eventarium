@@ -101,7 +101,7 @@ type Campo = 'email' | 'password' | 'confirmPassword';
             }
 
             <p>
-              <a routerLink="/admin/login">{{ t('registro.yaTengoCuenta') }}</a>
+              <a routerLink="/acceder">{{ t('registro.yaTengoCuenta') }}</a>
             </p>
           </app-card>
         </div>

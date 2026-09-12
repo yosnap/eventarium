@@ -51,12 +51,12 @@ describe('superadminGuard', () => {
     expect(await ejecutar()).toBe(true);
   });
 
-  it('deniega a un autenticado sin is_superadmin y redirige a /admin', async () => {
+  it('deniega a un autenticado sin is_superadmin y redirige a /dashboard', async () => {
     auth.currentUser = vi.fn().mockReturnValue({ is_superadmin: false });
     configurar(false);
     const resultado = await ejecutar();
     expect(resultado).not.toBe(true);
-    expect((resultado as UrlTree).toString()).toBe(router.createUrlTree(['/admin']).toString());
+    expect((resultado as UrlTree).toString()).toBe(router.createUrlTree(['/dashboard']).toString());
   });
 
   it('sin usuario en memoria, lo recarga antes de decidir', async () => {
@@ -67,13 +67,13 @@ describe('superadminGuard', () => {
     expect(auth.loadCurrentUser).toHaveBeenCalled();
   });
 
-  it('si recargar el usuario falla, redirige a /admin/login', async () => {
+  it('si recargar el usuario falla, redirige a /acceder', async () => {
     auth.currentUser = vi.fn().mockReturnValue(null);
     auth.loadCurrentUser = vi.fn().mockRejectedValue(new Error('sin sesión'));
     configurar(false);
     const resultado = await ejecutar();
     expect((resultado as UrlTree).toString()).toBe(
-      router.createUrlTree(['/admin/login']).toString(),
+      router.createUrlTree(['/acceder']).toString(),
     );
   });
 });
