@@ -20,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import AuditLog, registrar_auditoria
+from app.core.audit_redaction import redactar_importes
 from app.core.deps import CurrentUser, get_maintenance_db, require_superadmin
 from app.core.ratelimit import (
     AUDIT_LOG_POR_IP,
@@ -169,7 +170,10 @@ def _to_audit_entry(fila: AuditLog) -> AuditLogEntry:
         action=fila.action,
         entity_type=fila.entity_type,
         entity_id=fila.entity_id,
-        detail=fila.detail,
+        # Los importes no salen por aquí: el administrador de la instalación no
+        # ve el negocio de las organizaciones (`app/core/audit_redaction.py`).
+        # La fila en base conserva el detalle completo.
+        detail=redactar_importes(fila.detail),
         created_at=fila.created_at,
     )
 
