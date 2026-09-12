@@ -19,6 +19,7 @@ from app.modules.registrations.models import (
     EventRegistrationAnswer,
     EventRegistrationQuestion,
 )
+from app.modules.tickets.models import EventTicket
 
 
 async def get_questions(
@@ -307,6 +308,49 @@ async def count_verified_registrations(
             EventRegistration.organization_id == organization_id,
             EventRegistration.event_id == event_id,
             EventRegistration.verified_at.is_not(None),
+        )
+    )
+    return int(total or 0)
+
+
+async def count_approved_registrations(
+    session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID
+) -> int:
+    """Inscripciones que pasaron por aprobación, cualquiera que sea su estado
+    posterior.
+
+    No se puede contar por estado: aprobar mueve la fila a `confirmed` o a
+    `waitlisted`, así que `approved_at` es el único rastro de que ese paso
+    ocurrió. En un evento sin aprobación previa, nadie lo tiene.
+    """
+    total = await session.scalar(
+        select(func.count())
+        .select_from(EventRegistration)
+        .where(
+            EventRegistration.organization_id == organization_id,
+            EventRegistration.event_id == event_id,
+            EventRegistration.approved_at.is_not(None),
+        )
+    )
+    return int(total or 0)
+
+
+async def count_issued_tickets(
+    session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID
+) -> int:
+    """Entradas emitidas y **no revocadas**.
+
+    El último escalón del embudo. Se excluyen las revocadas porque una entrada
+    anulada no llegó a servir para entrar: contarla inflaría el final del embudo
+    por encima de las personas que de verdad tienen entrada.
+    """
+    total = await session.scalar(
+        select(func.count())
+        .select_from(EventTicket)
+        .where(
+            EventTicket.organization_id == organization_id,
+            EventTicket.event_id == event_id,
+            EventTicket.revoked_at.is_(None),
         )
     )
     return int(total or 0)

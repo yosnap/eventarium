@@ -141,10 +141,22 @@ class RegistrationDetail(RegistrationListItem):
 
 
 class RegistrationStats(BaseModel):
-    """Estadísticas de conversión del embudo de inscripción de un evento."""
+    """Estadísticas del embudo de inscripción de un evento.
+
+    Los cuatro escalones del embudo son `initiated → verified → approved →
+    issued`. Los dos últimos no salen de los conteos por estado: `approved` es
+    un hito (`approved_at`), y aprobar deja la fila en `confirmed` o
+    `waitlisted`; `issued` vive en `event_tickets`.
+    """
 
     initiated: int
     verified: int
+    #: Inscripciones que pasaron por aprobación (`approved_at`), sea cual sea su
+    #: estado actual. No es un estado: una vez aprobada, la fila pasa a
+    #: `confirmed` o `waitlisted`.
+    approved: int
+    #: Entradas emitidas (`event_tickets.issued_at`), sin contar las revocadas.
+    issued: int
     pending_approval: int
     pending_payment: int
     confirmed: int

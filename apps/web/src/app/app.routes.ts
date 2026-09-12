@@ -183,6 +183,13 @@ export const routes: Routes = [
       },
       {
         path: 'events/:id',
+        loadComponent: () =>
+          import('./features/admin/events/event-dashboard').then((m) => m.EventDashboard),
+      },
+      {
+        // El formulario vive en una ruta hermana, no en la raíz: a quien entra a
+        // un evento le interesa cómo va (el escritorio), no los campos.
+        path: 'events/:id/editar',
         loadComponent: () => import('./features/admin/events/event-form').then((m) => m.EventForm),
       },
       {

@@ -169,7 +169,12 @@ export function enlacesDeEvento(eventId: string, aceptaPagos: boolean): readonly
                   routerLinkActive="activo"
                   [routerLinkActiveOptions]="{ exact: true }"
                 >
-                  {{ t('admin.nav.detallesEvento') }}
+                  {{ t('admin.nav.resumenEvento') }}
+                </a>
+              </li>
+              <li>
+                <a [routerLink]="['/dashboard/events', datosEvento.id, 'editar']">
+                  {{ t('admin.nav.editarEvento') }}
                 </a>
               </li>
               @for (enlace of enlacesEvento(); track enlace.path.join('/')) {

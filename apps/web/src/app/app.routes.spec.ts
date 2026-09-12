@@ -85,7 +85,11 @@ const RUTAS_EXISTENTES: readonly [string, string][] = [
   ['/dashboard/members/nuevo', 'app-member-form'],
   ['/dashboard/events', 'app-events-page'],
   ['/dashboard/events/nuevo', 'app-event-form'],
-  ['/dashboard/events/e1', 'app-event-form'],
+  // La raíz del evento es su escritorio (cómo va); el formulario vive en
+  // `/editar`, porque a quien entra a un evento le interesa el estado antes que
+  // los campos.
+  ['/dashboard/events/e1', 'app-event-dashboard'],
+  ['/dashboard/events/e1/editar', 'app-event-form'],
   ['/dashboard/events/e1/registrations/reg1', 'app-registration-detail-page'],
   ['/dashboard/events/e1/check-in', 'app-event-check-in'],
   ['/dashboard/events/e1/payments', 'app-event-payments'],

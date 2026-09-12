@@ -418,9 +418,10 @@
       "grupoPlataforma": "Plataforma",
       "eventoCargando": "Cargando evento…",
       "volverAEventos": "Volver a eventos",
-      "detallesEvento": "Detalles",
       "abrirNavegacion": "Abrir navegación",
-      "cerrarNavegacion": "Cerrar navegación"
+      "cerrarNavegacion": "Cerrar navegación",
+      "resumenEvento": "Resumen",
+      "editarEvento": "Editar datos"
     },
     "escritorio": "Escritorio",
     "identidadVisual": "Identidad visual",
@@ -1256,6 +1257,39 @@
         "sinGeocodificar": "Sin geolocalizar",
         "camposRequeridos": "Escribe el nombre de la sede.",
         "error": "No hemos podido completar la operación."
+      },
+      "metricas": {
+        "inscripciones": "Inscripciones",
+        "porAprobar": "Por aprobar",
+        "sinEntrar": "Aún sin entrar",
+        "ocupacion": "Ocupación",
+        "reservadasAyuda": "Plazas reservadas: incluye las confirmadas, las promociones de lista de espera vigentes y los pagos en curso.",
+        "sinAforo": "Este evento no fija aforo, así que no hay límite que comparar.",
+        "dinero": "Dinero",
+        "ingresos": "Ingresos cobrados",
+        "presupuesto": "Presupuesto",
+        "ejecutado": "Ejecutado",
+        "embudo": "Del formulario a la entrada",
+        "escalonFormulario": "Formulario enviado",
+        "escalonVerificado": "Correo verificado",
+        "escalonAprobado": "Aprobada",
+        "escalonEmitido": "Entrada emitida",
+        "sinVerificacionExigida": "Este evento no exige verificar el correo, así que todas las inscripciones cuentan como verificadas.",
+        "falta": "Antes de abrir el evento, esto le falta:",
+        "piezas": "Estado del evento",
+        "error": "No se pudieron cargar las cifras del evento. Las secciones de abajo siguen disponibles.",
+        "pieza": {
+          "agenda": "Agenda",
+          "sedes": "Sedes",
+          "tipos_de_entrada": "Tipos de entrada",
+          "descuentos": "Códigos de descuento",
+          "patrocinadores": "Patrocinadores"
+        },
+        "estado": {
+          "lista": "Lista",
+          "pendiente": "Falta",
+          "no_aplica": "No aplica"
+        }
       }
     },
     "sponsorTiersNav": "Niveles de patrocinio",

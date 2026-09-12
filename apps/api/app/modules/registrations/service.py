@@ -777,7 +777,7 @@ async def get_registration_stats(
     event_id: uuid.UUID,
     email_verification_required: bool,
 ) -> dict[str, Any]:
-    """Estadísticas de conversión del embudo, para `GET .../registrations/stats`.
+    """Estadísticas del embudo, para `GET .../registrations/stats`.
 
     "Iniciados" cuenta toda fila, sea cual sea su estado actual: es el
     denominador de la conversión de verificación. "Emails enviados/entregados/
@@ -785,12 +785,20 @@ async def get_registration_stats(
     proveedor de email — decisión de alcance ya documentada en el plan, no una
     omisión.
 
+    **Los cuatro escalones** son `initiated → verified → approved → issued`.
+    `approved` e `issued` no salen de `por_estado`: el primero es el hito
+    `approved_at` (aprobar deja la fila en `confirmed`/`waitlisted`) y el segundo
+    vive en `event_tickets`. Se cuentan aquí, junto a los demás, para que el
+    embudo tenga **una sola fuente**: un segundo camino de conteo acabaría
+    divergiendo.
+
     Cuando el evento no exige verificación de email, `verified_at` nunca se
     rellena (no hay paso de verificación que lo haga) — contar `verificados`
     a partir de esa columna daría siempre 0% aunque todo el mundo llegue a
     `confirmed`/`waitlisted`. En ese caso "verificados" se informa igual a
     "iniciados": no hay paso de verificación que superar, así que todo el
-    mundo lo "pasa" trivialmente.
+    mundo lo "pasa" trivialmente. La interfaz lo etiqueta como tal para no
+    pintar un 100 % que no ocurrió.
     """
     por_estado = await repository.count_registrations_by_status(session, organization_id, event_id)
     iniciados = sum(por_estado.values())
@@ -803,9 +811,14 @@ async def get_registration_stats(
     else:
         verificados = iniciados
 
+    aprobados = await repository.count_approved_registrations(session, organization_id, event_id)
+    emitidas = await repository.count_issued_tickets(session, organization_id, event_id)
+
     return {
         "initiated": iniciados,
         "verified": verificados,
+        "approved": aprobados,
+        "issued": emitidas,
         "pending_approval": por_estado.get("pending_approval", 0),
         "pending_payment": por_estado.get("pending_payment", 0),
         "confirmed": confirmados,
