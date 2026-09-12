@@ -1,108 +1,352 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  type OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../../../core/api/api.service';
-import { displayName } from '../../../core/auth/auth.service';
-import { ThemingService } from '../../../core/theming/theming.service';
+import { Alert } from '../../../shared/ui/alert';
 import { Card } from '../../../shared/ui/card';
+import { Chip, ChipTone } from '../../../shared/ui/chip';
+import { MetricasDeOrganizacion } from './organization-metrics.types';
 
-interface UsuarioActual {
-  readonly id: string;
-  readonly email: string;
-  readonly first_name: string | null;
-  readonly last_name: string | null;
-  readonly roles: readonly string[];
-  readonly permissions: readonly string[];
+/** Una petición pendiente, resuelta para pintar. */
+interface Pendiente {
+  readonly clave: string;
+  readonly cantidad: number;
+  readonly enlace: string;
 }
 
-/** Escritorio del panel: confirma quién eres y qué puedes hacer. */
+/**
+ * Escritorio de la organización: cómo va todo lo suyo y qué tiene pendiente.
+ *
+ * Está ordenado **por utilidad**, no por importancia: primero lo que pide una
+ * decisión (solicitudes por aprobar, borradores sin publicar, Stripe a medias),
+ * después la tabla de eventos —que es lo que más se usa— y al final las cifras
+ * de conjunto. Un escritorio que empieza por totales obliga a leer para saber si
+ * hay algo que hacer.
+ *
+ * **No decide permisos.** Los bloques que la API omite por falta de permiso no
+ * llegan, y aquí se comprueba que existen antes de pintarlos. Duplicar la regla
+ * sería tenerla en dos sitios que pueden divergir.
+ */
 @Component({
   selector: 'app-dashboard-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Card],
+  imports: [TranslocoDirective, RouterLink, DatePipe, Alert, Card, Chip],
   template: `
     <ng-container *transloco="let t">
-      @if (usuario(); as persona) {
-        <h1>
-          {{ t('admin.escritorioPagina.bienvenida', { nombre: nombreDe(persona) }) }}
-        </h1>
-        <p>{{ t('admin.escritorioPagina.resumen') }}</p>
+      @if (error(); as mensaje) {
+        <app-alert tone="error">{{ t(mensaje) }}</app-alert>
+      }
 
-        <app-card [heading]="t('admin.escritorioPagina.proximamenteTitulo')">
-          <p>{{ t('admin.escritorioPagina.proximamenteDetalle') }}</p>
-          <p class="enlaces">
-            <a routerLink="/dashboard/organization">{{
-              t('admin.escritorioPagina.irAOrganizacion')
-            }}</a>
-            <a routerLink="/dashboard/branding">{{ t('admin.escritorioPagina.irABranding') }}</a>
-          </p>
-        </app-card>
-
-        <div class="tarjetas">
-          <app-card [heading]="t('admin.escritorioPagina.organizacion')">
-            <p>{{ theming.nombreDeOrganizacion() }}</p>
-          </app-card>
-
-          <app-card [heading]="t('admin.escritorioPagina.rolesAsignados')">
-            <ul>
-              @for (rol of persona.roles; track rol) {
-                <li>{{ rol }}</li>
-              }
-            </ul>
-          </app-card>
-
-          <app-card [heading]="t('admin.escritorioPagina.permisos')">
-            <ul>
-              @for (permiso of persona.permissions; track permiso) {
+      @if (metricas(); as m) {
+        @if (pendientes().length > 0) {
+          <app-card [heading]="t('admin.escritorioPagina.pendiente')">
+            <ul class="pendientes">
+              @for (p of pendientes(); track p.clave) {
                 <li>
-                  <code>{{ permiso }}</code>
+                  <a [routerLink]="p.enlace">{{ t('admin.escritorioPagina.' + p.clave) }}</a>
+                  <strong>{{ p.cantidad }}</strong>
                 </li>
               }
             </ul>
           </app-card>
+        }
+
+        <app-card [heading]="t('admin.escritorioPagina.eventos')">
+          @if (m.eventos.length === 0) {
+            <p>{{ t('admin.escritorioPagina.sinEventos') }}</p>
+            <a routerLink="/dashboard/events/nuevo">{{
+              t('admin.escritorioPagina.crearPrimerEvento')
+            }}</a>
+          } @else {
+            <div class="tabla-envoltorio">
+              <table>
+                <caption class="sr-only">{{ t('admin.escritorioPagina.eventos') }}</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">{{ t('admin.escritorioPagina.columnaEvento') }}</th>
+                    <th scope="col">{{ t('admin.escritorioPagina.columnaFecha') }}</th>
+                    <th scope="col">{{ t('admin.escritorioPagina.columnaEstado') }}</th>
+                    @if (conInscripciones()) {
+                      <th scope="col">{{ t('admin.events.metricas.ocupacion') }}</th>
+                      <th scope="col">{{ t('admin.escritorioPagina.columnaPorAprobar') }}</th>
+                    }
+                    @if (conDinero()) {
+                      <th scope="col">{{ t('admin.escritorioPagina.columnaIngresos') }}</th>
+                    }
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (evento of m.eventos; track evento.id) {
+                    <tr>
+                      <td>
+                        <a [routerLink]="['/dashboard/events', evento.id]">{{ evento.title }}</a>
+                      </td>
+                      <td>{{ evento.starts_at | date: 'shortDate' }}</td>
+                      <td>
+                        <app-chip [tone]="tonoDeEstado(evento.status)">{{
+                          t('admin.escritorioPagina.estadoEvento.' + evento.status)
+                        }}</app-chip>
+                      </td>
+                      @if (conInscripciones()) {
+                        <td class="numero">
+                          {{ evento.confirmadas }}@if (evento.aforo !== null) {<span>
+                            / {{ evento.aforo }}</span
+                          >}
+                        </td>
+                        <td class="numero">{{ evento.por_aprobar }}</td>
+                      }
+                      @if (conDinero()) {
+                        <td class="numero">
+                          {{
+                            evento.ingresos_cents === null
+                              ? '—'
+                              : formatearCents(evento.ingresos_cents)
+                          }}
+                        </td>
+                      }
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </app-card>
+
+        <div class="cifras">
+          @if (m.cifras; as c) {
+            <app-card [heading]="t('admin.events.metricas.inscripciones')">
+              <dl class="lista">
+                <div>
+                  <dt>{{ t('admin.escritorioPagina.columnaPorAprobar') }}</dt>
+                  <dd>{{ c.por_aprobar }}</dd>
+                </div>
+                <div>
+                  <dt>{{ t('admin.events.registrations.estadisticas.listaEspera') }}</dt>
+                  <dd>{{ c.lista_de_espera }}</dd>
+                </div>
+                <div>
+                  <dt>{{ t('admin.events.metricas.ocupacion') }}</dt>
+                  <dd>
+                    @if (c.aforo_total !== null) {
+                      {{ c.reservadas }} / {{ c.aforo_total }}
+                    } @else {
+                      {{ c.reservadas }}
+                    }
+                  </dd>
+                </div>
+              </dl>
+            </app-card>
+          }
+
+          <app-card [heading]="t('admin.escritorioPagina.estructura')">
+            <dl class="lista">
+              <div>
+                <dt>{{ t('admin.escritorioPagina.miembros') }}</dt>
+                <dd>{{ m.estructura.miembros }}</dd>
+              </div>
+              <div>
+                <dt>{{ t('admin.escritorioPagina.roles') }}</dt>
+                <dd>{{ m.estructura.roles }}</dd>
+              </div>
+              <div>
+                <dt>{{ t('admin.escritorioPagina.patrocinadores') }}</dt>
+                <dd>{{ m.estructura.patrocinadores }}</dd>
+              </div>
+            </dl>
+          </app-card>
+
+          <app-card [heading]="t('admin.escritorioPagina.cobros')">
+            @if (m.stripe.charges_enabled) {
+              <app-chip tone="ok">{{ t('admin.escritorioPagina.stripeListo') }}</app-chip>
+            } @else if (m.stripe.conectada) {
+              <app-chip tone="espera">{{ t('admin.escritorioPagina.stripeAMedias') }}</app-chip>
+              <p class="nota">
+                <a routerLink="/dashboard/stripe">{{
+                  t('admin.escritorioPagina.terminarStripe')
+                }}</a>
+              </p>
+            } @else {
+              <app-chip tone="apagado">{{ t('admin.escritorioPagina.stripeSinConectar') }}</app-chip>
+              <p class="nota">
+                <a routerLink="/dashboard/stripe">{{
+                  t('admin.escritorioPagina.conectarStripe')
+                }}</a>
+              </p>
+            }
+          </app-card>
         </div>
-      } @else {
+      } @else if (!error()) {
         <p>{{ t('comun.cargando') }}</p>
       }
     </ng-container>
   `,
   styles: `
-    h1 {
-      margin-top: 0;
+    :host {
+      display: block;
     }
-    .tarjetas {
+    .pendientes {
+      display: grid;
+      gap: var(--space-sm);
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .pendientes li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-md);
+    }
+    .cifras {
       display: grid;
       gap: var(--space-md);
       grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
       margin-top: var(--space-lg);
     }
-    ul {
+    .lista {
+      display: grid;
+      gap: var(--space-sm);
       margin: 0;
-      padding-left: 1.25rem;
     }
-    .enlaces {
+    .lista > div {
       display: flex;
+      justify-content: space-between;
       gap: var(--space-md);
-      margin-bottom: 0;
+    }
+    .lista dt {
+      color: var(--color-text-muted);
+    }
+    .lista dd {
+      margin: 0;
+      font-variant-numeric: tabular-nums;
+    }
+    .nota {
+      margin: var(--space-xs) 0 0;
+      font-size: 0.875rem;
+    }
+    .tabla-envoltorio {
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th,
+    td {
+      padding: var(--space-sm);
+      text-align: start;
+      border-bottom: 1px solid var(--color-border);
+    }
+    .numero {
+      text-align: end;
+      font-variant-numeric: tabular-nums;
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
   `,
 })
-export class DashboardPage {
+export class DashboardPage implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
-  protected readonly theming = inject(ThemingService);
 
-  protected readonly usuario = signal<UsuarioActual | null>(null);
-  protected readonly nombreDe = displayName;
+  protected readonly metricas = signal<MetricasDeOrganizacion | null>(null);
+  protected readonly error = signal<string | null>(null);
 
-  constructor() {
+  /** `true` si el bloque de dinero llegó: sin permiso, la API no lo manda. */
+  protected readonly conDinero = computed(() => this.metricas()?.dinero !== null);
+
+  /**
+   * `true` si llegan los conteos de inscripción. Se mira en la primera fila, no
+   * en el bloque de cifras: la API omite las columnas por evento con el mismo
+   * permiso, y una cabecera sin dato detrás promete algo que no va a llegar.
+   */
+  protected readonly conInscripciones = computed(() => {
+    const eventos = this.metricas()?.eventos ?? [];
+    return eventos.length > 0 && eventos[0].confirmadas !== null;
+  });
+
+  /**
+   * Lo que pide una decisión, en orden de urgencia. Se compone de lo que la API
+   * haya mandado: sin permiso de inscripciones no hay «por aprobar» que mostrar,
+   * y sin permiso económico no se cuenta Stripe (que es una herramienta de
+   * cobro, no de administración).
+   */
+  protected readonly pendientes = computed<readonly Pendiente[]>(() => {
+    const m = this.metricas();
+    if (!m) {
+      return [];
+    }
+    const lista: Pendiente[] = [];
+    const porAprobar = m.cifras?.por_aprobar ?? 0;
+    if (porAprobar > 0) {
+      lista.push({ clave: 'solicitudesPorAprobar', cantidad: porAprobar, enlace: '/dashboard/events' });
+    }
+    if (m.eventos_en_borrador > 0) {
+      lista.push({
+        clave: 'borradores',
+        cantidad: m.eventos_en_borrador,
+        enlace: '/dashboard/events',
+      });
+    }
+    if (m.dinero && !m.stripe.charges_enabled) {
+      lista.push({
+        clave: m.stripe.conectada ? 'stripeAMediasPendiente' : 'stripeSinConectarPendiente',
+        cantidad: 1,
+        enlace: '/dashboard/stripe',
+      });
+    }
+    return lista;
+  });
+
+  // En `ngOnInit` y no en el constructor: es el ciclo en el que el resto de
+  // pantallas del panel cargan sus datos, y mantiene el patrón.
+  ngOnInit(): void {
     void this.cargar();
   }
 
   private async cargar(): Promise<void> {
-    this.usuario.set(await firstValueFrom(this.http.get<UsuarioActual>(this.api.url('/users/me'))));
+    try {
+      const datos = await firstValueFrom(
+        this.http.get<MetricasDeOrganizacion>(this.api.url('/organizations/me/metrics')),
+      );
+      this.metricas.set(datos);
+    } catch {
+      this.error.set('admin.escritorioPagina.error');
+    }
+  }
+
+  protected tonoDeEstado(estado: string): ChipTone {
+    const tonos: Record<string, ChipTone> = {
+      published: 'ok',
+      draft: 'espera',
+      archived: 'apagado',
+    };
+    return tonos[estado] ?? 'neutro';
+  }
+
+  protected formatearCents(cents: number): string {
+    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(
+      cents / 100,
+    );
   }
 }

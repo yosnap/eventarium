@@ -10,7 +10,8 @@ from fastapi import APIRouter, Depends, File, UploadFile, status
 from app.core.deps import CurrentUserDep, DbDep, PermissionsDep, require_permission
 from app.core.permissions import Permission
 from app.core.storage import build_object_key, get_storage, validate_upload
-from app.modules.organizations import members_service, repository
+from app.modules.organizations import members_service, metrics_service, repository
+from app.modules.organizations.metrics_schemas import MetricasDeOrganizacionOut
 from app.modules.organizations.models import OrganizationBranding, OrganizationMember
 from app.modules.organizations.schemas import (
     BrandingAdminResponse,
@@ -41,6 +42,26 @@ def _branding_response(branding: OrganizationBranding | None) -> BrandingAdminRe
         favicon_url=almacen.public_url(branding.favicon_object_key)
         if branding.favicon_object_key
         else None,
+    )
+
+
+@router.get(
+    "/me/metrics",
+    summary="Métricas del escritorio de la organización",
+    description=(
+        "Compone en una llamada la tabla de eventos con sus cifras, los totales "
+        "de la organización, su estructura y el estado de la cuenta de Stripe. "
+        "Los bloques para los que quien pide no tiene permiso **se omiten**, no "
+        "se esconden en la interfaz: el escritorio junta recursos con permisos "
+        "propios y no todos los miembros pueden verlos todos."
+    ),
+    response_model=MetricasDeOrganizacionOut,
+)
+async def get_my_metrics(
+    usuario: CurrentUserDep, session: DbDep, permisos: PermissionsDep
+) -> MetricasDeOrganizacionOut:
+    return await metrics_service.metricas_de_la_organizacion(
+        session, usuario.organization_id, permisos
     )
 
 
