@@ -38,7 +38,7 @@ async def test_alta_de_miembro_con_perfil_valido(
     )
     assert respuesta.status_code == 201
     cuerpo = respuesta.json()
-    assert cuerpo["role_key"] == "speaker"
+    assert cuerpo["roles"][0]["role_key"] == "speaker"
     assert cuerpo["profile_data"]["bio"] == "Ingeniera de datos"
 
 

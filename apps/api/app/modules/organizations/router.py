@@ -29,12 +29,14 @@ from app.modules.organizations.schemas import (
     InvitationResponse,
     MemberCreate,
     MemberResponse,
+    MemberRoleOut,
     OrganizationResponse,
     OrganizationUpdate,
 )
 from app.modules.roles.models import Role
 from app.modules.theme_templates import repository as theme_templates_repository
 from app.modules.theme_templates.schemas import ThemeTemplateCatalogItem
+from app.modules.users.models import User
 from app.shared.errors import NotFoundError, ValidationDomainError
 from app.shared.pagination import Page, PageParams, page_params
 
@@ -217,9 +219,32 @@ async def upload_logo(
     return _branding_response(branding)
 
 
+def _member_response_from_rows(
+    persona: User, filas: list[tuple[OrganizationMember, Role]]
+) -> MemberResponse:
+    return MemberResponse(
+        user_id=str(persona.id),
+        email=persona.email,
+        first_name=persona.first_name,
+        last_name=persona.last_name,
+        roles=[
+            MemberRoleOut(
+                id=str(miembro.id), role_id=str(rol.id), role_key=rol.key, role_name=rol.name
+            )
+            for miembro, rol in filas
+        ],
+        profile_data=repository.best_profile_data(filas),
+    )
+
+
 @router.get(
     "/me/members",
     summary="Miembros de la organización",
+    description=(
+        "Una fila por persona, con todos sus roles — no una fila por membresía "
+        "(fase 4 del plan de invitaciones): quien tiene dos roles aparecía dos "
+        "veces, sin nada que dijera que eran la misma persona."
+    ),
     response_model=Page[MemberResponse],
     dependencies=[require_permission(Permission.MEMBERS_READ)],
 )
@@ -228,54 +253,35 @@ async def list_members(
     session: DbDep,
     paginacion: Annotated[PageParams, Depends(page_params)],
 ) -> Page[MemberResponse]:
-    consulta = (
-        repository.members_query(usuario.organization_id)
-        .limit(paginacion.limit)
-        .offset(paginacion.offset)
+    agrupado = await repository.list_members_grouped(
+        session, usuario.organization_id, limit=paginacion.limit, offset=paginacion.offset
     )
-    filas = (await session.execute(consulta)).all()
     return Page[MemberResponse](
-        items=[
-            MemberResponse(
-                id=str(miembro.id),
-                user_id=str(persona.id),
-                email=persona.email,
-                first_name=persona.first_name,
-                last_name=persona.last_name,
-                role_id=str(rol.id),
-                role_key=rol.key,
-                profile_data=miembro.profile_data,
-            )
-            for miembro, persona, rol in filas
-        ],
-        total=await repository.count_members(session, usuario.organization_id),
+        items=[_member_response_from_rows(persona, filas) for persona, filas in agrupado],
+        total=await repository.count_members_grouped(session, usuario.organization_id),
         limit=paginacion.limit,
         offset=paginacion.offset,
     )
 
 
-async def _member_response(
-    session: AsyncSession, organization_id: uuid.UUID, member_id: uuid.UUID
+async def _member_response_for_user(
+    session: AsyncSession, organization_id: uuid.UUID, user_id: uuid.UUID
 ) -> MemberResponse:
-    consulta = repository.members_query(organization_id).where(
-        OrganizationMember.id == member_id
-    )
-    registro, persona, rol = (await session.execute(consulta)).one()
-    return MemberResponse(
-        id=str(registro.id),
-        user_id=str(persona.id),
-        email=persona.email,
-        first_name=persona.first_name,
-        last_name=persona.last_name,
-        role_id=str(rol.id),
-        role_key=rol.key,
-        profile_data=registro.profile_data,
-    )
+    persona = await session.get(User, user_id)
+    if persona is None:  # pragma: no cover - garantizado por la FK de OrganizationMember
+        raise NotFoundError("Esa persona ya no existe.")
+    filas = await repository.member_roles_for_user(session, organization_id, user_id)
+    return _member_response_from_rows(persona, filas)
 
 
 @router.post(
     "/me/members",
-    summary="Añadir un miembro",
+    summary="Añadir un miembro, o un rol más a quien ya está",
+    description=(
+        "Si el correo ya pertenece a alguien de la organización, esto le añade "
+        "el rol nuevo sin duplicarla — es el camino para «hazlo también "
+        "ponente». La respuesta trae a la persona con todos sus roles."
+    ),
     status_code=status.HTTP_201_CREATED,
     response_model=MemberResponse,
     dependencies=[require_permission(Permission.MEMBERS_WRITE)],
@@ -297,7 +303,33 @@ async def create_member(
         role_id=uuid.UUID(datos.role_id),
         profile_data=datos.profile_data,
     )
-    return await _member_response(session, usuario.organization_id, miembro.id)
+    return await _member_response_for_user(session, usuario.organization_id, miembro.user_id)
+
+
+@router.delete(
+    "/me/members/{organization_member_id}",
+    summary="Quitar un rol de una persona",
+    description=(
+        "Quita esa membresía concreta, no a la persona. Si es su último rol en "
+        "la organización, rechaza con 409 — decisión del usuario: para dejarla "
+        "sin permisos hay que sacarla de la organización, no vaciarle los roles."
+    ),
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[require_permission(Permission.MEMBERS_WRITE)],
+)
+async def remove_member_role(
+    organization_member_id: str,
+    usuario: CurrentUserDep,
+    session: DbDep,
+    permisos: PermissionsDep,
+) -> None:
+    await members_service.remove_member_role(
+        session,
+        organization_id=usuario.organization_id,
+        actor_id=usuario.id,
+        actor_permissions=permisos,
+        organization_member_id=uuid.UUID(organization_member_id),
+    )
 
 
 def _invitation_response(invitacion: OrganizationInvitation, role_key: str) -> InvitationResponse:
@@ -386,7 +418,9 @@ async def create_invitation(
     if resultado.member is not None:
         return InvitationCreateResponse(
             status="added",
-            member=await _member_response(session, usuario.organization_id, resultado.member.id),
+            member=await _member_response_for_user(
+                session, usuario.organization_id, resultado.member.user_id
+            ),
         )
     if resultado.invitation is None or resultado.token is None:  # pragma: no cover - exhaustivo
         raise RuntimeError("create_invitation no ha devuelto ni miembro ni invitación con token.")

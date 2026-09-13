@@ -90,16 +90,35 @@ class BrandingAdminResponse(BaseModel):
     favicon_url: str | None = None
 
 
-class MemberResponse(BaseModel):
-    """Miembro de la organización."""
+class MemberRoleOut(BaseModel):
+    """Un rol concreto de una persona, con la fila de membresía que lo sostiene.
+
+    `id` es el `organization_member_id` de **esa** fila — hace falta tal cual
+    para quitar justo ese rol (`DELETE /me/members/{id}`) o para referenciarlo
+    desde otro sitio que necesite una membresía concreta, no la persona
+    (el roster de un evento, `event_members.organization_member_id`)."""
 
     id: str
+    role_id: str
+    role_key: str
+    role_name: str
+
+
+class MemberResponse(BaseModel):
+    """Una persona de la organización, con **todos** sus roles.
+
+    Fase 4 del plan de invitaciones: antes esto era una fila por rol
+    (`role_id`/`role_key` sueltos), así que la misma persona con dos roles
+    aparecía dos veces sin nada que dijera que eran la misma. `profile_data`
+    es el de la membresía con más campos rellenos (empate → la más antigua):
+    es el que más sirve para mostrar de un vistazo, y evita fragmentar sus
+    datos como advierte `SpeakerPublicProfile` (`events/models.py`)."""
+
     user_id: str
     email: EmailStr
     first_name: str | None
     last_name: str | None
-    role_id: str
-    role_key: str
+    roles: list[MemberRoleOut]
     profile_data: dict[str, Any]
 
 

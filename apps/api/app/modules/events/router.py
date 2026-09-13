@@ -35,14 +35,15 @@ from app.modules.events.schemas import (
 from app.modules.organizations import invitations_service
 from app.modules.organizations import repository as organizations_repository
 from app.modules.organizations.invitations_models import OrganizationInvitation
-from app.modules.organizations.models import OrganizationMember
 from app.modules.organizations.schemas import (
     InvitationCreateResponse,
     InvitationResponse,
     MemberResponse,
+    MemberRoleOut,
 )
 from app.modules.roles.models import Role
 from app.modules.roles.system_roles import SPEAKER_KEY
+from app.modules.users.models import User
 from app.shared.errors import NotFoundError
 from app.shared.pagination import Page, PageParams, page_params
 
@@ -388,25 +389,29 @@ async def _speaker_role_id(session: AsyncSession, organization_id: uuid.UUID) ->
 
 
 async def _organization_member_response(
-    session: AsyncSession, organization_id: uuid.UUID, member_id: uuid.UUID
+    session: AsyncSession, organization_id: uuid.UUID, user_id: uuid.UUID
 ) -> MemberResponse:
-    """Mismo mapeo que `organizations/router.py::_member_response`: no se
-    reutiliza esa función privada entre routers, se repite localmente — es
-    la misma decisión que ya explica `phase-03` (ningún router importa
-    helpers de otro)."""
-    consulta = organizations_repository.members_query(organization_id).where(
-        OrganizationMember.id == member_id
-    )
-    registro, persona, rol = (await session.execute(consulta)).one()
+    """Mismo mapeo que `organizations/router.py::_member_response_for_user`
+    (fase 4 del plan de invitaciones: una fila por persona, con todos sus
+    roles). No se reutiliza esa función privada entre routers, se repite
+    localmente — es la misma decisión que ya explica `phase-03` (ningún
+    router importa helpers de otro)."""
+    persona = await session.get(User, user_id)
+    if persona is None:  # pragma: no cover - garantizado por la FK de OrganizationMember
+        raise NotFoundError("Esa persona ya no existe.")
+    filas = await organizations_repository.member_roles_for_user(session, organization_id, user_id)
     return MemberResponse(
-        id=str(registro.id),
         user_id=str(persona.id),
         email=persona.email,
         first_name=persona.first_name,
         last_name=persona.last_name,
-        role_id=str(rol.id),
-        role_key=rol.key,
-        profile_data=registro.profile_data,
+        roles=[
+            MemberRoleOut(
+                id=str(miembro.id), role_id=str(rol.id), role_key=rol.key, role_name=rol.name
+            )
+            for miembro, rol in filas
+        ],
+        profile_data=organizations_repository.best_profile_data(filas),
     )
 
 
@@ -467,7 +472,7 @@ async def create_event_invitation(
         return InvitationCreateResponse(
             status="added",
             member=await _organization_member_response(
-                session, usuario.organization_id, resultado.member.id
+                session, usuario.organization_id, resultado.member.user_id
             ),
         )
     if resultado.invitation is None or resultado.token is None:  # pragma: no cover - exhaustivo

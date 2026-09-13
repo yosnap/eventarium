@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import Permission
@@ -184,3 +184,58 @@ async def add_member(
     session.add(miembro)
     await session.flush()
     return miembro
+
+
+async def remove_member_role(
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    actor_id: uuid.UUID,
+    actor_permissions: set[Permission],
+    organization_member_id: uuid.UUID,
+) -> None:
+    """Quita un rol de una persona, sin sacarla de la organización.
+
+    Fase 4 del plan de invitaciones. **Bloqueado si es su último rol**
+    (decisión del usuario, 2026-09-13, sin alternativa de confirmación): el
+    modelo permite a alguien sin ningún rol en la organización, pero no tiene
+    sentido y la interfaz no lo espera. Para dejar a alguien sin permisos hay
+    que sacarlo de la organización, no vaciarle los roles uno a uno.
+    """
+    miembro = await session.scalar(
+        select(OrganizationMember).where(
+            OrganizationMember.id == organization_member_id,
+            OrganizationMember.organization_id == organization_id,
+        )
+    )
+    if miembro is None:
+        raise NotFoundError("Ese rol no existe para nadie de esta organización.")
+
+    total_roles = await session.scalar(
+        select(func.count())
+        .select_from(OrganizationMember)
+        .where(
+            OrganizationMember.organization_id == organization_id,
+            OrganizationMember.user_id == miembro.user_id,
+        )
+    )
+    if (total_roles or 0) <= 1:
+        raise ConflictError(
+            "No puedes quitar el último rol de una persona. "
+            "Sácala de la organización en su lugar."
+        )
+
+    rol = await session.get(Role, miembro.role_id)
+    if rol is not None:
+        # Mismas reglas anti-escalada que conceder un rol (`validar_rol_para_conceder`):
+        # quitarlo también es gestionarlo, así que nadie debería poder tocar
+        # un rol que no podría conceder él mismo.
+        permisos_rol = await _role_permissions(session, rol)
+        claves_actor = await user_role_keys(session, organization_id, actor_id)
+        ensure_can_manage_role(
+            actor_role_keys=claves_actor, role_key=rol.key, es_rol_de_sistema=rol.is_system
+        )
+        ensure_can_grant(actor_permissions, permisos_rol)
+
+    await session.delete(miembro)
+    await session.flush()
