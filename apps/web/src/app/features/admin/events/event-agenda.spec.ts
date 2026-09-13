@@ -129,4 +129,43 @@ describe('EventAgenda', () => {
 
     http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/sessions').flush(sesiones());
   });
+
+  it('editar rellena el formulario con la sesión y guarda contra su id', async () => {
+    const fixture = TestBed.createComponent(EventAgenda);
+    fixture.componentRef.setInput('eventId', 'e1');
+    await avanzar(fixture);
+    http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/sessions').flush(sesiones());
+    flushRoster(http);
+    flushVenues(http);
+    await avanzar(fixture);
+
+    const botonEditar = Array.from(fixture.nativeElement.querySelectorAll('button')).find(
+      (boton) => (boton as HTMLButtonElement).textContent?.trim() === 'Editar',
+    ) as HTMLButtonElement | undefined;
+    expect(botonEditar).toBeTruthy();
+    botonEditar?.click();
+    await avanzar(fixture);
+
+    // El formulario es otro componente desde la partición: lo que se comprueba
+    // es que recibe la sesión y se rellena, que es lo que estaba en riesgo.
+    // El `<app-input>` proyecta el `<input>` real, y su `id` sale del `fieldId`.
+    const titulo = fixture.nativeElement.querySelector('#sesion-titulo') as HTMLInputElement;
+    expect(titulo.value).toBe('Charla de apertura');
+    const sala = fixture.nativeElement.querySelector('#sesion-sala') as HTMLInputElement;
+    expect(sala.value).toBe('Sala A');
+
+    (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
+      new Event('submit'),
+    );
+    await avanzar(fixture);
+
+    const peticion = http.expectOne(
+      (peticion) => peticion.url === '/api/v1/events/e1/sessions/s1' && peticion.method === 'PATCH',
+    );
+    expect(peticion.request.body.title).toBe('Charla de apertura');
+    peticion.flush({ ...sesiones()[0] });
+    await avanzar(fixture);
+
+    http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/sessions').flush(sesiones());
+  });
 });
