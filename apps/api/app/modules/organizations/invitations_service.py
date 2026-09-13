@@ -88,6 +88,12 @@ async def create_invitation(
 ) -> InvitationResult:
     """Invita a una persona, o la añade directamente si ya tiene cuenta."""
     correo = email.strip().lower()
+
+    if event_id is not None:
+        # Antes de cualquier rama: un `organizer` no puede invitar a un
+        # evento ajeno, tenga o no cuenta ya la persona invitada.
+        await _validar_evento(session, organization_id=organization_id, event_id=event_id)
+
     # `find_user_id_by_email`, no `select(User)`: RLS solo hace visible a
     # quien comparte organización con el actor, y el caso que importa aquí es
     # justo el contrario — alguien con cuenta en otra organización, o sin
@@ -108,6 +114,16 @@ async def create_invitation(
             last_name=None,
             role_id=role_id,
             profile_data={},
+            enforce_required_profile_fields=False,
+        )
+        # Fase 3: si la invitación nace de un evento, quien ya tenía cuenta
+        # entra también en su roster de inmediato — no hay «aceptar» que
+        # esperar en esta rama, así que las dos altas van juntas aquí.
+        await _add_to_event_roster_if_needed(
+            session,
+            organization_id=organization_id,
+            event_id=event_id,
+            organization_member_id=miembro.id,
         )
         return InvitationResult(member=miembro, invitation=None, token=None)
 
@@ -118,9 +134,6 @@ async def create_invitation(
         actor_permissions=actor_permissions,
         role_id=role_id,
     )
-
-    if event_id is not None:
-        await _validar_evento(session, organization_id=organization_id, event_id=event_id)
 
     # Correo sin cuenta → cuenta sin contraseña (lo que `add_member` ya hacía)
     # más la invitación como estado. Sin membresía todavía: esa nace al
@@ -162,6 +175,43 @@ async def _validar_evento(
     )
     if evento is None:
         raise NotFoundError("El evento indicado no existe en esta organización.")
+
+
+async def _add_to_event_roster_if_needed(
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID | None,
+    organization_member_id: uuid.UUID,
+) -> None:
+    """Alta idempotente en `event_members` (fase 3): sin `event_id`, no hace nada.
+
+    Import local, no a nivel de módulo: `events.service` ya importa
+    `organizations.repository`, así que lo contrario a nivel de módulo
+    formaría un ciclo entre los dos paquetes.
+
+    `UNIQUE(event_id, organization_member_id)` (`events/models.py:270-272`)
+    ya lo impediría a nivel de base de datos, pero comprobarlo antes evita el
+    viaje a la base que solo serviría para descartar el error.
+    """
+    if event_id is None:
+        return
+    from app.modules.events import repository as events_repository
+    from app.modules.events.models import EventMember
+
+    existente = await events_repository.get_event_member_by_organization_member(
+        session, organization_id, event_id, organization_member_id
+    )
+    if existente is not None:
+        return
+    session.add(
+        EventMember(
+            event_id=event_id,
+            organization_id=organization_id,
+            organization_member_id=organization_member_id,
+        )
+    )
+    await session.flush()
 
 
 async def _get_pending_invitation(
@@ -384,7 +434,11 @@ async def accept_invitation(
     if rol is None:  # pragma: no cover - `role_id` es `ON DELETE CASCADE` de esta misma fila
         raise NotFoundError("El rol de esta invitación ya no existe.")
 
-    datos_perfil = validate_profile_data(list(rol.profile_fields), {})
+    # `enforce_required=False`: quien acepta no ha rellenado su ficha
+    # todavía (bio, titular…), y esta pantalla no se la pide (fase 2 solo
+    # pide nombre y contraseña) — un campo obligatorio del rol no puede
+    # bloquear la aceptación.
+    datos_perfil = validate_profile_data(list(rol.profile_fields), {}, enforce_required=False)
 
     # Se crea la membresía **antes** de tocar `users`: dentro de la misma
     # transacción, esa fila ya es visible para `tenant_users` (RLS) por la
@@ -399,6 +453,16 @@ async def accept_invitation(
     )
     session.add(miembro)
     await session.flush()
+
+    # Fase 3: si la invitación nace de un evento, el alta en su roster va en
+    # la misma transacción que la membresía — si esto falla, la excepción se
+    # propaga y ninguna de las dos queda a medias.
+    await _add_to_event_roster_if_needed(
+        session,
+        organization_id=invitacion.organization_id,
+        event_id=invitacion.event_id,
+        organization_member_id=miembro.id,
+    )
 
     await session.execute(
         text("SELECT app_accept_invited_user(:id, :hash, :first_name, :last_name)"),

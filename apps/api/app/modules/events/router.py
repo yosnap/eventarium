@@ -6,14 +6,18 @@ import uuid
 from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, UploadFile, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import CurrentUserDep, DbDep, require_permission
+from app.core.deps import CurrentUserDep, DbDep, PermissionsDep, require_permission
 from app.core.permissions import Permission
 from app.core.storage import build_object_key, get_storage, validate_upload
+from app.core.tasks import send_invitation_email
 from app.modules.events import repository, service
 from app.modules.events.models import Event, EventMember, EventSession, EventVenue
 from app.modules.events.schemas import (
     EventCreate,
+    EventInvitationCreate,
     EventMemberCreate,
     EventMemberResponse,
     EventResponse,
@@ -28,6 +32,17 @@ from app.modules.events.schemas import (
     SessionParticipantResponse,
     SessionParticipantsUpdate,
 )
+from app.modules.organizations import invitations_service
+from app.modules.organizations import repository as organizations_repository
+from app.modules.organizations.invitations_models import OrganizationInvitation
+from app.modules.organizations.models import OrganizationMember
+from app.modules.organizations.schemas import (
+    InvitationCreateResponse,
+    InvitationResponse,
+    MemberResponse,
+)
+from app.modules.roles.models import Role
+from app.modules.roles.system_roles import SPEAKER_KEY
 from app.shared.errors import NotFoundError
 from app.shared.pagination import Page, PageParams, page_params
 
@@ -359,6 +374,121 @@ async def add_event_member(
     )
     fila = (await session.execute(consulta)).one()
     return _event_member_response(fila)
+
+
+async def _speaker_role_id(session: AsyncSession, organization_id: uuid.UUID) -> uuid.UUID:
+    """El rol `speaker` de la organización — siempre existe: es un rol de
+    sistema, clonado en toda organización (`system_roles.py`)."""
+    rol = await session.scalar(
+        select(Role).where(Role.organization_id == organization_id, Role.key == SPEAKER_KEY)
+    )
+    if rol is None:  # pragma: no cover - un rol de sistema no debería faltar
+        raise NotFoundError("El rol «speaker» no existe en esta organización.")
+    return rol.id
+
+
+async def _organization_member_response(
+    session: AsyncSession, organization_id: uuid.UUID, member_id: uuid.UUID
+) -> MemberResponse:
+    """Mismo mapeo que `organizations/router.py::_member_response`: no se
+    reutiliza esa función privada entre routers, se repite localmente — es
+    la misma decisión que ya explica `phase-03` (ningún router importa
+    helpers de otro)."""
+    consulta = organizations_repository.members_query(organization_id).where(
+        OrganizationMember.id == member_id
+    )
+    registro, persona, rol = (await session.execute(consulta)).one()
+    return MemberResponse(
+        id=str(registro.id),
+        user_id=str(persona.id),
+        email=persona.email,
+        first_name=persona.first_name,
+        last_name=persona.last_name,
+        role_id=str(rol.id),
+        role_key=rol.key,
+        profile_data=registro.profile_data,
+    )
+
+
+async def _event_invitation_response(
+    session: AsyncSession, organization_id: uuid.UUID, invitation_id: uuid.UUID
+) -> InvitationResponse:
+    consulta = organizations_repository.invitations_query(organization_id).where(
+        OrganizationInvitation.id == invitation_id
+    )
+    invitacion, rol = (await session.execute(consulta)).one()
+    return InvitationResponse(
+        id=str(invitacion.id),
+        email=invitacion.email,
+        role_id=str(invitacion.role_id),
+        role_key=rol.key,
+        event_id=str(invitacion.event_id) if invitacion.event_id else None,
+        estado=invitations_service.estado_efectivo(invitacion),
+        expires_at=invitacion.expires_at,
+        created_at=invitacion.created_at,
+    )
+
+
+@router.post(
+    "/{event_id}/invitations",
+    summary="Invitar a un ponente al evento",
+    description=(
+        "Rol por defecto «speaker»; se puede indicar otro. Si el correo ya "
+        "tiene cuenta se añade directamente a la organización y al roster; "
+        "si no, se crea la invitación y, al aceptar, la persona queda "
+        "en la organización y en el roster del evento en la misma operación."
+    ),
+    status_code=status.HTTP_201_CREATED,
+    response_model=InvitationCreateResponse,
+    dependencies=[require_permission(Permission.INVITATIONS_MANAGE)],
+)
+async def create_event_invitation(
+    datos: EventInvitationCreate,
+    evento: Annotated[Event, Depends(_obtener_evento_o_404)],
+    usuario: CurrentUserDep,
+    session: DbDep,
+    permisos: PermissionsDep,
+) -> InvitationCreateResponse:
+    role_id = (
+        uuid.UUID(datos.role_id)
+        if datos.role_id
+        else await _speaker_role_id(session, usuario.organization_id)
+    )
+    resultado = await invitations_service.create_invitation(
+        session,
+        organization_id=usuario.organization_id,
+        actor_id=usuario.id,
+        actor_permissions=permisos,
+        email=str(datos.email),
+        role_id=role_id,
+        event_id=evento.id,
+    )
+    if resultado.member is not None:
+        return InvitationCreateResponse(
+            status="added",
+            member=await _organization_member_response(
+                session, usuario.organization_id, resultado.member.id
+            ),
+        )
+    if resultado.invitation is None or resultado.token is None:  # pragma: no cover - exhaustivo
+        raise RuntimeError("create_invitation no ha devuelto ni miembro ni invitación con token.")
+
+    organizacion = await organizations_repository.get_organization(session, usuario.organization_id)
+    rol = await session.get(Role, resultado.invitation.role_id)
+    if organizacion is not None and rol is not None:
+        await send_invitation_email.kiq(
+            resultado.invitation.email,
+            resultado.token,
+            str(usuario.organization_id),
+            organizacion.name,
+            rol.name,
+        )
+    return InvitationCreateResponse(
+        status="invited",
+        invitation=await _event_invitation_response(
+            session, usuario.organization_id, resultado.invitation.id
+        ),
+    )
 
 
 @router.delete(

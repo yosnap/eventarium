@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import Annotated, Any, Literal
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 from app.modules.organizations.schemas import SLUG_PATTERN
 from app.modules.sponsors.schemas import PublicSponsorTier
@@ -294,6 +294,16 @@ class EventMemberCreate(BaseModel):
     """
 
     organization_member_id: str
+
+
+class EventInvitationCreate(BaseModel):
+    """Invitación de ponente desde el evento (fase 3 del plan de invitaciones).
+
+    Sin `role_id`, el rol es `speaker` — el flujo por defecto. Se puede
+    indicar otro (p. ej. un moderador) si el organizador lo necesita."""
+
+    email: EmailStr
+    role_id: str | None = None
 
 
 class EventMemberResponse(BaseModel):

@@ -112,6 +112,7 @@ async def add_member(
     last_name: str | None,
     role_id: uuid.UUID,
     profile_data: dict[str, Any] | None,
+    enforce_required_profile_fields: bool = True,
 ) -> OrganizationMember:
     """Da de alta a una persona en la organización con un rol.
 
@@ -125,6 +126,12 @@ async def add_member(
     sigue exigiéndolos porque su esquema (`MemberCreate`) los declara
     obligatorios; la opcionalidad es de este camino compartido, no de ese
     formulario.
+
+    `enforce_required_profile_fields=False` (fase 3): igual que el nombre,
+    pero para los campos del rol — quien invita a un correo con cuenta a un
+    rol con algún campo obligatorio (`speaker.bio`) tampoco lo conoce.
+    `invitations_service.create_invitation` es el único llamante que lo
+    desactiva; `admin/members` (`MemberCreate`) sigue exigiéndolos.
     """
     rol, permisos_rol = await validar_rol_para_conceder(
         session,
@@ -164,7 +171,9 @@ async def add_member(
     if existente is not None:
         raise ConflictError("Esa persona ya tiene ese rol en la organización.")
 
-    datos = validate_profile_data(list(rol.profile_fields), profile_data)
+    datos = validate_profile_data(
+        list(rol.profile_fields), profile_data, enforce_required=enforce_required_profile_fields
+    )
 
     miembro = OrganizationMember(
         organization_id=organization_id,

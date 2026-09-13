@@ -170,3 +170,6 @@ SYSTEM_ROLE_TEMPLATES: tuple[SystemRoleTemplate, ...] = (
 TEMPLATES_BY_KEY: dict[str, SystemRoleTemplate] = {t.key: t for t in SYSTEM_ROLE_TEMPLATES}
 
 OWNER_KEY = OWNER.key
+# Fase 3 del plan de invitaciones: rol por defecto al invitar desde un
+# evento (`POST /events/{id}/invitations`).
+SPEAKER_KEY = SPEAKER.key
