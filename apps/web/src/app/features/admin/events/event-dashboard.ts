@@ -132,7 +132,7 @@ interface Escalon {
             <ul>
               @for (pieza of piezasPendientes(); track pieza.clave) {
                 <li>
-                  <a [href]="anclaDe(pieza)">{{ etiquetaDe(pieza) }}</a>
+                  <a [href]="anclaDe(pieza)">{{ t(etiquetaDe(pieza)) }}</a>
                 </li>
               }
             </ul>
@@ -151,7 +151,7 @@ interface Escalon {
         </app-card>
       }
 
-      <app-event-details [eventId]="eventId()" />
+      <app-event-details [eventId]="id()" />
     </ng-container>
   `,
   styles: `
@@ -248,7 +248,13 @@ export class EventDashboard implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
 
-  readonly eventId = input.required<string>();
+  // Nombrado `id`, no `eventId`, porque `withComponentInputBinding()` vincula por
+  // nombre exacto de parámetro de ruta y esta pantalla vive en `events/:id` (las
+  // rutas hermanas de la fase 3 de invitaciones sí usan `:eventId`, para sus
+  // propios componentes que declaran ese nombre). Sin este ajuste el input nunca
+  // se rellenaba: quedaba `undefined` y todas las peticiones de esta pantalla y
+  // de sus hijos salían como `/events/undefined/...`.
+  readonly id = input.required<string>();
 
   protected readonly metricas = signal<EventoMetricas | null>(null);
   protected readonly error = signal<string | null>(null);
@@ -298,7 +304,7 @@ export class EventDashboard implements OnInit {
   });
 
   // En `ngOnInit` y no en el constructor: un `input.required` todavía no tiene
-  // valor cuando corre el constructor, así que ahí `eventId()` sería una lectura
+  // valor cuando corre el constructor, así que ahí `id()` sería una lectura
   // inválida.
   ngOnInit(): void {
     void this.cargar();
@@ -307,7 +313,7 @@ export class EventDashboard implements OnInit {
   private async cargar(): Promise<void> {
     try {
       const datos = await firstValueFrom(
-        this.http.get<EventoMetricas>(this.api.url(`/events/${this.eventId()}/metrics`)),
+        this.http.get<EventoMetricas>(this.api.url(`/events/${this.id()}/metrics`)),
       );
       this.metricas.set(datos);
     } catch {
