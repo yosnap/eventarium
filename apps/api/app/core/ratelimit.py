@@ -57,6 +57,11 @@ VERIFICACION_INSCRIPCION_POR_IP = 20
 CONFIRMACION_PROMOCION_POR_IP = 20
 # Autocancelación: mismo razonamiento que confirm-waitlist-promotion.
 CANCELACION_INSCRIPCION_POR_IP = 20
+# Invitación de equipo (fase 2 del plan de invitaciones): mismo razonamiento
+# que verify-email/reset-password, un tope propio para el GET (consulta el
+# estado) y otro para el POST (consume el token).
+INVITACION_CONSULTA_POR_IP = 30
+INVITACION_ACEPTAR_POR_IP = 20
 # `/mi-entrada` (fase 4 del PRD): a diferencia de verify/cancel, es un enlace
 # pensado para volver a visitarlo varias veces, no de un solo uso — mismo
 # tope que el resto de endpoints públicos con token de sobra entropía.

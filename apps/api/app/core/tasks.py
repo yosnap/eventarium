@@ -90,6 +90,35 @@ async def sweep_unverified_accounts_task() -> None:
 
 
 @broker.task(retry_on_error=True, max_retries=5)
+async def send_invitation_email(
+    to_email: str, token: str, organization_id: str, organization_name: str, role_name: str
+) -> None:
+    """Envía el enlace de invitación de equipo (fase 2 del plan de invitaciones).
+
+    El asunto y el cuerpo dicen «te han invitado», nunca «recupera tu
+    contraseña»: el mecanismo es el mismo que `send_password_reset_email`
+    (Redis + huella + TTL) pero el mensaje no puede serlo, o la persona
+    invitada cree que le han hackeado la cuenta (hallazgo S-1 del red-team).
+    El enlace va a la ruta propia `/invitacion`, nunca a
+    `/recuperar-contrasena/nueva`.
+    """
+    base = await base_url_de_organizacion(uuid.UUID(organization_id))
+    enlace = f"{base}/invitacion?token={token}"
+    await get_email_provider().send(
+        to=to_email,
+        subject=f"Te han invitado a «{organization_name}»",
+        body=(
+            "Hola,\n\n"
+            f"Te han invitado a unirte a «{organization_name}» con el rol «{role_name}».\n"
+            "Para aceptar la invitación y crear tu contraseña, entra aquí:\n"
+            f"{enlace}\n\n"
+            "El enlace caduca en 7 días. Si no esperabas esta invitación, puedes "
+            "ignorar este mensaje."
+        ),
+    )
+
+
+@broker.task(retry_on_error=True, max_retries=5)
 async def send_password_reset_email(to_email: str, token: str) -> None:
     """Envía el enlace de recuperación de contraseña."""
     settings = get_settings()

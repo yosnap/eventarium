@@ -35,8 +35,10 @@ async def _role_permissions(session: AsyncSession, role: Role) -> set[Permission
     return permisos
 
 
-async def find_user_id_by_email(session: AsyncSession, email: str) -> uuid.UUID | None:
-    """Busca el `id` de una persona por correo sin depender de que RLS la haga visible.
+async def find_user_state_by_email(
+    session: AsyncSession, email: str
+) -> tuple[uuid.UUID, bool] | None:
+    """`(id, tiene_contraseña)` de una persona por correo, o `None` si no existe.
 
     `select(User).where(User.email == ...)` bajo RLS solo ve a quien comparte
     organización con el actor (`tenant_users`, `0003_politicas_rls`) — pero el
@@ -45,7 +47,9 @@ async def find_user_id_by_email(session: AsyncSession, email: str) -> uuid.UUID 
     cualquiera a quien se invita por primera vez a esta. Reutiliza la misma
     función `SECURITY DEFINER` que ya resuelve este problema para
     `forgot_password` (`auth/service.py`, `0004_correo_y_verificacion`), en
-    vez de dar `BYPASSRLS` al rol de la API.
+    vez de dar `BYPASSRLS` al rol de la API. `has_password` (`0028`) es lo que
+    necesita la pantalla pública de aceptación (fase 2) para distinguir el
+    caso anómalo «el correo invitado ya tiene contraseña» sin exponer el hash.
 
     El resto del alta no necesita leer la fila de `users`: una FK hacia un
     `id` que existe se valida en Postgres sin pasar por RLS de la tabla
@@ -54,10 +58,16 @@ async def find_user_id_by_email(session: AsyncSession, email: str) -> uuid.UUID 
     """
     fila = (
         await session.execute(
-            text("SELECT id FROM app_find_user_by_email(:email)"), {"email": email}
+            text("SELECT id, has_password FROM app_find_user_by_email(:email)"), {"email": email}
         )
     ).first()
-    return fila[0] if fila is not None else None
+    return (fila[0], bool(fila[1])) if fila is not None else None
+
+
+async def find_user_id_by_email(session: AsyncSession, email: str) -> uuid.UUID | None:
+    """Solo el `id`, para los llamantes a quienes no les importa la contraseña."""
+    estado = await find_user_state_by_email(session, email)
+    return estado[0] if estado is not None else None
 
 
 async def validar_rol_para_conceder(

@@ -17,23 +17,28 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from enum import StrEnum
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import Permission
+from app.core.security import hash_password
 from app.modules.auth.verification import (
     PROPOSITO_INVITACION,
     TTL_INVITACION,
     generate_token,
+    peek_token,
     revoke_by_fingerprint,
     token_fingerprint,
 )
 from app.modules.organizations import members_service
 from app.modules.organizations.invitations_models import OrganizationInvitation
-from app.modules.organizations.models import OrganizationMember
+from app.modules.organizations.models import Organization, OrganizationMember
+from app.modules.roles.models import Role
 from app.modules.users.models import User
-from app.shared.errors import ConflictError, NotFoundError
+from app.shared.dynamic_fields import validate_profile_data
+from app.shared.errors import ConflictError, NotFoundError, ValidationDomainError
 
 # Se concede solo en la plantilla `ORGANIZER` (fase 0) y en `OWNER` vía
 # `tuple(Permission)` — nunca en `MEMBERS_WRITE`: si bastara `members:write`,
@@ -178,13 +183,21 @@ async def _get_pending_invitation(
 async def revoke_invitation(
     session: AsyncSession, *, organization_id: uuid.UUID, invitation_id: uuid.UUID
 ) -> OrganizationInvitation:
+    """Marca la invitación como revocada.
+
+    A diferencia de `resend_invitation`, esto **no** borra la clave de Redis:
+    el token sigue resolviendo al `id` de la invitación mientras dure su TTL
+    natural, y es justo lo que permite que la pantalla pública (fase 2)
+    distinga «esta invitación ha sido revocada» de «este enlace no es válido»
+    en vez de dar el mismo mensaje genérico a los dos casos. No es un riesgo:
+    `accept_invitation` exige `estado_efectivo() == "pendiente"` antes de
+    tocar nada, así que una invitación revocada no puede aceptarse encuentre
+    o no su token en Redis.
+    """
     invitacion = await _get_pending_invitation(
         session, organization_id=organization_id, invitation_id=invitation_id
     )
-    if invitacion.token_hash is not None:
-        await revoke_by_fingerprint(PROPOSITO_INVITACION, invitacion.token_hash)
     invitacion.estado = "revocada"
-    invitacion.token_hash = None
     await session.flush()
     return invitacion
 
@@ -214,3 +227,192 @@ async def resend_invitation(
     await session.flush()
 
     return invitacion, token
+
+
+# --- Pantalla pública de aceptación (fase 2) -------------------------------
+
+
+class InvitationTokenState(StrEnum):
+    """Por qué un token no sirve, para dar tres mensajes distintos (fase 2).
+
+    Deliberadamente sin distinguir «no existe» de «caducó de verdad hace
+    tiempo»: en los dos casos el token ya no está en Redis y no hay ningún
+    `id` de invitación al que asomarse — es la misma limitación que ya acepta
+    el resto del proyecto para `verify-email`/`reset-password`. Lo que sí se
+    distingue, porque la fila de invitación **sigue siendo alcanzable**
+    mientras el token no haya caducado por sí solo, es `revocada` y
+    `aceptada` frente a `invalida`.
+    """
+
+    VALIDA = "valida"
+    INVALIDA = "invalida"
+    CADUCADA = "caducada"
+    REVOCADA = "revocada"
+    ACEPTADA = "aceptada"
+
+
+@dataclass(slots=True)
+class ResolvedInvitationToken:
+    """Lo que la pantalla pública necesita saber de un token, y nada más.
+
+    `organization_name`/`role_name` son deliberadamente los únicos datos de
+    negocio que salen de aquí — nunca la lista de miembros ni nada que
+    identifique a otras personas (requisito de seguridad del PRD)."""
+
+    state: InvitationTokenState
+    invitation: OrganizationInvitation | None = None
+    organization_name: str | None = None
+    role_name: str | None = None
+    account_has_password: bool = False
+
+
+async def resolve_invitation_token(session: AsyncSession, token: str) -> ResolvedInvitationToken:
+    """Resuelve un token de invitación sin consumirlo (`peek_token`).
+
+    No destructivo a propósito: `GET /public/invitations/{token}` se puede
+    llamar varias veces (recargar la página) sin gastar el enlace, y
+    `accept_invitation` reutiliza esta misma resolución para decidir si hay
+    algo que aceptar.
+    """
+    invitation_id_bruto = await peek_token(PROPOSITO_INVITACION, token)
+    if invitation_id_bruto is None:
+        return ResolvedInvitationToken(state=InvitationTokenState.INVALIDA)
+    try:
+        invitation_id = uuid.UUID(invitation_id_bruto)
+    except ValueError:
+        return ResolvedInvitationToken(state=InvitationTokenState.INVALIDA)
+
+    fila = (
+        await session.execute(
+            select(OrganizationInvitation, Role, Organization)
+            .join(Role, Role.id == OrganizationInvitation.role_id)
+            .join(Organization, Organization.id == OrganizationInvitation.organization_id)
+            .where(OrganizationInvitation.id == invitation_id)
+        )
+    ).first()
+    if fila is None:
+        # O el `id` no existe, o pertenece a otra organización que la que
+        # resolvió el `Host` de esta petición — RLS ya lo hace invisible, sin
+        # filtrar cuál de las dos cosas es (requisito de seguridad del PRD).
+        return ResolvedInvitationToken(state=InvitationTokenState.INVALIDA)
+    invitacion, rol, organizacion = fila
+
+    estado = estado_efectivo(invitacion)
+    if estado == "caducada":
+        return ResolvedInvitationToken(state=InvitationTokenState.CADUCADA, invitation=invitacion)
+    if estado == "revocada":
+        return ResolvedInvitationToken(state=InvitationTokenState.REVOCADA, invitation=invitacion)
+    if estado == "aceptada":
+        return ResolvedInvitationToken(state=InvitationTokenState.ACEPTADA, invitation=invitacion)
+
+    estado_cuenta = await members_service.find_user_state_by_email(session, invitacion.email)
+    tiene_contrasena = estado_cuenta[1] if estado_cuenta is not None else False
+
+    return ResolvedInvitationToken(
+        state=InvitationTokenState.VALIDA,
+        invitation=invitacion,
+        organization_name=organizacion.name,
+        role_name=rol.name,
+        account_has_password=tiene_contrasena,
+    )
+
+
+def mensaje_de_estado(state: InvitationTokenState) -> str:
+    """El texto que lee la persona invitada para cada estado no válido."""
+    return _MENSAJE_TOKEN_INVALIDO[state]
+
+
+_MENSAJE_TOKEN_INVALIDO: dict[InvitationTokenState, str] = {
+    InvitationTokenState.INVALIDA: "El enlace de invitación no es válido.",
+    InvitationTokenState.CADUCADA: "Esta invitación ha caducado. Pide que te envíen otra.",
+    InvitationTokenState.REVOCADA: "Esta invitación ha sido revocada.",
+    InvitationTokenState.ACEPTADA: "Esta invitación ya se aceptó.",
+    InvitationTokenState.VALIDA: "",  # nunca se usa: rama tratada aparte abajo
+}
+
+
+async def accept_invitation(
+    session: AsyncSession,
+    *,
+    token: str,
+    first_name: str,
+    last_name: str,
+    password: str,
+) -> OrganizationMember:
+    """Fija nombre y contraseña, y crea la membresía. Idempotente.
+
+    Aceptar dos veces con el mismo token no duplica la membresía: si la
+    invitación ya está `aceptada`, se devuelve la fila existente sin volver a
+    tocar la cuenta ni el rol — es justo lo que exige la fase 2 (doble clic,
+    recarga tras aceptar).
+    """
+    resuelto = await resolve_invitation_token(session, token)
+
+    if resuelto.state == InvitationTokenState.ACEPTADA and resuelto.invitation is not None:
+        miembro = await session.scalar(
+            select(OrganizationMember).where(
+                OrganizationMember.organization_id == resuelto.invitation.organization_id,
+                OrganizationMember.user_id == resuelto.invitation.accepted_by_user_id,
+                OrganizationMember.role_id == resuelto.invitation.role_id,
+            )
+        )
+        if miembro is not None:
+            return miembro
+        # La invitación quedó `aceptada` pero la membresía no se encuentra
+        # (borrada aparte, p. ej.): no hay nada seguro que reconstruir aquí.
+        raise ConflictError("Esta invitación ya se aceptó.")
+
+    if resuelto.state != InvitationTokenState.VALIDA or resuelto.invitation is None:
+        raise ValidationDomainError(_MENSAJE_TOKEN_INVALIDO[resuelto.state])
+
+    if resuelto.account_has_password:
+        # No debería llegarse aquí (la fase 1 no emite token si el correo ya
+        # tenía cuenta): caso anómalo, tratado como error explícito en vez de
+        # iniciar sesión por la persona.
+        raise ConflictError(
+            "Esta cuenta ya tiene contraseña. Inicia sesión con ella en vez de aceptar aquí."
+        )
+
+    invitacion = resuelto.invitation
+
+    usuario_id_y_estado = await members_service.find_user_state_by_email(session, invitacion.email)
+    if usuario_id_y_estado is None:  # pragma: no cover - `create_invitation` siempre lo crea antes
+        raise ConflictError("La cuenta de esta invitación ya no existe.")
+    usuario_id, _tiene_contrasena = usuario_id_y_estado
+
+    rol = await session.get(Role, invitacion.role_id)
+    if rol is None:  # pragma: no cover - `role_id` es `ON DELETE CASCADE` de esta misma fila
+        raise NotFoundError("El rol de esta invitación ya no existe.")
+
+    datos_perfil = validate_profile_data(list(rol.profile_fields), {})
+
+    # Se crea la membresía **antes** de tocar `users`: dentro de la misma
+    # transacción, esa fila ya es visible para `tenant_users` (RLS) por la
+    # cláusula que comparte organización — sin ella, `app_accept_invited_user`
+    # sería la única vía y aun así una lectura ORM posterior seguiría
+    # bloqueada. Ver `app/core/database.py`/`0003_politicas_rls.py`.
+    miembro = OrganizationMember(
+        organization_id=invitacion.organization_id,
+        user_id=usuario_id,
+        role_id=invitacion.role_id,
+        profile_data=datos_perfil,
+    )
+    session.add(miembro)
+    await session.flush()
+
+    await session.execute(
+        text("SELECT app_accept_invited_user(:id, :hash, :first_name, :last_name)"),
+        {
+            "id": usuario_id,
+            "hash": hash_password(password),
+            "first_name": first_name.strip(),
+            "last_name": last_name.strip(),
+        },
+    )
+
+    invitacion.estado = "aceptada"
+    invitacion.accepted_at = datetime.now(UTC)
+    invitacion.accepted_by_user_id = usuario_id
+    await session.flush()
+
+    return miembro

@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import CurrentUserDep, DbDep, PermissionsDep, require_permission
 from app.core.permissions import Permission
 from app.core.storage import build_object_key, get_storage, validate_upload
+from app.core.tasks import send_invitation_email
 from app.modules.organizations import (
     invitations_service,
     members_service,
@@ -31,6 +32,7 @@ from app.modules.organizations.schemas import (
     OrganizationResponse,
     OrganizationUpdate,
 )
+from app.modules.roles.models import Role
 from app.modules.theme_templates import repository as theme_templates_repository
 from app.modules.theme_templates.schemas import ThemeTemplateCatalogItem
 from app.shared.errors import NotFoundError, ValidationDomainError
@@ -321,6 +323,23 @@ async def _invitation_response_por_id(
     return _invitation_response(invitacion, rol.key)
 
 
+async def _encolar_correo_de_invitacion(
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    invitacion: OrganizationInvitation,
+    token: str,
+) -> None:
+    """Fase 2: el correo dice «te han invitado», nunca «recupera tu contraseña»."""
+    organizacion = await repository.get_organization(session, organization_id)
+    rol = await session.get(Role, invitacion.role_id)
+    if organizacion is None or rol is None:  # pragma: no cover - garantizado por las FK
+        return
+    await send_invitation_email.kiq(
+        invitacion.email, token, str(organization_id), organizacion.name, rol.name
+    )
+
+
 @router.get(
     "/me/invitations",
     summary="Invitaciones pendientes de la organización",
@@ -369,8 +388,14 @@ async def create_invitation(
             status="added",
             member=await _member_response(session, usuario.organization_id, resultado.member.id),
         )
-    if resultado.invitation is None:  # pragma: no cover - ramas exhaustivas del servicio
-        raise RuntimeError("create_invitation no ha devuelto ni miembro ni invitación.")
+    if resultado.invitation is None or resultado.token is None:  # pragma: no cover - exhaustivo
+        raise RuntimeError("create_invitation no ha devuelto ni miembro ni invitación con token.")
+    await _encolar_correo_de_invitacion(
+        session,
+        organization_id=usuario.organization_id,
+        invitacion=resultado.invitation,
+        token=resultado.token,
+    )
     return InvitationCreateResponse(
         status="invited",
         invitation=await _invitation_response_por_id(
@@ -403,7 +428,10 @@ async def revoke_invitation(
 async def resend_invitation(
     invitation_id: str, usuario: CurrentUserDep, session: DbDep
 ) -> InvitationResponse:
-    invitacion, _token = await invitations_service.resend_invitation(
+    invitacion, token = await invitations_service.resend_invitation(
         session, organization_id=usuario.organization_id, invitation_id=uuid.UUID(invitation_id)
+    )
+    await _encolar_correo_de_invitacion(
+        session, organization_id=usuario.organization_id, invitacion=invitacion, token=token
     )
     return await _invitation_response_por_id(session, usuario.organization_id, invitacion.id)

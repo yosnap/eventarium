@@ -5,7 +5,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+from app.core.security import password_meets_complexity
 
 SLUG_PATTERN = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
 
@@ -146,6 +148,61 @@ class InvitationCreateResponse(BaseModel):
     status: Literal["added", "invited"]
     member: MemberResponse | None = None
     invitation: InvitationResponse | None = None
+
+
+class InvitationPublicResponse(BaseModel):
+    """`GET /public/invitations/{token}`: lo mínimo para pintar la pantalla.
+
+    Nunca la lista de miembros ni ningún otro dato de negocio (requisito de
+    seguridad del PRD) — solo lo que hace falta para decir «te han invitado a
+    X con el rol Y»."""
+
+    organization_name: str
+    role_name: str
+    # `True` en el caso anómalo: la fase 1 no emite token si el correo ya
+    # tenía cuenta al invitar, pero pudo ganar una contraseña después por
+    # otra vía (p. ej. una recuperación). La pantalla lo dice y ofrece entrar
+    # en vez de mostrar el formulario de nombre y contraseña.
+    account_has_password: bool
+
+
+class InvitationTokenErrorResponse(BaseModel):
+    """Token inválido, caducado, revocado o ya aceptado: un mensaje por caso."""
+
+    state: Literal["invalida", "caducada", "revocada", "aceptada"]
+    message: str
+
+
+class InvitationAcceptRequest(BaseModel):
+    """Datos que completa la persona invitada al aceptar."""
+
+    first_name: Annotated[str, Field(min_length=1, max_length=100)]
+    last_name: Annotated[str, Field(min_length=1, max_length=100)]
+    password: str = Field(
+        min_length=8,
+        max_length=256,
+        description=(
+            "Contraseña: mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial"
+        ),
+    )
+
+    @field_validator("password")
+    @classmethod
+    def _validar_complejidad(cls, valor: str) -> str:
+        if not password_meets_complexity(valor):
+            raise ValueError(
+                "La contraseña debe tener mínimo 8 caracteres, una mayúscula, una "
+                "minúscula, un número y un carácter especial."
+            )
+        return valor
+
+
+class InvitationAcceptResponse(BaseModel):
+    """Confirmación de alta. Sin `host`: la petición ya llegó al dominio
+    correcto (el enlace del correo apunta al propio de la organización), así
+    que no hace falta redirigir a ningún otro sitio."""
+
+    organization_slug: str
 
 
 class OrganizationCreate(BaseModel):
