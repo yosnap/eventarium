@@ -122,6 +122,10 @@ class EventUpdate(BaseModel):
     # viajan por aquí, solo por el servicio de `accounting`. El servicio de
     # eventos rechaza este campo si el presupuesto ya está aprobado.
     contingency_fund_percent: Annotated[Decimal, Field(ge=0, le=100)] | None = None
+    # Plantilla visual del evento, del catálogo de la plataforma. `None` no
+    # cambia nada (PATCH parcial); para volver a heredar la de la organización
+    # se envía cadena vacía, que el servicio traduce a `NULL`.
+    theme_template_id: str | None = None
 
     @model_validator(mode="after")
     def _validar_fechas(self) -> EventUpdate:
@@ -182,6 +186,8 @@ class EventResponse(BaseModel):
     budget_approved_at: datetime | None
     contingency_fund_cents: int | None
     accounting_currency: str
+    # `None` significa que hereda la plantilla de la organización.
+    theme_template_id: str | None
 
 
 class EventVenueCreate(BaseModel):
@@ -426,6 +432,20 @@ class PublicVenue(BaseModel):
     longitude: float | None
 
 
+class PublicTheme(BaseModel):
+    """Plantilla visual resuelta para una página pública.
+
+    Se sirve **ya resuelta**, con la herencia aplicada en el servidor (evento →
+    organización → por defecto del catálogo): el cliente no tiene que encadenar
+    tres niveles ni conocer el catálogo para pintar la página.
+    """
+
+    id: str
+    key: str
+    name: str
+    tokens: dict[str, Any]
+
+
 class PublicEventDetail(BaseModel):
     """Evento publicado con su agenda completa, para la página pública de detalle."""
 
@@ -456,6 +476,9 @@ class PublicEventDetail(BaseModel):
     # sola sede. `None` si no hay dirección, el evento es `online` o falló.
     latitude: float | None
     longitude: float | None
+    # Plantilla visual del evento, con la herencia ya resuelta. `None` solo si
+    # el catálogo estuviera vacío, que no es un estado posible hoy.
+    theme: PublicTheme | None = None
     sessions: list[PublicEventSession]
     # Ordenadas por `display_order`. El frontend decide, a partir de su
     # longitud, si activa la vista de "programa por sede" (2 sedes o más) —

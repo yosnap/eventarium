@@ -6,12 +6,26 @@ const ID_ESTILO_PLATAFORMA = 'tema-plataforma';
 /** Plantilla de la organización: se aplica solo a sus páginas de evento. */
 const ID_ESTILO_ORGANIZACION = 'tema-organizacion';
 
+/** Hoja del tema propio de un evento, por encima del de su organización. */
+const ID_ESTILO_EVENTO = 'tema-evento';
+
 /**
  * Marcador del ámbito de la organización. Las páginas de evento lo llevan en su
  * contenedor raíz, así que heredan los tokens de su plantilla sin que el resto
  * de la web (que se queda con los de plataforma) cambie.
  */
 export const SELECTOR_AMBITO_ORGANIZACION = '[data-ambito="organizacion"]';
+
+/**
+ * Ámbito del **evento**.
+ *
+ * Va **dentro** del de organización en el árbol del DOM, así que su tema gana
+ * por cascada sin necesidad de más especificidad: un evento que elige plantilla
+ * la impone en sus páginas, y uno que no la elige deja pasar la de su
+ * organización. Los tres ámbitos (plataforma, organización, evento) son el mismo
+ * mecanismo con distinto selector, no tres sistemas.
+ */
+export const SELECTOR_AMBITO_EVENTO = '[data-ambito="evento"]';
 
 /** Hex de 6 dígitos u `oklch()`: los dos formatos que también valida el backend. */
 const FORMATO_HEX = /^#[0-9a-f]{6}$/i;
@@ -143,4 +157,19 @@ export function applyTokensDeOrganizacion(
 ): void {
   const bloque = brandingToStyleBlock(organizacion?.theme ?? null, SELECTOR_AMBITO_ORGANIZACION);
   _inyectar(documento, ID_ESTILO_ORGANIZACION, bloque);
+}
+
+/**
+ * Aplica la plantilla propia de un **evento**, si la eligió.
+ *
+ * Sin plantilla no se inyecta nada, y eso es deliberado: el ámbito del evento
+ * dejaría de emitir reglas y la cascada devolvería el tema de su organización,
+ * que es exactamente lo que significa «heredar».
+ */
+export function applyTokensDeEvento(
+  evento: { theme: PlantillaDeTema | null } | null,
+  documento: Document,
+): void {
+  const bloque = brandingToStyleBlock(evento?.theme ?? null, SELECTOR_AMBITO_EVENTO);
+  _inyectar(documento, ID_ESTILO_EVENTO, bloque);
 }

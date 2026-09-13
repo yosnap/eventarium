@@ -1,4 +1,4 @@
-import { DatePipe, ViewportScroller } from '@angular/common';
+import { DOCUMENT, DatePipe, ViewportScroller } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
@@ -18,6 +18,7 @@ import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../../../core/api/api.service';
+import { applyTokensDeEvento } from '../../../core/theming/apply-tokens';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { SeoMetaService } from '../../../core/seo/meta.service';
 import { NotFoundStatusService } from '../../../core/ssr/not-found-status.service';
@@ -96,7 +97,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
           <app-alert tone="error">{{ t('publico.eventos.noEncontrado') }}</app-alert>
         </div>
       } @else if (evento(); as evento) {
-        <article>
+        <article [attr.data-ambito]="ambitoDelEvento()">
           <section class="hero">
             <div class="ancho-maximo">
               <app-breadcrumb
@@ -585,6 +586,7 @@ export class EventPage implements OnInit {
 
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
+  private readonly documento = inject(DOCUMENT);
   private readonly transferState = inject(TransferState);
   private readonly tareasPendientes = inject(PendingTasks);
   private readonly seo = inject(SeoMetaService);
@@ -723,6 +725,9 @@ export class EventPage implements OnInit {
       : 'publico.eventos.patrocinadores.presenciaBasica';
   }
 
+  /** El atributo de ámbito, presente **solo** si el evento eligió plantilla. */
+  protected readonly ambitoDelEvento = computed(() => (this.evento()?.theme ? 'evento' : null));
+
   ngOnInit(): void {
     void this.tareasPendientes.run(() => this.cargar());
   }
@@ -761,6 +766,10 @@ export class EventPage implements OnInit {
 
   private aplicar(evento: PublicEventDetail): void {
     this.evento.set(evento);
+    // La plantilla del evento se inyecta al llegar el dato, no al construir el
+    // componente: en SSR el `document` no existe al construirlo, y quitarla
+    // cuando no hay tema propio es lo que deja pasar la de la organización.
+    applyTokensDeEvento(evento.theme ? { theme: evento.theme } : null, this.documento);
     this.seo.set({
       title: evento.title,
       description: evento.summary ?? this.transloco.translate('publico.eventos.sinResumen'),

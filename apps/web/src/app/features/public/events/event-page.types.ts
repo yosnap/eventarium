@@ -1,3 +1,5 @@
+import type { PlantillaDeTema } from '../../../core/theming/theme-template.model';
+
 /**
  * Formas de datos de `GET /public/events/{slug}`, compartidas entre
  * `event-page.ts` y sus secciones extraídas (`sections/`).
@@ -59,7 +61,10 @@ export interface PublicVenue {
   readonly longitude: number | null;
 }
 
+
 export interface PublicEventDetail {
+  /** Plantilla propia del evento; `null` es que hereda la de su organización. */
+  readonly theme?: PlantillaDeTema | null;
   readonly slug: string;
   readonly title: string;
   readonly summary: string | null;

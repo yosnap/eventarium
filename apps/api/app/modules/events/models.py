@@ -129,6 +129,16 @@ class Event(Base, TimestampMixin):
     # `EventTicketType.currency`.
     accounting_currency: Mapped[str] = mapped_column(String(3), nullable=False, default="eur")
 
+    #: Plantilla visual del evento, del catálogo que cura la plataforma. `NULL`
+    #: significa **heredar** la de la organización, no «sin tema»: cada evento
+    #: puede verse distinto (una semana técnica y una gala benéfica no son lo
+    #: mismo), pero un organizador que no elija nada conserva lo que ya tenía.
+    theme_template_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("theme_templates.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
     sessions: Mapped[list[EventSession]] = relationship(
         back_populates="event", cascade="all, delete-orphan", lazy="selectin"
     )

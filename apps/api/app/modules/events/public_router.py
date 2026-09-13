@@ -22,7 +22,8 @@ from collections import defaultdict
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import DbDep, OrganizationDep
 from app.core.ratelimit import PUBLICO_POR_IP, limit_per_ip
@@ -40,6 +41,7 @@ from app.modules.events.schemas import (
     PublicEventSummary,
     PublicParticipant,
     PublicSessionDetail,
+    PublicTheme,
     PublicVenue,
 )
 from app.modules.organizations.models import OrganizationMember
@@ -158,6 +160,37 @@ async def _sedes_publicas(
     ]
 
 
+async def _tema_del_evento(session: AsyncSession, evento: Event) -> PublicTheme | None:
+    """La plantilla del evento, con la herencia ya resuelta.
+
+    Tres niveles, y el orden importa: la del evento si la eligió, si no la de su
+    organización, y si tampoco la marcada por defecto en el catálogo. Se resuelve
+    aquí y no en el cliente porque encadenar tres consultas desde el navegador
+    para pintar una página pública sería absurdo, y porque el catálogo es una
+    tabla de instalación que el visitante no tiene por qué conocer.
+    """
+    fila = (
+        await session.execute(
+            text(
+                "SELECT t.id, t.key, t.name, t.tokens "
+                "FROM events e "
+                "LEFT JOIN organization_branding b ON b.organization_id = e.organization_id "
+                "LEFT JOIN theme_templates t ON t.id = COALESCE("
+                "    e.theme_template_id, "
+                "    b.theme_template_id, "
+                "    (SELECT id FROM theme_templates WHERE is_default IS TRUE LIMIT 1)"
+                ") "
+                "WHERE e.id = :id"
+            ),
+            {"id": evento.id},
+        )
+    ).first()
+
+    if fila is None or fila[0] is None:
+        return None
+    return PublicTheme(id=str(fila[0]), key=fila[1], name=fila[2], tokens=fila[3])
+
+
 @router.get(
     "/events",
     summary="Listar eventos publicados",
@@ -168,9 +201,7 @@ async def list_public_events(
     organizacion: OrganizationDep, session: DbDep
 ) -> list[PublicEventSummary]:
     filas = (
-        await session.execute(
-            repository.public_events_with_confirmed_count_query(organizacion.id)
-        )
+        await session.execute(repository.public_events_with_confirmed_count_query(organizacion.id))
     ).all()
     ids_de_pago = [evento.id for evento, _ in filas if evento.registration_mode == "paid"]
     precios = await payments_service.get_min_public_prices(
@@ -262,6 +293,7 @@ async def get_public_event(
     reservadas = await registrations_repository.count_reserved_registrations(
         session, evento.organization_id, evento.id
     )
+    tema = await _tema_del_evento(session, evento)
     precio = None
     if evento.registration_mode == "paid":
         precios = await payments_service.get_min_public_prices(
@@ -290,6 +322,7 @@ async def get_public_event(
         price_multiple=precio.varios_precios if precio else False,
         latitude=float(evento.latitude) if evento.latitude is not None else None,
         longitude=float(evento.longitude) if evento.longitude is not None else None,
+        theme=tema,
         sessions=sesiones,
         venues=sedes,
         sponsor_tiers=niveles_con_patrocinadores,

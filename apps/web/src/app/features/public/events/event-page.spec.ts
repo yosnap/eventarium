@@ -247,3 +247,74 @@ describe('EventPage', () => {
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 });
+
+describe('EventPage — plantilla propia del evento', () => {
+  let http: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [
+        TranslocoTestingModule.forRoot({
+          langs: { 'es-ES': es },
+          translocoConfig: { availableLangs: ['es-ES'], defaultLang: 'es-ES' },
+        }),
+      ],
+      providers: [
+        provideZonelessChangeDetection(),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+      ],
+    });
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    http.verify();
+    document.getElementById('tema-evento')?.remove();
+  });
+
+  async function montarCon(tema: Record<string, unknown> | null) {
+    const fixture = TestBed.createComponent(EventPage);
+    fixture.componentRef.setInput('slug', 'iawic-2026');
+    // `ngOnInit` registra la carga como `PendingTasks`: `whenStable()` esperaría
+    // a que termine, así que hay que disparar el ciclo antes de responder.
+    fixture.detectChanges();
+    http
+      .expectOne((p) => p.url === '/api/v1/public/events/iawic-2026')
+      .flush({ ...eventoDetalle(), theme: tema });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  it('sin plantilla propia no marca el ámbito, y la herencia es lo que queda', async () => {
+    // El atributo es lo que activa el tema del evento. Sin él, la cascada
+    // devuelve el de la organización, que es lo que significa «heredar».
+    const fixture = await montarCon(null);
+    const articulo = fixture.nativeElement.querySelector('article') as HTMLElement;
+
+    expect(articulo.getAttribute('data-ambito')).toBeNull();
+    expect(document.getElementById('tema-evento')).toBeNull();
+  });
+
+  it('con plantilla propia marca su ámbito y la aplica', async () => {
+    const fixture = await montarCon({
+      id: 't1',
+      key: 'quantum',
+      name: 'Quantum',
+      // Los nombres van **sin** los dos guiones y el valor tiene que pasar la
+      // validación de formato del sistema: un token fuera de su lista blanca se
+      // ignora en silencio, que es justo lo que este test vigila.
+      tokens: { dark: { bg: 'oklch(20% 0.02 260)' }, light: { bg: 'oklch(98% 0 0)' } },
+    });
+    const articulo = fixture.nativeElement.querySelector('article') as HTMLElement;
+
+    expect(articulo.getAttribute('data-ambito')).toBe('evento');
+    // La hoja se inyecta con las dos reglas del tema, acotadas a ese ámbito.
+    const hoja = document.getElementById('tema-evento');
+    expect(hoja).not.toBeNull();
+    expect(hoja?.textContent).toContain('[data-ambito="evento"]');
+    expect(hoja?.textContent).toContain('--bg');
+  });
+});

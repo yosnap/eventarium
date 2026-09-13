@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,6 +30,7 @@ from app.modules.events.models import (
 from app.modules.organizations import repository as organizations_repository
 from app.modules.payments import repository as payments_repository
 from app.modules.payments import service as payments_service
+from app.modules.theme_templates.models import ThemeTemplate
 from app.shared.errors import ConflictError, NotFoundError, ValidationDomainError
 
 
@@ -174,6 +175,29 @@ def _validar_transicion_de_estado(actual: str, nuevo: str) -> None:
         raise ValidationDomainError("Un evento archivado no puede volver a editarse.")
 
 
+async def _resolver_plantilla_del_evento(
+    session: AsyncSession, valor: str | None
+) -> uuid.UUID | None:
+    """Traduce la plantilla que llega del panel al id que va a la columna.
+
+    Cadena vacía o `None` significan **heredar** (la columna queda `NULL`), que
+    es como se deshace una elección. Cualquier otra cosa tiene que ser el id de
+    una plantilla del catálogo: si no es un id o no existe, se rechaza con un
+    mensaje legible en vez de dejar que reviente la base de datos.
+    """
+    if not valor:
+        return None
+    try:
+        plantilla_id = uuid.UUID(valor)
+    except (ValueError, AttributeError) as exc:
+        raise ValidationDomainError("La plantilla indicada no es válida.") from exc
+
+    existe = await session.scalar(select(ThemeTemplate.id).where(ThemeTemplate.id == plantilla_id))
+    if existe is None:
+        raise ValidationDomainError("La plantilla indicada no existe.")
+    return plantilla_id
+
+
 async def update_event(
     session: AsyncSession, *, organization_id: uuid.UUID, event_id: uuid.UUID, datos: dict[str, Any]
 ) -> Event:
@@ -220,6 +244,20 @@ async def update_event(
         raise ValidationDomainError("La fecha de fin debe ser posterior a la de inicio.")
 
     direccion_anterior = evento.location_address
+
+    # La plantilla del evento llega como cadena (o vacía, para volver a heredar)
+    # y la columna es UUID: se traduce antes del `setattr` genérico, que si no
+    # intentaría guardar texto en una columna de otro tipo.
+    #
+    # La validación ocurre **aquí y no en el `flush`**: un identificador que no
+    # existe o mal formado saltaría como `IntegrityError`, y el `except` de
+    # abajo lo reportaría como «ya existe un evento con ese identificador», que
+    # no tiene nada que ver con lo que ha pasado.
+    if "theme_template_id" in datos:
+        evento.theme_template_id = await _resolver_plantilla_del_evento(
+            session, datos.pop("theme_template_id")
+        )
+
     for campo, valor in datos.items():
         setattr(evento, campo, valor)
 
