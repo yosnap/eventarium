@@ -828,4 +828,335 @@ EVENTOS: list[dict[str, Any]] = [
         "sedes": [],
         "sesiones": [],
     },
+    {
+        "slug": "demo-multidia-largo",
+        "title": "Semana intensiva: cinco días, un solo evento",
+        "summary": "El caso de un evento que dura toda la semana, con agenda por día.",
+        "description": (
+            "Un evento de cinco días sirve para comprobar cómo se agrupa la agenda "
+            "cuando el rango es largo, y si la cabecera sigue siendo legible con "
+            "una fecha de fin muy lejana al inicio."
+        ),
+        "starts_at": datetime(2027, 4, 5, 9, 0, tzinfo=UTC),
+        "ends_at": datetime(2027, 4, 9, 18, 0, tzinfo=UTC),
+        "location_mode": "in_person",
+        "location_name": "Campus Norte",
+        "location_address": "Carrer de la Innovació, 12, 08013 Barcelona",
+        "city": "Barcelona",
+        "capacity": 120,
+        "registration_mode": "paid",
+        "portada": True,
+        "sedes": [
+            {
+                "name": "Campus Norte",
+                "address": "Carrer de la Innovació, 12, 08013 Barcelona",
+                "capacity": 120,
+            }
+        ],
+        "ticket_types": [
+            {"name": "Semana completa", "price_cents": 39000, "description": "Los cinco días."},
+            {
+                "name": "Un día suelto",
+                "price_cents": 9500,
+                "description": "Elige el día al llegar.",
+            },
+        ],
+        "sesiones": [
+            {
+                "session_type": "talk",
+                "title": "Día 1: fundamentos",
+                "starts_offset": (0, 9, 30, 0, 60),
+                "room": "Sala Principal",
+                "ponentes": [("elena.ruiz.demo@example.test", "speaker")],
+            },
+            {
+                "session_type": "talk",
+                "title": "Día 3: puesta en producción",
+                "starts_offset": (2, 9, 30, 0, 60),
+                "room": "Sala Principal",
+                "ponentes": [("marc.oliver.demo@example.test", "speaker")],
+            },
+            {
+                "session_type": "talk",
+                "title": "Día 5: cierre y conclusiones",
+                "starts_offset": (4, 16, 0, 0, 60),
+                "room": "Sala Principal",
+                "ponentes": [("nuria.serra.demo@example.test", "speaker")],
+            },
+        ],
+    },
+    {
+        "slug": "demo-varias-salas-un-dia",
+        "title": "Jornada de un día con cuatro salas en paralelo",
+        "summary": "Un solo día, pero varias salas a la vez: el caso de tener que elegir.",
+        "description": (
+            "Comprueba cómo se lee una agenda con sesiones simultáneas en salas "
+            "distintas: es el caso en el que la hora no basta para ordenar y la "
+            "sala pasa a ser la que desambigua."
+        ),
+        "starts_at": datetime(2027, 5, 20, 9, 0, tzinfo=UTC),
+        "ends_at": datetime(2027, 5, 20, 19, 0, tzinfo=UTC),
+        "location_mode": "in_person",
+        "location_name": "Recinto Ferial",
+        "location_address": "Avinguda de les Fires, 2, 46035 València",
+        "city": "Valencia",
+        "capacity": 300,
+        "registration_mode": "free",
+        "portada": False,
+        "sedes": [
+            {
+                "name": "Recinto Ferial",
+                "address": "Avinguda de les Fires, 2, 46035 València",
+                "capacity": 300,
+            }
+        ],
+        "sesiones": [
+            {
+                "session_type": "talk",
+                "title": "Sesión simultánea A",
+                "starts_offset": (0, 10, 0, 0, 60),
+                "room": "Sala A",
+                "ponentes": [("elena.ruiz.demo@example.test", "speaker")],
+            },
+            {
+                "session_type": "talk",
+                "title": "Sesión simultánea B",
+                "starts_offset": (0, 10, 0, 0, 60),
+                "room": "Sala B",
+                "ponentes": [("marc.oliver.demo@example.test", "speaker")],
+            },
+            {
+                "session_type": "workshop",
+                "title": "Sesión simultánea C",
+                "starts_offset": (0, 10, 0, 0, 60),
+                "room": "Sala C",
+                "ponentes": [("nuria.serra.demo@example.test", "speaker")],
+            },
+            {
+                "session_type": "talk",
+                "title": "Sesión simultánea D",
+                "starts_offset": (0, 10, 0, 0, 60),
+                "room": "Sala D",
+                "ponentes": [("diego.fernandez.demo@example.test", "speaker")],
+            },
+        ],
+    },
+    {
+        "slug": "demo-lista-espera",
+        "title": "Taller pequeño: apunta a la lista de espera",
+        "summary": "Aforo muy corto y solicitudes con aprobación, para llenar la lista de espera.",
+        "description": (
+            "Aforo reducido con aprobación previa: es el escenario en el que la "
+            "lista de espera se llena de verdad y la ficha tiene que explicar qué "
+            "pasa si no entras."
+        ),
+        "starts_at": datetime(2027, 6, 8, 16, 0, tzinfo=UTC),
+        "ends_at": datetime(2027, 6, 8, 20, 0, tzinfo=UTC),
+        "location_mode": "in_person",
+        "location_name": "Sala taller",
+        "location_address": "Carrer de Pujades, 74, 08005 Barcelona",
+        "city": "Barcelona",
+        "capacity": 12,
+        "registration_mode": "approval",
+        "portada": False,
+        "sedes": [
+            {
+                "name": "Sala taller",
+                "address": "Carrer de Pujades, 74, 08005 Barcelona",
+                "capacity": 12,
+            }
+        ],
+        "sesiones": [
+            {
+                "session_type": "workshop",
+                "title": "Taller práctico de evaluación",
+                "starts_offset": (0, 16, 30, 0, 180),
+                "room": "Sala taller",
+                "ponentes": [("lucia.moreno.demo@example.test", "speaker")],
+            }
+        ],
+    },
+    {
+        "slug": "demo-pago-sin-agenda",
+        "title": "Reserva de plaza sin programa todavía",
+        "summary": "De pago y sin agenda: se vende antes de saber quién habla.",
+        "description": (
+            "Cubre la combinación incómoda: un evento que cobra y que aún no puede "
+            "enseñar programa. Es el caso en el que la ficha tiene que dejar claro "
+            "que la agenda llegará, sin parecer que falta algo."
+        ),
+        "starts_at": datetime(2027, 8, 12, 9, 0, tzinfo=UTC),
+        "ends_at": datetime(2027, 8, 12, 18, 0, tzinfo=UTC),
+        "location_mode": "in_person",
+        "location_name": "Hotel Central",
+        "location_address": "Gran Via de les Corts Catalanes, 100, 08001 Barcelona",
+        "city": "Barcelona",
+        "capacity": 150,
+        "registration_mode": "paid",
+        "portada": True,
+        "sedes": [
+            {
+                "name": "Hotel Central",
+                "address": "Gran Via de les Corts Catalanes, 100, 08001 Barcelona",
+                "capacity": 150,
+            }
+        ],
+        "ticket_types": [
+            {
+                "name": "Reserva anticipada",
+                "price_cents": 7500,
+                "description": "Precio de lanzamiento.",
+            },
+        ],
+        "sesiones": [],
+    },
+    {
+        "slug": "demo-hibrido-pago",
+        "title": "Congreso híbrido con entrada presencial y online",
+        "summary": "Dos tipos de entrada para el mismo programa: sala y directo.",
+        "description": (
+            "El caso de un evento híbrido que cobra distinto según cómo lo sigas. "
+            "Comprueba que la ficha explica bien la diferencia entre las entradas "
+            "cuando el programa es el mismo para las dos."
+        ),
+        "starts_at": datetime(2027, 9, 22, 9, 30, tzinfo=UTC),
+        "ends_at": datetime(2027, 9, 23, 17, 0, tzinfo=UTC),
+        "location_mode": "hybrid",
+        "location_name": "Teatro Principal",
+        "location_address": "Carrer de les Barques, 15, 46002 València",
+        "online_url": "https://example.test/hibrido-directo",
+        "city": "Valencia",
+        "capacity": 260,
+        "registration_mode": "paid",
+        "portada": True,
+        "sedes": [
+            {
+                "name": "Teatro Principal",
+                "address": "Carrer de les Barques, 15, 46002 València",
+                "capacity": 260,
+            }
+        ],
+        "ticket_types": [
+            {"name": "Presencial", "price_cents": 12000, "description": "Incluye café y comida."},
+            {
+                "name": "Online en directo",
+                "price_cents": 3500,
+                "description": "Solo retransmisión.",
+            },
+        ],
+        "sesiones": [
+            {
+                "session_type": "talk",
+                "title": "Ponencia inaugural",
+                "starts_offset": (0, 10, 0, 0, 60),
+                "room": "Sala Principal",
+                "video_platform": "youtube",
+                "video_url": "https://example.test/inaugural",
+                "ponentes": [("elena.ruiz.demo@example.test", "speaker")],
+            },
+            {
+                "session_type": "talk",
+                "title": "Mesa de cierre",
+                "starts_offset": (1, 15, 0, 0, 90),
+                "room": "Sala Principal",
+                "video_platform": "youtube",
+                "video_url": "https://example.test/cierre",
+                "ponentes": [
+                    ("marc.oliver.demo@example.test", "speaker"),
+                    ("nuria.serra.demo@example.test", "moderator"),
+                ],
+            },
+        ],
+    },
+    {
+        "slug": "demo-inscripcion-cerrada",
+        "title": "Evento con la inscripción ya cerrada",
+        "summary": "Publicado y con la ventana de inscripción cerrada: ya no se puede entrar.",
+        "description": (
+            "La apertura de inscripción está en el pasado, así que la ficha debe "
+            "explicar que el plazo pasó en vez de ofrecer un botón que no lleva a "
+            "ninguna parte."
+        ),
+        "starts_at": datetime(2027, 10, 14, 9, 0, tzinfo=UTC),
+        "ends_at": datetime(2027, 10, 14, 20, 0, tzinfo=UTC),
+        "location_mode": "in_person",
+        "location_name": "Auditorio Municipal",
+        "location_address": "Plaça de l'Ajuntament, 1, 46002 València",
+        "city": "Valencia",
+        "capacity": 200,
+        "registration_mode": "free",
+        "registration_opens_at": datetime(2026, 1, 1, 9, 0, tzinfo=UTC),
+        "portada": False,
+        "sedes": [
+            {
+                "name": "Auditorio Municipal",
+                "address": "Plaça de l'Ajuntament, 1, 46002 València",
+                "capacity": 200,
+            }
+        ],
+        "sesiones": [
+            {
+                "session_type": "talk",
+                "title": "Sesión única",
+                "starts_offset": (0, 10, 0, 0, 60),
+                "room": "Auditorio",
+                "ponentes": [("diego.fernandez.demo@example.test", "speaker")],
+            }
+        ],
+    },
+    {
+        "slug": "demo-muchas-sesiones",
+        "title": "Evento con agenda densa: veinte sesiones",
+        "summary": "Tres días con muchas sesiones, para ver cómo aguanta el listado.",
+        "description": (
+            "El caso de volumen: una agenda con veinte sesiones repartidas en tres "
+            "días. Sirve para comprobar que la agenda sigue siendo navegable cuando "
+            "deja de caber de un vistazo."
+        ),
+        "starts_at": datetime(2027, 12, 1, 9, 0, tzinfo=UTC),
+        "ends_at": datetime(2027, 12, 3, 18, 0, tzinfo=UTC),
+        "location_mode": "in_person",
+        "location_name": "Palau de Congressos",
+        "location_address": "Avinguda de les Fires, 2, 46035 València",
+        "city": "Valencia",
+        "capacity": 500,
+        "registration_mode": "free",
+        "portada": True,
+        "sedes": [
+            {
+                "name": "Palau de Congressos",
+                "address": "Avinguda de les Fires, 2, 46035 València",
+                "capacity": 500,
+            }
+        ],
+        "sesiones": [
+            {
+                "session_type": "talk",
+                "title": f"Sesión {n}",
+                # Siete sesiones por día, de 9 a 17 h con el hueco de la comida:
+                # `n - 1` porque las sesiones van numeradas desde 1.
+                "starts_offset": (
+                    (n - 1) // 7,
+                    [9, 10, 11, 12, 15, 16, 17][(n - 1) % 7],
+                    0,
+                    0,
+                    45,
+                ),
+                "room": ["Sala Principal", "Sala 2", "Aula 3"][n % 3],
+                "ponentes": [
+                    (
+                        [
+                            "elena.ruiz.demo@example.test",
+                            "marc.oliver.demo@example.test",
+                            "nuria.serra.demo@example.test",
+                            "diego.fernandez.demo@example.test",
+                            "lucia.moreno.demo@example.test",
+                        ][n % 5],
+                        "speaker",
+                    )
+                ],
+            }
+            for n in range(1, 21)
+        ],
+    },
 ]

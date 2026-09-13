@@ -1,9 +1,14 @@
 """Punto de entrada del seed de eventos de demostración.
 
 Uso:
-    cd apps/api && uv run python -m scripts.seed_eventos_demo
+    cd apps/api && uv run python -m scripts.seed_eventos_demo [slug-de-organización]
 
-Siembra 12 eventos de demostración sobre la organización `iawic`, cada uno
+El slug es opcional y por defecto es `iawic`, la organización del catálogo. Se
+acepta por argumento para poder sembrar sobre otra organización sin tocar el
+código: la constante del catálogo describe a **qué** se parece el contenido, no
+dónde tiene que vivir.
+
+Siembra los eventos de demostración sobre la organización `iawic`, cada uno
 cubriendo una rama distinta de la ficha pública de evento: los tres modos de
 inscripción, los tres formatos, con y sin portada, con y sin aforo, agenda vacía
 / de un día / de varios, sesiones con vídeo y con materiales, ponentes con y sin
@@ -21,6 +26,7 @@ local de coordenadas por ciudad, así que el seed no llama a Nominatim.
 from __future__ import annotations
 
 import asyncio
+import sys
 from unittest.mock import patch
 
 from sqlalchemy import select
@@ -41,18 +47,18 @@ from scripts.seed_eventos_demo.siembra import (
 )
 
 
-async def main() -> None:
+async def main(slug_organizacion: str) -> None:
     settings = get_settings()
     almacen = get_storage()
     await almacen.ensure_bucket()
 
     async with maintenance_session() as session:
         organizacion = await session.scalar(
-            select(Organization).where(Organization.slug == ORG_SLUG)
+            select(Organization).where(Organization.slug == slug_organizacion)
         )
         if organizacion is None:
             raise RuntimeError(
-                f"No existe la organización «{ORG_SLUG}»: ejecuta primero "
+                f"No existe la organización «{slug_organizacion}»: ejecuta primero "
                 "`uv run python -m app.cli seed`."
             )
 
@@ -61,7 +67,8 @@ async def main() -> None:
         )
         if rol_speaker is None:
             raise RuntimeError(
-                f"La organización «{ORG_SLUG}» no tiene el rol de sistema «speaker» clonado."
+                f"La organización «{slug_organizacion}» no tiene el rol de sistema "
+                "«speaker» clonado."
             )
 
         personas: dict[str, tuple[OrganizationMember, SpeakerPublicProfile | None]] = {}
@@ -96,7 +103,7 @@ async def main() -> None:
         "no «:4200» (dev server de Angular). En este entorno ambos resuelven al mismo "
         "host, así que los dos funcionan para navegar.\n"
     )
-    print("--- Los 12 eventos (el último NO debe aparecer en público) ---")
+    print(f"--- Los {len(EVENTOS)} eventos (el último NO debe aparecer en público) ---")
     for spec in EVENTOS:
         print(f"{base}/eventos/{spec['slug']:<32} {spec['title']}")
 
@@ -111,4 +118,4 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(main(sys.argv[1] if len(sys.argv) > 1 else ORG_SLUG))
