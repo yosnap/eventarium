@@ -4,6 +4,7 @@ import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
 import { ApiError } from '../../../core/api/error.interceptor';
 import { AuthService } from '../../../core/auth/auth.service';
+import { AuthFrame } from '../../../layouts/public/auth-frame';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
@@ -13,10 +14,10 @@ import { Input } from '../../../shared/ui/input';
 @Component({
   selector: 'app-login-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, Input],
+  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, Input, AuthFrame],
   template: `
     <ng-container *transloco="let t">
-      <main id="contenido" class="pagina">
+      <app-auth-frame [titulo]="t('admin.login.titulo')">
         <app-card [heading]="t('admin.login.titulo')">
           <form (submit)="enviar($event)" novalidate>
             <app-input
@@ -48,19 +49,13 @@ import { Input } from '../../../shared/ui/input';
             <a routerLink="/recuperar-contrasena">{{ t('admin.login.olvidasteContrasena') }}</a>
           </p>
         </app-card>
-      </main>
+      </app-auth-frame>
     </ng-container>
   `,
   styles: `
-    .pagina {
-      display: grid;
-      place-items: center;
-      min-height: 100vh;
-      padding: var(--space-lg);
-      background-color: var(--surface-2);
-    }
     app-card {
       width: min(24rem, 100%);
+      margin: var(--space-lg) auto;
     }
     form {
       display: grid;
@@ -100,7 +95,10 @@ export class LoginPage {
     this.enviando.set(true);
     try {
       await this.auth.login(this.email().trim(), this.password());
-      const destino = this.ruta.snapshot.queryParamMap.get('redirigir') ?? '/admin';
+      // `/admin` es la plataforma (solo superadmin): un organizador que entra
+      // sin `redirigir` aterrizaría en un panel que no le corresponde. El
+      // destino por defecto es su escritorio.
+      const destino = this.ruta.snapshot.queryParamMap.get('redirigir') ?? '/dashboard';
       await this.router.navigateByUrl(destino);
     } catch (error) {
       this.error.set(
