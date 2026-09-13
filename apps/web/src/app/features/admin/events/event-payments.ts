@@ -4,6 +4,7 @@ import {
   Component,
   ElementRef,
   type OnInit,
+  computed,
   inject,
   input,
   signal,
@@ -17,6 +18,7 @@ import { ApiError } from '../../../core/api/error.interceptor';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
+import { DataTable, DataTableColumn } from '../../../shared/ui/data-table';
 
 type PaymentStatus = 'pending' | 'paid' | 'refunded' | 'partially_refunded' | 'expired';
 type RefundStatus = 'pending' | 'submitted' | 'succeeded' | 'failed';
@@ -74,7 +76,7 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
 @Component({
   selector: 'app-event-payments',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card],
+  imports: [TranslocoDirective, Alert, Button, Card, DataTable],
   template: `
     <ng-container *transloco="let t">
       <app-card [heading]="t('admin.events.payments.titulo')">
@@ -90,61 +92,47 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
         } @else if (pagos().length === 0) {
           <p>{{ t('admin.events.payments.sinPagos') }}</p>
         } @else {
-          <table>
-            <caption class="sr-only">
-              {{
-                t('admin.events.payments.titulo')
-              }}
-            </caption>
-            <thead>
+          <app-data-table
+            [columnas]="columnasDePagos()"
+            [caption]="t('admin.events.payments.titulo')"
+          >
+            @for (pago of pagos(); track pago.id) {
               <tr>
-                <th scope="col">{{ t('admin.events.payments.columnaPersona') }}</th>
-                <th scope="col">{{ t('admin.events.payments.columnaTipo') }}</th>
-                <th scope="col">{{ t('admin.events.payments.columnaEstado') }}</th>
-                <th scope="col">{{ t('admin.events.payments.columnaImporte') }}</th>
-                <th scope="col">{{ t('admin.events.payments.columnaReembolsado') }}</th>
-                <th scope="col">{{ t('admin.events.payments.columnaAcciones') }}</th>
+                <td>{{ pago.email ?? t('admin.events.payments.personaBorrada') }}</td>
+                <td>{{ pago.ticket_type_name ?? '—' }}</td>
+                <td>
+                  {{ t('admin.events.payments.estado.' + pago.status) }}
+                  @if (tieneReembolsoEnCurso(pago)) {
+                    <span class="detalle">{{ t('admin.events.payments.reembolsoEnCurso') }}</span>
+                  }
+                  @if (tieneReembolsoAgotado(pago)) {
+                    <span class="detalle destacado">{{
+                      t('admin.events.payments.reembolsoAgotado')
+                    }}</span>
+                  }
+                  @if (pago.no_auto_refund_reason) {
+                    <span class="detalle">
+                      {{
+                        t(
+                          'admin.events.payments.sinReembolsoAutomatico.' +
+                            pago.no_auto_refund_reason
+                        )
+                      }}
+                    </span>
+                  }
+                </td>
+                <td class="numerica">{{ euros(pago.amount_cents) }} {{ pago.currency.toUpperCase() }}</td>
+                <td class="numerica">{{ euros(pago.refunded_cents) }} {{ pago.currency.toUpperCase() }}</td>
+                <td>
+                  @if (pendiente(pago) > 0) {
+                    <app-button variant="secundario" type="button" (pulsado)="abrirDialogo(pago)">
+                      {{ t('admin.events.payments.reembolsar') }}
+                    </app-button>
+                  }
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              @for (pago of pagos(); track pago.id) {
-                <tr>
-                  <td>{{ pago.email ?? t('admin.events.payments.personaBorrada') }}</td>
-                  <td>{{ pago.ticket_type_name ?? '—' }}</td>
-                  <td>
-                    {{ t('admin.events.payments.estado.' + pago.status) }}
-                    @if (tieneReembolsoEnCurso(pago)) {
-                      <span class="detalle">{{ t('admin.events.payments.reembolsoEnCurso') }}</span>
-                    }
-                    @if (tieneReembolsoAgotado(pago)) {
-                      <span class="detalle destacado">{{
-                        t('admin.events.payments.reembolsoAgotado')
-                      }}</span>
-                    }
-                    @if (pago.no_auto_refund_reason) {
-                      <span class="detalle">
-                        {{
-                          t(
-                            'admin.events.payments.sinReembolsoAutomatico.' +
-                              pago.no_auto_refund_reason
-                          )
-                        }}
-                      </span>
-                    }
-                  </td>
-                  <td>{{ euros(pago.amount_cents) }} {{ pago.currency.toUpperCase() }}</td>
-                  <td>{{ euros(pago.refunded_cents) }} {{ pago.currency.toUpperCase() }}</td>
-                  <td>
-                    @if (pendiente(pago) > 0) {
-                      <app-button variant="secundario" type="button" (pulsado)="abrirDialogo(pago)">
-                        {{ t('admin.events.payments.reembolsar') }}
-                      </app-button>
-                    }
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
+            }
+          </app-data-table>
         }
       </app-card>
 
@@ -208,17 +196,6 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
     </ng-container>
   `,
   styles: `
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    th,
-    td {
-      text-align: left;
-      padding: var(--space-sm);
-      border-bottom: 1px solid var(--border);
-      vertical-align: top;
-    }
     .detalle {
       display: block;
       font-size: 0.8125rem;
@@ -236,7 +213,7 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
       width: 90vw;
     }
     dialog::backdrop {
-      background-color: rgb(0 0 0 / 0.4);
+      background-color: var(--backdrop);
     }
     .dialogo-contenido {
       display: grid;
@@ -296,6 +273,19 @@ export class EventPayments implements OnInit {
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
   private readonly dialogoRef = viewChild<ElementRef<HTMLDialogElement>>('dialogo');
+
+  /** Las columnas de la tabla de pagos, con la etiqueta ya traducida. */
+  protected readonly columnasDePagos = computed<DataTableColumn[]>(() => {
+    const t = (clave: string): string => this.transloco.translate(clave);
+    return [
+      { key: 'persona', label: t('admin.events.payments.columnaPersona') },
+      { key: 'tipo', label: t('admin.events.payments.columnaTipo') },
+      { key: 'estado', label: t('admin.events.payments.columnaEstado') },
+      { key: 'importe', label: t('admin.events.payments.columnaImporte'), numerica: true },
+      { key: 'reembolsado', label: t('admin.events.payments.columnaReembolsado'), numerica: true },
+      { key: 'acciones', label: t('admin.events.payments.columnaAcciones') },
+    ];
+  });
 
   protected readonly cargando = signal(true);
   protected readonly error = signal<string | null>(null);

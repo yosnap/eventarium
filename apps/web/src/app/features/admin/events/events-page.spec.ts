@@ -64,6 +64,31 @@ describe('EventsPage', () => {
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
+  it('la tabla usa app-data-table con caption, y el estado va en un chip con texto', async () => {
+    const fixture = TestBed.createComponent(EventsPage);
+    await avanzar(fixture);
+    http.expectOne((peticion) => peticion.url === '/api/v1/events').flush(pagina());
+    await avanzar(fixture);
+
+    const contenedor = fixture.nativeElement.querySelector(
+      'app-data-table',
+    ) as HTMLElement | null;
+    expect(contenedor).not.toBeNull();
+    const tabla = contenedor!.querySelector('table') as HTMLTableElement;
+    expect(tabla.querySelector('caption')?.textContent?.trim()).toBeTruthy();
+    expect(tabla.querySelectorAll('th[scope="col"]').length).toBe(3);
+
+    const ranura = contenedor!.querySelector('.ranura-scroll') as HTMLElement;
+    expect(ranura.getAttribute('tabindex')).toBe('0');
+
+    // El chip lleva el estado escrito: quitar el color no lo deja mudo.
+    const chip = contenedor!.querySelector('app-chip .chip') as HTMLElement;
+    expect(chip.textContent?.trim()).toBeTruthy();
+    // El evento del fixture está en borrador, que el mapa de tonos marca como
+    // «espera»: lo que importa es que el tono salga del estado, no que sea ok.
+    expect(chip.getAttribute('class')).toContain('espera');
+  });
+
   it('filtra por estado al cambiar el selector', async () => {
     const fixture = TestBed.createComponent(EventsPage);
     await avanzar(fixture);

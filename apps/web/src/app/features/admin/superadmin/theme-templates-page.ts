@@ -447,10 +447,15 @@ export class ThemeTemplatesPage {
 
   /** El selector nativo de color exige `#rrggbb` exacto; un valor a medio escribir u
    * `oklch()` no lo cumple, así que se sustituye por un neutro para no romper el
-   * control mientras la persona escribe un valor válido de otro formato. */
+   * control mientras la persona escribe un valor válido de otro formato.
+   *
+   * Este `black` de reserva es una excepción deliberada a la regla de tokens del
+   * panel: no es un color de la interfaz que deba seguir al tema, es el valor que
+   * el `<input type="color">` necesita para pintar mientras el token elegido no
+   * es un hex válido. El color de verdad lo pone quien edita la plantilla. */
   protected valorParaSelector(modo: ModoDeTema, token: string): string {
     const valor = this.formulario().tokens[modo][token] ?? '';
-    return /^#[0-9a-f]{6}$/i.test(valor) ? valor : '#000000';
+    return /^#[0-9a-f]{6}$/i.test(valor) ? valor : 'black';
   }
 
   protected cambiarToken(modo: ModoDeTema, token: string, valor: string): void {

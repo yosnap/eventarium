@@ -98,6 +98,33 @@ describe('EventRegistrations', () => {
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
+  it('la tabla usa app-data-table con caption y el estado va en un chip con texto', async () => {
+    const fixture = TestBed.createComponent(EventRegistrations);
+    fixture.componentRef.setInput('eventId', 'e1');
+    await avanzar(fixture);
+    flushCargaInicial(http);
+    await avanzar(fixture);
+
+    const contenedor = fixture.nativeElement.querySelector(
+      'app-data-table',
+    ) as HTMLElement | null;
+    expect(contenedor).not.toBeNull();
+    const tabla = contenedor!.querySelector('table') as HTMLTableElement;
+    expect(tabla.querySelector('caption')?.textContent?.trim()).toBeTruthy();
+    expect(tabla.querySelectorAll('th[scope="col"]').length).toBe(5);
+
+    const ranura = contenedor!.querySelector('.ranura-scroll') as HTMLElement;
+    expect(ranura.getAttribute('tabindex')).toBe('0');
+    expect(ranura.getAttribute('role')).toBe('region');
+
+    // Cada estado lleva su texto: el tono solo lo refuerza.
+    const chips = Array.from(contenedor!.querySelectorAll('app-chip .chip')) as HTMLElement[];
+    expect(chips.length).toBeGreaterThan(0);
+    for (const chip of chips) {
+      expect(chip.textContent?.trim()).toBeTruthy();
+    }
+  });
+
   it('ofrece aprobar y rechazar una inscripción pendiente de aprobación, y refresca tras la acción', async () => {
     const fixture = TestBed.createComponent(EventRegistrations);
     fixture.componentRef.setInput('eventId', 'e1');

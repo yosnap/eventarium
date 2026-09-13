@@ -133,9 +133,9 @@ import { PanelScope } from './panel-scope';
       align-items: center;
       gap: 10px;
       margin: 0;
-      /* Tipografía de marca de .brand__name (eventarium.css:148): mono display,
+      /* Tipografía de marca de .brand__name (eventarium.css:148): display,
          mayúsculas, tracking amplio, en vez de sans en negrita. */
-      font-family: var(--font-heading);
+      font-family: var(--font-display);
       font-size: 1.35rem;
       letter-spacing: 0.06em;
       text-transform: uppercase;

@@ -99,6 +99,30 @@ describe('EventPayments', () => {
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
+  it('la tabla usa app-data-table con caption y alinea los importes a la derecha', async () => {
+    const fixture = TestBed.createComponent(EventPayments);
+    fixture.componentRef.setInput('eventId', 'e1');
+    fixture.detectChanges();
+    await avanzar(fixture);
+
+    http.expectOne((p) => p.url === PAYMENTS_URL && p.method === 'GET').flush(pagos());
+    await avanzar(fixture);
+
+    const contenedor = fixture.nativeElement.querySelector(
+      'app-data-table',
+    ) as HTMLElement | null;
+    expect(contenedor).not.toBeNull();
+    const tabla = contenedor!.querySelector('table') as HTMLTableElement;
+    expect(tabla.querySelector('caption')?.textContent?.trim()).toBeTruthy();
+
+    // Importe y reembolsado son columnas numéricas: cabecera y celdas alineadas.
+    expect(contenedor!.querySelectorAll('th.numerica').length).toBe(2);
+    expect(contenedor!.querySelectorAll('td.numerica').length).toBe(2);
+
+    const ranura = contenedor!.querySelector('.ranura-scroll') as HTMLElement;
+    expect(ranura.getAttribute('tabindex')).toBe('0');
+  });
+
   it('abre el diálogo de reembolso preseleccionando el importe pendiente', async () => {
     const fixture = TestBed.createComponent(EventPayments);
     fixture.componentRef.setInput('eventId', 'e1');

@@ -18,6 +18,8 @@ import { ApiError } from '../../../core/api/error.interceptor';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
+import { Chip, ChipTone } from '../../../shared/ui/chip';
+import { DataTable, DataTableColumn } from '../../../shared/ui/data-table';
 import { RegistrationQuestions } from './registration-questions';
 import {
   ESTADOS_DE_INSCRIPCION,
@@ -38,7 +40,17 @@ const LIMITE = 20;
 @Component({
   selector: 'app-event-registrations',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, DatePipe, Alert, Button, Card, RegistrationQuestions],
+  imports: [
+    TranslocoDirective,
+    RouterLink,
+    DatePipe,
+    Alert,
+    Button,
+    Card,
+    Chip,
+    DataTable,
+    RegistrationQuestions,
+  ],
   template: `
     <ng-container *transloco="let t">
       <app-card [heading]="t('admin.events.registrations.titulo')">
@@ -116,65 +128,57 @@ const LIMITE = 20;
         } @else if (items().length === 0) {
           <p>{{ t('admin.events.registrations.sinInscripciones') }}</p>
         } @else {
-          <table>
-            <thead>
+          <app-data-table
+            [columnas]="columnasDeInscripciones()"
+            [caption]="t('admin.events.registrations.titulo')"
+          >
+            @for (item of items(); track item.id) {
               <tr>
-                <th scope="col">{{ t('admin.events.registrations.columnaEmail') }}</th>
-                <th scope="col">{{ t('admin.events.registrations.columnaNombre') }}</th>
-                <th scope="col">{{ t('admin.events.registrations.columnaEstado') }}</th>
-                <th scope="col">{{ t('admin.events.registrations.columnaFecha') }}</th>
-                <th scope="col">{{ t('admin.events.registrations.columnaAcciones') }}</th>
+                <td>
+                  <a [routerLink]="['/dashboard/events', eventId(), 'registrations', item.id]">
+                    {{ item.email }}
+                  </a>
+                </td>
+                <td>{{ item.full_name }}</td>
+                <td>
+                  <app-chip [tone]="tonoDeEstado(item.status)">{{
+                    t('admin.events.registrations.estado' + claveDeEstado(item.status))
+                  }}</app-chip>
+                </td>
+                <td>{{ item.created_at | date: 'short' }}</td>
+                <td class="acciones">
+                  @if (item.status === 'pending_approval') {
+                    <app-button
+                      variant="secundario"
+                      type="button"
+                      [loading]="accionPendiente() === item.id"
+                      (pulsado)="aprobar(item.id)"
+                    >
+                      {{ t('admin.events.registrations.aprobar') }}
+                    </app-button>
+                    <app-button
+                      variant="peligro"
+                      type="button"
+                      [loading]="accionPendiente() === item.id"
+                      (pulsado)="rechazar(item.id)"
+                    >
+                      {{ t('admin.events.registrations.rechazar') }}
+                    </app-button>
+                  }
+                  @if (item.status !== 'cancelled' && item.status !== 'rejected') {
+                    <app-button
+                      variant="peligro"
+                      type="button"
+                      [loading]="accionPendiente() === item.id"
+                      (pulsado)="cancelar(item.id)"
+                    >
+                      {{ t('admin.events.registrations.cancelar') }}
+                    </app-button>
+                  }
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              @for (item of items(); track item.id) {
-                <tr>
-                  <td>
-                    <a [routerLink]="['/dashboard/events', eventId(), 'registrations', item.id]">
-                      {{ item.email }}
-                    </a>
-                  </td>
-                  <td>{{ item.full_name }}</td>
-                  <td>
-                    <code>{{
-                      t('admin.events.registrations.estado' + claveDeEstado(item.status))
-                    }}</code>
-                  </td>
-                  <td>{{ item.created_at | date: 'short' }}</td>
-                  <td class="acciones">
-                    @if (item.status === 'pending_approval') {
-                      <app-button
-                        variant="secundario"
-                        type="button"
-                        [loading]="accionPendiente() === item.id"
-                        (pulsado)="aprobar(item.id)"
-                      >
-                        {{ t('admin.events.registrations.aprobar') }}
-                      </app-button>
-                      <app-button
-                        variant="peligro"
-                        type="button"
-                        [loading]="accionPendiente() === item.id"
-                        (pulsado)="rechazar(item.id)"
-                      >
-                        {{ t('admin.events.registrations.rechazar') }}
-                      </app-button>
-                    }
-                    @if (item.status !== 'cancelled' && item.status !== 'rejected') {
-                      <app-button
-                        variant="peligro"
-                        type="button"
-                        [loading]="accionPendiente() === item.id"
-                        (pulsado)="cancelar(item.id)"
-                      >
-                        {{ t('admin.events.registrations.cancelar') }}
-                      </app-button>
-                    }
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
+            }
+          </app-data-table>
 
           @if (totalPaginas() > 1) {
             <nav [attr.aria-label]="t('admin.events.registrations.titulo')" class="paginacion">
@@ -240,16 +244,6 @@ const LIMITE = 20;
       color: var(--fg);
       font: inherit;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    th,
-    td {
-      text-align: left;
-      padding: var(--space-sm) var(--space-md);
-      border-bottom: 1px solid var(--border);
-    }
     .acciones {
       display: flex;
       gap: var(--space-sm);
@@ -290,9 +284,37 @@ export class EventRegistrations implements OnInit {
   protected readonly totalPaginas = computed(() => Math.max(1, Math.ceil(this.total() / LIMITE)));
   protected readonly paginaActual = computed(() => Math.floor(this.offset() / LIMITE) + 1);
 
+  /** Las columnas de la tabla de inscripciones, con la etiqueta ya traducida. */
+  protected readonly columnasDeInscripciones = computed<DataTableColumn[]>(() => {
+    const t = (clave: string): string => this.transloco.translate(clave);
+    return [
+      { key: 'email', label: t('admin.events.registrations.columnaEmail') },
+      { key: 'nombre', label: t('admin.events.registrations.columnaNombre') },
+      { key: 'estado', label: t('admin.events.registrations.columnaEstado') },
+      { key: 'fecha', label: t('admin.events.registrations.columnaFecha') },
+      { key: 'acciones', label: t('admin.events.registrations.columnaAcciones') },
+    ];
+  });
+
   ngOnInit(): void {
     void this.cargar();
     void this.cargarEstadisticas();
+  }
+
+  /** El estado de una inscripción se lee por su texto: el color solo lo refuerza. */
+  protected tonoDeEstado(estado: RegistrationStatus): ChipTone {
+    switch (estado) {
+      case 'confirmed':
+        return 'ok';
+      case 'pending_verification':
+      case 'pending_approval':
+      case 'pending_payment':
+      case 'waitlisted':
+        return 'espera';
+      case 'rejected':
+      case 'cancelled':
+        return 'apagado';
+    }
   }
 
   protected formatearTasa(valor: number | null): string {

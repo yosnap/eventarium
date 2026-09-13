@@ -74,8 +74,31 @@ describe('MembersPage', () => {
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
-  it('muestra paginación cuando hay más de una página y pide la siguiente', async () => {
+  it('la tabla usa app-data-table con caption y scroll alcanzable con teclado', async () => {
     const fixture = TestBed.createComponent(MembersPage);
+    await avanzar(fixture);
+    http
+      .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/members')
+      .flush(pagina(1, 0));
+    await avanzar(fixture);
+
+    const contenedor = fixture.nativeElement.querySelector(
+      'app-data-table',
+    ) as HTMLElement | null;
+    expect(contenedor).not.toBeNull();
+
+    const tabla = contenedor!.querySelector('table') as HTMLTableElement;
+    expect(tabla.querySelector('caption')?.textContent?.trim()).toBeTruthy();
+    expect(tabla.querySelectorAll('th[scope="col"]').length).toBe(3);
+    expect(tabla.querySelectorAll('tbody tr').length).toBe(1);
+
+    const ranura = contenedor!.querySelector('.ranura-scroll') as HTMLElement;
+    expect(ranura.getAttribute('tabindex')).toBe('0');
+    expect(ranura.getAttribute('role')).toBe('region');
+    expect(ranura.getAttribute('aria-label')).toBeTruthy();
+  });
+
+  it('muestra paginación cuando hay más de una página y pide la siguiente', async () => {    const fixture = TestBed.createComponent(MembersPage);
     await avanzar(fixture);
     http
       .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/members')

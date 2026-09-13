@@ -9,7 +9,7 @@ import { ApiError } from '../../../core/api/error.interceptor';
 import { displayName } from '../../../core/auth/auth.service';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
-import { Card } from '../../../shared/ui/card';
+import { DataTable, DataTableColumn } from '../../../shared/ui/data-table';
 
 interface Member {
   readonly id: string;
@@ -35,7 +35,7 @@ const LIMITE = 20;
 @Component({
   selector: 'app-members-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, Card],
+  imports: [TranslocoDirective, RouterLink, Alert, Button, DataTable],
   template: `
     <ng-container *transloco="let t">
       <div class="cabecera">
@@ -57,28 +57,20 @@ const LIMITE = 20;
       } @else if (miembros().length === 0) {
         <p>{{ t('admin.members.sinMiembros') }}</p>
       } @else {
-        <app-card>
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">{{ t('admin.members.columnaNombre') }}</th>
-                <th scope="col">{{ t('admin.members.columnaCorreo') }}</th>
-                <th scope="col">{{ t('admin.members.columnaRol') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (miembro of miembros(); track miembro.id) {
-                <tr>
-                  <td>{{ nombreDe(miembro) }}</td>
-                  <td>{{ miembro.email }}</td>
-                  <td>
-                    <code>{{ miembro.role_key }}</code>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </app-card>
+        <app-data-table
+          [columnas]="columnasDeMiembros()"
+          [caption]="t('admin.members.titulo')"
+        >
+          @for (miembro of miembros(); track miembro.id) {
+            <tr>
+              <td>{{ nombreDe(miembro) }}</td>
+              <td>{{ miembro.email }}</td>
+              <td>
+                <code>{{ miembro.role_key }}</code>
+              </td>
+            </tr>
+          }
+        </app-data-table>
 
         @if (totalPaginas() > 1) {
           <nav [attr.aria-label]="t('admin.members.titulo')" class="paginacion">
@@ -117,16 +109,6 @@ const LIMITE = 20;
     h1 {
       margin: 0;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    th,
-    td {
-      text-align: left;
-      padding: var(--space-sm) var(--space-md);
-      border-bottom: 1px solid var(--border);
-    }
     .paginacion {
       display: flex;
       align-items: center;
@@ -150,6 +132,16 @@ export class MembersPage {
   protected readonly totalPaginas = computed(() => Math.max(1, Math.ceil(this.total() / LIMITE)));
   protected readonly paginaActual = computed(() => Math.floor(this.offset() / LIMITE) + 1);
   protected readonly nombreDe = displayName;
+
+  /** Las columnas de la tabla de miembros, con la etiqueta ya traducida. */
+  protected readonly columnasDeMiembros = computed<DataTableColumn[]>(() => {
+    const t = (clave: string): string => this.transloco.translate(clave);
+    return [
+      { key: 'nombre', label: t('admin.members.columnaNombre') },
+      { key: 'correo', label: t('admin.members.columnaCorreo') },
+      { key: 'rol', label: t('admin.members.columnaRol') },
+    ];
+  });
 
   constructor() {
     void this.cargar();

@@ -180,8 +180,46 @@ describe('EventCheckIn', () => {
     expect(texto).toContain('m2');
   });
 
-  it('busca inscripciones confirmadas y ofrece marcar el check-in manual', async () => {
+  it('comunica el resultado del escaneo con texto y no solo con color', async () => {
     const fixture = await crearComponente();
+    const componente = fixture.componentInstance as unknown as {
+      encolarEscaneo(token: string): Promise<void>;
+    };
+    silenciarCargaInicial(http);
+    await avanzar(fixture);
+
+    await componente.encolarEscaneo('token-valido');
+    await avanzar(fixture);
+
+    const peticion = http.expectOne(
+      (peticion) => peticion.url === '/api/v1/events/e1/tickets/scan/batch',
+    );
+    peticion.flush([
+      {
+        client_scan_id: peticion.request.body.scans[0].client_scan_id,
+        result: 'valid',
+        ticket_id: 't1',
+        registration_id: 'r1',
+        full_name: 'Persona Válida',
+        email: 'valida@example.com',
+        used_at: null,
+        used_by_event_member_id: null,
+      },
+    ]);
+    await avanzar(fixture);
+
+    const fila = fixture.nativeElement.querySelector(
+      '.resultados li',
+    ) as HTMLElement | null;
+    expect(fila).not.toBeNull();
+    // El color es refuerzo (clase de estado); el texto y el icono son los que
+    // informan. Quitar el color no puede dejar la fila sin significado.
+    expect(fila!.getAttribute('class')).toContain('estado-valid');
+    expect(fila!.textContent).toBeTruthy();
+    expect(fila!.querySelector('.icono')?.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('busca inscripciones confirmadas y ofrece marcar el check-in manual', async () => {    const fixture = await crearComponente();
     silenciarCargaInicial(http);
     await avanzar(fixture);
 

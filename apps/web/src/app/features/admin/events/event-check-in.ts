@@ -184,15 +184,23 @@ function generarId(): string {
     </ng-container>
   `,
   styles: `
+    /* Esta pantalla se usa de pie, con una cámara y con prisa: los objetivos
+       táctiles, el contador y el resultado se leen a distancia (ver la sección
+       de chequeo táctil en el plan de la fase 5). El resultado nunca se
+       comunica solo por color: cada fila lleva su icono y su texto. */
     .contador {
       font-weight: 600;
-      font-size: 1.125rem;
+      font-size: var(--fs-h3);
+      font-variant-numeric: tabular-nums;
     }
     .camara video {
       width: 100%;
       max-width: 28rem;
       border-radius: var(--radius-md);
-      background-color: #000;
+      background-color: var(--surface-2);
+    }
+    .resultados {
+      max-height: 22rem;
     }
     .resultados,
     .busqueda-resultados {
@@ -200,30 +208,35 @@ function generarId(): string {
       margin: 0;
       padding: 0;
       display: grid;
-      gap: var(--space-sm);
-      max-height: 24rem;
+      gap: var(--space-md);
       overflow-y: auto;
     }
     .resultados li,
     .busqueda-resultados li {
       display: flex;
       align-items: center;
-      gap: var(--space-sm);
-      padding: var(--space-sm);
-      border: 1px solid var(--border);
+      gap: var(--space-md);
+      /* Objetivo amplio y lectura a distancia: esto no es una fila de tabla. */
+      padding: var(--space-md);
+      border: 2px solid var(--border);
       border-radius: var(--radius-md);
     }
     .icono {
-      font-size: 1.25rem;
+      font-size: var(--fs-h3);
+      flex-shrink: 0;
+    }
+    .texto strong {
+      font-size: var(--fs-h3);
     }
     .detalle {
       display: block;
-      font-size: 0.875rem;
+      font-size: var(--fs-body);
       color: var(--muted);
     }
     .estado-valid,
     .estado-manual {
       border-color: var(--accent);
+      background-color: var(--accent-dim);
     }
     .estado-duplicate,
     .estado-revoked,
@@ -231,6 +244,12 @@ function generarId(): string {
     .estado-invalid_signature,
     .estado-not_found {
       border-color: var(--danger);
+      background-color: var(--danger-dim);
+    }
+    .resultados li app-button,
+    .busqueda-resultados li app-button {
+      margin-left: auto;
+      flex-shrink: 0;
     }
     form {
       display: flex;
@@ -319,16 +338,25 @@ export class EventCheckIn implements OnInit, OnDestroy {
    * Manifest propio de esta ruta (decisión del plan): se genera en memoria
    * con el `start_url` del evento activo, en vez de un fichero estático que
    * no podría saber qué evento se está escaneando ahora mismo.
+   *
+   * `background_color` y `theme_color` los pinta el sistema operativo (barra
+   * de estado, pantalla de bienvenida del PWA), fuera del alcance de las
+   * hojas de estilo: no se pueden leer de un token CSS. Se leen del tema
+   * aplicado —el mismo que usan las hojas— para que el icono instalado no
+   * desentone, con `black` de reserva para cuando el token no está disponible.
    */
   private instalarManifiestoDinamico(): void {
+    const estilo = getComputedStyle(document.documentElement);
+    const fondo = estilo.getPropertyValue('--bg').trim() || estilo.getPropertyValue('--surface').trim();
+    const colorDeFondo = fondo || 'black';
     const manifiesto = {
       name: 'IA Week — Check-in',
       short_name: 'Check-in',
       description: 'Escaneo de entradas y control de acceso',
       start_url: `/dashboard/events/${this.eventId()}/check-in`,
       display: 'standalone',
-      background_color: '#111827',
-      theme_color: '#111827',
+      background_color: colorDeFondo,
+      theme_color: colorDeFondo,
       icons: [{ src: '/favicon.ico', sizes: '48x48', type: 'image/x-icon' }],
     };
     const blob = new Blob([JSON.stringify(manifiesto)], { type: 'application/manifest+json' });

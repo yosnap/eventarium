@@ -179,35 +179,22 @@ const AUDIT_LOG_URL = '/admin/audit-log';
         @if (!cargandoAuditoria() && entradas().length === 0) {
           <p>{{ t('admin.superadmin.auditoria.sinResultados') }}</p>
         } @else {
-          <table>
-            <caption class="visualmente-oculto">
-              {{
-                t('admin.superadmin.auditoria.titulo')
-              }}
-            </caption>
-            <thead>
+          <app-data-table
+            [columnas]="columnasDeAuditoria()"
+            [caption]="t('admin.superadmin.auditoria.titulo')"
+          >
+            @for (entrada of entradas(); track entrada.id) {
               <tr>
-                <th scope="col">{{ t('admin.superadmin.auditoria.columnaFecha') }}</th>
-                <th scope="col">{{ t('admin.superadmin.auditoria.columnaAccion') }}</th>
-                <th scope="col">{{ t('admin.superadmin.auditoria.columnaOrganizacion') }}</th>
-                <th scope="col">{{ t('admin.superadmin.auditoria.columnaEntidad') }}</th>
-                <th scope="col">{{ t('admin.superadmin.auditoria.columnaDetalle') }}</th>
+                <td>{{ entrada.created_at }}</td>
+                <td>{{ entrada.action }}</td>
+                <td>{{ entrada.organization_id ?? '—' }}</td>
+                <td>{{ entrada.entity_type }} · {{ entrada.entity_id ?? '—' }}</td>
+                <td>
+                  <code>{{ resumenDetalle(entrada.detail) }}</code>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              @for (entrada of entradas(); track entrada.id) {
-                <tr>
-                  <td>{{ entrada.created_at }}</td>
-                  <td>{{ entrada.action }}</td>
-                  <td>{{ entrada.organization_id ?? '—' }}</td>
-                  <td>{{ entrada.entity_type }} · {{ entrada.entity_id ?? '—' }}</td>
-                  <td>
-                    <code>{{ resumenDetalle(entrada.detail) }}</code>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
+            }
+          </app-data-table>
         }
       </app-card>
 
@@ -299,25 +286,6 @@ const AUDIT_LOG_URL = '/admin/audit-log';
       font: inherit;
       min-height: 2.75rem;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    th,
-    td {
-      text-align: left;
-      padding: var(--space-sm);
-      border-bottom: 1px solid var(--border);
-      vertical-align: top;
-    }
-    .visualmente-oculto {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      white-space: nowrap;
-    }
     .formulario {
       display: grid;
       gap: var(--space-md);
@@ -382,6 +350,18 @@ export class SuperadminPage {
       { key: 'inscripcion', label: t('admin.plataforma.actividad.columnaInscripcion') },
       { key: 'acceso', label: t('admin.plataforma.actividad.columnaAcceso') },
       { key: 'estado', label: t('admin.plataforma.actividad.columnaEstado') },
+    ];
+  });
+
+  /** Las columnas de la tabla de auditoría, con la etiqueta ya traducida. */
+  protected readonly columnasDeAuditoria = computed<DataTableColumn[]>(() => {
+    const t = (clave: string): string => this.transloco.translate(clave);
+    return [
+      { key: 'fecha', label: t('admin.superadmin.auditoria.columnaFecha') },
+      { key: 'accion', label: t('admin.superadmin.auditoria.columnaAccion') },
+      { key: 'organizacion', label: t('admin.superadmin.auditoria.columnaOrganizacion') },
+      { key: 'entidad', label: t('admin.superadmin.auditoria.columnaEntidad') },
+      { key: 'detalle', label: t('admin.superadmin.auditoria.columnaDetalle') },
     ];
   });
 

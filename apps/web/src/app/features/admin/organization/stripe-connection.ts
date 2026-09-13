@@ -10,6 +10,7 @@ import { PaymentsService, StripeAccountStatus } from '../../../core/payments/pay
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
+import { Chip, ChipTone } from '../../../shared/ui/chip';
 
 type EstadoVisual = 'sin_conectar' | 'desautorizada' | 'pendiente' | 'operativa';
 
@@ -35,7 +36,7 @@ function estadoVisualDe(estado: StripeAccountStatus | null): EstadoVisual {
 @Component({
   selector: 'app-stripe-connection',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card],
+  imports: [TranslocoDirective, Alert, Button, Card, Chip],
   template: `
     <ng-container *transloco="let t">
       <h1>{{ t('admin.stripe.titulo') }}</h1>
@@ -52,14 +53,22 @@ function estadoVisualDe(estado: StripeAccountStatus | null): EstadoVisual {
           <app-card>
             @switch (estadoVisual()) {
               @case ('sin_conectar') {
-                <app-alert tone="info">{{ t('admin.stripe.estadoSinConectar') }}</app-alert>
+                <p class="estado">
+                  <app-chip [tone]="tonoDeEstado()">{{
+                    t('admin.stripe.chipSinConectar')
+                  }}</app-chip>
+                  <span>{{ t('admin.stripe.estadoSinConectar') }}</span>
+                </p>
                 <p class="advertencia-salida">{{ t('admin.stripe.advertenciaSalida') }}</p>
                 <app-button [loading]="iniciandoOnboarding()" (pulsado)="conectar()">
                   {{ t('admin.stripe.conectar') }}
                 </app-button>
               }
               @case ('pendiente') {
-                <app-alert tone="info">{{ t('admin.stripe.estadoPendiente') }}</app-alert>
+                <p class="estado">
+                  <app-chip [tone]="tonoDeEstado()">{{ t('admin.stripe.chipPendiente') }}</app-chip>
+                  <span>{{ t('admin.stripe.estadoPendiente') }}</span>
+                </p>
                 <div class="acciones">
                   <app-button [loading]="iniciandoOnboarding()" (pulsado)="conectar()">
                     {{ t('admin.stripe.continuarOnboarding') }}
@@ -74,7 +83,10 @@ function estadoVisualDe(estado: StripeAccountStatus | null): EstadoVisual {
                 </div>
               }
               @case ('operativa') {
-                <app-alert tone="exito">{{ t('admin.stripe.estadoOperativa') }}</app-alert>
+                <p class="estado">
+                  <app-chip [tone]="tonoDeEstado()">{{ t('admin.stripe.chipOperativa') }}</app-chip>
+                  <span>{{ t('admin.stripe.estadoOperativa') }}</span>
+                </p>
                 <app-button
                   variant="secundario"
                   [loading]="sincronizando()"
@@ -84,7 +96,12 @@ function estadoVisualDe(estado: StripeAccountStatus | null): EstadoVisual {
                 </app-button>
               }
               @case ('desautorizada') {
-                <app-alert tone="error">{{ t('admin.stripe.estadoDesautorizada') }}</app-alert>
+                <p class="estado">
+                  <app-chip [tone]="tonoDeEstado()">{{
+                    t('admin.stripe.chipDesautorizada')
+                  }}</app-chip>
+                  <span>{{ t('admin.stripe.estadoDesautorizada') }}</span>
+                </p>
                 <p class="advertencia-salida">{{ t('admin.stripe.advertenciaSalida') }}</p>
                 <app-button [loading]="iniciandoOnboarding()" (pulsado)="conectar()">
                   {{ t('admin.stripe.reconectar') }}
@@ -105,6 +122,13 @@ function estadoVisualDe(estado: StripeAccountStatus | null): EstadoVisual {
       gap: var(--space-md);
       flex-wrap: wrap;
       margin-top: var(--space-sm);
+    }
+    .estado {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      margin: 0;
+      flex-wrap: wrap;
     }
     .advertencia-salida {
       color: var(--muted);
@@ -131,6 +155,20 @@ export class StripeConnection {
   protected readonly error = signal<string | null>(null);
   protected readonly estado = signal<StripeAccountStatus | null>(null);
   protected readonly estadoVisual = computed(() => estadoVisualDe(this.estado()));
+
+  /** El tono del chip según el estado visual; el texto del chip es el que informa. */
+  protected readonly tonoDeEstado = computed<ChipTone>(() => {
+    switch (this.estadoVisual()) {
+      case 'operativa':
+        return 'ok';
+      case 'pendiente':
+        return 'espera';
+      case 'desautorizada':
+        return 'apagado';
+      case 'sin_conectar':
+        return 'neutro';
+    }
+  });
 
   private organizationId: string | null = null;
 
