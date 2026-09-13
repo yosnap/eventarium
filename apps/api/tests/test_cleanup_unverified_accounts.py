@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
@@ -9,7 +10,9 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cleanup import sweep_unverified_accounts
+from app.modules.organizations.invitations_models import OrganizationInvitation
 from app.modules.users.models import User
+from tests.conftest import OrganizacionDePrueba
 
 
 async def _crear_usuario_sin_verificar(
@@ -114,6 +117,110 @@ async def test_verificar_tras_el_aviso_cancela_el_borrado(maintenance_db: AsyncS
         select(User.id).where(User.email == "rescatada@example.com")
     )
     assert sigue is not None
+
+
+async def _crear_invitacion_pendiente(
+    maintenance_db: AsyncSession,
+    *,
+    organizacion: OrganizacionDePrueba,
+    email: str,
+    usuario_id: uuid.UUID,
+    caduca_en: timedelta,
+) -> None:
+    invitacion = OrganizationInvitation(
+        organization_id=organizacion.id,
+        email=email,
+        role_id=organizacion.owner_role_id,
+        estado="pendiente",
+        expires_at=datetime.now(UTC) + caduca_en,
+        invited_by_user_id=usuario_id,
+    )
+    maintenance_db.add(invitacion)
+    await maintenance_db.commit()
+
+
+async def test_no_avisa_a_quien_tiene_una_invitacion_pendiente_sin_caducar(
+    maintenance_db: AsyncSession, organizacion: OrganizacionDePrueba
+) -> None:
+    """Fase 5 del plan de invitaciones: `TTL_INVITACION` coincide con el plazo
+    del barrido, así que sin esta excepción quien tarda 5 días en aceptar
+    recibiría el aviso de «tu cuenta se va a eliminar» sin tener ninguna
+    verificación de correo pendiente."""
+    await _crear_usuario_sin_verificar(
+        maintenance_db,
+        email="invitada-pendiente@example.com",
+        antiguedad=timedelta(days=5, hours=1),
+    )
+    usuario_id = await maintenance_db.scalar(
+        select(User.id).where(User.email == "invitada-pendiente@example.com")
+    )
+    assert usuario_id is not None
+    await _crear_invitacion_pendiente(
+        maintenance_db,
+        organizacion=organizacion,
+        email="invitada-pendiente@example.com",
+        usuario_id=organizacion.owner_id,
+        caduca_en=timedelta(days=2),
+    )
+
+    with patch("app.core.cleanup.get_email_provider") as proveedor_falso:
+        envio = AsyncMock()
+        proveedor_falso.return_value.send = envio
+        await sweep_unverified_accounts()
+
+    envio.assert_not_awaited()
+
+
+async def test_no_borra_a_quien_tiene_una_invitacion_pendiente_sin_caducar(
+    maintenance_db: AsyncSession, organizacion: OrganizacionDePrueba
+) -> None:
+    await _crear_usuario_sin_verificar(
+        maintenance_db,
+        email="invitada-al-limite@example.com",
+        antiguedad=timedelta(days=7, hours=1),
+    )
+    await _crear_invitacion_pendiente(
+        maintenance_db,
+        organizacion=organizacion,
+        email="invitada-al-limite@example.com",
+        usuario_id=organizacion.owner_id,
+        caduca_en=timedelta(hours=1),
+    )
+
+    with patch("app.core.cleanup.get_email_provider") as proveedor_falso:
+        proveedor_falso.return_value.send = AsyncMock()
+        await sweep_unverified_accounts()
+
+    sigue = await maintenance_db.scalar(
+        select(User.id).where(User.email == "invitada-al-limite@example.com")
+    )
+    assert sigue is not None
+
+
+async def test_borra_tras_caducar_la_invitacion_aunque_no_se_haya_aceptado(
+    maintenance_db: AsyncSession, organizacion: OrganizacionDePrueba
+) -> None:
+    await _crear_usuario_sin_verificar(
+        maintenance_db,
+        email="invitacion-caducada@example.com",
+        antiguedad=timedelta(days=7, hours=1),
+    )
+    await _crear_invitacion_pendiente(
+        maintenance_db,
+        organizacion=organizacion,
+        email="invitacion-caducada@example.com",
+        usuario_id=organizacion.owner_id,
+        caduca_en=timedelta(days=-1),
+    )
+
+    with patch("app.core.cleanup.get_email_provider") as proveedor_falso:
+        proveedor_falso.return_value.send = AsyncMock()
+        await sweep_unverified_accounts()
+
+    sigue = await maintenance_db.scalar(
+        select(User.id).where(User.email == "invitacion-caducada@example.com")
+    )
+    assert sigue is None
 
 
 async def test_un_fallo_de_envio_no_bloquea_el_resto_del_barrido(

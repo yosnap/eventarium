@@ -407,6 +407,45 @@ con `session.add()`: el ORM añadiría `RETURNING` para leer `created_at`
 (`server_default`), y `INSERT ... RETURNING` exige además `SELECT` sobre las
 columnas devueltas, que este rol no tiene a propósito.
 
+### Invitaciones de equipo y de ponente (plan de invitaciones)
+
+`organization_invitations` guarda **estado**, nunca el token: `id`,
+`organization_id`, `email`, `role_id`, `event_id` (nullable — vacío para una
+invitación de equipo, relleno cuando nace desde un evento), `estado`
+(`pendiente`/`aceptada`/`revocada`; `caducada` se deriva de `expires_at` al
+leer, no se escribe), `expires_at`, `accepted_at`, `accepted_by_user_id`,
+`invited_by_user_id`, `token_hash`. El token de un solo uso vive en Redis
+(`auth/verification.py`, propósito `invitacion`), con el `id` de esta fila
+como payload — ver la razón de seguridad en `docs/arquitectura.md`.
+
+**`role_id` con `ON DELETE CASCADE`.** Borrar un rol cancela (borra) sus
+invitaciones pendientes: un rol que ya no existe no debería poder concederse,
+así que no tiene sentido conservar una invitación que apunta a él.
+
+**`event_id` con FK compuesta contra `(id, organization_id)` de `events`**,
+mismo patrón que `event_members`: sin ella, nada a nivel de base de datos
+impediría que una invitación de un evento apuntara a un evento de otra
+organización.
+
+**`accepted_by_user_id`/`invited_by_user_id` con `ON DELETE SET NULL`**,
+mismo patrón que `audit_log.actor_user_id`: la fila se conserva por
+trazabilidad aunque la persona se borre — no existe hoy un endpoint que borre
+usuarios, pero el patrón es el mismo que ya usa el proyecto para estas
+referencias.
+
+**`token_hash` no es el token.** Es su huella SHA-256, igual que
+`users.password_hash` no es la contraseña. Sirve para que reenviar una
+invitación pueda borrar la clave de Redis del token anterior por su nombre
+exacto, sin haber guardado nunca el token en claro en ningún sitio.
+
+**El listado de miembros agrupa por persona, no por membresía.**
+`GET /organizations/me/members` devuelve una fila por persona con
+`roles: [...]` — antes era una fila por rol, así que la misma persona con dos
+roles (`UNIQUE(organization_id, user_id, role_id)`, el modelo ya lo permitía)
+aparecía dos veces sin nada que dijera que eran la misma. Es un cambio de
+contrato, no un cambio de esquema: el modelo no se tocó, solo la forma de la
+respuesta.
+
 ### Permisos como texto validado en código
 
 `role_permissions.permission` guarda una cadena, pero solo se aceptan valores del enum
@@ -472,6 +511,10 @@ la visibilidad: la fila solo será legible cuando exista la membresía.
 | `0010_inscripcion_de_asistentes` | `event_registrations`, `event_registration_answers`, `event_registration_consents`; funciones `SECURITY DEFINER` para el formulario público de inscripción |
 | `0011_entradas_qr` | `event_tickets`, `event_ticket_scans`; emisión automática de entrada al confirmarse una inscripción |
 | `0012_patrocinio_legal_auditoria` | `sponsor_tiers`, `sponsors` (con `UNIQUE(id, organization_id)` en `sponsor_tiers`), `audit_log`, `cookie_consents` (`REVOKE ALL ... FROM app_user` explícito en ambas, `GRANT INSERT` puntual en `cookie_consents`), columnas legales en `organizations`; backfill de `sponsors:read`/`write` a roles existentes con `organizations:write` |
+| … | Fases 6-7 del PRD (pagos, contabilidad) y ajustes de tema/plataforma — no recogidas aquí; ver los ficheros de `alembic/versions/` para su detalle |
+| `0026_permiso_de_invitaciones` | `Permission.INVITATIONS_MANAGE`; backfill a roles con `organizations:write`, más la plantilla `ORGANIZER` actualizada en código (fase 0 del plan de invitaciones) |
+| `0027_invitaciones_de_equipo` | `organization_invitations`, con RLS y las FK compuestas/`CASCADE` descritas arriba (fase 1 del plan de invitaciones) |
+| `0028_estado_de_cuenta_invitada` | `app_find_user_by_email` gana `has_password` (requiere `DROP`+`CREATE`, no `CREATE OR REPLACE`, porque cambia el tipo de retorno); `app_accept_invited_user`, nueva (fase 2 del plan de invitaciones, ver más abajo) |
 
 Se ejecutan siempre con `DATABASE_MIGRATIONS_URL` (rol `app_maintainer`). Con el rol de
 la API fallarían, y eso es deliberado. El ciclo `upgrade head` → `downgrade base` →
@@ -532,3 +575,28 @@ persona. Mismo patrón que las funciones anteriores:
 Tras `app_create_organization_row`, el resto del alta (clonar roles, crear el dominio y
 el branding por defecto, dar de alta a la persona como `owner`) ya ocurre con contexto
 RLS normal, fijado por `set_organization_context` con la organización recién creada.
+
+### Invitaciones: dos funciones `SECURITY DEFINER` más
+
+Resolver un token de invitación tiene el mismo problema que el registro público: la
+persona todavía no ha iniciado sesión y puede no pertenecer a ninguna organización, así
+que `tenant_users` no le deja ver su propia fila. Y aceptar la invitación tiene uno
+añadido, propio de esta fase: la fila de `users` a actualizar puede pertenecer a alguien
+que **ya** es miembro de otra organización distinta a la que invita, así que tampoco vale
+con el contexto de la organización que invita.
+
+| Función | Uso |
+|---|---|
+| `app_find_user_by_email(email)` | Extendida en `0028` con `has_password`: `create_invitation` la usa para decidir si el correo ya tiene cuenta (S-1: solo entonces se salta el token) |
+| `app_accept_invited_user(user_id, password_hash, first_name, last_name)` | Fija contraseña, nombre y apellidos, y marca el correo verificado si no lo estaba — en una única llamada atómica |
+
+`app_find_user_by_email` cambia de tipo de retorno en `0028` (gana la columna
+`has_password`), así que la migración la recrea con `DROP FUNCTION` + `CREATE FUNCTION`:
+`CREATE OR REPLACE` no vale cuando cambia la firma de salida, solo cuando cambian el
+cuerpo o los argumentos de entrada.
+
+`accept_invitation` (`invitations_service.py`) crea la fila de `OrganizationMember`
+**antes** de llamar a `app_accept_invited_user`, dentro de la misma transacción: así esa
+membresía ya es visible para la política `tenant_users` (que exige compartir
+organización) en cuanto la función marca el correo como verificado, sin depender de que
+`app_accept_invited_user` sea la única vía de lectura.

@@ -181,6 +181,63 @@ vuelta en cada petición autenticada sin depender de la cookie. Redis mantiene a
 un índice inverso familia→usuario (`refresh:familias_usuario:{user_id}`) para poder
 revocar todas las familias de una persona sin recorrer Redis entero.
 
+### Invitaciones: activar un camino de entrada que ya existía sin usar
+
+`add_member` ya creaba una cuenta sin contraseña cuando el correo invitado no existía
+(`organizations/members_service.py`), y `reset_password` ya sabía completar esa cuenta:
+el mecanismo de entrada estaba construido antes de este PRD, solo no tenía estado
+(no había forma de saber qué invitaciones seguían pendientes, ni de reenviarlas o
+revocarlas) ni un correo propio. `count(*)` de usuarios sin contraseña en la base de
+desarrollo, antes de activarlo: **0** — el camino existía sin que nadie lo hubiera
+recorrido nunca.
+
+**`organization_invitations`** guarda el estado (`pendiente`, `aceptada`, `revocada`;
+`caducada` se deriva de `expires_at` al leer, nunca se escribe), no el token. El token
+va al mismo mecanismo de Redis+TTL que el resto (`auth/verification.py`), con su propio
+propósito: `invitacion`. `token_hash` en la fila es la huella SHA-256 del token vigente
+—no el token, igual que `password_hash` no es la contraseña—, y existe solo para que
+reenviar una invitación pueda borrar la clave de Redis del token anterior por su nombre
+exacto sin haberlo guardado nunca en claro.
+
+**Por qué la invitación no reutiliza el enlace de recuperación de contraseña** (hallazgo
+S-1 del red-team, la decisión de seguridad que más fácil se rompe con el tiempo si
+alguien la olvida): `reset_password` no comprueba que el correo del token coincida con
+el de la cuenta —el token **es** la prueba de identidad—, así que si una invitación
+emitiera un token de `password_reset`, invitar el correo de otra persona a un rol
+cualquiera sería fijarle una contraseña nueva sin su consentimiento. La clave de Redis
+incluye el propósito (`verify:{proposito}:{huella}`), así que un token de `invitacion`
+es inconsumible en `/auth/reset-password` y al revés — la separación de propósitos no es
+un detalle de implementación, es lo que cierra el secuestro de cuenta.
+
+**Regla dura complementaria:** un correo que **ya tiene cuenta** nunca recibe un token de
+invitación. Se le añade la membresía directamente (mismo camino que el alta manual,
+`add_member`) y se le avisa, sin token de ningún tipo — «tal como se haría en otra
+plataforma» (decisión del usuario). Esto es lo que permite además que la misma persona
+sea ponente en dos organizaciones distintas sin duplicar su cuenta: `users` es global a
+la instalación, así que invitar un correo que ya existe en otra organización la
+reconoce y añade, nunca la duplica.
+
+`invitations_service.accept_invitation` fija la contraseña y el nombre con
+`app_accept_invited_user` (`SECURITY DEFINER`, mismo motivo que `app_set_user_password`:
+quien acepta no tiene sesión propia ni comparte organización con nadie todavía) y crea
+la membresía **antes** de esa llamada, en la misma transacción: una vez existe la fila
+de `organization_members`, `tenant_users` (RLS) la hace visible para la comprobación de
+`UPDATE` de esa misma transacción sin necesitar una segunda función privilegiada.
+
+**Un ponente invitado no edita su propia sesión, declarado a propósito.** El rol
+`speaker` tiene un único permiso, `ORGANIZATIONS_READ` — el editor de sesión vive
+detrás de `EVENTS_WRITE`, que ese rol no tiene. Los materiales de una charla los
+sube el organizador, no la persona que la imparte; `event-roster.ts` lo dice al
+invitar. No es un olvido: la alternativa (un permiso acotado a "solo mis
+sesiones") queda anotada para un PRD aparte porque tiene un caso sin resolver —
+dos ponentes en la misma sesión, y uno pisando los materiales del otro.
+
+**Lo que este plan deja fuera, también declarado:** un catálogo de patrocinadores
+reutilizable entre organizaciones (hoy cada patrocinio es por evento) y la
+moderación de eventos desde la plataforma (suspender o cancelar un evento ajeno)
+no entran aquí — cada uno necesita su propio modelo de datos y sus propias
+decisiones, y forzarlos en este PRD habría sido sobre-alcance.
+
 ## Permisos y anti-escalada
 
 El catálogo de permisos vive en código (`core/permissions.py`), no en base de datos: así
