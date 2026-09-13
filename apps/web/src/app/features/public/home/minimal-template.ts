@@ -5,7 +5,14 @@ import { ThemingService } from '../../../core/theming/theming.service';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 import { UpcomingEvents } from './upcoming-events';
 
-/** Plantilla pública «minimal»: texto alineado a la izquierda, sin bloque destacado. */
+/**
+ * Plantilla pública «minimal»: texto alineado a la izquierda, sin bloque destacado.
+ *
+ * El rótulo de «próximamente» se retiró, por la misma razón que en
+ * `classic-template.ts`: decía que la edición estaba por llegar mientras el
+ * listado de debajo mostraba los eventos publicados. Aquí es donde irá el hero
+ * que cuente qué es Eventarium, cuando se decida esa pieza de producto.
+ */
 @Component({
   selector: 'app-minimal-template',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -14,7 +21,6 @@ import { UpcomingEvents } from './upcoming-events';
     <ng-container *transloco="let t">
       <section class="minimal" appReveal>
         <div class="ancho-maximo minimal-en">
-          <p class="rotulo-seccion etiqueta-acento">{{ t('publico.proximamente') }}</p>
           <h1>{{ theming.nombreDeMarca() }}</h1>
           @if (theming.organizacion()?.organizer_blurb; as descripcion) {
             <p class="descripcion">{{ descripcion }}</p>
@@ -33,9 +39,6 @@ import { UpcomingEvents } from './upcoming-events';
       gap: var(--space-sm);
       max-width: 42rem;
       padding: var(--space-lg) 0 var(--space-lg);
-    }
-    .etiqueta-acento {
-      color: var(--accent);
     }
     h1 {
       margin: 0;

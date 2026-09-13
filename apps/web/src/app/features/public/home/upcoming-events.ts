@@ -35,8 +35,14 @@ const CLAVE = makeStateKey<ResumenDeEvento[]>('home-upcoming-events');
  * mismo criterio de "no pintar lo que la API no devuelve" (decisión del
  * usuario, no una lectura literal de la referencia).
  *
- * Se muestra solo si hay al menos un evento: una organización sin eventos
- * todavía no gana una sección vacía con un título sin contenido debajo.
+ * La sección se pinta siempre, también sin eventos: en ese caso dice que
+ * todavía no hay ninguno, en vez de desaparecer sin más. Eso obliga a
+ * distinguir «cargando» de «cargado y vacío» (`cargado`), porque si no el
+ * mensaje de lista vacía parpadearía durante la carga, antes de que la API
+ * conteste.
+ *
+ * El rótulo «Próximamente» que iba encima de «Próximos eventos» se retiró:
+ * decía lo mismo dos veces. Queda el encabezado, que ya lo dice.
  */
 @Component({
   selector: 'app-upcoming-events',
@@ -44,11 +50,14 @@ const CLAVE = makeStateKey<ResumenDeEvento[]>('home-upcoming-events');
   imports: [DatePipe, RouterLink, TranslocoDirective, Reveal],
   template: `
     <ng-container *transloco="let t">
-      @if (eventos().length > 0) {
-        <section class="proximos" appReveal>
-          <div class="ancho-maximo proximos-en">
-            <p class="rotulo-seccion">{{ t('publico.eventos.proximosRotulo') }}</p>
-            <h2>{{ t('publico.eventos.proximosTitulo') }}</h2>
+      <section class="proximos" appReveal>
+        <div class="ancho-maximo proximos-en">
+          <h2>{{ t('publico.eventos.proximosTitulo') }}</h2>
+          @if (eventos().length === 0) {
+            @if (cargado()) {
+              <p class="vacio">{{ t('publico.eventos.sinEventos') }}</p>
+            }
+          } @else {
             <div class="rejilla">
               @for (evento of eventos(); track evento.slug; let indice = $index) {
                 <a
@@ -66,9 +75,9 @@ const CLAVE = makeStateKey<ResumenDeEvento[]>('home-upcoming-events');
                 </a>
               }
             </div>
-          </div>
-        </section>
-      }
+          }
+        </div>
+      </section>
     </ng-container>
   `,
   styles: `
@@ -76,7 +85,11 @@ const CLAVE = makeStateKey<ResumenDeEvento[]>('home-upcoming-events');
       padding: var(--space-xl) 0;
     }
     h2 {
-      margin: 6px 0 0;
+      margin: 0;
+    }
+    .vacio {
+      margin: var(--space-lg) 0 0;
+      color: var(--muted);
     }
     .rejilla {
       display: grid;
@@ -134,6 +147,9 @@ export class UpcomingEvents implements OnInit {
   private readonly tareasPendientes = inject(PendingTasks);
 
   protected readonly eventos = signal<ResumenDeEvento[]>([]);
+  /** Distingue «cargando» de «cargado y sin eventos»: sin esto, el mensaje de
+   * lista vacía parpadearía antes de que la API conteste. */
+  protected readonly cargado = signal(false);
 
   ngOnInit(): void {
     void this.tareasPendientes.run(() => this.cargar());
@@ -144,6 +160,7 @@ export class UpcomingEvents implements OnInit {
     if (transferido) {
       this.transferState.remove(CLAVE);
       this.eventos.set(transferido);
+      this.cargado.set(true);
       return;
     }
 
@@ -161,6 +178,10 @@ export class UpcomingEvents implements OnInit {
       // Silencioso a propósito: la portada no depende de esta sección para ser
       // útil, y ya existe el listado completo en /eventos con su propio
       // manejo de error visible si de verdad falla la API.
+    } finally {
+      // También en el error: si la API falla, la sección no puede quedarse
+      // «cargando» para siempre sin decir nada.
+      this.cargado.set(true);
     }
   }
 }

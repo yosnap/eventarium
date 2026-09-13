@@ -135,7 +135,6 @@
         "cercaPendiente": "El organizador todavía no ha publicado alojamiento ni locales cercanos.",
         "mapaAria": "Mapa con la ubicación de {{lugar}}"
       },
-      "proximosRotulo": "Próximamente",
       "proximosTitulo": "Próximos eventos",
       "verEvento": "Ver el evento",
       "datoPendiente": "Dato pendiente",
@@ -170,8 +169,6 @@
     },
     "accesoPanel": "Acceso al panel",
     "organizadoPor": "Organizado por {{nombre}}",
-    "proximamente": "Próximamente",
-    "proximamenteDetalle": "Estamos preparando la próxima edición. Vuelve pronto para ver el programa y las inscripciones.",
     "redesSociales": "Redes sociales del organizador",
     "piePagina": "Pie de página",
     "ponentes": {
