@@ -12,12 +12,23 @@ import es from '../../../../../public/assets/i18n/es-ES.json';
 
 const EVENT_ID = 'evt-1';
 
-const MIEMBRO_ORGANIZACION = {
-  id: 'om-1',
+/** Fila del roster (`GET /events/{id}/members`), sin cambios en la fase 4. */
+const MIEMBRO_ROSTER = {
+  id: 'em-1',
+  organization_member_id: 'om-1',
   first_name: 'Ada',
   last_name: 'Lovelace',
   email: 'ada@example.com',
   role_key: 'speaker',
+};
+
+/** Fila de `GET /organizations/me/members`, agrupada por persona desde la
+ * fase 4 del plan de invitaciones. */
+const PERSONA_ORGANIZACION = {
+  first_name: 'Ada',
+  last_name: 'Lovelace',
+  email: 'ada@example.com',
+  roles: [{ id: 'om-1', role_key: 'speaker' }],
 };
 
 async function avanzar(fixture: ComponentFixture<unknown>): Promise<void> {
@@ -28,7 +39,7 @@ async function avanzar(fixture: ComponentFixture<unknown>): Promise<void> {
 async function crearYCargar(
   http: HttpTestingController,
   roster: unknown[] = [],
-  miembros: unknown[] = [MIEMBRO_ORGANIZACION],
+  miembros: unknown[] = [PERSONA_ORGANIZACION],
 ): Promise<ComponentFixture<EventRoster>> {
   const fixture = TestBed.createComponent(EventRoster);
   fixture.componentRef.setInput('eventId', EVENT_ID);
@@ -121,7 +132,7 @@ describe('EventRoster', () => {
 
     http
       .expectOne(`/api/v1/events/${EVENT_ID}/members`)
-      .flush([{ ...MIEMBRO_ORGANIZACION, id: 'em-2', organization_member_id: 'om-2' }]);
+      .flush([{ ...MIEMBRO_ROSTER, id: 'em-2', organization_member_id: 'om-2' }]);
     await avanzar(fixture);
 
     expect(fixture.nativeElement.textContent).toContain('se ha añadido directamente');
@@ -131,11 +142,7 @@ describe('EventRoster', () => {
   it('no tiene violaciones de accesibilidad en tema claro', async () => {
     document.documentElement.setAttribute('data-theme', 'light');
     try {
-      const fixture = await crearYCargar(
-        http,
-        [{ ...MIEMBRO_ORGANIZACION, id: 'em-1', organization_member_id: 'om-1' }],
-        [],
-      );
+      const fixture = await crearYCargar(http, [MIEMBRO_ROSTER], []);
       await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
     } finally {
       document.documentElement.removeAttribute('data-theme');

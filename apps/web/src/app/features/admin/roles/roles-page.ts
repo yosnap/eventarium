@@ -46,6 +46,8 @@ interface RoleSummary {
         <app-alert tone="error">{{ mensaje }}</app-alert>
       }
 
+      <app-alert tone="info">{{ t('admin.roles.casoVoluntario') }}</app-alert>
+
       @if (cargando()) {
         <p>{{ t('comun.cargando') }}</p>
       } @else if (roles().length === 0) {

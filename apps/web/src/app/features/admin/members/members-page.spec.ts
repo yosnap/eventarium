@@ -14,19 +14,38 @@ function pagina(total: number, offset: number) {
   return {
     items: [
       {
-        id: '1',
         user_id: 'u1',
         email: 'persona@example.com',
         first_name: 'Persona',
         last_name: 'De Prueba',
-        role_id: 'r1',
-        role_key: 'owner',
+        roles: [{ id: 'm1', role_id: 'r1', role_key: 'owner', role_name: 'Propietario' }],
         profile_data: {},
       },
     ],
     total,
     limit: 20,
     offset,
+  };
+}
+
+function personaConDosRoles() {
+  return {
+    items: [
+      {
+        user_id: 'u2',
+        email: 'doble@example.com',
+        first_name: 'Doble',
+        last_name: 'Rol',
+        roles: [
+          { id: 'm1', role_id: 'r1', role_key: 'organizer', role_name: 'Organizador' },
+          { id: 'm2', role_id: 'r2', role_key: 'volunteer', role_name: 'Voluntariado' },
+        ],
+        profile_data: {},
+      },
+    ],
+    total: 1,
+    limit: 20,
+    offset: 0,
   };
 }
 
@@ -151,5 +170,57 @@ describe('MembersPage', () => {
     } finally {
       document.documentElement.removeAttribute('data-theme');
     }
+  });
+
+  it('una persona con dos roles aparece una vez, con botón de quitar en cada uno', async () => {
+    const fixture = TestBed.createComponent(MembersPage);
+    await avanzar(fixture);
+    http
+      .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/members')
+      .flush(personaConDosRoles());
+    await avanzar(fixture);
+    await flushPanelDeInvitaciones(http, fixture);
+
+    const filas = fixture.nativeElement.querySelectorAll('tbody tr');
+    expect(filas.length).toBe(1);
+    expect(fixture.nativeElement.textContent).toContain('organizer');
+    expect(fixture.nativeElement.textContent).toContain('volunteer');
+    expect(fixture.nativeElement.querySelectorAll('.quitar-rol').length).toBe(2);
+  });
+
+  it('con un solo rol no se puede quitar (no hay botón)', async () => {
+    const fixture = TestBed.createComponent(MembersPage);
+    await avanzar(fixture);
+    http
+      .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/members')
+      .flush(pagina(1, 0));
+    await avanzar(fixture);
+    await flushPanelDeInvitaciones(http, fixture);
+
+    expect(fixture.nativeElement.querySelector('.quitar-rol')).toBeNull();
+  });
+
+  it('quitar un rol llama al endpoint y recarga la lista', async () => {
+    const fixture = TestBed.createComponent(MembersPage);
+    await avanzar(fixture);
+    http
+      .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/members')
+      .flush(personaConDosRoles());
+    await avanzar(fixture);
+    await flushPanelDeInvitaciones(http, fixture);
+
+    const botonQuitar = fixture.nativeElement.querySelector('.quitar-rol') as HTMLButtonElement;
+    botonQuitar.click();
+    await avanzar(fixture);
+
+    http.expectOne('/api/v1/organizations/me/members/m1').flush(null);
+    await avanzar(fixture);
+
+    http
+      .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/members')
+      .flush(pagina(1, 0));
+    await avanzar(fixture);
+
+    expect(fixture.nativeElement.textContent).toContain('Persona De Prueba');
   });
 });

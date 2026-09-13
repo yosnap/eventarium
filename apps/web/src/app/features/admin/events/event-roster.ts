@@ -43,6 +43,17 @@ interface OrganizationMemberOption extends Persona {
   readonly role_key: string;
 }
 
+/** Un rol concreto de una persona, tal y como lo agrupa `GET
+ * /organizations/me/members` desde la fase 4 del plan de invitaciones. */
+interface GroupedMemberRole {
+  readonly id: string;
+  readonly role_key: string;
+}
+
+interface GroupedMember extends Persona {
+  readonly roles: readonly GroupedMemberRole[];
+}
+
 interface Page<T> {
   readonly items: readonly T[];
 }
@@ -310,11 +321,28 @@ export class EventRoster implements OnInit {
   private async cargarMiembrosDeLaOrganizacion(): Promise<void> {
     try {
       const pagina = await firstValueFrom(
-        this.http.get<Page<OrganizationMemberOption>>(this.api.url('/organizations/me/members'), {
+        this.http.get<Page<GroupedMember>>(this.api.url('/organizations/me/members'), {
           params: { limit: 200, offset: 0 },
         }),
       );
-      this.organizationMembers.set([...pagina.items]);
+      // Desde la fase 4 del plan de invitaciones, cada persona trae **todos**
+      // sus roles en un solo elemento — se despliega de vuelta a una opción
+      // por (persona, rol), que es lo que necesita este selector: añadir a
+      // alguien al roster es añadir una membresía concreta, no a la persona
+      // en abstracto.
+      const opciones: OrganizationMemberOption[] = [];
+      for (const persona of pagina.items) {
+        for (const rol of persona.roles) {
+          opciones.push({
+            id: rol.id,
+            role_key: rol.role_key,
+            first_name: persona.first_name,
+            last_name: persona.last_name,
+            email: persona.email,
+          });
+        }
+      }
+      this.organizationMembers.set(opciones);
     } catch (error) {
       this.error.set(this.mensajeDeError(error));
     }

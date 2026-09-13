@@ -12,14 +12,19 @@ import { Button } from '../../../shared/ui/button';
 import { DataTable, DataTableColumn } from '../../../shared/ui/data-table';
 import { InvitationsPanel } from './invitations-panel';
 
-interface Member {
+interface MemberRole {
   readonly id: string;
+  readonly role_id: string;
+  readonly role_key: string;
+  readonly role_name: string;
+}
+
+interface Member {
   readonly user_id: string;
   readonly email: string;
   readonly first_name: string | null;
   readonly last_name: string | null;
-  readonly role_id: string;
-  readonly role_key: string;
+  readonly roles: readonly MemberRole[];
   readonly profile_data: Record<string, unknown>;
 }
 
@@ -59,12 +64,29 @@ const LIMITE = 20;
         <p>{{ t('admin.members.sinMiembros') }}</p>
       } @else {
         <app-data-table [columnas]="columnasDeMiembros()" [caption]="t('admin.members.titulo')">
-          @for (miembro of miembros(); track miembro.id) {
+          @for (miembro of miembros(); track miembro.user_id) {
             <tr>
               <td>{{ nombreDe(miembro) }}</td>
               <td>{{ miembro.email }}</td>
               <td>
-                <code>{{ miembro.role_key }}</code>
+                <ul class="roles-persona">
+                  @for (rol of miembro.roles; track rol.id) {
+                    <li>
+                      <code>{{ rol.role_key }}</code>
+                      @if (miembro.roles.length > 1) {
+                        <button
+                          type="button"
+                          class="quitar-rol"
+                          [attr.aria-label]="t('admin.members.quitarRol', { rol: rol.role_name })"
+                          [disabled]="quitandoRolId() === rol.id"
+                          (click)="quitarRol(rol.id)"
+                        >
+                          &times;
+                        </button>
+                      }
+                    </li>
+                  }
+                </ul>
               </td>
             </tr>
           }
@@ -115,6 +137,35 @@ const LIMITE = 20;
       gap: var(--space-md);
       margin-top: var(--space-md);
     }
+    .roles-persona {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-xs);
+    }
+    .roles-persona li {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .quitar-rol {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      padding: 0 2px;
+    }
+    .quitar-rol:hover {
+      color: var(--danger);
+    }
+    .quitar-rol:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
   `,
 })
 export class MembersPage {
@@ -128,6 +179,7 @@ export class MembersPage {
   protected readonly offset = signal(0);
   protected readonly limite = LIMITE;
   protected readonly error = signal<string | null>(null);
+  protected readonly quitandoRolId = signal<string | null>(null);
 
   protected readonly totalPaginas = computed(() => Math.max(1, Math.ceil(this.total() / LIMITE)));
   protected readonly paginaActual = computed(() => Math.floor(this.offset() / LIMITE) + 1);
@@ -169,5 +221,25 @@ export class MembersPage {
   protected irAPagina(nuevoOffset: number): void {
     this.offset.set(Math.max(0, nuevoOffset));
     void this.cargar();
+  }
+
+  /** Quita un rol concreto (no a la persona). El botón ya está deshabilitado
+   * cuando es el único rol; el 409 del servidor es la misma regla por si
+   * llega una fila obsoleta (otra pestaña, otra persona quitando a la vez). */
+  protected async quitarRol(organizationMemberId: string): Promise<void> {
+    this.error.set(null);
+    this.quitandoRolId.set(organizationMemberId);
+    try {
+      await firstValueFrom(
+        this.http.delete(this.api.url(`/organizations/me/members/${organizationMemberId}`)),
+      );
+      await this.cargar();
+    } catch (error) {
+      this.error.set(
+        error instanceof ApiError ? error.message : this.transloco.translate('admin.members.error'),
+      );
+    } finally {
+      this.quitandoRolId.set(null);
+    }
   }
 }

@@ -723,6 +723,7 @@
     "roles": {
       "titulo": "Roles",
       "descripcion": "Roles del sistema y a medida de tu organización, con sus permisos y campos de perfil.",
+      "casoVoluntario": "¿Quieres que un voluntario gestione invitaciones? Crea un rol a medida con los permisos de «Voluntario» más «Gestionar invitaciones» — un voluntario no puede crear ese rol por sí mismo, porque no tiene permiso para crear roles; tiene que crearlo antes alguien que sí lo tenga.",
       "crearRol": "Crear rol",
       "sistema": "Del sistema",
       "aMedida": "A medida",
@@ -793,7 +794,7 @@
       "anadirMiembro": "Añadir miembro",
       "columnaNombre": "Nombre",
       "columnaCorreo": "Correo",
-      "columnaRol": "Rol",
+      "columnaRol": "Roles",
       "sinMiembros": "Todavía no hay miembros.",
       "error": "No hemos podido completar la operación.",
       "anterior": "← Anterior",
@@ -844,7 +845,8 @@
         "revocando": "Revocando…",
         "revocada": "Invitación revocada.",
         "confirmarRevocar": "¿Revocar esta invitación? La persona invitada ya no podrá aceptarla."
-      }
+      },
+      "quitarRol": "Quitar el rol «{{rol}}»"
     },
     "cuenta": {
       "titulo": "Mi cuenta",
