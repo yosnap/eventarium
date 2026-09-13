@@ -91,6 +91,12 @@ ORGANIZER = SystemRoleTemplate(
         # `accounting:*`.
         Permission.ACCOUNTING_READ,
         Permission.ACCOUNTING_WRITE,
+        # Fase 0 del PRD de invitaciones (plan.md): el backfill de la
+        # migración solo cubre organizaciones ya existentes; sin tocar la
+        # plantilla, una organización creada después clonaría un organizador
+        # sin `invitations:manage` — mismo bug que `REGISTRATIONS_*`,
+        # `SPONSORS_*`, `PAYMENTS_*` y `ACCOUNTING_*` antes, ya cuatro veces.
+        Permission.INVITATIONS_MANAGE,
     ),
     profile_fields=(
         ProfileFieldTemplate(key="cargo", label="Cargo", sort_order=10),

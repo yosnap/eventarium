@@ -44,6 +44,7 @@ class Permission(StrEnum):
     PAYMENTS_WRITE = "payments:write"
     ACCOUNTING_READ = "accounting:read"
     ACCOUNTING_WRITE = "accounting:write"
+    INVITATIONS_MANAGE = "invitations:manage"
 
 
 ALL_PERMISSIONS: frozenset[Permission] = frozenset(Permission)
