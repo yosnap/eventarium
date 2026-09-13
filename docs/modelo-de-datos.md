@@ -45,10 +45,9 @@ erDiagram
     text template_key
     text logo_object_key
     text favicon_object_key
-    jsonb colors
-    jsonb fonts
     jsonb social_links
     text organizer_blurb
+    uuid theme_template_id FK
   }
   users {
     uuid id PK
@@ -433,6 +432,12 @@ puntual sobre `cookie_consents` para el endpoint público de consentimiento). Si
 `REVOKE`, `ALTER DEFAULT PRIVILEGES` (`infra/postgres/sql/roles.sql`) le habría dado a
 `app_user` acceso de lectura y **borrado** sobre el registro de auditoría completo de la
 instalación — ver `docs/arquitectura.md` § Auditoría y RGPD.
+
+`theme_templates` sigue el mismo patrón por la misma razón: es el catálogo de plantillas
+de la **plataforma**, no de una organización, así que no lleva RLS — pero sí
+`REVOKE ALL ... FROM app_user` con un `GRANT SELECT` puntual. Comprobado contra la base
+de datos real: `app_user` puede leerlo y no puede insertar ni borrar. Lo escribe solo el
+superadministrador, a través del módulo `admin`.
 
 RLS aísla por **organización**, no por si un evento está publicado: un borrador de
 la propia organización sigue siendo visible bajo RLS para cualquiera que resuelva

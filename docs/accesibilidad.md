@@ -35,9 +35,16 @@ lo que se exige.
   `role="status"` para el resto, para no interrumpir la lectura sin motivo.
 - **Objetivo táctil** (2.5.5): botones y campos con 44 px de alto mínimo.
 - **Movimiento** (2.3.3): `prefers-reduced-motion` anula animaciones y transiciones.
-- **Contraste** (1.4.3): la paleta por defecto cumple AA. Como el branding lo elige cada
-  organización, `core/theming/contrast.ts` calcula la razón de contraste de los pares
-  críticos y el panel avisa cuando alguno baja de 4,5:1.
+- **Contraste** (1.4.3): ya no hay una paleta libre por organización. La base del
+  sistema son los dos modos de `styles/tokens.css`, y cada plantilla del catálogo se
+  verifica **al crearse o editarse**, no una vez. El cálculo está duplicado a
+  propósito: `core/theming/contrast.ts` avisa mientras se edita, y
+  `app/modules/theme_templates/contrast.py` es quien **rechaza con 422** — la garantía
+  es del servidor, no del formulario, así que un `POST` directo a la API con una
+  plantilla que no llega a AA tampoco entra. Ambos lados comparten la misma lista
+  `PARES_CRITICOS` y el mismo mínimo AA; cambiar uno exige tocar el otro.
+  `core/theming/contrast.spec.ts` verifica además los tokens de los dos modos leídos
+  de disco, en lugar de comprobar cifras copiadas a mano.
 - **Idioma** (3.1.1): `<html lang="es-ES">`; todos los textos vienen de
   `public/assets/i18n/es-ES.json`, ninguno está incrustado en las plantillas.
 
@@ -297,6 +304,47 @@ redirige. No hay ningún campo de tarjeta ni iframe de Stripe.js que auditar
 en el frontend de este proyecto — el único punto de accesibilidad de pago
 que corresponde a esta fase es antes (selección) y después (retorno) del
 propio Checkout.
+
+## Checklist manual — pase visual del sistema de diseño (2026-09-13)
+
+El pase del sistema de diseño (tokens, componentes compartidos, aplicación al panel y a
+la web pública) se verificó con cobertura automática y con comprobación medida sobre la
+aplicación en marcha. **La matriz manual de recorrido —dos temas, tres anchos, teclado,
+lector de pantalla— no se ha completado**: requiere navegador y dispositivo reales que
+no estaban disponibles. Se declara aquí en vez de darla por hecha.
+
+| # | Criterio WCAG 2.1 AA | Cómo se ha comprobado | Resultado |
+|---|---|---|---|
+| — | Cobertura automática | `pnpm test`: 491 tests, cero violaciones de axe con el conjunto `wcag2a`/`wcag2aa`/`wcag21a`/`wcag21aa`. Las tablas migradas a `app-data-table` se comprueban además bajo `data-theme="light"` | ✅ |
+| 1.4.3 | Contraste | `core/theming/contrast.spec.ts` lee los tokens de los dos modos desde `styles/tokens.css` y verifica los pares críticos. La retirada del bloque de alias `--color-*` se hizo **después** de que los greps de cierre dieran vacío, y se volvió a pasar la suite tras ella | ✅ |
+| 1.4.3 | Contraste | La puerta de contraste del catálogo de plantillas es **del servidor**, no del formulario: `theme_templates/contrast.py` rechaza con 422 una plantilla que no llegue a AA, verificado con `POST` directo a la API | ✅ |
+| 1.4.1 | Uso del color | Los estados del panel (inscripción, evento, cuenta de Stripe) van en `app-chip` **con su texto**; el tono solo lo refuerza. `event-check-in` comunica el resultado del escaneo con icono y texto, no solo con verde/rojo, y tiene test que lo fija | ✅ |
+| 1.3.1 | Estructura de tablas | Las tablas migradas a `app-data-table` llevan `<caption>`, `th scope="col"` y la ranura de scroll es un `role="region"` con `tabindex="0"` y nombre accesible; cada tabla tiene test de columnas, filas, caption y scroll alcanzable | ✅ |
+| 3.1.1 | Idioma | Ningún texto nuevo incrustado en plantillas: todo sale de `es-ES.json` | ✅ |
+| 4.1.3 | Mensajes de estado | La cuenta de Stripe dejó de usar `app-alert` para sus cuatro estados (estado, no mensaje) y pasó a chip con texto, dentro del contenedor `aria-live` que ya existía | ✅ |
+| 1.4.13 | Contraste de contenido no textual | Verificado en la aplicación en marcha con el servidor SSR de producción: tras retirar los alias, los tokens resuelven a sus valores reales y **el conmutador de tema cambia fondo y texto en ambos sentidos**, sin elementos atados al tema anterior | ✅ |
+| 1.4.3 / 3.2.2 | Tema sin parpadeo y sin JavaScript | SSR sirve el HTML con `data-theme` ya pintado desde la cookie `eventarium.tema`: con `claro` sale `data-theme="light"`; con `oscuro` no sale atributo (es el defecto de `:root`). Comprobado por HTTP, con el cuerpo servido leído entero. No hay script inline de tema en `index.html` | ✅ |
+| 2.1.1 | Teclado | Los 12 `<select>` nativos **se conservan** (fase 2 descartó el combobox custom): no hay widget nuevo que auditar. Los estilos repetidos se retiraron en once pantallas para que el control siga la regla compartida | ✅ |
+| 2.5.5 | Objetivo táctil | `event-check-in` ganó el tratamiento de pantalla en movimiento: filas con relleno amplio y borde de 2 px, contador y resultado con `--fs-h3`, y el resultado con icono de texto además del color | ✅ |
+| — | Presupuesto de estilos | `pnpm build --configuration production` en verde sin superar `anyComponentStyle` (aviso 4 kB / error 8 kB), y ningún fichero por encima de las 1000 líneas | ✅ |
+
+### Pendiente de este pase
+
+- **Matriz manual de recorrido**: los cinco viajes (asistente, acceso y cuenta,
+  organizador, organizador por evento, superadministración) en tema oscuro y claro, a
+  320, 768 y 1440 px.
+- **Recorrido solo con teclado** del panel y de la web pública: sin trampas de foco,
+  orden lógico, foco siempre visible.
+- **Lector de pantalla** en los dos shells y en el marco de autenticación: landmarks,
+  grupos de navegación, nombre del evento activo, enlace de salto.
+- **Zoom al 200 %** en `role-form.ts`, `event-agenda.ts`, `event-registrations.ts` y
+  `registration-page.ts`.
+- **`prefers-reduced-motion`** activo: nada se mueve y nada queda invisible. La regla
+  existe en `styles.css` (anula la ocultación de `[appReveal]`, no solo acorta la
+  transición), pero no se ha visto con la preferencia activa.
+- **`prefers-contrast: more`** y modo de contraste alto del sistema operativo.
+- **`event-check-in` en un móvil real**, de pie y con la cámara.
+- **Tablas a 320 px** con scroll horizontal alcanzable solo con teclado.
 
 ## Al añadir una pantalla
 

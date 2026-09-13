@@ -51,6 +51,13 @@ Versionado semántico. Cada fase del plan recibe su **versión menor**:
 Las correcciones sobre una versión publicada suben el patch (`0.5.1`). La `1.0.0`
 llegará cuando el producto cubra el alcance del PRD.
 
+**Versiones de las fases del PRD:** cada PRD de `plans/` toma la siguiente versión
+menor libre en el momento de cerrarse, y las ramas de fase llevan el número en el
+nombre (`feature/0.18.0-...`). Ese número es el que se fija en
+`apps/api/pyproject.toml` y `apps/web/package.json` al cerrar, **no** al abrir la
+rama: una fase puede cerrarse con un número distinto del que planeó su rama si
+otra se publica antes.
+
 Al publicar: actualizar `apps/api/pyproject.toml` y `apps/web/package.json`, abrir el
 PR de `develop` a `main` y, tras el merge, crear el tag `vX.Y.Z` y la release.
 
