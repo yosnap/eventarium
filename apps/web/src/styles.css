@@ -4,31 +4,27 @@
 @import 'tailwindcss';
 
 /*
- * Se declaran los tokens como colores y fuentes de Tailwind. Los alias `--color-*`
- * siguen vivos (tabla de mapeo de `tokens.css`) hasta que las fases 4-6 los retiren, así
- * que `bg-primary` o `font-sans` siguen respondiendo igual que antes; las clases nuevas
- * usan directamente los tokens del sistema (`bg-[var(--surface)]`, etc.) mientras no se
- * declaren utilidades propias.
+ * Tokens expuestos a Tailwind. Los nombres `--color-*` son los que Tailwind
+ * espera para generar `bg-primary`, `text-text` y demás; apuntan directamente a
+ * los tokens del sistema.
+ *
+ * No se redeclaran `--font-*` ni `--radius-*`: el sistema ya usa esos mismos
+ * nombres en `:root` (`typography.css`, `tokens.css`), así que un
+ * `--font-mono: var(--font-mono)` aquí sería una autorreferencia —no un alias—
+ * y el valor quedaría sin resolver. Ningún template usa esas utilidades de
+ * Tailwind; el diseño va por las clases propias de cada componente.
  */
 @theme inline {
-  --color-primary: var(--color-primary);
-  --color-primary-contrast: var(--color-primary-contrast);
-  --color-secondary: var(--color-secondary);
-  --color-surface: var(--color-surface);
-  --color-surface-muted: var(--color-surface-muted);
-  --color-text: var(--color-text);
-  --color-text-muted: var(--color-text-muted);
-  --color-border: var(--color-border);
-  --color-danger: var(--color-danger);
-  --color-success: var(--color-success);
-
-  --font-sans: var(--font-sans);
-  --font-heading: var(--font-heading);
-  --font-mono: var(--font-mono);
-
-  --radius-sm: var(--radius-sm);
-  --radius-md: var(--radius-md);
-  --radius-lg: var(--radius-lg);
+  --color-primary: var(--accent);
+  --color-primary-contrast: var(--on-accent);
+  --color-secondary: var(--accent-hi);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-2);
+  --color-text: var(--fg);
+  --color-text-muted: var(--muted);
+  --color-border: var(--border);
+  --color-danger: var(--danger);
+  --color-success: var(--accent);
 }
 
 /*
@@ -261,6 +257,6 @@ body::before {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  border: 2px solid var(--on-accent, #fff);
-  box-shadow: var(--shadow-md, 0 2px 6px rgba(0, 0, 0, 0.35));
+  border: 2px solid var(--on-accent);
+  box-shadow: var(--shadow-md);
 }

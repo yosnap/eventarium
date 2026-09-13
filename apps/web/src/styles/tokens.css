@@ -67,26 +67,6 @@
   /* Ancho máximo de contenedor de la referencia (`.wrap`). */
   --max: 1240px;
 
-  /*
-   * Alias de compatibilidad — vigentes durante las fases 2 a 5, se retiran en la 6.
-   * `var(--color-*)` aparece 215 veces en 54 ficheros de `features/**`, que no son
-   * propiedad de esta fase; mantenerlos vivos es lo que permite no tocar ese árbol
-   * aquí. Tabla de mapeo cerrada, token viejo → token nuevo.
-   */
-  --color-primary: var(--accent);
-  --color-primary-contrast: var(--on-accent);
-  --color-secondary: var(--accent-hi);
-  --color-surface: var(--surface);
-  --color-surface-muted: var(--surface-2);
-  --color-text: var(--fg);
-  --color-text-muted: var(--muted);
-  --color-border: var(--border);
-  --color-danger: var(--danger);
-  --color-success: var(--accent);
-  --shadow-card: var(--shadow-md);
-  --font-sans: var(--font-body);
-  --font-heading: var(--font-display);
-
   /* Radios. */
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;

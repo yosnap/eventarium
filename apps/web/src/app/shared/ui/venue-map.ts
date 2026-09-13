@@ -48,8 +48,8 @@ const MARGEN_AJUSTE = 32;
   styles: `
     .mapa {
       height: 14rem;
-      border-radius: var(--radius-sm, var(--r-sm));
-      border: 1px solid var(--border-strong, var(--color-border));
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-strong);
     }
   `,
 })

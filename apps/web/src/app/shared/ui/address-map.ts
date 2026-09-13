@@ -142,8 +142,8 @@ const ZOOM_MARCADOR = 16;
     }
     label {
       display: block;
-      font-size: var(--fs-sm, 0.875rem);
-      color: var(--muted, var(--color-text-muted, #6b7280));
+      font-size: var(--fs-sm);
+      color: var(--muted);
     }
     .combo {
       position: relative;
@@ -152,10 +152,10 @@ const ZOOM_MARCADOR = 16;
       width: 100%;
       box-sizing: border-box;
       padding: var(--sp-3);
-      border: 1px solid var(--border-strong, var(--color-border));
+      border: 1px solid var(--border-strong);
       border-radius: var(--radius-sm);
-      background-color: var(--surface-2, var(--color-surface));
-      color: var(--fg, var(--color-text));
+      background-color: var(--surface-2);
+      color: var(--fg);
       font: inherit;
       min-height: 2.75rem;
     }
@@ -176,9 +176,9 @@ const ZOOM_MARCADOR = 16;
       margin: 0;
       list-style: none;
       background: var(--surface);
-      border: 1px solid var(--border-strong, var(--color-border));
+      border: 1px solid var(--border-strong);
       border-radius: var(--radius-sm);
-      box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.15));
+      box-shadow: var(--shadow-md);
     }
     .combo__lista[hidden] {
       display: none;
@@ -187,31 +187,31 @@ const ZOOM_MARCADOR = 16;
       padding: var(--sp-2) var(--sp-3);
       border-radius: 3px;
       cursor: pointer;
-      color: var(--fg, var(--color-text));
+      color: var(--fg);
       font-size: 0.9rem;
     }
     .combo__o.is-active,
     .combo__o:hover {
-      background: var(--surface-hi, rgba(0, 0, 0, 0.06));
+      background: var(--surface-hi);
     }
     .error {
       margin: 0;
-      color: var(--danger, var(--color-danger));
+      color: var(--danger);
       font-size: 0.875rem;
     }
     .ayuda,
     .estado {
       margin: 0;
-      color: var(--muted, var(--color-text-muted, #6b7280));
+      color: var(--muted);
       font-size: 0.8125rem;
     }
     .estado--error {
-      color: var(--danger, var(--color-danger));
+      color: var(--danger);
     }
     .mapa {
       height: 14rem;
       border-radius: var(--radius-sm);
-      border: 1px solid var(--border-strong, var(--color-border));
+      border: 1px solid var(--border-strong);
     }
   `,
 })
