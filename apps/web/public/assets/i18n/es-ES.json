@@ -1415,6 +1415,39 @@
         "entrar": "Entrar como esa persona",
         "errorCarga": "No hemos podido cargar los datos.",
         "errorEntrar": "No hemos podido abrir la suplantación."
+      },
+      "herramientas": "Herramientas de administración",
+      "error": "No se pudieron cargar los datos de la instalación.",
+      "salud": {
+        "titulo": "Estado de la instalación",
+        "database": "Base de datos",
+        "storage": "Almacenamiento",
+        "redis": "Caché",
+        "ok": "Correcto",
+        "error": "Con error"
+      },
+      "cifras": {
+        "titulo": "Totales",
+        "organizaciones": "Organizaciones activas",
+        "eventos": "Eventos",
+        "publicados": "Publicados",
+        "usuarios": "Usuarios"
+      },
+      "actividad": {
+        "titulo": "Actividad de las organizaciones",
+        "ayuda": "Cuatro marcas distintas, no una: una organización que crea eventos pero no recibe inscripciones está rota, y una que recibe inscripciones sin accesos nuevos puede estar abandonada.",
+        "columnaOrganizacion": "Organización",
+        "columnaEventos": "Eventos",
+        "columnaInscripciones": "Inscripciones",
+        "columnaEventoTocado": "Evento tocado",
+        "columnaEventoCreado": "Evento creado",
+        "columnaInscripcion": "Inscripción",
+        "columnaAcceso": "Último acceso",
+        "columnaEstado": "Estado",
+        "activa": "Con actividad",
+        "inactiva": "Desactivada",
+        "noCobra": "Publica de pago sin poder cobrar",
+        "sinInscripciones": "Publica y no recibe inscripciones"
       }
     },
     "superadmin": {

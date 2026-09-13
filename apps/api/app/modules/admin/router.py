@@ -28,7 +28,9 @@ from app.core.ratelimit import (
     RGPD_EXPORT_POR_IP,
     limit_per_ip,
 )
+from app.modules.admin import metrics_service
 from app.modules.admin import service as admin_service
+from app.modules.admin.metrics_schemas import MetricasDePlataformaOut
 from app.modules.admin.schemas import (
     AuditLogEntry,
     DeleteRegistrationRequest,
@@ -418,3 +420,23 @@ async def update_theme_template(
         detail={"key": plantilla.key, "is_default": plantilla.is_default},
     )
     return _to_theme_template_response(plantilla)
+
+
+@router.get(
+    "/metrics",
+    summary="Escritorio de la plataforma",
+    description=(
+        "Estado de la instalación y qué hace cada organización, para operarla. "
+        "**No incluye ningún importe de ninguna organización**: la frontera del "
+        "producto es que el administrador de la instalación no ve el negocio de "
+        "las organizaciones. Para mirarlo hay que suplantar una cuenta. Los "
+        "esquemas de respuesta son un allowlist cerrado, y hay un test que "
+        "comprueba que ninguna de sus claves es monetaria.\n\n"
+        "Corre con el motor de mantenimiento: es el único módulo autorizado a "
+        "saltarse RLS, y precisamente por eso lo que devuelve está acotado por "
+        "el esquema y no por la política."
+    ),
+    response_model=MetricasDePlataformaOut,
+)
+async def get_platform_metrics(_: Superadmin, session: MaintenanceDb) -> MetricasDePlataformaOut:
+    return await metrics_service.metricas_de_la_plataforma(session)

@@ -120,6 +120,18 @@ async def authenticate(
     if not fila[5] or not verify_password(password, fila[4]):
         raise credenciales_invalidas
 
+    # Marca de último acceso **a esta organización**: la membresía ya se acaba de
+    # comprobar arriba, así que la fila existe. Se escribe aquí y no en el refresh
+    # porque mide acceso explícito, no actividad pasiva; y la impersonación no
+    # pasa por aquí, así que no la contamina.
+    await session.execute(
+        text(
+            "UPDATE organization_members SET last_seen_at = now() "
+            "WHERE user_id = :user_id AND organization_id = :org_id"
+        ),
+        {"user_id": fila[0], "org_id": organization_id},
+    )
+
     return AuthenticatedUser(
         id=fila[0], email=fila[1], first_name=fila[2], last_name=fila[3], is_superadmin=fila[6]
     )

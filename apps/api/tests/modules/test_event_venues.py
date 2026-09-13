@@ -86,9 +86,7 @@ async def test_geocodificacion_fallida_no_bloquea_crear_la_sede(
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_evento(cliente, cabeceras)
 
-    with patch(
-        "app.modules.events.service.geocode_address", new=AsyncMock(return_value=None)
-    ):
+    with patch("app.modules.events.service.geocode_address", new=AsyncMock(return_value=None)):
         respuesta = await cliente.post(
             f"{EVENTS}/{evento['id']}/venues",
             headers=cabeceras,
@@ -160,9 +158,7 @@ async def test_no_se_puede_borrar_una_sede_con_sesiones_asociadas(
         )
         await db.commit()
 
-    borrado = await cliente.delete(
-        f"{EVENTS}/{evento['id']}/venues/{sede_id}", headers=cabeceras
-    )
+    borrado = await cliente.delete(f"{EVENTS}/{evento['id']}/venues/{sede_id}", headers=cabeceras)
     assert borrado.status_code == 409
 
 

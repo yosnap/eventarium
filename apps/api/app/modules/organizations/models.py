@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -137,3 +138,11 @@ class OrganizationMember(Base, TimestampMixin):
         PgUUID(as_uuid=True), ForeignKey("roles.id", ondelete="CASCADE"), nullable=False, index=True
     )
     profile_data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    #: Último acceso **a esta organización**, escrito en el login. Va por
+    #: membresía y no en `users`: una persona pertenece a varias organizaciones, y
+    #: una columna global haría «saltar» la marca de todas las demás cuando entra
+    #: en una. `None` es «no consta», no «hace mucho»: las filas anteriores a la
+    #: migración no tienen el dato.
+    last_seen_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )

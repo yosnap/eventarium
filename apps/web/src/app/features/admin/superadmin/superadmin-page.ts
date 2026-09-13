@@ -8,7 +8,9 @@ import { ApiError } from '../../../core/api/error.interceptor';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
+import { Chip, ChipTone } from '../../../shared/ui/chip';
 import { Input } from '../../../shared/ui/input';
+import { MetricasDePlataforma } from './platform-metrics.types';
 
 interface AuditLogEntry {
   readonly id: string;
@@ -39,10 +41,113 @@ const AUDIT_LOG_URL = '/admin/audit-log';
 @Component({
   selector: 'app-superadmin-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input],
+  imports: [TranslocoDirective, Alert, Button, Card, Chip, Input],
   template: `
     <ng-container *transloco="let t">
       <h1>{{ t('admin.superadmin.titulo') }}</h1>
+
+      @if (metricas(); as m) {
+        <div class="salud">
+          <app-card [heading]="t('admin.plataforma.salud.titulo')">
+            <ul class="estados">
+              <li>
+                <span>{{ t('admin.plataforma.salud.database') }}</span>
+                <app-chip [tone]="tonoDeSalud(m.salud.database)">{{
+                  t('admin.plataforma.salud.' + m.salud.database)
+                }}</app-chip>
+              </li>
+              <li>
+                <span>{{ t('admin.plataforma.salud.storage') }}</span>
+                <app-chip [tone]="tonoDeSalud(m.salud.storage)">{{
+                  t('admin.plataforma.salud.' + m.salud.storage)
+                }}</app-chip>
+              </li>
+              <li>
+                <span>{{ t('admin.plataforma.salud.redis') }}</span>
+                <app-chip [tone]="tonoDeSalud(m.salud.redis)">{{
+                  t('admin.plataforma.salud.' + m.salud.redis)
+                }}</app-chip>
+              </li>
+            </ul>
+          </app-card>
+
+          <app-card [heading]="t('admin.plataforma.cifras.titulo')">
+            <dl class="lista">
+              <div>
+                <dt>{{ t('admin.plataforma.cifras.organizaciones') }}</dt>
+                <dd>{{ m.cifras.organizaciones_activas }} / {{ m.cifras.organizaciones_totales }}</dd>
+              </div>
+              <div>
+                <dt>{{ t('admin.plataforma.cifras.eventos') }}</dt>
+                <dd>{{ m.cifras.eventos_totales }}</dd>
+              </div>
+              <div>
+                <dt>{{ t('admin.plataforma.cifras.publicados') }}</dt>
+                <dd>{{ m.cifras.eventos_publicados }}</dd>
+              </div>
+              <div>
+                <dt>{{ t('admin.plataforma.cifras.usuarios') }}</dt>
+                <dd>{{ m.cifras.usuarios }}</dd>
+              </div>
+            </dl>
+          </app-card>
+        </div>
+
+        <app-card [heading]="t('admin.plataforma.actividad.titulo')">
+          <p class="nota">{{ t('admin.plataforma.actividad.ayuda') }}</p>
+          <div class="tabla-envoltorio">
+            <table>
+              <caption class="sr-only">{{ t('admin.plataforma.actividad.titulo') }}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">{{ t('admin.plataforma.actividad.columnaOrganizacion') }}</th>
+                  <th scope="col">{{ t('admin.plataforma.actividad.columnaEventos') }}</th>
+                  <th scope="col">{{ t('admin.plataforma.actividad.columnaInscripciones') }}</th>
+                  <th scope="col">{{ t('admin.plataforma.actividad.columnaEventoTocado') }}</th>
+                  <th scope="col">{{ t('admin.plataforma.actividad.columnaEventoCreado') }}</th>
+                  <th scope="col">{{ t('admin.plataforma.actividad.columnaInscripcion') }}</th>
+                  <th scope="col">{{ t('admin.plataforma.actividad.columnaAcceso') }}</th>
+                  <th scope="col">{{ t('admin.plataforma.actividad.columnaEstado') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (org of m.organizaciones; track org.id) {
+                  <tr>
+                    <td>{{ org.name }}</td>
+                    <td class="numero">{{ org.eventos }}</td>
+                    <td class="numero">{{ org.inscripciones }}</td>
+                    <td>{{ fecha(org.evento_mas_reciente) }}</td>
+                    <td>{{ fecha(org.ultimo_evento_creado) }}</td>
+                    <td>{{ fecha(org.ultima_inscripcion) }}</td>
+                    <td>{{ fecha(org.ultimo_acceso) }}</td>
+                    <td>
+                      @if (!org.is_active) {
+                        <app-chip tone="apagado">{{
+                          t('admin.plataforma.actividad.inactiva')
+                        }}</app-chip>
+                      } @else if (org.tiene_stripe_pendiente_con_eventos_de_pago) {
+                        <app-chip tone="espera">{{
+                          t('admin.plataforma.actividad.noCobra')
+                        }}</app-chip>
+                      } @else if (org.publicados_sin_inscripciones) {
+                        <app-chip tone="espera">{{
+                          t('admin.plataforma.actividad.sinInscripciones')
+                        }}</app-chip>
+                      } @else {
+                        <app-chip tone="ok">{{ t('admin.plataforma.actividad.activa') }}</app-chip>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </app-card>
+      } @else if (errorMetricas()) {
+        <app-alert tone="error">{{ t('admin.plataforma.error') }}</app-alert>
+      }
+
+      <h2>{{ t('admin.plataforma.herramientas') }}</h2>
       <p>{{ t('admin.superadmin.descripcion') }}</p>
 
       <app-card [heading]="t('admin.superadmin.auditoria.titulo')">
@@ -235,6 +340,67 @@ const AUDIT_LOG_URL = '/admin/audit-log';
       display: block;
       margin-bottom: var(--space-lg);
     }
+    .salud {
+      display: grid;
+      gap: var(--space-md);
+      grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    }
+    .estados,
+    .lista {
+      display: grid;
+      gap: var(--space-sm);
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .estados li,
+    .lista > div {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-md);
+    }
+    .lista dt {
+      color: var(--color-text-muted);
+    }
+    .lista dd {
+      margin: 0;
+      font-variant-numeric: tabular-nums;
+    }
+    .nota {
+      margin: 0 0 var(--space-md);
+      color: var(--color-text-muted);
+      font-size: 0.875rem;
+    }
+    .tabla-envoltorio {
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th,
+    td {
+      padding: var(--space-sm);
+      text-align: start;
+      border-bottom: 1px solid var(--color-border);
+      white-space: nowrap;
+    }
+    .numero {
+      text-align: end;
+      font-variant-numeric: tabular-nums;
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
   `,
 })
 export class SuperadminPage {
@@ -263,8 +429,38 @@ export class SuperadminPage {
   protected readonly borrarOk = signal(false);
   protected readonly errorBorrar = signal<string | null>(null);
 
+  protected readonly metricas = signal<MetricasDePlataforma | null>(null);
+  protected readonly errorMetricas = signal(false);
+
   constructor() {
+    void this.cargarMetricas();
     void this.cargarAuditoria();
+  }
+
+  private async cargarMetricas(): Promise<void> {
+    try {
+      const datos = await firstValueFrom(
+        this.http.get<MetricasDePlataforma>(this.api.url('/admin/metrics')),
+      );
+      this.metricas.set(datos);
+    } catch {
+      // El escritorio es informativo: si sus cifras no llegan, las
+      // herramientas de abajo siguen siendo utilizables.
+      this.errorMetricas.set(true);
+    }
+  }
+
+  /** Un fallo de dependencia se marca en rojo; el resto, en verde. */
+  protected tonoDeSalud(estado: string): ChipTone {
+    return estado === 'ok' ? 'ok' : 'espera';
+  }
+
+  /** Una marca que no consta se dice como tal, no se deja en blanco. */
+  protected fecha(valor: string | null): string {
+    if (!valor) {
+      return '—';
+    }
+    return new Intl.DateTimeFormat('es-ES', { dateStyle: 'short' }).format(new Date(valor));
   }
 
   protected alValorDe(evento: Event): string {

@@ -30,9 +30,7 @@ def _clave(jti: str) -> str:
     return f"{_PREFIJO}{jti}"
 
 
-async def abrir_sesion(
-    *, jti: str, admin_id: uuid.UUID, session_id: str, segundos: int
-) -> None:
+async def abrir_sesion(*, jti: str, admin_id: uuid.UUID, session_id: str, segundos: int) -> None:
     """Marca una sesión de impersonación como activa durante `segundos`."""
     await get_redis().set(
         _clave(jti),
