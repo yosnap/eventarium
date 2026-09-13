@@ -205,10 +205,10 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
       width: 100%;
       margin-top: var(--space-xs);
       padding: 0.625rem 0.75rem;
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      background-color: var(--color-surface);
-      color: var(--color-text);
+      background-color: var(--surface);
+      color: var(--fg);
       font: inherit;
       min-height: 2.75rem;
     }
@@ -226,7 +226,7 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
     }
     .red-fila input {
       padding: 0.5rem 0.75rem;
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
       font: inherit;
     }
@@ -240,7 +240,7 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
     }
     .error {
       margin: var(--space-xs) 0 0;
-      color: var(--color-danger);
+      color: var(--danger);
       font-size: 0.875rem;
     }
     img {
@@ -248,7 +248,7 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
       margin-bottom: var(--space-sm);
     }
     .plantillas-de-tema {
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
       padding: var(--space-md);
       display: grid;
@@ -268,7 +268,7 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
       width: 2rem;
       height: 2rem;
       border-radius: var(--radius-sm);
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
       display: grid;
       place-items: center;
     }

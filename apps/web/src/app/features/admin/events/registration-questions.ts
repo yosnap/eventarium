@@ -227,7 +227,7 @@ function vacio(): {
       gap: var(--space-sm);
     }
     .lista li {
-      border-bottom: 1px solid var(--color-border);
+      border-bottom: 1px solid var(--border);
       padding-bottom: var(--space-sm);
     }
     .fila {
@@ -246,7 +246,7 @@ function vacio(): {
     }
     .detalle {
       margin: var(--space-xs) 0 0;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
       font-size: 0.875rem;
     }
     .insignia {
@@ -254,8 +254,8 @@ function vacio(): {
       font-weight: 500;
       padding: 0.125rem 0.5rem;
       border-radius: var(--radius-sm);
-      background-color: var(--color-surface-muted);
-      color: var(--color-text-muted, #6b7280);
+      background-color: var(--surface-2);
+      color: var(--muted);
     }
     .acciones {
       display: flex;
@@ -267,7 +267,7 @@ function vacio(): {
       gap: var(--space-md);
       margin-top: var(--space-lg);
       padding-top: var(--space-lg);
-      border-top: 1px solid var(--color-border);
+      border-top: 1px solid var(--border);
     }
     .campo-select,
     .campo-materiales {
@@ -279,10 +279,10 @@ function vacio(): {
       width: 100%;
       box-sizing: border-box;
       padding: 0.625rem 0.75rem;
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      background-color: var(--color-surface);
-      color: var(--color-text);
+      background-color: var(--surface);
+      color: var(--fg);
       font: inherit;
     }
     .campo-checkbox {
@@ -293,7 +293,7 @@ function vacio(): {
     }
     .ayuda {
       margin: 0;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
       font-size: 0.8125rem;
     }
     .acciones-finales {

@@ -210,7 +210,7 @@ function generarId(): string {
       align-items: center;
       gap: var(--space-sm);
       padding: var(--space-sm);
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
     }
     .icono {
@@ -219,18 +219,18 @@ function generarId(): string {
     .detalle {
       display: block;
       font-size: 0.875rem;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
     }
     .estado-valid,
     .estado-manual {
-      border-color: var(--color-success);
+      border-color: var(--accent);
     }
     .estado-duplicate,
     .estado-revoked,
     .estado-expired,
     .estado-invalid_signature,
     .estado-not_found {
-      border-color: var(--color-danger);
+      border-color: var(--danger);
     }
     form {
       display: flex;

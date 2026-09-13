@@ -216,16 +216,16 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
     td {
       text-align: left;
       padding: var(--space-sm);
-      border-bottom: 1px solid var(--color-border);
+      border-bottom: 1px solid var(--border);
       vertical-align: top;
     }
     .detalle {
       display: block;
       font-size: 0.8125rem;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
     }
     .destacado {
-      color: var(--color-danger);
+      color: var(--danger);
       font-weight: 600;
     }
     dialog {
@@ -250,7 +250,7 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
       margin: 0;
     }
     .resumen dt {
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
     }
     .resumen dd {
       margin: 0;
@@ -265,10 +265,10 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
       width: 100%;
       box-sizing: border-box;
       padding: 0.625rem 0.75rem;
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      background-color: var(--color-surface);
-      color: var(--color-text);
+      background-color: var(--surface);
+      color: var(--fg);
       font: inherit;
       min-height: 2.75rem;
     }
@@ -279,7 +279,7 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
     }
     .ayuda {
       margin: 0;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
       font-size: 0.8125rem;
     }
     .acciones-dialogo {

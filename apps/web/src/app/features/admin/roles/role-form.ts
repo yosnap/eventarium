@@ -274,10 +274,10 @@ function campoDesdeApi(campo: RoleField): CampoDeFormulario {
       width: 100%;
       box-sizing: border-box;
       padding: 0.625rem 0.75rem;
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      background-color: var(--color-surface);
-      color: var(--color-text);
+      background-color: var(--surface);
+      color: var(--fg);
       font: inherit;
       min-height: 2.75rem;
     }
@@ -299,7 +299,7 @@ function campoDesdeApi(campo: RoleField): CampoDeFormulario {
       display: grid;
       gap: var(--space-sm);
       padding-bottom: var(--space-md);
-      border-bottom: 1px solid var(--color-border);
+      border-bottom: 1px solid var(--border);
     }
     .campo-fila:last-child {
       border-bottom: none;
@@ -309,7 +309,7 @@ function campoDesdeApi(campo: RoleField): CampoDeFormulario {
     }
     .ayuda {
       margin: 0;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
       font-size: 0.8125rem;
     }
     .requerido {

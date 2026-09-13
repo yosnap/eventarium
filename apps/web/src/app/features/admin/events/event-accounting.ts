@@ -15,6 +15,7 @@ import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../../../core/api/api.service';
+import { ExpenseForm } from './expense-form';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
@@ -117,7 +118,7 @@ function euros(cents: number): string {
 @Component({
   selector: 'app-event-accounting',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Chip, SlicePipe],
+  imports: [TranslocoDirective, Alert, Button, Card, Chip, ExpenseForm, SlicePipe],
   template: `
     <ng-container *transloco="let t">
       @if (error(); as mensaje) {
@@ -463,83 +464,15 @@ function euros(cents: number): string {
           </form>
         </app-card>
 
-        <app-card [heading]="t('admin.events.accounting.altaGasto.titulo')">
-          <form (submit)="crearGasto($event)" novalidate class="formulario">
-            <div class="campo">
-              <label for="gasto-proveedor">{{
-                t('admin.events.accounting.altaGasto.proveedor')
-              }}</label>
-              <input
-                id="gasto-proveedor"
-                type="text"
-                [value]="gastoProveedor()"
-                (input)="gastoProveedor.set(alTexto($event))"
-              />
-            </div>
-            <div class="campo">
-              <label for="gasto-partida">{{
-                t('admin.events.accounting.partidas.columnaPartida')
-              }}</label>
-              <select
-                id="gasto-partida"
-                [value]="gastoPartidaId()"
-                (change)="gastoPartidaId.set(alTexto($event))"
-              >
-                <option value="">{{ t('admin.events.accounting.altaGasto.sinPartida') }}</option>
-                @for (linea of lineas(); track linea.id) {
-                  <option [value]="linea.id">{{ linea.name }}</option>
-                }
-              </select>
-            </div>
-            <div class="campo">
-              <label for="gasto-fecha">{{
-                t('admin.events.accounting.movimientos.columnaFecha')
-              }}</label>
-              <input
-                id="gasto-fecha"
-                type="date"
-                [value]="gastoFecha()"
-                (input)="gastoFecha.set(alTexto($event))"
-              />
-            </div>
-            <div class="campo">
-              <label for="gasto-base">{{
-                t('admin.events.accounting.movimientos.columnaBase')
-              }}</label>
-              <input
-                id="gasto-base"
-                type="number"
-                min="0"
-                step="0.01"
-                [value]="gastoBase()"
-                (input)="gastoBase.set(alTexto($event))"
-              />
-            </div>
-            <div class="campo">
-              <label for="gasto-iva">{{
-                t('admin.events.accounting.movimientos.columnaIva')
-              }}</label>
-              <input
-                id="gasto-iva"
-                type="number"
-                min="0"
-                step="0.01"
-                [value]="gastoIva()"
-                (input)="gastoIva.set(alTexto($event))"
-              />
-            </div>
-            @if (errorGasto(); as mensaje) {
-              <app-alert tone="error">{{ mensaje }}</app-alert>
-            }
-            <app-button type="submit" variant="secundario" [loading]="creandoGasto()">
-              {{ t('admin.events.accounting.altaGasto.boton') }}
-            </app-button>
-          </form>
+        <app-expense-form
+          [eventId]="eventId()"
+          [partidas]="lineasParaGasto()"
+          (creado)="alCrearGasto($event)"
+        />
 
-          <app-alert tone="info">
-            {{ t('admin.events.accounting.altaGasto.ocrDeshabilitado') }}
-          </app-alert>
-        </app-card>
+        <app-alert tone="info">
+          {{ t('admin.events.accounting.altaGasto.ocrDeshabilitado') }}
+        </app-alert>
       }
     </ng-container>
   `,
@@ -562,27 +495,27 @@ function euros(cents: number): string {
       margin-bottom: var(--space-lg);
     }
     .kpi {
-      border: 1px solid var(--border, var(--color-border));
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      background: var(--surface, var(--color-surface));
+      background: var(--surface);
       padding: var(--space-md);
     }
     .etiqueta {
       font-size: 0.75rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
     }
     .valor {
-      font-family: var(--font-mono, monospace);
+      font-family: var(--font-mono);
       font-size: 1.5rem;
       margin-top: 6px;
     }
     .valor.positivo {
-      color: var(--color-success, #16a34a);
+      color: var(--accent);
     }
     .valor.negativo {
-      color: var(--color-danger);
+      color: var(--danger);
     }
     table {
       width: 100%;
@@ -593,29 +526,29 @@ function euros(cents: number): string {
     td {
       text-align: left;
       padding: var(--space-sm);
-      border-bottom: 1px solid var(--color-border);
+      border-bottom: 1px solid var(--border);
       vertical-align: middle;
     }
     tr.sobre td {
-      color: var(--color-danger);
+      color: var(--danger);
     }
     .barra {
       display: inline-block;
       width: 100px;
       height: 10px;
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
       border-radius: 3px;
       overflow: hidden;
       vertical-align: middle;
       margin-right: 8px;
-      background: var(--color-surface);
+      background: var(--surface);
     }
     .barra-relleno {
       height: 100%;
-      background: var(--color-text-muted, #6b7280);
+      background: var(--muted);
     }
     .barra-relleno.sobre {
-      background: var(--color-danger);
+      background: var(--danger);
     }
     .tabs {
       display: flex;
@@ -625,14 +558,14 @@ function euros(cents: number): string {
     .tabs button {
       min-height: 2.25rem;
       padding: 0 14px;
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       background: transparent;
       cursor: pointer;
     }
     .tabs button[aria-selected='true'] {
-      background: var(--color-primary);
-      color: var(--color-primary-contrast);
+      background: var(--accent);
+      color: var(--on-accent);
       font-weight: 600;
     }
     .formulario {
@@ -649,10 +582,10 @@ function euros(cents: number): string {
     .campo select {
       min-height: 2.5rem;
       padding: 0.5rem 0.75rem;
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      background: var(--color-surface);
-      color: var(--color-text);
+      background: var(--surface);
+      color: var(--fg);
       font: inherit;
     }
   `,
@@ -682,13 +615,6 @@ export class EventAccounting implements OnInit {
   protected readonly creandoPartida = signal(false);
   protected readonly errorPartida = signal<string | null>(null);
 
-  protected readonly gastoProveedor = signal('');
-  protected readonly gastoPartidaId = signal('');
-  protected readonly gastoFecha = signal('');
-  protected readonly gastoBase = signal('');
-  protected readonly gastoIva = signal('');
-  protected readonly creandoGasto = signal(false);
-  protected readonly errorGasto = signal<string | null>(null);
 
   protected readonly euros = euros;
 
@@ -880,62 +806,15 @@ export class EventAccounting implements OnInit {
     }
   }
 
-  protected async crearGasto(evento: SubmitEvent): Promise<void> {
-    evento.preventDefault();
-    this.errorGasto.set(null);
-    const proveedor = this.gastoProveedor().trim();
-    const baseCents = Math.round(Number(this.gastoBase().replace(',', '.')) * 100);
-    const ivaTexto = this.gastoIva().trim();
-    const ivaCents = ivaTexto ? Math.round(Number(ivaTexto.replace(',', '.')) * 100) : null;
-    const fecha = this.gastoFecha();
+  /** Las partidas que el formulario de gasto puede ofrecer para imputar. */
+  protected readonly lineasParaGasto = computed(() =>
+    this.lineas().map((linea) => ({ id: linea.id, name: linea.name })),
+  );
 
-    if (!proveedor) {
-      this.errorGasto.set(
-        this.transloco.translate('admin.events.accounting.altaGasto.proveedorRequerido'),
-      );
-      return;
-    }
-    if (!fecha) {
-      this.errorGasto.set(
-        this.transloco.translate('admin.events.accounting.altaGasto.fechaRequerida'),
-      );
-      return;
-    }
-    if (!Number.isFinite(baseCents) || baseCents < 0) {
-      this.errorGasto.set(
-        this.transloco.translate('admin.events.accounting.altaGasto.importeInvalido'),
-      );
-      return;
-    }
-
-    this.creandoGasto.set(true);
-    try {
-      await firstValueFrom(
-        this.http.post(this.api.url(`/accounting/events/${this.eventId()}/expenses`), {
-          budget_line_id: this.gastoPartidaId() || null,
-          provider_name: proveedor,
-          expense_date: new Date(fecha).toISOString(),
-          base_cents: baseCents,
-          vat_cents: ivaCents,
-          total_cents: baseCents + (ivaCents ?? 0),
-        }),
-      );
-      this.gastoProveedor.set('');
-      this.gastoPartidaId.set('');
-      this.gastoFecha.set('');
-      this.gastoBase.set('');
-      this.gastoIva.set('');
-      this.aviso.set(this.transloco.translate('admin.events.accounting.altaGasto.creado'));
-      await this.cargar();
-    } catch (error) {
-      this.errorGasto.set(
-        error instanceof ApiError
-          ? error.message
-          : this.transloco.translate('admin.events.accounting.error'),
-      );
-    } finally {
-      this.creandoGasto.set(false);
-    }
+  /** El formulario ha creado un gasto: se avisa y se recargan las cifras. */
+  protected async alCrearGasto(aviso: string): Promise<void> {
+    this.aviso.set(aviso);
+    await this.cargar();
   }
 
   protected async exportar(formato: 'csv' | 'pdf'): Promise<void> {

@@ -272,7 +272,7 @@ function vacio(): {
       gap: var(--space-sm);
     }
     .lista li {
-      border-bottom: 1px solid var(--color-border);
+      border-bottom: 1px solid var(--border);
       padding-bottom: var(--space-sm);
     }
     .fila {
@@ -283,7 +283,7 @@ function vacio(): {
     }
     .detalle {
       display: block;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
       font-size: 0.875rem;
     }
     .acciones {
@@ -298,7 +298,7 @@ function vacio(): {
       gap: var(--space-md);
       margin-top: var(--space-lg);
       padding-top: var(--space-lg);
-      border-top: 1px solid var(--color-border);
+      border-top: 1px solid var(--border);
       max-width: 34rem;
     }
     .campo-select,
@@ -314,16 +314,16 @@ function vacio(): {
       max-width: 16rem;
       box-sizing: border-box;
       padding: 0.625rem 0.75rem;
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      background-color: var(--color-surface);
-      color: var(--color-text);
+      background-color: var(--surface);
+      color: var(--fg);
       font: inherit;
       min-height: 2.75rem;
     }
     .ayuda {
       margin: 0;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
       font-size: 0.8125rem;
     }
     .acciones-finales {

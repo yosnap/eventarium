@@ -125,7 +125,7 @@ const LIMITE = 20;
     td {
       text-align: left;
       padding: var(--space-sm) var(--space-md);
-      border-bottom: 1px solid var(--color-border);
+      border-bottom: 1px solid var(--border);
     }
     .paginacion {
       display: flex;

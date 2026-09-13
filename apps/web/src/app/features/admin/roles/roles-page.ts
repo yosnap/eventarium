@@ -143,7 +143,7 @@ interface RoleSummary {
     .clave,
     .descripcion {
       margin: var(--space-xs) 0 0;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
       font-size: 0.875rem;
     }
     .insignia {
@@ -151,12 +151,12 @@ interface RoleSummary {
       font-weight: 500;
       padding: 0.125rem 0.5rem;
       border-radius: var(--radius-sm);
-      background-color: var(--color-surface-muted);
-      color: var(--color-text-muted, #6b7280);
+      background-color: var(--surface-2);
+      color: var(--muted);
     }
     .insignia.sistema {
-      background-color: var(--color-primary);
-      color: var(--color-primary-contrast);
+      background-color: var(--accent);
+      color: var(--on-accent);
     }
     .acciones {
       display: flex;

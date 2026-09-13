@@ -107,7 +107,7 @@ function estadoVisualDe(estado: StripeAccountStatus | null): EstadoVisual {
       margin-top: var(--space-sm);
     }
     .advertencia-salida {
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
       font-size: 0.875rem;
     }
     app-alert + .advertencia-salida {

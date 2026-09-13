@@ -211,7 +211,7 @@ import { claveDeEstado, type RegistrationDetail } from './registration-types';
     }
     .datos dt {
       font-size: 0.8125rem;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
     }
     .datos dd {
       margin: 0;

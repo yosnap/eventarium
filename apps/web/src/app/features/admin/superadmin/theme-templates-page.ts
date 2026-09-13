@@ -267,15 +267,15 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
       justify-content: space-between;
       width: 100%;
       padding: var(--space-sm) var(--space-md);
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
       background: none;
       cursor: pointer;
       font: inherit;
-      color: var(--color-text);
+      color: var(--fg);
     }
     .clave {
-      color: var(--color-text-muted);
+      color: var(--muted);
       font-size: 0.875rem;
     }
     form {
@@ -283,7 +283,7 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
       gap: var(--space-lg);
     }
     .modo {
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
       padding: var(--space-md);
     }
@@ -304,16 +304,16 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
       width: 2.5rem;
       height: 2.5rem;
       padding: 0;
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
       background: none;
       cursor: pointer;
     }
     .avisos {
-      border: 1px solid var(--color-danger);
+      border: 1px solid var(--danger);
       border-radius: var(--radius-md);
       padding: var(--space-md);
-      color: var(--color-danger);
+      color: var(--danger);
     }
     .avisos ul {
       margin: var(--space-xs) 0 0;
@@ -321,7 +321,7 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
     }
     .clave-inmutable {
       margin: 0;
-      color: var(--color-text-muted);
+      color: var(--muted);
     }
     .predeterminada {
       display: flex;
@@ -331,7 +331,7 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
     }
     .predeterminada-pista {
       margin: calc(-1 * var(--space-sm)) 0 0;
-      color: var(--color-text-muted);
+      color: var(--muted);
       font-size: 0.8125rem;
     }
   `,

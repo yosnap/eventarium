@@ -173,7 +173,7 @@ function vacio(): {
       gap: var(--sp-3);
     }
     .lista li {
-      border-bottom: 1px solid var(--color-border, var(--border));
+      border-bottom: 1px solid var(--border);
       padding-bottom: var(--sp-3);
     }
     .fila {
@@ -185,7 +185,7 @@ function vacio(): {
     }
     .detalle {
       display: block;
-      color: var(--muted, var(--color-text-muted, #6b7280));
+      color: var(--muted);
       font-size: 0.875rem;
     }
     .acciones {
@@ -199,7 +199,7 @@ function vacio(): {
       gap: var(--sp-4);
       margin-top: var(--sp-5);
       padding-top: var(--sp-5);
-      border-top: 1px solid var(--color-border, var(--border));
+      border-top: 1px solid var(--border);
       max-width: 34rem;
     }
     .campo-numero {
@@ -211,10 +211,10 @@ function vacio(): {
       box-sizing: border-box;
       max-width: 12rem;
       padding: var(--sp-3);
-      border: 1px solid var(--color-border, var(--border));
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      background-color: var(--color-surface, var(--surface));
-      color: var(--color-text, var(--fg));
+      background-color: var(--surface);
+      color: var(--fg);
       font: inherit;
       min-height: 2.75rem;
     }

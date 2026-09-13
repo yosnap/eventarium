@@ -158,8 +158,8 @@ import { PanelScope } from './panel-scope';
       margin: var(--space-md);
     }
     .panel-navegacion {
-      border-right: 1px solid var(--color-border);
-      background-color: var(--color-surface-muted);
+      border-right: 1px solid var(--border);
+      background-color: var(--surface-2);
       padding-block: var(--space-md);
     }
     main {

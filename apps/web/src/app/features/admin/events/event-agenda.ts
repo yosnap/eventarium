@@ -361,7 +361,7 @@ function vacio(): {
       justify-content: space-between;
       align-items: center;
       gap: var(--space-md);
-      border-bottom: 1px solid var(--color-border);
+      border-bottom: 1px solid var(--border);
       padding-bottom: var(--space-sm);
     }
     .anadir-roster {
@@ -374,10 +374,10 @@ function vacio(): {
       flex: 1;
       min-width: 12rem;
       padding: 0.625rem 0.75rem;
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      background-color: var(--color-surface);
-      color: var(--color-text);
+      background-color: var(--surface);
+      color: var(--fg);
       font: inherit;
     }
     .participantes-editor {
@@ -385,7 +385,7 @@ function vacio(): {
       gap: var(--space-sm);
       margin-top: var(--space-sm);
       padding: var(--space-sm) var(--space-md);
-      background-color: var(--color-surface-muted, rgba(0, 0, 0, 0.03));
+      background-color: var(--surface-2);
       border-radius: var(--radius-md);
     }
     .sesiones {
@@ -396,7 +396,7 @@ function vacio(): {
       gap: var(--space-sm);
     }
     .sesiones li {
-      border-bottom: 1px solid var(--color-border);
+      border-bottom: 1px solid var(--border);
       padding-bottom: var(--space-sm);
     }
     .fila {
@@ -408,7 +408,7 @@ function vacio(): {
     }
     .detalle {
       display: block;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
       font-size: 0.875rem;
     }
     .acciones {
@@ -420,7 +420,7 @@ function vacio(): {
       gap: var(--space-md);
       margin-top: var(--space-lg);
       padding-top: var(--space-lg);
-      border-top: 1px solid var(--color-border);
+      border-top: 1px solid var(--border);
     }
     .campo-select,
     .campo-materiales {
@@ -432,15 +432,15 @@ function vacio(): {
       width: 100%;
       box-sizing: border-box;
       padding: 0.625rem 0.75rem;
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      background-color: var(--color-surface);
-      color: var(--color-text);
+      background-color: var(--surface);
+      color: var(--fg);
       font: inherit;
     }
     .ayuda {
       margin: 0;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
       font-size: 0.8125rem;
     }
     .acciones-finales {

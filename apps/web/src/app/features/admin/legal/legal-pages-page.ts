@@ -134,12 +134,12 @@ const PAGINAS: readonly DefinicionDePagina[] = [
       font-weight: 600;
       padding: 0.15rem 0.5rem;
       border-radius: var(--radius-md);
-      background-color: var(--color-primary);
-      color: var(--color-primary-contrast);
+      background-color: var(--accent);
+      color: var(--on-accent);
     }
     .etiqueta-defecto {
-      background-color: var(--color-surface-muted);
-      color: var(--color-text-muted, #6b7280);
+      background-color: var(--surface-2);
+      color: var(--muted);
     }
     app-card {
       display: block;

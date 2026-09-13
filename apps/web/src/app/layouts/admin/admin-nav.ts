@@ -204,7 +204,7 @@ export function enlacesDeEvento(eventId: string, aceptaPagos: boolean): readonly
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
     }
     .grupo-titulo:first-child {
       margin-top: 0;
@@ -223,12 +223,12 @@ export function enlacesDeEvento(eventId: string, aceptaPagos: boolean): readonly
       display: block;
       padding: var(--space-sm) var(--space-md);
       border-radius: var(--radius-md);
-      color: var(--color-text);
+      color: var(--fg);
       text-decoration: none;
     }
     a.activo {
-      background-color: var(--color-primary);
-      color: var(--color-primary-contrast);
+      background-color: var(--accent);
+      color: var(--on-accent);
     }
   `,
 })

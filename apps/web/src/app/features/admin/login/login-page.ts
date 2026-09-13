@@ -57,7 +57,7 @@ import { Input } from '../../../shared/ui/input';
       place-items: center;
       min-height: 100vh;
       padding: var(--space-lg);
-      background-color: var(--color-surface-muted);
+      background-color: var(--surface-2);
     }
     app-card {
       width: min(24rem, 100%);

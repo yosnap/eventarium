@@ -219,7 +219,7 @@ const LIMITE = 20;
     }
     .estadisticas dt {
       font-size: 0.8125rem;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
     }
     .estadisticas dd {
       margin: 0;
@@ -234,10 +234,10 @@ const LIMITE = 20;
     }
     .filtro select {
       padding: 0.5rem 0.75rem;
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      background-color: var(--color-surface);
-      color: var(--color-text);
+      background-color: var(--surface);
+      color: var(--fg);
       font: inherit;
     }
     table {
@@ -248,7 +248,7 @@ const LIMITE = 20;
     td {
       text-align: left;
       padding: var(--space-sm) var(--space-md);
-      border-bottom: 1px solid var(--color-border);
+      border-bottom: 1px solid var(--border);
     }
     .acciones {
       display: flex;
