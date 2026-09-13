@@ -398,6 +398,69 @@ async def test_ciclo_de_migracion_0014_es_reversible_sin_tocar_otras_columnas() 
     assert "fonts" not in restauradas
 
 
+async def _valores_de_branding(columna: str) -> list[object]:
+    """Valores de una columna de `organization_branding`, una fila por elemento."""
+    async with SessionMaintenance() as session:
+        filas = await session.execute(text(f"SELECT {columna} FROM organization_branding"))  # noqa: S608 — nombre de columna fijado por quien llama, no entrada externa
+        return [fila[0] for fila in filas]
+
+
+async def _crear_fila_de_branding(organizacion: OrganizacionDePrueba) -> None:
+    """Asegura una fila de `organization_branding` para la organización de prueba.
+
+    Hace falta una fila real: sin ella, el test del `downgrade` recorrería cero
+    filas y no comprobaría nada, que es justo el fallo que este test existe para
+    evitar.
+    """
+    async with SessionMaintenance() as session:
+        await session.execute(
+            text(
+                "INSERT INTO organization_branding (organization_id, template_key, social_links) "
+                "VALUES (:org, 'classic', '[]'::jsonb) ON CONFLICT (organization_id) DO NOTHING"
+            ),
+            {"org": organizacion.id},
+        )
+        await session.commit()
+
+
+async def test_downgrade_de_0015_recrea_las_columnas_vacias(
+    organizacion: OrganizacionDePrueba,
+) -> None:
+    """`0015_retirada_colores_de_branding` es **destructiva**: borra
+
+    `organization_branding.colors` y `.fonts`, y su `downgrade` **no devuelve los
+    datos**, solo el esquema. Este test fija ese contrato por escrito, que es lo
+    único que impide que alguien asuma lo contrario al leer la migración: las
+    columnas vuelven a existir y todas las filas quedan con el objeto vacío.
+
+    El test original de `0014` baja hasta `0013`, así que **nunca ejecuta el
+    `downgrade` de `0015`**; esto lo cubre.
+    """
+    await _crear_fila_de_branding(organizacion)
+
+    _correr_alembic("downgrade", "0014_plantillas_de_tema")
+    try:
+        columnas = await _columnas_de_branding()
+        assert {"colors", "fonts"} <= columnas
+
+        for columna in ("colors", "fonts"):
+            valores = await _valores_de_branding(columna)
+            assert valores, f"sin filas de branding, el valor de {columna} no se comprueba"
+            # El esquema se recupera; el contenido no. Ni una fila conserva datos.
+            assert all(valor == {} for valor in valores), (
+                f"{columna} debería volver vacía en todas las filas, y no lo está"
+            )
+    finally:
+        # Pase lo que pase con las aserciones, el esquema vuelve a `head` antes de
+        # dejar el test: si no, el resto de la suite correría con las columnas
+        # intermedias y fallaría en sitios que no tienen nada que ver.
+        _correr_alembic("upgrade", "head")
+
+    restauradas = await _columnas_de_branding()
+    assert "colors" not in restauradas
+    assert "fonts" not in restauradas
+
+
 # --- Contraste (unitario, sin HTTP) ---------------------------------------
 
 
