@@ -104,7 +104,7 @@ describe('EventAgenda', () => {
     fin.dispatchEvent(new Event('input'));
     await avanzar(fixture);
 
-    (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
+    (fixture.nativeElement.querySelector('app-session-form form') as HTMLFormElement).dispatchEvent(
       new Event('submit'),
     );
     await avanzar(fixture);
@@ -154,7 +154,7 @@ describe('EventAgenda', () => {
     const sala = fixture.nativeElement.querySelector('#sesion-sala') as HTMLInputElement;
     expect(sala.value).toBe('Sala A');
 
-    (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
+    (fixture.nativeElement.querySelector('app-session-form form') as HTMLFormElement).dispatchEvent(
       new Event('submit'),
     );
     await avanzar(fixture);

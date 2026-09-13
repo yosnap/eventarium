@@ -18,6 +18,13 @@ import { displayName } from '../../../core/auth/auth.service';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
+import { Input } from '../../../shared/ui/input';
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+interface InvitationCreateResponse {
+  readonly status: 'added' | 'invited';
+}
 
 interface Persona {
   readonly first_name: string | null;
@@ -52,7 +59,7 @@ interface Page<T> {
 @Component({
   selector: 'app-event-roster',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card],
+  imports: [TranslocoDirective, Alert, Button, Card, Input],
   template: `
     <ng-container *transloco="let t">
       <app-card [heading]="t('admin.events.roster.titulo')">
@@ -100,6 +107,29 @@ interface Page<T> {
             {{ t('admin.events.roster.anadir') }}
           </app-button>
         </div>
+
+        <p class="separador">{{ t('admin.events.roster.oInvitar') }}</p>
+
+        @if (mensajeInvitar(); as texto) {
+          <app-alert tone="exito">{{ texto }}</app-alert>
+        }
+        <form (submit)="invitarPonente($event)" novalidate class="invitar-ponente">
+          <app-input
+            fieldId="roster-invitar-email"
+            [label]="t('admin.events.roster.invitarEmail')"
+            type="email"
+            autocomplete="email"
+            [required]="true"
+            [error]="errorInviteEmail()"
+            [(value)]="inviteEmail"
+          />
+          <app-button type="submit" [loading]="invitando()">
+            {{
+              invitando() ? t('admin.events.roster.invitando') : t('admin.events.roster.invitar')
+            }}
+          </app-button>
+        </form>
+        <p class="ayuda-invitar">{{ t('admin.events.roster.invitarAyuda') }}</p>
       </app-card>
     </ng-container>
   `,
@@ -130,6 +160,24 @@ interface Page<T> {
       flex: 1;
       min-width: 12rem;
     }
+    .separador {
+      margin: var(--space-md) 0 0;
+      color: var(--muted);
+      font-size: var(--fs-label);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .invitar-ponente {
+      display: flex;
+      align-items: flex-end;
+      gap: var(--space-sm);
+      flex-wrap: wrap;
+    }
+    .ayuda-invitar {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.875rem;
+    }
   `,
 })
 export class EventRoster implements OnInit {
@@ -149,6 +197,11 @@ export class EventRoster implements OnInit {
   protected readonly miembroAAnadir = signal('');
   protected readonly anadiendo = signal(false);
   protected readonly nombreDe = displayName;
+
+  protected readonly inviteEmail = signal('');
+  protected readonly errorInviteEmail = signal<string | null>(null);
+  protected readonly invitando = signal(false);
+  protected readonly mensajeInvitar = signal<string | null>(null);
 
   protected readonly miembrosDisponibles = computed(() => {
     const yaEnRoster = new Set(this.roster().map((m) => m.organization_member_id));
@@ -183,6 +236,48 @@ export class EventRoster implements OnInit {
       this.error.set(this.mensajeDeError(error));
     } finally {
       this.anadiendo.set(false);
+    }
+  }
+
+  protected async invitarPonente(evento: Event): Promise<void> {
+    evento.preventDefault();
+    this.mensajeInvitar.set(null);
+
+    const email = this.inviteEmail().trim();
+    this.errorInviteEmail.set(
+      !email
+        ? this.transloco.translate('admin.events.roster.invitarEmailRequerido')
+        : !EMAIL_RE.test(email)
+          ? this.transloco.translate('admin.events.roster.invitarEmailInvalido')
+          : null,
+    );
+    if (this.errorInviteEmail()) {
+      return;
+    }
+
+    this.invitando.set(true);
+    try {
+      const respuesta = await firstValueFrom(
+        this.http.post<InvitationCreateResponse>(
+          this.api.url(`/events/${this.eventId()}/invitations`),
+          { email },
+        ),
+      );
+      this.inviteEmail.set('');
+      this.mensajeInvitar.set(
+        this.transloco.translate(
+          respuesta.status === 'added'
+            ? 'admin.events.roster.invitarAnadidoDirectamente'
+            : 'admin.events.roster.invitarEnviada',
+        ),
+      );
+      if (respuesta.status === 'added') {
+        await this.cargarRoster();
+      }
+    } catch (error) {
+      this.errorInviteEmail.set(this.mensajeDeError(error));
+    } finally {
+      this.invitando.set(false);
     }
   }
 

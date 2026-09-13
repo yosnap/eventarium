@@ -981,7 +981,16 @@
         "elegirPersona": "Elige a alguien de la organización…",
         "anadir": "Añadir al evento",
         "quitar": "Quitar",
-        "error": "No hemos podido completar la operación."
+        "error": "No hemos podido completar la operación.",
+        "oInvitar": "O invita por correo a alguien que todavía no está en el equipo",
+        "invitarEmail": "Correo electrónico",
+        "invitarEmailRequerido": "Escribe el correo electrónico.",
+        "invitarEmailInvalido": "Escribe un correo electrónico válido.",
+        "invitar": "Invitar como ponente",
+        "invitando": "Invitando…",
+        "invitarAyuda": "Si el correo ya tiene cuenta, se le añade directamente. Si no, recibirá un enlace para crear su contraseña y unirse. El ponente no edita su sesión ni sube materiales desde aquí: eso lo haces tú, en el editor de la sesión.",
+        "invitarAnadidoDirectamente": "Ese correo ya tenía cuenta: se ha añadido directamente al evento.",
+        "invitarEnviada": "Invitación enviada. Aparecerá en el roster en cuanto la acepte."
       },
       "registrations": {
         "titulo": "Inscripciones",
