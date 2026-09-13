@@ -98,12 +98,8 @@ interface Page<T> {
       margin: var(--space-md) 0;
     }
     .filtro select {
-      padding: 0.5rem 0.75rem;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      background-color: var(--surface);
-      color: var(--fg);
-      font: inherit;
+      /* La pintura del control la da la regla compartida de styles.css. */
+      min-height: 2.5rem;
     }
   `,
 })

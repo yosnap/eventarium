@@ -580,13 +580,9 @@ function euros(cents: number): string {
     }
     .campo input,
     .campo select {
+      /* La pintura del control la da la regla compartida de styles.css; aquí
+         solo la densidad algo menor de este formulario. */
       min-height: 2.5rem;
-      padding: 0.5rem 0.75rem;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      background: var(--surface);
-      color: var(--fg);
-      font: inherit;
     }
   `,
 })

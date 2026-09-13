@@ -126,14 +126,9 @@ interface Page<T> {
       flex-wrap: wrap;
     }
     .anadir-roster select {
+      /* La pintura del control la da la regla compartida de styles.css. */
       flex: 1;
       min-width: 12rem;
-      padding: 0.625rem 0.75rem;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      background-color: var(--surface);
-      color: var(--fg);
-      font: inherit;
     }
   `,
 })

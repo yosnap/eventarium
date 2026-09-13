@@ -237,12 +237,8 @@ const LIMITE = 20;
       margin-bottom: var(--space-md);
     }
     .filtro select {
-      padding: 0.5rem 0.75rem;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      background-color: var(--surface);
-      color: var(--fg);
-      font: inherit;
+      /* La pintura del control la da la regla compartida de styles.css. */
+      min-height: 2.5rem;
     }
     .acciones {
       display: flex;

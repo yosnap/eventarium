@@ -201,16 +201,11 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
       font-weight: 600;
     }
     select {
+      /* La pintura del control la da la regla compartida de styles.css; aquí
+         solo lo específico de este formulario. */
       display: block;
       width: 100%;
       margin-top: var(--space-xs);
-      padding: 0.625rem 0.75rem;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      background-color: var(--surface);
-      color: var(--fg);
-      font: inherit;
-      min-height: 2.75rem;
     }
     .red-fila {
       display: flex;

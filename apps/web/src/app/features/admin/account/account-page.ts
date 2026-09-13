@@ -223,14 +223,8 @@ const TIPOS_DE_ENLACE = ['twitter', 'linkedin', 'instagram', 'web'] as const;
       max-width: 26rem;
     }
     .campo-select select {
+      /* La pintura del control la da la regla compartida de styles.css. */
       width: 100%;
-      box-sizing: border-box;
-      padding: 0.625rem 0.75rem;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      background-color: var(--surface);
-      color: var(--fg);
-      font: inherit;
     }
     .acciones-perfil-publico {
       display: flex;

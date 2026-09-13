@@ -130,12 +130,8 @@ export interface PartidaParaGasto {
     }
     input,
     select {
-      padding: var(--space-sm);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      background-color: var(--surface);
-      color: var(--fg);
-      font: inherit;
+      /* La pintura del control la da la regla compartida de styles.css. */
+      min-height: 2.5rem;
     }
   `,
 })
