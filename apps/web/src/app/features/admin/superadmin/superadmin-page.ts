@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
@@ -9,6 +9,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Chip, ChipTone } from '../../../shared/ui/chip';
+import { DataTable, DataTableColumn } from '../../../shared/ui/data-table';
 import { Input } from '../../../shared/ui/input';
 import { MetricasDePlataforma } from './platform-metrics.types';
 
@@ -41,7 +42,7 @@ const AUDIT_LOG_URL = '/admin/audit-log';
 @Component({
   selector: 'app-superadmin-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Chip, Input],
+  imports: [TranslocoDirective, Alert, Button, Card, Chip, DataTable, Input],
   template: `
     <ng-container *transloco="let t">
       <h1>{{ t('admin.superadmin.titulo') }}</h1>
@@ -95,53 +96,39 @@ const AUDIT_LOG_URL = '/admin/audit-log';
 
         <app-card [heading]="t('admin.plataforma.actividad.titulo')">
           <p class="nota">{{ t('admin.plataforma.actividad.ayuda') }}</p>
-          <div class="tabla-envoltorio">
-            <table>
-              <caption class="sr-only">{{ t('admin.plataforma.actividad.titulo') }}</caption>
-              <thead>
-                <tr>
-                  <th scope="col">{{ t('admin.plataforma.actividad.columnaOrganizacion') }}</th>
-                  <th scope="col">{{ t('admin.plataforma.actividad.columnaEventos') }}</th>
-                  <th scope="col">{{ t('admin.plataforma.actividad.columnaInscripciones') }}</th>
-                  <th scope="col">{{ t('admin.plataforma.actividad.columnaEventoTocado') }}</th>
-                  <th scope="col">{{ t('admin.plataforma.actividad.columnaEventoCreado') }}</th>
-                  <th scope="col">{{ t('admin.plataforma.actividad.columnaInscripcion') }}</th>
-                  <th scope="col">{{ t('admin.plataforma.actividad.columnaAcceso') }}</th>
-                  <th scope="col">{{ t('admin.plataforma.actividad.columnaEstado') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (org of m.organizaciones; track org.id) {
-                  <tr>
-                    <td>{{ org.name }}</td>
-                    <td class="numero">{{ org.eventos }}</td>
-                    <td class="numero">{{ org.inscripciones }}</td>
-                    <td>{{ fecha(org.evento_mas_reciente) }}</td>
-                    <td>{{ fecha(org.ultimo_evento_creado) }}</td>
-                    <td>{{ fecha(org.ultima_inscripcion) }}</td>
-                    <td>{{ fecha(org.ultimo_acceso) }}</td>
-                    <td>
-                      @if (!org.is_active) {
-                        <app-chip tone="apagado">{{
-                          t('admin.plataforma.actividad.inactiva')
-                        }}</app-chip>
-                      } @else if (org.tiene_stripe_pendiente_con_eventos_de_pago) {
-                        <app-chip tone="espera">{{
-                          t('admin.plataforma.actividad.noCobra')
-                        }}</app-chip>
-                      } @else if (org.publicados_sin_inscripciones) {
-                        <app-chip tone="espera">{{
-                          t('admin.plataforma.actividad.sinInscripciones')
-                        }}</app-chip>
-                      } @else {
-                        <app-chip tone="ok">{{ t('admin.plataforma.actividad.activa') }}</app-chip>
-                      }
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
+          <app-data-table
+            [columnas]="columnasDeActividad()"
+            [caption]="t('admin.plataforma.actividad.titulo')"
+          >
+            @for (org of m.organizaciones; track org.id) {
+              <tr>
+                <td>{{ org.name }}</td>
+                <td class="numerica">{{ org.eventos }}</td>
+                <td class="numerica">{{ org.inscripciones }}</td>
+                <td>{{ fecha(org.evento_mas_reciente) }}</td>
+                <td>{{ fecha(org.ultimo_evento_creado) }}</td>
+                <td>{{ fecha(org.ultima_inscripcion) }}</td>
+                <td>{{ fecha(org.ultimo_acceso) }}</td>
+                <td>
+                  @if (!org.is_active) {
+                    <app-chip tone="apagado">{{
+                      t('admin.plataforma.actividad.inactiva')
+                    }}</app-chip>
+                  } @else if (org.tiene_stripe_pendiente_con_eventos_de_pago) {
+                    <app-chip tone="espera">{{
+                      t('admin.plataforma.actividad.noCobra')
+                    }}</app-chip>
+                  } @else if (org.publicados_sin_inscripciones) {
+                    <app-chip tone="espera">{{
+                      t('admin.plataforma.actividad.sinInscripciones')
+                    }}</app-chip>
+                  } @else {
+                    <app-chip tone="ok">{{ t('admin.plataforma.actividad.activa') }}</app-chip>
+                  }
+                </td>
+              </tr>
+            }
+          </app-data-table>
         </app-card>
       } @else if (errorMetricas()) {
         <app-alert tone="error">{{ t('admin.plataforma.error') }}</app-alert>
@@ -305,10 +292,10 @@ const AUDIT_LOG_URL = '/admin/audit-log';
     }
     .campo-fecha input {
       padding: 0.625rem 0.75rem;
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      background-color: var(--color-surface);
-      color: var(--color-text);
+      background-color: var(--surface);
+      color: var(--fg);
       font: inherit;
       min-height: 2.75rem;
     }
@@ -320,7 +307,7 @@ const AUDIT_LOG_URL = '/admin/audit-log';
     td {
       text-align: left;
       padding: var(--space-sm);
-      border-bottom: 1px solid var(--color-border);
+      border-bottom: 1px solid var(--border);
       vertical-align: top;
     }
     .visualmente-oculto {
@@ -361,7 +348,7 @@ const AUDIT_LOG_URL = '/admin/audit-log';
       gap: var(--space-md);
     }
     .lista dt {
-      color: var(--color-text-muted);
+      color: var(--muted);
     }
     .lista dd {
       margin: 0;
@@ -369,37 +356,8 @@ const AUDIT_LOG_URL = '/admin/audit-log';
     }
     .nota {
       margin: 0 0 var(--space-md);
-      color: var(--color-text-muted);
+      color: var(--muted);
       font-size: 0.875rem;
-    }
-    .tabla-envoltorio {
-      overflow-x: auto;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    th,
-    td {
-      padding: var(--space-sm);
-      text-align: start;
-      border-bottom: 1px solid var(--color-border);
-      white-space: nowrap;
-    }
-    .numero {
-      text-align: end;
-      font-variant-numeric: tabular-nums;
-    }
-    .sr-only {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      padding: 0;
-      margin: -1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      white-space: nowrap;
-      border: 0;
     }
   `,
 })
@@ -407,6 +365,26 @@ export class SuperadminPage {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
+
+  /** Las columnas de la tabla de actividad, con la etiqueta ya traducida. */
+  protected readonly columnasDeActividad = computed<DataTableColumn[]>(() => {
+    const t = (clave: string): string => this.transloco.translate(clave);
+    return [
+      { key: 'organizacion', label: t('admin.plataforma.actividad.columnaOrganizacion') },
+      { key: 'eventos', label: t('admin.plataforma.actividad.columnaEventos'), numerica: true },
+      {
+        key: 'inscripciones',
+        label: t('admin.plataforma.actividad.columnaInscripciones'),
+        numerica: true,
+      },
+      { key: 'tocado', label: t('admin.plataforma.actividad.columnaEventoTocado') },
+      { key: 'creado', label: t('admin.plataforma.actividad.columnaEventoCreado') },
+      { key: 'inscripcion', label: t('admin.plataforma.actividad.columnaInscripcion') },
+      { key: 'acceso', label: t('admin.plataforma.actividad.columnaAcceso') },
+      { key: 'estado', label: t('admin.plataforma.actividad.columnaEstado') },
+    ];
+  });
+
 
   protected readonly filtroOrganizacion = signal('');
   protected readonly filtroAccion = signal('');

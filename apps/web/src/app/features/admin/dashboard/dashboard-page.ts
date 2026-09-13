@@ -9,13 +9,14 @@ import {
   signal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { TranslocoDirective } from '@jsverse/transloco';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../../../core/api/api.service';
 import { Alert } from '../../../shared/ui/alert';
 import { Card } from '../../../shared/ui/card';
 import { Chip, ChipTone } from '../../../shared/ui/chip';
+import { DataTable, DataTableColumn } from '../../../shared/ui/data-table';
 import { MetricasDeOrganizacion } from './organization-metrics.types';
 
 /** Una petición pendiente, resuelta para pintar. */
@@ -41,7 +42,7 @@ interface Pendiente {
 @Component({
   selector: 'app-dashboard-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, DatePipe, Alert, Card, Chip],
+  imports: [TranslocoDirective, RouterLink, DatePipe, Alert, Card, Chip, DataTable],
   template: `
     <ng-container *transloco="let t">
       @if (error(); as mensaje) {
@@ -69,57 +70,39 @@ interface Pendiente {
               t('admin.escritorioPagina.crearPrimerEvento')
             }}</a>
           } @else {
-            <div class="tabla-envoltorio">
-              <table>
-                <caption class="sr-only">{{ t('admin.escritorioPagina.eventos') }}</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">{{ t('admin.escritorioPagina.columnaEvento') }}</th>
-                    <th scope="col">{{ t('admin.escritorioPagina.columnaFecha') }}</th>
-                    <th scope="col">{{ t('admin.escritorioPagina.columnaEstado') }}</th>
-                    @if (conInscripciones()) {
-                      <th scope="col">{{ t('admin.events.metricas.ocupacion') }}</th>
-                      <th scope="col">{{ t('admin.escritorioPagina.columnaPorAprobar') }}</th>
-                    }
-                    @if (conDinero()) {
-                      <th scope="col">{{ t('admin.escritorioPagina.columnaIngresos') }}</th>
-                    }
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (evento of m.eventos; track evento.id) {
-                    <tr>
-                      <td>
-                        <a [routerLink]="['/dashboard/events', evento.id]">{{ evento.title }}</a>
-                      </td>
-                      <td>{{ evento.starts_at | date: 'shortDate' }}</td>
-                      <td>
-                        <app-chip [tone]="tonoDeEstado(evento.status)">{{
-                          t('admin.escritorioPagina.estadoEvento.' + evento.status)
-                        }}</app-chip>
-                      </td>
-                      @if (conInscripciones()) {
-                        <td class="numero">
-                          {{ evento.confirmadas }}@if (evento.aforo !== null) {<span>
-                            / {{ evento.aforo }}</span
-                          >}
-                        </td>
-                        <td class="numero">{{ evento.por_aprobar }}</td>
-                      }
-                      @if (conDinero()) {
-                        <td class="numero">
-                          {{
-                            evento.ingresos_cents === null
-                              ? '—'
-                              : formatearCents(evento.ingresos_cents)
-                          }}
-                        </td>
-                      }
-                    </tr>
+            <app-data-table
+              [columnas]="columnasDeEventos()"
+              [caption]="t('admin.escritorioPagina.eventos')"
+            >
+              @for (evento of m.eventos; track evento.id) {
+                <tr>
+                  <td>
+                    <a [routerLink]="['/dashboard/events', evento.id]">{{ evento.title }}</a>
+                  </td>
+                  <td>{{ evento.starts_at | date: 'shortDate' }}</td>
+                  <td>
+                    <app-chip [tone]="tonoDeEstado(evento.status)">{{
+                      t('admin.escritorioPagina.estadoEvento.' + evento.status)
+                    }}</app-chip>
+                  </td>
+                  @if (conInscripciones()) {
+                    <td class="numerica">
+                      {{ evento.confirmadas }}@if (evento.aforo !== null) {<span>
+                        / {{ evento.aforo }}</span
+                      >}
+                    </td>
+                    <td class="numerica">{{ evento.por_aprobar }}</td>
                   }
-                </tbody>
-              </table>
-            </div>
+                  @if (conDinero()) {
+                    <td class="numerica">
+                      {{
+                        evento.ingresos_cents === null ? '—' : formatearCents(evento.ingresos_cents)
+                      }}
+                    </td>
+                  }
+                </tr>
+              }
+            </app-data-table>
           }
         </app-card>
 
@@ -225,7 +208,7 @@ interface Pendiente {
       gap: var(--space-md);
     }
     .lista dt {
-      color: var(--color-text-muted);
+      color: var(--muted);
     }
     .lista dd {
       margin: 0;
@@ -235,39 +218,12 @@ interface Pendiente {
       margin: var(--space-xs) 0 0;
       font-size: 0.875rem;
     }
-    .tabla-envoltorio {
-      overflow-x: auto;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    th,
-    td {
-      padding: var(--space-sm);
-      text-align: start;
-      border-bottom: 1px solid var(--color-border);
-    }
-    .numero {
-      text-align: end;
-      font-variant-numeric: tabular-nums;
-    }
-    .sr-only {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      padding: 0;
-      margin: -1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      white-space: nowrap;
-      border: 0;
-    }
   `,
 })
 export class DashboardPage implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
+  private readonly transloco = inject(TranslocoService);
 
   protected readonly metricas = signal<MetricasDeOrganizacion | null>(null);
   protected readonly error = signal<string | null>(null);
@@ -283,6 +239,38 @@ export class DashboardPage implements OnInit {
   protected readonly conInscripciones = computed(() => {
     const eventos = this.metricas()?.eventos ?? [];
     return eventos.length > 0 && eventos[0].confirmadas !== null;
+  });
+
+  /**
+   * Las columnas de la tabla, según lo que haya llegado. Se componen aquí y no
+   * en la plantilla porque `app-data-table` las pinta todas: las que dependen de
+   * un permiso tienen que existir solo cuando su dato existe.
+   *
+   * La etiqueta se traduce **aquí** y no en la plantilla: el componente compartido
+   * recibe texto ya resuelto, no claves, así que la traducción tiene que ocurrir
+   * al construir la lista. Por eso el `computed` depende de la señal de idioma.
+   */
+  protected readonly columnasDeEventos = computed<DataTableColumn[]>(() => {
+    const t = (clave: string): string => this.transloco.translate(clave);
+    const columnas: DataTableColumn[] = [
+      { key: 'evento', label: t('admin.escritorioPagina.columnaEvento') },
+      { key: 'fecha', label: t('admin.escritorioPagina.columnaFecha') },
+      { key: 'estado', label: t('admin.escritorioPagina.columnaEstado') },
+    ];
+    if (this.conInscripciones()) {
+      columnas.push(
+        { key: 'ocupacion', label: t('admin.events.metricas.ocupacion'), numerica: true },
+        { key: 'porAprobar', label: t('admin.escritorioPagina.columnaPorAprobar'), numerica: true },
+      );
+    }
+    if (this.conDinero()) {
+      columnas.push({
+        key: 'ingresos',
+        label: t('admin.escritorioPagina.columnaIngresos'),
+        numerica: true,
+      });
+    }
+    return columnas;
   });
 
   /**

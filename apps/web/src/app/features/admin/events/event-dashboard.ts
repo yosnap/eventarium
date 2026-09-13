@@ -175,7 +175,7 @@ interface Escalon {
       gap: var(--space-md);
     }
     .lista dt {
-      color: var(--color-text-muted);
+      color: var(--muted);
     }
     .lista dd {
       margin: 0;
@@ -188,7 +188,7 @@ interface Escalon {
     }
     .nota {
       margin: var(--space-xs) 0 0;
-      color: var(--color-text-muted);
+      color: var(--muted);
       font-size: 0.875rem;
     }
     .embudo {
@@ -207,14 +207,14 @@ interface Escalon {
     .barra {
       display: block;
       height: 1rem;
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       overflow: hidden;
     }
     .barra > span {
       display: block;
       height: 100%;
-      background-color: var(--color-primary);
+      background-color: var(--accent);
     }
     .valor {
       text-align: end;
