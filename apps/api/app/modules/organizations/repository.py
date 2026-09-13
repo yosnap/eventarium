@@ -14,6 +14,7 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import Base
+from app.modules.organizations.invitations_models import OrganizationInvitation
 from app.modules.organizations.models import (
     Organization,
     OrganizationBranding,
@@ -86,6 +87,16 @@ async def user_role_keys(
         )
     )
     return set(filas)
+
+
+def invitations_query(organization_id: uuid.UUID) -> Select[Any]:
+    """Invitaciones con la clave de su rol, ya filtradas por organización."""
+    return (
+        select(OrganizationInvitation, Role)
+        .join(Role, Role.id == OrganizationInvitation.role_id)
+        .where(OrganizationInvitation.organization_id == organization_id)
+        .order_by(OrganizationInvitation.created_at.desc())
+    )
 
 
 async def unsafe_select_all(session: AsyncSession, modelo: type[Base]) -> list[Any]:

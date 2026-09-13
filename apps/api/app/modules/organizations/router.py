@@ -6,16 +6,26 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, UploadFile, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import CurrentUserDep, DbDep, PermissionsDep, require_permission
 from app.core.permissions import Permission
 from app.core.storage import build_object_key, get_storage, validate_upload
-from app.modules.organizations import members_service, metrics_service, repository
+from app.modules.organizations import (
+    invitations_service,
+    members_service,
+    metrics_service,
+    repository,
+)
+from app.modules.organizations.invitations_models import OrganizationInvitation
 from app.modules.organizations.metrics_schemas import MetricasDeOrganizacionOut
 from app.modules.organizations.models import OrganizationBranding, OrganizationMember
 from app.modules.organizations.schemas import (
     BrandingAdminResponse,
     BrandingUpdate,
+    InvitationCreate,
+    InvitationCreateResponse,
+    InvitationResponse,
     MemberCreate,
     MemberResponse,
     OrganizationResponse,
@@ -242,6 +252,25 @@ async def list_members(
     )
 
 
+async def _member_response(
+    session: AsyncSession, organization_id: uuid.UUID, member_id: uuid.UUID
+) -> MemberResponse:
+    consulta = repository.members_query(organization_id).where(
+        OrganizationMember.id == member_id
+    )
+    registro, persona, rol = (await session.execute(consulta)).one()
+    return MemberResponse(
+        id=str(registro.id),
+        user_id=str(persona.id),
+        email=persona.email,
+        first_name=persona.first_name,
+        last_name=persona.last_name,
+        role_id=str(rol.id),
+        role_key=rol.key,
+        profile_data=registro.profile_data,
+    )
+
+
 @router.post(
     "/me/members",
     summary="Añadir un miembro",
@@ -266,18 +295,115 @@ async def create_member(
         role_id=uuid.UUID(datos.role_id),
         profile_data=datos.profile_data,
     )
-    consulta = repository.members_query(usuario.organization_id).where(
-        OrganizationMember.id == miembro.id
+    return await _member_response(session, usuario.organization_id, miembro.id)
+
+
+def _invitation_response(invitacion: OrganizationInvitation, role_key: str) -> InvitationResponse:
+    return InvitationResponse(
+        id=str(invitacion.id),
+        email=invitacion.email,
+        role_id=str(invitacion.role_id),
+        role_key=role_key,
+        event_id=str(invitacion.event_id) if invitacion.event_id else None,
+        estado=invitations_service.estado_efectivo(invitacion),
+        expires_at=invitacion.expires_at,
+        created_at=invitacion.created_at,
     )
-    fila = (await session.execute(consulta)).one()
-    registro, persona, rol = fila
-    return MemberResponse(
-        id=str(registro.id),
-        user_id=str(persona.id),
-        email=persona.email,
-        first_name=persona.first_name,
-        last_name=persona.last_name,
-        role_id=str(rol.id),
-        role_key=rol.key,
-        profile_data=registro.profile_data,
+
+
+async def _invitation_response_por_id(
+    session: AsyncSession, organization_id: uuid.UUID, invitation_id: uuid.UUID
+) -> InvitationResponse:
+    consulta = repository.invitations_query(organization_id).where(
+        OrganizationInvitation.id == invitation_id
     )
+    invitacion, rol = (await session.execute(consulta)).one()
+    return _invitation_response(invitacion, rol.key)
+
+
+@router.get(
+    "/me/invitations",
+    summary="Invitaciones pendientes de la organización",
+    description=(
+        "El estado se calcula al leer: una fila «pendiente» con `expires_at` "
+        "pasado se muestra «caducada» sin reescribir la fila."
+    ),
+    response_model=list[InvitationResponse],
+    dependencies=[require_permission(Permission.INVITATIONS_MANAGE)],
+)
+async def list_invitations(usuario: CurrentUserDep, session: DbDep) -> list[InvitationResponse]:
+    filas = (
+        await session.execute(repository.invitations_query(usuario.organization_id))
+    ).all()
+    return [_invitation_response(invitacion, rol.key) for invitacion, rol in filas]
+
+
+@router.post(
+    "/me/invitations",
+    summary="Invitar a alguien al equipo",
+    description=(
+        "Si el correo ya tiene cuenta, se le añade directamente y no se emite "
+        "ningún token (regla que cierra el secuestro de cuenta). Si no, se crea "
+        "la invitación y una cuenta sin contraseña."
+    ),
+    status_code=status.HTTP_201_CREATED,
+    response_model=InvitationCreateResponse,
+    dependencies=[require_permission(Permission.INVITATIONS_MANAGE)],
+)
+async def create_invitation(
+    datos: InvitationCreate,
+    usuario: CurrentUserDep,
+    session: DbDep,
+    permisos: PermissionsDep,
+) -> InvitationCreateResponse:
+    resultado = await invitations_service.create_invitation(
+        session,
+        organization_id=usuario.organization_id,
+        actor_id=usuario.id,
+        actor_permissions=permisos,
+        email=str(datos.email),
+        role_id=uuid.UUID(datos.role_id),
+    )
+    if resultado.member is not None:
+        return InvitationCreateResponse(
+            status="added",
+            member=await _member_response(session, usuario.organization_id, resultado.member.id),
+        )
+    if resultado.invitation is None:  # pragma: no cover - ramas exhaustivas del servicio
+        raise RuntimeError("create_invitation no ha devuelto ni miembro ni invitación.")
+    return InvitationCreateResponse(
+        status="invited",
+        invitation=await _invitation_response_por_id(
+            session, usuario.organization_id, resultado.invitation.id
+        ),
+    )
+
+
+@router.delete(
+    "/me/invitations/{invitation_id}",
+    summary="Revocar una invitación pendiente",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[require_permission(Permission.INVITATIONS_MANAGE)],
+)
+async def revoke_invitation(
+    invitation_id: str, usuario: CurrentUserDep, session: DbDep
+) -> None:
+    await invitations_service.revoke_invitation(
+        session, organization_id=usuario.organization_id, invitation_id=uuid.UUID(invitation_id)
+    )
+
+
+@router.post(
+    "/me/invitations/{invitation_id}/resend",
+    summary="Reenviar una invitación pendiente",
+    description="Emite un token nuevo, alarga la caducidad e invalida el enlace anterior.",
+    response_model=InvitationResponse,
+    dependencies=[require_permission(Permission.INVITATIONS_MANAGE)],
+)
+async def resend_invitation(
+    invitation_id: str, usuario: CurrentUserDep, session: DbDep
+) -> InvitationResponse:
+    invitacion, _token = await invitations_service.resend_invitation(
+        session, organization_id=usuario.organization_id, invitation_id=uuid.UUID(invitation_id)
+    )
+    return await _invitation_response_por_id(session, usuario.organization_id, invitacion.id)

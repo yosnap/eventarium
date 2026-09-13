@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from datetime import datetime
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -108,6 +109,43 @@ class MemberCreate(BaseModel):
     last_name: Annotated[str, Field(min_length=1, max_length=100)]
     role_id: str
     profile_data: dict[str, Any] = Field(default_factory=dict)
+
+
+class InvitationCreate(BaseModel):
+    """Alta de una invitación de equipo: solo email y rol.
+
+    Sin `first_name`/`last_name` — quien invita por correo no sabe cómo se
+    llama la persona; lo completa ella al aceptar (fase 2)."""
+
+    email: EmailStr
+    role_id: str
+
+
+class InvitationResponse(BaseModel):
+    """Invitación tal y como la ve el organizador, con el estado calculado."""
+
+    id: str
+    email: EmailStr
+    role_id: str
+    role_key: str
+    event_id: str | None
+    # pendiente | aceptada | revocada | caducada (calculado, ver
+    # `invitations_service.estado_efectivo`).
+    estado: str
+    expires_at: datetime
+    created_at: datetime
+
+
+class InvitationCreateResponse(BaseModel):
+    """Resultado de `POST /organizations/me/invitations`.
+
+    `status="added"` cuando el correo ya tenía cuenta (regla A.2: se añade
+    directamente, sin token); `status="invited"` cuando se ha creado la
+    invitación. Nunca lleva el token: eso solo viaja al correo (fase 2)."""
+
+    status: Literal["added", "invited"]
+    member: MemberResponse | None = None
+    invitation: InvitationResponse | None = None
 
 
 class OrganizationCreate(BaseModel):

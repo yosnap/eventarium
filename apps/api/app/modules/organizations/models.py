@@ -146,3 +146,12 @@ class OrganizationMember(Base, TimestampMixin):
     last_seen_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+
+# Import al final, no al principio: `OrganizationInvitation` vive en su propio
+# fichero (fase 1 del plan de invitaciones) para no engordar este módulo, pero
+# tiene que registrarse en `Base.metadata` en cuanto se importa
+# `organizations.models` — que es lo que hace todo el resto del código para
+# usar `OrganizationMember` — o sus FK compuestas contra `events`/`roles` no
+# resuelven la tabla al `flush`.
+from app.modules.organizations.invitations_models import OrganizationInvitation  # noqa: E402, F401
