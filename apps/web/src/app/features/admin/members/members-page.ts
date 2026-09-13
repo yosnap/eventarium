@@ -10,6 +10,7 @@ import { displayName } from '../../../core/auth/auth.service';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { DataTable, DataTableColumn } from '../../../shared/ui/data-table';
+import { InvitationsPanel } from './invitations-panel';
 
 interface Member {
   readonly id: string;
@@ -35,7 +36,7 @@ const LIMITE = 20;
 @Component({
   selector: 'app-members-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, DataTable],
+  imports: [TranslocoDirective, RouterLink, Alert, Button, DataTable, InvitationsPanel],
   template: `
     <ng-container *transloco="let t">
       <div class="cabecera">
@@ -57,10 +58,7 @@ const LIMITE = 20;
       } @else if (miembros().length === 0) {
         <p>{{ t('admin.members.sinMiembros') }}</p>
       } @else {
-        <app-data-table
-          [columnas]="columnasDeMiembros()"
-          [caption]="t('admin.members.titulo')"
-        >
+        <app-data-table [columnas]="columnasDeMiembros()" [caption]="t('admin.members.titulo')">
           @for (miembro of miembros(); track miembro.id) {
             <tr>
               <td>{{ nombreDe(miembro) }}</td>
@@ -96,6 +94,8 @@ const LIMITE = 20;
           </nav>
         }
       }
+
+      <app-invitations-panel />
     </ng-container>
   `,
   styles: `

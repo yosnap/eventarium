@@ -40,6 +40,13 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'invitacion',
+    loadComponent: () =>
+      import('./features/public/invitations/accept-invitation-page').then(
+        (m) => m.AcceptInvitationPage,
+      ),
+  },
+  {
     path: 'cuenta/confirmar-correo',
     loadComponent: () =>
       import('./features/public/confirm-email-change/confirm-email-change-page').then(
@@ -313,9 +320,7 @@ export const routes: Routes = [
       {
         path: 'suplantar',
         loadComponent: () =>
-          import('./features/admin/superadmin/impersonation-page').then(
-            (m) => m.ImpersonationPage,
-          ),
+          import('./features/admin/superadmin/impersonation-page').then((m) => m.ImpersonationPage),
       },
     ],
   },

@@ -376,6 +376,26 @@
     "exitoNuevaTitulo": "Contraseña actualizada",
     "exitoNuevaDetalle": "Ya puedes entrar al panel con tu contraseña nueva."
   },
+  "invitacion": {
+    "titulo": "Únete al equipo",
+    "comprobando": "Comprobando la invitación…",
+    "descripcion": "Te han invitado a unirte a «{{organizacion}}» con el rol «{{rol}}». Elige tu nombre y una contraseña para entrar.",
+    "nombre": "Nombre",
+    "nombreRequerido": "Escribe el nombre.",
+    "apellidos": "Apellidos",
+    "apellidosRequeridos": "Escribe los apellidos.",
+    "password": "Contraseña",
+    "unirme": "Unirme al equipo",
+    "uniendote": "Uniéndote…",
+    "errorTitulo": "No se puede aceptar esta invitación",
+    "error": "No hemos podido completar la solicitud.",
+    "sinToken": "Falta el enlace de la invitación.",
+    "yaTieneCuentaTitulo": "Ya tienes una cuenta",
+    "yaTieneCuentaDetalle": "El correo de esta invitación ya tiene contraseña. Entra con ella en vez de aceptar aquí.",
+    "exitoTitulo": "¡Ya formas parte del equipo!",
+    "exitoDetalle": "Te has unido a «{{organizacion}}». Ya puedes entrar con tu correo y tu contraseña nueva.",
+    "irAAcceder": "Ir a acceder"
+  },
   "cuenta": {
     "confirmarCorreo": {
       "titulo": "Confirmación de correo",
@@ -794,6 +814,36 @@
         "anadiendo": "Añadiendo…",
         "error": "No hemos podido añadir a la persona.",
         "exito": "Miembro añadido correctamente."
+      },
+      "invitaciones": {
+        "titulo": "Invitaciones pendientes",
+        "descripcion": "Invita por correo a alguien que todavía no tiene cuenta, o revisa el estado de lo que has enviado.",
+        "email": "Correo electrónico",
+        "emailRequerido": "Escribe el correo electrónico.",
+        "emailInvalido": "Escribe un correo electrónico válido.",
+        "rol": "Rol",
+        "rolRequerido": "Elige un rol.",
+        "invitar": "Invitar",
+        "invitando": "Invitando…",
+        "anadidoDirectamente": "Ese correo ya tenía cuenta: se ha añadido directamente al equipo.",
+        "invitacionEnviada": "Invitación enviada.",
+        "error": "No hemos podido completar la solicitud.",
+        "sinInvitaciones": "No hay invitaciones pendientes. Invita a alguien por correo con el formulario de arriba.",
+        "columnaEmail": "Correo",
+        "columnaRol": "Rol",
+        "columnaEstado": "Estado",
+        "columnaAcciones": "Acciones",
+        "estadoPendiente": "Pendiente",
+        "estadoAceptada": "Aceptada",
+        "estadoRevocada": "Revocada",
+        "estadoCaducada": "Caducada",
+        "reenviar": "Reenviar",
+        "reenviando": "Reenviando…",
+        "reenviada": "Invitación reenviada.",
+        "revocar": "Revocar",
+        "revocando": "Revocando…",
+        "revocada": "Invitación revocada.",
+        "confirmarRevocar": "¿Revocar esta invitación? La persona invitada ya no podrá aceptarla."
       }
     },
     "cuenta": {

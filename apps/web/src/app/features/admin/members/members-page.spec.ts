@@ -35,6 +35,20 @@ async function avanzar(fixture: ComponentFixture<unknown>): Promise<void> {
   fixture.detectChanges();
 }
 
+/** `InvitationsPanel` (fase 2) pide sus dos listas al construirse: se agota aparte. */
+async function flushPanelDeInvitaciones(
+  http: HttpTestingController,
+  fixture: ComponentFixture<unknown>,
+): Promise<void> {
+  http.expectOne((peticion) => peticion.url === '/api/v1/organizations/me/invitations').flush([]);
+  http.expectOne((peticion) => peticion.url === '/api/v1/roles').flush([]);
+  await avanzar(fixture);
+  // `InvitationsPanel.cargar()` espera `Promise.all(...)`: hace falta un
+  // segundo ciclo de estabilidad para que el `finally` que apaga `cargando`
+  // se refleje en el DOM (mismo ajuste que `invitations-panel.spec.ts`).
+  await avanzar(fixture);
+}
+
 describe('MembersPage', () => {
   let http: HttpTestingController;
 
@@ -67,6 +81,7 @@ describe('MembersPage', () => {
       .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/members')
       .flush(pagina(1, 0));
     await avanzar(fixture);
+    await flushPanelDeInvitaciones(http, fixture);
 
     expect(fixture.nativeElement.textContent).toContain('Persona De Prueba');
     expect(fixture.nativeElement.textContent).toContain('owner');
@@ -81,10 +96,9 @@ describe('MembersPage', () => {
       .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/members')
       .flush(pagina(1, 0));
     await avanzar(fixture);
+    await flushPanelDeInvitaciones(http, fixture);
 
-    const contenedor = fixture.nativeElement.querySelector(
-      'app-data-table',
-    ) as HTMLElement | null;
+    const contenedor = fixture.nativeElement.querySelector('app-data-table') as HTMLElement | null;
     expect(contenedor).not.toBeNull();
 
     const tabla = contenedor!.querySelector('table') as HTMLTableElement;
@@ -98,12 +112,14 @@ describe('MembersPage', () => {
     expect(ranura.getAttribute('aria-label')).toBeTruthy();
   });
 
-  it('muestra paginación cuando hay más de una página y pide la siguiente', async () => {    const fixture = TestBed.createComponent(MembersPage);
+  it('muestra paginación cuando hay más de una página y pide la siguiente', async () => {
+    const fixture = TestBed.createComponent(MembersPage);
     await avanzar(fixture);
     http
       .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/members')
       .flush(pagina(25, 0));
     await avanzar(fixture);
+    await flushPanelDeInvitaciones(http, fixture);
 
     expect(fixture.nativeElement.textContent).toContain('Página 1 de 2');
 
@@ -129,6 +145,7 @@ describe('MembersPage', () => {
         .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/members')
         .flush(pagina(1, 0));
       await avanzar(fixture);
+      await flushPanelDeInvitaciones(http, fixture);
 
       await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
     } finally {
