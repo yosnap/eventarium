@@ -120,4 +120,19 @@ describe('MembersPage', () => {
     expect(peticion.request.params.get('offset')).toBe('20');
     peticion.flush(pagina(25, 20));
   });
+  it('no tiene violaciones de accesibilidad en tema claro', async () => {
+    document.documentElement.setAttribute('data-theme', 'light');
+    try {
+      const fixture = TestBed.createComponent(MembersPage);
+      await avanzar(fixture);
+      http
+        .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/members')
+        .flush(pagina(1, 0));
+      await avanzar(fixture);
+
+      await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+    } finally {
+      document.documentElement.removeAttribute('data-theme');
+    }
+  });
 });

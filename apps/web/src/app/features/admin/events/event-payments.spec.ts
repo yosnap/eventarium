@@ -167,4 +167,19 @@ describe('EventPayments', () => {
     await avanzar(fixture);
     expect(fixture.nativeElement.textContent).toContain('Reembolso en curso');
   });
+  it('no tiene violaciones de accesibilidad en tema claro', async () => {
+    document.documentElement.setAttribute('data-theme', 'light');
+    try {
+      const fixture = TestBed.createComponent(EventPayments);
+      fixture.componentRef.setInput('eventId', 'e1');
+      fixture.detectChanges();
+      await avanzar(fixture);
+      http.expectOne((p) => p.url === PAYMENTS_URL && p.method === 'GET').flush(pagos());
+      await avanzar(fixture);
+
+      await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+    } finally {
+      document.documentElement.removeAttribute('data-theme');
+    }
+  });
 });

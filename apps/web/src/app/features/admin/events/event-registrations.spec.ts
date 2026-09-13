@@ -176,4 +176,18 @@ describe('EventRegistrations', () => {
     peticion.flush(pagina([]));
     await avanzar(fixture);
   });
+  it('no tiene violaciones de accesibilidad en tema claro', async () => {
+    document.documentElement.setAttribute('data-theme', 'light');
+    try {
+      const fixture = TestBed.createComponent(EventRegistrations);
+      fixture.componentRef.setInput('eventId', 'e1');
+      await avanzar(fixture);
+      flushCargaInicial(http);
+      await avanzar(fixture);
+
+      await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+    } finally {
+      document.documentElement.removeAttribute('data-theme');
+    }
+  });
 });

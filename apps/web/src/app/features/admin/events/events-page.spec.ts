@@ -104,4 +104,17 @@ describe('EventsPage', () => {
     expect(peticion.request.params.get('status')).toBe('published');
     peticion.flush({ items: [] });
   });
+  it('no tiene violaciones de accesibilidad en tema claro', async () => {
+    document.documentElement.setAttribute('data-theme', 'light');
+    try {
+      const fixture = TestBed.createComponent(EventsPage);
+      await avanzar(fixture);
+      http.expectOne((peticion) => peticion.url === '/api/v1/events').flush(pagina());
+      await avanzar(fixture);
+
+      await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+    } finally {
+      document.documentElement.removeAttribute('data-theme');
+    }
+  });
 });
