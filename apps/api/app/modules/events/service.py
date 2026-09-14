@@ -12,11 +12,12 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.database import set_organization_context
 from app.modules.events import repository
 from app.modules.events import schemas as events_schemas
 from app.modules.events.geocoding import geocode_address
@@ -585,3 +586,36 @@ async def delete_venue(
 
     await session.delete(sede)
     await session.flush()
+
+
+async def resolve_public_event_by_slug(session: AsyncSession, slug: str) -> Event:
+    """Resuelve un evento público por su slug, sin ningún contexto RLS previo.
+
+    Sin dominio por organización, la organización de una página pública sale
+    del propio evento, no de ningún host (fase 2 del plan de organización sin
+    dominio). `app_resolve_public_event` es `SECURITY DEFINER` de alcance
+    mínimo: solo devuelve `(id, organization_id)`, y solo si el evento ya
+    cumple las condiciones de "publicable" (`published` + `public`) — la
+    comprobación de visibilidad va dentro de la función, no después, para que
+    un evento no publicable no revele ni que existe (mismo fail-closed que
+    usaba antes la resolución por host para un host desconocido).
+
+    Fija el contexto RLS de `session` (organización **y** vacía `app.user_id`
+    — solo para caminos sin autenticar). Solo debe llamarse desde routers
+    públicos, nunca desde uno autenticado: sobrescribiría la organización
+    activa y el usuario de la sesión en curso.
+    """
+    fila = (
+        await session.execute(
+            text("SELECT id, organization_id FROM app_resolve_public_event(:slug)"),
+            {"slug": slug},
+        )
+    ).first()
+    if fila is None:
+        raise NotFoundError("El evento no existe.")
+
+    await set_organization_context(session, fila[1])
+    evento = await session.get(Event, fila[0])
+    if evento is None:  # pragma: no cover - ya lo garantiza la función SECURITY DEFINER
+        raise NotFoundError("El evento no existe.")
+    return evento

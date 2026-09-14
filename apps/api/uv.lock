@@ -550,7 +550,7 @@ wheels = [
 
 [[package]]
 name = "ia-week-api"
-version = "0.21.2"
+version = "0.21.3"
 source = { editable = "." }
 dependencies = [
     { name = "aioboto3" },

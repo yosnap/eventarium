@@ -1,13 +1,26 @@
 """Endpoints públicos de eventos, sesiones y ponentes (fase 4 del PRD).
 
 Prefijo fijado a `/public/...`: no es una decisión abierta de implementación, la
-tomó el plan tras el red-team. Sin autenticación (son lecturas): usan
-`OrganizationDep` + `PublicDbDep`, que resuelven la organización por host y fijan el
-contexto RLS sin pasar por `get_current_user`. El filtro de publicación
-(`published` + `public`) se aplica siempre de forma explícita en la propia
-consulta — nunca se confía en que RLS ya lo hace, porque RLS aísla por
-organización, no por si un evento está publicado: un borrador de la propia
-organización seguiría siendo visible bajo su contexto anónimo sin ese filtro.
+tomó el plan tras el red-team. Sin autenticación (son lecturas). Sin dominio
+por organización (fase 2 del plan de organización sin dominio), el detalle de
+un evento (`GET /events/{slug}` y todo lo que cuelga de él) resuelve su
+organización desde el propio evento (`events.service.resolve_public_event_by_slug`,
+`SessionDep`, sin ningún contexto RLS previo), igual que ya hace
+`checkout_service.iniciar_compra` con `event.organization_id` — no por host.
+
+`list_public_events` (`GET /events`, el listado, no el detalle) es la
+excepción deliberada que queda **fuera de esta fase**: listar eventos de una
+sola organización dejó de tener sentido sin dominio ni segmento de
+organización en la URL, pero convertirlo en un catálogo global de todas las
+organizaciones es una decisión de producto que el usuario pidió explícitamente
+dejar para más adelante (no ahora) — sigue resolviendo por host
+(`OrganizationDep`/`PublicDbDep`) hasta que se decida.
+
+El filtro de publicación (`published` + `public`) se aplica siempre de forma
+explícita en la propia consulta — nunca se confía en que RLS ya lo hace,
+porque RLS aísla por organización, no por si un evento está publicado: un
+borrador de la propia organización seguiría siendo visible bajo su contexto
+anónimo sin ese filtro.
 
 El 404 es uniforme dentro de cada tipo de recurso, sin distinguir la razón de la
 ausencia (borrador, oculto, privado, slug ajeno o inexistente): dar códigos o
@@ -25,10 +38,11 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import OrganizationDep, PublicDbDep
+from app.core.database import set_organization_context
+from app.core.deps import OrganizationDep, PublicDbDep, SessionDep
 from app.core.ratelimit import PUBLICO_POR_IP, limit_per_ip
 from app.core.storage import get_storage
-from app.modules.events import repository, speakers_repository
+from app.modules.events import repository, service, speakers_repository
 from app.modules.events.models import (
     Event,
     EventMember,
@@ -78,7 +92,7 @@ def _cover_url(evento: Event) -> str | None:
 
 
 async def _sesiones_publicas(
-    session: PublicDbDep, organization_id: uuid.UUID, event_id: uuid.UUID
+    session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID
 ) -> list[PublicEventSession]:
     """Agenda completa de un evento, con los participantes de cada sesión.
 
@@ -142,7 +156,7 @@ async def _sesiones_publicas(
 
 
 async def _sedes_publicas(
-    session: PublicDbDep, organization_id: uuid.UUID, event_id: uuid.UUID
+    session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID
 ) -> list[PublicVenue]:
     filas = (
         (await session.execute(repository.venues_query(organization_id, event_id))).scalars().all()
@@ -231,17 +245,12 @@ async def list_public_events(
     ]
 
 
-async def _obtener_evento_publico_o_404(
-    organizacion: OrganizationDep, session: PublicDbDep, slug: str
-) -> Event:
-    evento = await repository.get_public_event_by_slug(session, organizacion.id, slug)
-    if evento is None:
-        raise NotFoundError("El evento no existe.")
-    return evento
+async def _obtener_evento_publico_o_404(session: SessionDep, slug: str) -> Event:
+    return await service.resolve_public_event_by_slug(session, slug)
 
 
 async def _sponsor_tiers_publicos(
-    session: PublicDbDep, organization_id: uuid.UUID, event_id: uuid.UUID
+    session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID
 ) -> list[PublicSponsorTier]:
     """Patrocinadores del evento agrupados por nivel y ordenados por
     `display_order` (Fase 5 del PRD, fase 2 de trabajo). Sin aportación: el
@@ -283,7 +292,7 @@ async def _sponsor_tiers_publicos(
     dependencies=[limit_per_ip("public-event-detail", PUBLICO_POR_IP)],
 )
 async def get_public_event(
-    evento: Annotated[Event, Depends(_obtener_evento_publico_o_404)], session: PublicDbDep
+    evento: Annotated[Event, Depends(_obtener_evento_publico_o_404)], session: SessionDep
 ) -> PublicEventDetail:
     sesiones = await _sesiones_publicas(session, evento.organization_id, evento.id)
     sedes = await _sedes_publicas(session, evento.organization_id, evento.id)
@@ -343,7 +352,7 @@ async def get_public_event(
 )
 async def get_public_sponsor(
     evento: Annotated[Event, Depends(_obtener_evento_publico_o_404)],
-    session: PublicDbDep,
+    session: SessionDep,
     sponsor_id: str,
 ) -> PublicSponsorDetail:
     try:
@@ -412,7 +421,7 @@ async def get_public_sponsor(
 )
 async def get_public_session(
     evento: Annotated[Event, Depends(_obtener_evento_publico_o_404)],
-    session: PublicDbDep,
+    session: SessionDep,
     session_id: str,
 ) -> PublicSessionDetail:
     try:
@@ -466,11 +475,21 @@ async def get_public_session(
     dependencies=[limit_per_ip("public-speaker-detail", PUBLICO_POR_IP)],
 )
 async def get_public_speaker(
-    public_slug: str, organizacion: OrganizationDep, session: PublicDbDep
+    public_slug: str, session: SessionDep
 ) -> PublicSpeakerProfile:
+    # `public_slug` es único en toda la instalación desde la fase 0: la
+    # organización se resuelve desde el propio perfil, no por host
+    # (`app_resolve_speaker_organization`, SECURITY DEFINER de alcance mínimo).
+    organization_id = await session.scalar(
+        text("SELECT app_resolve_speaker_organization(:slug)"), {"slug": public_slug}
+    )
+    if organization_id is None:
+        raise NotFoundError("El ponente no existe.")
+    await set_organization_context(session, organization_id)
+
     perfil = await session.scalar(
         select(SpeakerPublicProfile).where(
-            SpeakerPublicProfile.organization_id == organizacion.id,
+            SpeakerPublicProfile.organization_id == organization_id,
             SpeakerPublicProfile.public_slug == public_slug,
         )
     )
@@ -491,7 +510,7 @@ async def get_public_speaker(
     ).all()
 
     historial_filas = await speakers_repository.get_speaker_history(
-        session, organizacion.id, perfil.user_id, only_published_public=True
+        session, organization_id, perfil.user_id, only_published_public=True
     )
 
     return PublicSpeakerProfile(

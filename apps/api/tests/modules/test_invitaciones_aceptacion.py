@@ -258,17 +258,22 @@ async def test_correo_con_contrasena_ya_puesta_no_puede_aceptar(
     assert aceptar.status_code == 409, aceptar.text
 
 
-async def test_dos_organizaciones_no_ven_la_invitacion_de_la_otra_por_host(
+async def test_el_token_de_invitacion_vale_igual_con_cualquier_host(
     cliente: AsyncClient,
     organizacion: OrganizacionDePrueba,
     otra_organizacion: OrganizacionDePrueba,
 ) -> None:
+    """Sin dominio por organización (fase 2 del plan de organización sin
+    dominio), la invitación resuelve su organización desde el propio `id`
+    que lleva el token (`app_resolve_invitation_organization`), no por host:
+    el enlace del correo vale igual sea cual sea el host desde el que se
+    visite."""
     _invitation_id, token = await _crear_invitacion(organizacion, email="aislada2@example.com")
 
     respuesta_host_ajeno = await cliente.get(
         f"/api/v1/public/invitations/{token}", headers={"Host": otra_organizacion.host}
     )
-    assert respuesta_host_ajeno.status_code == 404
+    assert respuesta_host_ajeno.status_code == 200, respuesta_host_ajeno.text
 
     respuesta_host_propio = await cliente.get(
         f"/api/v1/public/invitations/{token}", headers={"Host": organizacion.host}

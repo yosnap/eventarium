@@ -229,6 +229,29 @@ async def test_mi_entrada_confirmada_muestra_qr(
     assert imagen.content.startswith(b"\x89PNG")
 
 
+async def test_mi_entrada_funciona_con_cualquier_host(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    otra_organizacion: OrganizacionDePrueba,
+) -> None:
+    """Sin dominio por organización (fase 2 del plan de organización sin
+    dominio), `/mi-entrada` resuelve la organización desde la propia
+    inscripción que lleva el token, no por host."""
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento = await _crear_y_publicar_evento(
+        cliente, cabeceras, "mi-entrada-host-ajeno", capacity=5
+    )
+    await _inscribir_y_confirmar(cliente, organizacion, evento, "asistente@example.com")
+    _, _, cancel_token, _ = send_registration_confirmed_email.kiq.call_args.args
+
+    respuesta = await cliente.get(
+        MY_TICKET, headers={"Host": otra_organizacion.host}, params={"token": cancel_token}
+    )
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["status"] == "confirmed"
+
+
 async def test_mi_entrada_cancelada_no_muestra_qr(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:

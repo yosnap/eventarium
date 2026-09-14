@@ -397,3 +397,21 @@ async def find_user_id_by_email(session: AsyncSession, email: str) -> uuid.UUID 
         )
     ).first()
     return fila[0] if fila is not None else None
+
+
+async def resolve_registration_organization(
+    session: AsyncSession, registration_id: uuid.UUID
+) -> uuid.UUID | None:
+    """Organización de una inscripción, sin ningún contexto RLS previo.
+
+    `app_resolve_registration_organization` (`SECURITY DEFINER`, alcance
+    mínimo, migración `0032`): la resuelven los flujos públicos que llegan
+    por un token de un solo uso ya verificado (verificación, cancelación,
+    promoción de lista de espera, consulta de entrada) — el `id` ya viene
+    autorizado por ese token, esta función solo fija el contexto para la
+    comprobación que ya se hizo, no añade ninguna propia.
+    """
+    resultado: uuid.UUID | None = await session.scalar(
+        text("SELECT app_resolve_registration_organization(:id)"), {"id": registration_id}
+    )
+    return resultado

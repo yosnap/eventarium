@@ -12,6 +12,16 @@ Dos routers:
   con `limit_per_ip` (mismo patrón que `registrations/public_router.py`). Se
   mantiene por organización: es el registro de qué aceptó cada visitante en
   el sitio de esa organización, no el texto legal en sí.
+
+  **Pendiente, fuera del alcance de la fase 2 del plan de organización sin
+  dominio**: sigue resolviendo por host (`OrganizationDep`/`PublicDbDep`).
+  A diferencia del resto de endpoints públicos, este no cuelga de ningún
+  recurso (evento, inscripción, invitación) del que resolver la organización
+  — es un registro de consentimiento por visita, sin más identificador. Con
+  una sola instalación y sin sitio propio por organización, no está decidido
+  si esto sigue teniendo sentido "por organización" o si pasa a ser un
+  registro de plataforma (como ya lo son las cuatro páginas legales); es una
+  decisión de producto, no solo un cambio de mecanismo de resolución.
 """
 
 from __future__ import annotations

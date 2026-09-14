@@ -169,6 +169,28 @@ async def test_verificar_con_aforo_libre_confirma(
     assert await _estado(evento["id"], "asistente@example.com") == "confirmed"
 
 
+async def test_verificar_funciona_con_cualquier_host(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    otra_organizacion: OrganizacionDePrueba,
+) -> None:
+    """Sin dominio por organización (fase 2 del plan de organización sin
+    dominio), verificar una inscripción resuelve la organización desde el
+    propio token, no por host: el enlace de verificación vale igual sea cual
+    sea el host desde el que se visite."""
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento = await _crear_y_publicar_evento(
+        cliente, cabeceras, "aforo-libre-host-ajeno", capacity=5
+    )
+    await _inscribir(cliente, organizacion.host, "aforo-libre-host-ajeno")
+
+    resultado = await _verificar(
+        cliente, otra_organizacion.host, evento["id"], "asistente@example.com"
+    )
+
+    assert resultado["status"] == "confirmed"
+
+
 async def test_segunda_verificacion_tras_agotar_aforo_queda_en_lista_de_espera(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:

@@ -1,9 +1,12 @@
 """Endpoint público de presupuesto de compra (fase 6 del PRD, fase 3 de trabajo).
 
-Mismo patrón que `registrations/public_router.py`: sin autenticación, contexto
-RLS fijado por el `Host` vía `OrganizationDep`/`PublicDbDep`. Un presupuesto es
-puramente informativo — **nunca** reserva cupo ni consume un uso de código, ver
-`service.calcular_presupuesto` — así que este router no crea nada, solo lee.
+Mismo patrón que `registrations/public_router.py`: sin autenticación, sin
+dominio por organización (fase 2 del plan de organización sin dominio) — la
+organización se resuelve desde el propio evento
+(`events.service.resolve_public_event_by_slug`), no por host. Un presupuesto
+es puramente informativo — **nunca** reserva cupo ni consume un uso de
+código, ver `service.calcular_presupuesto` — así que este router no crea
+nada, solo lee.
 
 Lleva `limit_per_ip` propio (`CHECKOUT_QUOTE_POR_IP`) y Turnstile obligatorio:
 sin ambos, sería un oráculo para enumerar códigos de descuento por fuerza
@@ -20,7 +23,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 
-from app.core.deps import OrganizationDep, PublicDbDep
+from app.core.deps import SessionDep
 from app.core.ratelimit import (
     CHECKOUT_QUOTE_POR_IP,
     INSCRIPCION_POR_IP,
@@ -28,7 +31,7 @@ from app.core.ratelimit import (
     limit_per_ip,
 )
 from app.core.turnstile import require_turnstile
-from app.modules.events import repository as events_repository
+from app.modules.events import service as events_service
 from app.modules.events.models import Event
 from app.modules.payments import checkout_service, repository, service
 from app.modules.payments.schemas import (
@@ -46,13 +49,8 @@ from app.shared.errors import NotFoundError, ValidationDomainError
 router = APIRouter(prefix="/public", tags=["público"])
 
 
-async def _obtener_evento_o_404(
-    organizacion: OrganizationDep, session: PublicDbDep, slug: str
-) -> Event:
-    evento = await events_repository.get_public_event_by_slug(session, organizacion.id, slug)
-    if evento is None:
-        raise NotFoundError("El evento no existe.")
-    return evento
+async def _obtener_evento_o_404(session: SessionDep, slug: str) -> Event:
+    return await events_service.resolve_public_event_by_slug(session, slug)
 
 
 @router.get(
@@ -69,7 +67,7 @@ async def _obtener_evento_o_404(
     dependencies=[limit_per_ip("public-ticket-types", PUBLICO_POR_IP)],
 )
 async def list_public_ticket_types(
-    evento: Annotated[Event, Depends(_obtener_evento_o_404)], session: PublicDbDep
+    evento: Annotated[Event, Depends(_obtener_evento_o_404)], session: SessionDep
 ) -> list[PublicTicketTypeResponse]:
     tipos = await service.list_public_ticket_types(
         session, organization_id=evento.organization_id, event_id=evento.id
@@ -101,7 +99,7 @@ async def quote_checkout(
     evento: Annotated[Event, Depends(_obtener_evento_o_404)],
     datos: CheckoutQuoteRequest,
     request: Request,
-    session: PublicDbDep,
+    session: SessionDep,
 ) -> CheckoutQuoteResponse:
     await require_turnstile(request, datos.turnstile_token)
 
@@ -144,7 +142,7 @@ async def start_checkout(
     request: Request,
 ) -> CheckoutStartResponse:
     """`checkout_service.iniciar_compra` abre su propia sesión (T1 + T2, ver
-    su docstring): no recibe la del `PublicDbDep` de la petición, que envuelve toda
+    su docstring): no recibe la del `SessionDep` de la petición, que envuelve toda
     la petición en una única transacción y no admite un `commit` a mitad de
     camino."""
     await require_turnstile(request, datos.turnstile_token)
@@ -184,7 +182,7 @@ async def start_checkout(
 async def get_checkout_status(
     evento: Annotated[Event, Depends(_obtener_evento_o_404)],
     registration_id: str,
-    session: PublicDbDep,
+    session: SessionDep,
 ) -> PaymentStatusResponse:
     try:
         registro_id = uuid.UUID(registration_id)

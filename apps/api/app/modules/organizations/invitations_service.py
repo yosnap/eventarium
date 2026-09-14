@@ -22,6 +22,7 @@ from enum import StrEnum
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import set_organization_context
 from app.core.permissions import Permission
 from app.core.security import hash_password
 from app.modules.auth.verification import (
@@ -323,6 +324,11 @@ async def resolve_invitation_token(session: AsyncSession, token: str) -> Resolve
     llamar varias veces (recargar la página) sin gastar el enlace, y
     `accept_invitation` reutiliza esta misma resolución para decidir si hay
     algo que aceptar.
+
+    Fija el contexto RLS de `session` (organización **y** vacía
+    `app.user_id`) a partir del propio token — solo para los dos routers
+    públicos que la llaman. No debe usarse desde ningún camino autenticado:
+    sobrescribiría la organización activa y el usuario de la sesión en curso.
     """
     invitation_id_bruto = await peek_token(PROPOSITO_INVITACION, token)
     if invitation_id_bruto is None:
@@ -331,6 +337,16 @@ async def resolve_invitation_token(session: AsyncSession, token: str) -> Resolve
         invitation_id = uuid.UUID(invitation_id_bruto)
     except ValueError:
         return ResolvedInvitationToken(state=InvitationTokenState.INVALIDA)
+
+    # Sin dominio por organización (fase 2 del plan de organización sin
+    # dominio), el contexto RLS se resuelve desde la propia invitación, no
+    # por host (`app_resolve_invitation_organization`, SECURITY DEFINER de
+    # alcance mínimo, migración `0032`) — el `id` ya viene autorizado por el
+    # propio token de un solo uso.
+    organization_id: uuid.UUID | None = await session.scalar(
+        text("SELECT app_resolve_invitation_organization(:id)"), {"id": invitation_id}
+    )
+    await set_organization_context(session, organization_id)
 
     fila = (
         await session.execute(
@@ -341,9 +357,9 @@ async def resolve_invitation_token(session: AsyncSession, token: str) -> Resolve
         )
     ).first()
     if fila is None:
-        # O el `id` no existe, o pertenece a otra organización que la que
-        # resolvió el `Host` de esta petición — RLS ya lo hace invisible, sin
-        # filtrar cuál de las dos cosas es (requisito de seguridad del PRD).
+        # O el `id` no existe, o el contexto de arriba no pudo fijarse — RLS
+        # ya lo hace invisible, sin filtrar cuál de las dos cosas es
+        # (requisito de seguridad del PRD).
         return ResolvedInvitationToken(state=InvitationTokenState.INVALIDA)
     invitacion, rol, organizacion = fila
 

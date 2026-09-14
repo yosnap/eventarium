@@ -349,11 +349,18 @@ async def test_el_perfil_publico_de_un_ponente_expone_la_lista_blanca_y_el_histo
     assert detalle.json()["sessions"][0]["participants"][0]["public_slug"] == "la-gran-ponente"
 
 
-async def test_dos_organizaciones_no_ven_los_eventos_ni_ponentes_de_la_otra(
+async def test_el_listado_publico_sigue_siendo_por_organizacion_pero_el_detalle_ya_no(
     cliente: AsyncClient,
     organizacion: OrganizacionDePrueba,
     otra_organizacion: OrganizacionDePrueba,
 ) -> None:
+    """`GET /public/events` (el listado) queda deliberadamente fuera de la
+    fase 2 del plan de organización sin dominio y sigue resolviendo por host
+    — así que un evento de `organizacion` no aparece en el listado visto
+    desde el host de `otra_organizacion`. El detalle (`GET /public/events/{slug}`),
+    en cambio, ya resuelve la organización desde el propio evento, no por
+    host: es exactamente el cambio que hace esta fase, y un slug único en
+    toda la instalación (fase 0) se ve igual sea cual sea el host visitado."""
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_evento(cliente, cabeceras, slug="evento-de-acme")
     await _publicar(cliente, cabeceras, evento["id"])
@@ -361,10 +368,11 @@ async def test_dos_organizaciones_no_ven_los_eventos_ni_ponentes_de_la_otra(
     listado_rival = await cliente.get(PUBLIC_EVENTS, headers={"Host": otra_organizacion.host})
     assert listado_rival.json() == []
 
-    detalle_rival = await cliente.get(
+    detalle_desde_host_ajeno = await cliente.get(
         f"{PUBLIC_EVENTS}/evento-de-acme", headers={"Host": otra_organizacion.host}
     )
-    assert detalle_rival.status_code == 404
+    assert detalle_desde_host_ajeno.status_code == 200, detalle_desde_host_ajeno.text
+    assert detalle_desde_host_ajeno.json()["slug"] == "evento-de-acme"
 
 
 async def _crear_inscripcion(

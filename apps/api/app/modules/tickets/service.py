@@ -19,8 +19,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.database import set_organization_context
 from app.modules.auth.verification import PROPOSITO_CANCELACION_INSCRIPCION, peek_token
 from app.modules.events.models import Event
+from app.modules.registrations import repository as registrations_repository
 from app.modules.registrations.models import EventRegistration
 from app.modules.tickets import repository
 from app.modules.tickets.models import EventTicket
@@ -149,7 +151,16 @@ async def _resolver_mi_entrada(
     if bruto is None:
         raise ValidationDomainError("El enlace no es válido o ha caducado.")
 
-    inscripcion = await session.get(EventRegistration, uuid.UUID(bruto))
+    registration_id = uuid.UUID(bruto)
+    # Sin dominio por organización (fase 2 del plan de organización sin
+    # dominio), el contexto RLS se resuelve desde la propia inscripción, no
+    # por host — mismo patrón que `registrations.service`.
+    organization_id = await registrations_repository.resolve_registration_organization(
+        session, registration_id
+    )
+    await set_organization_context(session, organization_id)
+
+    inscripcion = await session.get(EventRegistration, registration_id)
     if inscripcion is None:
         raise ValidationDomainError("El enlace no es válido o ha caducado.")
 

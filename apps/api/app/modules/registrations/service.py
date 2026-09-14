@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.database import maintenance_session
+from app.core.database import maintenance_session, set_organization_context
 from app.core.tasks import (
     process_refunds_task,
     send_registration_cancelled_email,
@@ -541,18 +541,32 @@ async def submit_registration(
     return inscripcion
 
 
-async def verify_registration(session: AsyncSession, *, token: str) -> EventRegistration:
-    """Consume el token de verificación y evalúa el estado siguiente.
+async def _fijar_contexto_por_inscripcion(
+    session: AsyncSession, registration_id: uuid.UUID
+) -> None:
+    """Fija el contexto RLS a la organización de una inscripción, sin host.
 
-    `session.get()` ya aplica RLS: un token válido de otra organización (que
-    nunca debería llegar aquí, pero por si acaso) simplemente no encuentra la
-    fila, y cae en el mismo error genérico que un token caducado o inventado.
+    Si el `id` no existe, deja el contexto vacío a propósito: el
+    `session.get()` de después no encontrará la fila, y cae en el mismo error
+    genérico que un token caducado o inventado.
+
+    También vacía `app.user_id` — solo para los tres flujos públicos que la
+    llaman (verificación, cancelación, promoción de lista de espera). No
+    debe usarse desde ningún camino autenticado: sobrescribiría la
+    organización activa y el usuario de la sesión en curso.
     """
+    organization_id = await repository.resolve_registration_organization(session, registration_id)
+    await set_organization_context(session, organization_id)
+
+
+async def verify_registration(session: AsyncSession, *, token: str) -> EventRegistration:
+    """Consume el token de verificación y evalúa el estado siguiente."""
     bruto = await consume_token(PROPOSITO_VERIFICACION_INSCRIPCION, token)
     if bruto is None:
         raise ValidationDomainError("El enlace de verificación no es válido o ha caducado.")
 
     registration_id = uuid.UUID(bruto)
+    await _fijar_contexto_por_inscripcion(session, registration_id)
     inscripcion = await session.get(EventRegistration, registration_id)
     if inscripcion is None or inscripcion.status != "pending_verification":
         raise ValidationDomainError("El enlace de verificación no es válido o ha caducado.")
@@ -689,6 +703,7 @@ async def cancel_registration_by_token(session: AsyncSession, *, token: str) -> 
         raise ValidationDomainError("El enlace de cancelación no es válido o ha caducado.")
 
     registration_id = uuid.UUID(bruto)
+    await _fijar_contexto_por_inscripcion(session, registration_id)
     # `with_for_update=True`: mismo motivo que `get_registration_for_update`
     # del panel — dos tokens de cancelación vigentes para la misma
     # inscripción no deben poder promover dos veces un único hueco liberado.
@@ -723,6 +738,7 @@ async def confirm_waitlist_promotion(session: AsyncSession, *, token: str) -> Ev
         raise ValidationDomainError("El enlace de confirmación no es válido o ha caducado.")
 
     registration_id = uuid.UUID(bruto)
+    await _fijar_contexto_por_inscripcion(session, registration_id)
     inscripcion = await session.get(EventRegistration, registration_id)
     ahora = datetime.now(UTC)
     if (
