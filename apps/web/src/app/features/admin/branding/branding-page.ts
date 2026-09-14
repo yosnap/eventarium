@@ -19,6 +19,11 @@ interface SocialLink {
   url: string;
 }
 
+/** Igual que en `organization-page.ts`: solo se usan los campos que hacen falta aquí. */
+interface Organizacion {
+  readonly name: string;
+}
+
 /** Contrato de `GET`/`PUT /organizations/me/branding` tras la sesión 3 de validación
  * del plan: sin `colors` ni `fonts` (las columnas se retiran en `0015`). */
 interface Branding {
@@ -43,8 +48,8 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
  * Ya no hay ningún campo de color ni de tipografía: la organización elige una
  * plantilla completa del catálogo de la plataforma (sesión 2 de validación del plan),
  * no un acento propio. El nombre de la organización solo se muestra aquí, con enlace a
- * `/admin/organization`: lo edita esa pantalla, no esta (una sola fuente de escritura
- * por dato).
+ * `/dashboard/organization`: lo edita esa pantalla, no esta (una sola fuente de
+ * escritura por dato).
  *
  * El estado en edición vive aparte de `ThemingService` (que representa lo ya
  * publicado): así la vista previa del panel no cambia mientras se edita, y solo se
@@ -61,12 +66,14 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
 
       @if (cargando()) {
         <p>{{ t('comun.cargando') }}</p>
+      } @else if (errorDeCarga(); as mensaje) {
+        <app-alert tone="error" [title]="t('admin.branding.error')">{{ mensaje }}</app-alert>
       } @else {
         <form (submit)="guardar($event)" novalidate>
           <div class="tarjetas">
             <app-card [heading]="t('admin.branding.logotipo')">
               <p class="nombre-organizacion">
-                {{ theming.nombreDeOrganizacion() }}
+                {{ nombreOrganizacion() }}
                 <a routerLink="/dashboard/organization">{{ t('admin.branding.editarNombre') }}</a>
               </p>
               @if (previaLogo(); as url) {
@@ -281,7 +288,7 @@ export class BrandingPage {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
-  protected readonly theming = inject(ThemingService);
+  private readonly theming = inject(ThemingService);
 
   protected readonly clavesDePortada = CLAVES_DE_PLANTILLA_DE_PORTADA;
   protected readonly modos: readonly ('dark' | 'light')[] = ['dark', 'light'];
@@ -291,6 +298,7 @@ export class BrandingPage {
   protected readonly guardado = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly errorLogo = signal<string | null>(null);
+  protected readonly errorDeCarga = signal<string | null>(null);
 
   protected readonly templateKey = signal(CLAVES_DE_PLANTILLA_DE_PORTADA[0] ?? 'classic');
   protected readonly themeTemplateId = signal<string | null>(null);
@@ -298,6 +306,7 @@ export class BrandingPage {
   protected readonly socialLinks = signal<SocialLink[]>([]);
   protected readonly organizerBlurb = signal('');
   protected readonly logoUrlGuardado = signal<string | null>(null);
+  protected readonly nombreOrganizacion = signal('');
 
   private logoPendiente: File | null = null;
   private readonly previaLogoLocal = signal<string | null>(null);
@@ -309,14 +318,25 @@ export class BrandingPage {
 
   private async cargar(): Promise<void> {
     try {
-      const [branding, plantillas] = await Promise.all([
+      const [organizacion, branding, plantillas] = await Promise.all([
+        firstValueFrom(this.http.get<Organizacion>(this.api.url('/organizations/me'))),
         firstValueFrom(this.http.get<Branding>(this.api.url('/organizations/me/branding'))),
         firstValueFrom(
           this.http.get<PlantillaDeTema[]>(this.api.url('/organizations/me/theme-templates')),
         ),
       ]);
+      this.nombreOrganizacion.set(organizacion.name);
       this.plantillasDeTema.set(plantillas);
       this.aplicarRespuesta(branding);
+    } catch (error) {
+      // `errorDeCarga` sustituye al formulario entero en la plantilla: si cualquiera
+      // de los tres GET falla, el formulario no debe quedar enviable con valores por
+      // defecto que sobrescribirían el branding real al guardar.
+      this.errorDeCarga.set(
+        error instanceof ApiError
+          ? error.message
+          : this.transloco.translate('admin.branding.error'),
+      );
     } finally {
       this.cargando.set(false);
     }

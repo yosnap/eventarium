@@ -12,8 +12,11 @@ import { plantillaDeTemaDePrueba } from '../../../../testing/branding.fixture';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../../testing/axe';
 import es from '../../../../../public/assets/i18n/es-ES.json';
 
+const ORGANIZACION_URL = '/api/v1/organizations/me';
 const BRANDING_URL = '/api/v1/organizations/me/branding';
 const CATALOGO_URL = '/api/v1/organizations/me/theme-templates';
+
+const ORGANIZACION_VALIDA = { name: 'Organización de prueba' };
 
 const PLANTILLA_OSCURA = plantillaDeTemaDePrueba({ id: 'tema-oscuro', key: 'oscuro', name: 'Oscuro' });
 const PLANTILLA_CLARA = plantillaDeTemaDePrueba({ id: 'tema-claro', key: 'claro', name: 'Claro' });
@@ -51,10 +54,7 @@ describe('BrandingPage', () => {
         provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
-        {
-          provide: ThemingService,
-          useValue: { load: themingLoad, nombreDeOrganizacion: () => 'Organización de prueba' },
-        },
+        { provide: ThemingService, useValue: { load: themingLoad } },
       ],
     });
     http = TestBed.inject(HttpTestingController);
@@ -67,6 +67,7 @@ describe('BrandingPage', () => {
   async function crearYCargar(): Promise<ComponentFixture<BrandingPage>> {
     const fixture = TestBed.createComponent(BrandingPage);
     await avanzar(fixture);
+    http.expectOne(ORGANIZACION_URL).flush(ORGANIZACION_VALIDA);
     http.expectOne(BRANDING_URL).flush(BRANDING_VALIDO);
     http.expectOne(CATALOGO_URL).flush(CATALOGO);
     await avanzar(fixture);
@@ -166,5 +167,18 @@ describe('BrandingPage', () => {
     await avanzar(fixture);
     // Solo el PUT de datos de branding, nunca el de subida del logo rechazado.
     http.expectOne(BRANDING_URL).flush(BRANDING_VALIDO);
+  });
+
+  it('si falla la carga inicial, no deja un formulario enviable que pueda sobrescribir el branding', async () => {
+    const fixture = TestBed.createComponent(BrandingPage);
+    await avanzar(fixture);
+    http.expectOne(ORGANIZACION_URL).flush('error', { status: 500, statusText: 'Error' });
+    http.expectOne(BRANDING_URL).flush(BRANDING_VALIDO);
+    http.expectOne(CATALOGO_URL).flush(CATALOGO);
+    await avanzar(fixture);
+    await avanzar(fixture);
+
+    expect(fixture.nativeElement.querySelector('form')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[role="alert"]')).toBeTruthy();
   });
 });
