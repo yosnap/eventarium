@@ -25,11 +25,17 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base, TimestampMixin
 from app.shared.identifiers import new_uuid7
 
-#: Claves válidas de `platform_legal_pages.kind`. Las tres páginas que la web
-#: de la plataforma sirve en su host. Las condiciones de inscripción quedan
-#: fuera a propósito: son un contrato de la organización con quien se inscribe
-#: a **su** evento, no de la plataforma.
-PLATFORM_LEGAL_PAGE_KINDS: tuple[str, ...] = ("aviso-legal", "privacidad", "cookies")
+#: Claves válidas de `platform_legal_pages.kind`. Las cuatro páginas legales,
+#: todas de plataforma: Eventarium es una SaaS centralizada (como Luma), así
+#: que es ella quien fija sus condiciones frente a quien se inscribe a
+#: cualquier evento, no cada organización por separado (decisión del usuario,
+#: 2026-09-14, que sustituye el reparto anterior por organización).
+PLATFORM_LEGAL_PAGE_KINDS: tuple[str, ...] = (
+    "aviso-legal",
+    "privacidad",
+    "cookies",
+    "condiciones-de-inscripcion",
+)
 
 #: Nombre por defecto al sembrar la identidad de plataforma.
 NOMBRE_PLATAFORMA = "Eventarium"
@@ -87,16 +93,15 @@ class PlatformDomain(Base, TimestampMixin):
 class PlatformLegalPage(Base, TimestampMixin):
     """Texto legal de la plataforma, por tipo de página.
 
-    `content` nulo = plantilla por defecto de plataforma (misma convención que
-    `organizations.legal_notice_content`). No se siembra una fila por página:
-    el resolutor cae a la plantilla cuando falta, así que una fila solo existe
-    si el admin la ha editado.
+    `content` nulo = plantilla por defecto de plataforma. No se siembra una
+    fila por página: el resolutor cae a la plantilla cuando falta, así que
+    una fila solo existe si el admin la ha editado.
     """
 
     __tablename__ = "platform_legal_pages"
     __table_args__ = (
         CheckConstraint(
-            "kind IN ('aviso-legal', 'privacidad', 'cookies')",
+            "kind IN ('aviso-legal', 'privacidad', 'cookies', 'condiciones-de-inscripcion')",
             name="ck_platform_legal_pages_kind",
         ),
         Index("uq_platform_legal_pages_kind", "kind", unique=True),

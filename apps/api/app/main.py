@@ -21,7 +21,6 @@ from app.modules.auth.router import router as auth_router
 from app.modules.events.public_router import router as events_public_router
 from app.modules.events.router import router as events_router
 from app.modules.health.router import router as health_router
-from app.modules.legal.router import router_admin as legal_admin_router
 from app.modules.legal.router import router_cookie_consent as cookie_consent_router
 from app.modules.legal.router import router_public as legal_public_router
 from app.modules.metrics.router import router as metrics_router
@@ -130,7 +129,6 @@ def create_app() -> FastAPI:
     api.include_router(payments_payments_router)
     api.include_router(payments_public_router)
     api.include_router(payments_webhooks_router)
-    api.include_router(legal_admin_router)
     api.include_router(legal_public_router)
     api.include_router(cookie_consent_router)
     api.include_router(accounting_router)

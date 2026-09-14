@@ -19,17 +19,18 @@ interface PaginasLegales {
   legal_notice: PaginaLegal;
   privacy_policy: PaginaLegal;
   cookies_policy: PaginaLegal;
+  registration_terms: PaginaLegal;
 }
 
 const CLAVE_LEGALES = '/admin/legal-pages';
 
 /**
- * Páginas legales de la **plataforma**: aviso legal, privacidad y cookies de
- * Eventarium. Son distintas de las de cada organización, que se editan en el
- * panel de la organización.
- *
- * Las condiciones de inscripción no aparecen aquí a propósito: son un contrato
- * de la organización con quien se inscribe a su evento, no de la plataforma.
+ * Las cuatro páginas legales de la **plataforma**: aviso legal, privacidad,
+ * cookies y condiciones de inscripción. Eventarium es una SaaS centralizada
+ * (como Luma): son siempre las de plataforma, con independencia de la
+ * organización que publique el evento al que alguien se inscribe (decisión
+ * del usuario, 2026-09-14; antes las condiciones de inscripción eran un
+ * contrato de cada organización, editable desde su propio panel).
  */
 @Component({
   selector: 'app-platform-legal-page',
@@ -80,6 +81,15 @@ const CLAVE_LEGALES = '/admin/legal-pages';
             />
           </app-card>
 
+          <app-card [heading]="t('admin.plataforma.legales.condicionesDeInscripcion')">
+            <p class="estado">{{ estadoDe(condicionesEsPersonalizada()) }}</p>
+            <app-textarea
+              [label]="t('admin.plataforma.legales.condicionesDeInscripcion')"
+              [rows]="10"
+              [(value)]="condicionesDeInscripcion"
+            />
+          </app-card>
+
           <app-button type="submit" [loading]="guardando()">
             {{ t('comun.guardar') }}
           </app-button>
@@ -121,10 +131,12 @@ export class PlatformLegalPage {
   readonly avisoLegal = signal('');
   readonly privacidad = signal('');
   readonly cookies = signal('');
+  readonly condicionesDeInscripcion = signal('');
 
   readonly avisoEsPersonalizado = signal(false);
   readonly privacidadEsPersonalizada = signal(false);
   readonly cookiesEsPersonalizada = signal(false);
+  readonly condicionesEsPersonalizada = signal(false);
 
   constructor() {
     void this.cargar();
@@ -161,10 +173,12 @@ export class PlatformLegalPage {
     this.avisoLegal.set(paginas.legal_notice.content);
     this.privacidad.set(paginas.privacy_policy.content);
     this.cookies.set(paginas.cookies_policy.content);
+    this.condicionesDeInscripcion.set(paginas.registration_terms.content);
 
     this.avisoEsPersonalizado.set(paginas.legal_notice.is_custom);
     this.privacidadEsPersonalizada.set(paginas.privacy_policy.is_custom);
     this.cookiesEsPersonalizada.set(paginas.cookies_policy.is_custom);
+    this.condicionesEsPersonalizada.set(paginas.registration_terms.is_custom);
   }
 
   async guardar(evento: Event): Promise<void> {
@@ -189,6 +203,7 @@ export class PlatformLegalPage {
               legal_notice_content: aTexto(this.avisoLegal()),
               privacy_policy_content: aTexto(this.privacidad()),
               cookies_policy_content: aTexto(this.cookies()),
+              registration_terms_content: aTexto(this.condicionesDeInscripcion()),
             },
             { headers: this.api.serverForwardHeaders() },
           ),

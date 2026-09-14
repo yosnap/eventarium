@@ -48,23 +48,25 @@ class PlatformLegalPageItem(BaseModel):
 
 
 class PlatformLegalPagesResponse(BaseModel):
-    """Las tres páginas legales de la plataforma."""
+    """Las cuatro páginas legales de la plataforma."""
 
     legal_notice: PlatformLegalPageItem
     privacy_policy: PlatformLegalPageItem
     cookies_policy: PlatformLegalPageItem
+    registration_terms: PlatformLegalPageItem
 
 
 class PlatformLegalPagesUpdate(BaseModel):
     """Actualización parcial de las páginas legales de plataforma.
 
-    Un campo ausente no se toca; presente con `null` restaura la plantilla por
-    defecto (misma convención que las páginas de organización).
+    Un campo ausente no se toca; presente con `null` restaura la plantilla
+    por defecto.
     """
 
     legal_notice_content: Annotated[str, Field(max_length=20_000)] | None = None
     privacy_policy_content: Annotated[str, Field(max_length=20_000)] | None = None
     cookies_policy_content: Annotated[str, Field(max_length=20_000)] | None = None
+    registration_terms_content: Annotated[str, Field(max_length=20_000)] | None = None
 
 
 class PlatformDomainOut(BaseModel):

@@ -95,7 +95,6 @@ const RUTAS_EXISTENTES: readonly [string, string][] = [
   ['/dashboard/events/e1/payments', 'app-event-payments'],
   ['/dashboard/sponsor-tiers', 'app-sponsor-tiers-page'],
   ['/dashboard/stripe', 'app-stripe-connection'],
-  ['/dashboard/legal', 'app-legal-pages-page'],
   ['/dashboard/account', 'app-account-page'],
 ];
 
@@ -216,6 +215,11 @@ describe('redirecciones de las rutas antiguas del panel', () => {
     ['/admin/events/e1/inscripciones', '/dashboard/events/e1/inscripciones'],
     ['/admin/events/e1/registrations/reg1', '/dashboard/events/e1/registrations/reg1'],
     ['/admin/stripe', '/dashboard/stripe'],
+    // Sin destino propio: la pantalla de páginas legales de organización se
+    // retiró (son siempre las de plataforma), así que un marcador antiguo a
+    // cualquiera de sus dos nombres vuelve al escritorio.
+    ['/admin/legal', '/dashboard'],
+    ['/dashboard/legal', '/dashboard'],
     // Sentido contrario a las de arriba: el catálogo de componentes vivió una
     // temporada en `/dashboard/estilo` antes de volver a `/admin`.
     ['/dashboard/estilo', '/admin/estilo'],

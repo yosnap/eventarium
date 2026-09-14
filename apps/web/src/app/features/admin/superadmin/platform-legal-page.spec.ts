@@ -16,6 +16,7 @@ const SIN_EDITAR = {
   legal_notice: { content: 'Aviso legal de Eventarium', is_custom: false },
   privacy_policy: { content: 'Privacidad de Eventarium', is_custom: false },
   cookies_policy: { content: 'Cookies de Eventarium', is_custom: false },
+  registration_terms: { content: 'Condiciones de inscripción de Eventarium', is_custom: false },
 };
 
 async function avanzar(fixture: ComponentFixture<unknown>): Promise<void> {
@@ -58,19 +59,22 @@ describe('PlatformLegalPage', () => {
     return fixture;
   }
 
-  it('carga las tres páginas de plataforma y no tiene violaciones de accesibilidad', async () => {
+  it('carga las cuatro páginas de plataforma y no tiene violaciones de accesibilidad', async () => {
     const fixture = await crearYCargar();
 
     expect(fixture.componentInstance.avisoLegal()).toBe('Aviso legal de Eventarium');
     expect(fixture.componentInstance.privacidad()).toBe('Privacidad de Eventarium');
     expect(fixture.componentInstance.cookies()).toBe('Cookies de Eventarium');
+    expect(fixture.componentInstance.condicionesDeInscripcion()).toBe(
+      'Condiciones de inscripción de Eventarium',
+    );
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
-  it('no incluye condiciones de inscripción: no son de la plataforma', async () => {
+  it('incluye las condiciones de inscripción: son también de la plataforma', async () => {
     const fixture = await crearYCargar();
     const texto = fixture.nativeElement.textContent as string;
-    expect(texto).not.toContain('ondiciones de inscripci');
+    expect(texto).toContain('ondiciones de inscripci');
   });
 
   it('indica si cada página está personalizada o en plantilla', async () => {

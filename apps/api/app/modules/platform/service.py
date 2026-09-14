@@ -22,12 +22,12 @@ from app.modules.platform.schemas import (
 from app.modules.platform.templates import resolve_platform_legal_page
 
 #: Mapea la clave pública de página con el nombre del campo en el schema de
-#: actualización. Las condiciones de inscripción no están: son un contrato de
-#: la organización con quien se inscribe a su evento, no de la plataforma.
+#: actualización.
 _CAMPOS_DE_PAGINA: dict[str, str] = {
     "aviso-legal": "legal_notice_content",
     "privacidad": "privacy_policy_content",
     "cookies": "cookies_policy_content",
+    "condiciones-de-inscripcion": "registration_terms_content",
 }
 
 #: Clave pública → nombre del atributo en `PlatformLegalPagesResponse`.
@@ -35,6 +35,7 @@ ATRIBUTO_DE_PAGINA: dict[str, str] = {
     "aviso-legal": "legal_notice",
     "privacidad": "privacy_policy",
     "cookies": "cookies_policy",
+    "condiciones-de-inscripcion": "registration_terms",
 }
 
 
@@ -68,7 +69,7 @@ async def branding_publico(session: AsyncSession) -> PlatformBrandingResponse:
 
 
 async def legal_pages_publicas(session: AsyncSession) -> PlatformLegalPagesResponse:
-    """Las tres páginas legales de plataforma, con su contenido efectivo."""
+    """Las cuatro páginas legales de plataforma, con su contenido efectivo."""
     branding: PlatformBranding = await repository.get_platform_branding(session)
     dominios = await repository.get_platform_domains(session)
 

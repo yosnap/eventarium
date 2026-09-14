@@ -34,10 +34,8 @@ def legal_notice_template(branding: PlatformBranding, dominios: list[PlatformDom
         f"plataforma que opera los sitios {_sitios(dominios)}.\n\n"
         f"**Qué es esta plataforma**\n\n"
         f"{nombre} es un software de gestión de eventos: permite a cada "
-        f"organización publicar sus eventos y gestionar las inscripciones. "
-        f"Cada evento es responsabilidad de la organización que lo publica; "
-        f"los datos identificativos de esa organización aparecen en la "
-        f"página legal del propio evento.\n\n"
+        f"organización publicar sus eventos y gestionar las inscripciones, "
+        f"bajo estas mismas condiciones y responsabilidad de {nombre}.\n\n"
         f"**Condiciones de uso**\n\n"
         f"El acceso y uso de la plataforma atribuye la condición de persona "
         f"usuaria e implica la aceptación de estas condiciones. La persona "
@@ -58,17 +56,19 @@ def privacy_policy_template(branding: PlatformBranding, dominios: list[PlatformD
     nombre = _nombre(branding)
     return (
         f"**Quién trata tus datos**\n\n"
-        f"**{nombre}** opera la plataforma en los sitios {_sitios(dominios)}. "
-        f"Para los datos de tu cuenta y el funcionamiento del servicio, el "
-        f"responsable es {nombre}. Para los datos que facilitas al "
-        f"inscribirte a un evento concreto, el responsable es la "
-        f"organización que publica ese evento.\n\n"
+        f"**{nombre}** opera la plataforma en los sitios {_sitios(dominios)} "
+        f"y es responsable del tratamiento de los datos de tu cuenta y de "
+        f"los que facilitas al inscribirte a cualquier evento publicado en "
+        f"la plataforma.\n\n"
         f"**Qué datos tratamos**\n\n"
-        f"Datos de cuenta (nombre, correo y credenciales) y datos técnicos "
-        f"necesarios para el funcionamiento y la seguridad del servicio.\n\n"
+        f"Datos de cuenta (nombre, correo y credenciales), datos técnicos "
+        f"necesarios para el funcionamiento y la seguridad del servicio, y "
+        f"los datos que aportas al inscribirte a un evento (nombre, correo y "
+        f"las respuestas del formulario de inscripción).\n\n"
         f"**Para qué**\n\n"
-        f"Prestar el servicio, autenticarte, garantizar la seguridad y "
-        f"cumplir las obligaciones legales aplicables.\n\n"
+        f"Prestar el servicio, gestionar tu inscripción a los eventos a los "
+        f"que te apuntes, autenticarte, garantizar la seguridad y cumplir "
+        f"las obligaciones legales aplicables.\n\n"
         f"**Tus derechos**\n\n"
         f"Puedes ejercer tus derechos de acceso, rectificación, supresión, "
         f"oposición, limitación y portabilidad escribiendo a la dirección "
@@ -102,10 +102,41 @@ def cookies_policy_template(branding: PlatformBranding, dominios: list[PlatformD
     )
 
 
+def registration_terms_template(branding: PlatformBranding, dominios: list[PlatformDomain]) -> str:
+    """Condiciones de inscripción a eventos, comunes a toda la plataforma."""
+    nombre = _nombre(branding)
+    return (
+        f"**Condiciones de inscripción**\n\n"
+        f"Al inscribirte a cualquier evento publicado en **{nombre}** "
+        f"aceptas las siguientes condiciones.\n\n"
+        f"**Datos aportados**\n\n"
+        f"Debes aportar datos veraces en el formulario de inscripción. "
+        f"{nombre} podrá anular una inscripción cuyos datos resulten falsos "
+        f"o incompletos.\n\n"
+        f"**Confirmación y lista de espera**\n\n"
+        f"Tu plaza se confirma por correo electrónico. Si el aforo del "
+        f"evento está completo, tu inscripción pasa a una lista de espera y "
+        f"se te notificará si se libera una plaza.\n\n"
+        f"**Cancelación**\n\n"
+        f"Puedes cancelar tu inscripción en cualquier momento desde el "
+        f"enlace incluido en el correo de confirmación. Cancelar una plaza "
+        f"confirmada puede liberarla para la siguiente persona en lista de "
+        f"espera.\n\n"
+        f"**Grabación y publicación**\n\n"
+        f"Si el formulario de inscripción lo indica, el evento puede ser "
+        f"grabado y publicado; tu asistencia queda sujeta a las condiciones "
+        f"de grabación que hayas aceptado al inscribirte.\n\n"
+        f"**Contacto**\n\n"
+        f"Para cualquier consulta sobre tu inscripción puedes escribir a la "
+        f"dirección de contacto de la plataforma.\n"
+    )
+
+
 _TEMPLATES = {
     "aviso-legal": legal_notice_template,
     "privacidad": privacy_policy_template,
     "cookies": cookies_policy_template,
+    "condiciones-de-inscripcion": registration_terms_template,
 }
 
 
@@ -117,8 +148,7 @@ def resolve_platform_legal_page(
 ) -> str:
     """Contenido efectivo de una página legal de plataforma.
 
-    El editado por el admin si existe; si no, la plantilla por defecto. Mismo
-    contrato que `resolve_legal_page` para organización.
+    El editado por el admin si existe; si no, la plantilla por defecto.
     """
     if contenido_editado:
         return contenido_editado

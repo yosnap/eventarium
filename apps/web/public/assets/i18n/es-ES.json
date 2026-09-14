@@ -1413,22 +1413,6 @@
       "actualizarEstado": "Actualizar estado",
       "error": "No hemos podido completar la operación."
     },
-    "legalNav": "Páginas legales",
-    "legal": {
-      "titulo": "Páginas legales",
-      "descripcion": "Edita el contenido de las cuatro páginas legales públicas. Si dejas una en blanco se sirve la plantilla por defecto con los datos de tu organización.",
-      "avisoLegal": "Aviso legal",
-      "privacidad": "Política de privacidad",
-      "cookies": "Política de cookies",
-      "condicionesInscripcion": "Condiciones de inscripción",
-      "editada": "Editada",
-      "porDefecto": "Plantilla por defecto",
-      "restaurarPlantilla": "Restaurar plantilla por defecto",
-      "guardar": "Guardar cambios",
-      "guardando": "Guardando…",
-      "guardado": "Cambios guardados.",
-      "error": "No hemos podido guardar los cambios."
-    },
     "plataforma": {
       "identidad": {
         "titulo": "Identidad de la plataforma",
@@ -1452,10 +1436,11 @@
       },
       "legales": {
         "titulo": "Páginas legales de la plataforma",
-        "descripcion": "Aviso legal, privacidad y cookies de Eventarium. Cada organización tiene además las suyas, que edita en su propio panel.",
+        "descripcion": "Aviso legal, privacidad, cookies y condiciones de inscripción de Eventarium. Son las mismas para todas las organizaciones: no hay páginas legales propias por organización.",
         "avisoLegal": "Aviso legal",
         "privacidad": "Política de privacidad",
         "cookies": "Política de cookies",
+        "condicionesDeInscripcion": "Condiciones de inscripción",
         "personalizada": "Personalizada: se está sirviendo este texto.",
         "plantillaPorDefecto": "Usando la plantilla por defecto. Escribe un texto para personalizarla.",
         "guardado": "Páginas legales actualizadas.",

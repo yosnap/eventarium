@@ -1,8 +1,16 @@
-"""Páginas legales (fase 5 del PRD, fase 3 de trabajo) y `POST /public/cookie-consent`.
+"""Páginas legales de plataforma y `POST /public/cookie-consent`.
 
-Cubre: plantilla por defecto, edición desde el panel, restauración de
-plantilla, que un `<script>` guardado como contenido legal no se ejecuta al
-servirse, y que `cookie_consents` se escribe sin ningún dato personal.
+Eventarium es una SaaS centralizada: las cuatro páginas legales (aviso legal,
+privacidad, cookies, condiciones de inscripción) son siempre las de
+plataforma, sirvan desde el host que sirvan — no hay contenido legal propio
+de organización (decisión del usuario, 2026-09-14; antes sí lo había,
+editable desde `/organizations/me/legal-pages`, retirado en este cambio).
+
+Cubre: plantilla por defecto, edición desde el panel de plataforma,
+restauración de plantilla, que un `<script>` guardado como contenido legal
+no se ejecuta al servirse, y que `cookie_consents` (que sigue siendo por
+organización: es el registro de qué aceptó cada visitante, no el texto
+legal) se escribe sin ningún dato personal.
 """
 
 from __future__ import annotations
@@ -12,33 +20,48 @@ from sqlalchemy import func, select
 
 from app.core.database import SessionMaintenance
 from app.modules.legal.models import CookieConsent
+from app.modules.users.models import User
 from tests.conftest import OrganizacionDePrueba, iniciar_sesion
 
-LEGAL_PAGES_ADMIN = "/api/v1/organizations/me/legal-pages"
+PLATFORM_LEGAL_ADMIN = "/api/v1/admin/legal-pages"
 PUBLIC_LEGAL = "/api/v1/public/legal"
 COOKIE_CONSENT = "/api/v1/public/cookie-consent"
+
+
+async def _sesion_superadmin(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> dict[str, str]:
+    """Un `owner` promovido a superadmin: mismo patrón que `test_platform_identity.py`."""
+    async with SessionMaintenance() as session:
+        usuario = await session.scalar(select(User).where(User.email == organizacion.owner_email))
+        assert usuario is not None
+        usuario.is_superadmin = True
+        await session.commit()
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    return cabeceras
 
 
 async def test_las_cuatro_paginas_resuelven_con_la_plantilla_por_defecto(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    async with SessionMaintenance() as session:
-        from app.modules.organizations import repository as organizations_repository
-
-        entidad = await organizations_repository.get_organization(session, organizacion.id)
-        assert entidad is not None
-        entidad.legal_name = "Acme Legal SL"
-        entidad.contact_email = "legal@acme.example"
-        entidad.legal_address = "Calle Falsa 123, Valencia"
-        entidad.tax_id = "B12345678"
-        await session.commit()
-
     for ruta in ("aviso-legal", "privacidad", "cookies", "condiciones-de-inscripcion"):
         respuesta = await cliente.get(f"{PUBLIC_LEGAL}/{ruta}", headers={"Host": organizacion.host})
         assert respuesta.status_code == 200, respuesta.text
-        contenido = respuesta.json()["content"]
-        assert "Acme Legal SL" in contenido
-        assert "legal@acme.example" in contenido
+        assert respuesta.json()["content"]
+
+
+async def test_las_cuatro_paginas_son_iguales_en_dos_organizaciones_distintas(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    otra_organizacion: OrganizacionDePrueba,
+) -> None:
+    """No hay contenido legal por organización: da igual desde qué host se pida."""
+    for ruta in ("aviso-legal", "privacidad", "cookies", "condiciones-de-inscripcion"):
+        de_una = await cliente.get(f"{PUBLIC_LEGAL}/{ruta}", headers={"Host": organizacion.host})
+        de_otra = await cliente.get(
+            f"{PUBLIC_LEGAL}/{ruta}", headers={"Host": otra_organizacion.host}
+        )
+        assert de_una.json()["content"] == de_otra.json()["content"]
 
 
 async def test_la_pagina_de_cookies_declara_turnstile_como_necesario(
@@ -48,41 +71,42 @@ async def test_la_pagina_de_cookies_declara_turnstile_como_necesario(
     assert respuesta.status_code == 200, respuesta.text
     contenido = respuesta.json()["content"].lower()
     assert "turnstile" in contenido
-    assert "interés legítimo" in contenido or "interes legitimo" in contenido
 
 
-async def test_host_desconocido_devuelve_404(cliente: AsyncClient) -> None:
+async def test_host_desconocido_tambien_sirve_las_paginas_legales(cliente: AsyncClient) -> None:
+    """Sin contenido por organización que proteger, no hay nada que un host
+    desconocido pudiera filtrar: las cuatro páginas responden igual que en
+    cualquier otro host, plataforma incluida."""
     respuesta = await cliente.get(f"{PUBLIC_LEGAL}/aviso-legal", headers={"Host": "no-existe.test"})
-    assert respuesta.status_code == 404
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["content"]
 
 
 async def test_editar_y_restaurar_una_pagina_legal(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    cabeceras = await _sesion_superadmin(cliente, organizacion)
 
     editar = await cliente.patch(
-        LEGAL_PAGES_ADMIN,
+        PLATFORM_LEGAL_ADMIN,
         headers=cabeceras,
-        json={"privacy_policy_content": "Texto editado a mano por la organización."},
+        json={"privacy_policy_content": "Texto editado a mano por la plataforma."},
     )
     assert editar.status_code == 200, editar.text
     assert editar.json()["privacy_policy"]["is_custom"] is True
-    assert editar.json()["privacy_policy"]["content"] == "Texto editado a mano por la organización."
+    assert editar.json()["privacy_policy"]["content"] == "Texto editado a mano por la plataforma."
 
-    publica = await cliente.get(f"{PUBLIC_LEGAL}/privacidad", headers={"Host": organizacion.host})
-    assert publica.json()["content"] == "Texto editado a mano por la organización."
+    publica = await cliente.get(f"{PUBLIC_LEGAL}/privacidad", headers={"Host": "localhost"})
+    assert publica.json()["content"] == "Texto editado a mano por la plataforma."
 
     restaurar = await cliente.patch(
-        LEGAL_PAGES_ADMIN, headers=cabeceras, json={"privacy_policy_content": None}
+        PLATFORM_LEGAL_ADMIN, headers=cabeceras, json={"privacy_policy_content": None}
     )
     assert restaurar.status_code == 200, restaurar.text
     assert restaurar.json()["privacy_policy"]["is_custom"] is False
 
-    tras_restaurar = await cliente.get(
-        f"{PUBLIC_LEGAL}/privacidad", headers={"Host": organizacion.host}
-    )
-    assert tras_restaurar.json()["content"] != "Texto editado a mano por la organización."
+    tras_restaurar = await cliente.get(f"{PUBLIC_LEGAL}/privacidad", headers={"Host": "localhost"})
+    assert tras_restaurar.json()["content"] != "Texto editado a mano por la plataforma."
 
 
 async def test_un_script_guardado_no_se_ejecuta_al_servirse(
@@ -92,34 +116,36 @@ async def test_un_script_guardado_no_se_ejecuta_al_servirse(
     en un campo JSON `content`. La ejecución solo podría ocurrir si el
     frontend lo inyectase sin sanear (cubierto en `apps/web`, ver
     `sanitize-markdown.spec.ts`)."""
-    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    cabeceras = await _sesion_superadmin(cliente, organizacion)
     carga = "<script>alert(1)</script>"
 
     respuesta = await cliente.patch(
-        LEGAL_PAGES_ADMIN, headers=cabeceras, json={"legal_notice_content": carga}
+        PLATFORM_LEGAL_ADMIN, headers=cabeceras, json={"legal_notice_content": carga}
     )
     assert respuesta.status_code == 200, respuesta.text
 
-    publica = await cliente.get(f"{PUBLIC_LEGAL}/aviso-legal", headers={"Host": organizacion.host})
+    publica = await cliente.get(f"{PUBLIC_LEGAL}/aviso-legal", headers={"Host": "localhost"})
     assert publica.status_code == 200
     # El backend lo devuelve tal cual dentro de un string JSON: nunca como HTML
     # ejecutable de la propia respuesta (`content-type: application/json`).
     assert publica.headers["content-type"].startswith("application/json")
     assert publica.json()["content"] == carga
 
+    # Restaura la plantilla para no dejar el aviso legal de la instalación
+    # con el contenido de esta prueba de por vida.
+    await cliente.patch(
+        PLATFORM_LEGAL_ADMIN, headers=cabeceras, json={"legal_notice_content": None}
+    )
 
-async def test_un_organizador_sin_permiso_no_puede_editar(
+
+async def test_un_organizador_no_puede_editar_las_paginas_legales(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    from app.core.permissions import Permission
-    from tests.conftest import crear_miembro, crear_rol, iniciar_sesion_con
-
-    await crear_rol(organizacion, key="solo-lectura", permisos=[Permission.ORGANIZATIONS_READ])
-    miembro = await crear_miembro(organizacion, "solo-lectura")
-    _, cabeceras = await iniciar_sesion_con(cliente, organizacion, miembro.email, miembro.password)
+    """Son de plataforma: ni el `owner` de una organización llega al endpoint."""
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
 
     respuesta = await cliente.patch(
-        LEGAL_PAGES_ADMIN, headers=cabeceras, json={"privacy_policy_content": "x"}
+        PLATFORM_LEGAL_ADMIN, headers=cabeceras, json={"privacy_policy_content": "x"}
     )
     assert respuesta.status_code == 403
 

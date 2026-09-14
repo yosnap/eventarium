@@ -29,7 +29,6 @@ export const ORGANIZATION_NAV_LINKS: readonly AdminNavLink[] = [
   { path: ['/dashboard/events'], labelKey: 'admin.eventsNav' },
   { path: ['/dashboard/sponsor-tiers'], labelKey: 'admin.sponsorTiersNav' },
   { path: ['/dashboard/stripe'], labelKey: 'admin.stripeNav' },
-  { path: ['/dashboard/legal'], labelKey: 'admin.legalNav' },
 ];
 
 export const PLATFORM_NAV_LINKS: readonly AdminNavLink[] = [

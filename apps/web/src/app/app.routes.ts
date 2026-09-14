@@ -139,7 +139,12 @@ export const routes: Routes = [
   { path: 'admin/events/:id', redirectTo: '/dashboard/events/:id' },
   { path: 'admin/sponsor-tiers', redirectTo: '/dashboard/sponsor-tiers', pathMatch: 'full' },
   { path: 'admin/stripe', redirectTo: '/dashboard/stripe', pathMatch: 'full' },
-  { path: 'admin/legal', redirectTo: '/dashboard/legal', pathMatch: 'full' },
+  // La pantalla de páginas legales de organización se retiró (decisión del
+  // usuario, 2026-09-14): son siempre las de plataforma. Un marcador antiguo
+  // a `/admin/legal` (o a `/dashboard/legal`, mientras existió con ese
+  // nombre) ya no tiene destino propio; vuelve al escritorio.
+  { path: 'admin/legal', redirectTo: '/dashboard', pathMatch: 'full' },
+  { path: 'dashboard/legal', redirectTo: '/dashboard', pathMatch: 'full' },
   { path: 'admin/account', redirectTo: '/dashboard/account', pathMatch: 'full' },
   // Sentido contrario a las de arriba: el catálogo de componentes vivió un tiempo en
   // `/dashboard/estilo` (organización), pero es la herramienta de quien diseña la
@@ -266,11 +271,6 @@ export const routes: Routes = [
         path: 'stripe',
         loadComponent: () =>
           import('./features/admin/organization/stripe-connection').then((m) => m.StripeConnection),
-      },
-      {
-        path: 'legal',
-        loadComponent: () =>
-          import('./features/admin/legal/legal-pages-page').then((m) => m.LegalPagesPage),
       },
       {
         path: 'account',

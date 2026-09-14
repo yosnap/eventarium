@@ -93,16 +93,19 @@ async def test_legal_de_plataforma_en_host_de_plataforma(cliente: AsyncClient) -
         await _limpiar_hosts_de_plataforma()
 
 
-async def test_condiciones_de_inscripcion_no_existen_para_la_plataforma(
+async def test_condiciones_de_inscripcion_tambien_sirven_en_host_de_plataforma(
     cliente: AsyncClient,
 ) -> None:
-    """Las condiciones son de la organización que inscribe, no de la plataforma."""
+    """Eventarium es una SaaS centralizada: las condiciones son siempre las de
+    plataforma, también en su propio host (decisión del usuario, 2026-09-14;
+    antes eran un contrato de cada organización y 404 aquí)."""
     await _registrar_host_de_plataforma(HOST_PLATAFORMA)
     try:
         respuesta = await cliente.get(
             "/api/v1/public/legal/condiciones-de-inscripcion", headers={"Host": HOST_PLATAFORMA}
         )
-        assert respuesta.status_code == 404, respuesta.text
+        assert respuesta.status_code == 200, respuesta.text
+        assert "Eventarium" in respuesta.json()["content"]
     finally:
         await _limpiar_hosts_de_plataforma()
 

@@ -1,137 +1,39 @@
 """Endpoints del módulo legal.
 
-Tres routers:
+Dos routers:
 
-- `router_admin`: edición de las cuatro páginas legales desde el panel
-  (`organizations:write`), mismo prefijo `/organizations/me/...` que
-  `branding`/`sponsor-tiers`.
-- `router_public`: lectura pública de cada página legal, resuelta por
-  organización vía host (mismo patrón que `tenant/router.py`).
+- `router_public`: lectura pública de cada página legal. Eventarium es una
+  SaaS centralizada (como Luma): las cuatro páginas son siempre las de
+  plataforma, con independencia del host de organización desde el que se
+  pidan — no hay contenido legal propio de organización (decisión del
+  usuario, 2026-09-14; antes sí lo había, editable desde
+  `/organizations/me/legal-pages`, retirado en este cambio).
 - `router_cookie_consent`: `POST /public/cookie-consent`, sin autenticación,
-  con `limit_per_ip` (mismo patrón que `registrations/public_router.py`).
+  con `limit_per_ip` (mismo patrón que `registrations/public_router.py`). Se
+  mantiene por organización: es el registro de qué aceptó cada visitante en
+  el sitio de esa organización, no el texto legal en sí.
 """
 
 from __future__ import annotations
 
-import uuid
-
-from fastapi import APIRouter, Request
+from fastapi import APIRouter
 from sqlalchemy import insert
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import (
-    CurrentUserDep,
-    DbDep,
-    DbPlataformaDep,
-    OrganizationDep,
-    require_permission,
-)
-from app.core.permissions import Permission
+from app.core.deps import DbDep, DbPlataformaDep, OrganizationDep
 from app.core.ratelimit import COOKIE_CONSENT_POR_IP, LEGAL_PAGES_POR_IP, limit_per_ip
 from app.modules.legal.models import CookieConsent
-from app.modules.legal.schemas import (
-    CookieConsentCreate,
-    LegalPageAdminItem,
-    LegalPageResponse,
-    LegalPagesAdminResponse,
-    LegalPagesUpdate,
-)
-from app.modules.legal.templates import resolve_legal_page
-from app.modules.organizations import repository as organizations_repository
-from app.modules.organizations.models import Organization
+from app.modules.legal.schemas import CookieConsentCreate, LegalPageResponse
 from app.modules.platform import service as platform_service
-from app.modules.platform.host import resolve_host
-from app.modules.platform.models import PLATFORM_LEGAL_PAGE_KINDS
 from app.modules.platform.service import ATRIBUTO_DE_PAGINA as _ATRIBUTO_DE_PAGINA
-from app.shared.errors import NotFoundError
 
-router_admin = APIRouter(prefix="/organizations/me/legal-pages", tags=["legal"])
 router_public = APIRouter(prefix="/public/legal", tags=["público"])
 router_cookie_consent = APIRouter(prefix="/public", tags=["público"])
 
 
-async def _obtener_organizacion_o_404(session: DbDep, organization_id: uuid.UUID) -> Organization:
-    organizacion = await organizations_repository.get_organization(session, organization_id)
-    if organizacion is None:
-        raise NotFoundError("La organización no existe.")
-    return organizacion
-
-
-@router_admin.get(
-    "",
-    summary="Contenido de las cuatro páginas legales",
-    response_model=LegalPagesAdminResponse,
-    dependencies=[require_permission(Permission.ORGANIZATIONS_READ)],
-)
-async def get_legal_pages(usuario: CurrentUserDep, session: DbDep) -> LegalPagesAdminResponse:
-    organizacion = await _obtener_organizacion_o_404(session, usuario.organization_id)
-
-    return LegalPagesAdminResponse(
-        legal_notice=LegalPageAdminItem(
-            content=resolve_legal_page(organizacion, "aviso-legal"),
-            is_custom=organizacion.legal_notice_content is not None,
-        ),
-        privacy_policy=LegalPageAdminItem(
-            content=resolve_legal_page(organizacion, "privacidad"),
-            is_custom=organizacion.privacy_policy_content is not None,
-        ),
-        cookies_policy=LegalPageAdminItem(
-            content=resolve_legal_page(organizacion, "cookies"),
-            is_custom=organizacion.cookies_policy_content is not None,
-        ),
-        registration_terms=LegalPageAdminItem(
-            content=resolve_legal_page(organizacion, "condiciones-de-inscripcion"),
-            is_custom=organizacion.registration_terms_content is not None,
-        ),
-    )
-
-
-@router_admin.patch(
-    "",
-    summary="Editar el contenido de las páginas legales",
-    description=(
-        "Un campo ausente no se toca; un campo presente con `null` restaura la "
-        "plantilla por defecto de esa página."
-    ),
-    response_model=LegalPagesAdminResponse,
-    dependencies=[require_permission(Permission.ORGANIZATIONS_WRITE)],
-)
-async def update_legal_pages(
-    datos: LegalPagesUpdate, usuario: CurrentUserDep, session: DbDep
-) -> LegalPagesAdminResponse:
-    organizacion = await _obtener_organizacion_o_404(session, usuario.organization_id)
-
-    for campo, valor in datos.model_dump(exclude_unset=True).items():
-        limpio = valor.strip() if isinstance(valor, str) else None
-        setattr(organizacion, campo, limpio or None)
-    await session.flush()
-    return await get_legal_pages(usuario, session)
-
-
-async def _pagina_publica(
-    request: Request, session: DbPlataformaDep, clave: str
-) -> LegalPageResponse:
-    """Página legal efectiva para el host de la petición.
-
-    Si el host es de plataforma, sirve la versión de la instalación; si es de
-    una organización, la suya; y si es un host de organización **no
-    registrado**, 404 (se conserva el fail-closed de siempre). Las condiciones
-    de inscripción no existen para plataforma: son un contrato de la
-    organización con quien se inscribe a su evento, así que en un host de
-    plataforma esa página es un 404 explícito y no un texto vacío.
-    """
-    resuelto = await resolve_host(session, request)
-
-    if resuelto.kind == "platform":
-        if clave not in PLATFORM_LEGAL_PAGE_KINDS:
-            raise NotFoundError("La plataforma no publica esta página legal.")
-        paginas = await platform_service.legal_pages_publicas(session)
-        return LegalPageResponse(content=getattr(paginas, _ATRIBUTO_DE_PAGINA[clave]).content)
-
-    if resuelto.organization is None:
-        raise NotFoundError("No hay ninguna organización asociada al host de esta petición.")
-
-    entidad = await _obtener_organizacion_o_404(session, resuelto.organization.id)
-    return LegalPageResponse(content=resolve_legal_page(entidad, clave))
+async def _pagina_publica(session: AsyncSession, clave: str) -> LegalPageResponse:
+    paginas = await platform_service.legal_pages_publicas(session)
+    return LegalPageResponse(content=getattr(paginas, _ATRIBUTO_DE_PAGINA[clave]).content)
 
 
 @router_public.get(
@@ -140,8 +42,8 @@ async def _pagina_publica(
     response_model=LegalPageResponse,
     dependencies=[limit_per_ip("legal-aviso-legal", LEGAL_PAGES_POR_IP)],
 )
-async def public_legal_notice(request: Request, session: DbPlataformaDep) -> LegalPageResponse:
-    return await _pagina_publica(request, session, "aviso-legal")
+async def public_legal_notice(session: DbPlataformaDep) -> LegalPageResponse:
+    return await _pagina_publica(session, "aviso-legal")
 
 
 @router_public.get(
@@ -150,8 +52,8 @@ async def public_legal_notice(request: Request, session: DbPlataformaDep) -> Leg
     response_model=LegalPageResponse,
     dependencies=[limit_per_ip("legal-privacidad", LEGAL_PAGES_POR_IP)],
 )
-async def public_privacy_policy(request: Request, session: DbPlataformaDep) -> LegalPageResponse:
-    return await _pagina_publica(request, session, "privacidad")
+async def public_privacy_policy(session: DbPlataformaDep) -> LegalPageResponse:
+    return await _pagina_publica(session, "privacidad")
 
 
 @router_public.get(
@@ -160,8 +62,8 @@ async def public_privacy_policy(request: Request, session: DbPlataformaDep) -> L
     response_model=LegalPageResponse,
     dependencies=[limit_per_ip("legal-cookies", LEGAL_PAGES_POR_IP)],
 )
-async def public_cookies_policy(request: Request, session: DbPlataformaDep) -> LegalPageResponse:
-    return await _pagina_publica(request, session, "cookies")
+async def public_cookies_policy(session: DbPlataformaDep) -> LegalPageResponse:
+    return await _pagina_publica(session, "cookies")
 
 
 @router_public.get(
@@ -170,15 +72,8 @@ async def public_cookies_policy(request: Request, session: DbPlataformaDep) -> L
     response_model=LegalPageResponse,
     dependencies=[limit_per_ip("legal-condiciones-inscripcion", LEGAL_PAGES_POR_IP)],
 )
-async def public_registration_terms(
-    organizacion: OrganizationDep, session: DbDep
-) -> LegalPageResponse:
-    # A diferencia de las otras tres páginas, las condiciones de inscripción
-    # **sí** exigen organización: son el contrato de la organización con quien
-    # se inscribe a su evento. `OrganizationDep` ya lanza 404 en un host que no
-    # resuelva a una, así que no pasan por el resolutor de plataforma.
-    entidad = await _obtener_organizacion_o_404(session, organizacion.id)
-    return LegalPageResponse(content=resolve_legal_page(entidad, "condiciones-de-inscripcion"))
+async def public_registration_terms(session: DbPlataformaDep) -> LegalPageResponse:
+    return await _pagina_publica(session, "condiciones-de-inscripcion")
 
 
 @router_cookie_consent.post(

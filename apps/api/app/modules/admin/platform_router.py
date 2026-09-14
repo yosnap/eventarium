@@ -45,6 +45,7 @@ _CAMPOS_DE_PAGINA: dict[str, str] = {
     "aviso-legal": "legal_notice_content",
     "privacidad": "privacy_policy_content",
     "cookies": "cookies_policy_content",
+    "condiciones-de-inscripcion": "registration_terms_content",
 }
 
 
