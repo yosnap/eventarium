@@ -4,9 +4,12 @@
 
 /**
  * Una organización a la que pertenece la persona, para el selector del panel.
+ *
+ * Sin dominio por organización (fase 6 del plan «organización sin
+ * dominio»): ya no lleva `host`, campo que solo devolvía `NULL` desde que
+ * `organization_domains` se retiró.
  */
 export interface OrganizationMembershipResponse {
-  host: (string | null);
   name: string;
   organization_id: string;
   slug: string;

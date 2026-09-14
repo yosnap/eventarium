@@ -46,9 +46,8 @@ router = APIRouter(prefix="/organizations", tags=["organizaciones"])
 def _branding_response(branding: OrganizationBranding | None) -> BrandingAdminResponse:
     almacen = get_storage()
     if branding is None:
-        return BrandingAdminResponse(template_key="classic", social_links=[])
+        return BrandingAdminResponse(social_links=[])
     return BrandingAdminResponse(
-        template_key=branding.template_key,
         theme_template_id=str(branding.theme_template_id) if branding.theme_template_id else None,
         social_links=branding.social_links,
         organizer_blurb=branding.organizer_blurb,
@@ -157,7 +156,6 @@ async def update_branding(
         branding = OrganizationBranding(organization_id=usuario.organization_id)
         session.add(branding)
 
-    branding.template_key = datos.template_key
     branding.theme_template_id = theme_template_id
     branding.social_links = [enlace.model_dump() for enlace in datos.social_links]
     branding.organizer_blurb = datos.organizer_blurb

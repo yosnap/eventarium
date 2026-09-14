@@ -3,6 +3,7 @@
 
 import { PublicEventSession } from '../models/public-event-session';
 import { PublicSponsorTier } from '../models/public-sponsor-tier';
+import { PublicTheme } from '../models/public-theme';
 import { PublicVenue } from '../models/public-venue';
 
 /**
@@ -30,6 +31,7 @@ export interface PublicEventDetail {
   sponsor_tiers?: Array<PublicSponsorTier>;
   starts_at: string;
   summary: (string | null);
+  theme?: (PublicTheme | null);
   timezone: string;
   title: string;
   venues?: Array<PublicVenue>;

@@ -8,7 +8,6 @@ import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { ThemingService } from '../../../core/theming/theming.service';
 import { PlantillaDeTema } from '../../../core/theming/theme-template.model';
-import { TEMPLATE_REGISTRY } from '../../../core/theming/template-registry';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
@@ -25,16 +24,15 @@ interface Organizacion {
 }
 
 /** Contrato de `GET`/`PUT /organizations/me/branding` tras la sesión 3 de validación
- * del plan: sin `colors` ni `fonts` (las columnas se retiran en `0015`). */
+ * del plan: sin `colors` ni `fonts` (las columnas se retiran en `0015`). Sin
+ * `template_key` tampoco (fase 6 del plan de organización sin dominio: sin
+ * portada por organización, la plantilla de portada dejó de existir). */
 interface Branding {
-  readonly template_key: string;
   readonly theme_template_id: string | null;
   readonly social_links: readonly SocialLink[];
   readonly organizer_blurb: string | null;
   readonly logo_url: string | null;
 }
-
-const CLAVES_DE_PLANTILLA_DE_PORTADA = Array.from(TEMPLATE_REGISTRY.keys());
 
 const LOGO_MIMES_PERMITIDOS = new Set(['image/png', 'image/jpeg', 'image/webp']);
 // Coincide con `max_image_bytes` en `app/core/config.py`: si diverge, el peor caso es
@@ -42,8 +40,8 @@ const LOGO_MIMES_PERMITIDOS = new Set(['image/png', 'image/jpeg', 'image/webp'])
 const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
 
 /**
- * Identidad visual editable: logotipo, plantilla de tema, plantilla de portada, redes
- * sociales y resumen del organizador.
+ * Identidad visual editable: logotipo, plantilla de tema, redes sociales y
+ * resumen del organizador.
  *
  * Ya no hay ningún campo de color ni de tipografía: la organización elige una
  * plantilla completa del catálogo de la plataforma (sesión 2 de validación del plan),
@@ -91,15 +89,6 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
               @if (errorLogo(); as mensaje) {
                 <p class="error">{{ mensaje }}</p>
               }
-            </app-card>
-
-            <app-card [heading]="t('admin.branding.plantillaDePortada')">
-              <label for="plantilla-portada">{{ t('admin.branding.plantillaDePortada') }}</label>
-              <select id="plantilla-portada" (change)="alCambiarPlantillaDePortada($event)">
-                @for (clave of clavesDePortada; track clave) {
-                  <option [value]="clave" [selected]="clave === templateKey()">{{ clave }}</option>
-                }
-              </select>
             </app-card>
 
             <app-card [heading]="t('admin.branding.redesSociales')">
@@ -207,13 +196,6 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
       gap: var(--space-sm);
       font-weight: 600;
     }
-    select {
-      /* La pintura del control la da la regla compartida de styles.css; aquí
-         solo lo específico de este formulario. */
-      display: block;
-      width: 100%;
-      margin-top: var(--space-xs);
-    }
     .red-fila {
       display: flex;
       align-items: center;
@@ -290,7 +272,6 @@ export class BrandingPage {
   private readonly transloco = inject(TranslocoService);
   private readonly theming = inject(ThemingService);
 
-  protected readonly clavesDePortada = CLAVES_DE_PLANTILLA_DE_PORTADA;
   protected readonly modos: readonly ('dark' | 'light')[] = ['dark', 'light'];
 
   protected readonly cargando = signal(true);
@@ -300,7 +281,6 @@ export class BrandingPage {
   protected readonly errorLogo = signal<string | null>(null);
   protected readonly errorDeCarga = signal<string | null>(null);
 
-  protected readonly templateKey = signal(CLAVES_DE_PLANTILLA_DE_PORTADA[0] ?? 'classic');
   protected readonly themeTemplateId = signal<string | null>(null);
   protected readonly plantillasDeTema = signal<PlantillaDeTema[]>([]);
   protected readonly socialLinks = signal<SocialLink[]>([]);
@@ -343,15 +323,10 @@ export class BrandingPage {
   }
 
   private aplicarRespuesta(branding: Branding): void {
-    this.templateKey.set(branding.template_key || CLAVES_DE_PLANTILLA_DE_PORTADA[0] || 'classic');
     this.themeTemplateId.set(branding.theme_template_id);
     this.socialLinks.set(branding.social_links.map((enlace) => ({ ...enlace })));
     this.organizerBlurb.set(branding.organizer_blurb ?? '');
     this.logoUrlGuardado.set(branding.logo_url);
-  }
-
-  protected alCambiarPlantillaDePortada(evento: Event): void {
-    this.templateKey.set((evento.target as HTMLSelectElement).value);
   }
 
   protected colorDelEvento(evento: Event): string {
@@ -405,7 +380,6 @@ export class BrandingPage {
     try {
       let respuesta = await firstValueFrom(
         this.http.put<Branding>(this.api.url('/organizations/me/branding'), {
-          template_key: this.templateKey(),
           theme_template_id: this.themeTemplateId(),
           // Una fila añadida y no rellenada no cuenta como enlace: el backend exige
           // `kind`/`url` no vacíos, y descartarla aquí evita un 422 confuso por un

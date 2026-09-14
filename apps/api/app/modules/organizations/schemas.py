@@ -11,7 +11,7 @@ from app.core.security import password_meets_complexity
 
 SLUG_PATTERN = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
 
-# Subdominios que no puede reclamar el autoservicio: colisionarían con la propia
+# Identificadores que no puede reclamar el autoservicio: colisionarían con la propia
 # instalación o con nombres que alguien podría dar por hecho que están reservados al
 # operador. Se aplica igual en `check-slug` que en la creación: la comprobación previa
 # no puede prometer disponibilidad que la creación real luego rechace.
@@ -70,7 +70,6 @@ class SocialLinkInput(BaseModel):
 class BrandingUpdate(BaseModel):
     """Identidad visual editable desde el panel."""
 
-    template_key: Annotated[str, Field(min_length=1, max_length=40)] = "classic"
     # `None` = la plantilla de tema por defecto de la plataforma. Un id que
     # no exista en el catálogo es un 422 (comprobado en el router: aquí solo
     # se valida la forma del dato, no su existencia).
@@ -82,7 +81,6 @@ class BrandingUpdate(BaseModel):
 class BrandingAdminResponse(BaseModel):
     """Branding tal y como lo ve el panel de administración."""
 
-    template_key: str
     theme_template_id: str | None = None
     social_links: list[dict[str, Any]]
     organizer_blurb: str | None = None

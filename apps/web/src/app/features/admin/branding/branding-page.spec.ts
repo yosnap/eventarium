@@ -23,7 +23,6 @@ const PLANTILLA_CLARA = plantillaDeTemaDePrueba({ id: 'tema-claro', key: 'claro'
 const CATALOGO = [PLANTILLA_OSCURA, PLANTILLA_CLARA];
 
 const BRANDING_VALIDO = {
-  template_key: 'classic',
   theme_template_id: PLANTILLA_OSCURA.id,
   social_links: [],
   organizer_blurb: null,
@@ -79,7 +78,6 @@ describe('BrandingPage', () => {
     const fixture = await crearYCargar();
 
     expect(fixture.nativeElement.textContent).toContain('Organización de prueba');
-    expect(fixture.nativeElement.querySelector('select').value).toBe('classic');
     const radios = fixture.nativeElement.querySelectorAll('input[type="radio"]');
     expect(radios.length).toBe(2);
     const marcado = Array.from(radios).find((r) => (r as HTMLInputElement).checked) as
@@ -117,6 +115,7 @@ describe('BrandingPage', () => {
     const peticion = http.expectOne(BRANDING_URL);
     expect(peticion.request.method).toBe('PUT');
     expect(peticion.request.body.theme_template_id).toBe(PLANTILLA_CLARA.id);
+    expect(peticion.request.body.template_key).toBeUndefined();
     expect(peticion.request.body.colors).toBeUndefined();
     expect(peticion.request.body.fonts).toBeUndefined();
     peticion.flush({ ...BRANDING_VALIDO, theme_template_id: PLANTILLA_CLARA.id });
@@ -136,7 +135,6 @@ describe('BrandingPage', () => {
 
     const peticion = http.expectOne(BRANDING_URL);
     expect(peticion.request.method).toBe('PUT');
-    expect(peticion.request.body.template_key).toBe('classic');
     peticion.flush(BRANDING_VALIDO);
     // Dos ciclos: uno para la respuesta del PUT, otro para el `await` encadenado a
     // `theming.load()` dentro de `guardar()`.

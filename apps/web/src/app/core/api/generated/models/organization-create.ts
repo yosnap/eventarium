@@ -7,7 +7,6 @@
  */
 export interface OrganizationCreate {
   contact_email?: (string | null);
-  host: string;
   legal_name?: (string | null);
   name: string;
   slug: string;

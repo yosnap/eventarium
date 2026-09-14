@@ -56,9 +56,11 @@ def _slug_valido(slug: str) -> bool:
     "/check-slug",
     summary="Comprobar disponibilidad de un identificador de organización",
     description=(
-        "Ayuda de UX para sugerir un subdominio libre mientras se escribe. No es la "
-        "validación de seguridad: la creación real vuelve a comprobarlo y el `UNIQUE` "
-        "de la base de datos es la única fuente de verdad ante una carrera."
+        "Ayuda de UX para comprobar si un identificador interno de organización "
+        "está libre (el cliente lo genera desde el nombre y reintenta con sufijo "
+        "si colisiona). No es la validación de seguridad: la creación real vuelve "
+        "a comprobarlo y el `UNIQUE` de la base de datos es la única fuente de "
+        "verdad ante una carrera."
     ),
     response_model=CheckSlugResponse,
     dependencies=[limit_per_ip("check-slug", CHECK_SLUG_POR_IP)],
@@ -120,7 +122,6 @@ async def create_organization(
     session.add(
         OrganizationBranding(
             organization_id=organization_id,
-            template_key="classic",
             social_links=[],
         )
     )

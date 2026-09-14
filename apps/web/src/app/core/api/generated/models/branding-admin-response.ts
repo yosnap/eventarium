@@ -12,6 +12,5 @@ export interface BrandingAdminResponse {
   social_links: Array<{
 [key: string]: any;
 }>;
-  template_key: string;
   theme_template_id?: (string | null);
 }

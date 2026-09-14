@@ -9,6 +9,5 @@ import { SocialLinkInput } from '../models/social-link-input';
 export interface BrandingUpdate {
   organizer_blurb?: (string | null);
   social_links?: Array<SocialLinkInput>;
-  template_key?: string;
   theme_template_id?: (string | null);
 }

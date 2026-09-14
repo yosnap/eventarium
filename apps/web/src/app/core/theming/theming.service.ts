@@ -4,8 +4,8 @@ import { TransferState, makeStateKey } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../api/api.service';
-import { Branding, OrganizationBranding, PlatformBranding } from './branding.model';
-import { applyTokensDeOrganizacion, applyTokensDePlataforma } from './apply-tokens';
+import { Branding, PlatformBranding } from './branding.model';
+import { applyTokensDePlataforma } from './apply-tokens';
 
 /** El branding resuelto en SSR viaja al navegador para no repetir la petición. */
 const CLAVE_BRANDING = makeStateKey<Branding>('branding');
@@ -24,37 +24,17 @@ export class ThemingService {
   readonly error = this.errorEstado.asReadonly();
 
   /**
-   * Identidad de la plataforma (Eventarium). Presente en cualquier host: es la
-   * marca del chrome de la web pública.
+   * Identidad de la plataforma (Eventarium): la única que existe sin dominio
+   * por organización (fase 6 del plan de organización sin dominio). La marca
+   * de un evento concreto viaja en el detalle público de ese evento.
    */
   readonly plataforma = computed<PlatformBranding | null>(() => this.estado()?.platform ?? null);
-
-  /**
-   * Identidad de la organización del host, o `null` en un host de plataforma.
-   * Es su marca para las páginas de evento, no para el chrome.
-   */
-  readonly organizacion = computed<OrganizationBranding | null>(
-    () => this.estado()?.organization ?? null,
-  );
 
   /** Nombre que muestra el chrome: siempre el de la plataforma. */
   readonly nombreDeMarca = computed(() => this.plataforma()?.name ?? '');
 
   /**
-   * Nombre de la organización, para los paneles internos que son **suyos**
-   * (su escritorio, su configuración). En un host de plataforma no hay
-   * organización y cae al nombre de la plataforma, que es lo correcto: es la
-   * única marca que existe ahí.
-   */
-  readonly nombreDeOrganizacion = computed(
-    () => this.organizacion()?.name ?? this.plataforma()?.name ?? '',
-  );
-
-  /** Plantilla de composición de las páginas públicas. */
-  readonly templateKey = computed(() => this.organizacion()?.template_key ?? 'classic');
-
-  /**
-   * Carga la identidad pública del host actual.
+   * Carga la identidad pública de la instalación.
    *
    * Si la API falla no se pinta el tema por defecto como si fuera el real: eso
    * mostraría una marca equivocada. Se deja el error a la vista y la aplicación
@@ -90,10 +70,9 @@ export class ThemingService {
     this.estado.set(branding);
     this.errorEstado.set(null);
 
-    // El chrome es de plataforma; la plantilla de la organización se aplica a un
-    // ámbito propio (las páginas de evento), no al documento entero.
+    // El chrome es de plataforma; la plantilla propia de un evento se aplica a
+    // su página (ver `applyTokensDeEvento`), no al documento entero.
     applyTokensDePlataforma(branding.platform, this.documento);
-    applyTokensDeOrganizacion(branding.organization, this.documento);
 
     this.documento.title = branding.platform.name;
     if (branding.platform.favicon_url) {

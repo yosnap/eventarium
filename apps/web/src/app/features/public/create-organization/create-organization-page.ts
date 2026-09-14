@@ -11,16 +11,17 @@ import { Input } from '../../../shared/ui/input';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 import { TurnstileWidget } from '../../../shared/ui/turnstile-widget';
 
-const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const DEBOUNCE_MS = 400;
+type Campo = 'name' | 'firstName' | 'lastName';
 
-type Campo = 'name' | 'slug' | 'firstName' | 'lastName';
+/** Intentos de identificador antes de rendirse: el base más sufijos -2, -3… */
+const INTENTOS_DE_SLUG = 5;
 
 // Marcas diacríticas combinantes (U+0300-U+036F) que deja `normalize('NFD')` separadas
 // de la letra base: quitarlas es lo que convierte "Á" en "a" en vez de en "á".
 const MARCAS_DIACRITICAS = /[̀-ͯ]/g;
 
-/** Quita acentos y pasa a minúsculas con guiones, para sugerir un slug a partir del nombre. */
+/** Quita acentos y pasa a minúsculas con guiones, para generar el identificador
+ * interno de la organización a partir de su nombre. */
 function slugify(texto: string): string {
   return texto
     .normalize('NFD')
@@ -33,10 +34,11 @@ function slugify(texto: string): string {
 /**
  * Última pantalla del alta libre: de cuenta verificada a organización operativa.
  *
- * El slug se sugiere a partir del nombre mientras la persona no lo haya tocado a
- * mano, y se comprueba en vivo contra `check-slug` con *debounce* — sin él, cada
- * pulsación gastaría una petición y el límite se agotaría con el uso normal, no con
- * un ataque.
+ * Sin dominio por organización (fase 6 del plan de organización sin dominio), el
+ * identificador interno ya no aparece en ninguna URL pública ni se muestra en el
+ * panel: se genera en silencio a partir del nombre y, si colisiona con otra
+ * organización o con uno reservado, se reintenta con un sufijo antes de dar error.
+ * La persona solo ve el nombre, quién es, y el desafío de Turnstile.
  */
 @Component({
   selector: 'app-create-organization-page',
@@ -58,17 +60,8 @@ function slugify(texto: string): string {
                   [required]="true"
                   [error]="errores().name"
                   [value]="name()"
-                  (valueChange)="alEscribirNombre($event)"
+                  (valueChange)="name.set($event)"
                   (blurred)="validar('name')"
-                />
-                <app-input
-                  [label]="t('crearOrganizacion.slug')"
-                  [required]="true"
-                  [error]="errores().slug"
-                  [hint]="ayudaSlug(t)"
-                  [value]="slug()"
-                  (valueChange)="alEscribirSlug($event)"
-                  (blurred)="validar('slug')"
                 />
                 <app-input
                   [label]="t('crearOrganizacion.nombrePersona')"
@@ -120,7 +113,6 @@ export class CreateOrganizationPage {
   private readonly transloco = inject(TranslocoService);
 
   protected readonly name = signal('');
-  protected readonly slug = signal('');
   protected readonly firstName = signal('');
   protected readonly lastName = signal('');
   protected readonly turnstileToken = signal<string | null>(null);
@@ -129,66 +121,9 @@ export class CreateOrganizationPage {
   protected readonly creada = signal(false);
   protected readonly errores = signal<Record<Campo, string | null>>({
     name: null,
-    slug: null,
     firstName: null,
     lastName: null,
   });
-
-  /** `null` = todavía sin comprobar; se distingue de `true`/`false` para no mostrar
-   * ni «disponible» ni «ocupado» mientras la persona sigue escribiendo. */
-  protected readonly slugDisponible = signal<boolean | null>(null);
-  protected readonly comprobandoSlug = signal(false);
-  private slugTocadoManualmente = false;
-  private debounce: ReturnType<typeof setTimeout> | null = null;
-
-  protected alEscribirNombre(valor: string): void {
-    this.name.set(valor);
-    if (!this.slugTocadoManualmente) {
-      this.slug.set(slugify(valor));
-      this.programarComprobacionSlug();
-    }
-  }
-
-  protected alEscribirSlug(valor: string): void {
-    this.slugTocadoManualmente = true;
-    this.slug.set(valor.toLowerCase());
-    this.programarComprobacionSlug();
-  }
-
-  private programarComprobacionSlug(): void {
-    this.slugDisponible.set(null);
-    if (this.debounce) {
-      clearTimeout(this.debounce);
-    }
-    const valor = this.slug().trim();
-    if (!valor || !SLUG_RE.test(valor)) {
-      return;
-    }
-    this.debounce = setTimeout(() => void this.comprobarSlug(valor), DEBOUNCE_MS);
-  }
-
-  private async comprobarSlug(valor: string): Promise<void> {
-    this.comprobandoSlug.set(true);
-    try {
-      const disponible = await this.auth.checkSlug(valor);
-      // Descarta el resultado si la persona ya ha vuelto a escribir: evita que una
-      // respuesta lenta de una comprobación antigua pise a una más reciente.
-      if (valor === this.slug().trim()) {
-        this.slugDisponible.set(disponible);
-      }
-    } catch {
-      this.slugDisponible.set(null);
-    } finally {
-      this.comprobandoSlug.set(false);
-    }
-  }
-
-  protected ayudaSlug(t: (clave: string) => string): string {
-    if (this.comprobandoSlug()) return t('crearOrganizacion.comprobandoSlug');
-    if (this.slugDisponible() === true) return t('crearOrganizacion.slugDisponible');
-    if (this.slugDisponible() === false) return t('crearOrganizacion.slugNoDisponible');
-    return t('crearOrganizacion.slugAyuda');
-  }
 
   private errorDe(campo: Campo): string | null {
     switch (campo) {
@@ -196,15 +131,6 @@ export class CreateOrganizationPage {
         return this.name().trim()
           ? null
           : this.transloco.translate('crearOrganizacion.nombreRequerido');
-      case 'slug': {
-        const valor = this.slug().trim();
-        if (!valor) return this.transloco.translate('crearOrganizacion.slugRequerido');
-        if (!SLUG_RE.test(valor)) return this.transloco.translate('crearOrganizacion.slugInvalido');
-        if (this.slugDisponible() === false) {
-          return this.transloco.translate('crearOrganizacion.slugNoDisponible');
-        }
-        return null;
-      }
       case 'firstName':
         return this.firstName().trim()
           ? null
@@ -220,13 +146,40 @@ export class CreateOrganizationPage {
     this.errores.update((actuales) => ({ ...actuales, [campo]: this.errorDe(campo) }));
   }
 
+  /**
+   * Identificador para la organización: el generado a partir del nombre y, si ya
+   * está ocupado o reservado, el primero libre con sufijo (`nombre-2`, `nombre-3`…).
+   * `null` si el nombre no genera ninguno válido o ninguno de los intentos está
+   * libre. Si la comprobación falla por red, se devuelve el base sin sufijo: el
+   * `UNIQUE` de la base de datos sigue siendo la fuente de verdad (ver
+   * `GET /organizations/check-slug`), así que lo peor que puede pasar es que la
+   * creación devuelva el error de conflicto.
+   */
+  private async elegirSlug(): Promise<string | null> {
+    const base = slugify(this.name());
+    if (!base) {
+      return null;
+    }
+    try {
+      let candidato = base;
+      for (let intento = 2; intento <= INTENTOS_DE_SLUG; intento++) {
+        if (await this.auth.checkSlug(candidato)) {
+          return candidato;
+        }
+        candidato = `${base}-${intento}`;
+      }
+      return null;
+    } catch {
+      return base;
+    }
+  }
+
   protected async enviar(evento: Event): Promise<void> {
     evento.preventDefault();
     this.error.set(null);
 
     const nuevosErrores: Record<Campo, string | null> = {
       name: this.errorDe('name'),
-      slug: this.errorDe('slug'),
       firstName: this.errorDe('firstName'),
       lastName: this.errorDe('lastName'),
     };
@@ -237,12 +190,18 @@ export class CreateOrganizationPage {
 
     this.enviando.set(true);
     try {
+      const slug = await this.elegirSlug();
+      if (!slug) {
+        this.error.set(this.transloco.translate('crearOrganizacion.nombreNoDisponible'));
+        return;
+      }
+
       // `createOrganization` ya deja la sesión activa en la organización
       // recién creada (fase 4 del plan de organización sin dominio): sin
       // dominio propio, no hay a qué host redirigir.
       await this.auth.createOrganization({
         name: this.name().trim(),
-        slug: this.slug().trim(),
+        slug,
         firstName: this.firstName().trim(),
         lastName: this.lastName().trim(),
         turnstileToken: this.turnstileToken() ?? '',

@@ -12,8 +12,8 @@ import { brandingDePrueba as brandingDePruebaBase } from './branding.fixture';
  * un test se refleje en las señales derivadas.
  *
  * Se centraliza aquí porque el mismo doble aparecía copiado en una decena de
- * specs: al cambiar el contrato de branding (bloque `platform` + `organization`
- * en vez de campos planos), cada copia había que actualizarla por separado.
+ * specs: al cambiar el contrato de branding, cada copia había que actualizarla
+ * por separado.
  */
 export function themingDePrueba(branding: Branding = brandingDePruebaBase()) {
   const estado = signal<Branding>(branding);
@@ -22,10 +22,7 @@ export function themingDePrueba(branding: Branding = brandingDePruebaBase()) {
     estado,
     branding: estado.asReadonly(),
     error: signal<string | null>(null),
-    templateKey: computed(() => estado().organization?.template_key ?? 'classic'),
     plataforma: computed(() => estado().platform),
-    organizacion: computed(() => estado().organization),
     nombreDeMarca: computed(() => estado().platform.name),
-    nombreDeOrganizacion: computed(() => estado().organization?.name ?? estado().platform.name),
   };
 }

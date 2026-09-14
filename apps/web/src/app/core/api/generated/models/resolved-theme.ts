@@ -3,13 +3,12 @@
 
 
 /**
- * La plantilla de tema de la organización, ya resuelta.
+ * La plantilla de tema de la plataforma, ya resuelta.
  *
- * Resolución: `COALESCE(branding.theme_template_id, la que tiene
- * is_default)`, hecha en la misma consulta de `GET /tenant/branding`. `None`
- * si por lo que sea no hubiera ninguna plantilla en el catálogo — defensa
- * para que el cliente se quede con la base de `tokens.css` en vez de
- * romper.
+ * Resolución: `COALESCE(platform_branding.theme_template_id, la que tiene
+ * is_default)`. `None` si por lo que sea no hubiera ninguna plantilla en el
+ * catálogo — defensa para que el cliente se quede con la base de
+ * `tokens.css` en vez de romper.
  */
 export interface ResolvedTheme {
   id: string;

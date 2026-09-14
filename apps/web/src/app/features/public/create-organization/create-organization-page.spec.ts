@@ -62,27 +62,16 @@ describe('CreateOrganizationPage', () => {
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
-  it('sugiere el slug a partir del nombre hasta que se edita a mano', async () => {
+  it('no pide ningún identificador: el formulario solo lleva nombre, persona y Turnstile', async () => {
     configurar({ checkSlug: vi.fn().mockResolvedValue(true) });
     const fixture = TestBed.createComponent(CreateOrganizationPage);
     await fixture.whenStable();
 
-    const campos = fixture.nativeElement.querySelectorAll('input');
-    const campoNombre = campos[0] as HTMLInputElement;
-    const campoSlug = campos[1] as HTMLInputElement;
-
-    campoNombre.value = 'IA Week Valéncia';
-    campoNombre.dispatchEvent(new Event('input'));
-    await fixture.whenStable();
-    expect(campoSlug.value).toBe('ia-week-valencia');
-
-    campoSlug.value = 'mi-slug-manual';
-    campoSlug.dispatchEvent(new Event('input'));
-    campoNombre.value = 'Otro Nombre';
-    campoNombre.dispatchEvent(new Event('input'));
-    await fixture.whenStable();
-    // Tras editarlo a mano, ya no se sobrescribe al seguir cambiando el nombre.
-    expect(campoSlug.value).toBe('mi-slug-manual');
+    const etiquetas = Array.from(
+      fixture.nativeElement.querySelectorAll('label') as NodeListOf<HTMLElement>,
+    ).map((etiqueta) => etiqueta.textContent);
+    expect(etiquetas.join('\n')).not.toContain('Identificador');
+    expect(etiquetas.join('\n')).not.toContain('subdominio');
   });
 
   it('exige todos los campos antes de enviar', async () => {
@@ -101,11 +90,10 @@ describe('CreateOrganizationPage', () => {
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
-  it('al crear con éxito, activa la sesión y recarga al panel sin ningún host', async () => {
+  it('al crear con éxito, genera el slug desde el nombre y activa la sesión sin ningún host', async () => {
     const createOrganization = vi.fn().mockResolvedValue({
       id: 'org-nueva',
       slug: 'ia-week-valencia',
-      host: 'ia-week-valencia.example',
       access_token: 'token-org-nueva',
       expires_in: 900,
     });
@@ -114,12 +102,11 @@ describe('CreateOrganizationPage', () => {
     await fixture.whenStable();
 
     const campos = fixture.nativeElement.querySelectorAll('input');
-    const [campoNombre, campoSlug, campoNombrePersona, campoApellidos] = Array.from(
+    const [campoNombre, campoNombrePersona, campoApellidos] = Array.from(
       campos,
     ) as HTMLInputElement[];
     for (const [campo, valor] of [
       [campoNombre, 'IA Week Valéncia'],
-      [campoSlug, 'ia-week-valencia'],
       [campoNombrePersona, 'Ana'],
       [campoApellidos, 'Pérez'],
     ] as const) {
@@ -154,5 +141,72 @@ describe('CreateOrganizationPage', () => {
     } finally {
       Object.defineProperty(window, 'location', ubicacionOriginal);
     }
+  });
+
+  it('si el slug generado colisiona, reintena en silencio con un sufijo', async () => {
+    const createOrganization = vi.fn().mockResolvedValue({
+      id: 'org-nueva',
+      slug: 'ia-week-valencia-2',
+      access_token: 'token-org-nueva',
+      expires_in: 900,
+    });
+    // Solo el segundo candidato («…-2») está libre.
+    const checkSlug = vi.fn().mockImplementation(async (slug: string) => slug.endsWith('-2'));
+    configurar({ checkSlug, createOrganization });
+    const fixture = TestBed.createComponent(CreateOrganizationPage);
+    await fixture.whenStable();
+
+    const campos = fixture.nativeElement.querySelectorAll('input');
+    const [campoNombre, campoNombrePersona, campoApellidos] = Array.from(
+      campos,
+    ) as HTMLInputElement[];
+    for (const [campo, valor] of [
+      [campoNombre, 'IA Week Valencia'],
+      [campoNombrePersona, 'Ana'],
+      [campoApellidos, 'Pérez'],
+    ] as const) {
+      campo.value = valor;
+      campo.dispatchEvent(new Event('input'));
+    }
+    await fixture.whenStable();
+
+    (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
+      new Event('submit'),
+    );
+    await fixture.whenStable();
+
+    expect(checkSlug).toHaveBeenNthCalledWith(1, 'ia-week-valencia');
+    expect(createOrganization).toHaveBeenCalledWith(
+      expect.objectContaining({ slug: 'ia-week-valencia-2' }),
+    );
+  });
+
+  it('si ningún intento está libre, muestra el error sin crear nada', async () => {
+    const createOrganization = vi.fn();
+    configurar({ checkSlug: vi.fn().mockResolvedValue(false), createOrganization });
+    const fixture = TestBed.createComponent(CreateOrganizationPage);
+    await fixture.whenStable();
+
+    const campos = fixture.nativeElement.querySelectorAll('input');
+    const [campoNombre, campoNombrePersona, campoApellidos] = Array.from(
+      campos,
+    ) as HTMLInputElement[];
+    for (const [campo, valor] of [
+      [campoNombre, 'IA Week Valencia'],
+      [campoNombrePersona, 'Ana'],
+      [campoApellidos, 'Pérez'],
+    ] as const) {
+      campo.value = valor;
+      campo.dispatchEvent(new Event('input'));
+    }
+    await fixture.whenStable();
+
+    (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
+      new Event('submit'),
+    );
+    await fixture.whenStable();
+
+    expect(createOrganization).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('no está disponible');
   });
 });

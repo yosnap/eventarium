@@ -84,13 +84,8 @@ describe('shells', () => {
           useValue: {
             branding: theming.estado.asReadonly(),
             error: signal(null),
-            templateKey: computed(() => theming.estado().organization?.template_key ?? 'classic'),
             plataforma: computed(() => theming.estado().platform),
-            organizacion: computed(() => theming.estado().organization),
             nombreDeMarca: computed(() => theming.estado().platform.name),
-            nombreDeOrganizacion: computed(
-              () => theming.estado().organization?.name ?? theming.estado().platform.name,
-            ),
           },
         },
         {

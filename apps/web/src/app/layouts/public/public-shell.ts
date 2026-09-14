@@ -33,7 +33,8 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
             }
           </a>
           <nav [attr.aria-label]="t('publico.navegacion')">
-            <a routerLink="/">{{ t('publico.inicio') }}</a>
+            <!-- Sin «Inicio»: la raíz ya es el directorio de eventos (fase 6
+                 del plan de organización sin dominio), y el logo enlaza a ella. -->
             <a routerLink="/eventos">{{ t('publico.eventos.listadoTitulo') }}</a>
             <a routerLink="/acceder">{{ t('publico.accesoPanel') }}</a>
           </nav>

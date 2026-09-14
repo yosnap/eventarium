@@ -344,8 +344,12 @@ export const routes: Routes = [
     loadComponent: () => import('./layouts/public/public-shell').then((m) => m.PublicShell),
     children: [
       {
+        // Sin dominio por organización (fase 6 del plan de organización sin
+        // dominio) no hay «organización del sitio» a la que dedicar una
+        // portada: la raíz es el directorio de eventos de toda la instalación.
         path: '',
-        loadComponent: () => import('./features/public/home/home-page').then((m) => m.HomePage),
+        pathMatch: 'full',
+        redirectTo: 'eventos',
       },
       {
         path: 'eventos',

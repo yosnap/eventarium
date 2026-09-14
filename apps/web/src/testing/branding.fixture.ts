@@ -1,4 +1,4 @@
-import { Branding, OrganizationBranding, PlatformBranding } from '../app/core/theming/branding.model';
+import { Branding, PlatformBranding } from '../app/core/theming/branding.model';
 import { PlantillaDeTema } from '../app/core/theming/theme-template.model';
 
 /** Plantilla de tema de ejemplo para los tests: valores mínimos, no los reales de `tokens.css`. */
@@ -48,45 +48,11 @@ export function plataformaDePrueba(sobrescribir: Partial<PlatformBranding> = {})
   };
 }
 
-/**
- * Identidad de organización de ejemplo.
- *
- * `brandingDePrueba()` monta el caso típico: un host de organización, con los
- * dos bloques.
- */
-export function organizacionDePruebaDeBranding(
-  sobrescribir: Partial<OrganizationBranding> = {},
-): OrganizationBranding {
-  return {
-    id: '01920000-0000-7000-8000-000000000001',
-    name: 'Organización de prueba',
-    slug: 'prueba',
-    template_key: 'classic',
-    theme: plantillaDeTemaDePrueba(),
-    social_links: [{ kind: 'linkedin', url: 'https://linkedin.com/company/prueba' }],
-    organizer_blurb: 'Comunidad de prueba',
-    logo_url: null,
-    favicon_url: null,
-    ...sobrescribir,
-  };
-}
-
-/** Respuesta pública de branding de ejemplo. */
+/** Respuesta pública de branding de ejemplo: solo plataforma, la única
+ * identidad que sirve `GET /tenant/branding` sin dominio por organización
+ * (fase 6 del plan de organización sin dominio). */
 export function brandingDePrueba(
-  sobrescribir: { platform?: Partial<PlatformBranding>; organization?: OrganizationBranding | null } = {},
+  sobrescribir: { platform?: Partial<PlatformBranding> } = {},
 ): Branding {
-  return {
-    platform: plataformaDePrueba(sobrescribir.platform),
-    organization:
-      sobrescribir.organization === undefined
-        ? organizacionDePruebaDeBranding()
-        : sobrescribir.organization,
-  };
-}
-
-/** Respuesta pública de branding en un **host de plataforma** (sin organización). */
-export function brandingDePlataformaDePrueba(
-  sobrescribir: Partial<PlatformBranding> = {},
-): Branding {
-  return { platform: plataformaDePrueba(sobrescribir), organization: null };
+  return { platform: plataformaDePrueba(sobrescribir.platform) };
 }

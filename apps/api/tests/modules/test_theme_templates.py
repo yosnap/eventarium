@@ -415,8 +415,8 @@ async def _crear_fila_de_branding(organizacion: OrganizacionDePrueba) -> None:
     async with SessionMaintenance() as session:
         await session.execute(
             text(
-                "INSERT INTO organization_branding (organization_id, template_key, social_links) "
-                "VALUES (:org, 'classic', '[]'::jsonb) ON CONFLICT (organization_id) DO NOTHING"
+                "INSERT INTO organization_branding (organization_id, social_links) "
+                "VALUES (:org, '[]'::jsonb) ON CONFLICT (organization_id) DO NOTHING"
             ),
             {"org": organizacion.id},
         )

@@ -3,13 +3,20 @@
 
 
 /**
- * Estadísticas de conversión del embudo de inscripción de un evento.
+ * Estadísticas del embudo de inscripción de un evento.
+ *
+ * Los cuatro escalones del embudo son `initiated → verified → approved →
+ * issued`. Los dos últimos no salen de los conteos por estado: `approved` es
+ * un hito (`approved_at`), y aprobar deja la fila en `confirmed` o
+ * `waitlisted`; `issued` vive en `event_tickets`.
  */
 export interface RegistrationStats {
+  approved: number;
   cancelled: number;
   confirmed: number;
   confirmed_conversion_rate: (number | null);
   initiated: number;
+  issued: number;
   pending_approval: number;
   pending_payment: number;
   rejected: number;

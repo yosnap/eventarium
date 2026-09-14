@@ -34,12 +34,9 @@ describe('AuthFrame', () => {
           useValue: {
             branding: signal(null),
             error: signal(null),
-            templateKey: signal('classic'),
             plataforma: signal({ name: organizationName, logo_url: null, favicon_url: null,
               social_links: [], theme_template_id: null, theme: null }),
-            organizacion: signal(null),
             nombreDeMarca: signal(organizationName),
-            nombreDeOrganizacion: signal(organizationName),
           },
         },
       ],

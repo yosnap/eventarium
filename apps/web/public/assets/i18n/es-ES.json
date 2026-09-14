@@ -21,7 +21,6 @@
   },
   "publico": {
     "navegacion": "Navegación principal",
-    "inicio": "Inicio",
     "eventos": {
       "listadoTitulo": "Eventos",
       "ruta": "Ruta",
@@ -135,8 +134,6 @@
         "cercaPendiente": "El organizador todavía no ha publicado alojamiento ni locales cercanos.",
         "mapaAria": "Mapa con la ubicación de {{lugar}}"
       },
-      "proximosTitulo": "Próximos eventos",
-      "verEvento": "Ver el evento",
       "datoPendiente": "Dato pendiente",
       "multisede": {
         "pregunta": "¿El evento ocupa varias sedes?",
@@ -407,20 +404,14 @@
   "crearOrganizacion": {
     "titulo": "Crea tu organización",
     "nombre": "Nombre de la organización",
-    "slug": "Identificador (subdominio)",
-    "slugAyuda": "Se usará como tu-organizacion.dominio. Solo minúsculas, números y guiones.",
-    "comprobandoSlug": "Comprobando disponibilidad…",
-    "slugDisponible": "Disponible.",
-    "slugNoDisponible": "Ese identificador ya está en uso o reservado.",
     "nombrePersona": "Tu nombre",
     "apellidos": "Tus apellidos",
     "crear": "Crear organización",
     "creando": "Creando la organización…",
     "nombreRequerido": "Escribe el nombre de la organización.",
-    "slugRequerido": "Escribe un identificador.",
-    "slugInvalido": "Solo minúsculas, números y guiones, sin empezar ni acabar en guion.",
     "nombrePersonaRequerido": "Escribe tu nombre.",
     "apellidosRequeridos": "Escribe tus apellidos.",
+    "nombreNoDisponible": "Ese nombre no está disponible como identificador. Prueba con un nombre algo distinto.",
     "error": "No hemos podido crear la organización.",
     "exitoTitulo": "Organización creada",
     "exitoDetalle": "Ya puedes entrar a tu panel con tu correo y tu contraseña.",
@@ -686,7 +677,6 @@
       "colores": "Colores",
       "tipografias": "Tipografías",
       "editarNombre": "Editar nombre →",
-      "plantillaDePortada": "Plantilla de portada",
       "plantillaDeTema": "Plantilla de tema",
       "sinPlantillasDeTema": "El catálogo de plantillas de tema todavía no tiene ninguna entrada.",
       "logotipo": "Logotipo",

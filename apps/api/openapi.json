@@ -92,6 +92,48 @@
         }
       }
     },
+    "/api/v1/auth/switch-organization": {
+      "post": {
+        "tags": [
+          "autenticación"
+        ],
+        "summary": "Cambiar la organización activa",
+        "description": "Emite un access token nuevo para otra organización a la que se pertenece, sin volver a introducir credenciales.",
+        "operationId": "switch_organization_api_v1_auth_switch_organization_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SwitchOrganizationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/register": {
       "post": {
         "tags": [
@@ -323,8 +365,8 @@
         "tags": [
           "tenant"
         ],
-        "summary": "Identidad visual de la instalación y, si la hay, de la organización",
-        "description": "Resuelve el host de la petición: si es un host de plataforma, devuelve solo la identidad de la instalación; si es el host de una organización, devuelve además la suya. Host de organización desconocido → 404.\n\nEl bloque `platform` (identidad de la instalación) llega siempre; `organization` es `null` en un host de plataforma.",
+        "summary": "Identidad visual de la instalación",
+        "description": "Eventarium es una SaaS centralizada: una sola instalación, una sola identidad de marca, sin dominio por organización. Un evento concreto tiene su propia plantilla y colores, servidos en el detalle público de ese evento, no aquí.",
         "operationId": "branding_api_v1_tenant_branding_get",
         "responses": {
           "200": {
@@ -346,7 +388,7 @@
           "organizaciones"
         ],
         "summary": "Comprobar disponibilidad de un identificador de organización",
-        "description": "Ayuda de UX para sugerir un subdominio libre mientras se escribe. No es la validación de seguridad: la creación real vuelve a comprobarlo y el `UNIQUE` de la base de datos es la única fuente de verdad ante una carrera.",
+        "description": "Ayuda de UX para comprobar si un identificador interno de organización está libre (el cliente lo genera desde el nombre y reintenta con sufijo si colisiona). No es la validación de seguridad: la creación real vuelve a comprobarlo y el `UNIQUE` de la base de datos es la única fuente de verdad ante una carrera.",
         "operationId": "check_slug_api_v1_organizations_check_slug_get",
         "parameters": [
           {
@@ -389,7 +431,7 @@
           "organizaciones"
         ],
         "summary": "Crear una organización (autoservicio)",
-        "description": "Exige correo verificado y Turnstile. La persona autenticada queda como `owner`; el subdominio se registra como `{slug}.DOMINIO_BASE`.",
+        "description": "Exige correo verificado y Turnstile. La persona autenticada queda como `owner`.",
         "operationId": "create_organization_api_v1_organizations_post",
         "requestBody": {
           "content": {
@@ -418,6 +460,28 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me/metrics": {
+      "get": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Métricas del escritorio de la organización",
+        "description": "Compone en una llamada la tabla de eventos con sus cifras, los totales de la organización, su estructura y el estado de la cuenta de Stripe. Los bloques para los que quien pide no tiene permiso **se omiten**, no se esconden en la interfaz: el escritorio junta recursos con permisos propios y no todos los miembros pueden verlos todos.",
+        "operationId": "get_my_metrics_api_v1_organizations_me_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricasDeOrganizacionOut"
                 }
               }
             }
@@ -619,6 +683,7 @@
           "organizaciones"
         ],
         "summary": "Miembros de la organización",
+        "description": "Una fila por persona, con todos sus roles — no una fila por membresía (fase 4 del plan de invitaciones): quien tiene dos roles aparecía dos veces, sin nada que dijera que eran la misma persona.",
         "operationId": "list_members_api_v1_organizations_me_members_get",
         "parameters": [
           {
@@ -676,7 +741,8 @@
         "tags": [
           "organizaciones"
         ],
-        "summary": "Añadir un miembro",
+        "summary": "Añadir un miembro, o un rol más a quien ya está",
+        "description": "Si el correo ya pertenece a alguien de la organización, esto le añade el rol nuevo sin duplicarla — es el camino para «hazlo también ponente». La respuesta trae a la persona con todos sus roles.",
         "operationId": "create_member_api_v1_organizations_me_members_post",
         "requestBody": {
           "required": true,
@@ -698,6 +764,312 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me/members/{organization_member_id}": {
+      "delete": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Quitar un rol de una persona",
+        "description": "Quita esa membresía concreta, no a la persona. Si es su último rol en la organización, rechaza con 409 — decisión del usuario: para dejarla sin permisos hay que sacarla de la organización, no vaciarle los roles.",
+        "operationId": "remove_member_role_api_v1_organizations_me_members__organization_member_id__delete",
+        "parameters": [
+          {
+            "name": "organization_member_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Organization Member Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me/invitations": {
+      "get": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Invitaciones pendientes de la organización",
+        "description": "El estado se calcula al leer: una fila «pendiente» con `expires_at` pasado se muestra «caducada» sin reescribir la fila.",
+        "operationId": "list_invitations_api_v1_organizations_me_invitations_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/InvitationResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Invitations Api V1 Organizations Me Invitations Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Invitar a alguien al equipo",
+        "description": "Si el correo ya tiene cuenta, se le añade directamente y no se emite ningún token (regla que cierra el secuestro de cuenta). Si no, se crea la invitación y una cuenta sin contraseña.",
+        "operationId": "create_invitation_api_v1_organizations_me_invitations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitationCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationCreateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me/invitations/{invitation_id}": {
+      "delete": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Revocar una invitación pendiente",
+        "operationId": "revoke_invitation_api_v1_organizations_me_invitations__invitation_id__delete",
+        "parameters": [
+          {
+            "name": "invitation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Invitation Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me/invitations/{invitation_id}/resend": {
+      "post": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Reenviar una invitación pendiente",
+        "description": "Emite un token nuevo, alarga la caducidad e invalida el enlace anterior.",
+        "operationId": "resend_invitation_api_v1_organizations_me_invitations__invitation_id__resend_post",
+        "parameters": [
+          {
+            "name": "invitation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Invitation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/invitations/{token}": {
+      "get": {
+        "tags": [
+          "invitaciones"
+        ],
+        "summary": "Consultar una invitación por su token",
+        "description": "Respuesta mínima: nombre de la organización y rol propuesto. Nunca la lista de miembros ni ningún otro dato de negocio.",
+        "operationId": "get_invitation_api_v1_public_invitations__token__get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationPublicResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationTokenErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/invitations/{token}/accept": {
+      "post": {
+        "tags": [
+          "invitaciones"
+        ],
+        "summary": "Aceptar una invitación",
+        "description": "Fija nombre y contraseña de la cuenta invitada y crea la membresía. Idempotente: aceptar dos veces no duplica nada.",
+        "operationId": "accept_invitation_api_v1_public_invitations__token__accept_post",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitationAcceptRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationAcceptResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationTokenErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationTokenErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "description": "Validation Error",
@@ -1089,7 +1461,7 @@
           "usuarios"
         ],
         "summary": "Comprobar disponibilidad de un identificador de ponente",
-        "description": "Ayuda de UX en vivo, mismo espíritu que el `check-slug` de organizaciones pero sin `SECURITY DEFINER`: quien pregunta ya tiene contexto de organización (autenticado), así que una consulta normal bajo RLS basta.",
+        "description": "Ayuda de UX en vivo, mismo espíritu que el `check-slug` de organizaciones: el `public_slug` es único en toda la instalación, no solo dentro de la organización de quien pregunta, así que hace falta `SECURITY DEFINER` para verlo — una consulta normal bajo RLS no vería perfiles de otras organizaciones.",
         "operationId": "check_public_slug_api_v1_users_me_public_profile_check_slug_get",
         "parameters": [
           {
@@ -1375,7 +1747,7 @@
           "administración"
         ],
         "summary": "Crear una organización",
-        "description": "Crea la organización con su dominio principal, branding y roles clonados.",
+        "description": "Crea la organización con su branding y roles clonados.",
         "operationId": "create_organization_api_v1_admin_organizations_post",
         "requestBody": {
           "content": {
@@ -1394,104 +1766,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/OrganizationResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/organizations/{organization_id}/domains": {
-      "post": {
-        "tags": [
-          "administración"
-        ],
-        "summary": "Añadir un dominio a una organización",
-        "operationId": "add_domain_api_v1_admin_organizations__organization_id__domains_post",
-        "parameters": [
-          {
-            "name": "organization_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Organization Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DomainCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DomainResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "get": {
-        "tags": [
-          "administración"
-        ],
-        "summary": "Listar los dominios de una organización",
-        "operationId": "list_domains_api_v1_admin_organizations__organization_id__domains_get",
-        "parameters": [
-          {
-            "name": "organization_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Organization Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/DomainResponse"
-                  },
-                  "title": "Response List Domains Api V1 Admin Organizations  Organization Id  Domains Get"
                 }
               }
             }
@@ -1842,6 +2116,28 @@
         }
       }
     },
+    "/api/v1/admin/metrics": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Escritorio de la plataforma",
+        "description": "Estado de la instalación y qué hace cada organización, para operarla. **No incluye ningún importe de ninguna organización**: la frontera del producto es que el administrador de la instalación no ve el negocio de las organizaciones. Para mirarlo hay que suplantar una cuenta. Los esquemas de respuesta son un allowlist cerrado, y hay un test que comprueba que ninguna de sus claves es monetaria.\n\nCorre con el motor de mantenimiento: es el único módulo autorizado a saltarse RLS, y precisamente por eso lo que devuelve está acotado por el esquema y no por la política.",
+        "operationId": "get_platform_metrics_api_v1_admin_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricasDePlataformaOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/identity": {
       "get": {
         "tags": [
@@ -2049,75 +2345,6 @@
         }
       }
     },
-    "/api/v1/admin/platform-domains": {
-      "get": {
-        "tags": [
-          "administración"
-        ],
-        "summary": "Hosts de la web de la plataforma",
-        "operationId": "list_platform_domains_api_v1_admin_platform_domains_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/PlatformDomainOut"
-                  },
-                  "type": "array",
-                  "title": "Response List Platform Domains Api V1 Admin Platform Domains Get"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "administración"
-        ],
-        "summary": "Reemplazar los hosts de la web de la plataforma",
-        "description": "Sustituye la lista completa. Un host de plataforma se comprueba antes que los de organización, así que deja de resolverse como organización.",
-        "operationId": "replace_platform_domains_api_v1_admin_platform_domains_put",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PlatformDomainsUpdate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/PlatformDomainOut"
-                  },
-                  "type": "array",
-                  "title": "Response Replace Platform Domains Api V1 Admin Platform Domains Put"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/admin/impersonate": {
       "post": {
         "tags": [
@@ -2171,6 +2398,53 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/organizations/{organization_id}/members": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Miembros de una organización, para elegir a quién suplantar",
+        "operationId": "list_impersonable_members_api_v1_admin_organizations__organization_id__members_get",
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ImpersonableMember"
+                  },
+                  "title": "Response List Impersonable Members Api V1 Admin Organizations  Organization Id  Members Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       }
@@ -2718,6 +2992,59 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/EventMemberResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/invitations": {
+      "post": {
+        "tags": [
+          "eventos"
+        ],
+        "summary": "Invitar a un ponente al evento",
+        "description": "Rol por defecto «speaker»; se puede indicar otro. Si el correo ya tiene cuenta se añade directamente a la organización y al roster; si no, se crea la invitación y, al aceptar, la persona queda en la organización y en el roster del evento en la misma operación.",
+        "operationId": "create_event_invitation_api_v1_events__event_id__invitations_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventInvitationCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationCreateResponse"
                 }
               }
             }
@@ -3840,6 +4167,49 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/metrics": {
+      "get": {
+        "tags": [
+          "métricas"
+        ],
+        "summary": "Métricas del evento para su escritorio",
+        "description": "Compone en una llamada el embudo, la ocupación, las cifras de inscripción y el estado de las piezas del evento. Los bloques para los que quien pide no tiene permiso **se omiten**, no se esconden en la interfaz: el escritorio junta recursos con permisos propios y no todos los miembros pueden verlos todos.",
+        "operationId": "get_event_metrics_api_v1_events__event_id__metrics_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricasDelEventoOut"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -5739,67 +6109,6 @@
         }
       }
     },
-    "/api/v1/organizations/me/legal-pages": {
-      "get": {
-        "tags": [
-          "legal"
-        ],
-        "summary": "Contenido de las cuatro páginas legales",
-        "operationId": "get_legal_pages_api_v1_organizations_me_legal_pages_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LegalPagesAdminResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "patch": {
-        "tags": [
-          "legal"
-        ],
-        "summary": "Editar el contenido de las páginas legales",
-        "description": "Un campo ausente no se toca; un campo presente con `null` restaura la plantilla por defecto de esa página.",
-        "operationId": "update_legal_pages_api_v1_organizations_me_legal_pages_patch",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LegalPagesUpdate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LegalPagesAdminResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/public/legal/aviso-legal": {
       "get": {
         "tags": [
@@ -7057,6 +7366,118 @@
         "title": "AccountingIncomeUpdate",
         "description": "Campos editables de un ingreso manual. Parcial (`PATCH`)."
       },
+      "ActividadDeOrganizacionOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "eventos": {
+            "type": "integer",
+            "title": "Eventos"
+          },
+          "eventos_publicados": {
+            "type": "integer",
+            "title": "Eventos Publicados"
+          },
+          "inscripciones": {
+            "type": "integer",
+            "title": "Inscripciones"
+          },
+          "miembros": {
+            "type": "integer",
+            "title": "Miembros"
+          },
+          "evento_mas_reciente": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evento Mas Reciente"
+          },
+          "ultimo_evento_creado": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ultimo Evento Creado"
+          },
+          "ultima_inscripcion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ultima Inscripcion"
+          },
+          "ultimo_acceso": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ultimo Acceso"
+          },
+          "stripe_conectada": {
+            "type": "boolean",
+            "title": "Stripe Conectada"
+          },
+          "tiene_stripe_pendiente_con_eventos_de_pago": {
+            "type": "boolean",
+            "title": "Tiene Stripe Pendiente Con Eventos De Pago"
+          },
+          "publicados_sin_inscripciones": {
+            "type": "boolean",
+            "title": "Publicados Sin Inscripciones"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "is_active",
+          "eventos",
+          "eventos_publicados",
+          "inscripciones",
+          "miembros",
+          "evento_mas_reciente",
+          "ultimo_evento_creado",
+          "ultima_inscripcion",
+          "ultimo_acceso",
+          "stripe_conectada",
+          "tiene_stripe_pendiente_con_eventos_de_pago",
+          "publicados_sin_inscripciones"
+        ],
+        "title": "ActividadDeOrganizacionOut",
+        "description": "Qué hace una organización, sin ningún importe.\n\nLas cuatro marcas de tiempo responden a preguntas distintas y por eso van\nseparadas, no fundidas en un «última actividad»: una cuenta que crea eventos\npero no recibe inscripciones está rota, y una que recibe inscripciones sin\naccesos nuevos puede estar abandonada.\n\n`evento_mas_reciente` es `updated_at` («última vez que se tocó un evento») y\n`ultimo_evento_creado` es `created_at` («último dado de alta»): editar un\nevento existente es trabajar, y con una sola marca se leería como parada."
+      },
       "AuditLogEntry": {
         "properties": {
           "id": {
@@ -7206,10 +7627,6 @@
       },
       "BrandingAdminResponse": {
         "properties": {
-          "template_key": {
-            "type": "string",
-            "title": "Template Key"
-          },
           "theme_template_id": {
             "anyOf": [
               {
@@ -7265,7 +7682,6 @@
         },
         "type": "object",
         "required": [
-          "template_key",
           "social_links"
         ],
         "title": "BrandingAdminResponse",
@@ -7275,16 +7691,6 @@
         "properties": {
           "platform": {
             "$ref": "#/components/schemas/PlatformBrandingBlock"
-          },
-          "organization": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/OrganizationBrandingBlock"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         },
         "type": "object",
@@ -7292,17 +7698,10 @@
           "platform"
         ],
         "title": "BrandingResponse",
-        "description": "Identidad visual resuelta por host.\n\nDos bloques: `platform` (siempre presente, identidad de la instalación) y\n`organization`, que es `null` en un host de plataforma — el caso que antes\nera imposible servir, porque cualquier host sin organización daba 404."
+        "description": "Identidad visual de la instalación."
       },
       "BrandingUpdate": {
         "properties": {
-          "template_key": {
-            "type": "string",
-            "maxLength": 40,
-            "minLength": 1,
-            "title": "Template Key",
-            "default": "classic"
-          },
           "theme_template_id": {
             "anyOf": [
               {
@@ -7866,6 +8265,129 @@
         "title": "CheckoutStartResponse",
         "description": "Respuesta siempre con la misma forma, para no filtrar si el\nemail ya estaba inscrito: `checkout_url` es `null` cuando la\ninscripción existente no es pagable ahora mismo."
       },
+      "CifrasDeLaInstalacionOut": {
+        "properties": {
+          "organizaciones_activas": {
+            "type": "integer",
+            "title": "Organizaciones Activas"
+          },
+          "organizaciones_totales": {
+            "type": "integer",
+            "title": "Organizaciones Totales"
+          },
+          "eventos_totales": {
+            "type": "integer",
+            "title": "Eventos Totales"
+          },
+          "eventos_publicados": {
+            "type": "integer",
+            "title": "Eventos Publicados"
+          },
+          "usuarios": {
+            "type": "integer",
+            "title": "Usuarios"
+          },
+          "miembros": {
+            "type": "integer",
+            "title": "Miembros"
+          }
+        },
+        "type": "object",
+        "required": [
+          "organizaciones_activas",
+          "organizaciones_totales",
+          "eventos_totales",
+          "eventos_publicados",
+          "usuarios",
+          "miembros"
+        ],
+        "title": "CifrasDeLaInstalacionOut",
+        "description": "Los totales de la instalación entera."
+      },
+      "CifrasDeOrganizacionOut": {
+        "properties": {
+          "eventos_por_estado": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Eventos Por Estado"
+          },
+          "inscripciones_por_estado": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Inscripciones Por Estado"
+          },
+          "reservadas": {
+            "type": "integer",
+            "title": "Reservadas"
+          },
+          "aforo_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aforo Total"
+          },
+          "por_aprobar": {
+            "type": "integer",
+            "title": "Por Aprobar"
+          },
+          "lista_de_espera": {
+            "type": "integer",
+            "title": "Lista De Espera"
+          }
+        },
+        "type": "object",
+        "required": [
+          "eventos_por_estado",
+          "inscripciones_por_estado",
+          "reservadas",
+          "aforo_total",
+          "por_aprobar",
+          "lista_de_espera"
+        ],
+        "title": "CifrasDeOrganizacionOut",
+        "description": "Los conteos de la organización entera."
+      },
+      "CifrasOut": {
+        "properties": {
+          "por_estado": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Por Estado"
+          },
+          "lista_de_espera": {
+            "type": "integer",
+            "title": "Lista De Espera"
+          },
+          "por_aprobar": {
+            "type": "integer",
+            "title": "Por Aprobar"
+          },
+          "sin_entrar": {
+            "type": "integer",
+            "title": "Sin Entrar"
+          }
+        },
+        "type": "object",
+        "required": [
+          "por_estado",
+          "lista_de_espera",
+          "por_aprobar",
+          "sin_entrar"
+        ],
+        "title": "CifrasOut",
+        "description": "Los conteos por estado de inscripción, y la lista de espera."
+      },
       "ConfirmWaitlistPromotionRequest": {
         "properties": {
           "token": {
@@ -8049,6 +8571,68 @@
         ],
         "title": "DeleteRegistrationRequest",
         "description": "Cuerpo de `DELETE /admin/registrations/by-email`."
+      },
+      "DineroDeOrganizacionOut": {
+        "properties": {
+          "por_moneda": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Por Moneda"
+          },
+          "presupuesto_por_moneda": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Presupuesto Por Moneda"
+          },
+          "ejecutado_por_moneda": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Ejecutado Por Moneda"
+          }
+        },
+        "type": "object",
+        "required": [
+          "por_moneda",
+          "presupuesto_por_moneda",
+          "ejecutado_por_moneda"
+        ],
+        "title": "DineroDeOrganizacionOut",
+        "description": "Los importes de la organización, sumados por moneda.\n\nSe agrupa por moneda en vez de dar un total único: una organización puede\ntener eventos en euros y en dólares, y sumarlos daría una cifra que no\nsignifica nada. El caso normal es una sola entrada."
+      },
+      "DineroOut": {
+        "properties": {
+          "ingresos_cobrados_cents": {
+            "type": "integer",
+            "title": "Ingresos Cobrados Cents"
+          },
+          "presupuesto_cents": {
+            "type": "integer",
+            "title": "Presupuesto Cents"
+          },
+          "ejecutado_cents": {
+            "type": "integer",
+            "title": "Ejecutado Cents"
+          },
+          "moneda": {
+            "type": "string",
+            "title": "Moneda"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ingresos_cobrados_cents",
+          "presupuesto_cents",
+          "ejecutado_cents",
+          "moneda"
+        ],
+        "title": "DineroOut",
+        "description": "Los importes del evento.\n\nVa en su propio bloque y **solo se incluye con permiso económico**: así,\nomitirlo no deja huecos en el resto de la vista."
       },
       "DiscountCodeCreate": {
         "properties": {
@@ -8308,51 +8892,6 @@
         "title": "DiscountCodeUpdate",
         "description": "Edición parcial de un código de descuento.\n\n`discount_type`/`discount_value` se validan juntos en el servicio si se\nedita solo uno de los dos: el esquema no conoce el valor ya guardado del\notro campo."
       },
-      "DomainCreate": {
-        "properties": {
-          "host": {
-            "type": "string",
-            "maxLength": 255,
-            "minLength": 3,
-            "title": "Host"
-          },
-          "is_primary": {
-            "type": "boolean",
-            "title": "Is Primary",
-            "default": false
-          }
-        },
-        "type": "object",
-        "required": [
-          "host"
-        ],
-        "title": "DomainCreate",
-        "description": "Alta de dominio (solo superadmin)."
-      },
-      "DomainResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "host": {
-            "type": "string",
-            "title": "Host"
-          },
-          "is_primary": {
-            "type": "boolean",
-            "title": "Is Primary"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "host",
-          "is_primary"
-        ],
-        "title": "DomainResponse",
-        "description": "Dominio asociado a una organización."
-      },
       "EligibleMembershipResponse": {
         "properties": {
           "organization_member_id": {
@@ -8376,6 +8915,93 @@
         ],
         "title": "EligibleMembershipResponse",
         "description": "Membresía propia cuyo rol declara al menos un campo publicable."
+      },
+      "EmbudoOut": {
+        "properties": {
+          "formulario": {
+            "type": "integer",
+            "title": "Formulario"
+          },
+          "verificado": {
+            "type": "integer",
+            "title": "Verificado"
+          },
+          "aprobado": {
+            "type": "integer",
+            "title": "Aprobado"
+          },
+          "emitido": {
+            "type": "integer",
+            "title": "Emitido"
+          },
+          "sin_verificacion_exigida": {
+            "type": "boolean",
+            "title": "Sin Verificacion Exigida"
+          }
+        },
+        "type": "object",
+        "required": [
+          "formulario",
+          "verificado",
+          "aprobado",
+          "emitido",
+          "sin_verificacion_exigida"
+        ],
+        "title": "EmbudoOut",
+        "description": "Los cuatro escalones del embudo de inscripción.\n\n`formulario` cuenta toda inscripción iniciada; `verificado`, `aprobado` y\n`emitido` son los hitos que la persona fue superando. Son **acumulativos y\nmonótonos** salvo por las bajas posteriores (alguien puede haberse\nverificado y luego cancelar), así que la interfaz no debe dibujarlos como\nuna cuenta atrás estricta."
+      },
+      "EstadoDeStripeOut": {
+        "properties": {
+          "conectada": {
+            "type": "boolean",
+            "title": "Conectada"
+          },
+          "charges_enabled": {
+            "type": "boolean",
+            "title": "Charges Enabled"
+          },
+          "payouts_enabled": {
+            "type": "boolean",
+            "title": "Payouts Enabled"
+          },
+          "details_submitted": {
+            "type": "boolean",
+            "title": "Details Submitted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "conectada",
+          "charges_enabled",
+          "payouts_enabled",
+          "details_submitted"
+        ],
+        "title": "EstadoDeStripeOut",
+        "description": "Si la organización puede cobrar, que es lo que decide si vende entradas."
+      },
+      "EstructuraOut": {
+        "properties": {
+          "miembros": {
+            "type": "integer",
+            "title": "Miembros"
+          },
+          "roles": {
+            "type": "integer",
+            "title": "Roles"
+          },
+          "patrocinadores": {
+            "type": "integer",
+            "title": "Patrocinadores"
+          }
+        },
+        "type": "object",
+        "required": [
+          "miembros",
+          "roles",
+          "patrocinadores"
+        ],
+        "title": "EstructuraOut",
+        "description": "Cuántas personas y roles tiene la organización, y cuántos patrocinadores."
       },
       "EventCreate": {
         "properties": {
@@ -8565,6 +9191,32 @@
         ],
         "title": "EventCreate",
         "description": "Alta de un evento."
+      },
+      "EventInvitationCreate": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "role_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "EventInvitationCreate",
+        "description": "Invitación de ponente desde el evento (fase 3 del plan de invitaciones).\n\nSin `role_id`, el rol es `speaker` — el flujo por defecto. Se puede\nindicar otro (p. ej. un moderador) si el organizador lo necesita."
       },
       "EventMemberCreate": {
         "properties": {
@@ -8863,6 +9515,17 @@
           "accounting_currency": {
             "type": "string",
             "title": "Accounting Currency"
+          },
+          "theme_template_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Theme Template Id"
           }
         },
         "type": "object",
@@ -8893,7 +9556,8 @@
           "contingency_fund_percent",
           "budget_approved_at",
           "contingency_fund_cents",
-          "accounting_currency"
+          "accounting_currency",
+          "theme_template_id"
         ],
         "title": "EventResponse",
         "description": "Evento tal y como lo ve el panel de administración."
@@ -9541,6 +10205,17 @@
               }
             ],
             "title": "Contingency Fund Percent"
+          },
+          "theme_template_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Theme Template Id"
           }
         },
         "type": "object",
@@ -9731,6 +10406,88 @@
         "type": "object",
         "title": "EventVenueUpdate",
         "description": "Campos editables de una sede."
+      },
+      "EventoDelEscritorioOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "starts_at": {
+            "type": "string",
+            "title": "Starts At"
+          },
+          "aforo": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aforo"
+          },
+          "confirmadas": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmadas"
+          },
+          "por_aprobar": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Por Aprobar"
+          },
+          "ingresos_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ingresos Cents"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "slug",
+          "status",
+          "starts_at",
+          "aforo",
+          "confirmadas",
+          "por_aprobar",
+          "ingresos_cents"
+        ],
+        "title": "EventoDelEscritorioOut",
+        "description": "Una fila de la tabla de eventos, con sus cifras ya contadas.\n\nLas cifras por evento se agregan en la misma consulta que la lista, no en una\npor fila: un organizador con veinte eventos no debe provocar veinte viajes a\nla base para pintar su escritorio."
       },
       "ExpenseCreate": {
         "properties": {
@@ -10058,6 +10815,40 @@
         "title": "HealthResponse",
         "description": "Estado de cada dependencia."
       },
+      "ImpersonableMember": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "email_enmascarado": {
+            "type": "string",
+            "title": "Email Enmascarado"
+          },
+          "role_key": {
+            "type": "string",
+            "title": "Role Key"
+          },
+          "suplantable": {
+            "type": "boolean",
+            "title": "Suplantable"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "nombre",
+          "email_enmascarado",
+          "role_key",
+          "suplantable"
+        ],
+        "title": "ImpersonableMember",
+        "description": "Miembro de una organización, para el selector de impersonación.\n\nSolo lo imprescindible para elegir a quién suplantar: el correo está\nenmascarado (es dato personal, y la lista la consume el panel de\nplataforma, que no necesita el correo completo para nada)."
+      },
       "ImpersonationRequest": {
         "properties": {
           "password": {
@@ -10299,25 +11090,216 @@
         "title": "IncomesViewOut",
         "description": "Vista compuesta de `GET /accounting/events/{event_id}/incomes`."
       },
-      "LegalPageAdminItem": {
+      "InvitationAcceptRequest": {
         "properties": {
-          "content": {
+          "first_name": {
             "type": "string",
-            "title": "Content"
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "First Name"
           },
-          "is_custom": {
-            "type": "boolean",
-            "title": "Is Custom",
-            "description": "`true` si la organización ha editado esta página."
+          "last_name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Last Name"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 8,
+            "title": "Password",
+            "description": "Contraseña: mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial"
           }
         },
         "type": "object",
         "required": [
-          "content",
-          "is_custom"
+          "first_name",
+          "last_name",
+          "password"
         ],
-        "title": "LegalPageAdminItem",
-        "description": "Una página legal tal y como la ve el panel de edición."
+        "title": "InvitationAcceptRequest",
+        "description": "Datos que completa la persona invitada al aceptar."
+      },
+      "InvitationAcceptResponse": {
+        "properties": {
+          "organization_slug": {
+            "type": "string",
+            "title": "Organization Slug"
+          }
+        },
+        "type": "object",
+        "required": [
+          "organization_slug"
+        ],
+        "title": "InvitationAcceptResponse",
+        "description": "Confirmación de alta. Sin `host`: la petición ya llegó al dominio\ncorrecto (el enlace del correo apunta al propio de la organización), así\nque no hace falta redirigir a ningún otro sitio."
+      },
+      "InvitationCreate": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "role_id": {
+            "type": "string",
+            "title": "Role Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "role_id"
+        ],
+        "title": "InvitationCreate",
+        "description": "Alta de una invitación de equipo: solo email y rol.\n\nSin `first_name`/`last_name` — quien invita por correo no sabe cómo se\nllama la persona; lo completa ella al aceptar (fase 2)."
+      },
+      "InvitationCreateResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "added",
+              "invited"
+            ],
+            "title": "Status"
+          },
+          "member": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MemberResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "invitation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InvitationResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "InvitationCreateResponse",
+        "description": "Resultado de `POST /organizations/me/invitations`.\n\n`status=\"added\"` cuando el correo ya tenía cuenta (regla A.2: se añade\ndirectamente, sin token); `status=\"invited\"` cuando se ha creado la\ninvitación. Nunca lleva el token: eso solo viaja al correo (fase 2)."
+      },
+      "InvitationPublicResponse": {
+        "properties": {
+          "organization_name": {
+            "type": "string",
+            "title": "Organization Name"
+          },
+          "role_name": {
+            "type": "string",
+            "title": "Role Name"
+          },
+          "account_has_password": {
+            "type": "boolean",
+            "title": "Account Has Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "organization_name",
+          "role_name",
+          "account_has_password"
+        ],
+        "title": "InvitationPublicResponse",
+        "description": "`GET /public/invitations/{token}`: lo mínimo para pintar la pantalla.\n\nNunca la lista de miembros ni ningún otro dato de negocio (requisito de\nseguridad del PRD) — solo lo que hace falta para decir «te han invitado a\nX con el rol Y»."
+      },
+      "InvitationResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "role_id": {
+            "type": "string",
+            "title": "Role Id"
+          },
+          "role_key": {
+            "type": "string",
+            "title": "Role Key"
+          },
+          "event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Id"
+          },
+          "estado": {
+            "type": "string",
+            "title": "Estado"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "role_id",
+          "role_key",
+          "event_id",
+          "estado",
+          "expires_at",
+          "created_at"
+        ],
+        "title": "InvitationResponse",
+        "description": "Invitación tal y como la ve el organizador, con el estado calculado."
+      },
+      "InvitationTokenErrorResponse": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "invalida",
+              "caducada",
+              "revocada",
+              "aceptada"
+            ],
+            "title": "State"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "message"
+        ],
+        "title": "InvitationTokenErrorResponse",
+        "description": "Token inválido, caducado, revocado o ya aceptado: un mensaje por caso."
       },
       "LegalPageResponse": {
         "properties": {
@@ -10332,86 +11314,6 @@
         ],
         "title": "LegalPageResponse",
         "description": "Contenido efectivo (editado o de plantilla) de una página legal."
-      },
-      "LegalPagesAdminResponse": {
-        "properties": {
-          "legal_notice": {
-            "$ref": "#/components/schemas/LegalPageAdminItem"
-          },
-          "privacy_policy": {
-            "$ref": "#/components/schemas/LegalPageAdminItem"
-          },
-          "cookies_policy": {
-            "$ref": "#/components/schemas/LegalPageAdminItem"
-          },
-          "registration_terms": {
-            "$ref": "#/components/schemas/LegalPageAdminItem"
-          }
-        },
-        "type": "object",
-        "required": [
-          "legal_notice",
-          "privacy_policy",
-          "cookies_policy",
-          "registration_terms"
-        ],
-        "title": "LegalPagesAdminResponse",
-        "description": "Las cuatro páginas legales, con su contenido efectivo y si están editadas."
-      },
-      "LegalPagesUpdate": {
-        "properties": {
-          "legal_notice_content": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 20000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Legal Notice Content"
-          },
-          "privacy_policy_content": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 20000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Privacy Policy Content"
-          },
-          "cookies_policy_content": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 20000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cookies Policy Content"
-          },
-          "registration_terms_content": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 20000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Registration Terms Content"
-          }
-        },
-        "type": "object",
-        "title": "LegalPagesUpdate",
-        "description": "Actualización parcial de las páginas legales.\n\nMismo patrón que `OrganizationUpdate`: un campo ausente no se toca: un\ncampo presente con valor `null` restaura la plantilla por defecto (ver\n`Organization.legal_notice_content` y hermanos, `NULL` = plantilla)."
       },
       "LoginRequest": {
         "properties": {
@@ -10507,10 +11409,6 @@
       },
       "MemberResponse": {
         "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
           "user_id": {
             "type": "string",
             "title": "User Id"
@@ -10542,13 +11440,12 @@
             ],
             "title": "Last Name"
           },
-          "role_id": {
-            "type": "string",
-            "title": "Role Id"
-          },
-          "role_key": {
-            "type": "string",
-            "title": "Role Key"
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/MemberRoleOut"
+            },
+            "type": "array",
+            "title": "Roles"
           },
           "profile_data": {
             "additionalProperties": true,
@@ -10558,17 +11455,187 @@
         },
         "type": "object",
         "required": [
-          "id",
           "user_id",
           "email",
           "first_name",
           "last_name",
-          "role_id",
-          "role_key",
+          "roles",
           "profile_data"
         ],
         "title": "MemberResponse",
-        "description": "Miembro de la organización."
+        "description": "Una persona de la organización, con **todos** sus roles.\n\nFase 4 del plan de invitaciones: antes esto era una fila por rol\n(`role_id`/`role_key` sueltos), así que la misma persona con dos roles\naparecía dos veces sin nada que dijera que eran la misma. `profile_data`\nes el de la membresía con más campos rellenos (empate → la más antigua):\nes el que más sirve para mostrar de un vistazo, y evita fragmentar sus\ndatos como advierte `SpeakerPublicProfile` (`events/models.py`)."
+      },
+      "MemberRoleOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "role_id": {
+            "type": "string",
+            "title": "Role Id"
+          },
+          "role_key": {
+            "type": "string",
+            "title": "Role Key"
+          },
+          "role_name": {
+            "type": "string",
+            "title": "Role Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "role_id",
+          "role_key",
+          "role_name"
+        ],
+        "title": "MemberRoleOut",
+        "description": "Un rol concreto de una persona, con la fila de membresía que lo sostiene.\n\n`id` es el `organization_member_id` de **esa** fila — hace falta tal cual\npara quitar justo ese rol (`DELETE /me/members/{id}`) o para referenciarlo\ndesde otro sitio que necesite una membresía concreta, no la persona\n(el roster de un evento, `event_members.organization_member_id`)."
+      },
+      "MetricasDeOrganizacionOut": {
+        "properties": {
+          "eventos_en_borrador": {
+            "type": "integer",
+            "title": "Eventos En Borrador"
+          },
+          "eventos": {
+            "items": {
+              "$ref": "#/components/schemas/EventoDelEscritorioOut"
+            },
+            "type": "array",
+            "title": "Eventos"
+          },
+          "cifras": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CifrasDeOrganizacionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "estructura": {
+            "$ref": "#/components/schemas/EstructuraOut"
+          },
+          "dinero": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DineroDeOrganizacionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stripe": {
+            "$ref": "#/components/schemas/EstadoDeStripeOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "eventos_en_borrador",
+          "eventos",
+          "cifras",
+          "estructura",
+          "dinero",
+          "stripe"
+        ],
+        "title": "MetricasDeOrganizacionOut",
+        "description": "Todo lo que necesita el escritorio de la organización en una llamada."
+      },
+      "MetricasDePlataformaOut": {
+        "properties": {
+          "salud": {
+            "$ref": "#/components/schemas/SaludDeLaInstalacionOut"
+          },
+          "cifras": {
+            "$ref": "#/components/schemas/CifrasDeLaInstalacionOut"
+          },
+          "organizaciones": {
+            "items": {
+              "$ref": "#/components/schemas/ActividadDeOrganizacionOut"
+            },
+            "type": "array",
+            "title": "Organizaciones"
+          }
+        },
+        "type": "object",
+        "required": [
+          "salud",
+          "cifras",
+          "organizaciones"
+        ],
+        "title": "MetricasDePlataformaOut",
+        "description": "Todo lo que necesita el escritorio de plataforma en una llamada."
+      },
+      "MetricasDelEventoOut": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "embudo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EmbudoOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ocupacion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OcupacionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cifras": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CifrasOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "piezas": {
+            "items": {
+              "$ref": "#/components/schemas/PiezaOut"
+            },
+            "type": "array",
+            "title": "Piezas"
+          },
+          "dinero": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DineroOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "embudo",
+          "ocupacion",
+          "cifras",
+          "piezas",
+          "dinero"
+        ],
+        "title": "MetricasDelEventoOut",
+        "description": "Todo lo que el escritorio de un evento necesita, en una sola llamada.\n\nLos bloques de permiso opcional (`dinero`) son `None` cuando quien pide no\npuede verlos. Los demás van siempre: si un miembro alcanza el evento, puede\nver cómo va."
       },
       "MyTicketResponse": {
         "properties": {
@@ -10594,85 +11661,31 @@
         "title": "MyTicketResponse",
         "description": "`/mi-entrada` (fase 4, fase 4 de trabajo): qué mostrar y si hay QR que pedir."
       },
-      "OrganizationBrandingBlock": {
+      "OcupacionOut": {
         "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
+          "reservadas": {
+            "type": "integer",
+            "title": "Reservadas"
           },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "slug": {
-            "type": "string",
-            "title": "Slug"
-          },
-          "template_key": {
-            "type": "string",
-            "title": "Template Key",
-            "description": "Plantilla de la página pública: classic | minimal"
-          },
-          "theme": {
+          "aforo": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ResolvedTheme"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "social_links": {
-            "items": {
-              "$ref": "#/components/schemas/SocialLink"
-            },
-            "type": "array",
-            "title": "Social Links"
-          },
-          "organizer_blurb": {
-            "anyOf": [
-              {
-                "type": "string"
+                "type": "integer"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Organizer Blurb"
-          },
-          "logo_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Logo Url"
-          },
-          "favicon_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Favicon Url"
+            "title": "Aforo"
           }
         },
         "type": "object",
         "required": [
-          "id",
-          "name",
-          "slug",
-          "template_key"
+          "reservadas",
+          "aforo"
         ],
-        "title": "OrganizationBrandingBlock",
-        "description": "Identidad de la organización del host.\n\nSu marca y su plantilla se aplican a las **páginas de evento**, no al chrome\nde la web pública (que es de plataforma)."
+        "title": "OcupacionOut",
+        "description": "Cuánto del aforo está tomado.\n\n`reservadas` es lo que el propio sistema considera ocupado —no solo las\nconfirmadas: también las promociones de lista de espera y los pagos dentro\nde su ventana—, porque es el número con el que decide si cabe una persona\nmás. Pintar solo las confirmadas daría un aforo que no coincide con el que\nla aplicación aplica."
       },
       "OrganizationCreate": {
         "properties": {
@@ -10688,12 +11701,6 @@
             "maxLength": 160,
             "minLength": 1,
             "title": "Name"
-          },
-          "host": {
-            "type": "string",
-            "maxLength": 255,
-            "minLength": 3,
-            "title": "Host"
           },
           "legal_name": {
             "anyOf": [
@@ -10723,8 +11730,7 @@
         "type": "object",
         "required": [
           "slug",
-          "name",
-          "host"
+          "name"
         ],
         "title": "OrganizationCreate",
         "description": "Alta de organización (solo superadmin)."
@@ -10742,28 +11748,16 @@
           "name": {
             "type": "string",
             "title": "Name"
-          },
-          "host": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Host"
           }
         },
         "type": "object",
         "required": [
           "organization_id",
           "slug",
-          "name",
-          "host"
+          "name"
         ],
         "title": "OrganizationMembershipResponse",
-        "description": "Una organización a la que pertenece la persona, para el selector del panel."
+        "description": "Una organización a la que pertenece la persona, para el selector del panel.\n\nSin dominio por organización (fase 6 del plan «organización sin\ndominio»): ya no lleva `host`, campo que solo devolvía `NULL` desde que\n`organization_domains` se retiró."
       },
       "OrganizationResponse": {
         "properties": {
@@ -11290,10 +12284,40 @@
           "payments:read",
           "payments:write",
           "accounting:read",
-          "accounting:write"
+          "accounting:write",
+          "invitations:manage"
         ],
         "title": "Permission",
         "description": "Permisos disponibles en la fase 0."
+      },
+      "PiezaOut": {
+        "properties": {
+          "clave": {
+            "type": "string",
+            "title": "Clave"
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "lista",
+              "pendiente",
+              "no_aplica"
+            ],
+            "title": "Estado"
+          },
+          "cantidad": {
+            "type": "integer",
+            "title": "Cantidad"
+          }
+        },
+        "type": "object",
+        "required": [
+          "clave",
+          "estado",
+          "cantidad"
+        ],
+        "title": "PiezaOut",
+        "description": "Una de las piezas del evento, con su estado y cuánto tiene."
       },
       "PlatformBrandingBlock": {
         "properties": {
@@ -11358,7 +12382,7 @@
           "name"
         ],
         "title": "PlatformBrandingBlock",
-        "description": "Identidad de la plataforma, presente en cualquier host.\n\nEs el bloque que el chrome de la web pública debe usar: la marca global de\nla instalación, no la de la organización. Un host de plataforma lo sirve\nsin organización ninguna; un host de organización lo sirve además de la\nsuya. Reproduce a propósito los campos del schema de `modules.platform`,\npara que el contrato público del tenant no dependa del módulo interno."
+        "description": "Identidad de la plataforma: la única marca del chrome de la web pública.\n\nEventarium es una SaaS centralizada (modelo Luma): sin dominio por\norganización, no hay ninguna identidad \"del host visitado\" distinta de\nesta — solo la de la instalación."
       },
       "PlatformBrandingResponse": {
         "properties": {
@@ -11471,40 +12495,6 @@
         "title": "PlatformBrandingUpdate",
         "description": "Actualización de la identidad de plataforma.\n\nTodos los campos son opcionales: un campo ausente no se toca. `social_links`\nse reemplaza entero cuando viene (mismo contrato que `BrandingUpdate` de\norganización); `None` lo vacía."
       },
-      "PlatformDomainOut": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "host": {
-            "type": "string",
-            "title": "Host"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "host"
-        ],
-        "title": "PlatformDomainOut",
-        "description": "Un host de la web de la plataforma."
-      },
-      "PlatformDomainsUpdate": {
-        "properties": {
-          "hosts": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Hosts",
-            "description": "Hosts que sirven la web de la instalación. Se normalizan al guardar."
-          }
-        },
-        "type": "object",
-        "title": "PlatformDomainsUpdate",
-        "description": "Reemplazo completo de los hosts de plataforma."
-      },
       "PlatformLegalPageItem": {
         "properties": {
           "content": {
@@ -11535,16 +12525,20 @@
           },
           "cookies_policy": {
             "$ref": "#/components/schemas/PlatformLegalPageItem"
+          },
+          "registration_terms": {
+            "$ref": "#/components/schemas/PlatformLegalPageItem"
           }
         },
         "type": "object",
         "required": [
           "legal_notice",
           "privacy_policy",
-          "cookies_policy"
+          "cookies_policy",
+          "registration_terms"
         ],
         "title": "PlatformLegalPagesResponse",
-        "description": "Las tres páginas legales de la plataforma."
+        "description": "Las cuatro páginas legales de la plataforma."
       },
       "PlatformLegalPagesUpdate": {
         "properties": {
@@ -11583,11 +12577,23 @@
               }
             ],
             "title": "Cookies Policy Content"
+          },
+          "registration_terms_content": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registration Terms Content"
           }
         },
         "type": "object",
         "title": "PlatformLegalPagesUpdate",
-        "description": "Actualización parcial de las páginas legales de plataforma.\n\nUn campo ausente no se toca; presente con `null` restaura la plantilla por\ndefecto (misma convención que las páginas de organización)."
+        "description": "Actualización parcial de las páginas legales de plataforma.\n\nUn campo ausente no se toca; presente con `null` restaura la plantilla\npor defecto."
       },
       "ProfileFieldInput": {
         "properties": {
@@ -11885,6 +12891,16 @@
               }
             ],
             "title": "Longitude"
+          },
+          "theme": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicTheme"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "sessions": {
             "items": {
@@ -12790,6 +13806,36 @@
         "title": "PublicSponsorTier",
         "description": "Nivel de patrocinio con sus patrocinadores, para el bloque público."
       },
+      "PublicTheme": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "tokens": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Tokens"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "name",
+          "tokens"
+        ],
+        "title": "PublicTheme",
+        "description": "Plantilla visual resuelta para una página pública.\n\nSe sirve **ya resuelta**, con la herencia aplicada en el servidor (evento →\norganización → por defecto del catálogo): el cliente no tiene que encadenar\ntres niveles ni conocer el catálogo para pintar la página."
+      },
       "PublicTicketTypeResponse": {
         "properties": {
           "id": {
@@ -13595,6 +14641,14 @@
             "type": "integer",
             "title": "Verified"
           },
+          "approved": {
+            "type": "integer",
+            "title": "Approved"
+          },
+          "issued": {
+            "type": "integer",
+            "title": "Issued"
+          },
           "pending_approval": {
             "type": "integer",
             "title": "Pending Approval"
@@ -13646,6 +14700,8 @@
         "required": [
           "initiated",
           "verified",
+          "approved",
+          "issued",
           "pending_approval",
           "pending_payment",
           "confirmed",
@@ -13656,7 +14712,7 @@
           "confirmed_conversion_rate"
         ],
         "title": "RegistrationStats",
-        "description": "Estadísticas de conversión del embudo de inscripción de un evento."
+        "description": "Estadísticas del embudo de inscripción de un evento.\n\nLos cuatro escalones del embudo son `initiated → verified → approved →\nissued`. Los dos últimos no salen de los conteos por estado: `approved` es\nun hito (`approved_at`), y aprobar deja la fila en `confirmed` o\n`waitlisted`; `issued` vive en `event_tickets`."
       },
       "ResendVerificationRequest": {
         "properties": {
@@ -13736,7 +14792,7 @@
           "tokens"
         ],
         "title": "ResolvedTheme",
-        "description": "La plantilla de tema de la organización, ya resuelta.\n\nResolución: `COALESCE(branding.theme_template_id, la que tiene\nis_default)`, hecha en la misma consulta de `GET /tenant/branding`. `None`\nsi por lo que sea no hubiera ninguna plantilla en el catálogo — defensa\npara que el cliente se quede con la base de `tokens.css` en vez de\nromper."
+        "description": "La plantilla de tema de la plataforma, ya resuelta.\n\nResolución: `COALESCE(platform_branding.theme_template_id, la que tiene\nis_default)`. `None` si por lo que sea no hubiera ninguna plantilla en el\ncatálogo — defensa para que el cliente se quede con la base de\n`tokens.css` en vez de romper."
       },
       "RgpdExportRequest": {
         "properties": {
@@ -13940,6 +14996,30 @@
         "title": "RoleUpdate",
         "description": "Edición de un rol existente."
       },
+      "SaludDeLaInstalacionOut": {
+        "properties": {
+          "database": {
+            "type": "string",
+            "title": "Database"
+          },
+          "storage": {
+            "type": "string",
+            "title": "Storage"
+          },
+          "redis": {
+            "type": "string",
+            "title": "Redis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "database",
+          "storage",
+          "redis"
+        ],
+        "title": "SaludDeLaInstalacionOut",
+        "description": "Estado de las dependencias críticas, tal como lo da `GET /health`."
+      },
       "ScanBatchRequest": {
         "properties": {
           "scans": {
@@ -14049,19 +15129,24 @@
             "type": "string",
             "title": "Slug"
           },
-          "host": {
+          "access_token": {
             "type": "string",
-            "title": "Host"
+            "title": "Access Token"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
           }
         },
         "type": "object",
         "required": [
           "id",
           "slug",
-          "host"
+          "access_token",
+          "expires_in"
         ],
         "title": "SelfServiceOrganizationResponse",
-        "description": "Organización recién creada.\n\nSin token de sesión: el subdominio nuevo es un origen distinto de donde se ha\nllamado a este endpoint (normalmente el dominio principal de la instalación), así\nque ninguna cookie ni token en memoria viajaría con la persona hasta allí. El\ncliente redirige a `host` y la persona entra con su correo y contraseña, esta vez\ncon éxito porque ya pertenece a una organización."
+        "description": "Organización recién creada, con una sesión completa ya activa en ella.\n\nSin dominio por organización (fase 4 del plan de organización sin\ndominio), no hay ningún host al que redirigir: quien crea la\norganización puede venir de verificar su correo, sin ninguna sesión\nnormal todavía (sin cookie de refresco), así que este endpoint emite la\nsuya propia — mismo mecanismo que `/auth/login`, con la organización\nrecién creada ya activa. El cliente no necesita llamar aparte a\n`switch-organization`."
       },
       "SessionParticipantEntry": {
         "properties": {
@@ -14169,26 +15254,6 @@
         ],
         "title": "SessionParticipantsUpdate",
         "description": "Reemplazo completo de la lista de participantes de una sesión.\n\n`expected_updated_at` es el `updated_at` de la sesión que el cliente tenía\ncargado: si no coincide con el actual, la petición falla con 409 en vez de\nsobrescribir en silencio el trabajo de otra persona."
-      },
-      "SocialLink": {
-        "properties": {
-          "kind": {
-            "type": "string",
-            "title": "Kind",
-            "description": "Identificador de la red: x, linkedin, instagram…"
-          },
-          "url": {
-            "type": "string",
-            "title": "Url"
-          }
-        },
-        "type": "object",
-        "required": [
-          "kind",
-          "url"
-        ],
-        "title": "SocialLink",
-        "description": "Enlace a una red social del organizador."
       },
       "SocialLinkInput": {
         "properties": {
@@ -14842,6 +15907,21 @@
         ],
         "title": "SubmitRegistrationRequest",
         "description": "Datos del formulario público de inscripción a un evento."
+      },
+      "SwitchOrganizationRequest": {
+        "properties": {
+          "organization_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Organization Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "organization_id"
+        ],
+        "title": "SwitchOrganizationRequest",
+        "description": "Organización a la que se quiere cambiar."
       },
       "ThemeResolved": {
         "properties": {

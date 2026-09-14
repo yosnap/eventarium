@@ -95,7 +95,6 @@ async def create_organization(
     session.add(
         OrganizationBranding(
             organization_id=organizacion.id,
-            template_key="classic",
             social_links=[],
         )
     )

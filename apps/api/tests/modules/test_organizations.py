@@ -55,7 +55,6 @@ async def test_actualizar_el_branding_y_verlo_al_releerlo(
         BRANDING,
         headers=cabeceras,
         json={
-            "template_key": "minimal",
             "social_links": [{"kind": "linkedin", "url": "https://linkedin.com/company/x"}],
             "organizer_blurb": "Comunidad de IA en Valencia",
         },
@@ -64,7 +63,6 @@ async def test_actualizar_el_branding_y_verlo_al_releerlo(
 
     releido = await cliente.get(BRANDING, headers=cabeceras)
     cuerpo = releido.json()
-    assert cuerpo["template_key"] == "minimal"
     assert cuerpo["social_links"][0]["kind"] == "linkedin"
 
 
@@ -81,7 +79,6 @@ async def test_actualizar_el_branding_con_una_plantilla_de_tema(
         BRANDING,
         headers=cabeceras,
         json={
-            "template_key": "classic",
             "theme_template_id": claro["id"],
             "social_links": [],
             "organizer_blurb": "Comunidad de IA en Valencia",
@@ -105,7 +102,6 @@ async def test_actualizar_el_branding_con_una_plantilla_de_tema_inexistente(
         BRANDING,
         headers=cabeceras,
         json={
-            "template_key": "classic",
             "theme_template_id": "00000000-0000-0000-0000-000000000000",
             "social_links": [],
         },

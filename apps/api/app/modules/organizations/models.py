@@ -44,7 +44,6 @@ class OrganizationBranding(Base, TimestampMixin):
         ForeignKey("organizations.id", ondelete="CASCADE"),
         primary_key=True,
     )
-    template_key: Mapped[str] = mapped_column(String(40), nullable=False, default="classic")
     logo_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     favicon_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     # `NULL` = la plantilla marcada `is_default` en `theme_templates`. Sin

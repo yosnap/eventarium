@@ -10,7 +10,9 @@ export interface SocialLink {
  * Identidad de la plataforma (Eventarium).
  *
  * Es la marca del **chrome** de la web pública: el header, el pie y el título del
- * documento. Se sirve en cualquier host, tenga o no organización asociada.
+ * documento. Sin dominio por organización (fase 6 del plan de organización sin
+ * dominio), es la única identidad que sirve este endpoint: la de un evento
+ * concreto viaja en el detalle público de ese evento.
  */
 export interface PlatformBranding {
   readonly name: string;
@@ -21,35 +23,7 @@ export interface PlatformBranding {
   readonly theme: PlantillaDeTema | null;
 }
 
-/**
- * Identidad de la organización del host.
- *
- * `null` cuando el host es el de la plataforma (no pertenece a ninguna
- * organización). Su plantilla de tema se aplica a las **páginas de evento**, no
- * al chrome: la marca global es de Eventarium.
- */
-export interface OrganizationBranding {
-  readonly id: string;
-  readonly name: string;
-  readonly slug: string;
-  /** Plantilla de la página pública: `classic` o `minimal`. No confundir con la
-   * plantilla de tema (`theme`): esta decide la composición de la portada, `theme`
-   * decide la paleta. */
-  readonly template_key: string;
-  readonly theme: PlantillaDeTema | null;
-  readonly social_links: readonly SocialLink[];
-  readonly organizer_blurb: string | null;
-  readonly logo_url: string | null;
-  readonly favicon_url: string | null;
-}
-
-/**
- * Respuesta de `GET /api/v1/tenant/branding`.
- *
- * El bloque `platform` llega siempre; `organization` solo cuando el host
- * resuelve a una organización registrada.
- */
+/** Respuesta de `GET /api/v1/tenant/branding`. */
 export interface Branding {
   readonly platform: PlatformBranding;
-  readonly organization: OrganizationBranding | null;
 }
