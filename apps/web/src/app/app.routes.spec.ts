@@ -196,7 +196,10 @@ describe('redirecciones de las rutas antiguas del panel', () => {
   // orden y la forma de las redirecciones son justo lo que se rompe en silencio:
   // un comodín de más capturaría las rutas nuevas de plataforma.
   const CASOS: readonly [string, string][] = [
-    ['/admin/login', '/acceder'],
+    // `/acceder` en sí redirige a quien ya tiene sesión (`guestGuard`), así que el
+    // destino final de un marcador antiguo a `/admin/login` es el panel, no el
+    // formulario.
+    ['/admin/login', '/dashboard'],
     ['/admin/superadmin', '/admin'],
     ['/admin/superadmin/plantillas', '/admin/plantillas'],
     ['/admin/superadmin/identidad', '/admin/identidad'],

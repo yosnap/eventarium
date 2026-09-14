@@ -1,12 +1,14 @@
 import { Routes } from '@angular/router';
 
 import { authGuard } from './core/auth/auth.guard';
+import { guestGuard } from './core/auth/guest.guard';
 import { superadminGuard } from './core/auth/superadmin.guard';
 
 export const routes: Routes = [
   {
     path: 'acceder',
     loadComponent: () => import('./features/admin/login/login-page').then((m) => m.LoginPage),
+    canActivate: [guestGuard],
   },
   {
     path: 'registro',
