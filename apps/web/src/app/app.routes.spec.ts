@@ -97,7 +97,6 @@ const RUTAS_EXISTENTES: readonly [string, string][] = [
   ['/dashboard/stripe', 'app-stripe-connection'],
   ['/dashboard/legal', 'app-legal-pages-page'],
   ['/dashboard/account', 'app-account-page'],
-  ['/dashboard/estilo', 'app-style-guide-page'],
 ];
 
 describe('rutas existentes: siguen resolviendo al mismo componente', () => {
@@ -146,12 +145,20 @@ describe('rutas de plataforma: guard, no solo visibilidad', () => {
     expect(harness.routeNativeElement?.querySelector('app-theme-templates-page')).toBeNull();
   });
 
-  it('el mismo usuario sin is_superadmin sí alcanza /dashboard/estilo', async () => {
-    configurar({ is_superadmin: false });
+  it('/admin/estilo está protegida por superadminGuard', async () => {
+    configurar({ is_superadmin: true });
     const harness = await RouterTestingHarness.create();
-    await harness.navigateByUrl('/dashboard/estilo');
+    await harness.navigateByUrl('/admin/estilo');
 
     expect(harness.routeNativeElement?.querySelector('app-style-guide-page')).not.toBeNull();
+  });
+
+  it('un autenticado sin is_superadmin no alcanza /admin/estilo', async () => {
+    configurar({ is_superadmin: false });
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/admin/estilo');
+
+    expect(harness.routeNativeElement?.querySelector('app-style-guide-page')).toBeNull();
   });
 });
 
@@ -206,7 +213,9 @@ describe('redirecciones de las rutas antiguas del panel', () => {
     ['/admin/events/e1/inscripciones', '/dashboard/events/e1/inscripciones'],
     ['/admin/events/e1/registrations/reg1', '/dashboard/events/e1/registrations/reg1'],
     ['/admin/stripe', '/dashboard/stripe'],
-    ['/admin/estilo', '/dashboard/estilo'],
+    // Sentido contrario a las de arriba: el catálogo de componentes vivió una
+    // temporada en `/dashboard/estilo` antes de volver a `/admin`.
+    ['/dashboard/estilo', '/admin/estilo'],
   ];
 
   for (const [origen, destino] of CASOS) {

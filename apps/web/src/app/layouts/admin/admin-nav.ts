@@ -4,12 +4,6 @@ import { TranslocoDirective } from '@jsverse/transloco';
 
 /**
  * Un enlace de navegación del panel.
- *
- * La visibilidad se declara por enlace, nunca por grupo: agrupar el catálogo de
- * componentes bajo «Plataforma» junto a superadministración no puede arrastrarle por
- * error la restricción de `is_superadmin`, que hoy no tiene (pregunta abierta 3 de
- * `plan.md`). Solo dos enlaces de esta fase la llevan: `/admin/superadmin` y
- * `/admin/superadmin/plantillas`.
  */
 export interface AdminNavLink {
   readonly path: readonly string[];
@@ -36,11 +30,6 @@ export const ORGANIZATION_NAV_LINKS: readonly AdminNavLink[] = [
   { path: ['/dashboard/sponsor-tiers'], labelKey: 'admin.sponsorTiersNav' },
   { path: ['/dashboard/stripe'], labelKey: 'admin.stripeNav' },
   { path: ['/dashboard/legal'], labelKey: 'admin.legalNav' },
-  // Herramienta de desarrollo, no administración de nada: vive aquí, con el
-  // panel de organización, y **no** exige `is_superadmin` (pregunta abierta 3 de
-  // `plan.md`). No es una sección de la plataforma aunque antes se pintara junto
-  // a ellas.
-  { path: ['/dashboard/estilo'], labelKey: 'admin.catalogoDeComponentes' },
 ];
 
 export const PLATFORM_NAV_LINKS: readonly AdminNavLink[] = [
@@ -49,6 +38,11 @@ export const PLATFORM_NAV_LINKS: readonly AdminNavLink[] = [
   { path: ['/admin/legales'], labelKey: 'admin.plataforma.legales.titulo' },
   { path: ['/admin/plantillas'], labelKey: 'admin.superadmin.plantillas.titulo' },
   { path: ['/admin/suplantar'], labelKey: 'admin.plataforma.impersonar.titulo' },
+  // La caja de piezas con la que se construyen la landing y la presentación del
+  // portal, y de la que salen las plantillas que luego usan las organizaciones
+  // (mismo papel que cumple para Luma): trabajo de quien administra la
+  // instalación, no de un organizador.
+  { path: ['/admin/estilo'], labelKey: 'admin.catalogoDeComponentes' },
 ];
 
 /**

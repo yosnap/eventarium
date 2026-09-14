@@ -73,6 +73,12 @@ describe('AdminNav — panel de organización', () => {
     expect(enlaces).not.toContain('/admin/suplantar');
   });
 
+  it('no ofrece el catálogo de componentes: es de plataforma, no de organización', async () => {
+    const raiz = await montar(false);
+    expect(enlacesDe(raiz)).not.toContain('/admin/estilo');
+    expect(enlacesDe(raiz)).not.toContain('/dashboard/estilo');
+  });
+
   it('sin evento activo: no pinta el grupo de evento', async () => {
     configurar();
     const fixture = TestBed.createComponent(AdminNav);
@@ -142,10 +148,11 @@ describe('AdminNav — panel de plataforma', () => {
     expect(raiz.querySelector('#admin-nav-organizacion-titulo')).toBeNull();
   });
 
-  it('el catálogo de componentes ya no cuelga de plataforma', async () => {
-    // Es una herramienta de desarrollo, no administración de la instalación:
-    // vive en el panel de organización y no debe exigir `is_superadmin`.
+  it('el catálogo de componentes cuelga de plataforma', async () => {
+    // Es la caja de piezas de quien administra la instalación (landing,
+    // plantillas que luego usan las organizaciones), no una sección de una
+    // organización concreta.
     const raiz = await montar(true);
-    expect(enlacesDe(raiz)).not.toContain('/dashboard/estilo');
+    expect(enlacesDe(raiz)).toContain('/admin/estilo');
   });
 });

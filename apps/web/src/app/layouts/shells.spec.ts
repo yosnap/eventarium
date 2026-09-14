@@ -168,9 +168,7 @@ describe('shells', () => {
   });
 
   it('el shell público muestra el logotipo de la plataforma con texto alternativo', async () => {
-    branding.set(
-      brandingDePrueba({ platform: { logo_url: 'https://ejemplo.com/logo.png' } }),
-    );
+    branding.set(brandingDePrueba({ platform: { logo_url: 'https://ejemplo.com/logo.png' } }));
     const fixture = TestBed.createComponent(PublicShell);
     await fixture.whenStable();
 
@@ -295,13 +293,28 @@ describe('shells', () => {
       ).toBe(false);
     });
 
-    it('el catálogo de componentes sigue accesible en el panel de organización', async () => {
+    it('el catálogo de componentes no aparece en el panel de organización', async () => {
+      url.set('/dashboard');
       const fixture = TestBed.createComponent(AdminShell);
       await fixture.whenStable();
       const raiz = fixture.nativeElement as HTMLElement;
 
       const enlace = Array.from(raiz.querySelectorAll('a')).find(
-        (a) => a.getAttribute('href') === '/dashboard/estilo',
+        (a) =>
+          a.getAttribute('href') === '/admin/estilo' ||
+          a.getAttribute('href') === '/dashboard/estilo',
+      );
+      expect(enlace).toBeFalsy();
+    });
+
+    it('el catálogo de componentes aparece en el panel de plataforma', async () => {
+      url.set('/admin');
+      const fixture = TestBed.createComponent(AdminShell);
+      await fixture.whenStable();
+      const raiz = fixture.nativeElement as HTMLElement;
+
+      const enlace = Array.from(raiz.querySelectorAll('a')).find(
+        (a) => a.getAttribute('href') === '/admin/estilo',
       );
       expect(enlace).toBeTruthy();
     });

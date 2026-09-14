@@ -139,7 +139,12 @@ export const routes: Routes = [
   { path: 'admin/stripe', redirectTo: '/dashboard/stripe', pathMatch: 'full' },
   { path: 'admin/legal', redirectTo: '/dashboard/legal', pathMatch: 'full' },
   { path: 'admin/account', redirectTo: '/dashboard/account', pathMatch: 'full' },
-  { path: 'admin/estilo', redirectTo: '/dashboard/estilo', pathMatch: 'full' },
+  // Sentido contrario a las de arriba: el catálogo de componentes vivió un tiempo en
+  // `/dashboard/estilo` (organización), pero es la herramienta de quien diseña la
+  // presentación de la plataforma (landing, plantillas que luego reutilizan las
+  // organizaciones, al estilo de Luma) — vuelve a `/admin`, y un enlace guardado a la
+  // ubicación antigua sigue llegando, sujeto ya al guard de superadmin.
+  { path: 'dashboard/estilo', redirectTo: '/admin/estilo', pathMatch: 'full' },
 
   {
     path: 'dashboard',
@@ -270,16 +275,6 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/admin/account/account-page').then((m) => m.AccountPage),
       },
-      {
-        // Catálogo interno de componentes: no forma parte del producto, pero vive
-        // dentro del panel (autenticado) para revisarlos en el mismo contexto donde
-        // se usan, en vez de una ruta pública sin enlace desde ningún sitio.
-        // No lleva `superadminGuard`: es una herramienta de desarrollo, no
-        // administración de la plataforma (ver `admin-nav.ts`).
-        path: 'estilo',
-        loadComponent: () =>
-          import('./features/dev/style-guide/style-guide-page').then((m) => m.StyleGuidePage),
-      },
     ],
   },
 
@@ -321,6 +316,17 @@ export const routes: Routes = [
         path: 'suplantar',
         loadComponent: () =>
           import('./features/admin/superadmin/impersonation-page').then((m) => m.ImpersonationPage),
+      },
+      {
+        // Catálogo de componentes: la caja de piezas con la que se construyen la
+        // landing y la presentación del portal, y de la que salen las plantillas
+        // que luego usan las organizaciones (mismo papel que cumple para Luma).
+        // Es trabajo de quien administra la instalación, no de un organizador —
+        // vivió una temporada en `/dashboard/estilo`, sin el guard, hasta que se
+        // corrigió ese alcance.
+        path: 'estilo',
+        loadComponent: () =>
+          import('./features/dev/style-guide/style-guide-page').then((m) => m.StyleGuidePage),
       },
     ],
   },
