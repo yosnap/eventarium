@@ -55,7 +55,6 @@ async def test_camino_1_alta_directa_deja_pending_payment_sin_emitir_entrada(
 
     respuesta = await cliente.post(
         _url_checkout(evento["slug"]),
-        headers={"Host": organizacion.host},
         json={
             "email": "camino1@example.com",
             "full_name": "Camino Uno",
@@ -394,7 +393,6 @@ async def test_camino_3_endpoint_real_en_evento_de_aprobacion_crea_el_pago(
 
     respuesta = await cliente.post(
         _url_checkout(evento["slug"]),
-        headers={"Host": organizacion.host},
         json={
             "email": "aprobacion-real@example.com",
             "full_name": "Aprobación Real",
@@ -434,7 +432,6 @@ async def test_camino_4_endpoint_real_con_aforo_lleno_crea_el_pago(
 
     primera = await cliente.post(
         _url_checkout(evento["slug"]),
-        headers={"Host": organizacion.host},
         json={
             "email": "primero-aforo@example.com",
             "full_name": "Primero Aforo",
@@ -449,7 +446,6 @@ async def test_camino_4_endpoint_real_con_aforo_lleno_crea_el_pago(
     fake.v1.checkout.sessions.create_async.reset_mock()
     segunda = await cliente.post(
         _url_checkout(evento["slug"]),
-        headers={"Host": organizacion.host},
         json={
             "email": "segundo-aforo@example.com",
             "full_name": "Segundo Aforo",
@@ -666,7 +662,7 @@ async def test_reutilizar_pago_expira_la_sesion_de_stripe_anterior(
         "turnstile_token": "token-de-prueba",
     }
     primera = await cliente.post(
-        _url_checkout(evento["slug"]), headers={"Host": organizacion.host}, json=payload
+        _url_checkout(evento["slug"]), json=payload
     )
     assert primera.status_code == 200, primera.text
 
@@ -689,7 +685,7 @@ async def test_reutilizar_pago_expira_la_sesion_de_stripe_anterior(
 
     fake.v1.checkout.sessions.create_async.return_value = _sesion_creada("cs_segunda_sesion")
     segunda = await cliente.post(
-        _url_checkout(evento["slug"]), headers={"Host": organizacion.host}, json=payload
+        _url_checkout(evento["slug"]), json=payload
     )
     assert segunda.status_code == 200, segunda.text
 
@@ -887,7 +883,6 @@ async def test_t1_hace_commit_antes_de_la_primera_llamada_a_stripe(
 
     respuesta = await cliente.post(
         _url_checkout(evento["slug"]),
-        headers={"Host": organizacion.host},
         json={
             "email": "t1commit@example.com",
             "full_name": "T1 Commit",
@@ -917,7 +912,7 @@ async def test_idempotency_key_distinta_por_intento_de_checkout(
         "turnstile_token": "token-de-prueba",
     }
     primera = await cliente.post(
-        _url_checkout(evento["slug"]), headers={"Host": organizacion.host}, json=payload
+        _url_checkout(evento["slug"]), json=payload
     )
     assert primera.status_code == 200, primera.text
     _, primera_kwargs = fake.v1.checkout.sessions.create_async.call_args
@@ -938,7 +933,7 @@ async def test_idempotency_key_distinta_por_intento_de_checkout(
 
     fake.v1.checkout.sessions.create_async.return_value = _sesion_creada("cs_test_2")
     segunda = await cliente.post(
-        _url_checkout(evento["slug"]), headers={"Host": organizacion.host}, json=payload
+        _url_checkout(evento["slug"]), json=payload
     )
     assert segunda.status_code == 200, segunda.text
     _, segunda_kwargs = fake.v1.checkout.sessions.create_async.call_args
@@ -982,7 +977,6 @@ async def test_organizacion_sin_cuenta_operativa_da_409(
 
     respuesta = await cliente.post(
         _url_checkout(evento["slug"]),
-        headers={"Host": organizacion.host},
         json={
             "email": "sincuenta@example.com",
             "full_name": "Sin Cuenta",

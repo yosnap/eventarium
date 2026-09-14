@@ -90,9 +90,7 @@ async def test_get_invitation_devuelve_lo_minimo(
 ) -> None:
     _invitation_id, token = await _crear_invitacion(organizacion, email="pendiente@example.com")
 
-    respuesta = await cliente.get(
-        f"/api/v1/public/invitations/{token}", headers={"Host": organizacion.host}
-    )
+    respuesta = await cliente.get(f"/api/v1/public/invitations/{token}")
 
     assert respuesta.status_code == 200, respuesta.text
     cuerpo = respuesta.json()
@@ -109,7 +107,6 @@ async def test_aceptar_fija_contrasena_nombre_y_crea_la_membresia(
     respuesta = await cliente.post(
         f"/api/v1/public/invitations/{token}/accept",
         json={"first_name": "Ada", "last_name": "Lovelace", "password": CONTRASENA_ACEPTAR},
-        headers={"Host": organizacion.host},
     )
 
     assert respuesta.status_code == 200, respuesta.text
@@ -134,14 +131,11 @@ async def test_aceptar_fija_contrasena_nombre_y_crea_la_membresia(
     login = await cliente.post(
         "/api/v1/auth/login",
         json={"email": "nueva-persona@example.com", "password": CONTRASENA_ACEPTAR},
-        headers={"Host": organizacion.host},
     )
     assert login.status_code == 200, login.text
 
     # El token consumido con `GET` ahora refleja el estado «ya aceptada».
-    tras_aceptar = await cliente.get(
-        f"/api/v1/public/invitations/{token}", headers={"Host": organizacion.host}
-    )
+    tras_aceptar = await cliente.get(f"/api/v1/public/invitations/{token}")
     assert tras_aceptar.status_code == 404
     assert "ya se aceptó" in tras_aceptar.json()["detail"]
 
@@ -155,12 +149,10 @@ async def test_aceptar_dos_veces_no_duplica_la_membresia(
     primera = await cliente.post(
         f"/api/v1/public/invitations/{token}/accept",
         json=datos,
-        headers={"Host": organizacion.host},
     )
     segunda = await cliente.post(
         f"/api/v1/public/invitations/{token}/accept",
         json=datos,
-        headers={"Host": organizacion.host},
     )
 
     assert primera.status_code == 200, primera.text
@@ -204,20 +196,13 @@ async def test_token_caducado_revocado_y_aceptado_dan_mensajes_distintos(
     await cliente.post(
         f"/api/v1/public/invitations/{token_aceptado}/accept",
         json={"first_name": "Ya", "last_name": "Aceptada", "password": CONTRASENA_ACEPTAR},
-        headers={"Host": organizacion.host},
     )
 
-    respuesta_caducada = await cliente.get(
-        f"/api/v1/public/invitations/{token_caducado}", headers={"Host": organizacion.host}
-    )
-    respuesta_revocada = await cliente.get(
-        f"/api/v1/public/invitations/{token_revocado}", headers={"Host": organizacion.host}
-    )
-    respuesta_aceptada = await cliente.get(
-        f"/api/v1/public/invitations/{token_aceptado}", headers={"Host": organizacion.host}
-    )
+    respuesta_caducada = await cliente.get(f"/api/v1/public/invitations/{token_caducado}")
+    respuesta_revocada = await cliente.get(f"/api/v1/public/invitations/{token_revocado}")
+    respuesta_aceptada = await cliente.get(f"/api/v1/public/invitations/{token_aceptado}")
     respuesta_invalida = await cliente.get(
-        "/api/v1/public/invitations/token-que-nunca-existio", headers={"Host": organizacion.host}
+        "/api/v1/public/invitations/token-que-nunca-existio"
     )
 
     mensajes = {
@@ -244,38 +229,14 @@ async def test_correo_con_contrasena_ya_puesta_no_puede_aceptar(
         usuario.password_hash = hash_password("ya-tengo-contraseña-1A!")
         await session.commit()
 
-    consulta = await cliente.get(
-        f"/api/v1/public/invitations/{token}", headers={"Host": organizacion.host}
-    )
+    consulta = await cliente.get(f"/api/v1/public/invitations/{token}")
     assert consulta.status_code == 200
     assert consulta.json()["account_has_password"] is True
 
     aceptar = await cliente.post(
         f"/api/v1/public/invitations/{token}/accept",
         json={"first_name": "Con", "last_name": "Clave", "password": CONTRASENA_ACEPTAR},
-        headers={"Host": organizacion.host},
     )
     assert aceptar.status_code == 409, aceptar.text
 
 
-async def test_el_token_de_invitacion_vale_igual_con_cualquier_host(
-    cliente: AsyncClient,
-    organizacion: OrganizacionDePrueba,
-    otra_organizacion: OrganizacionDePrueba,
-) -> None:
-    """Sin dominio por organización (fase 2 del plan de organización sin
-    dominio), la invitación resuelve su organización desde el propio `id`
-    que lleva el token (`app_resolve_invitation_organization`), no por host:
-    el enlace del correo vale igual sea cual sea el host desde el que se
-    visite."""
-    _invitation_id, token = await _crear_invitacion(organizacion, email="aislada2@example.com")
-
-    respuesta_host_ajeno = await cliente.get(
-        f"/api/v1/public/invitations/{token}", headers={"Host": otra_organizacion.host}
-    )
-    assert respuesta_host_ajeno.status_code == 200, respuesta_host_ajeno.text
-
-    respuesta_host_propio = await cliente.get(
-        f"/api/v1/public/invitations/{token}", headers={"Host": organizacion.host}
-    )
-    assert respuesta_host_propio.status_code == 200

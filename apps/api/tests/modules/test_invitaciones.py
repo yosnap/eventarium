@@ -153,7 +153,6 @@ async def test_un_token_de_invitacion_no_sirve_para_recuperar_contrasena(
     respuesta = await cliente.post(
         RESET,
         json={"token": token, "new_password": "Otra-Contraseña-Larga-1!"},
-        headers={"Host": organizacion.host},
     )
     assert respuesta.status_code == 422
 

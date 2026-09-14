@@ -2,8 +2,8 @@
 
 Fase 4 del PRD, fase 1 de trabajo. Mismo patrón que
 `test_registrations_public.py`/`test_registrations_organizer.py`: cliente
-HTTP real, `Host` para resolver la organización, y las tareas de email
-mockeadas (no se prueba la entrega).
+HTTP real, sesión autenticada para resolver la organización, y las tareas de
+email mockeadas (no se prueba la entrega).
 """
 
 from __future__ import annotations
@@ -83,7 +83,7 @@ async def _crear_y_publicar_evento(
     return publicacion.json()
 
 
-async def _inscribir(cliente: AsyncClient, host: str, slug: str, **overrides: object):
+async def _inscribir(cliente: AsyncClient, slug: str, **overrides: object):
     payload = {
         "email": "asistente@example.com",
         "full_name": "Asistente de Prueba",
@@ -94,9 +94,7 @@ async def _inscribir(cliente: AsyncClient, host: str, slug: str, **overrides: ob
         "turnstile_token": "token-de-prueba",
     }
     payload.update(overrides)
-    return await cliente.post(
-        f"/api/v1/public/events/{slug}/registrations", headers={"Host": host}, json=payload
-    )
+    return await cliente.post(f"/api/v1/public/events/{slug}/registrations", json=payload)
 
 
 async def _crear_inscripcion(
@@ -159,13 +157,11 @@ async def test_verificar_una_inscripcion_confirmada_emite_una_entrada(
 ) -> None:
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "verificar-emite", capacity=5)
-    await _inscribir(cliente, organizacion.host, "verificar-emite")
+    await _inscribir(cliente, "verificar-emite")
     registration_id = await _registration_id(evento["id"], "asistente@example.com")
     token = await generate_token(PROPOSITO_VERIFICACION_INSCRIPCION, registration_id)
 
-    respuesta = await cliente.post(
-        VERIFY, headers={"Host": organizacion.host}, json={"token": token}
-    )
+    respuesta = await cliente.post(VERIFY, json={"token": token})
 
     assert respuesta.status_code == 200, respuesta.text
     ticket = await _ticket_de(registration_id)
@@ -208,9 +204,7 @@ async def test_promover_desde_lista_de_espera_emite_una_entrada(
     )
     token = await generate_token(PROPOSITO_PROMOCION_LISTA_ESPERA, en_espera_id)
 
-    respuesta = await cliente.post(
-        CONFIRM_PROMOTION, headers={"Host": organizacion.host}, json={"token": token}
-    )
+    respuesta = await cliente.post(CONFIRM_PROMOTION, json={"token": token})
 
     assert respuesta.status_code == 200, respuesta.text
     assert await _ticket_de(en_espera_id) is not None
@@ -221,10 +215,10 @@ async def test_cancelar_una_confirmada_con_entrada_la_revoca(
 ) -> None:
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "cancelar-revoca", capacity=5)
-    await _inscribir(cliente, organizacion.host, "cancelar-revoca")
+    await _inscribir(cliente, "cancelar-revoca")
     registration_id = await _registration_id(evento["id"], "asistente@example.com")
     token = await generate_token(PROPOSITO_VERIFICACION_INSCRIPCION, registration_id)
-    await cliente.post(VERIFY, headers={"Host": organizacion.host}, json={"token": token})
+    await cliente.post(VERIFY, json={"token": token})
     assert (await _ticket_de(registration_id))["revoked_at"] is None
 
     respuesta = await cliente.post(

@@ -59,7 +59,6 @@ async def test_un_login_fallido_no_escribe_la_marca(
     respuesta = await cliente.post(
         "/api/v1/auth/login",
         json={"email": organizacion.owner_email, "password": "contraseña-incorrecta"},
-        headers={"Host": organizacion.host},
     )
     assert respuesta.status_code == 401
     assert await _marca(organizacion) is None

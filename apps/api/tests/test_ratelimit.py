@@ -17,13 +17,12 @@ async def test_el_login_se_bloquea_tras_superar_el_limite(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
     datos = {"email": organizacion.owner_email, "password": "incorrecta"}
-    cabeceras = {"Host": organizacion.host}
 
     for _ in range(LOGIN_POR_IP):
-        respuesta = await cliente.post(LOGIN, json=datos, headers=cabeceras)
+        respuesta = await cliente.post(LOGIN, json=datos)
         assert respuesta.status_code == 401
 
-    bloqueada = await cliente.post(LOGIN, json=datos, headers=cabeceras)
+    bloqueada = await cliente.post(LOGIN, json=datos)
     assert bloqueada.status_code == 429
     assert bloqueada.json()["retry_after"] > 0
 
@@ -39,6 +38,5 @@ async def test_sin_redis_el_login_devuelve_503(
         respuesta = await cliente.post(
             LOGIN,
             json={"email": organizacion.owner_email, "password": organizacion.owner_password},
-            headers={"Host": organizacion.host},
         )
     assert respuesta.status_code == 503

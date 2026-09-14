@@ -87,7 +87,6 @@ async def test_presupuesto_sin_codigo_devuelve_el_precio_de_lista(
 
     respuesta = await cliente.post(
         _url_quote(evento["slug"]),
-        headers={"Host": organizacion.host},
         json={"ticket_type_id": tipo["id"], "turnstile_token": "token-de-prueba"},
     )
     assert respuesta.status_code == 200, respuesta.text
@@ -108,7 +107,6 @@ async def test_presupuesto_con_codigo_valido_aplica_el_descuento(
 
     respuesta = await cliente.post(
         _url_quote(evento["slug"]),
-        headers={"Host": organizacion.host},
         json={
             "ticket_type_id": tipo["id"],
             "code": "descuento",
@@ -136,7 +134,6 @@ async def test_tipo_fuera_de_ventana_de_venta_rechaza_el_presupuesto(
 
     respuesta = await cliente.post(
         _url_quote(evento["slug"]),
-        headers={"Host": organizacion.host},
         json={"ticket_type_id": tipo["id"], "turnstile_token": "token-de-prueba"},
     )
     assert respuesta.status_code == 422
@@ -171,7 +168,6 @@ async def test_codigo_agotado_caducado_inexistente_y_de_otro_tipo_dan_el_mismo_m
     async def _presupuesto(code: str, tipo_id: str) -> dict:
         respuesta = await cliente.post(
             _url_quote(evento["slug"]),
-            headers={"Host": organizacion.host},
             json={"ticket_type_id": tipo_id, "code": code, "turnstile_token": "token-de-prueba"},
         )
         assert respuesta.status_code == 422
@@ -243,11 +239,11 @@ async def test_el_presupuesto_tiene_limite_de_peticiones_por_ip(
     payload = {"ticket_type_id": tipo["id"], "turnstile_token": "token-de-prueba"}
     for _ in range(CHECKOUT_QUOTE_POR_IP):
         respuesta = await cliente.post(
-            _url_quote(evento["slug"]), headers={"Host": organizacion.host}, json=payload
+            _url_quote(evento["slug"]), json=payload
         )
         assert respuesta.status_code == 200
 
     bloqueada = await cliente.post(
-        _url_quote(evento["slug"]), headers={"Host": organizacion.host}, json=payload
+        _url_quote(evento["slug"]), json=payload
     )
     assert bloqueada.status_code == 429

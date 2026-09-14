@@ -79,35 +79,26 @@ async def test_host_desconocido_sigue_devolviendo_404(cliente: AsyncClient) -> N
     assert respuesta.status_code == 404, respuesta.text
 
 
-async def test_legal_de_plataforma_en_host_de_plataforma(cliente: AsyncClient) -> None:
-    """Las legales de plataforma se sirven sin organización resuelta."""
-    await _registrar_host_de_plataforma(HOST_PLATAFORMA)
-    try:
-        respuesta = await cliente.get(
-            "/api/v1/public/legal/aviso-legal", headers={"Host": HOST_PLATAFORMA}
-        )
-        assert respuesta.status_code == 200, respuesta.text
-        contenido = respuesta.json()["content"]
-        assert "Eventarium" in contenido
-    finally:
-        await _limpiar_hosts_de_plataforma()
+async def test_legal_de_plataforma_se_sirve_sin_organizacion_resuelta(
+    cliente: AsyncClient,
+) -> None:
+    """Las legales de plataforma no dependen de ningún host: no hace falta
+    registrar ninguno de plataforma ni de organización para que respondan."""
+    respuesta = await cliente.get("/api/v1/public/legal/aviso-legal")
+    assert respuesta.status_code == 200, respuesta.text
+    contenido = respuesta.json()["content"]
+    assert "Eventarium" in contenido
 
 
-async def test_condiciones_de_inscripcion_tambien_sirven_en_host_de_plataforma(
+async def test_condiciones_de_inscripcion_tambien_sirven_sin_organizacion_resuelta(
     cliente: AsyncClient,
 ) -> None:
     """Eventarium es una SaaS centralizada: las condiciones son siempre las de
-    plataforma, también en su propio host (decisión del usuario, 2026-09-14;
-    antes eran un contrato de cada organización y 404 aquí)."""
-    await _registrar_host_de_plataforma(HOST_PLATAFORMA)
-    try:
-        respuesta = await cliente.get(
-            "/api/v1/public/legal/condiciones-de-inscripcion", headers={"Host": HOST_PLATAFORMA}
-        )
-        assert respuesta.status_code == 200, respuesta.text
-        assert "Eventarium" in respuesta.json()["content"]
-    finally:
-        await _limpiar_hosts_de_plataforma()
+    plataforma, sin depender de ningún host (decisión del usuario,
+    2026-09-14; antes eran un contrato de cada organización y 404 aquí)."""
+    respuesta = await cliente.get("/api/v1/public/legal/condiciones-de-inscripcion")
+    assert respuesta.status_code == 200, respuesta.text
+    assert "Eventarium" in respuesta.json()["content"]
 
 
 async def test_una_sesion_de_organizacion_no_puede_escribir_las_tablas_de_plataforma() -> None:

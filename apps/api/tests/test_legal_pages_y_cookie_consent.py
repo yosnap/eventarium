@@ -45,7 +45,7 @@ async def test_las_cuatro_paginas_resuelven_con_la_plantilla_por_defecto(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
     for ruta in ("aviso-legal", "privacidad", "cookies", "condiciones-de-inscripcion"):
-        respuesta = await cliente.get(f"{PUBLIC_LEGAL}/{ruta}", headers={"Host": organizacion.host})
+        respuesta = await cliente.get(f"{PUBLIC_LEGAL}/{ruta}")
         assert respuesta.status_code == 200, respuesta.text
         assert respuesta.json()["content"]
 
@@ -55,7 +55,8 @@ async def test_las_cuatro_paginas_son_iguales_en_dos_organizaciones_distintas(
     organizacion: OrganizacionDePrueba,
     otra_organizacion: OrganizacionDePrueba,
 ) -> None:
-    """No hay contenido legal por organización: da igual desde qué host se pida."""
+    """No hay contenido legal por organización: da igual desde qué host se
+    pida (aunque sea el de una organización real y distinta cada vez)."""
     for ruta in ("aviso-legal", "privacidad", "cookies", "condiciones-de-inscripcion"):
         de_una = await cliente.get(f"{PUBLIC_LEGAL}/{ruta}", headers={"Host": organizacion.host})
         de_otra = await cliente.get(
@@ -67,7 +68,7 @@ async def test_las_cuatro_paginas_son_iguales_en_dos_organizaciones_distintas(
 async def test_la_pagina_de_cookies_declara_turnstile_como_necesario(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    respuesta = await cliente.get(f"{PUBLIC_LEGAL}/cookies", headers={"Host": organizacion.host})
+    respuesta = await cliente.get(f"{PUBLIC_LEGAL}/cookies")
     assert respuesta.status_code == 200, respuesta.text
     contenido = respuesta.json()["content"].lower()
     assert "turnstile" in contenido
@@ -77,7 +78,9 @@ async def test_host_desconocido_tambien_sirve_las_paginas_legales(cliente: Async
     """Sin contenido por organización que proteger, no hay nada que un host
     desconocido pudiera filtrar: las cuatro páginas responden igual que en
     cualquier otro host, plataforma incluida."""
-    respuesta = await cliente.get(f"{PUBLIC_LEGAL}/aviso-legal", headers={"Host": "no-existe.test"})
+    respuesta = await cliente.get(
+        f"{PUBLIC_LEGAL}/aviso-legal", headers={"Host": "no-existe.test"}
+    )
     assert respuesta.status_code == 200, respuesta.text
     assert respuesta.json()["content"]
 
@@ -96,7 +99,7 @@ async def test_editar_y_restaurar_una_pagina_legal(
     assert editar.json()["privacy_policy"]["is_custom"] is True
     assert editar.json()["privacy_policy"]["content"] == "Texto editado a mano por la plataforma."
 
-    publica = await cliente.get(f"{PUBLIC_LEGAL}/privacidad", headers={"Host": "localhost"})
+    publica = await cliente.get(f"{PUBLIC_LEGAL}/privacidad")
     assert publica.json()["content"] == "Texto editado a mano por la plataforma."
 
     restaurar = await cliente.patch(
@@ -105,7 +108,7 @@ async def test_editar_y_restaurar_una_pagina_legal(
     assert restaurar.status_code == 200, restaurar.text
     assert restaurar.json()["privacy_policy"]["is_custom"] is False
 
-    tras_restaurar = await cliente.get(f"{PUBLIC_LEGAL}/privacidad", headers={"Host": "localhost"})
+    tras_restaurar = await cliente.get(f"{PUBLIC_LEGAL}/privacidad")
     assert tras_restaurar.json()["content"] != "Texto editado a mano por la plataforma."
 
 
@@ -124,7 +127,7 @@ async def test_un_script_guardado_no_se_ejecuta_al_servirse(
     )
     assert respuesta.status_code == 200, respuesta.text
 
-    publica = await cliente.get(f"{PUBLIC_LEGAL}/aviso-legal", headers={"Host": "localhost"})
+    publica = await cliente.get(f"{PUBLIC_LEGAL}/aviso-legal")
     assert publica.status_code == 200
     # El backend lo devuelve tal cual dentro de un string JSON: nunca como HTML
     # ejecutable de la propia respuesta (`content-type: application/json`).

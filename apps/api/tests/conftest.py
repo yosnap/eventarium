@@ -178,11 +178,19 @@ async def app_db() -> AsyncIterator[AsyncSession]:
 
 @pytest.fixture
 async def cliente() -> AsyncIterator[AsyncClient]:
-    """Cliente HTTP contra la aplicación, sin ejecutar el lifespan."""
+    """Cliente HTTP contra la aplicación, sin ejecutar el lifespan.
+
+    `base_url` usa un host que no resuelve a ninguna organización a propósito
+    (el fixture `organizacion` vive en `localhost` — ver `crear_organizacion`):
+    así, un test que ya no fija `Host` de verdad deja de enviarlo, en vez de
+    heredar sin darse cuenta el host de `organizacion` a través de la URL base
+    y hacer pasar por casualidad una migración host → sesión que en realidad
+    no ocurrió (fase 5 del plan «organización sin dominio», hallazgo del
+    code-review de esa fase)."""
     aplicacion = create_app()
     transporte = ASGITransport(app=aplicacion)
     async with AsyncClient(
-        transport=transporte, base_url="http://localhost", follow_redirects=True
+        transport=transporte, base_url="http://sin-organizacion.test", follow_redirects=True
     ) as http:
         yield http
 
@@ -270,15 +278,21 @@ async def otra_organizacion() -> OrganizacionDePrueba:
 async def iniciar_sesion(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> tuple[str, dict[str, str]]:
-    """Hace login y devuelve el access token y las cabeceras listas para usar."""
+    """Hace login y devuelve el access token y las cabeceras listas para usar.
+
+    Sin `Host`: la organización activa la decide el login (identidad global +
+    membresías), no ningún dominio — ver fase 1 del plan «organización sin
+    dominio». Los pocos endpoints públicos que aún resuelven por host
+    (deliberadamente diferidos a la fase 6) fijan su propia cabecera `Host`
+    directamente, sin pasar por este fixture.
+    """
     respuesta = await cliente.post(
         "/api/v1/auth/login",
         json={"email": organizacion.owner_email, "password": organizacion.owner_password},
-        headers={"Host": organizacion.host},
     )
     assert respuesta.status_code == 200, respuesta.text
     token = respuesta.json()["access_token"]
-    return token, {"Host": organizacion.host, "Authorization": f"Bearer {token}"}
+    return token, {"Authorization": f"Bearer {token}"}
 
 
 async def crear_rol(
@@ -380,15 +394,20 @@ async def crear_usuario_con_rol(
 async def iniciar_sesion_con(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba, email: str, password: str
 ) -> tuple[str, dict[str, str]]:
-    """Login con unas credenciales concretas, p. ej. las de un `MiembroDePrueba`."""
+    """Login con unas credenciales concretas, p. ej. las de un `MiembroDePrueba`.
+
+    Sin `Host`: ver el comentario de `iniciar_sesion`. El parámetro
+    `organizacion` ya no se usa para el login en sí, pero se mantiene en la
+    firma porque el resto de la suite lo pasa por simetría con las demás
+    funciones de este módulo.
+    """
     respuesta = await cliente.post(
         "/api/v1/auth/login",
         json={"email": email, "password": password},
-        headers={"Host": organizacion.host},
     )
     assert respuesta.status_code == 200, respuesta.text
     token = respuesta.json()["access_token"]
-    return token, {"Host": organizacion.host, "Authorization": f"Bearer {token}"}
+    return token, {"Authorization": f"Bearer {token}"}
 
 
 async def iniciar_sesion_como(
@@ -399,11 +418,10 @@ async def iniciar_sesion_como(
     respuesta = await cliente.post(
         "/api/v1/auth/login",
         json={"email": correo, "password": contraseña},
-        headers={"Host": organizacion.host},
     )
     assert respuesta.status_code == 200, respuesta.text
     token = respuesta.json()["access_token"]
-    return token, {"Host": organizacion.host, "Authorization": f"Bearer {token}"}
+    return token, {"Authorization": f"Bearer {token}"}
 
 
 __all__ = [

@@ -242,7 +242,5 @@ class TestMetricasDelEvento:
         _, cabeceras = await iniciar_sesion(cliente, organizacion)
         evento = await _crear_evento(cliente, cabeceras, "metricas-sin-sesion")
 
-        respuesta = await cliente.get(
-            f"{EVENTS}/{evento['id']}/metrics", headers={"Host": organizacion.host}
-        )
+        respuesta = await cliente.get(f"{EVENTS}/{evento['id']}/metrics")
         assert respuesta.status_code == 401

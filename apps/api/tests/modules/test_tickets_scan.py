@@ -2,7 +2,8 @@
 
 Fase 4 del PRD, fase 2 de trabajo. Mismo patrón que
 `test_tickets_emision.py`/`test_registrations_organizer.py`: cliente HTTP
-real, `Host` para resolver la organización, tareas de email mockeadas.
+real, sesión autenticada para resolver la organización, tareas de email
+mockeadas.
 """
 
 from __future__ import annotations
@@ -72,9 +73,7 @@ async def _crear_y_publicar_evento(
     return publicacion.json()
 
 
-async def _inscribir_y_confirmar(
-    cliente: AsyncClient, organizacion: OrganizacionDePrueba, evento: dict, email: str
-) -> str:
+async def _inscribir_y_confirmar(cliente: AsyncClient, evento: dict, email: str) -> str:
     """Da de alta y verifica una inscripción (aforo libre → `confirmed`),
     devolviendo su `registration_id`. `emitir_entrada` (fase 1) ya deja el
     ticket creado al confirmar."""
@@ -89,7 +88,6 @@ async def _inscribir_y_confirmar(
     }
     respuesta = await cliente.post(
         f"/api/v1/public/events/{evento['slug']}/registrations",
-        headers={"Host": organizacion.host},
         json=payload,
     )
     assert respuesta.status_code == 202, respuesta.text
@@ -100,9 +98,7 @@ async def _inscribir_y_confirmar(
             {"e": evento["id"], "m": email},
         )
     token = await generate_token(PROPOSITO_VERIFICACION_INSCRIPCION, str(registration_id))
-    verificacion = await cliente.post(
-        VERIFY, headers={"Host": organizacion.host}, json={"token": token}
-    )
+    verificacion = await cliente.post(VERIFY, json={"token": token})
     assert verificacion.status_code == 200, verificacion.text
     assert verificacion.json()["status"] == "confirmed"
     return str(registration_id)
@@ -165,7 +161,7 @@ async def test_escanear_un_qr_valido_marca_el_uso(
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "scan-valido", capacity=5)
     registration_id = await _inscribir_y_confirmar(
-        cliente, organizacion, evento, "asistente@example.com"
+        cliente, evento, "asistente@example.com"
     )
     ticket, token = await _ticket_qr(registration_id)
 
@@ -195,7 +191,7 @@ async def test_escanear_el_mismo_qr_dos_veces_es_duplicate(
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "scan-duplicado", capacity=5)
     registration_id = await _inscribir_y_confirmar(
-        cliente, organizacion, evento, "asistente@example.com"
+        cliente, evento, "asistente@example.com"
     )
     ticket, token = await _ticket_qr(registration_id)
 
@@ -231,7 +227,7 @@ async def test_escanear_una_entrada_revocada_es_revoked(
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "scan-revocado", capacity=5)
     registration_id = await _inscribir_y_confirmar(
-        cliente, organizacion, evento, "asistente@example.com"
+        cliente, evento, "asistente@example.com"
     )
     _, token = await _ticket_qr(registration_id)
 
@@ -260,7 +256,7 @@ async def test_escanear_con_firma_invalida_es_invalid_signature(
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "scan-firma-invalida", capacity=5)
     registration_id = await _inscribir_y_confirmar(
-        cliente, organizacion, evento, "asistente@example.com"
+        cliente, evento, "asistente@example.com"
     )
     ticket, _ = await _ticket_qr(registration_id)
     token_falso = _token_manual(
@@ -290,7 +286,7 @@ async def test_escanear_un_token_caducado_es_expired(
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "scan-caducado", capacity=5)
     registration_id = await _inscribir_y_confirmar(
-        cliente, organizacion, evento, "asistente@example.com"
+        cliente, evento, "asistente@example.com"
     )
     ticket, _ = await _ticket_qr(registration_id)
     settings = get_settings()
@@ -323,7 +319,7 @@ async def test_dos_escaneos_simultaneos_del_mismo_qr_solo_uno_es_valido(
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "scan-concurrencia", capacity=5)
     registration_id = await _inscribir_y_confirmar(
-        cliente, organizacion, evento, "asistente@example.com"
+        cliente, evento, "asistente@example.com"
     )
     _, token = await _ticket_qr(registration_id)
 
@@ -348,7 +344,7 @@ async def test_reenviar_el_mismo_client_scan_id_no_cuenta_como_segundo_intento(
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "scan-reintento", capacity=5)
     registration_id = await _inscribir_y_confirmar(
-        cliente, organizacion, evento, "asistente@example.com"
+        cliente, evento, "asistente@example.com"
     )
     _, token = await _ticket_qr(registration_id)
     client_scan_id = str(uuid.uuid4())
@@ -376,7 +372,7 @@ async def test_scan_batch_respeta_el_orden_de_client_scanned_at(
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "scan-lote", capacity=5)
     registration_id = await _inscribir_y_confirmar(
-        cliente, organizacion, evento, "asistente@example.com"
+        cliente, evento, "asistente@example.com"
     )
     _, token = await _ticket_qr(registration_id)
 
@@ -413,7 +409,8 @@ async def test_search_solo_devuelve_confirmadas_con_entrada_vigente(
 ) -> None:
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "buscar", capacity=5)
-    await _inscribir_y_confirmar(cliente, organizacion, evento, "confirmada@example.com")
+    await _inscribir_y_confirmar(
+        cliente, evento, "confirmada@example.com")
 
     async with SessionMaintenance() as session:
         session.add(
@@ -442,7 +439,7 @@ async def test_check_in_manual_marca_el_uso_con_resultado_manual(
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "check-in-manual", capacity=5)
     registration_id = await _inscribir_y_confirmar(
-        cliente, organizacion, evento, "asistente@example.com"
+        cliente, evento, "asistente@example.com"
     )
     ticket, _ = await _ticket_qr(registration_id)
 
@@ -462,7 +459,7 @@ async def test_detalle_de_entrada_requiere_ticket_existente(
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "detalle", capacity=5)
     registration_id = await _inscribir_y_confirmar(
-        cliente, organizacion, evento, "asistente@example.com"
+        cliente, evento, "asistente@example.com"
     )
 
     respuesta = await cliente.get(

@@ -245,9 +245,7 @@ async def test_export_sin_sesion_devuelve_401(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
     event_id = await _crear_evento(organizacion)
-    respuesta = await cliente.get(
-        f"{BASE}/events/{event_id}/export.csv", headers={"Host": organizacion.host}
-    )
+    respuesta = await cliente.get(f"{BASE}/events/{event_id}/export.csv")
     assert respuesta.status_code == 401, respuesta.text
 
 

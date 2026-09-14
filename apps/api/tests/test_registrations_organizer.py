@@ -288,9 +288,7 @@ class TestCancelacionYListaDeEspera:
         )
         token = await generate_token(PROPOSITO_PROMOCION_LISTA_ESPERA, en_espera_id)
 
-        respuesta = await cliente.post(
-            CONFIRM_PROMOTION, headers={"Host": organizacion.host}, json={"token": token}
-        )
+        respuesta = await cliente.post(CONFIRM_PROMOTION, json={"token": token})
 
         assert respuesta.status_code == 200, respuesta.text
         assert await _estado(en_espera_id) == "confirmed"
@@ -298,9 +296,7 @@ class TestCancelacionYListaDeEspera:
     async def test_confirmar_promocion_con_token_invalido_falla(
         self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
     ) -> None:
-        respuesta = await cliente.post(
-            CONFIRM_PROMOTION, headers={"Host": organizacion.host}, json={"token": "inventado"}
-        )
+        respuesta = await cliente.post(CONFIRM_PROMOTION, json={"token": "inventado"})
         assert respuesta.status_code == 422
 
     async def test_confirmar_promocion_caducada_falla_y_no_consume_dos_veces(
@@ -323,9 +319,7 @@ class TestCancelacionYListaDeEspera:
             await session.commit()
         token = await generate_token(PROPOSITO_PROMOCION_LISTA_ESPERA, en_espera_id)
 
-        respuesta = await cliente.post(
-            CONFIRM_PROMOTION, headers={"Host": organizacion.host}, json={"token": token}
-        )
+        respuesta = await cliente.post(CONFIRM_PROMOTION, json={"token": token})
 
         assert respuesta.status_code == 422
         assert await _estado(en_espera_id) == "waitlisted"

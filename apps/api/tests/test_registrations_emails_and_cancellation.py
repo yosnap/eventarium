@@ -2,9 +2,9 @@
 
 Fase 3 del PRD, fase 4 de trabajo. Mismo patrón que
 `test_registrations_public.py` y `test_registrations_organizer.py`: cliente
-HTTP real, `Host` para resolver la organización, y cada tarea de email
-mockeada con `AsyncMock` — no se prueba la entrega, solo que se encola con
-los argumentos correctos en cada transición de estado.
+HTTP real, sesión autenticada para resolver la organización, y cada tarea de
+email mockeada con `AsyncMock` — no se prueba la entrega, solo que se encola
+con los argumentos correctos en cada transición de estado.
 """
 
 from __future__ import annotations
@@ -97,10 +97,9 @@ def _payload_inscripcion(**overrides: object) -> dict:
     return payload
 
 
-async def _inscribir(cliente: AsyncClient, host: str, slug: str, **overrides: object):
+async def _inscribir(cliente: AsyncClient, slug: str, **overrides: object):
     return await cliente.post(
         f"/api/v1/public/events/{slug}/registrations",
-        headers={"Host": host},
         json=_payload_inscripcion(**overrides),
     )
 
@@ -141,13 +140,12 @@ class TestEmailsPorTransicion:
     ) -> None:
         _, cabeceras = await iniciar_sesion(cliente, organizacion)
         await _crear_y_publicar_evento(cliente, cabeceras, "verificar-confirma", capacity=5)
-        await _inscribir(cliente, organizacion.host, "verificar-confirma")
+        await _inscribir(cliente, "verificar-confirma")
 
         registration_id = await _registration_id("asistente@example.com")
         token = await generate_token("registration_email_verify", registration_id)
         respuesta = await cliente.post(
             "/api/v1/public/registrations/verify",
-            headers={"Host": organizacion.host},
             json={"token": token},
         )
 
@@ -160,19 +158,14 @@ class TestEmailsPorTransicion:
     ) -> None:
         _, cabeceras = await iniciar_sesion(cliente, organizacion)
         await _crear_y_publicar_evento(cliente, cabeceras, "verificar-espera", capacity=1)
-        await _inscribir(
-            cliente, organizacion.host, "verificar-espera", email="primero@example.com"
-        )
-        await _inscribir(
-            cliente, organizacion.host, "verificar-espera", email="segundo@example.com"
-        )
+        await _inscribir(cliente, "verificar-espera", email="primero@example.com")
+        await _inscribir(cliente, "verificar-espera", email="segundo@example.com")
 
         for email in ("primero@example.com", "segundo@example.com"):
             registration_id = await _registration_id(email)
             token = await generate_token("registration_email_verify", registration_id)
             await cliente.post(
                 "/api/v1/public/registrations/verify",
-                headers={"Host": organizacion.host},
                 json={"token": token},
             )
 
@@ -191,7 +184,7 @@ class TestEmailsPorTransicion:
             capacity=5,
         )
 
-        respuesta = await _inscribir(cliente, organizacion.host, "sin-verificacion-email")
+        respuesta = await _inscribir(cliente, "sin-verificacion-email")
 
         assert respuesta.status_code == 202, respuesta.text
         assert _tareas_de_email_mockeadas["confirmada"].await_count == 1
@@ -269,7 +262,7 @@ class TestAutocancelacionPublica:
         token = await generate_token(PROPOSITO_CANCELACION_INSCRIPCION, confirmada_id)
 
         respuesta = await cliente.post(
-            CANCEL, headers={"Host": organizacion.host}, json={"token": token}
+            CANCEL, json={"token": token}
         )
 
         assert respuesta.status_code == 200, respuesta.text
@@ -288,7 +281,7 @@ class TestAutocancelacionPublica:
         token = await generate_token(PROPOSITO_CANCELACION_INSCRIPCION, registration_id)
 
         respuesta = await cliente.post(
-            CANCEL, headers={"Host": organizacion.host}, json={"token": token}
+            CANCEL, json={"token": token}
         )
 
         assert respuesta.status_code == 200, respuesta.text
@@ -298,7 +291,7 @@ class TestAutocancelacionPublica:
         self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
     ) -> None:
         respuesta = await cliente.post(
-            CANCEL, headers={"Host": organizacion.host}, json={"token": "inventado"}
+            CANCEL, json={"token": "inventado"}
         )
         assert respuesta.status_code == 422
 
@@ -313,10 +306,10 @@ class TestAutocancelacionPublica:
         token = await generate_token(PROPOSITO_CANCELACION_INSCRIPCION, registration_id)
 
         primera = await cliente.post(
-            CANCEL, headers={"Host": organizacion.host}, json={"token": token}
+            CANCEL, json={"token": token}
         )
         segunda = await cliente.post(
-            CANCEL, headers={"Host": organizacion.host}, json={"token": token}
+            CANCEL, json={"token": token}
         )
 
         assert primera.status_code == 200, primera.text
@@ -339,7 +332,7 @@ class TestReenvioSegunEstadoActual:
         )
 
         respuesta = await _inscribir(
-            cliente, organizacion.host, "reenvio-confirmada", email="ya-confirmado@example.com"
+            cliente, "reenvio-confirmada", email="ya-confirmado@example.com"
         )
 
         assert respuesta.status_code == 202, respuesta.text
@@ -354,9 +347,7 @@ class TestReenvioSegunEstadoActual:
             organizacion, evento, email="ya-espera@example.com", status="waitlisted"
         )
 
-        respuesta = await _inscribir(
-            cliente, organizacion.host, "reenvio-espera", email="ya-espera@example.com"
-        )
+        respuesta = await _inscribir(cliente, "reenvio-espera", email="ya-espera@example.com")
 
         assert respuesta.status_code == 202, respuesta.text
         assert _tareas_de_email_mockeadas["lista_espera"].await_count == 1
@@ -371,7 +362,7 @@ class TestReenvioSegunEstadoActual:
         )
 
         respuesta = await _inscribir(
-            cliente, organizacion.host, "reenvio-rechazada", email="ya-rechazado@example.com"
+            cliente, "reenvio-rechazada", email="ya-rechazado@example.com"
         )
 
         assert respuesta.status_code == 202, respuesta.text
@@ -387,7 +378,7 @@ class TestReenvioSegunEstadoActual:
         )
 
         respuesta = await _inscribir(
-            cliente, organizacion.host, "reenvio-cancelada", email="ya-cancelado@example.com"
+            cliente, "reenvio-cancelada", email="ya-cancelado@example.com"
         )
 
         assert respuesta.status_code == 202, respuesta.text
@@ -402,9 +393,7 @@ class TestReenvioSegunEstadoActual:
             organizacion, evento, email="unico@example.com", status="confirmed"
         )
 
-        await _inscribir(
-            cliente, organizacion.host, "reenvio-sin-duplicar", email="unico@example.com"
-        )
+        await _inscribir(cliente, "reenvio-sin-duplicar", email="unico@example.com")
 
         async with SessionMaintenance() as session:
             total = await session.scalar(

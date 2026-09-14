@@ -53,7 +53,6 @@ async def test_el_owner_sembrado_puede_iniciar_sesion(cliente: AsyncClient) -> N
     respuesta = await cliente.post(
         "/api/v1/auth/login",
         json={"email": resultado.owner_email, "password": resultado.owner_password},
-        headers={"Host": DEMO_HOST},
     )
     assert respuesta.status_code == 200
     assert respuesta.json()["user"]["email"] == resultado.owner_email

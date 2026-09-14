@@ -93,9 +93,7 @@ async def test_descargar_justificante_sin_sesion_devuelve_401(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
     clave = build_object_key(organizacion.id, "accounting-receipts", "pdf")
-    respuesta = await cliente.get(
-        f"/api/v1/accounting/receipts/{clave}", headers={"Host": organizacion.host}
-    )
+    respuesta = await cliente.get(f"/api/v1/accounting/receipts/{clave}")
     assert respuesta.status_code == 401, respuesta.text
 
 

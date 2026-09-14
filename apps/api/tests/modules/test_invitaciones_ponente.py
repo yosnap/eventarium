@@ -100,7 +100,6 @@ async def test_aceptar_invitacion_de_ponente_deja_en_organizacion_y_en_roster(
     respuesta = await cliente.post(
         f"/api/v1/public/invitations/{token}/accept",
         json={"first_name": "Grace", "last_name": "Hopper", "password": CONTRASENA_ACEPTAR},
-        headers={"Host": organizacion.host},
     )
     assert respuesta.status_code == 200, respuesta.text
 

@@ -42,7 +42,7 @@ async def test_registro_crea_usuario_no_verificado_y_encola_correo(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba, _correo_encolado_sincrono: AsyncMock
 ) -> None:
     respuesta = await cliente.post(
-        REGISTER, json=DATOS_REGISTRO, headers={"Host": organizacion.host}
+        REGISTER, json=DATOS_REGISTRO
     )
     assert respuesta.status_code == 202
 
@@ -54,8 +54,8 @@ async def test_registro_crea_usuario_no_verificado_y_encola_correo(
 async def test_registro_dos_veces_responde_igual_y_no_duplica(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba, _correo_encolado_sincrono: AsyncMock
 ) -> None:
-    primera = await cliente.post(REGISTER, json=DATOS_REGISTRO, headers={"Host": organizacion.host})
-    segunda = await cliente.post(REGISTER, json=DATOS_REGISTRO, headers={"Host": organizacion.host})
+    primera = await cliente.post(REGISTER, json=DATOS_REGISTRO)
+    segunda = await cliente.post(REGISTER, json=DATOS_REGISTRO)
 
     assert primera.status_code == segunda.status_code == 202
     assert primera.json() == segunda.json()
@@ -65,7 +65,7 @@ async def test_registro_dos_veces_responde_igual_y_no_duplica(
 async def test_verificar_token_marca_el_correo_y_el_segundo_intento_falla(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba, app_db
 ) -> None:
-    await cliente.post(REGISTER, json=DATOS_REGISTRO, headers={"Host": organizacion.host})
+    await cliente.post(REGISTER, json=DATOS_REGISTRO)
     fila = (
         await app_db.execute(
             text("SELECT id FROM app_find_user_by_email(:email)"),
@@ -76,12 +76,12 @@ async def test_verificar_token_marca_el_correo_y_el_segundo_intento_falla(
     token = await generate_token(PROPOSITO_VERIFICACION_CORREO, str(fila[0]))
 
     primera = await cliente.get(
-        VERIFY, params={"token": token}, headers={"Host": organizacion.host}
+        VERIFY, params={"token": token}
     )
     assert primera.status_code == 200
 
     segunda = await cliente.get(
-        VERIFY, params={"token": token}, headers={"Host": organizacion.host}
+        VERIFY, params={"token": token}
     )
     assert segunda.status_code == 422
 
@@ -90,7 +90,7 @@ async def test_token_no_existente_devuelve_422(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
     respuesta = await cliente.get(
-        VERIFY, params={"token": "no-existe"}, headers={"Host": organizacion.host}
+        VERIFY, params={"token": "no-existe"}
     )
     assert respuesta.status_code == 422
 
@@ -99,17 +99,16 @@ async def test_reenvio_responde_igual_exista_o_no_la_cuenta(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba, _correo_encolado_sincrono: AsyncMock
 ) -> None:
     datos = {"email": "nadie@example.com", "turnstile_token": "token-de-prueba"}
-    respuesta = await cliente.post(RESEND, json=datos, headers={"Host": organizacion.host})
+    respuesta = await cliente.post(RESEND, json=datos)
     assert respuesta.status_code == 202
     _correo_encolado_sincrono.assert_not_awaited()
 
-    await cliente.post(REGISTER, json=DATOS_REGISTRO, headers={"Host": organizacion.host})
+    await cliente.post(REGISTER, json=DATOS_REGISTRO)
     _correo_encolado_sincrono.reset_mock()
 
     reenvio = await cliente.post(
         RESEND,
         json={"email": DATOS_REGISTRO["email"], "turnstile_token": "token-de-prueba"},
-        headers={"Host": organizacion.host},
     )
     assert reenvio.status_code == 202
     _correo_encolado_sincrono.assert_awaited_once()
@@ -121,7 +120,7 @@ async def test_reenvio_de_cuenta_ya_verificada_no_encola_correo(
     app_db,
     _correo_encolado_sincrono: AsyncMock,
 ) -> None:
-    await cliente.post(REGISTER, json=DATOS_REGISTRO, headers={"Host": organizacion.host})
+    await cliente.post(REGISTER, json=DATOS_REGISTRO)
     fila = (
         await app_db.execute(
             text("SELECT id FROM app_find_user_by_email(:email)"),
@@ -129,13 +128,12 @@ async def test_reenvio_de_cuenta_ya_verificada_no_encola_correo(
         )
     ).first()
     token = await generate_token(PROPOSITO_VERIFICACION_CORREO, str(fila[0]))
-    await cliente.get(VERIFY, params={"token": token}, headers={"Host": organizacion.host})
+    await cliente.get(VERIFY, params={"token": token})
     _correo_encolado_sincrono.reset_mock()
 
     reenvio = await cliente.post(
         RESEND,
         json={"email": DATOS_REGISTRO["email"], "turnstile_token": "token-de-prueba"},
-        headers={"Host": organizacion.host},
     )
     assert reenvio.status_code == 202
     _correo_encolado_sincrono.assert_not_awaited()
@@ -149,7 +147,7 @@ async def test_registro_sin_redis_devuelve_503(
         side_effect=ServiceUnavailableError("Redis caído"),
     ):
         respuesta = await cliente.post(
-            REGISTER, json=DATOS_REGISTRO, headers={"Host": organizacion.host}
+            REGISTER, json=DATOS_REGISTRO
         )
     assert respuesta.status_code == 503
 
@@ -159,7 +157,7 @@ async def test_contrasena_filtrada_rechaza_el_registro(
 ) -> None:
     with patch("app.modules.auth.service._password_filtrada", return_value=True):
         respuesta = await cliente.post(
-            REGISTER, json=DATOS_REGISTRO, headers={"Host": organizacion.host}
+            REGISTER, json=DATOS_REGISTRO
         )
     assert respuesta.status_code == 422
 
@@ -168,7 +166,7 @@ async def test_contrasena_sin_complejidad_rechaza_el_registro(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
     datos = {**DATOS_REGISTRO, "password": "sin-mayuscula-ni-simbolo-1"}
-    respuesta = await cliente.post(REGISTER, json=datos, headers={"Host": organizacion.host})
+    respuesta = await cliente.post(REGISTER, json=datos)
     assert respuesta.status_code == 422
 
 
@@ -181,7 +179,7 @@ async def test_turnstile_invalido_rechaza_el_registro(
     ):
         settings_falso.return_value.turnstile_enabled = True
         respuesta = await cliente.post(
-            REGISTER, json=DATOS_REGISTRO, headers={"Host": organizacion.host}
+            REGISTER, json=DATOS_REGISTRO
         )
     assert respuesta.status_code == 422
 
@@ -198,6 +196,6 @@ async def test_turnstile_caido_devuelve_503(
     ):
         settings_falso.return_value.turnstile_enabled = True
         respuesta = await cliente.post(
-            REGISTER, json=DATOS_REGISTRO, headers={"Host": organizacion.host}
+            REGISTER, json=DATOS_REGISTRO
         )
     assert respuesta.status_code == 503

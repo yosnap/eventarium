@@ -27,7 +27,7 @@ async def _hacer_superadmin(email: str) -> None:
 async def test_sin_token_devuelve_401(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    respuesta = await cliente.get(ADMIN, headers={"Host": organizacion.host})
+    respuesta = await cliente.get(ADMIN)
     assert respuesta.status_code == 401
 
 

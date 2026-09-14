@@ -23,7 +23,7 @@ CONTRASENA = "OrgFuerte1!"
 
 
 async def _registrar_y_verificar(
-    cliente: AsyncClient, host: str, app_db: AsyncSession, email: str
+    cliente: AsyncClient, app_db: AsyncSession, email: str
 ) -> str:
     """Registra, verifica y devuelve el access token puente (sin organización)."""
     with (
@@ -33,7 +33,6 @@ async def _registrar_y_verificar(
         respuesta = await cliente.post(
             REGISTER,
             json={"email": email, "password": CONTRASENA, "turnstile_token": ""},
-            headers={"Host": host},
         )
         assert respuesta.status_code == 202, respuesta.text
 
@@ -45,7 +44,7 @@ async def _registrar_y_verificar(
     assert fila is not None
     token = await generate_token(PROPOSITO_VERIFICACION_CORREO, str(fila[0]))
 
-    verificacion = await cliente.get(VERIFY, params={"token": token}, headers={"Host": host})
+    verificacion = await cliente.get(VERIFY, params={"token": token})
     assert verificacion.status_code == 200, verificacion.text
     return str(verificacion.json()["access_token"])
 
@@ -55,17 +54,15 @@ async def test_flujo_completo_deja_a_la_persona_como_owner(
 ) -> None:
     """De cuenta verificada a organización operativa: crea, y después inicia sesión."""
     email = "nueva-organizadora@example.com"
-    bridge = await _registrar_y_verificar(cliente, organizacion.host, app_db, email)
+    bridge = await _registrar_y_verificar(cliente, app_db, email)
 
-    disponible = await cliente.get(
-        CHECK_SLUG, params={"slug": "org-completa"}, headers={"Host": organizacion.host}
-    )
+    disponible = await cliente.get(CHECK_SLUG, params={"slug": "org-completa"})
     assert disponible.status_code == 200
     assert disponible.json()["available"] is True
 
     creacion = await cliente.post(
         CREAR,
-        headers={"Host": organizacion.host, "Authorization": f"Bearer {bridge}"},
+        headers={"Authorization": f"Bearer {bridge}"},
         json={
             "name": "Org Completa",
             "slug": "org-completa",
@@ -101,7 +98,7 @@ async def test_un_slug_repetido_devuelve_409(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba, app_db: AsyncSession
 ) -> None:
     email = "duplicado@example.com"
-    bridge = await _registrar_y_verificar(cliente, organizacion.host, app_db, email)
+    bridge = await _registrar_y_verificar(cliente, app_db, email)
 
     datos = {
         "name": "Duplicado",
@@ -111,7 +108,7 @@ async def test_un_slug_repetido_devuelve_409(
         "turnstile_token": "",
     }
     respuesta = await cliente.post(
-        CREAR, headers={"Host": organizacion.host, "Authorization": f"Bearer {bridge}"}, json=datos
+        CREAR, headers={"Authorization": f"Bearer {bridge}"}, json=datos
     )
     assert respuesta.status_code == 409
 
@@ -120,16 +117,14 @@ async def test_un_slug_reservado_es_rechazado_en_creacion_y_en_check_slug(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba, app_db: AsyncSession
 ) -> None:
     email = "reservado@example.com"
-    bridge = await _registrar_y_verificar(cliente, organizacion.host, app_db, email)
+    bridge = await _registrar_y_verificar(cliente, app_db, email)
 
-    comprobacion = await cliente.get(
-        CHECK_SLUG, params={"slug": "admin"}, headers={"Host": organizacion.host}
-    )
+    comprobacion = await cliente.get(CHECK_SLUG, params={"slug": "admin"})
     assert comprobacion.json()["available"] is False
 
     creacion = await cliente.post(
         CREAR,
-        headers={"Host": organizacion.host, "Authorization": f"Bearer {bridge}"},
+        headers={"Authorization": f"Bearer {bridge}"},
         json={
             "name": "Intento",
             "slug": "admin",
@@ -152,7 +147,6 @@ async def test_sin_correo_verificado_no_puede_crear_organizacion(
         await cliente.post(
             REGISTER,
             json={"email": email, "password": CONTRASENA, "turnstile_token": ""},
-            headers={"Host": organizacion.host},
         )
 
     # Token con `sub` de un usuario real pero sin pasar por verify-email: se simula
@@ -167,7 +161,7 @@ async def test_sin_correo_verificado_no_puede_crear_organizacion(
 
     respuesta = await cliente.post(
         CREAR,
-        headers={"Host": organizacion.host, "Authorization": f"Bearer {token_no_verificado}"},
+        headers={"Authorization": f"Bearer {token_no_verificado}"},
         json={
             "name": "Sin Verificar",
             "slug": "sin-verificar-org",
@@ -187,11 +181,11 @@ async def test_no_se_puede_crear_organizacion_a_nombre_de_otro(
 ) -> None:
     """El `user_id` sale siempre del token, nunca de un campo del cuerpo."""
     email = "legitima@example.com"
-    bridge = await _registrar_y_verificar(cliente, organizacion.host, app_db, email)
+    bridge = await _registrar_y_verificar(cliente, app_db, email)
 
     creacion = await cliente.post(
         CREAR,
-        headers={"Host": organizacion.host, "Authorization": f"Bearer {bridge}"},
+        headers={"Authorization": f"Bearer {bridge}"},
         json={
             "name": "Legítima",
             "slug": "org-legitima",
@@ -225,9 +219,7 @@ async def test_check_slug_sin_credenciales_funciona(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
     """check-slug es solo ayuda de UX: no exige token."""
-    respuesta = await cliente.get(
-        CHECK_SLUG, params={"slug": "cualquiera"}, headers={"Host": organizacion.host}
-    )
+    respuesta = await cliente.get(CHECK_SLUG, params={"slug": "cualquiera"})
     assert respuesta.status_code == 200
 
 
@@ -235,7 +227,7 @@ async def test_turnstile_invalido_rechaza_la_creacion(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba, app_db: AsyncSession
 ) -> None:
     email = "turnstile@example.com"
-    bridge = await _registrar_y_verificar(cliente, organizacion.host, app_db, email)
+    bridge = await _registrar_y_verificar(cliente, app_db, email)
 
     with (
         patch("app.core.turnstile.get_settings") as settings_falso,
@@ -244,7 +236,7 @@ async def test_turnstile_invalido_rechaza_la_creacion(
         settings_falso.return_value.turnstile_enabled = True
         respuesta = await cliente.post(
             CREAR,
-            headers={"Host": organizacion.host, "Authorization": f"Bearer {bridge}"},
+            headers={"Authorization": f"Bearer {bridge}"},
             json={
                 "name": "Con Turnstile",
                 "slug": "con-turnstile",

@@ -74,7 +74,7 @@ async def test_impersonar_devuelve_un_token_de_solo_lectura(
 ) -> None:
     _, _, token = await _preparar_impersonacion(cliente, organizacion)
 
-    cabeceras = {"Host": organizacion.host, "Authorization": f"Bearer {token}"}
+    cabeceras = {"Authorization": f"Bearer {token}"}
     # Leer un endpoint normal funciona: es lo que se quiere poder hacer.
     lectura = await cliente.get("/api/v1/events", headers=cabeceras)
     assert lectura.status_code == 200, lectura.text
@@ -98,7 +98,7 @@ async def test_el_token_de_impersonacion_no_usa_los_endpoints_de_administracion(
     salvo por la comprobación explícita de `impersonated_by`.
     """
     _, _, token = await _preparar_impersonacion(cliente, organizacion)
-    cabeceras = {"Host": organizacion.host, "Authorization": f"Bearer {token}"}
+    cabeceras = {"Authorization": f"Bearer {token}"}
 
     # Ningún endpoint de administración acepta el token de impersonación.
     for ruta in (f"{ADMIN}/organizations", "/api/v1/admin/platform-domains"):
@@ -111,7 +111,7 @@ async def test_salir_revoca_el_token_de_inmediato(
 ) -> None:
     """`stop` no es cosmético: el token deja de valer sin esperar a su `exp`."""
     _, _, token = await _preparar_impersonacion(cliente, organizacion)
-    cabeceras = {"Host": organizacion.host, "Authorization": f"Bearer {token}"}
+    cabeceras = {"Authorization": f"Bearer {token}"}
 
     salida = await cliente.post(f"{IMPERSONATE}/stop", headers=cabeceras)
     assert salida.status_code == 204, salida.text
@@ -190,7 +190,7 @@ async def test_la_entrada_y_la_salida_quedan_auditadas_y_emparejadas(
     from app.core.audit import AuditLog
 
     usuario_id, _, token = await _preparar_impersonacion(cliente, organizacion)
-    cabeceras = {"Host": organizacion.host, "Authorization": f"Bearer {token}"}
+    cabeceras = {"Authorization": f"Bearer {token}"}
     await cliente.post(f"{IMPERSONATE}/stop", headers=cabeceras)
 
     async with SessionMaintenance() as session:

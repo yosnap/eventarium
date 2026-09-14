@@ -104,7 +104,7 @@ class TestMetricasDePlataforma:
     async def test_sin_sesion_devuelve_401(
         self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
     ) -> None:
-        respuesta = await cliente.get(METRICS, headers={"Host": organizacion.host})
+        respuesta = await cliente.get(METRICS)
         assert respuesta.status_code == 401
 
     async def test_el_superadmin_ve_la_salud_y_las_cifras_de_la_instalacion(

@@ -142,9 +142,7 @@ class TestTemaEnLaFichaPublica:
             json={"status": "published", "visibility": "public"},
         )
 
-        ficha = await cliente.get(
-            f"/api/v1/public/events/{evento['slug']}", headers={"Host": organizacion.host}
-        )
+        ficha = await cliente.get(f"/api/v1/public/events/{evento['slug']}")
         assert ficha.status_code == 200, ficha.text
         tema = ficha.json()["theme"]
         # El catálogo tiene al menos la de por defecto: sin elección, se sirve esa.
@@ -161,17 +159,13 @@ class TestTemaEnLaFichaPublica:
 
         # Se busca una plantilla distinta de la que heredaría, para que el test
         # distinga de verdad «la eligió» de «heredó la misma».
-        heredada = await cliente.get(
-            f"/api/v1/public/events/{evento['slug']}", headers={"Host": organizacion.host}
-        )
+        heredada = await cliente.get(f"/api/v1/public/events/{evento['slug']}")
         await cliente.patch(
             f"{EVENTS}/{evento['id']}",
             headers=cabeceras,
             json={"status": "published", "visibility": "public"},
         )
-        heredada = await cliente.get(
-            f"/api/v1/public/events/{evento['slug']}", headers={"Host": organizacion.host}
-        )
+        heredada = await cliente.get(f"/api/v1/public/events/{evento['slug']}")
         id_heredado = heredada.json()["theme"]["id"]
 
         otra = next((p for p in plantillas if str(p.id) != id_heredado), None)
@@ -181,9 +175,7 @@ class TestTemaEnLaFichaPublica:
         await cliente.patch(
             f"{EVENTS}/{evento['id']}", headers=cabeceras, json={"theme_template_id": str(otra.id)}
         )
-        ficha = await cliente.get(
-            f"/api/v1/public/events/{evento['slug']}", headers={"Host": organizacion.host}
-        )
+        ficha = await cliente.get(f"/api/v1/public/events/{evento['slug']}")
 
         assert ficha.json()["theme"]["id"] == str(otra.id)
         assert ficha.json()["theme"]["id"] != id_heredado

@@ -2,7 +2,7 @@
 
 Fase 5 del PRD, fase 4 de trabajo. Mismo patrón que `tests/modules/test_admin.py`
 y `tests/test_registrations_emails_and_cancellation.py`: cliente HTTP real,
-`Host` para resolver la organización, tareas de email mockeadas.
+sesión autenticada para resolver la organización, tareas de email mockeadas.
 """
 
 from __future__ import annotations
@@ -91,7 +91,6 @@ async def _crear_y_publicar_evento(
 
 async def _inscribir_y_confirmar(
     cliente: AsyncClient,
-    organizacion: OrganizacionDePrueba,
     evento: dict,
     email: str,
     *,
@@ -108,7 +107,6 @@ async def _inscribir_y_confirmar(
     }
     respuesta = await cliente.post(
         f"/api/v1/public/events/{evento['slug']}/registrations",
-        headers={"Host": organizacion.host},
         json=payload,
     )
     assert respuesta.status_code == 202, respuesta.text
@@ -119,9 +117,7 @@ async def _inscribir_y_confirmar(
             {"e": evento["id"], "m": email},
         )
     token = await generate_token(PROPOSITO_VERIFICACION_INSCRIPCION, str(registration_id))
-    verificacion = await cliente.post(
-        VERIFY, headers={"Host": organizacion.host}, json={"token": token}
-    )
+    verificacion = await cliente.post(VERIFY, json={"token": token})
     assert verificacion.status_code == 200, verificacion.text
     return str(registration_id)
 
@@ -142,7 +138,6 @@ async def _inscribir_sin_verificar(
     }
     respuesta = await cliente.post(
         f"/api/v1/public/events/{evento['slug']}/registrations",
-        headers={"Host": organizacion.host},
         json=payload,
     )
     assert respuesta.status_code == 202, respuesta.text
@@ -152,9 +147,7 @@ async def _inscribir_sin_verificar(
             {"e": evento["id"], "m": email},
         )
     token = await generate_token(PROPOSITO_VERIFICACION_INSCRIPCION, str(registration_id))
-    verificacion = await cliente.post(
-        VERIFY, headers={"Host": organizacion.host}, json={"token": token}
-    )
+    verificacion = await cliente.post(VERIFY, json={"token": token})
     assert verificacion.status_code == 200, verificacion.text
     assert verificacion.json()["status"] == "waitlisted"
 
@@ -331,7 +324,6 @@ class TestExportacionRgpd:
         respuesta_peligrosa = "=cmd|' /C calc'!A1"
         registration_id = await _inscribir_y_confirmar(
             cliente,
-            organizacion,
             evento,
             "riesgo@example.com",
             answers=[{"question_id": pregunta_id, "value": respuesta_peligrosa}],
@@ -418,7 +410,7 @@ class TestBorradoRgpd:
         evento = await _crear_y_publicar_evento(cliente, cabeceras, "borrado-rgpd", capacity=1)
 
         registration_id = await _inscribir_y_confirmar(
-            cliente, organizacion, evento, "confirmado@example.com"
+        cliente, evento, "confirmado@example.com"
         )
         await _inscribir_sin_verificar(cliente, organizacion, evento, "en-espera@example.com")
 

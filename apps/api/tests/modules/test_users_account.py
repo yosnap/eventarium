@@ -116,28 +116,22 @@ async def test_change_email_confirmar_aplica_el_cambio_y_revoca_las_sesiones(
     login = await cliente.post(
         LOGIN,
         json={"email": organizacion.owner_email, "password": organizacion.owner_password},
-        headers={"Host": organizacion.host},
     )
     refresh_previo = login.cookies[COOKIE_NOMBRE]
 
     token = await generate_token(
         PROPOSITO_CAMBIO_CORREO, f"{organizacion.owner_id}:nuevo@example.com"
     )
-    confirmacion = await cliente.post(
-        CHANGE_EMAIL_CONFIRM, json={"token": token}, headers={"Host": organizacion.host}
-    )
+    confirmacion = await cliente.post(CHANGE_EMAIL_CONFIRM, json={"token": token})
     assert confirmacion.status_code == 200
 
     login_con_el_nuevo = await cliente.post(
         LOGIN,
         json={"email": "nuevo@example.com", "password": organizacion.owner_password},
-        headers={"Host": organizacion.host},
     )
     assert login_con_el_nuevo.status_code == 200
 
-    revocado = await cliente.post(
-        REFRESH, headers={"Host": organizacion.host}, cookies={COOKIE_NOMBRE: refresh_previo}
-    )
+    revocado = await cliente.post(REFRESH, cookies={COOKIE_NOMBRE: refresh_previo})
     assert revocado.status_code == 401
 
 
@@ -193,7 +187,6 @@ async def test_change_password_revoca_las_demas_sesiones_pero_conserva_la_actual
     otro_login = await cliente.post(
         LOGIN,
         json={"email": organizacion.owner_email, "password": organizacion.owner_password},
-        headers={"Host": organizacion.host},
     )
     refresh_de_otra_sesion = otro_login.cookies[COOKIE_NOMBRE]
 
@@ -201,11 +194,9 @@ async def test_change_password_revoca_las_demas_sesiones_pero_conserva_la_actual
     login_actual = await cliente.post(
         LOGIN,
         json={"email": organizacion.owner_email, "password": organizacion.owner_password},
-        headers={"Host": organizacion.host},
     )
     refresh_actual = login_actual.cookies[COOKIE_NOMBRE]
     cabeceras_actuales = {
-        "Host": organizacion.host,
         "Authorization": f"Bearer {login_actual.json()['access_token']}",
     }
 
@@ -219,14 +210,11 @@ async def test_change_password_revoca_las_demas_sesiones_pero_conserva_la_actual
     )
     assert cambio.status_code == 200
 
-    sesion_actual = await cliente.post(
-        REFRESH, headers={"Host": organizacion.host}, cookies={COOKIE_NOMBRE: refresh_actual}
-    )
+    sesion_actual = await cliente.post(REFRESH, cookies={COOKIE_NOMBRE: refresh_actual})
     assert sesion_actual.status_code == 200, "la sesión que hizo el cambio debe seguir viva"
 
     otra_sesion = await cliente.post(
         REFRESH,
-        headers={"Host": organizacion.host},
         cookies={COOKIE_NOMBRE: refresh_de_otra_sesion},
     )
     assert otra_sesion.status_code == 401, "las demás sesiones deben quedar revocadas"

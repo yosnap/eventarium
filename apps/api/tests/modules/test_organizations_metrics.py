@@ -191,5 +191,5 @@ class TestMetricasDeLaOrganizacion:
     async def test_sin_sesion_no_se_puede_consultar(
         self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
     ) -> None:
-        respuesta = await cliente.get(METRICS, headers={"Host": organizacion.host})
+        respuesta = await cliente.get(METRICS)
         assert respuesta.status_code == 401

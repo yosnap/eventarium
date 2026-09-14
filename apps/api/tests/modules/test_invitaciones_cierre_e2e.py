@@ -84,7 +84,6 @@ async def test_la_misma_persona_es_ponente_en_dos_organizaciones_sin_duplicar_cu
     aceptar_a = await cliente.post(
         f"/api/v1/public/invitations/{resultado_a.token}/accept",
         json={"first_name": "Ponente", "last_name": "Itinerante", "password": CONTRASENA_ACEPTAR},
-        headers={"Host": organizacion.host},
     )
     assert aceptar_a.status_code == 200, aceptar_a.text
 
@@ -153,13 +152,11 @@ async def test_la_misma_persona_es_ponente_en_dos_organizaciones_sin_duplicar_cu
     login_a = await cliente.post(
         "/api/v1/auth/login",
         json={"email": CORREO_PONENTE_ITINERANTE, "password": CONTRASENA_ACEPTAR},
-        headers={"Host": organizacion.host},
     )
     assert login_a.status_code == 200, login_a.text
 
     login_b = await cliente.post(
         "/api/v1/auth/login",
         json={"email": CORREO_PONENTE_ITINERANTE, "password": CONTRASENA_ACEPTAR},
-        headers={"Host": otra_organizacion.host},
     )
     assert login_b.status_code == 200, login_b.text

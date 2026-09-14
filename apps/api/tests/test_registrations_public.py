@@ -1,9 +1,10 @@
 """Formulario público de inscripción, verificación y consentimientos.
 
 Fase 3 del PRD, fase 2 de trabajo. Mismo patrón que `test_events_public.py` y
-`test_password_reset.py`: cliente HTTP real contra la app, `Host` para
-resolver la organización, y la tarea de envío de correo mockeada (no se
-prueba la entrega, solo que se encola cuando corresponde).
+`test_password_reset.py`: cliente HTTP real contra la app, la organización
+resuelta por el recurso (slug de evento o token), y la tarea de envío de
+correo mockeada (no se prueba la entrega, solo que se encola cuando
+corresponde).
 """
 
 from __future__ import annotations
@@ -71,10 +72,9 @@ def _payload_inscripcion(**overrides: object) -> dict:
     return payload
 
 
-async def _inscribir(cliente: AsyncClient, host: str, slug: str, **overrides: object):
+async def _inscribir(cliente: AsyncClient, slug: str, **overrides: object):
     return await cliente.post(
         f"/api/v1/public/events/{slug}/registrations",
-        headers={"Host": host},
         json=_payload_inscripcion(**overrides),
     )
 
@@ -106,10 +106,10 @@ async def _registration_id(event_id: str, email: str) -> uuid.UUID:
     return valor
 
 
-async def _verificar(cliente: AsyncClient, host: str, event_id: str, email: str) -> dict:
+async def _verificar(cliente: AsyncClient, event_id: str, email: str) -> dict:
     registration_id = await _registration_id(event_id, email)
     token = await generate_token(PROPOSITO_VERIFICACION_INSCRIPCION, str(registration_id))
-    respuesta = await cliente.post(VERIFY, headers={"Host": host}, json={"token": token})
+    respuesta = await cliente.post(VERIFY, json={"token": token})
     assert respuesta.status_code == 200, respuesta.text
     return respuesta.json()
 
@@ -151,7 +151,7 @@ async def test_alta_con_verificacion_obligatoria_queda_pendiente_de_verificacion
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "libre")
 
-    respuesta = await _inscribir(cliente, organizacion.host, "libre")
+    respuesta = await _inscribir(cliente, "libre")
     assert respuesta.status_code == 202, respuesta.text
     assert await _estado(evento["id"], "asistente@example.com") == "pending_verification"
 
@@ -161,34 +161,12 @@ async def test_verificar_con_aforo_libre_confirma(
 ) -> None:
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "aforo-libre", capacity=5)
-    await _inscribir(cliente, organizacion.host, "aforo-libre")
+    await _inscribir(cliente, "aforo-libre")
 
-    resultado = await _verificar(cliente, organizacion.host, evento["id"], "asistente@example.com")
+    resultado = await _verificar(cliente, evento["id"], "asistente@example.com")
 
     assert resultado["status"] == "confirmed"
     assert await _estado(evento["id"], "asistente@example.com") == "confirmed"
-
-
-async def test_verificar_funciona_con_cualquier_host(
-    cliente: AsyncClient,
-    organizacion: OrganizacionDePrueba,
-    otra_organizacion: OrganizacionDePrueba,
-) -> None:
-    """Sin dominio por organización (fase 2 del plan de organización sin
-    dominio), verificar una inscripción resuelve la organización desde el
-    propio token, no por host: el enlace de verificación vale igual sea cual
-    sea el host desde el que se visite."""
-    _, cabeceras = await iniciar_sesion(cliente, organizacion)
-    evento = await _crear_y_publicar_evento(
-        cliente, cabeceras, "aforo-libre-host-ajeno", capacity=5
-    )
-    await _inscribir(cliente, organizacion.host, "aforo-libre-host-ajeno")
-
-    resultado = await _verificar(
-        cliente, otra_organizacion.host, evento["id"], "asistente@example.com"
-    )
-
-    assert resultado["status"] == "confirmed"
 
 
 async def test_segunda_verificacion_tras_agotar_aforo_queda_en_lista_de_espera(
@@ -196,11 +174,11 @@ async def test_segunda_verificacion_tras_agotar_aforo_queda_en_lista_de_espera(
 ) -> None:
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "aforo-uno", capacity=1)
-    await _inscribir(cliente, organizacion.host, "aforo-uno", email="primero@example.com")
-    await _inscribir(cliente, organizacion.host, "aforo-uno", email="segundo@example.com")
+    await _inscribir(cliente, "aforo-uno", email="primero@example.com")
+    await _inscribir(cliente, "aforo-uno", email="segundo@example.com")
 
-    primero = await _verificar(cliente, organizacion.host, evento["id"], "primero@example.com")
-    segundo = await _verificar(cliente, organizacion.host, evento["id"], "segundo@example.com")
+    primero = await _verificar(cliente, evento["id"], "primero@example.com")
+    segundo = await _verificar(cliente, evento["id"], "segundo@example.com")
 
     assert primero["status"] == "confirmed"
     assert segundo["status"] == "waitlisted"
@@ -214,8 +192,8 @@ async def test_dos_verificaciones_simultaneas_no_superan_el_aforo(
     hueco no pueden confirmar a las dos personas."""
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "concurrencia", capacity=1)
-    await _inscribir(cliente, organizacion.host, "concurrencia", email="uno@example.com")
-    await _inscribir(cliente, organizacion.host, "concurrencia", email="dos@example.com")
+    await _inscribir(cliente, "concurrencia", email="uno@example.com")
+    await _inscribir(cliente, "concurrencia", email="dos@example.com")
 
     token_uno = await generate_token(
         PROPOSITO_VERIFICACION_INSCRIPCION,
@@ -227,8 +205,8 @@ async def test_dos_verificaciones_simultaneas_no_superan_el_aforo(
     )
 
     respuestas = await asyncio.gather(
-        cliente.post(VERIFY, headers={"Host": organizacion.host}, json={"token": token_uno}),
-        cliente.post(VERIFY, headers={"Host": organizacion.host}, json={"token": token_dos}),
+        cliente.post(VERIFY, json={"token": token_uno}),
+        cliente.post(VERIFY, json={"token": token_dos}),
     )
     estados = sorted(respuesta.json()["status"] for respuesta in respuestas)
     assert estados == ["confirmed", "waitlisted"]
@@ -241,9 +219,9 @@ async def test_evento_con_aprobacion_queda_pendiente_de_aprobacion_aunque_haya_a
     evento = await _crear_y_publicar_evento(
         cliente, cabeceras, "con-aprobacion", registration_mode="approval", capacity=5
     )
-    await _inscribir(cliente, organizacion.host, "con-aprobacion")
+    await _inscribir(cliente, "con-aprobacion")
 
-    resultado = await _verificar(cliente, organizacion.host, evento["id"], "asistente@example.com")
+    resultado = await _verificar(cliente, evento["id"], "asistente@example.com")
 
     assert resultado["status"] == "pending_approval"
 
@@ -256,7 +234,7 @@ async def test_evento_sin_verificacion_evalua_el_estado_al_enviar_el_formulario(
         cliente, cabeceras, "sin-verificacion", email_verification_required=False, capacity=5
     )
 
-    respuesta = await _inscribir(cliente, organizacion.host, "sin-verificacion")
+    respuesta = await _inscribir(cliente, "sin-verificacion")
 
     assert respuesta.status_code == 202, respuesta.text
     assert await _estado(evento["id"], "asistente@example.com") == "confirmed"
@@ -320,7 +298,7 @@ async def test_evento_de_pago_rechaza_el_alta_gratuita(
     assert publicacion.status_code == 200, publicacion.text
     evento = publicacion.json()
 
-    respuesta = await _inscribir(cliente, organizacion.host, "de-pago")
+    respuesta = await _inscribir(cliente, "de-pago")
 
     assert respuesta.status_code == 409, respuesta.text
     assert await _estado(evento["id"], "asistente@example.com") is None
@@ -332,9 +310,7 @@ async def test_sin_aceptar_tratamiento_de_datos_falla(
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     await _crear_y_publicar_evento(cliente, cabeceras, "sin-consentir")
 
-    respuesta = await _inscribir(
-        cliente, organizacion.host, "sin-consentir", data_processing_accepted=False
-    )
+    respuesta = await _inscribir(cliente, "sin-consentir", data_processing_accepted=False)
 
     assert respuesta.status_code == 422
 
@@ -345,8 +321,8 @@ async def test_el_mismo_email_no_crea_una_segunda_inscripcion_y_responde_igual(
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "no-filtrado")
 
-    primera = await _inscribir(cliente, organizacion.host, "no-filtrado")
-    segunda = await _inscribir(cliente, organizacion.host, "no-filtrado")
+    primera = await _inscribir(cliente, "no-filtrado")
+    segunda = await _inscribir(cliente, "no-filtrado")
 
     assert primera.status_code == segunda.status_code == 202
     assert primera.json() == segunda.json()
@@ -361,8 +337,8 @@ async def test_reenviar_a_un_email_ya_inscrito_reencola_el_correo_de_verificacio
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     await _crear_y_publicar_evento(cliente, cabeceras, "reenvio")
 
-    await _inscribir(cliente, organizacion.host, "reenvio")
-    await _inscribir(cliente, organizacion.host, "reenvio")
+    await _inscribir(cliente, "reenvio")
+    await _inscribir(cliente, "reenvio")
 
     assert _correo_de_verificacion_encolado_sincrono.await_count == 2
 
@@ -370,16 +346,14 @@ async def test_reenviar_a_un_email_ya_inscrito_reencola_el_correo_de_verificacio
 async def test_token_invalido_da_error_generico(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    respuesta = await cliente.post(
-        VERIFY, headers={"Host": organizacion.host}, json={"token": "inventado"}
-    )
+    respuesta = await cliente.post(VERIFY, json={"token": "inventado"})
     assert respuesta.status_code == 422
 
 
 async def test_evento_inexistente_da_404(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    respuesta = await _inscribir(cliente, organizacion.host, "no-existe")
+    respuesta = await _inscribir(cliente, "no-existe")
     assert respuesta.status_code == 404
 
 
@@ -392,7 +366,7 @@ async def test_una_pregunta_obligatoria_sin_respuesta_falla(
         evento, organizacion, type_="short_text", label="¿Empresa?", required=True
     )
 
-    respuesta = await _inscribir(cliente, organizacion.host, "con-pregunta")
+    respuesta = await _inscribir(cliente, "con-pregunta")
 
     assert respuesta.status_code == 422
 
@@ -413,7 +387,6 @@ async def test_una_respuesta_valida_se_guarda(
 
     respuesta = await _inscribir(
         cliente,
-        organizacion.host,
         "con-respuesta",
         answers=[{"question_id": pregunta_id, "value": "M"}],
     )
@@ -447,7 +420,6 @@ async def test_una_opcion_invalida_falla(
 
     respuesta = await _inscribir(
         cliente,
-        organizacion.host,
         "con-opcion-invalida",
         answers=[{"question_id": pregunta_id, "value": "XL"}],
     )
@@ -474,7 +446,6 @@ async def test_listar_preguntas_de_un_evento(
 
     respuesta = await cliente.get(
         "/api/v1/public/events/con-listado-preguntas/registration-questions",
-        headers={"Host": organizacion.host},
     )
 
     assert respuesta.status_code == 200, respuesta.text
@@ -490,7 +461,6 @@ async def test_una_respuesta_a_pregunta_ajena_falla(
 
     respuesta = await _inscribir(
         cliente,
-        organizacion.host,
         "sin-preguntas",
         answers=[{"question_id": str(uuid.uuid4()), "value": "lo que sea"}],
     )

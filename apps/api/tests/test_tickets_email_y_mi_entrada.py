@@ -1,8 +1,8 @@
 """Email de entrada, `/mi-entrada` y flujo end-to-end completo.
 
 Fase 4 del PRD, fase 4 de trabajo. Mismo patrón que
-`tests/modules/test_tickets_scan.py`: cliente HTTP real, `Host` para resolver
-la organización, tareas de email mockeadas.
+`tests/modules/test_tickets_scan.py`: cliente HTTP real, sesión autenticada
+para resolver la organización, tareas de email mockeadas.
 """
 
 from __future__ import annotations
@@ -71,9 +71,7 @@ async def _crear_y_publicar_evento(
     return publicacion.json()
 
 
-async def _inscribir_y_confirmar(
-    cliente: AsyncClient, organizacion: OrganizacionDePrueba, evento: dict, email: str
-) -> str:
+async def _inscribir_y_confirmar(cliente: AsyncClient, evento: dict, email: str) -> str:
     payload = {
         "email": email,
         "full_name": "Asistente de Prueba",
@@ -85,7 +83,6 @@ async def _inscribir_y_confirmar(
     }
     respuesta = await cliente.post(
         f"/api/v1/public/events/{evento['slug']}/registrations",
-        headers={"Host": organizacion.host},
         json=payload,
     )
     assert respuesta.status_code == 202, respuesta.text
@@ -96,9 +93,7 @@ async def _inscribir_y_confirmar(
             {"e": evento["id"], "m": email},
         )
     token = await generate_token(PROPOSITO_VERIFICACION_INSCRIPCION, str(registration_id))
-    verificacion = await cliente.post(
-        VERIFY, headers={"Host": organizacion.host}, json={"token": token}
-    )
+    verificacion = await cliente.post(VERIFY, json={"token": token})
     assert verificacion.status_code == 200, verificacion.text
     assert verificacion.json()["status"] == "confirmed"
     return str(registration_id)
@@ -110,7 +105,8 @@ async def test_confirmar_encola_email_con_qr_adjunto(
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "email-con-qr", capacity=5)
 
-    await _inscribir_y_confirmar(cliente, organizacion, evento, "asistente@example.com")
+    await _inscribir_y_confirmar(
+        cliente, evento, "asistente@example.com")
 
     llamada = send_registration_confirmed_email.kiq.call_args
     assert llamada is not None
@@ -157,7 +153,7 @@ async def test_flujo_completo_confirmar_escanear_duplicar_cancelar_revocar(
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "flujo-completo", capacity=5)
     registration_id = await _inscribir_y_confirmar(
-        cliente, organizacion, evento, "asistente@example.com"
+        cliente, evento, "asistente@example.com"
     )
 
     async with SessionMaintenance() as session:
@@ -209,47 +205,21 @@ async def test_mi_entrada_confirmada_muestra_qr(
 ) -> None:
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "mi-entrada-confirmada", capacity=5)
-    await _inscribir_y_confirmar(cliente, organizacion, evento, "asistente@example.com")
+    await _inscribir_y_confirmar(
+        cliente, evento, "asistente@example.com")
     _, _, cancel_token, _ = send_registration_confirmed_email.kiq.call_args.args
 
-    respuesta = await cliente.get(
-        MY_TICKET, headers={"Host": organizacion.host}, params={"token": cancel_token}
-    )
+    respuesta = await cliente.get(MY_TICKET, params={"token": cancel_token})
 
     assert respuesta.status_code == 200, respuesta.text
     cuerpo = respuesta.json()
     assert cuerpo["status"] == "confirmed"
     assert cuerpo["has_qr"] is True
 
-    imagen = await cliente.get(
-        MY_TICKET_QR, headers={"Host": organizacion.host}, params={"token": cancel_token}
-    )
+    imagen = await cliente.get(MY_TICKET_QR, params={"token": cancel_token})
     assert imagen.status_code == 200, imagen.text
     assert imagen.headers["content-type"] == "image/png"
     assert imagen.content.startswith(b"\x89PNG")
-
-
-async def test_mi_entrada_funciona_con_cualquier_host(
-    cliente: AsyncClient,
-    organizacion: OrganizacionDePrueba,
-    otra_organizacion: OrganizacionDePrueba,
-) -> None:
-    """Sin dominio por organización (fase 2 del plan de organización sin
-    dominio), `/mi-entrada` resuelve la organización desde la propia
-    inscripción que lleva el token, no por host."""
-    _, cabeceras = await iniciar_sesion(cliente, organizacion)
-    evento = await _crear_y_publicar_evento(
-        cliente, cabeceras, "mi-entrada-host-ajeno", capacity=5
-    )
-    await _inscribir_y_confirmar(cliente, organizacion, evento, "asistente@example.com")
-    _, _, cancel_token, _ = send_registration_confirmed_email.kiq.call_args.args
-
-    respuesta = await cliente.get(
-        MY_TICKET, headers={"Host": otra_organizacion.host}, params={"token": cancel_token}
-    )
-
-    assert respuesta.status_code == 200, respuesta.text
-    assert respuesta.json()["status"] == "confirmed"
 
 
 async def test_mi_entrada_cancelada_no_muestra_qr(
@@ -258,7 +228,7 @@ async def test_mi_entrada_cancelada_no_muestra_qr(
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "mi-entrada-cancelada", capacity=5)
     registration_id = await _inscribir_y_confirmar(
-        cliente, organizacion, evento, "asistente@example.com"
+        cliente, evento, "asistente@example.com"
     )
     _, _, cancel_token, _ = send_registration_confirmed_email.kiq.call_args.args
 
@@ -267,27 +237,21 @@ async def test_mi_entrada_cancelada_no_muestra_qr(
     )
     assert cancelacion.status_code == 200, cancelacion.text
 
-    respuesta = await cliente.get(
-        MY_TICKET, headers={"Host": organizacion.host}, params={"token": cancel_token}
-    )
+    respuesta = await cliente.get(MY_TICKET, params={"token": cancel_token})
 
     assert respuesta.status_code == 200, respuesta.text
     cuerpo = respuesta.json()
     assert cuerpo["status"] == "cancelled"
     assert cuerpo["has_qr"] is False
 
-    imagen = await cliente.get(
-        MY_TICKET_QR, headers={"Host": organizacion.host}, params={"token": cancel_token}
-    )
+    imagen = await cliente.get(MY_TICKET_QR, params={"token": cancel_token})
     assert imagen.status_code == 422
 
 
 async def test_mi_entrada_con_token_invalido_falla(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    respuesta = await cliente.get(
-        MY_TICKET, headers={"Host": organizacion.host}, params={"token": "inventado"}
-    )
+    respuesta = await cliente.get(MY_TICKET, params={"token": "inventado"})
     assert respuesta.status_code == 422
 
 
@@ -299,19 +263,16 @@ async def test_mi_entrada_no_consume_el_token_de_cancelacion(
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "mi-entrada-no-consume", capacity=5)
     registration_id = await _inscribir_y_confirmar(
-        cliente, organizacion, evento, "asistente@example.com"
+        cliente, evento, "asistente@example.com"
     )
     _, _, cancel_token, _ = send_registration_confirmed_email.kiq.call_args.args
 
     for _ in range(3):
-        respuesta = await cliente.get(
-            MY_TICKET, headers={"Host": organizacion.host}, params={"token": cancel_token}
-        )
+        respuesta = await cliente.get(MY_TICKET, params={"token": cancel_token})
         assert respuesta.status_code == 200, respuesta.text
 
     cancelacion = await cliente.post(
         "/api/v1/public/registrations/cancel",
-        headers={"Host": organizacion.host},
         json={"token": cancel_token},
     )
     assert cancelacion.status_code == 200, cancelacion.text

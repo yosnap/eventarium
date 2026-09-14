@@ -51,7 +51,6 @@ async def test_forgot_password_exige_turnstile(
         respuesta = await cliente.post(
             FORGOT,
             json={"email": organizacion.owner_email, "turnstile_token": "token-de-prueba"},
-            headers={"Host": organizacion.host},
         )
     assert respuesta.status_code == 422
 
@@ -64,12 +63,10 @@ async def test_forgot_password_responde_igual_exista_o_no_la_cuenta(
     inexistente = await cliente.post(
         FORGOT,
         json={"email": "nadie@example.com", "turnstile_token": "token-de-prueba"},
-        headers={"Host": organizacion.host},
     )
     existente = await cliente.post(
         FORGOT,
         json={"email": organizacion.owner_email, "turnstile_token": "token-de-prueba"},
-        headers={"Host": organizacion.host},
     )
     assert inexistente.status_code == existente.status_code == 202
     assert inexistente.json() == existente.json()
@@ -84,28 +81,24 @@ async def test_reset_password_cambia_la_contrasena_y_consume_el_token(
     respuesta = await cliente.post(
         RESET,
         json={"token": token, "new_password": NUEVA_CONTRASENA},
-        headers={"Host": organizacion.host},
     )
     assert respuesta.status_code == 200
 
     login_nueva = await cliente.post(
         LOGIN,
         json={"email": organizacion.owner_email, "password": NUEVA_CONTRASENA},
-        headers={"Host": organizacion.host},
     )
     assert login_nueva.status_code == 200
 
     login_vieja = await cliente.post(
         LOGIN,
         json={"email": organizacion.owner_email, "password": organizacion.owner_password},
-        headers={"Host": organizacion.host},
     )
     assert login_vieja.status_code == 401
 
     reutilizado = await cliente.post(
         RESET,
         json={"token": token, "new_password": NUEVA_CONTRASENA},
-        headers={"Host": organizacion.host},
     )
     assert reutilizado.status_code == 422
 
@@ -116,7 +109,6 @@ async def test_reset_password_revoca_las_sesiones_existentes(
     login = await cliente.post(
         LOGIN,
         json={"email": organizacion.owner_email, "password": organizacion.owner_password},
-        headers={"Host": organizacion.host},
     )
     refresh_previo = login.cookies[COOKIE_NOMBRE]
 
@@ -124,12 +116,10 @@ async def test_reset_password_revoca_las_sesiones_existentes(
     await cliente.post(
         RESET,
         json={"token": token, "new_password": NUEVA_CONTRASENA},
-        headers={"Host": organizacion.host},
     )
 
     respuesta = await cliente.post(
         REFRESH,
-        headers={"Host": organizacion.host},
         cookies={COOKIE_NOMBRE: refresh_previo},
     )
     assert respuesta.status_code == 401
@@ -144,7 +134,6 @@ async def test_un_token_de_otro_proposito_no_sirve_para_recuperar(
     respuesta = await cliente.post(
         RESET,
         json={"token": token_de_verificacion, "new_password": NUEVA_CONTRASENA},
-        headers={"Host": organizacion.host},
     )
     assert respuesta.status_code == 422
 
@@ -156,7 +145,6 @@ async def test_un_token_de_recuperacion_no_sirve_para_verificar_correo(
     respuesta = await cliente.get(
         "/api/v1/auth/verify-email",
         params={"token": token},
-        headers={"Host": organizacion.host},
     )
     assert respuesta.status_code == 422
 
@@ -198,7 +186,6 @@ async def test_miembro_invitado_completa_recuperacion_y_queda_verificado(
     respuesta = await cliente.post(
         RESET,
         json={"token": token, "new_password": NUEVA_CONTRASENA},
-        headers={"Host": organizacion.host},
     )
     assert respuesta.status_code == 200
 
@@ -213,7 +200,6 @@ async def test_miembro_invitado_completa_recuperacion_y_queda_verificado(
     login = await cliente.post(
         LOGIN,
         json={"email": correo_invitado, "password": NUEVA_CONTRASENA},
-        headers={"Host": organizacion.host},
     )
     assert login.status_code == 200
     token_acceso = login.json()["access_token"]
