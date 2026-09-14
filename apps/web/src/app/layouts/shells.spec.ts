@@ -45,6 +45,8 @@ describe('shells', () => {
       isAuthenticated: signal(true),
       logout: vi.fn(),
       listMyOrganizations: vi.fn().mockResolvedValue([]),
+      loadCurrentUser: vi.fn().mockResolvedValue(undefined),
+      switchOrganization: vi.fn().mockResolvedValue(undefined),
     };
   }
 
@@ -233,19 +235,16 @@ describe('shells', () => {
       expect(enlace).toBeFalsy();
     });
 
-    it('con más de una organización, el selector ofrece cambiar a cada una por su host', async () => {
+    it('con más de una organización, el selector ofrece cambiar a cada una sin salir de la sesión', async () => {
+      const switchOrganization = vi.fn().mockResolvedValue(undefined);
       TestBed.overrideProvider(AuthService, {
         useValue: {
           ...configurarAuth(false),
           listMyOrganizations: vi.fn().mockResolvedValue([
-            { organization_id: 'o1', slug: 'acme', name: 'Acme', host: 'acme.example' },
-            {
-              organization_id: 'o2',
-              slug: 'otra',
-              name: 'Otra organización',
-              host: 'otra.example',
-            },
+            { organization_id: 'o1', slug: 'acme', name: 'Acme', host: null },
+            { organization_id: 'o2', slug: 'otra', name: 'Otra organización', host: null },
           ]),
+          switchOrganization,
         },
       });
       url.set('/dashboard');
@@ -253,10 +252,33 @@ describe('shells', () => {
       await fixture.whenStable();
       const raiz = fixture.nativeElement as HTMLElement;
 
-      const enlace = Array.from(raiz.querySelectorAll('a')).find(
-        (a) => a.getAttribute('href') === 'https://otra.example/dashboard',
+      const boton = Array.from(raiz.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === 'Otra organización',
       );
-      expect(enlace?.textContent?.trim()).toBe('Otra organización');
+      expect(boton).toBeTruthy();
+
+      const ubicacionOriginal = Object.getOwnPropertyDescriptor(window, 'location')!;
+      const asignacionDeUrl = vi.fn();
+      Object.defineProperty(window, 'location', {
+        value: {
+          ...window.location,
+          set href(url: string) {
+            asignacionDeUrl(url);
+          },
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      try {
+        boton?.click();
+        await fixture.whenStable();
+
+        expect(switchOrganization).toHaveBeenCalledWith('o2');
+        expect(asignacionDeUrl).toHaveBeenCalledWith('/dashboard');
+      } finally {
+        Object.defineProperty(window, 'location', ubicacionOriginal);
+      }
     });
 
     it('el grupo de evento no existe fuera del ámbito de un evento', async () => {

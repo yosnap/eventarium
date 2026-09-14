@@ -108,3 +108,57 @@ describe('AuthService: impersonación', () => {
     expect(servicio.accessToken()).toBeNull();
   });
 });
+
+describe('AuthService: organización sin dominio', () => {
+  let servicio: AuthService;
+  let http: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideZonelessChangeDetection(), provideHttpClient(), provideHttpClientTesting()],
+    });
+    servicio = TestBed.inject(AuthService);
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  it('switchOrganization manda la organización de destino y actualiza el token', async () => {
+    const login = servicio.login('admin@ejemplo.test', 'secreta');
+    http.expectOne('/api/v1/auth/login').flush({ access_token: 'token-org-1', user: USUARIO });
+    await login;
+
+    const cambio = servicio.switchOrganization('org-2');
+    const peticion = http.expectOne('/api/v1/auth/switch-organization');
+    expect(peticion.request.body).toEqual({ organization_id: 'org-2' });
+    expect(peticion.request.withCredentials).toBe(true);
+    peticion.flush({ access_token: 'token-org-2', expires_in: 900 });
+    await cambio;
+
+    expect(servicio.accessToken()).toBe('token-org-2');
+  });
+
+  it('createOrganization activa la sesión con el token de la propia respuesta', async () => {
+    const login = servicio.login('admin@ejemplo.test', 'secreta');
+    http.expectOne('/api/v1/auth/login').flush({ access_token: 'token-previo', user: USUARIO });
+    await login;
+
+    const creacion = servicio.createOrganization({
+      name: 'Nueva',
+      slug: 'nueva',
+      firstName: 'A',
+      lastName: 'B',
+      turnstileToken: 'turnstile',
+    });
+    const peticion = http.expectOne('/api/v1/organizations');
+    expect(peticion.request.withCredentials).toBe(true);
+    peticion.flush({
+      id: 'org-nueva',
+      slug: 'nueva',
+      host: 'nueva.example',
+      access_token: 'token-org-nueva',
+      expires_in: 900,
+    });
+    await creacion;
+
+    expect(servicio.accessToken()).toBe('token-org-nueva');
+  });
+});

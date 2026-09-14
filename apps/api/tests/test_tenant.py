@@ -8,6 +8,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
+from app.core.config import get_settings
 from app.core.database import SessionMaintenance
 from app.core.tenant import base_url_de_organizacion, normalize_host
 from app.main import create_app
@@ -83,17 +84,18 @@ async def test_cada_host_devuelve_su_propia_organizacion(
     assert segunda.json()["organization"]["slug"] == otra_organizacion.slug
 
 
-async def test_base_url_de_organizacion_conserva_el_puerto_en_desarrollo(
-    organizacion: OrganizacionDePrueba,
+async def test_base_url_de_organizacion_es_siempre_la_de_la_instalacion(
+    organizacion: OrganizacionDePrueba, otra_organizacion: OrganizacionDePrueba
 ) -> None:
-    """Fase 6 del PRD: una redirección de Stripe (`return_url`) que perdiera el
-    puerto de Caddy en desarrollo (`localhost` sin `:8080`) llevaría a una
-    página que Caddy no expone. El dominio guardado en `organization_domains`
-    nunca incluye puerto (no lo necesita en producción), así que la función
-    debe añadirlo ella misma fuera de producción.
+    """Sin dominio por organización (fase 4 del plan de organización sin
+    dominio), un enlace que llega sin sesión ni contexto (correo
+    transaccional, redirección de Stripe) apunta siempre al dominio único de
+    la instalación, con independencia de la organización del recurso — ya no
+    hay ninguna organización con dominio propio que resolver.
     """
-    url = await base_url_de_organizacion(organizacion.id)
-    assert url == "http://localhost:8080"
+    esperado = get_settings().web_base_url
+    assert await base_url_de_organizacion(organizacion.id) == esperado
+    assert await base_url_de_organizacion(otra_organizacion.id) == esperado
 
 
 @pytest.mark.parametrize("host", ["desconocido.example", "sub.localhost", ""])

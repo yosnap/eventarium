@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import re
 
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, Request, Response, status
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
@@ -28,6 +28,9 @@ from app.core.database import set_organization_context
 from app.core.deps import SessionDep, VerifiedUserDep
 from app.core.ratelimit import CHECK_SLUG_POR_IP, CREAR_ORGANIZACION_POR_IP, limit_per_ip
 from app.core.turnstile import require_turnstile
+from app.modules.auth import service as auth_service
+from app.modules.auth.cookies import fijar_cookie_refresh
+from app.modules.auth.service import AuthenticatedUser
 from app.modules.organizations import service as organization_service
 from app.modules.organizations.models import (
     OrganizationBranding,
@@ -90,6 +93,7 @@ async def create_organization(
     datos: SelfServiceOrganizationCreate,
     persona: VerifiedUserDep,
     request: Request,
+    response: Response,
     session: SessionDep,
 ) -> SelfServiceOrganizationResponse:
     await require_turnstile(request, datos.turnstile_token)
@@ -152,4 +156,27 @@ async def create_organization(
     )
     await session.flush()
 
-    return SelfServiceOrganizationResponse(id=str(organization_id), slug=slug_limpio, host=host)
+    # Sesión completa, con la organización recién creada ya activa: quien
+    # llega aquí puede venir del enlace de verificación de correo, sin
+    # ninguna cookie de refresco todavía — igual que `/auth/login`, no un
+    # mecanismo aparte (fase 4 del plan de organización sin dominio).
+    es_superadmin = await session.scalar(
+        text("SELECT is_superadmin FROM users WHERE id = :id"), {"id": persona.id}
+    )
+    usuario = AuthenticatedUser(
+        id=persona.id,
+        email=persona.email,
+        first_name=datos.first_name,
+        last_name=datos.last_name,
+        is_superadmin=bool(es_superadmin),
+    )
+    tokens = await auth_service.issue_tokens(usuario, organization_id)
+    fijar_cookie_refresh(response, tokens.refresh_token)
+
+    return SelfServiceOrganizationResponse(
+        id=str(organization_id),
+        slug=slug_limpio,
+        host=host,
+        access_token=tokens.access_token,
+        expires_in=tokens.expires_in,
+    )

@@ -47,9 +47,14 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
 
       <footer [attr.aria-label]="t('publico.piePagina')">
         <div class="ancho-maximo footer-en">
-          @if (theming.organizacion(); as organizacion) {
-            <p>{{ t('publico.organizadoPor', { nombre: organizacion.name }) }}</p>
-          }
+          <!-- Sin "Organizado por X": sin dominio por organización (fase 4
+               del plan de organización sin dominio), este pie es el mismo
+               para toda la web pública, pero cada página de evento puede
+               ser de una organización distinta — "la" organización del
+               sitio ya no existe. La atribución del organizador, si se
+               quiere, iría en la propia ficha del evento, no en el chrome
+               global (requeriría exponer el nombre de la organización en
+               PublicEventDetail, no hecho aquí). -->
           @if (theming.plataforma()?.social_links?.length) {
             <nav [attr.aria-label]="t('publico.redesSociales')">
               <ul>

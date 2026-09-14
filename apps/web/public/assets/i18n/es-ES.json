@@ -168,7 +168,6 @@
       }
     },
     "accesoPanel": "Acceso al panel",
-    "organizadoPor": "Organizado por {{nombre}}",
     "redesSociales": "Redes sociales del organizador",
     "piePagina": "Pie de página",
     "ponentes": {
@@ -619,7 +618,8 @@
     "sesionDe": "Sesión de {{nombre}}",
     "selectorOrganizacion": {
       "titulo": "Cambiar de organización",
-      "nueva": "Nueva organización"
+      "nueva": "Nueva organización",
+      "error": "No se ha podido cambiar de organización. Inténtalo de nuevo."
     },
     "login": {
       "titulo": "Acceso al panel",

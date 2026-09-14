@@ -418,12 +418,14 @@ async def require_verified_user(
     """
     fila = (
         await session.execute(
-            text("SELECT id, email, email_verified_at FROM app_find_user_by_id(:id)"),
+            text(
+                "SELECT id, email, email_verified_at, is_active FROM app_find_user_by_id(:id)"
+            ),
             {"id": claims.user_id},
         )
     ).first()
-    if fila is None:
-        raise AuthenticationError("El usuario ya no existe.")
+    if fila is None or not fila[3]:
+        raise AuthenticationError("El usuario ya no existe o está desactivado.")
     if fila[2] is None:
         raise PermissionDeniedError("El correo todavía no está verificado.")
     return VerifiedUser(id=fila[0], email=fila[1])

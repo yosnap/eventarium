@@ -77,25 +77,24 @@ async def test_flujo_completo_deja_a_la_persona_como_owner(
     assert creacion.status_code == 201, creacion.text
     cuerpo = creacion.json()
     assert cuerpo["slug"] == "org-completa"
-    assert "access_token" not in cuerpo  # ver docstring de SelfServiceOrganizationResponse
-
-    entrada = await cliente.post(
-        LOGIN,
-        json={"email": email, "password": CONTRASENA},
-        headers={"Host": cuerpo["host"]},
-    )
-    assert entrada.status_code == 200, entrada.text
-    assert entrada.json()["user"]["first_name"] == "Nueva"
+    # Sesión completa ya activa en la organización recién creada: sin
+    # dominio propio, no hay a qué host redirigir (fase 4 del plan de
+    # organización sin dominio) — el token de la propia respuesta ya vale.
+    assert cuerpo["access_token"]
 
     perfil = await cliente.get(
         "/api/v1/users/me",
-        headers={
-            "Host": cuerpo["host"],
-            "Authorization": f"Bearer {entrada.json()['access_token']}",
-        },
+        headers={"Authorization": f"Bearer {cuerpo['access_token']}"},
     )
-    assert perfil.status_code == 200
+    assert perfil.status_code == 200, perfil.text
     assert perfil.json()["roles"] == ["owner"]
+    assert perfil.json()["organization_id"] == cuerpo["id"]
+
+    # El login normal (con contraseña) sigue funcionando igual, sin depender
+    # de ningún host concreto.
+    entrada = await cliente.post(LOGIN, json={"email": email, "password": CONTRASENA})
+    assert entrada.status_code == 200, entrada.text
+    assert entrada.json()["user"]["first_name"] == "Nueva"
 
 
 async def test_un_slug_repetido_devuelve_409(

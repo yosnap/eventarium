@@ -47,12 +47,9 @@ function slugify(texto: string): string {
       <app-auth-frame [titulo]="t('crearOrganizacion.titulo')">
         <div class="envoltura" appReveal>
           <app-card [heading]="t('crearOrganizacion.titulo')">
-            @if (creada(); as organizacion) {
+            @if (creada()) {
               <app-alert tone="exito" [title]="t('crearOrganizacion.exitoTitulo')">
                 {{ t('crearOrganizacion.exitoDetalle') }}
-                <p>
-                  <a [href]="urlPanel(organizacion.host)">{{ t('crearOrganizacion.irAlPanel') }}</a>
-                </p>
               </app-alert>
             } @else {
               <form (submit)="enviar($event)" novalidate>
@@ -129,7 +126,7 @@ export class CreateOrganizationPage {
   protected readonly turnstileToken = signal<string | null>(null);
   protected readonly enviando = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly creada = signal<{ host: string } | null>(null);
+  protected readonly creada = signal(false);
   protected readonly errores = signal<Record<Campo, string | null>>({
     name: null,
     slug: null,
@@ -223,10 +220,6 @@ export class CreateOrganizationPage {
     this.errores.update((actuales) => ({ ...actuales, [campo]: this.errorDe(campo) }));
   }
 
-  protected urlPanel(host: string): string {
-    return `${typeof window === 'undefined' ? 'https:' : window.location.protocol}//${host}/dashboard`;
-  }
-
   protected async enviar(evento: Event): Promise<void> {
     evento.preventDefault();
     this.error.set(null);
@@ -244,14 +237,18 @@ export class CreateOrganizationPage {
 
     this.enviando.set(true);
     try {
-      const organizacion = await this.auth.createOrganization({
+      // `createOrganization` ya deja la sesión activa en la organización
+      // recién creada (fase 4 del plan de organización sin dominio): sin
+      // dominio propio, no hay a qué host redirigir.
+      await this.auth.createOrganization({
         name: this.name().trim(),
         slug: this.slug().trim(),
         firstName: this.firstName().trim(),
         lastName: this.lastName().trim(),
         turnstileToken: this.turnstileToken() ?? '',
       });
-      this.creada.set({ host: organizacion.host });
+      this.creada.set(true);
+      window.location.href = '/dashboard';
     } catch (error) {
       this.error.set(
         error instanceof ApiError

@@ -9,10 +9,10 @@ import {
   viewChild,
 } from '@angular/core';
 import { Router, RouterLink, RouterOutlet } from '@angular/router';
-import { TranslocoDirective } from '@jsverse/transloco';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
 import { AuthService, OrganizacionDeLaPersona, displayName } from '../../core/auth/auth.service';
-import { ThemingService } from '../../core/theming/theming.service';
+import { ApiError } from '../../core/api/error.interceptor';
 import { BrandMark } from '../../shared/ui/brand-mark';
 import { Button } from '../../shared/ui/button';
 import { ThemeToggle } from '../../shared/ui/theme-toggle';
@@ -36,11 +36,11 @@ import { PanelScope } from './panel-scope';
       <header>
         <div class="ancho-maximo header-en">
           <p class="marca">
-            <app-brand-mark [nombre]="theming.nombreDeOrganizacion()" />
+            <app-brand-mark [nombre]="nombrePanel()" />
             @if (esPanelPlataforma()) {
               {{ t('admin.tituloPlataforma') }}
             } @else {
-              {{ theming.nombreDeOrganizacion() }} · {{ t('admin.titulo') }}
+              {{ nombrePanel() }} · {{ t('admin.titulo') }}
             }
           </p>
           <div class="sesion">
@@ -48,14 +48,20 @@ import { PanelScope } from './panel-scope';
             @if (!esPanelPlataforma()) {
               <nav [attr.aria-label]="t('admin.selectorOrganizacion.titulo')" class="selector">
                 @for (organizacion of otrasOrganizaciones(); track organizacion.organization_id) {
-                  @if (organizacion.host) {
-                    <a [href]="'https://' + organizacion.host + '/dashboard'">{{
-                      organizacion.name
-                    }}</a>
-                  }
+                  <button
+                    type="button"
+                    class="enlace-organizacion"
+                    [disabled]="cambiandoOrganizacion()"
+                    (click)="cambiarOrganizacion(organizacion.organization_id)"
+                  >
+                    {{ organizacion.name }}
+                  </button>
                 }
                 <a routerLink="/crear-organizacion">{{ t('admin.selectorOrganizacion.nueva') }}</a>
               </nav>
+            }
+            @if (errorCambioOrganizacion(); as mensaje) {
+              <p role="alert" class="error-organizacion">{{ mensaje }}</p>
             }
             @if (auth.currentUser(); as usuario) {
               <a routerLink="/dashboard/account">{{
@@ -150,6 +156,26 @@ import { PanelScope } from './panel-scope';
       display: flex;
       gap: var(--space-sm);
     }
+    /* Mismo aspecto que un enlace de la barra, aunque sea un <button>: cambiar
+       de organización ya no navega a otra URL, dispara una acción. */
+    .enlace-organizacion {
+      background: none;
+      border: none;
+      padding: 0;
+      font: inherit;
+      color: inherit;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    .enlace-organizacion:disabled {
+      cursor: wait;
+      opacity: 0.6;
+    }
+    .error-organizacion {
+      color: var(--danger);
+      font-size: var(--fs-sm);
+      margin: 0;
+    }
     .cuerpo {
       display: grid;
       grid-template-columns: minmax(12rem, 16rem) 1fr;
@@ -181,9 +207,9 @@ import { PanelScope } from './panel-scope';
 })
 export class AdminShell {
   protected readonly auth = inject(AuthService);
-  protected readonly theming = inject(ThemingService);
   protected readonly nombreDe = displayName;
   private readonly router = inject(Router);
+  private readonly transloco = inject(TranslocoService);
   private readonly eventScope = inject(EventScope);
   private readonly panelScope = inject(PanelScope);
 
@@ -195,10 +221,36 @@ export class AdminShell {
    * que cambiar. El propio bloque (`nav`) sí se pinta siempre en el panel de
    * organización, aunque esto quede vacío, porque también lleva el enlace para dar de
    * alta una organización nueva — y ese tiene sentido tenga una o varias. En el panel
-   * de plataforma no se navega entre organizaciones. */
-  protected readonly otrasOrganizaciones = computed(() =>
-    this.esPanelPlataforma() || this.organizaciones().length <= 1 ? [] : this.organizaciones(),
-  );
+   * de plataforma no se navega entre organizaciones. Excluye la organización activa:
+   * "otras" quiere decir eso, y ofrecer "cambiar" a la que ya está activa solo rota
+   * la familia de refresh y recarga la página sin que cambie nada. */
+  protected readonly otrasOrganizaciones = computed(() => {
+    if (this.esPanelPlataforma() || this.organizaciones().length <= 1) {
+      return [];
+    }
+    const activaId = this.auth.currentUser()?.organization_id;
+    return this.organizaciones().filter((o) => o.organization_id !== activaId);
+  });
+
+  /**
+   * Nombre a mostrar en la cabecera del panel de organización.
+   *
+   * Antes venía de `theming.nombreDeOrganizacion()` (`/tenant/branding`,
+   * resuelto por host) — sin dominio por organización, ese host ya no tiene
+   * ninguna relación con la organización activa de la sesión (fase 4 del
+   * plan de organización sin dominio): mostraría siempre la misma
+   * organización para todo el mundo, sin importar a cuál se haya cambiado.
+   * Se calcula en su lugar cruzando `organization_id` del usuario cargado
+   * con la lista de organizaciones a las que pertenece. Mientras ninguna de
+   * las dos cargas ha resuelto, cadena vacía — nunca el nombre por host: un
+   * parpadeo en blanco es aceptable, mostrar la organización equivocada es
+   * el mismo error que esto corrige.
+   */
+  protected readonly nombrePanel = computed(() => {
+    const id = this.auth.currentUser()?.organization_id;
+    const encontrada = id ? this.organizaciones().find((o) => o.organization_id === id) : null;
+    return encontrada?.name ?? '';
+  });
 
   /** `null` sin evento activo o con fallo de carga: en ambos casos la navegación
    * conserva solo los dos grupos estables. */
@@ -215,6 +267,14 @@ export class AdminShell {
     };
   });
 
+  /** Deshabilita el selector mientras se cambia de organización, para no
+   * disparar dos cambios simultáneos con un doble clic. */
+  protected readonly cambiandoOrganizacion = signal(false);
+  /** Mensaje visible si `switchOrganization` falla — antes se tragaba el
+   * error en silencio y el botón simplemente se rehabilitaba sin explicar
+   * nada. */
+  protected readonly errorCambioOrganizacion = signal<string | null>(null);
+
   protected readonly navegacionAbierta = signal(false);
   private readonly panelNavegacion = viewChild<ElementRef<HTMLElement>>('panelNavegacion');
   private readonly botonNavegacion = viewChild<ElementRef<HTMLButtonElement>>('botonNavegacion');
@@ -222,6 +282,14 @@ export class AdminShell {
 
   constructor() {
     void this.cargarOrganizaciones();
+    // `authGuard` solo renueva el token en una recarga, nunca recarga el
+    // usuario: sin esto, `nombrePanel`/`auth.currentUser()` se quedarían
+    // vacíos justo después de cambiar o crear una organización (que recargan
+    // la página entera a propósito).
+    void this.auth.loadCurrentUser().catch(() => {
+      // Mismo criterio que `cargarOrganizaciones`: un fallo aquí no debe
+      // impedir usar el resto del panel.
+    });
 
     // Gestión de foco del panel colapsable (WCAG 2.4.3): al abrir, el foco entra en
     // el primer enlace del panel; al cerrar, vuelve al botón que lo abrió.
@@ -257,5 +325,38 @@ export class AdminShell {
   protected async cerrarSesion(): Promise<void> {
     await this.auth.logout();
     await this.router.navigate(['/acceder']);
+  }
+
+  /**
+   * Cambia la organización activa y recarga la página entera.
+   *
+   * No se intenta sincronizar en memoria todo lo que depende de la
+   * organización (menú, evento activo, listas cacheadas): una recarga
+   * completa es más simple y más fiable que invalidar cada estado uno a uno
+   * (predicción 3 de `predict.md`, plan de organización sin dominio).
+   */
+  protected async cambiarOrganizacion(organizationId: string): Promise<void> {
+    if (this.cambiandoOrganizacion()) {
+      return;
+    }
+    this.cambiandoOrganizacion.set(true);
+    this.errorCambioOrganizacion.set(null);
+    try {
+      await this.auth.switchOrganization(organizationId);
+      window.location.href = '/dashboard';
+    } catch (error) {
+      this.cambiandoOrganizacion.set(false);
+      if (error instanceof ApiError && error.status === 401) {
+        // La cookie de refresco ya no vale (sesión caducada o revocada en
+        // otro sitio): no tiene sentido seguir en el panel, a `/acceder`.
+        await this.router.navigate(['/acceder']);
+        return;
+      }
+      this.errorCambioOrganizacion.set(
+        error instanceof ApiError
+          ? error.message
+          : this.transloco.translate('admin.selectorOrganizacion.error'),
+      );
+    }
   }
 }

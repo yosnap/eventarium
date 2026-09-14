@@ -10,6 +10,11 @@ export interface UsuarioAutenticado {
   readonly first_name: string | null;
   readonly last_name: string | null;
   readonly is_superadmin: boolean;
+  /** Ausente en la respuesta del login (`UserSummary`, sin organización
+   * resuelta todavía en ese momento); presente en `loadCurrentUser()`
+   * (`/users/me`, `CurrentUserResponse`). La organización activa de la
+   * sesión — nunca la del host, que ya no determina nada. */
+  readonly organization_id?: string;
 }
 
 /**
@@ -192,6 +197,12 @@ export class AuthService {
    * el interceptor solo añade automáticamente el token de sesión normal, que en el
    * primer caso (justo tras verificar) todavía vale `null`.
    */
+  /**
+   * Crea la organización y activa la sesión completa que devuelve la propia
+   * respuesta — quien llama puede venir de verificar su correo, sin ninguna
+   * sesión normal todavía (fase 4 del plan de organización sin dominio: sin
+   * dominio propio, no hay a qué host redirigir).
+   */
   async createOrganization(datos: {
     name: string;
     slug: string;
@@ -203,8 +214,14 @@ export class AuthService {
     if (!token) {
       throw new Error('No hay una sesión activa.');
     }
-    return firstValueFrom(
-      this.http.post<{ id: string; slug: string; host: string }>(
+    const respuesta = await firstValueFrom(
+      this.http.post<{
+        id: string;
+        slug: string;
+        host: string;
+        access_token: string;
+        expires_in: number;
+      }>(
         this.api.url('/organizations'),
         {
           name: datos.name,
@@ -213,9 +230,12 @@ export class AuthService {
           last_name: datos.lastName,
           turnstile_token: datos.turnstileToken,
         },
-        { headers: { Authorization: `Bearer ${token}` } },
+        { headers: { Authorization: `Bearer ${token}` }, withCredentials: true },
       ),
     );
+    this.token.set(respuesta.access_token);
+    this.bridge.set(null);
+    return respuesta;
   }
 
   async checkSlug(slug: string): Promise<boolean> {
@@ -338,6 +358,26 @@ export class AuthService {
     return firstValueFrom(
       this.http.get<OrganizacionDeLaPersona[]>(this.api.url('/users/me/organizations')),
     );
+  }
+
+  /**
+   * Cambia la organización activa sin volver a loguearse.
+   *
+   * `withCredentials: true` porque el backend necesita la cookie de refresco
+   * (rota el refresh token igual que un `/auth/refresh` normal, con la
+   * organización de destino) — no basta con el access token de la sesión.
+   * Sin dominio por organización, esto sustituye por completo al antiguo
+   * enlace a `https://{host}/dashboard`.
+   */
+  async switchOrganization(organizationId: string): Promise<void> {
+    const respuesta = await firstValueFrom(
+      this.http.post<RespuestaRefresh>(
+        this.api.url('/auth/switch-organization'),
+        { organization_id: organizationId },
+        { withCredentials: true },
+      ),
+    );
+    this.token.set(respuesta.access_token);
   }
 
   async logout(): Promise<void> {

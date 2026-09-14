@@ -22,6 +22,7 @@ from app.core.ratelimit import (
 from app.core.security import AccessTokenClaims, create_access_token
 from app.core.turnstile import require_turnstile
 from app.modules.auth import service
+from app.modules.auth.cookies import COOKIE_NOMBRE, borrar_cookie_refresh, fijar_cookie_refresh
 from app.modules.auth.schemas import (
     ForgotPasswordRequest,
     GenericMessageResponse,
@@ -39,38 +40,6 @@ from app.shared.errors import AuthenticationError, PermissionDeniedError
 
 router = APIRouter(prefix="/auth", tags=["autenticación"])
 
-# La cookie se limita a la ruta de auth: ningún otro endpoint necesita verla.
-COOKIE_NOMBRE = "ia_week_refresh"
-COOKIE_PATH = "/api/v1/auth"
-
-
-def _fijar_cookie(response: Response, refresh_token: str) -> None:
-    settings = get_settings()
-    response.set_cookie(
-        key=COOKIE_NOMBRE,
-        value=refresh_token,
-        max_age=settings.refresh_token_ttl_days * 24 * 3600,
-        path=COOKIE_PATH,
-        # Sin `Domain`: web y API comparten host tras Caddy, así que la cookie ya es
-        # first-party. Añadir `Domain` solo ampliaría su alcance a subdominios.
-        domain=settings.cookie_domain or None,
-        secure=settings.cookie_secure,
-        httponly=True,
-        samesite="lax",
-    )
-
-
-def _borrar_cookie(response: Response) -> None:
-    settings = get_settings()
-    response.delete_cookie(
-        key=COOKIE_NOMBRE,
-        path=COOKIE_PATH,
-        domain=settings.cookie_domain or None,
-        secure=settings.cookie_secure,
-        httponly=True,
-        samesite="lax",
-    )
-
 
 @router.post(
     "/login",
@@ -84,7 +53,7 @@ async def login(datos: LoginRequest, response: Response, session: SessionDep) ->
         session, email=str(datos.email), password=datos.password
     )
     tokens = await service.issue_tokens(usuario, organization_id)
-    _fijar_cookie(response, tokens.refresh_token)
+    fijar_cookie_refresh(response, tokens.refresh_token)
     return LoginResponse(
         access_token=tokens.access_token,
         expires_in=tokens.expires_in,
@@ -110,7 +79,7 @@ async def refresh(request: Request, response: Response, session: SessionDep) -> 
     if not cookie:
         raise AuthenticationError("No hay sesión que renovar.")
     tokens, _ = await service.rotate_refresh_token(session, cookie)
-    _fijar_cookie(response, tokens.refresh_token)
+    fijar_cookie_refresh(response, tokens.refresh_token)
     return TokenResponse(access_token=tokens.access_token, expires_in=tokens.expires_in)
 
 
@@ -141,7 +110,7 @@ async def switch_organization(
     tokens, _ = await service.switch_organization(
         session, refresh_token=cookie, target_organization_id=datos.organization_id
     )
-    _fijar_cookie(response, tokens.refresh_token)
+    fijar_cookie_refresh(response, tokens.refresh_token)
     return TokenResponse(access_token=tokens.access_token, expires_in=tokens.expires_in)
 
 
@@ -252,5 +221,5 @@ async def logout(request: Request, response: Response) -> Response:
     if cookie:
         await service.revoke_refresh_token(cookie)
     salida = Response(status_code=status.HTTP_204_NO_CONTENT)
-    _borrar_cookie(salida)
+    borrar_cookie_refresh(salida)
     return salida

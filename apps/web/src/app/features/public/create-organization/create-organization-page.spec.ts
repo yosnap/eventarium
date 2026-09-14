@@ -100,4 +100,59 @@ describe('CreateOrganizationPage', () => {
     expect(createOrganization).not.toHaveBeenCalled();
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
+
+  it('al crear con éxito, activa la sesión y recarga al panel sin ningún host', async () => {
+    const createOrganization = vi.fn().mockResolvedValue({
+      id: 'org-nueva',
+      slug: 'ia-week-valencia',
+      host: 'ia-week-valencia.example',
+      access_token: 'token-org-nueva',
+      expires_in: 900,
+    });
+    configurar({ checkSlug: vi.fn().mockResolvedValue(true), createOrganization });
+    const fixture = TestBed.createComponent(CreateOrganizationPage);
+    await fixture.whenStable();
+
+    const campos = fixture.nativeElement.querySelectorAll('input');
+    const [campoNombre, campoSlug, campoNombrePersona, campoApellidos] = Array.from(
+      campos,
+    ) as HTMLInputElement[];
+    for (const [campo, valor] of [
+      [campoNombre, 'IA Week Valéncia'],
+      [campoSlug, 'ia-week-valencia'],
+      [campoNombrePersona, 'Ana'],
+      [campoApellidos, 'Pérez'],
+    ] as const) {
+      campo.value = valor;
+      campo.dispatchEvent(new Event('input'));
+    }
+    await fixture.whenStable();
+
+    const ubicacionOriginal = Object.getOwnPropertyDescriptor(window, 'location')!;
+    const asignacionDeUrl = vi.fn();
+    Object.defineProperty(window, 'location', {
+      value: {
+        ...window.location,
+        set href(url: string) {
+          asignacionDeUrl(url);
+        },
+      },
+      writable: true,
+      configurable: true,
+    });
+
+    try {
+      (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
+        new Event('submit'),
+      );
+      await fixture.whenStable();
+
+      expect(createOrganization).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'IA Week Valéncia', slug: 'ia-week-valencia' }),
+      );
+      expect(asignacionDeUrl).toHaveBeenCalledWith('/dashboard');
+    } finally {
+      Object.defineProperty(window, 'location', ubicacionOriginal);
+    }
+  });
 });
