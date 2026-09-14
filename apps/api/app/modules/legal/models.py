@@ -40,10 +40,14 @@ class CookieConsent(Base):
     __tablename__ = "cookie_consents"
 
     id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=new_uuid7)
-    organization_id: Mapped[uuid.UUID] = mapped_column(
+    #: `NULL` desde la fase 6 del plan de organización sin dominio: sin host
+    #: por organización, un consentimiento de cookies pasa a ser un registro
+    #: de plataforma (como las 4 páginas legales), no de una organización
+    #: concreta. Las filas anteriores a ese cambio conservan la suya.
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True),
         ForeignKey("organizations.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
     # Lista de categorías aceptadas, ej. `["necessary", "analytics"]`.

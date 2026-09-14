@@ -1,4 +1,4 @@
-"""Modelos de organización, dominios, branding y membresías."""
+"""Modelos de organización, branding y membresías."""
 
 from __future__ import annotations
 
@@ -29,34 +29,9 @@ class Organization(Base, TimestampMixin):
     contact_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
-    domains: Mapped[list[OrganizationDomain]] = relationship(
-        back_populates="organization", cascade="all, delete-orphan", lazy="selectin"
-    )
     branding: Mapped[OrganizationBranding | None] = relationship(
         back_populates="organization", cascade="all, delete-orphan", uselist=False, lazy="selectin"
     )
-
-
-class OrganizationDomain(Base, TimestampMixin):
-    """Host que resuelve a esta organización.
-
-    `host` es único en toda la instalación: dos organizaciones no pueden reclamar el
-    mismo dominio, que es la base de la resolución de tenant.
-    """
-
-    __tablename__ = "organization_domains"
-
-    id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=new_uuid7)
-    organization_id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True),
-        ForeignKey("organizations.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    host: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
-    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-
-    organization: Mapped[Organization] = relationship(back_populates="domains")
 
 
 class OrganizationBranding(Base, TimestampMixin):

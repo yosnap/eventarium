@@ -5,21 +5,13 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 
-class SocialLink(BaseModel):
-    """Enlace a una red social del organizador."""
-
-    kind: str = Field(description="Identificador de la red: x, linkedin, instagram…")
-    url: str
-
-
 class ResolvedTheme(BaseModel):
-    """La plantilla de tema de la organización, ya resuelta.
+    """La plantilla de tema de la plataforma, ya resuelta.
 
-    Resolución: `COALESCE(branding.theme_template_id, la que tiene
-    is_default)`, hecha en la misma consulta de `GET /tenant/branding`. `None`
-    si por lo que sea no hubiera ninguna plantilla en el catálogo — defensa
-    para que el cliente se quede con la base de `tokens.css` en vez de
-    romper.
+    Resolución: `COALESCE(platform_branding.theme_template_id, la que tiene
+    is_default)`. `None` si por lo que sea no hubiera ninguna plantilla en el
+    catálogo — defensa para que el cliente se quede con la base de
+    `tokens.css` en vez de romper.
     """
 
     id: str
@@ -29,13 +21,11 @@ class ResolvedTheme(BaseModel):
 
 
 class PlatformBrandingBlock(BaseModel):
-    """Identidad de la plataforma, presente en cualquier host.
+    """Identidad de la plataforma: la única marca del chrome de la web pública.
 
-    Es el bloque que el chrome de la web pública debe usar: la marca global de
-    la instalación, no la de la organización. Un host de plataforma lo sirve
-    sin organización ninguna; un host de organización lo sirve además de la
-    suya. Reproduce a propósito los campos del schema de `modules.platform`,
-    para que el contrato público del tenant no dependa del módulo interno.
+    Eventarium es una SaaS centralizada (modelo Luma): sin dominio por
+    organización, no hay ninguna identidad "del host visitado" distinta de
+    esta — solo la de la instalación.
     """
 
     name: str
@@ -46,33 +36,7 @@ class PlatformBrandingBlock(BaseModel):
     theme: ResolvedTheme | None = None
 
 
-class OrganizationBrandingBlock(BaseModel):
-    """Identidad de la organización del host.
-
-    Su marca y su plantilla se aplican a las **páginas de evento**, no al chrome
-    de la web pública (que es de plataforma).
-    """
-
-    id: str
-    name: str
-    slug: str
-    template_key: str = Field(
-        description="Plantilla de la página pública: classic | minimal"
-    )
-    theme: ResolvedTheme | None = None
-    social_links: list[SocialLink] = Field(default_factory=list)
-    organizer_blurb: str | None = None
-    logo_url: str | None = None
-    favicon_url: str | None = None
-
-
 class BrandingResponse(BaseModel):
-    """Identidad visual resuelta por host.
-
-    Dos bloques: `platform` (siempre presente, identidad de la instalación) y
-    `organization`, que es `null` en un host de plataforma — el caso que antes
-    era imposible servir, porque cualquier host sin organización daba 404.
-    """
+    """Identidad visual de la instalación."""
 
     platform: PlatformBrandingBlock
-    organization: OrganizationBrandingBlock | None = None

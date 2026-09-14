@@ -37,13 +37,8 @@ from app.modules.admin.schemas import (
     RgpdExportRequest,
 )
 from app.modules.organizations import service
-from app.modules.organizations.models import Organization, OrganizationDomain
-from app.modules.organizations.schemas import (
-    DomainCreate,
-    DomainResponse,
-    OrganizationCreate,
-    OrganizationResponse,
-)
+from app.modules.organizations.models import Organization
+from app.modules.organizations.schemas import OrganizationCreate, OrganizationResponse
 from app.modules.theme_templates import repository as theme_templates_repository
 from app.modules.theme_templates.contrast import comprobar_contraste_de_plantilla
 from app.modules.theme_templates.models import ThemeTemplate
@@ -88,7 +83,7 @@ async def list_organizations(_: Superadmin, session: MaintenanceDb) -> list[Orga
 @router.post(
     "/organizations",
     summary="Crear una organización",
-    description="Crea la organización con su dominio principal, branding y roles clonados.",
+    description="Crea la organización con su branding y roles clonados.",
     status_code=status.HTTP_201_CREATED,
     response_model=OrganizationResponse,
 )
@@ -99,7 +94,6 @@ async def create_organization(
         session,
         slug=datos.slug,
         name=datos.name,
-        host=datos.host,
         legal_name=datos.legal_name,
         contact_email=str(datos.contact_email) if datos.contact_email else None,
     )
@@ -110,58 +104,9 @@ async def create_organization(
         action="organization.created",
         entity_type="organization",
         entity_id=str(organizacion.id),
-        detail={"slug": organizacion.slug, "name": organizacion.name, "host": datos.host},
+        detail={"slug": organizacion.slug, "name": organizacion.name},
     )
     return _to_response(organizacion)
-
-
-@router.post(
-    "/organizations/{organization_id}/domains",
-    summary="Añadir un dominio a una organización",
-    status_code=status.HTTP_201_CREATED,
-    response_model=DomainResponse,
-)
-async def add_domain(
-    organization_id: uuid.UUID,
-    datos: DomainCreate,
-    superadmin: Superadmin,
-    session: MaintenanceDb,
-) -> DomainResponse:
-    dominio = await service.add_domain(
-        session,
-        organization_id=organization_id,
-        host=datos.host,
-        is_primary=datos.is_primary,
-    )
-    await registrar_auditoria(
-        session,
-        actor_user_id=superadmin.id,
-        organization_id=organization_id,
-        action="organization_domain.created",
-        entity_type="organization_domain",
-        entity_id=str(dominio.id),
-        detail={"host": dominio.host, "is_primary": dominio.is_primary},
-    )
-    return DomainResponse(id=str(dominio.id), host=dominio.host, is_primary=dominio.is_primary)
-
-
-@router.get(
-    "/organizations/{organization_id}/domains",
-    summary="Listar los dominios de una organización",
-    response_model=list[DomainResponse],
-)
-async def list_domains(
-    organization_id: uuid.UUID, _: Superadmin, session: MaintenanceDb
-) -> list[DomainResponse]:
-    organizacion = await session.get(Organization, organization_id)
-    if organizacion is None:
-        raise NotFoundError("La organización no existe.")
-    filas = await session.scalars(
-        select(OrganizationDomain)
-        .where(OrganizationDomain.organization_id == organization_id)
-        .order_by(OrganizationDomain.host)
-    )
-    return [DomainResponse(id=str(d.id), host=d.host, is_primary=d.is_primary) for d in filas]
 
 
 def _to_audit_entry(fila: AuditLog) -> AuditLogEntry:

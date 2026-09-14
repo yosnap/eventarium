@@ -54,43 +54,16 @@ def seed(
 def create_organization(
     slug: str = typer.Argument(..., help="Identificador corto, en minúsculas."),
     name: str = typer.Argument(..., help="Nombre visible."),
-    host: str = typer.Argument(..., help="Dominio principal, por ejemplo eventos.example.com."),
     contact_email: str | None = typer.Option(None, help="Correo de contacto."),
 ) -> None:
-    """Crea una organización con su dominio, branding y roles clonados."""
+    """Crea una organización con su branding y roles clonados."""
 
     async def _ejecutar() -> None:
         async with maintenance_session() as session:
             organizacion = await service.create_organization(
-                session, slug=slug, name=name, host=host, contact_email=contact_email
+                session, slug=slug, name=name, contact_email=contact_email
             )
             typer.echo(f"Organización creada: {organizacion.slug} ({organizacion.id})")
-
-    asyncio.run(_ejecutar())
-
-
-@app.command("add-domain")
-def add_domain(
-    slug: str = typer.Argument(..., help="Identificador de la organización."),
-    host: str = typer.Argument(..., help="Dominio a añadir."),
-    primary: bool = typer.Option(False, "--primary", help="Marcarlo como dominio principal."),
-) -> None:
-    """Añade un dominio a una organización existente."""
-
-    async def _ejecutar() -> None:
-        from app.modules.organizations.models import Organization
-
-        async with maintenance_session() as session:
-            organizacion = await session.scalar(
-                select(Organization).where(Organization.slug == slug)
-            )
-            if organizacion is None:
-                typer.secho(f"No existe la organización «{slug}».", fg=typer.colors.RED)
-                raise typer.Exit(code=1)
-            dominio = await service.add_domain(
-                session, organization_id=organizacion.id, host=host, is_primary=primary
-            )
-            typer.echo(f"Dominio añadido: {dominio.host}")
 
     asyncio.run(_ejecutar())
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.storage import get_storage
 from app.modules.platform import repository
 from app.modules.platform.models import PLATFORM_LEGAL_PAGE_KINDS, PlatformBranding
@@ -68,17 +69,27 @@ async def branding_publico(session: AsyncSession) -> PlatformBrandingResponse:
     )
 
 
+def _sitio_de_la_instalacion() -> str:
+    """El único sitio que opera la plataforma, para los textos legales.
+
+    Sin dominio por organización, ya no hay una lista de hosts registrados
+    (`platform_domains`, retirada en la fase 6 del plan de organización sin
+    dominio) — una instalación es siempre un único dominio público.
+    """
+    return get_settings().web_base_url.split("://", 1)[-1]
+
+
 async def legal_pages_publicas(session: AsyncSession) -> PlatformLegalPagesResponse:
     """Las cuatro páginas legales de plataforma, con su contenido efectivo."""
     branding: PlatformBranding = await repository.get_platform_branding(session)
-    dominios = await repository.get_platform_domains(session)
+    sitio = _sitio_de_la_instalacion()
 
     items: dict[str, PlatformLegalPageItem] = {}
     for clave in PLATFORM_LEGAL_PAGE_KINDS:
         fila = await repository.get_platform_legal_page(session, clave)
         contenido_editado = fila.content if fila is not None else None
         items[ATRIBUTO_DE_PAGINA[clave]] = PlatformLegalPageItem(
-            content=resolve_platform_legal_page(branding, dominios, clave, contenido_editado),
+            content=resolve_platform_legal_page(branding, sitio, clave, contenido_editado),
             is_custom=bool(contenido_editado),
         )
 

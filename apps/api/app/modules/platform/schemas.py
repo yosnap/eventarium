@@ -69,17 +69,3 @@ class PlatformLegalPagesUpdate(BaseModel):
     registration_terms_content: Annotated[str, Field(max_length=20_000)] | None = None
 
 
-class PlatformDomainOut(BaseModel):
-    """Un host de la web de la plataforma."""
-
-    id: str
-    host: str
-
-
-class PlatformDomainsUpdate(BaseModel):
-    """Reemplazo completo de los hosts de plataforma."""
-
-    hosts: list[str] = Field(
-        default_factory=list,
-        description="Hosts que sirven la web de la instalación. Se normalizan al guardar.",
-    )

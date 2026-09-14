@@ -226,7 +226,7 @@ class TestAccesoSuperadmin:
 
 
 class TestAuditoria:
-    async def test_alta_de_organizacion_y_dominio_quedan_en_audit_log(
+    async def test_alta_de_organizacion_queda_en_audit_log(
         self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
     ) -> None:
         await _hacer_superadmin(organizacion.owner_email)
@@ -235,17 +235,10 @@ class TestAuditoria:
         creacion = await cliente.post(
             ADMIN_ORGS,
             headers=cabeceras,
-            json={"slug": "auditada", "name": "Auditada", "host": "auditada.example"},
+            json={"slug": "auditada", "name": "Auditada"},
         )
         assert creacion.status_code == 201, creacion.text
         nueva_id = creacion.json()["id"]
-
-        dominio = await cliente.post(
-            f"{ADMIN_ORGS}/{nueva_id}/domains",
-            headers=cabeceras,
-            json={"host": "otro.example", "is_primary": False},
-        )
-        assert dominio.status_code == 201, dominio.text
 
         listado = await cliente.get(
             AUDIT_LOG, headers=cabeceras, params={"organization_id": nueva_id}
@@ -253,7 +246,6 @@ class TestAuditoria:
         assert listado.status_code == 200, listado.text
         acciones = {fila["action"] for fila in listado.json()["items"]}
         assert "organization.created" in acciones
-        assert "organization_domain.created" in acciones
 
     async def test_cambio_de_permisos_de_rol_queda_en_audit_log(
         self, cliente: AsyncClient, organizacion: OrganizacionDePrueba

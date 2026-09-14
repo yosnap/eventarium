@@ -13,22 +13,10 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.organizations.models import (
-    Organization,
-    OrganizationBranding,
-    OrganizationDomain,
-)
+from app.modules.organizations.models import Organization, OrganizationBranding
 from app.modules.roles.models import Role, RolePermission, RoleProfileField
 from app.modules.roles.system_roles import SYSTEM_ROLE_TEMPLATES
-from app.shared.errors import ConflictError, NotFoundError
-
-
-def normalize_host(host: str) -> str:
-    """Normaliza un host antes de guardarlo, igual que al resolverlo."""
-    limpio = host.strip().lower()
-    if ":" in limpio and not limpio.startswith("["):
-        limpio = limpio.rsplit(":", 1)[0]
-    return limpio
+from app.shared.errors import ConflictError
 
 
 async def clone_system_roles(session: AsyncSession, organization_id: uuid.UUID) -> dict[str, Role]:
@@ -80,23 +68,19 @@ async def create_organization(
     *,
     slug: str,
     name: str,
-    host: str,
     legal_name: str | None = None,
     contact_email: str | None = None,
 ) -> Organization:
-    """Crea una organización con su dominio principal, branding y roles clonados."""
+    """Crea una organización con su branding y roles clonados.
+
+    Sin dominio propio (fase 6 del plan de organización sin dominio): ya no
+    crea ninguna fila en `organization_domains`, retirada del esquema.
+    """
     slug_limpio = slug.strip().lower()
-    host_limpio = normalize_host(host)
 
     existente = await session.scalar(select(Organization).where(Organization.slug == slug_limpio))
     if existente is not None:
         raise ConflictError(f"Ya existe una organización con el identificador «{slug_limpio}».")
-
-    dominio_existente = await session.scalar(
-        select(OrganizationDomain).where(OrganizationDomain.host == host_limpio)
-    )
-    if dominio_existente is not None:
-        raise ConflictError(f"El dominio «{host_limpio}» ya está asignado a otra organización.")
 
     organizacion = Organization(
         slug=slug_limpio,
@@ -109,9 +93,6 @@ async def create_organization(
     await session.flush()
 
     session.add(
-        OrganizationDomain(organization_id=organizacion.id, host=host_limpio, is_primary=True)
-    )
-    session.add(
         OrganizationBranding(
             organization_id=organizacion.id,
             template_key="classic",
@@ -121,35 +102,3 @@ async def create_organization(
     await clone_system_roles(session, organizacion.id)
     await session.flush()
     return organizacion
-
-
-async def add_domain(
-    session: AsyncSession, *, organization_id: uuid.UUID, host: str, is_primary: bool = False
-) -> OrganizationDomain:
-    """Añade un dominio a una organización existente."""
-    host_limpio = normalize_host(host)
-
-    organizacion = await session.get(Organization, organization_id)
-    if organizacion is None:
-        raise NotFoundError("La organización no existe.")
-
-    existente = await session.scalar(
-        select(OrganizationDomain).where(OrganizationDomain.host == host_limpio)
-    )
-    if existente is not None:
-        if existente.organization_id == organization_id:
-            return existente
-        raise ConflictError(f"El dominio «{host_limpio}» ya está asignado a otra organización.")
-
-    if is_primary:
-        for dominio in await session.scalars(
-            select(OrganizationDomain).where(OrganizationDomain.organization_id == organization_id)
-        ):
-            dominio.is_primary = False
-
-    dominio = OrganizationDomain(
-        organization_id=organization_id, host=host_limpio, is_primary=is_primary
-    )
-    session.add(dominio)
-    await session.flush()
-    return dominio

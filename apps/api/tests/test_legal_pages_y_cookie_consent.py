@@ -8,9 +8,10 @@ editable desde `/organizations/me/legal-pages`, retirado en este cambio).
 
 Cubre: plantilla por defecto, edición desde el panel de plataforma,
 restauración de plantilla, que un `<script>` guardado como contenido legal
-no se ejecuta al servirse, y que `cookie_consents` (que sigue siendo por
-organización: es el registro de qué aceptó cada visitante, no el texto
-legal) se escribe sin ningún dato personal.
+no se ejecuta al servirse, y que `cookie_consents` (registro de plataforma
+desde la fase 6 del plan de organización sin dominio: `organization_id`
+siempre `NULL`, sin dominio del que resolverla) se escribe sin ningún dato
+personal.
 """
 
 from __future__ import annotations
@@ -50,18 +51,15 @@ async def test_las_cuatro_paginas_resuelven_con_la_plantilla_por_defecto(
         assert respuesta.json()["content"]
 
 
-async def test_las_cuatro_paginas_son_iguales_en_dos_organizaciones_distintas(
+async def test_las_cuatro_paginas_son_estables_entre_peticiones(
     cliente: AsyncClient,
-    organizacion: OrganizacionDePrueba,
-    otra_organizacion: OrganizacionDePrueba,
 ) -> None:
-    """No hay contenido legal por organización: da igual desde qué host se
-    pida (aunque sea el de una organización real y distinta cada vez)."""
+    """No hay contenido legal por organización ni por host: las cuatro
+    páginas ya ni siquiera intentan resolver ninguno (`SessionDep`, sin
+    contexto de organización posible)."""
     for ruta in ("aviso-legal", "privacidad", "cookies", "condiciones-de-inscripcion"):
-        de_una = await cliente.get(f"{PUBLIC_LEGAL}/{ruta}", headers={"Host": organizacion.host})
-        de_otra = await cliente.get(
-            f"{PUBLIC_LEGAL}/{ruta}", headers={"Host": otra_organizacion.host}
-        )
+        de_una = await cliente.get(f"{PUBLIC_LEGAL}/{ruta}")
+        de_otra = await cliente.get(f"{PUBLIC_LEGAL}/{ruta}")
         assert de_una.json()["content"] == de_otra.json()["content"]
 
 
@@ -72,17 +70,6 @@ async def test_la_pagina_de_cookies_declara_turnstile_como_necesario(
     assert respuesta.status_code == 200, respuesta.text
     contenido = respuesta.json()["content"].lower()
     assert "turnstile" in contenido
-
-
-async def test_host_desconocido_tambien_sirve_las_paginas_legales(cliente: AsyncClient) -> None:
-    """Sin contenido por organización que proteger, no hay nada que un host
-    desconocido pudiera filtrar: las cuatro páginas responden igual que en
-    cualquier otro host, plataforma incluida."""
-    respuesta = await cliente.get(
-        f"{PUBLIC_LEGAL}/aviso-legal", headers={"Host": "no-existe.test"}
-    )
-    assert respuesta.status_code == 200, respuesta.text
-    assert respuesta.json()["content"]
 
 
 async def test_editar_y_restaurar_una_pagina_legal(
@@ -153,19 +140,19 @@ async def test_un_organizador_no_puede_editar_las_paginas_legales(
     assert respuesta.status_code == 403
 
 
-async def test_cookie_consent_se_guarda_sin_ningun_dato_personal(
-    cliente: AsyncClient, organizacion: OrganizacionDePrueba
-) -> None:
+async def test_cookie_consent_se_guarda_sin_ningun_dato_personal(cliente: AsyncClient) -> None:
+    """Fase 6 del plan de organización sin dominio: pasa a ser un registro de
+    plataforma, como las cuatro páginas legales — `organization_id` queda
+    siempre `NULL`, no hay ningún host del que resolverlo."""
     respuesta = await cliente.post(
         COOKIE_CONSENT,
-        headers={"Host": organizacion.host},
         json={"categories": ["necessary", "analytics"]},
     )
     assert respuesta.status_code == 204
 
     async with SessionMaintenance() as session:
         fila = (await session.execute(select(CookieConsent))).scalar_one()
-        assert fila.organization_id == organizacion.id
+        assert fila.organization_id is None
         assert set(fila.categories_accepted) == {"necessary", "analytics"}
         assert not hasattr(fila, "user_id")
         assert not hasattr(fila, "ip_hash")
@@ -175,15 +162,12 @@ async def test_cookie_consent_se_guarda_sin_ningun_dato_personal(
         assert total == 1
 
 
-async def test_cookie_consent_anade_necessary_si_falta(
-    cliente: AsyncClient, organizacion: OrganizacionDePrueba
-) -> None:
+async def test_cookie_consent_anade_necessary_si_falta(cliente: AsyncClient) -> None:
     """El banner nunca debería omitirla, pero si llega sin ella el backend no
     guarda una fila que no refleje que las cookies necesarias siempre están
     activas."""
     respuesta = await cliente.post(
         COOKIE_CONSENT,
-        headers={"Host": organizacion.host},
         json={"categories": ["marketing"]},
     )
     assert respuesta.status_code == 204
@@ -193,43 +177,9 @@ async def test_cookie_consent_anade_necessary_si_falta(
         assert set(fila.categories_accepted) == {"necessary", "marketing"}
 
 
-async def test_cookie_consent_rechaza_categoria_desconocida(
-    cliente: AsyncClient, organizacion: OrganizacionDePrueba
-) -> None:
+async def test_cookie_consent_rechaza_categoria_desconocida(cliente: AsyncClient) -> None:
     respuesta = await cliente.post(
         COOKIE_CONSENT,
-        headers={"Host": organizacion.host},
         json={"categories": ["necessary", "algo-no-valido"]},
     )
     assert respuesta.status_code == 422
-
-
-async def test_cookie_consent_aislado_por_organizacion(
-    cliente: AsyncClient,
-    organizacion: OrganizacionDePrueba,
-    otra_organizacion: OrganizacionDePrueba,
-) -> None:
-    await cliente.post(
-        COOKIE_CONSENT,
-        headers={"Host": organizacion.host},
-        json={"categories": ["necessary"]},
-    )
-    await cliente.post(
-        COOKIE_CONSENT,
-        headers={"Host": otra_organizacion.host},
-        json={"categories": ["necessary", "marketing"]},
-    )
-
-    async with SessionMaintenance() as session:
-        de_la_primera = await session.scalar(
-            select(func.count())
-            .select_from(CookieConsent)
-            .where(CookieConsent.organization_id == organizacion.id)
-        )
-        de_la_segunda = await session.scalar(
-            select(func.count())
-            .select_from(CookieConsent)
-            .where(CookieConsent.organization_id == otra_organizacion.id)
-        )
-        assert de_la_primera == 1
-        assert de_la_segunda == 1

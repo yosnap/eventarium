@@ -14,12 +14,7 @@ from typing import cast
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.platform.models import (
-    NOMBRE_PLATAFORMA,
-    PlatformBranding,
-    PlatformDomain,
-    PlatformLegalPage,
-)
+from app.modules.platform.models import NOMBRE_PLATAFORMA, PlatformBranding, PlatformLegalPage
 from app.modules.theme_templates.models import ThemeTemplate
 
 
@@ -41,20 +36,6 @@ async def get_platform_legal_page(session: AsyncSession, kind: str) -> PlatformL
     return cast(
         "PlatformLegalPage | None",
         await session.scalar(select(PlatformLegalPage).where(PlatformLegalPage.kind == kind)),
-    )
-
-
-async def get_platform_domains(session: AsyncSession) -> list[PlatformDomain]:
-    """Todos los hosts de plataforma, ordenados."""
-    filas = await session.scalars(select(PlatformDomain).order_by(PlatformDomain.host))
-    return list(filas.all())
-
-
-async def get_platform_domain(session: AsyncSession, host: str) -> PlatformDomain | None:
-    """Un host de plataforma por su nombre exacto (ya normalizado)."""
-    return cast(
-        "PlatformDomain | None",
-        await session.scalar(select(PlatformDomain).where(PlatformDomain.host == host)),
     )
 
 

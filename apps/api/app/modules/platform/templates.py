@@ -10,20 +10,14 @@ admin haya rellenado en la identidad de plataforma.
 
 from __future__ import annotations
 
-from app.modules.platform.models import PlatformBranding, PlatformDomain
+from app.modules.platform.models import PlatformBranding
 
 
 def _nombre(branding: PlatformBranding) -> str:
     return branding.name
 
 
-def _sitios(dominios: list[PlatformDomain]) -> str:
-    if not dominios:
-        return "sin dominio público registrado"
-    return ", ".join(dominio.host for dominio in dominios)
-
-
-def legal_notice_template(branding: PlatformBranding, dominios: list[PlatformDomain]) -> str:
+def legal_notice_template(branding: PlatformBranding, sitio: str) -> str:
     """Aviso legal de la plataforma (LSSI-CE)."""
     nombre = _nombre(branding)
     return (
@@ -31,7 +25,7 @@ def legal_notice_template(branding: PlatformBranding, dominios: list[PlatformDom
         f"En cumplimiento del deber de información de la Ley 34/2002, de "
         f"Servicios de la Sociedad de la Información y de Comercio "
         f"Electrónico (LSSI-CE), se informa de que **{nombre}** es la "
-        f"plataforma que opera los sitios {_sitios(dominios)}.\n\n"
+        f"plataforma que opera el sitio {sitio}.\n\n"
         f"**Qué es esta plataforma**\n\n"
         f"{nombre} es un software de gestión de eventos: permite a cada "
         f"organización publicar sus eventos y gestionar las inscripciones, "
@@ -51,12 +45,12 @@ def legal_notice_template(branding: PlatformBranding, dominios: list[PlatformDom
     )
 
 
-def privacy_policy_template(branding: PlatformBranding, dominios: list[PlatformDomain]) -> str:
+def privacy_policy_template(branding: PlatformBranding, sitio: str) -> str:
     """Política de privacidad de la plataforma."""
     nombre = _nombre(branding)
     return (
         f"**Quién trata tus datos**\n\n"
-        f"**{nombre}** opera la plataforma en los sitios {_sitios(dominios)} "
+        f"**{nombre}** opera la plataforma en el sitio {sitio} "
         f"y es responsable del tratamiento de los datos de tu cuenta y de "
         f"los que facilitas al inscribirte a cualquier evento publicado en "
         f"la plataforma.\n\n"
@@ -79,7 +73,7 @@ def privacy_policy_template(branding: PlatformBranding, dominios: list[PlatformD
     )
 
 
-def cookies_policy_template(branding: PlatformBranding, dominios: list[PlatformDomain]) -> str:
+def cookies_policy_template(branding: PlatformBranding, sitio: str) -> str:
     """Política de cookies de la plataforma."""
     nombre = _nombre(branding)
     return (
@@ -102,7 +96,7 @@ def cookies_policy_template(branding: PlatformBranding, dominios: list[PlatformD
     )
 
 
-def registration_terms_template(branding: PlatformBranding, dominios: list[PlatformDomain]) -> str:
+def registration_terms_template(branding: PlatformBranding, sitio: str) -> str:
     """Condiciones de inscripción a eventos, comunes a toda la plataforma."""
     nombre = _nombre(branding)
     return (
@@ -142,7 +136,7 @@ _TEMPLATES = {
 
 def resolve_platform_legal_page(
     branding: PlatformBranding,
-    dominios: list[PlatformDomain],
+    sitio: str,
     page_key: str,
     contenido_editado: str | None,
 ) -> str:
@@ -152,4 +146,4 @@ def resolve_platform_legal_page(
     """
     if contenido_editado:
         return contenido_editado
-    return _TEMPLATES[page_key](branding, dominios)
+    return _TEMPLATES[page_key](branding, sitio)

@@ -43,27 +43,27 @@ async def test_un_usuario_normal_devuelve_403(
 async def test_un_superadmin_crea_una_organizacion_completa(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
+    """Fase 6 (cierre) del plan de organización sin dominio: crear una
+    organización ya no admite ni exige ningún `host` — sin dominio propio,
+    queda operativa solo con su slug, branding y roles clonados."""
     await _hacer_superadmin(organizacion.owner_email)
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
 
     respuesta = await cliente.post(
         ADMIN,
         headers=cabeceras,
-        json={"slug": "nueva", "name": "Organización Nueva", "host": "nueva.example"},
+        json={"slug": "nueva", "name": "Organización Nueva"},
     )
     assert respuesta.status_code == 201
     nueva = respuesta.json()
+    assert nueva["slug"] == "nueva"
+    assert nueva["name"] == "Organización Nueva"
 
-    # La organización queda operativa: su host resuelve y trae branding y roles.
-    branding = await cliente.get("/api/v1/tenant/branding", headers={"Host": "nueva.example"})
-    assert branding.status_code == 200
-    assert branding.json()["organization"]["slug"] == "nueva"
-
-    dominios = await cliente.get(f"{ADMIN}/{nueva['id']}/domains", headers=cabeceras)
-    assert [d["host"] for d in dominios.json()] == ["nueva.example"]
+    listado = await cliente.get(ADMIN, headers=cabeceras)
+    assert "nueva" in {o["slug"] for o in listado.json()}
 
 
-async def test_no_se_puede_repetir_el_slug_ni_el_dominio(
+async def test_no_se_puede_repetir_el_slug(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
     await _hacer_superadmin(organizacion.owner_email)
@@ -72,34 +72,9 @@ async def test_no_se_puede_repetir_el_slug_ni_el_dominio(
     repetido_slug = await cliente.post(
         ADMIN,
         headers=cabeceras,
-        json={"slug": organizacion.slug, "name": "Copia", "host": "copia.example"},
+        json={"slug": organizacion.slug, "name": "Copia"},
     )
     assert repetido_slug.status_code == 409
-
-    repetido_host = await cliente.post(
-        ADMIN,
-        headers=cabeceras,
-        json={"slug": "otra-mas", "name": "Otra", "host": organizacion.host},
-    )
-    assert repetido_host.status_code == 409
-
-
-async def test_anadir_un_dominio_a_una_organizacion(
-    cliente: AsyncClient, organizacion: OrganizacionDePrueba
-) -> None:
-    await _hacer_superadmin(organizacion.owner_email)
-    _, cabeceras = await iniciar_sesion(cliente, organizacion)
-
-    respuesta = await cliente.post(
-        f"{ADMIN}/{organizacion.id}/domains",
-        headers=cabeceras,
-        json={"host": "Eventos.Example", "is_primary": False},
-    )
-    assert respuesta.status_code == 201
-    assert respuesta.json()["host"] == "eventos.example", "el host se normaliza"
-
-    branding = await cliente.get("/api/v1/tenant/branding", headers={"Host": "eventos.example"})
-    assert branding.json()["organization"]["slug"] == organizacion.slug
 
 
 def test_solo_el_modulo_admin_usa_el_motor_de_mantenimiento() -> None:

@@ -72,24 +72,6 @@ class PlatformBranding(Base, TimestampMixin):
     )
 
 
-class PlatformDomain(Base, TimestampMixin):
-    """Host que sirve la web de la plataforma.
-
-    Es lo que distingue un host de plataforma de uno de organización:
-    `resolve_host` consulta esta tabla **antes** que `organization_domains`.
-    Las dos son excluyentes en la práctica — un host que estuviera en ambas se
-    resolvería como plataforma, porque se comprueba primero; no se añade una
-    constraint cruzada entre tablas por no complicar la migración por un caso
-    que solo se produce editando a mano.
-    """
-
-    __tablename__ = "platform_domains"
-    __table_args__ = (Index("uq_platform_domains_host", "host", unique=True),)
-
-    id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=new_uuid7)
-    host: Mapped[str] = mapped_column(String(255), nullable=False)
-
-
 class PlatformLegalPage(Base, TimestampMixin):
     """Texto legal de la plataforma, por tipo de página.
 

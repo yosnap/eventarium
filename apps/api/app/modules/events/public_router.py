@@ -8,13 +8,12 @@ organización desde el propio evento (`events.service.resolve_public_event_by_sl
 `SessionDep`, sin ningún contexto RLS previo), igual que ya hace
 `checkout_service.iniciar_compra` con `event.organization_id` — no por host.
 
-`list_public_events` (`GET /events`, el listado, no el detalle) es la
-excepción deliberada que queda **fuera de esta fase**: listar eventos de una
-sola organización dejó de tener sentido sin dominio ni segmento de
-organización en la URL, pero convertirlo en un catálogo global de todas las
-organizaciones es una decisión de producto que el usuario pidió explícitamente
-dejar para más adelante (no ahora) — sigue resolviendo por host
-(`OrganizationDep`/`PublicDbDep`) hasta que se decida.
+`list_public_events` (`GET /events`, el listado, no el detalle) lista los
+eventos publicados de **toda la instalación** (fase 6 del plan de
+organización sin dominio, corrección de comportamiento: seguía resolviendo
+por host, lo que en producción sin dominio por organización eran 404 sin
+más — ver `list_public_events_across_organizations` en `events/service.py`
+para el porqué de la resolución organización a organización).
 
 El filtro de publicación (`published` + `public`) se aplica siempre de forma
 explícita en la propia consulta — nunca se confía en que RLS ya lo hace,
@@ -39,7 +38,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import set_organization_context
-from app.core.deps import OrganizationDep, PublicDbDep, SessionDep
+from app.core.deps import SessionDep
 from app.core.ratelimit import PUBLICO_POR_IP, limit_per_ip
 from app.core.storage import get_storage
 from app.modules.events import repository, service, speakers_repository
@@ -211,16 +210,8 @@ async def _tema_del_evento(session: AsyncSession, evento: Event) -> PublicTheme 
     response_model=list[PublicEventSummary],
     dependencies=[limit_per_ip("public-events", PUBLICO_POR_IP)],
 )
-async def list_public_events(
-    organizacion: OrganizationDep, session: PublicDbDep
-) -> list[PublicEventSummary]:
-    filas = (
-        await session.execute(repository.public_events_with_confirmed_count_query(organizacion.id))
-    ).all()
-    ids_de_pago = [evento.id for evento, _ in filas if evento.registration_mode == "paid"]
-    precios = await payments_service.get_min_public_prices(
-        session, organization_id=organizacion.id, event_ids=ids_de_pago
-    )
+async def list_public_events(session: SessionDep) -> list[PublicEventSummary]:
+    filas = await service.list_public_events_across_organizations(session)
     return [
         PublicEventSummary(
             slug=evento.slug,
@@ -237,11 +228,11 @@ async def list_public_events(
             registration_opens_at=evento.registration_opens_at,
             capacity=evento.capacity,
             reserved_count=reservadas,
-            price_from_cents=precios[evento.id].tipo.price_cents if evento.id in precios else None,
-            price_currency=precios[evento.id].tipo.currency if evento.id in precios else None,
-            price_multiple=precios[evento.id].varios_precios if evento.id in precios else False,
+            price_from_cents=precio.tipo.price_cents if precio else None,
+            price_currency=precio.tipo.currency if precio else None,
+            price_multiple=precio.varios_precios if precio else False,
         )
-        for evento, reservadas in filas
+        for evento, reservadas, precio in filas
     ]
 
 

@@ -4,24 +4,18 @@ Dos routers:
 
 - `router_public`: lectura pública de cada página legal. Eventarium es una
   SaaS centralizada (como Luma): las cuatro páginas son siempre las de
-  plataforma, con independencia del host de organización desde el que se
-  pidan — no hay contenido legal propio de organización (decisión del
-  usuario, 2026-09-14; antes sí lo había, editable desde
-  `/organizations/me/legal-pages`, retirado en este cambio).
+  plataforma, con independencia del host desde el que se pidan — no hay
+  contenido legal propio de organización (decisión del usuario, 2026-09-14;
+  antes sí lo había, editable desde `/organizations/me/legal-pages`, retirado
+  en este cambio).
 - `router_cookie_consent`: `POST /public/cookie-consent`, sin autenticación,
-  con `limit_per_ip` (mismo patrón que `registrations/public_router.py`). Se
-  mantiene por organización: es el registro de qué aceptó cada visitante en
-  el sitio de esa organización, no el texto legal en sí.
-
-  **Pendiente, fuera del alcance de la fase 2 del plan de organización sin
-  dominio**: sigue resolviendo por host (`OrganizationDep`/`PublicDbDep`).
-  A diferencia del resto de endpoints públicos, este no cuelga de ningún
-  recurso (evento, inscripción, invitación) del que resolver la organización
-  — es un registro de consentimiento por visita, sin más identificador. Con
-  una sola instalación y sin sitio propio por organización, no está decidido
-  si esto sigue teniendo sentido "por organización" o si pasa a ser un
-  registro de plataforma (como ya lo son las cuatro páginas legales); es una
-  decisión de producto, no solo un cambio de mecanismo de resolución.
+  con `limit_per_ip` (mismo patrón que `registrations/public_router.py`).
+  Pasa a ser un registro de plataforma, como las cuatro páginas legales
+  (fase 6 del plan de organización sin dominio: sin dominio propio por
+  organización, un registro de consentimiento «por organización» ya no tenía
+  ningún host del que resolverla — `organization_id` queda `NULL` para las
+  filas nuevas, decisión de producto tomada en el cierre del plan, no solo un
+  cambio de mecanismo).
 """
 
 from __future__ import annotations
@@ -30,7 +24,7 @@ from fastapi import APIRouter
 from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import DbPlataformaDep, OrganizationDep, PublicDbDep
+from app.core.deps import SessionDep
 from app.core.ratelimit import COOKIE_CONSENT_POR_IP, LEGAL_PAGES_POR_IP, limit_per_ip
 from app.modules.legal.models import CookieConsent
 from app.modules.legal.schemas import CookieConsentCreate, LegalPageResponse
@@ -52,7 +46,7 @@ async def _pagina_publica(session: AsyncSession, clave: str) -> LegalPageRespons
     response_model=LegalPageResponse,
     dependencies=[limit_per_ip("legal-aviso-legal", LEGAL_PAGES_POR_IP)],
 )
-async def public_legal_notice(session: DbPlataformaDep) -> LegalPageResponse:
+async def public_legal_notice(session: SessionDep) -> LegalPageResponse:
     return await _pagina_publica(session, "aviso-legal")
 
 
@@ -62,7 +56,7 @@ async def public_legal_notice(session: DbPlataformaDep) -> LegalPageResponse:
     response_model=LegalPageResponse,
     dependencies=[limit_per_ip("legal-privacidad", LEGAL_PAGES_POR_IP)],
 )
-async def public_privacy_policy(session: DbPlataformaDep) -> LegalPageResponse:
+async def public_privacy_policy(session: SessionDep) -> LegalPageResponse:
     return await _pagina_publica(session, "privacidad")
 
 
@@ -72,7 +66,7 @@ async def public_privacy_policy(session: DbPlataformaDep) -> LegalPageResponse:
     response_model=LegalPageResponse,
     dependencies=[limit_per_ip("legal-cookies", LEGAL_PAGES_POR_IP)],
 )
-async def public_cookies_policy(session: DbPlataformaDep) -> LegalPageResponse:
+async def public_cookies_policy(session: SessionDep) -> LegalPageResponse:
     return await _pagina_publica(session, "cookies")
 
 
@@ -82,7 +76,7 @@ async def public_cookies_policy(session: DbPlataformaDep) -> LegalPageResponse:
     response_model=LegalPageResponse,
     dependencies=[limit_per_ip("legal-condiciones-inscripcion", LEGAL_PAGES_POR_IP)],
 )
-async def public_registration_terms(session: DbPlataformaDep) -> LegalPageResponse:
+async def public_registration_terms(session: SessionDep) -> LegalPageResponse:
     return await _pagina_publica(session, "condiciones-de-inscripcion")
 
 
@@ -97,9 +91,7 @@ async def public_registration_terms(session: DbPlataformaDep) -> LegalPageRespon
     status_code=204,
     dependencies=[limit_per_ip("cookie-consent", COOKIE_CONSENT_POR_IP)],
 )
-async def create_cookie_consent(
-    datos: CookieConsentCreate, organizacion: OrganizationDep, session: PublicDbDep
-) -> None:
+async def create_cookie_consent(datos: CookieConsentCreate, session: SessionDep) -> None:
     if "necessary" not in datos.categories:
         # `necessary` no es rastreo, es lo mínimo para que la web funcione: el
         # banner nunca ofrece la opción de rechazarla, así que una petición sin
@@ -113,7 +105,7 @@ async def create_cookie_consent(
     # devueltas, que este rol no tiene a propósito.
     await session.execute(
         insert(CookieConsent).values(
-            organization_id=organizacion.id,
+            organization_id=None,
             categories_accepted=list(dict.fromkeys(datos.categories)),
         )
     )

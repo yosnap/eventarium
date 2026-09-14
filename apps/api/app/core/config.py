@@ -64,10 +64,9 @@ class Settings(BaseSettings):
     refresh_token_ttl_days: int = 7
     cookie_domain: str | None = None
 
-    # Red y multi-tenant.
+    # Red.
     trusted_proxy_cidrs: str = "127.0.0.1/32,::1/128"
     cors_origins: str = ""
-    default_organization_slug: str = ""
     web_base_url: str = "http://localhost:8080"
 
     # Semilla de demostración.
@@ -92,10 +91,6 @@ class Settings(BaseSettings):
     # Turnstile: obligatorio en producción, desactivable en desarrollo y tests.
     turnstile_enabled: bool = True
     turnstile_secret_key: str = ""
-
-    # Dominio de la instalación: cada organización recibe {slug}.{dominio_base}.
-    # Vacío en desarrollo (se resuelve por localhost); obligatorio en producción.
-    dominio_base: str = ""
 
     # Ventana de confirmación al promover desde la lista de espera (fase 3 del
     # PRD, fase 3 de trabajo). Fija a nivel de aplicación, no por evento —
@@ -156,20 +151,10 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _validar_produccion(self) -> Settings:
-        if self.app_env == "production" and self.default_organization_slug:
-            raise ValueError(
-                "DEFAULT_ORGANIZATION_SLUG debe estar vacío en producción: la organización "
-                "se resuelve siempre por Host."
-            )
         if self.app_env == "production" and not self.turnstile_enabled:
             raise ValueError(
                 "TURNSTILE_ENABLED no puede estar desactivado en producción: desprotegería "
                 "el registro y el reenvío de verificación frente a scripts automatizados."
-            )
-        if self.app_env == "production" and not self.dominio_base:
-            raise ValueError(
-                "DOMINIO_BASE no puede estar vacío en producción: cada organización "
-                "necesita saber bajo qué dominio registrar su subdominio."
             )
         if self.app_env == "production" and self.stripe_secret_key.startswith("sk_test_"):
             raise ValueError(

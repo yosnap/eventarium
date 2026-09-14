@@ -56,14 +56,11 @@ async def test_login_ignora_el_host_y_activa_la_organizacion_propia(
     organizacion: OrganizacionDePrueba,
     otra_organizacion: OrganizacionDePrueba,
 ) -> None:
-    """Sin dominio por organización, el `Host` no determina nada en el login:
-    unas credenciales válidas siempre entran, y en su propia organización —
-    con independencia de qué host se visite, incluido el de otra organización
-    real y registrada (`organizacion`, distinta de la propietaria de las
-    credenciales)."""
+    """Sin dominio por organización (fase 6, cierre del plan: ya no existe
+    ningún `Host` que resolver), unas credenciales válidas siempre entran, y
+    en su propia organización."""
     respuesta = await cliente.post(
         LOGIN,
-        headers={"Host": organizacion.host},
         json={
             "email": otra_organizacion.owner_email,
             "password": otra_organizacion.owner_password,
@@ -157,18 +154,18 @@ async def test_endpoint_protegido_sin_token_devuelve_401(
     assert respuesta.status_code == 401
 
 
-async def test_el_token_ignora_el_host_de_la_peticion(
+async def test_el_token_no_depende_de_ningun_host(
     cliente: AsyncClient,
     organizacion: OrganizacionDePrueba,
-    otra_organizacion: OrganizacionDePrueba,
 ) -> None:
-    """Sin dominio por organización, un token vale igual con cualquier `Host`:
-    la organización activa la lleva el propio token, no el host visitado."""
+    """Sin dominio por organización (fase 6, cierre del plan), la organización
+    activa la lleva el propio token — ni siquiera hay ya ningún `Host` que
+    pudiera influir en la resolución."""
     token, _ = await iniciar_sesion(cliente, organizacion)
 
     respuesta = await cliente.get(
         "/api/v1/users/me",
-        headers={"Host": otra_organizacion.host, "Authorization": f"Bearer {token}"},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert respuesta.status_code == 200, respuesta.text
     assert respuesta.json()["organization_id"] == str(organizacion.id)

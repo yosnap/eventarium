@@ -618,4 +618,57 @@ async def resolve_public_event_by_slug(session: AsyncSession, slug: str) -> Even
     evento = await session.get(Event, fila[0])
     if evento is None:  # pragma: no cover - ya lo garantiza la función SECURITY DEFINER
         raise NotFoundError("El evento no existe.")
+
     return evento
+
+
+async def list_public_events_across_organizations(
+    session: AsyncSession,
+) -> list[tuple[Event, int, payments_service.PrecioPublico | None]]:
+    """Eventos publicados de **toda la instalación**, sin organización activa.
+
+    Fase 6 del plan de organización sin dominio: `GET /public/events` (el
+    listado) seguía resolviendo por host, comportamiento roto en producción
+    sin dominio propio (ver riesgos de `plan.md`). El frontend ya esperaba un
+    listado de toda la instalación, sin filtro de organización
+    (`upcoming-events.ts`/`events-list-page.ts` piden el mismo endpoint sin
+    ningún parámetro).
+
+    RLS exige el contexto de una organización por fila; no hay ningún host
+    que lo fije de antemano para "todas a la vez". `app_list_public_event_organizations`
+    (`SECURITY DEFINER` de alcance mínimo, mismo patrón que
+    `app_resolve_public_event`) devuelve solo los `id` de organización con al
+    menos un evento publicable — la resolución completa de cada una se hace
+    después, fijando su contexto RLS una por una y reutilizando exactamente
+    las mismas consultas que ya usa el listado de una sola organización
+    (`public_events_with_confirmed_count_query`, `get_min_public_prices`):
+    nada de SQL nuevo por duplicar, solo repetido por organización. El número
+    de organizaciones de una instalación es pequeño (no es una consulta por
+    evento, es una por organización), así que el coste es aceptable para un
+    endpoint ya limitado por IP.
+    """
+    organizaciones = (
+        await session.execute(
+            text("SELECT organization_id FROM app_list_public_event_organizations()")
+        )
+    ).all()
+
+    resultado: list[tuple[Event, int, payments_service.PrecioPublico | None]] = []
+    for (organization_id,) in organizaciones:
+        await set_organization_context(session, organization_id)
+        filas = (
+            await session.execute(
+                repository.public_events_with_confirmed_count_query(organization_id)
+            )
+        ).all()
+        ids_de_pago = [
+            evento.id for evento, _ in filas if evento.registration_mode == "paid"
+        ]
+        precios = await payments_service.get_min_public_prices(
+            session, organization_id=organization_id, event_ids=ids_de_pago
+        )
+        for evento, reservadas in filas:
+            resultado.append((evento, reservadas, precios.get(evento.id)))
+
+    resultado.sort(key=lambda item: item[0].starts_at)
+    return resultado

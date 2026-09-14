@@ -12,19 +12,13 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from app.core.database import SessionApp, SessionMaintenance, set_organization_context
-from app.modules.organizations.models import (
-    Organization,
-    OrganizationBranding,
-    OrganizationDomain,
-    OrganizationMember,
-)
+from app.modules.organizations.models import Organization, OrganizationBranding, OrganizationMember
 from app.modules.organizations.repository import unsafe_select_all
 from app.modules.roles.models import Role, RoleProfileField
 from app.modules.users.models import User
 from tests.conftest import OrganizacionDePrueba
 
 TABLAS_CON_ORGANIZACION = (
-    OrganizationDomain,
     OrganizationBranding,
     OrganizationMember,
     Role,
@@ -121,10 +115,10 @@ async def test_no_se_puede_insertar_en_otra_organizacion(
             async with session.begin():
                 await set_organization_context(session, organizacion.id)
                 session.add(
-                    OrganizationDomain(
+                    Role(
                         organization_id=otra_organizacion.id,
-                        host="intruso.example",
-                        is_primary=False,
+                        key="intruso",
+                        name="Rol intruso",
                     )
                 )
                 await session.flush()
@@ -132,7 +126,7 @@ async def test_no_se_puede_insertar_en_otra_organizacion(
     # La fila no existe: la comprobación se hace con el rol de mantenimiento.
     async with SessionMaintenance() as session:
         encontrada = await session.scalar(
-            text("SELECT count(*) FROM organization_domains WHERE host = 'intruso.example'")
+            text("SELECT count(*) FROM roles WHERE key = 'intruso'")
         )
     assert encontrada == 0
 

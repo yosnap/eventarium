@@ -107,12 +107,16 @@ class SocialLinkResponse(BaseModel):
 
 
 class OrganizationMembershipResponse(BaseModel):
-    """Una organización a la que pertenece la persona, para el selector del panel."""
+    """Una organización a la que pertenece la persona, para el selector del panel.
+
+    Sin dominio por organización (fase 6 del plan «organización sin
+    dominio»): ya no lleva `host`, campo que solo devolvía `NULL` desde que
+    `organization_domains` se retiró.
+    """
 
     organization_id: str
     slug: str
     name: str
-    host: str | None
 
 
 class PublicProfileUpdate(BaseModel):

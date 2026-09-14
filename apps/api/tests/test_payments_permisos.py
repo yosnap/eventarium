@@ -141,9 +141,7 @@ async def test_organizacion_creada_despues_de_la_migracion_tiene_payments_en_el_
     por la fixture de sesión `migraciones`): su `organizer` clonado debe
     tener `payments:read`/`write` sin ningún backfill manual, solo por la
     plantilla actualizada en `system_roles.py`."""
-    nueva = await crear_organizacion(
-        "nueva-tras-migracion-pagos", "nueva-tras-migracion-pagos.test"
-    )
+    nueva = await crear_organizacion("nueva-tras-migracion-pagos")
     permisos = await _permisos_del_rol(nueva, "organizer")
     assert Permission.PAYMENTS_READ.value in permisos
     assert Permission.PAYMENTS_WRITE.value in permisos

@@ -13,22 +13,18 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, File, UploadFile
-from sqlalchemy import delete
+from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import registrar_auditoria
 from app.core.deps import CurrentUser, get_maintenance_db, require_superadmin
 from app.core.storage import build_platform_object_key, get_storage, validate_upload
-from app.core.tenant import normalize_host
 from app.modules.platform import repository as platform_repository
 from app.modules.platform import service as platform_service
-from app.modules.platform.models import PlatformDomain, PlatformLegalPage
+from app.modules.platform.models import PlatformLegalPage
 from app.modules.platform.schemas import (
     PlatformBrandingResponse,
     PlatformBrandingUpdate,
-    PlatformDomainOut,
-    PlatformDomainsUpdate,
     PlatformLegalPagesResponse,
     PlatformLegalPagesUpdate,
 )
@@ -254,57 +250,3 @@ async def update_platform_legal_pages(
         detail={"campos": sorted(cambios)},
     )
     return await platform_service.legal_pages_publicas(session)
-
-
-@router.get(
-    "/platform-domains",
-    summary="Hosts de la web de la plataforma",
-    response_model=list[PlatformDomainOut],
-)
-async def list_platform_domains(_: Superadmin, session: MaintenanceDb) -> list[PlatformDomainOut]:
-    dominios = await platform_repository.get_platform_domains(session)
-    return [PlatformDomainOut(id=str(d.id), host=d.host) for d in dominios]
-
-
-@router.put(
-    "/platform-domains",
-    summary="Reemplazar los hosts de la web de la plataforma",
-    description=(
-        "Sustituye la lista completa. Un host de plataforma se comprueba antes "
-        "que los de organización, así que deja de resolverse como organización."
-    ),
-    response_model=list[PlatformDomainOut],
-)
-async def replace_platform_domains(
-    datos: Annotated[PlatformDomainsUpdate, Body()],
-    superadmin: Superadmin,
-    session: MaintenanceDb,
-) -> list[PlatformDomainOut]:
-    limpios = sorted({normalize_host(host) for host in datos.hosts if normalize_host(host)})
-    if not limpios:
-        # Un reemplazo vacío dejaría la instalación sin ningún host de plataforma:
-        # la web de Eventarium pasaría a responder 404 en todas partes. Es una
-        # operación que ningún caso de uso legítimo pide, así que se rechaza en
-        # vez de dejar la instalación sin identidad alcanzable.
-        raise ValidationDomainError(
-            "La lista de hosts de plataforma no puede quedar vacía: dejaría la web de la "
-            "instalación sin ningún dominio que la sirva."
-        )
-
-    await session.execute(delete(PlatformDomain))
-    for host in limpios:
-        session.add(PlatformDomain(host=host))
-    await session.flush()
-
-    await registrar_auditoria(
-        session,
-        actor_user_id=superadmin.id,
-        organization_id=None,
-        action="platform_domains.replaced",
-        entity_type="platform_domain",
-        entity_id=None,
-        detail={"hosts": limpios},
-    )
-
-    dominios = await platform_repository.get_platform_domains(session)
-    return [PlatformDomainOut(id=str(d.id), host=d.host) for d in dominios]

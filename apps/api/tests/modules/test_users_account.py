@@ -254,9 +254,7 @@ async def test_social_links_crud(cliente: AsyncClient, organizacion: Organizacio
 async def test_get_organizations_lista_solo_las_propias(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    segunda = await crear_organizacion(
-        "segunda-org", "segunda.test", owner_password=organizacion.owner_password
-    )
+    segunda = await crear_organizacion("segunda-org", owner_password=organizacion.owner_password)
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
 
     respuesta = await cliente.get(ORGANIZATIONS, headers=cabeceras)

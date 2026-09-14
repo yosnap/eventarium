@@ -38,7 +38,6 @@ def _cargar_env_de_tests() -> None:
             valores[clave.strip()] = valor.strip()
 
     os.environ["APP_ENV"] = "test"
-    os.environ["DEFAULT_ORGANIZATION_SLUG"] = ""
     for clave, valor in valores.items():
         os.environ.setdefault(clave, valor)
 
@@ -87,7 +86,6 @@ TABLAS = (
     "organization_members",
     "roles",
     "organization_branding",
-    "organization_domains",
     "user_social_links",
     "users",
     "organizations",
@@ -121,11 +119,10 @@ TABLAS = (
     "accounting_expense_drafts",
     "sponsor_payment_details",
     # Identidad de plataforma: tablas de instalación sin `organization_id` ni
-    # FK hacia ninguna de las anteriores. Sin listarlas, el `platform_domains`
-    # que un test registra se cuela en el siguiente (y el `TRUNCATE` de abajo
-    # se lleva por delante justo lo que el test acaba de crear).
+    # FK hacia ninguna de las anteriores. Sin listarlas, lo que un test
+    # registra se cuela en el siguiente (y el `TRUNCATE` de abajo se lleva
+    # por delante justo lo que el test acaba de crear).
     "platform_branding",
-    "platform_domains",
     "platform_legal_pages",
 )
 
@@ -198,14 +195,13 @@ async def cliente() -> AsyncIterator[AsyncClient]:
 class OrganizacionDePrueba:
     """Datos de una organización creada para un test."""
 
-    __slots__ = ("id", "slug", "host", "owner_id", "owner_email", "owner_password", "owner_role_id")
+    __slots__ = ("id", "slug", "owner_id", "owner_email", "owner_password", "owner_role_id")
 
     def __init__(
         self,
         *,
         id: uuid.UUID,
         slug: str,
-        host: str,
         owner_id: uuid.UUID,
         owner_email: str,
         owner_password: str,
@@ -213,7 +209,6 @@ class OrganizacionDePrueba:
     ) -> None:
         self.id = id
         self.slug = slug
-        self.host = host
         self.owner_id = owner_id
         self.owner_email = owner_email
         self.owner_password = owner_password
@@ -221,12 +216,12 @@ class OrganizacionDePrueba:
 
 
 async def crear_organizacion(
-    slug: str, host: str, *, owner_password: str = "contraseña-de-prueba"
+    slug: str, *, owner_password: str = "contraseña-de-prueba"
 ) -> OrganizacionDePrueba:
     """Crea una organización con su propietario usando el rol de mantenimiento."""
     async with SessionMaintenance() as session:
         organizacion = await organization_service.create_organization(
-            session, slug=slug, name=f"Organización {slug}", host=host
+            session, slug=slug, name=f"Organización {slug}"
         )
         rol = await session.scalar(
             select(Role).where(Role.organization_id == organizacion.id, Role.key == OWNER_KEY)
@@ -255,7 +250,6 @@ async def crear_organizacion(
         return OrganizacionDePrueba(
             id=organizacion.id,
             slug=organizacion.slug,
-            host=host,
             owner_id=usuario.id,
             owner_email=correo,
             owner_password=owner_password,
@@ -265,14 +259,14 @@ async def crear_organizacion(
 
 @pytest.fixture
 async def organizacion() -> OrganizacionDePrueba:
-    """Organización principal de los tests, alcanzable en el host `localhost`."""
-    return await crear_organizacion("acme", "localhost")
+    """Organización principal de los tests."""
+    return await crear_organizacion("acme")
 
 
 @pytest.fixture
 async def otra_organizacion() -> OrganizacionDePrueba:
     """Segunda organización, para comprobar el aislamiento."""
-    return await crear_organizacion("rival", "rival.test")
+    return await crear_organizacion("rival")
 
 
 async def iniciar_sesion(

@@ -10,7 +10,7 @@ Solo la primerísima fila de `organizations` necesita saltarse RLS (la política
 `id = app_current_organization()`, y una organización que aún no existe no puede ser
 el contexto de nadie). Se resuelve con `app_create_organization_row`, una función
 `SECURITY DEFINER` de alcance mínimo. En cuanto esa fila existe, el resto —clonar
-roles, dominio, branding, membresía del propietario— se hace fijando el contexto RLS a
+roles, branding, membresía del propietario— se hace fijando el contexto RLS a
 la organización nueva y reutilizando el código normal (`organization_service`), no una
 versión reimplementada que pudiera divergir del alta por superadmin.
 """
@@ -23,7 +23,6 @@ from fastapi import APIRouter, Request, Response, status
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from app.core.config import get_settings
 from app.core.database import set_organization_context
 from app.core.deps import SessionDep, VerifiedUserDep
 from app.core.ratelimit import CHECK_SLUG_POR_IP, CREAR_ORGANIZACION_POR_IP, limit_per_ip
@@ -32,11 +31,7 @@ from app.modules.auth import service as auth_service
 from app.modules.auth.cookies import fijar_cookie_refresh
 from app.modules.auth.service import AuthenticatedUser
 from app.modules.organizations import service as organization_service
-from app.modules.organizations.models import (
-    OrganizationBranding,
-    OrganizationDomain,
-    OrganizationMember,
-)
+from app.modules.organizations.models import OrganizationBranding, OrganizationMember
 from app.modules.organizations.schemas import (
     RESERVED_SLUGS,
     SLUG_PATTERN,
@@ -81,10 +76,7 @@ async def check_slug(slug: str, session: SessionDep) -> CheckSlugResponse:
 @router.post(
     "",
     summary="Crear una organización (autoservicio)",
-    description=(
-        "Exige correo verificado y Turnstile. La persona autenticada queda como "
-        "`owner`; el subdominio se registra como `{slug}.DOMINIO_BASE`."
-    ),
+    description="Exige correo verificado y Turnstile. La persona autenticada queda como `owner`.",
     status_code=status.HTTP_201_CREATED,
     response_model=SelfServiceOrganizationResponse,
     dependencies=[limit_per_ip("crear-organizacion", CREAR_ORGANIZACION_POR_IP)],
@@ -103,9 +95,6 @@ async def create_organization(
         raise ValidationDomainError(
             f"El identificador «{slug_limpio}» no es válido o está reservado."
         )
-
-    settings = get_settings()
-    host = f"{slug_limpio}.{settings.dominio_base}" if settings.dominio_base else slug_limpio
 
     organization_id = new_uuid7()
     try:
@@ -128,7 +117,6 @@ async def create_organization(
     roles_clonados = await organization_service.clone_system_roles(session, organization_id)
     owner_role = roles_clonados[OWNER_KEY]
 
-    session.add(OrganizationDomain(organization_id=organization_id, host=host, is_primary=True))
     session.add(
         OrganizationBranding(
             organization_id=organization_id,
@@ -176,7 +164,6 @@ async def create_organization(
     return SelfServiceOrganizationResponse(
         id=str(organization_id),
         slug=slug_limpio,
-        host=host,
         access_token=tokens.access_token,
         expires_in=tokens.expires_in,
     )

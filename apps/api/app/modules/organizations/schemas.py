@@ -229,7 +229,6 @@ class OrganizationCreate(BaseModel):
 
     slug: Annotated[str, Field(min_length=2, max_length=60, pattern=SLUG_PATTERN)]
     name: Annotated[str, Field(min_length=1, max_length=160)]
-    host: Annotated[str, Field(min_length=3, max_length=255)]
     legal_name: Annotated[str, Field(max_length=200)] | None = None
     contact_email: EmailStr | None = None
 
@@ -258,7 +257,6 @@ class SelfServiceOrganizationResponse(BaseModel):
 
     id: str
     slug: str
-    host: str
     access_token: str
     expires_in: int
 
@@ -267,18 +265,3 @@ class CheckSlugResponse(BaseModel):
     """Disponibilidad de un identificador de organización."""
 
     available: bool
-
-
-class DomainCreate(BaseModel):
-    """Alta de dominio (solo superadmin)."""
-
-    host: Annotated[str, Field(min_length=3, max_length=255)]
-    is_primary: bool = False
-
-
-class DomainResponse(BaseModel):
-    """Dominio asociado a una organización."""
-
-    id: str
-    host: str
-    is_primary: bool

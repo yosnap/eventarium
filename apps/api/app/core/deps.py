@@ -5,14 +5,15 @@ Cadena de una petición autenticada (`DbDep`/`CurrentUserDep`):
     get_session → get_db_organizacion_activa → get_current_user → require_permission
 
 La organización activa viene siempre del propio token (claim `org`), nunca del
-`Host`: las organizaciones no tienen dominio propio. `get_current_organization`/
-`get_db` (host-based) y `OrganizationDep`/`PublicDbDep` siguen existiendo solo
-para los pocos endpoints genuinamente públicos que todavía resuelven por host,
-hasta que las fases 2/3 del plan de organización sin dominio los retiren.
+`Host`: las organizaciones no tienen dominio propio. No queda ninguna
+dependencia que resuelva por host (fase 6 del plan de organización sin
+dominio: los últimos consumidores genuinamente públicos que quedaban —
+`GET /tenant/branding`, `GET /public/events`, `POST /public/cookie-consent`
+— dejaron de necesitarlo).
 
-`get_db_organizacion_activa`/`get_db` son los únicos puntos donde se fija el
-contexto de RLS. Ningún router abre sesiones por su cuenta ni usa el motor de
-mantenimiento.
+`get_db_organizacion_activa` es el único punto donde se fija el contexto de
+RLS a partir de una sesión autenticada. Ningún router abre sesiones por su
+cuenta ni usa el motor de mantenimiento.
 """
 
 from __future__ import annotations
@@ -28,10 +29,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import SessionApp, SessionMaintenance, set_organization_context
 from app.core.permissions import Permission
 from app.core.security import AccessTokenClaims, decode_access_token
-from app.core.tenant import ResolvedOrganization, resolve_organization
 from app.shared.errors import (
     AuthenticationError,
-    NotFoundError,
     PermissionDeniedError,
 )
 
@@ -51,83 +50,19 @@ async def get_session() -> AsyncIterator[AsyncSession]:
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
-async def get_current_organization(
-    request: Request,
-    session: Annotated[AsyncSession, Depends(get_session)],
-) -> ResolvedOrganization:
-    """Organización resuelta por host. 404 si el host no está registrado.
-
-    Solo la usan ya los endpoints genuinamente públicos (`OrganizationDep`,
-    `PublicDbDep`): las organizaciones no tienen dominio propio, así que nada
-    autenticado depende de esto — ver `get_db_organizacion_activa`.
-    """
-    organizacion = await resolve_organization(request, session)
-    if organizacion is None:
-        # `required=True` ya lanzó 404 dentro de `resolve_organization`; esto
-        # solo deja el tipo cerrado para el llamante.
-        raise NotFoundError("No hay ninguna organización asociada al host de esta petición.")
-    if not organizacion.is_active:
-        raise NotFoundError("La organización no está activa.")
-    request.state.organization = organizacion
-    return organizacion
-
-
-async def get_db(
-    session: Annotated[AsyncSession, Depends(get_session)],
-    organizacion: Annotated[ResolvedOrganization, Depends(get_current_organization)],
-) -> AsyncSession:
-    """Sesión con el contexto RLS de la organización resuelta por host.
-
-    Solo para lo genuinamente público (`PublicDbDep`): sin dominio por
-    organización, ya no es el mecanismo de nada autenticado.
-    """
-    await set_organization_context(session, organizacion.id)
-    return session
-
-
 async def get_db_organizacion_activa(
     claims: Annotated[AccessTokenClaims, Depends(get_token_claims)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> AsyncSession:
     """Sesión con el contexto RLS de la organización activa de la sesión (JWT).
 
-    Sustituye a la resolución por host para todo lo autenticado: la
-    organización activa es la que lleva el propio access token (claim `org`),
-    cambiable sin volver a loguearse vía `POST /auth/switch-organization` —
-    sin dominio por organización, ya no hay ningún host que pudiera decirlo.
+    La organización activa es la que lleva el propio access token (claim
+    `org`), cambiable sin volver a loguearse vía
+    `POST /auth/switch-organization` — sin dominio por organización, no hay
+    ningún host que pudiera decirlo.
     """
     await set_organization_context(session, claims.organization_id, claims.user_id)
     return session
-
-
-async def get_db_o_plataforma(
-    request: Request,
-    session: Annotated[AsyncSession, Depends(get_session)],
-) -> AsyncSession:
-    """Sesión para endpoints públicos que también sirven al host de plataforma.
-
-    `get_db` exige que el host resuelva a una organización (404 si no), que es
-    lo correcto para todo lo que es de un tenant. La web de la instalación, en
-    cambio, tiene que servirse en un host que no pertenece a ninguna
-    organización: aquí el contexto RLS se fija **solo si hay** una, así que en
-    un host de plataforma la sesión queda sin contexto y solo puede leer las
-    tablas de instalación — que es exactamente lo que necesita.
-    """
-    organizacion = await resolve_organization(request, session, required=False)
-    if organizacion is not None:
-        await set_organization_context(session, organizacion.id)
-    return session
-
-
-# Reutilizable por los endpoints públicos (sin autenticar): necesitan el `id` de la
-# organización resuelta por host, pero no un usuario — `get_db` ya deja el contexto
-# RLS listo con solo esta dependencia, sin pasar por `get_current_user`.
-OrganizationDep = Annotated[ResolvedOrganization, Depends(get_current_organization)]
-#: Sesión con el contexto RLS de la organización resuelta por host — el nombre
-#: explícito distingue a los pocos endpoints genuinamente públicos que todavía
-#: dependen del host (hasta que la fase 2/3 del plan retire esa vía) de `DbDep`,
-#: que ahora es la organización activa de la sesión autenticada.
-PublicDbDep = Annotated[AsyncSession, Depends(get_db)]
 
 
 async def get_maintenance_db() -> AsyncIterator[AsyncSession]:
@@ -261,14 +196,9 @@ async def get_user_permissions(session: AsyncSession, usuario: CurrentUser) -> s
 
 CurrentUserDep = Annotated[CurrentUser, Depends(get_current_user)]
 #: Sesión con el contexto RLS de la organización activa de la sesión
-#: autenticada (el claim `org` del propio token) — el nombre corto para el
-#: caso mayoritario: el panel de organización y el de administración de
-#: plataforma nunca dependen del host. Los pocos endpoints genuinamente
-#: públicos que sí lo hacen usan `PublicDbDep` explícitamente.
+#: autenticada (el claim `org` del propio token). Ningún endpoint, público o
+#: autenticado, depende ya del host de la petición.
 DbDep = Annotated[AsyncSession, Depends(get_db_organizacion_activa)]
-#: Sesión para endpoints públicos que también sirven al host de plataforma.
-#: A diferencia de `DbDep`, no exige un token ni una organización activa.
-DbPlataformaDep = Annotated[AsyncSession, Depends(get_db_o_plataforma)]
 
 
 async def current_permissions(usuario: CurrentUserDep, session: DbDep) -> set[Permission]:
@@ -412,9 +342,10 @@ async def require_verified_user(
     La visibilidad normal de `users` bajo RLS exige compartir organización con quien
     pregunta; por eso usa `app_find_user_by_id`, la misma función `SECURITY DEFINER`
     de alcance mínimo que el registro (fase 1) usa por correo. Sesión sin contexto
-    (`get_session`, no `get_db`): esto no depende de ninguna organización ni de
-    ningún host — lo usa el autoservicio de creación de organizaciones, antes de
-    que exista ninguna que fijar como contexto.
+    (`get_session`, no `get_db_organizacion_activa`): esto no depende de
+    ninguna organización ni de ningún host — lo usa el autoservicio de
+    creación de organizaciones, antes de que exista ninguna que fijar como
+    contexto.
     """
     fila = (
         await session.execute(

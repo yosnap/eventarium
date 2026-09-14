@@ -70,7 +70,7 @@ async def test_el_listado_publico_solo_incluye_published_public(
     publico = await _crear_evento(cliente, cabeceras, slug="publico")
     await _publicar(cliente, cabeceras, publico["id"], visibility="public")
 
-    listado = await cliente.get(PUBLIC_EVENTS, headers={"Host": organizacion.host})
+    listado = await cliente.get(PUBLIC_EVENTS)
     assert listado.status_code == 200
     slugs = [e["slug"] for e in listado.json()]
     assert slugs == ["publico"]
@@ -124,8 +124,7 @@ async def test_el_listado_y_el_detalle_incluyen_el_precio_desde_del_tipo_mas_bar
         cliente, cabeceras, de_pago_mismo_precio["id"], name="Estudiante", price_cents=1000
     )
 
-    cabeceras_publicas = {"Host": organizacion.host}
-    listado = await cliente.get(PUBLIC_EVENTS, headers=cabeceras_publicas)
+    listado = await cliente.get(PUBLIC_EVENTS)
     assert listado.status_code == 200
     por_slug = {evento["slug"]: evento for evento in listado.json()}
     assert por_slug["precio-gratis"]["price_from_cents"] is None
@@ -405,30 +404,31 @@ async def test_el_perfil_publico_de_un_ponente_expone_la_lista_blanca_y_el_histo
     assert detalle.json()["sessions"][0]["participants"][0]["public_slug"] == "la-gran-ponente"
 
 
-async def test_el_listado_publico_sigue_siendo_por_organizacion_pero_el_detalle_ya_no(
+async def test_el_listado_publico_incluye_eventos_de_toda_la_instalacion(
     cliente: AsyncClient,
     organizacion: OrganizacionDePrueba,
     otra_organizacion: OrganizacionDePrueba,
 ) -> None:
-    """`GET /public/events` (el listado) queda deliberadamente fuera de la
-    fase 2 del plan de organización sin dominio y sigue resolviendo por host
-    — así que un evento de `organizacion` no aparece en el listado visto
-    desde el host de `otra_organizacion`. El detalle (`GET /public/events/{slug}`),
-    en cambio, ya resuelve la organización desde el propio evento, no por
-    host: es exactamente el cambio que hace esta fase, y un slug único en
-    toda la instalación (fase 0) se ve igual sea cual sea el host visitado."""
-    _, cabeceras = await iniciar_sesion(cliente, organizacion)
-    evento = await _crear_evento(cliente, cabeceras, slug="evento-de-acme")
-    await _publicar(cliente, cabeceras, evento["id"])
+    """Fase 6 (cierre) del plan de organización sin dominio: el listado
+    público deja de resolver por host (ya no hay ningún host que lo haga) y
+    pasa a devolver los eventos publicables de TODA la instalación, no de una
+    única organización — mismo criterio que ya regía el detalle desde la
+    fase 2 (resuelto por el propio evento, nunca por host)."""
+    _, cabeceras_a = await iniciar_sesion(cliente, organizacion)
+    evento_a = await _crear_evento(cliente, cabeceras_a, slug="evento-de-acme")
+    await _publicar(cliente, cabeceras_a, evento_a["id"])
 
-    listado_rival = await cliente.get(PUBLIC_EVENTS, headers={"Host": otra_organizacion.host})
-    assert listado_rival.json() == []
+    _, cabeceras_b = await iniciar_sesion(cliente, otra_organizacion)
+    evento_b = await _crear_evento(cliente, cabeceras_b, slug="evento-de-rival")
+    await _publicar(cliente, cabeceras_b, evento_b["id"])
 
-    detalle_desde_host_ajeno = await cliente.get(
-        f"{PUBLIC_EVENTS}/evento-de-acme", headers={"Host": otra_organizacion.host}
-    )
-    assert detalle_desde_host_ajeno.status_code == 200, detalle_desde_host_ajeno.text
-    assert detalle_desde_host_ajeno.json()["slug"] == "evento-de-acme"
+    listado = await cliente.get(PUBLIC_EVENTS)
+    slugs = {evento["slug"] for evento in listado.json()}
+    assert slugs == {"evento-de-acme", "evento-de-rival"}
+
+    detalle = await cliente.get(f"{PUBLIC_EVENTS}/evento-de-acme")
+    assert detalle.status_code == 200, detalle.text
+    assert detalle.json()["slug"] == "evento-de-acme"
 
 
 async def _crear_inscripcion(
@@ -693,10 +693,9 @@ async def test_el_detalle_publico_expone_las_plazas_reservadas(
 async def test_el_listado_publico_tiene_limite_de_peticiones_por_ip(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    cabeceras = {"Host": organizacion.host}
     for _ in range(PUBLICO_POR_IP):
-        respuesta = await cliente.get(PUBLIC_EVENTS, headers=cabeceras)
+        respuesta = await cliente.get(PUBLIC_EVENTS)
         assert respuesta.status_code == 200
 
-    bloqueada = await cliente.get(PUBLIC_EVENTS, headers=cabeceras)
+    bloqueada = await cliente.get(PUBLIC_EVENTS)
     assert bloqueada.status_code == 429

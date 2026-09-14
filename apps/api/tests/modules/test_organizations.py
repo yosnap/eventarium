@@ -42,9 +42,13 @@ async def test_un_asistente_no_puede_modificar_la_organizacion(
     assert respuesta.status_code == 403
 
 
-async def test_actualizar_el_branding_y_verlo_en_el_endpoint_publico(
+async def test_actualizar_el_branding_y_verlo_al_releerlo(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
+    """Fase 6 (cierre) del plan de organización sin dominio: `GET
+    /tenant/branding` ya no lleva ningún bloque `organization` (retirado con
+    `organization_domains`) — la única fuente de lectura del branding propio
+    es esta misma familia de endpoints autenticados."""
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
 
     respuesta = await cliente.put(
@@ -58,10 +62,10 @@ async def test_actualizar_el_branding_y_verlo_en_el_endpoint_publico(
     )
     assert respuesta.status_code == 200
 
-    publico = await cliente.get("/api/v1/tenant/branding", headers={"Host": organizacion.host})
-    cuerpo = publico.json()
-    assert cuerpo["organization"]["template_key"] == "minimal"
-    assert cuerpo["organization"]["social_links"][0]["kind"] == "linkedin"
+    releido = await cliente.get(BRANDING, headers=cabeceras)
+    cuerpo = releido.json()
+    assert cuerpo["template_key"] == "minimal"
+    assert cuerpo["social_links"][0]["kind"] == "linkedin"
 
 
 async def test_actualizar_el_branding_con_una_plantilla_de_tema(
@@ -88,8 +92,8 @@ async def test_actualizar_el_branding_con_una_plantilla_de_tema(
     # El resto de campos vivos del branding se conserva.
     assert respuesta.json()["organizer_blurb"] == "Comunidad de IA en Valencia"
 
-    publico = await cliente.get("/api/v1/tenant/branding", headers={"Host": organizacion.host})
-    assert publico.json()["organization"]["theme"]["key"] == "claro"
+    releido = await cliente.get(BRANDING, headers=cabeceras)
+    assert releido.json()["theme_template_id"] == claro["id"]
 
 
 async def test_actualizar_el_branding_con_una_plantilla_de_tema_inexistente(
@@ -123,8 +127,8 @@ async def test_subir_el_logotipo_devuelve_una_url_publica(
     url = respuesta.json()["logo_url"]
     assert url and f"orgs/{organizacion.id}/branding/logo/" in url
 
-    publico = await cliente.get("/api/v1/tenant/branding", headers={"Host": organizacion.host})
-    assert publico.json()["organization"]["logo_url"] == url
+    releido = await cliente.get(BRANDING, headers=cabeceras)
+    assert releido.json()["logo_url"] == url
 
 
 async def test_no_se_puede_subir_un_svg_como_logotipo(

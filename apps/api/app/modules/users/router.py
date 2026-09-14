@@ -349,12 +349,10 @@ async def list_my_organizations(
     usuario: CurrentUserDep, session: DbDep
 ) -> list[OrganizationMembershipResponse]:
     filas = await session.execute(
-        text("SELECT organization_id, slug, name, host FROM app_user_organizations(:id)"),
+        text("SELECT organization_id, slug, name FROM app_user_organizations(:id)"),
         {"id": usuario.id},
     )
     return [
-        OrganizationMembershipResponse(
-            organization_id=str(fila[0]), slug=fila[1], name=fila[2], host=fila[3]
-        )
+        OrganizationMembershipResponse(organization_id=str(fila[0]), slug=fila[1], name=fila[2])
         for fila in filas
     ]

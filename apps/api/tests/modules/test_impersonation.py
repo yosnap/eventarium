@@ -101,7 +101,7 @@ async def test_el_token_de_impersonacion_no_usa_los_endpoints_de_administracion(
     cabeceras = {"Authorization": f"Bearer {token}"}
 
     # Ningún endpoint de administración acepta el token de impersonación.
-    for ruta in (f"{ADMIN}/organizations", "/api/v1/admin/platform-domains"):
+    for ruta in (f"{ADMIN}/organizations", "/api/v1/admin/legal-pages"):
         respuesta = await cliente.get(ruta, headers=cabeceras)
         assert respuesta.status_code == 403, f"{ruta}: {respuesta.text}"
 
