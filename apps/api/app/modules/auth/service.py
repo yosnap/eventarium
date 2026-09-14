@@ -25,6 +25,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.database import set_organization_context
 from app.core.redis_client import require_redis
 from app.core.security import (
     create_access_token,
@@ -46,7 +47,12 @@ from app.modules.auth.verification import (
     consume_token,
     generate_token,
 )
-from app.shared.errors import AuthenticationError, ConflictError, ValidationDomainError
+from app.shared.errors import (
+    AuthenticationError,
+    ConflictError,
+    PermissionDeniedError,
+    ValidationDomainError,
+)
 from app.shared.identifiers import new_uuid7
 
 CLAVE_ACTIVO = "refresh:activo:{}"
@@ -90,25 +96,27 @@ async def authenticate(
     *,
     email: str,
     password: str,
-    organization_id: uuid.UUID,
-) -> AuthenticatedUser:
-    """Valida credenciales contra un usuario que pertenezca a la organización.
+) -> tuple[AuthenticatedUser, uuid.UUID | None]:
+    """Valida credenciales en toda la instalación y elige la organización activa.
 
-    La consulta exige membresía: un usuario existente en otra organización no puede
-    entrar por este host. El mensaje de error es el mismo tanto si el correo no
-    existe como si la contraseña es incorrecta, para no revelar qué correos hay.
+    Sin dominio por organización, el login ya no exige pertenecer a la
+    organización de ningún host: valida identidad por correo y contraseña
+    globalmente (`app_find_user_for_login`, `SECURITY DEFINER` — sin
+    organización todavía, `tenant_users` no dejaría leer la fila por la vía
+    normal) y después elige qué organización queda activa: la única si solo
+    pertenece a una, la de acceso más reciente si pertenece a varias, o
+    ninguna si no pertenece a ninguna (solo le queda el autoservicio de
+    creación de organizaciones). El mensaje de error es el mismo tanto si el
+    correo no existe como si la contraseña es incorrecta, para no revelar qué
+    correos hay.
     """
     fila = (
         await session.execute(
             text(
-                "SELECT u.id, u.email, u.first_name, u.last_name, u.password_hash, "
-                "       u.is_active, u.is_superadmin "
-                "FROM users u "
-                "WHERE lower(u.email) = lower(:email) "
-                "  AND EXISTS (SELECT 1 FROM organization_members m "
-                "              WHERE m.user_id = u.id AND m.organization_id = :org_id)"
+                "SELECT id, email, first_name, last_name, password_hash, is_active, "
+                "is_superadmin FROM app_find_user_for_login(:email)"
             ),
-            {"email": email, "org_id": organization_id},
+            {"email": email},
         )
     ).first()
 
@@ -120,26 +128,130 @@ async def authenticate(
     if not fila[5] or not verify_password(password, fila[4]):
         raise credenciales_invalidas
 
-    # Marca de último acceso **a esta organización**: la membresía ya se acaba de
-    # comprobar arriba, así que la fila existe. Se escribe aquí y no en el refresh
-    # porque mide acceso explícito, no actividad pasiva; y la impersonación no
-    # pasa por aquí, así que no la contamina.
+    usuario = AuthenticatedUser(
+        id=fila[0], email=fila[1], first_name=fila[2], last_name=fila[3], is_superadmin=fila[6]
+    )
+
+    # `app_user_organizations` exige `app.user_id` ya fijado a quien pregunta
+    # (lo comprueba dentro de la propia función): todavía sin organización.
+    await set_organization_context(session, None, usuario.id)
+    organizaciones = (
+        await session.execute(
+            text(
+                "SELECT organization_id FROM app_user_organizations(:id) "
+                # Desempate estable por `organization_id`: si nunca se accedió
+                # a ninguna (todo `NULL`), el propio `ORDER BY o.name` interno
+                # de la función no está garantizado a través de este `ORDER
+                # BY` externo — sin desempate, la organización elegida podría
+                # variar entre logins.
+                "ORDER BY last_seen_at DESC NULLS LAST, organization_id"
+            ),
+            {"id": usuario.id},
+        )
+    ).all()
+    organization_id = organizaciones[0][0] if organizaciones else None
+
+    if organization_id is not None:
+        # Marca de último acceso **a esta organización**: se escribe aquí y no en
+        # el refresh porque mide acceso explícito, no actividad pasiva; y la
+        # impersonación no pasa por aquí, así que no la contamina.
+        await set_organization_context(session, organization_id, usuario.id)
+        await session.execute(
+            text(
+                "UPDATE organization_members SET last_seen_at = now() "
+                "WHERE user_id = :user_id AND organization_id = :org_id"
+            ),
+            {"user_id": usuario.id, "org_id": organization_id},
+        )
+
+    return usuario, organization_id
+
+
+async def switch_organization(
+    session: AsyncSession, *, refresh_token: str, target_organization_id: uuid.UUID
+) -> tuple[IssuedTokens, uuid.UUID]:
+    """Cambia la organización activa, rotando el refresh token como un refresco normal.
+
+    Comprobado a partir del refresh token, no de los claims del access token:
+    éstos pueden estar desactualizados (cuenta desactivada, familia ya
+    revocada por un cambio de contraseña) y confiar en ellos convertiría este
+    endpoint en una vía para renovar la sesión sin pasar por ninguna
+    revocación — exactamente el boquete que `rotate_refresh_token` existe
+    para cerrar en cada refresco normal.
+
+    Comprueba pertenencia real a la organización de destino con la misma
+    consulta que `app_user_organizations` (`SECURITY DEFINER`, de alcance
+    mínimo), **sin ninguna rama especial para superadmin**: si un superadmin
+    quiere ver una organización de la que no es miembro, el único camino
+    auditado es la impersonación (`admin/impersonation_router.py`), nunca
+    este endpoint (red-team S-1 del plan de organización sin dominio). Un
+    único mensaje de error tanto si la organización no existe como si existe
+    pero no se pertenece a ella, para no permitir enumerarlas (red-team S-2).
+    """
+    redis = await require_redis()
+    huella = hash_refresh_token(refresh_token)
+    bruto = await redis.get(CLAVE_ACTIVO.format(huella))
+    if bruto is None:
+        raise AuthenticationError("La sesión ha caducado. Vuelve a iniciar sesión.")
+
+    datos = json.loads(bruto)
+    user_id = uuid.UUID(datos["user_id"])
+    familia = str(datos["family"])
+
+    # `app_user_organizations` exige `app.user_id` ya fijado a quien pregunta;
+    # `session` llega sin contexto (`SessionDep`), así que se fija aquí.
+    await set_organization_context(session, None, user_id)
+    pertenece = (
+        await session.execute(
+            text(
+                "SELECT 1 FROM app_user_organizations(:user_id) "
+                "WHERE organization_id = :organization_id"
+            ),
+            {"user_id": user_id, "organization_id": target_organization_id},
+        )
+    ).first()
+    if pertenece is None:
+        raise PermissionDeniedError("No perteneces a esta organización.")
+
+    fila = (
+        await session.execute(
+            text(
+                "SELECT id, email, first_name, last_name, is_superadmin "
+                "FROM users WHERE id = :id AND is_active"
+            ),
+            {"id": user_id},
+        )
+    ).first()
+    if fila is None:
+        await _revoke_family(familia)
+        raise AuthenticationError("El usuario ya no existe o está desactivado.")
+
+    # Mismo criterio que el login: cambiar de organización activa cuenta como
+    # acceso explícito a ella.
     await session.execute(
         text(
             "UPDATE organization_members SET last_seen_at = now() "
             "WHERE user_id = :user_id AND organization_id = :org_id"
         ),
-        {"user_id": fila[0], "org_id": organization_id},
+        {"user_id": user_id, "org_id": target_organization_id},
     )
 
-    return AuthenticatedUser(
-        id=fila[0], email=fila[1], first_name=fila[2], last_name=fila[3], is_superadmin=fila[6]
+    ttl = _ttl_refresh()
+    async with redis.pipeline(transaction=True) as tuberia:
+        tuberia.delete(CLAVE_ACTIVO.format(huella))
+        tuberia.set(CLAVE_USADO.format(huella), familia, ex=ttl)
+        await tuberia.execute()
+
+    usuario = AuthenticatedUser(
+        id=fila[0], email=fila[1], first_name=fila[2], last_name=fila[3], is_superadmin=fila[4]
     )
+    tokens = await issue_tokens(usuario, target_organization_id, family_id=familia)
+    return tokens, target_organization_id
 
 
 async def issue_tokens(
     usuario: AuthenticatedUser,
-    organization_id: uuid.UUID,
+    organization_id: uuid.UUID | None,
     *,
     family_id: str | None = None,
 ) -> IssuedTokens:
@@ -155,7 +267,7 @@ async def issue_tokens(
     datos = json.dumps(
         {
             "user_id": str(usuario.id),
-            "org_id": str(organization_id),
+            "org_id": str(organization_id) if organization_id else None,
             "family": familia,
         }
     )
@@ -212,10 +324,17 @@ async def revoke_all_families(user_id: uuid.UUID, *, except_family: str | None =
 
 async def rotate_refresh_token(
     session: AsyncSession, refresh_token: str
-) -> tuple[IssuedTokens, uuid.UUID]:
+) -> tuple[IssuedTokens, uuid.UUID | None]:
     """Consume un refresh token y emite uno nuevo de la misma familia.
 
-    Devuelve los tokens y la organización a la que pertenecen.
+    Devuelve los tokens y la organización activa (`None` si no tiene
+    ninguna). Sin dominio por organización, `session` llega sin ningún
+    contexto de RLS todavía (`SessionDep`, no `DbDep`): la organización de
+    esta sesión concreta la dice el propio payload de Redis del refresh
+    token, así que el contexto se fija aquí explícitamente, no por host.
+    Esta re-comprobación de pertenencia en cada refresco —no el `Host`— es lo
+    que de verdad protege contra un token que sigue vivo tras salir de la
+    organización.
     """
     redis = await require_redis()
     huella = hash_refresh_token(refresh_token)
@@ -233,24 +352,42 @@ async def rotate_refresh_token(
 
     datos = json.loads(bruto)
     user_id = uuid.UUID(datos["user_id"])
-    organization_id = uuid.UUID(datos["org_id"])
+    organization_id = uuid.UUID(datos["org_id"]) if datos.get("org_id") else None
     familia = str(datos["family"])
 
-    fila = (
-        await session.execute(
-            text(
-                "SELECT u.id, u.email, u.first_name, u.last_name, u.is_superadmin "
-                "FROM users u "
-                "WHERE u.id = :id AND u.is_active "
-                "  AND EXISTS (SELECT 1 FROM organization_members m "
-                "              WHERE m.user_id = u.id AND m.organization_id = :org_id)"
-            ),
-            {"id": user_id, "org_id": organization_id},
-        )
-    ).first()
-    if fila is None:
-        await _revoke_family(familia)
-        raise AuthenticationError("El usuario ya no tiene acceso a esta organización.")
+    await set_organization_context(session, organization_id, user_id)
+
+    if organization_id is not None:
+        fila = (
+            await session.execute(
+                text(
+                    "SELECT u.id, u.email, u.first_name, u.last_name, u.is_superadmin "
+                    "FROM users u "
+                    "WHERE u.id = :id AND u.is_active "
+                    "  AND EXISTS (SELECT 1 FROM organization_members m "
+                    "              WHERE m.user_id = u.id AND m.organization_id = :org_id)"
+                ),
+                {"id": user_id, "org_id": organization_id},
+            )
+        ).first()
+        if fila is None:
+            await _revoke_family(familia)
+            raise AuthenticationError("El usuario ya no tiene acceso a esta organización.")
+    else:
+        # `tenant_users` deja leer la propia fila sin ninguna organización
+        # activa (`id = app_current_user()`), ya fijado arriba.
+        fila = (
+            await session.execute(
+                text(
+                    "SELECT u.id, u.email, u.first_name, u.last_name, u.is_superadmin "
+                    "FROM users u WHERE u.id = :id AND u.is_active"
+                ),
+                {"id": user_id},
+            )
+        ).first()
+        if fila is None:
+            await _revoke_family(familia)
+            raise AuthenticationError("El usuario ya no existe o está desactivado.")
 
     ttl = _ttl_refresh()
     async with redis.pipeline(transaction=True) as tuberia:

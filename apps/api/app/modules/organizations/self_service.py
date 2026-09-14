@@ -25,7 +25,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.config import get_settings
 from app.core.database import set_organization_context
-from app.core.deps import DbDep, VerifiedUserDep
+from app.core.deps import SessionDep, VerifiedUserDep
 from app.core.ratelimit import CHECK_SLUG_POR_IP, CREAR_ORGANIZACION_POR_IP, limit_per_ip
 from app.core.turnstile import require_turnstile
 from app.modules.organizations import service as organization_service
@@ -65,7 +65,7 @@ def _slug_valido(slug: str) -> bool:
     response_model=CheckSlugResponse,
     dependencies=[limit_per_ip("check-slug", CHECK_SLUG_POR_IP)],
 )
-async def check_slug(slug: str, session: DbDep) -> CheckSlugResponse:
+async def check_slug(slug: str, session: SessionDep) -> CheckSlugResponse:
     slug_limpio = slug.strip().lower()
     if not _slug_valido(slug_limpio):
         return CheckSlugResponse(available=False)
@@ -90,7 +90,7 @@ async def create_organization(
     datos: SelfServiceOrganizationCreate,
     persona: VerifiedUserDep,
     request: Request,
-    session: DbDep,
+    session: SessionDep,
 ) -> SelfServiceOrganizationResponse:
     await require_turnstile(request, datos.turnstile_token)
 

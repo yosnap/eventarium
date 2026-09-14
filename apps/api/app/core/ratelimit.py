@@ -6,7 +6,7 @@ contra el login y no necesita estructuras de datos adicionales.
 
 La identificación del cliente usa la IP real solo cuando la petición llega por un
 proxy de confianza; si no, cualquiera podría rotar `X-Forwarded-For` y saltarse el
-límite. Se combina con el host para que el límite por organización sea independiente.
+límite.
 
 Fail-closed: si Redis no responde no se puede contar, así que se rechaza con 503 en
 lugar de dejar pasar la petición sin control.
@@ -20,12 +20,11 @@ from typing import Any
 from fastapi import Depends, Request
 
 from app.core.redis_client import require_redis
-from app.core.tenant import extract_host, is_trusted_proxy
+from app.core.tenant import is_trusted_proxy
 from app.shared.errors import DomainError
 
 # Límites iniciales (peticiones por minuto).
 LOGIN_POR_IP = 5
-LOGIN_POR_HOST = 20
 REFRESH_POR_IP = 30
 PUBLICO_POR_IP = 120
 # El registro es de un solo uso por persona: algo más permisivo que el login.
@@ -95,6 +94,11 @@ STRIPE_SYNC_POR_IP = 20
 # descuento por fuerza bruta — mismo tope que `check-slug`, otro endpoint de
 # solo lectura sin más protección que este límite y Turnstile.
 CHECKOUT_QUOTE_POR_IP = 30
+# Cambio de organización activa (fase 1 del plan de organización sin
+# dominio): emite un token nuevo tras comprobar pertenencia, mismo orden de
+# magnitud que el propio login — no hay ningún motivo legítimo para cambiar
+# de organización muchas veces por minuto.
+SWITCH_ORGANIZATION_POR_IP = 20
 
 VENTANA_SEGUNDOS = 60
 
@@ -116,10 +120,6 @@ def client_ip(request: Request) -> str:
 
 def identify_by_ip(request: Request) -> str:
     return f"ip:{client_ip(request)}"
-
-
-def identify_by_host(request: Request) -> str:
-    return f"host:{extract_host(request)}"
 
 
 async def _consumir(clave: str, veces: int, segundos: int) -> None:
@@ -155,8 +155,3 @@ def _limite(
 def limit_per_ip(nombre: str, veces: int, segundos: int = VENTANA_SEGUNDOS) -> Any:
     """Límite por IP de origen."""
     return Depends(_limite(nombre, identify_by_ip, veces, segundos))
-
-
-def limit_per_host(nombre: str, veces: int, segundos: int = VENTANA_SEGUNDOS) -> Any:
-    """Límite por host, es decir por organización."""
-    return Depends(_limite(nombre, identify_by_host, veces, segundos))

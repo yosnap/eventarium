@@ -53,12 +53,14 @@ async def test_login_con_contraseña_incorrecta_devuelve_401(
     assert respuesta.status_code == 401
 
 
-async def test_login_con_usuario_de_otra_organizacion_devuelve_401(
+async def test_login_ignora_el_host_y_activa_la_organizacion_propia(
     cliente: AsyncClient,
     organizacion: OrganizacionDePrueba,
     otra_organizacion: OrganizacionDePrueba,
 ) -> None:
-    """Las credenciales de una organización no valen en el host de otra."""
+    """Sin dominio por organización, el `Host` no determina nada en el login:
+    unas credenciales válidas siempre entran, y en su propia organización —
+    con independencia de qué host se visite."""
     respuesta = await cliente.post(
         LOGIN,
         json={
@@ -67,7 +69,15 @@ async def test_login_con_usuario_de_otra_organizacion_devuelve_401(
         },
         headers={"Host": organizacion.host},
     )
-    assert respuesta.status_code == 401
+    assert respuesta.status_code == 200, respuesta.text
+    token = respuesta.json()["access_token"]
+
+    perfil = await cliente.get(
+        "/api/v1/users/me",
+        headers={"Host": organizacion.host, "Authorization": f"Bearer {token}"},
+    )
+    assert perfil.status_code == 200, perfil.text
+    assert perfil.json()["organization_id"] == str(otra_organizacion.id)
 
 
 async def test_refresh_rota_el_token(
@@ -151,20 +161,21 @@ async def test_endpoint_protegido_sin_token_devuelve_401(
     assert respuesta.status_code == 401
 
 
-async def test_token_de_otra_organizacion_devuelve_403(
+async def test_el_token_ignora_el_host_de_la_peticion(
     cliente: AsyncClient,
     organizacion: OrganizacionDePrueba,
     otra_organizacion: OrganizacionDePrueba,
 ) -> None:
-    """Cambiar el Host con un token válido de otra organización no da acceso."""
-    _, _ = await iniciar_sesion(cliente, organizacion)
+    """Sin dominio por organización, un token vale igual con cualquier `Host`:
+    la organización activa la lleva el propio token, no el host visitado."""
     token, _ = await iniciar_sesion(cliente, organizacion)
 
     respuesta = await cliente.get(
         "/api/v1/users/me",
         headers={"Host": otra_organizacion.host, "Authorization": f"Bearer {token}"},
     )
-    assert respuesta.status_code == 403
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["organization_id"] == str(organizacion.id)
 
 
 @pytest.mark.parametrize("token", ["", "no-es-un-jwt", "a.b.c"])

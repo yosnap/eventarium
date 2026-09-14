@@ -20,7 +20,7 @@ from fastapi import APIRouter
 from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import DbDep, DbPlataformaDep, OrganizationDep
+from app.core.deps import DbPlataformaDep, OrganizationDep, PublicDbDep
 from app.core.ratelimit import COOKIE_CONSENT_POR_IP, LEGAL_PAGES_POR_IP, limit_per_ip
 from app.modules.legal.models import CookieConsent
 from app.modules.legal.schemas import CookieConsentCreate, LegalPageResponse
@@ -88,7 +88,7 @@ async def public_registration_terms(session: DbPlataformaDep) -> LegalPageRespon
     dependencies=[limit_per_ip("cookie-consent", COOKIE_CONSENT_POR_IP)],
 )
 async def create_cookie_consent(
-    datos: CookieConsentCreate, organizacion: OrganizationDep, session: DbDep
+    datos: CookieConsentCreate, organizacion: OrganizationDep, session: PublicDbDep
 ) -> None:
     if "necessary" not in datos.categories:
         # `necessary` no es rastreo, es lo mínimo para que la web funcione: el

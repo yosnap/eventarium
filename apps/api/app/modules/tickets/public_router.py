@@ -1,7 +1,7 @@
 """`/mi-entrada`: ver de nuevo el QR de una entrada (fase 4 del PRD, fase 4 de trabajo).
 
 Mismo patrón que `registrations/public_router.py`: sin autenticación, contexto
-RLS fijado por host vía `OrganizationDep`/`DbDep`. Reutiliza el token de
+RLS fijado por host vía `OrganizationDep`/`PublicDbDep`. Reutiliza el token de
 autocancelación ya existente — no genera uno nuevo — así que solo necesita
 `peek_token`, nunca `consume_token`.
 """
@@ -12,7 +12,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, Response
 
-from app.core.deps import DbDep
+from app.core.deps import PublicDbDep
 from app.core.ratelimit import MI_ENTRADA_POR_IP, limit_per_ip
 from app.modules.tickets import service
 from app.modules.tickets.schemas import MyTicketResponse
@@ -26,7 +26,7 @@ router = APIRouter(prefix="/public", tags=["entradas"])
     response_model=MyTicketResponse,
     dependencies=[limit_per_ip("mi-entrada", MI_ENTRADA_POR_IP)],
 )
-async def get_my_ticket(session: DbDep, token: Annotated[str, Query()]) -> MyTicketResponse:
+async def get_my_ticket(session: PublicDbDep, token: Annotated[str, Query()]) -> MyTicketResponse:
     info = await service.get_my_ticket_info(session, token=token)
     return MyTicketResponse(status=info.status, full_name=info.full_name, has_qr=info.tiene_qr)
 
@@ -36,6 +36,6 @@ async def get_my_ticket(session: DbDep, token: Annotated[str, Query()]) -> MyTic
     summary="Imagen PNG del QR de una entrada",
     dependencies=[limit_per_ip("mi-entrada-qr", MI_ENTRADA_POR_IP)],
 )
-async def get_my_ticket_qr(session: DbDep, token: Annotated[str, Query()]) -> Response:
+async def get_my_ticket_qr(session: PublicDbDep, token: Annotated[str, Query()]) -> Response:
     imagen = await service.get_my_ticket_qr_png(session, token=token)
     return Response(content=imagen, media_type="image/png")

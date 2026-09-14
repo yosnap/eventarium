@@ -9,7 +9,7 @@ from fastapi import APIRouter, status
 from sqlalchemy import delete, select, text
 from sqlalchemy.exc import IntegrityError
 
-from app.core.deps import CurrentUserDep, DbDep, PermissionsDep
+from app.core.deps import CurrentUserDep, DbDep, PermissionsDep, SessionDep
 from app.core.permissions import Permission
 from app.core.ratelimit import CHECK_SLUG_POR_IP, limit_per_ip
 from app.modules.auth import service as auth_service
@@ -118,7 +118,9 @@ async def change_email(
         "correo nuevo."
     ),
 )
-async def change_email_confirm(datos: ChangeEmailConfirmRequest, session: DbDep) -> dict[str, str]:
+async def change_email_confirm(
+    datos: ChangeEmailConfirmRequest, session: SessionDep
+) -> dict[str, str]:
     await auth_service.change_email_confirm(session, token=datos.token)
     return {"message": "Correo actualizado correctamente."}
 

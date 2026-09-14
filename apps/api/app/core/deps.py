@@ -1,11 +1,18 @@
 """Dependencias transversales de FastAPI.
 
-Cadena de una petición autenticada:
+Cadena de una petición autenticada (`DbDep`/`CurrentUserDep`):
 
-    get_session → get_current_organization → get_db → get_current_user → require_permission
+    get_session → get_db_organizacion_activa → get_current_user → require_permission
 
-`get_db` es el **único** punto donde se fija el contexto de RLS. Ningún router abre
-sesiones por su cuenta ni usa el motor de mantenimiento.
+La organización activa viene siempre del propio token (claim `org`), nunca del
+`Host`: las organizaciones no tienen dominio propio. `get_current_organization`/
+`get_db` (host-based) y `OrganizationDep`/`PublicDbDep` siguen existiendo solo
+para los pocos endpoints genuinamente públicos que todavía resuelven por host,
+hasta que las fases 2/3 del plan de organización sin dominio los retiren.
+
+`get_db_organizacion_activa`/`get_db` son los únicos puntos donde se fija el
+contexto de RLS. Ningún router abre sesiones por su cuenta ni usa el motor de
+mantenimiento.
 """
 
 from __future__ import annotations
@@ -36,11 +43,24 @@ async def get_session() -> AsyncIterator[AsyncSession]:
             yield session
 
 
+#: Sesión sin ningún contexto de RLS fijado, para lo que no necesita ninguno:
+#: funciones `SECURITY DEFINER` de alcance mínimo (login, registro, verificación
+#: de correo, recuperación de contraseña, autoservicio de creación de
+#: organizaciones) que resuelven su propia visibilidad sin depender del `Host`
+#: ni de una organización activa.
+SessionDep = Annotated[AsyncSession, Depends(get_session)]
+
+
 async def get_current_organization(
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ResolvedOrganization:
-    """Organización resuelta por host. 404 si el host no está registrado."""
+    """Organización resuelta por host. 404 si el host no está registrado.
+
+    Solo la usan ya los endpoints genuinamente públicos (`OrganizationDep`,
+    `PublicDbDep`): las organizaciones no tienen dominio propio, así que nada
+    autenticado depende de esto — ver `get_db_organizacion_activa`.
+    """
     organizacion = await resolve_organization(request, session)
     if organizacion is None:
         # `required=True` ya lanzó 404 dentro de `resolve_organization`; esto
@@ -56,8 +76,27 @@ async def get_db(
     session: Annotated[AsyncSession, Depends(get_session)],
     organizacion: Annotated[ResolvedOrganization, Depends(get_current_organization)],
 ) -> AsyncSession:
-    """Sesión con el contexto RLS de la organización ya fijado."""
+    """Sesión con el contexto RLS de la organización resuelta por host.
+
+    Solo para lo genuinamente público (`PublicDbDep`): sin dominio por
+    organización, ya no es el mecanismo de nada autenticado.
+    """
     await set_organization_context(session, organizacion.id)
+    return session
+
+
+async def get_db_organizacion_activa(
+    claims: Annotated[AccessTokenClaims, Depends(get_token_claims)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> AsyncSession:
+    """Sesión con el contexto RLS de la organización activa de la sesión (JWT).
+
+    Sustituye a la resolución por host para todo lo autenticado: la
+    organización activa es la que lleva el propio access token (claim `org`),
+    cambiable sin volver a loguearse vía `POST /auth/switch-organization` —
+    sin dominio por organización, ya no hay ningún host que pudiera decirlo.
+    """
+    await set_organization_context(session, claims.organization_id, claims.user_id)
     return session
 
 
@@ -84,6 +123,11 @@ async def get_db_o_plataforma(
 # organización resuelta por host, pero no un usuario — `get_db` ya deja el contexto
 # RLS listo con solo esta dependencia, sin pasar por `get_current_user`.
 OrganizationDep = Annotated[ResolvedOrganization, Depends(get_current_organization)]
+#: Sesión con el contexto RLS de la organización resuelta por host — el nombre
+#: explícito distingue a los pocos endpoints genuinamente públicos que todavía
+#: dependen del host (hasta que la fase 2/3 del plan retire esa vía) de `DbDep`,
+#: que ahora es la organización activa de la sesión autenticada.
+PublicDbDep = Annotated[AsyncSession, Depends(get_db)]
 
 
 async def get_maintenance_db() -> AsyncIterator[AsyncSession]:
@@ -157,20 +201,19 @@ class CurrentUser:
 
 async def get_current_user(
     claims: Annotated[AccessTokenClaims, Depends(get_token_claims)],
-    organizacion: Annotated[ResolvedOrganization, Depends(get_current_organization)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    session: Annotated[AsyncSession, Depends(get_db_organizacion_activa)],
 ) -> CurrentUser:
-    """Carga el usuario del token.
+    """Carga el usuario del token en su organización activa.
 
-    Un token emitido para otra organización no vale en este host aunque la firma sea
-    válida: sin esta comprobación bastaría con cambiar el `Host` para llevarse una
-    sesión de una organización a otra.
+    `session` ya llega con el contexto RLS fijado a la organización del propio
+    token (`get_db_organizacion_activa`) — no hay ningún host contra el que
+    comprobarla. Un token sin organización activa (cuenta recién verificada,
+    sin crear ni unirse a ninguna todavía) no vale aquí: los endpoints
+    organizativos siempre necesitan una: usa `VerifiedUserDep` para el
+    autoservicio de creación de organizaciones, que no la necesita.
     """
-    if claims.organization_id != organizacion.id:
-        raise PermissionDeniedError("El token no pertenece a esta organización.")
-
-    # `users` también tiene RLS: hay que declarar quién pregunta antes de leer.
-    await set_organization_context(session, organizacion.id, claims.user_id)
+    if claims.organization_id is None:
+        raise PermissionDeniedError("Esta cuenta no tiene ninguna organización activa.")
 
     fila = (
         await session.execute(
@@ -190,7 +233,7 @@ async def get_current_user(
         first_name=fila[2],
         last_name=fila[3],
         is_superadmin=fila[4],
-        organization_id=organizacion.id,
+        organization_id=claims.organization_id,
         refresh_family=claims.family,
     )
 
@@ -217,9 +260,14 @@ async def get_user_permissions(session: AsyncSession, usuario: CurrentUser) -> s
 
 
 CurrentUserDep = Annotated[CurrentUser, Depends(get_current_user)]
-DbDep = Annotated[AsyncSession, Depends(get_db)]
+#: Sesión con el contexto RLS de la organización activa de la sesión
+#: autenticada (el claim `org` del propio token) — el nombre corto para el
+#: caso mayoritario: el panel de organización y el de administración de
+#: plataforma nunca dependen del host. Los pocos endpoints genuinamente
+#: públicos que sí lo hacen usan `PublicDbDep` explícitamente.
+DbDep = Annotated[AsyncSession, Depends(get_db_organizacion_activa)]
 #: Sesión para endpoints públicos que también sirven al host de plataforma.
-#: A diferencia de `DbDep`, no exige que el host resuelva a una organización.
+#: A diferencia de `DbDep`, no exige un token ni una organización activa.
 DbPlataformaDep = Annotated[AsyncSession, Depends(get_db_o_plataforma)]
 
 
@@ -342,9 +390,9 @@ async def require_superadmin(
 class VerifiedUser:
     """Persona con el correo verificado, sin organización todavía.
 
-    Distinto de `CurrentUser`: ese exige que el token pertenezca a la organización del
-    host de la petición, algo que no tiene sentido para quien acaba de verificar su
-    correo y aún no ha creado ninguna. Solo lo usa el autoservicio de creación de
+    Distinto de `CurrentUser`: ese exige una organización activa en el token, algo
+    que no tiene sentido para quien acaba de verificar su correo y aún no ha creado
+    ni se ha unido a ninguna. Solo lo usa el autoservicio de creación de
     organizaciones.
     """
 
@@ -357,13 +405,16 @@ class VerifiedUser:
 
 async def require_verified_user(
     claims: Annotated[AccessTokenClaims, Depends(get_token_claims)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    session: Annotated[AsyncSession, Depends(get_session)],
 ) -> VerifiedUser:
     """Exige un token válido de una persona con el correo ya verificado.
 
     La visibilidad normal de `users` bajo RLS exige compartir organización con quien
     pregunta; por eso usa `app_find_user_by_id`, la misma función `SECURITY DEFINER`
-    de alcance mínimo que el registro (fase 1) usa por correo.
+    de alcance mínimo que el registro (fase 1) usa por correo. Sesión sin contexto
+    (`get_session`, no `get_db`): esto no depende de ninguna organización ni de
+    ningún host — lo usa el autoservicio de creación de organizaciones, antes de
+    que exista ninguna que fijar como contexto.
     """
     fila = (
         await session.execute(

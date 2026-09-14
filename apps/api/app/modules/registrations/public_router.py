@@ -1,7 +1,7 @@
 """Endpoints públicos de inscripción a eventos (fase 3 del PRD, fases 2-4 de trabajo).
 
 Mismo patrón que `events/public_router.py`: sin autenticación, contexto RLS
-fijado por host vía `OrganizationDep`/`DbDep`. El enlace de verificación apunta
+fijado por host vía `OrganizationDep`/`PublicDbDep`. El enlace de verificación apunta
 al dominio propio de la organización (`app/core/tasks.py`), así que la
 petición a `/registrations/verify` llega de vuelta con el `Host` correcto y
 resuelve la misma organización sin necesidad de pasarla en la URL.
@@ -13,7 +13,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, status
 
-from app.core.deps import DbDep, OrganizationDep
+from app.core.deps import OrganizationDep, PublicDbDep
 from app.core.ratelimit import (
     CANCELACION_INSCRIPCION_POR_IP,
     CONFIRMACION_PROMOCION_POR_IP,
@@ -50,7 +50,7 @@ _MENSAJES_POR_ESTADO = {
 
 
 async def _obtener_evento_para_inscripcion_o_404(
-    organizacion: OrganizationDep, session: DbDep, slug: str
+    organizacion: OrganizationDep, session: PublicDbDep, slug: str
 ) -> Event:
     evento = await events_repository.get_public_event_by_slug(session, organizacion.id, slug)
     if evento is None:
@@ -66,7 +66,7 @@ async def _obtener_evento_para_inscripcion_o_404(
 )
 async def list_registration_questions(
     evento: Annotated[Event, Depends(_obtener_evento_para_inscripcion_o_404)],
-    session: DbDep,
+    session: PublicDbDep,
 ) -> list[RegistrationQuestionPublic]:
     preguntas = await repository.get_questions(session, evento.organization_id, evento.id)
     return [
@@ -98,7 +98,7 @@ async def create_registration(
     evento: Annotated[Event, Depends(_obtener_evento_para_inscripcion_o_404)],
     datos: SubmitRegistrationRequest,
     request: Request,
-    session: DbDep,
+    session: PublicDbDep,
 ) -> RegistrationMessageResponse:
     if evento.registration_mode == "paid":
         # Un evento de pago solo admite inscripción a través del embudo de
@@ -132,7 +132,7 @@ async def create_registration(
     dependencies=[limit_per_ip("verificar-inscripcion", VERIFICACION_INSCRIPCION_POR_IP)],
 )
 async def verify_registration(
-    datos: VerifyRegistrationRequest, session: DbDep
+    datos: VerifyRegistrationRequest, session: PublicDbDep
 ) -> VerifyRegistrationResponse:
     inscripcion = await service.verify_registration(session, token=datos.token)
     return VerifyRegistrationResponse(
@@ -152,7 +152,7 @@ async def verify_registration(
     dependencies=[limit_per_ip("confirmar-promocion", CONFIRMACION_PROMOCION_POR_IP)],
 )
 async def confirm_waitlist_promotion(
-    datos: ConfirmWaitlistPromotionRequest, session: DbDep
+    datos: ConfirmWaitlistPromotionRequest, session: PublicDbDep
 ) -> ConfirmWaitlistPromotionResponse:
     await service.confirm_waitlist_promotion(session, token=datos.token)
     return ConfirmWaitlistPromotionResponse(message="Tu plaza está confirmada.")
@@ -169,7 +169,7 @@ async def confirm_waitlist_promotion(
     dependencies=[limit_per_ip("cancelar-inscripcion", CANCELACION_INSCRIPCION_POR_IP)],
 )
 async def cancel_registration(
-    datos: CancelRegistrationRequest, session: DbDep
+    datos: CancelRegistrationRequest, session: PublicDbDep
 ) -> CancelRegistrationResponse:
     await service.cancel_registration_by_token(session, token=datos.token)
     return CancelRegistrationResponse(message="Tu inscripción ha sido cancelada.")

@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
+import uuid
+
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.core.security import password_meets_complexity
+
+
+class SwitchOrganizationRequest(BaseModel):
+    """Organización a la que se quiere cambiar."""
+
+    organization_id: uuid.UUID
 
 
 class LoginRequest(BaseModel):

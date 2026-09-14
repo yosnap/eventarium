@@ -1,7 +1,7 @@
 """Pantalla pública de aceptación de invitaciones (fase 2 del plan de invitaciones).
 
 Mismo patrón que `registrations/public_router.py`/`events/public_router.py`:
-sin autenticación, contexto RLS fijado por host vía `OrganizationDep`/`DbDep`.
+sin autenticación, contexto RLS fijado por host vía `OrganizationDep`/`PublicDbDep`.
 El enlace del correo apunta al dominio propio de la organización
 (`base_url_de_organizacion`, usado en `send_invitation_email`), así que la
 petición a `/public/invitations/{token}` llega de vuelta con el `Host`
@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.core.deps import DbDep, OrganizationDep
+from app.core.deps import OrganizationDep, PublicDbDep
 from app.core.ratelimit import INVITACION_ACEPTAR_POR_IP, INVITACION_CONSULTA_POR_IP, limit_per_ip
 from app.modules.organizations import invitations_service
 from app.modules.organizations.invitations_service import InvitationTokenState
@@ -39,7 +39,7 @@ router = APIRouter(prefix="/public/invitations", tags=["invitaciones"])
     dependencies=[limit_per_ip("invitacion-consulta", INVITACION_CONSULTA_POR_IP)],
 )
 async def get_invitation(
-    token: str, _organizacion: OrganizationDep, session: DbDep
+    token: str, _organizacion: OrganizationDep, session: PublicDbDep
 ) -> InvitationPublicResponse:
     resuelto = await invitations_service.resolve_invitation_token(session, token)
     if resuelto.state != InvitationTokenState.VALIDA:
@@ -69,7 +69,7 @@ async def accept_invitation(
     token: str,
     datos: InvitationAcceptRequest,
     organizacion: OrganizationDep,
-    session: DbDep,
+    session: PublicDbDep,
 ) -> InvitationAcceptResponse:
     await invitations_service.accept_invitation(
         session,

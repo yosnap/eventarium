@@ -1,7 +1,7 @@
 """Endpoint público de presupuesto de compra (fase 6 del PRD, fase 3 de trabajo).
 
 Mismo patrón que `registrations/public_router.py`: sin autenticación, contexto
-RLS fijado por el `Host` vía `OrganizationDep`/`DbDep`. Un presupuesto es
+RLS fijado por el `Host` vía `OrganizationDep`/`PublicDbDep`. Un presupuesto es
 puramente informativo — **nunca** reserva cupo ni consume un uso de código, ver
 `service.calcular_presupuesto` — así que este router no crea nada, solo lee.
 
@@ -20,7 +20,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 
-from app.core.deps import DbDep, OrganizationDep
+from app.core.deps import OrganizationDep, PublicDbDep
 from app.core.ratelimit import (
     CHECKOUT_QUOTE_POR_IP,
     INSCRIPCION_POR_IP,
@@ -46,7 +46,9 @@ from app.shared.errors import NotFoundError, ValidationDomainError
 router = APIRouter(prefix="/public", tags=["público"])
 
 
-async def _obtener_evento_o_404(organizacion: OrganizationDep, session: DbDep, slug: str) -> Event:
+async def _obtener_evento_o_404(
+    organizacion: OrganizationDep, session: PublicDbDep, slug: str
+) -> Event:
     evento = await events_repository.get_public_event_by_slug(session, organizacion.id, slug)
     if evento is None:
         raise NotFoundError("El evento no existe.")
@@ -67,7 +69,7 @@ async def _obtener_evento_o_404(organizacion: OrganizationDep, session: DbDep, s
     dependencies=[limit_per_ip("public-ticket-types", PUBLICO_POR_IP)],
 )
 async def list_public_ticket_types(
-    evento: Annotated[Event, Depends(_obtener_evento_o_404)], session: DbDep
+    evento: Annotated[Event, Depends(_obtener_evento_o_404)], session: PublicDbDep
 ) -> list[PublicTicketTypeResponse]:
     tipos = await service.list_public_ticket_types(
         session, organization_id=evento.organization_id, event_id=evento.id
@@ -99,7 +101,7 @@ async def quote_checkout(
     evento: Annotated[Event, Depends(_obtener_evento_o_404)],
     datos: CheckoutQuoteRequest,
     request: Request,
-    session: DbDep,
+    session: PublicDbDep,
 ) -> CheckoutQuoteResponse:
     await require_turnstile(request, datos.turnstile_token)
 
@@ -142,7 +144,7 @@ async def start_checkout(
     request: Request,
 ) -> CheckoutStartResponse:
     """`checkout_service.iniciar_compra` abre su propia sesión (T1 + T2, ver
-    su docstring): no recibe la del `DbDep` de la petición, que envuelve toda
+    su docstring): no recibe la del `PublicDbDep` de la petición, que envuelve toda
     la petición en una única transacción y no admite un `commit` a mitad de
     camino."""
     await require_turnstile(request, datos.turnstile_token)
@@ -182,7 +184,7 @@ async def start_checkout(
 async def get_checkout_status(
     evento: Annotated[Event, Depends(_obtener_evento_o_404)],
     registration_id: str,
-    session: DbDep,
+    session: PublicDbDep,
 ) -> PaymentStatusResponse:
     try:
         registro_id = uuid.UUID(registration_id)

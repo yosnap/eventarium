@@ -2,7 +2,7 @@
 
 Prefijo fijado a `/public/...`: no es una decisión abierta de implementación, la
 tomó el plan tras el red-team. Sin autenticación (son lecturas): usan
-`OrganizationDep` + `DbDep`, que resuelven la organización por host y fijan el
+`OrganizationDep` + `PublicDbDep`, que resuelven la organización por host y fijan el
 contexto RLS sin pasar por `get_current_user`. El filtro de publicación
 (`published` + `public`) se aplica siempre de forma explícita en la propia
 consulta — nunca se confía en que RLS ya lo hace, porque RLS aísla por
@@ -25,7 +25,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import DbDep, OrganizationDep
+from app.core.deps import OrganizationDep, PublicDbDep
 from app.core.ratelimit import PUBLICO_POR_IP, limit_per_ip
 from app.core.storage import get_storage
 from app.modules.events import repository, speakers_repository
@@ -78,7 +78,7 @@ def _cover_url(evento: Event) -> str | None:
 
 
 async def _sesiones_publicas(
-    session: DbDep, organization_id: uuid.UUID, event_id: uuid.UUID
+    session: PublicDbDep, organization_id: uuid.UUID, event_id: uuid.UUID
 ) -> list[PublicEventSession]:
     """Agenda completa de un evento, con los participantes de cada sesión.
 
@@ -142,7 +142,7 @@ async def _sesiones_publicas(
 
 
 async def _sedes_publicas(
-    session: DbDep, organization_id: uuid.UUID, event_id: uuid.UUID
+    session: PublicDbDep, organization_id: uuid.UUID, event_id: uuid.UUID
 ) -> list[PublicVenue]:
     filas = (
         (await session.execute(repository.venues_query(organization_id, event_id))).scalars().all()
@@ -198,7 +198,7 @@ async def _tema_del_evento(session: AsyncSession, evento: Event) -> PublicTheme 
     dependencies=[limit_per_ip("public-events", PUBLICO_POR_IP)],
 )
 async def list_public_events(
-    organizacion: OrganizationDep, session: DbDep
+    organizacion: OrganizationDep, session: PublicDbDep
 ) -> list[PublicEventSummary]:
     filas = (
         await session.execute(repository.public_events_with_confirmed_count_query(organizacion.id))
@@ -232,7 +232,7 @@ async def list_public_events(
 
 
 async def _obtener_evento_publico_o_404(
-    organizacion: OrganizationDep, session: DbDep, slug: str
+    organizacion: OrganizationDep, session: PublicDbDep, slug: str
 ) -> Event:
     evento = await repository.get_public_event_by_slug(session, organizacion.id, slug)
     if evento is None:
@@ -241,7 +241,7 @@ async def _obtener_evento_publico_o_404(
 
 
 async def _sponsor_tiers_publicos(
-    session: DbDep, organization_id: uuid.UUID, event_id: uuid.UUID
+    session: PublicDbDep, organization_id: uuid.UUID, event_id: uuid.UUID
 ) -> list[PublicSponsorTier]:
     """Patrocinadores del evento agrupados por nivel y ordenados por
     `display_order` (Fase 5 del PRD, fase 2 de trabajo). Sin aportación: el
@@ -283,7 +283,7 @@ async def _sponsor_tiers_publicos(
     dependencies=[limit_per_ip("public-event-detail", PUBLICO_POR_IP)],
 )
 async def get_public_event(
-    evento: Annotated[Event, Depends(_obtener_evento_publico_o_404)], session: DbDep
+    evento: Annotated[Event, Depends(_obtener_evento_publico_o_404)], session: PublicDbDep
 ) -> PublicEventDetail:
     sesiones = await _sesiones_publicas(session, evento.organization_id, evento.id)
     sedes = await _sedes_publicas(session, evento.organization_id, evento.id)
@@ -343,7 +343,7 @@ async def get_public_event(
 )
 async def get_public_sponsor(
     evento: Annotated[Event, Depends(_obtener_evento_publico_o_404)],
-    session: DbDep,
+    session: PublicDbDep,
     sponsor_id: str,
 ) -> PublicSponsorDetail:
     try:
@@ -412,7 +412,7 @@ async def get_public_sponsor(
 )
 async def get_public_session(
     evento: Annotated[Event, Depends(_obtener_evento_publico_o_404)],
-    session: DbDep,
+    session: PublicDbDep,
     session_id: str,
 ) -> PublicSessionDetail:
     try:
@@ -466,7 +466,7 @@ async def get_public_session(
     dependencies=[limit_per_ip("public-speaker-detail", PUBLICO_POR_IP)],
 )
 async def get_public_speaker(
-    public_slug: str, organizacion: OrganizationDep, session: DbDep
+    public_slug: str, organizacion: OrganizationDep, session: PublicDbDep
 ) -> PublicSpeakerProfile:
     perfil = await session.scalar(
         select(SpeakerPublicProfile).where(
