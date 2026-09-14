@@ -10,6 +10,7 @@ import { ApiService } from '../api/api.service';
 interface AuthServiceFalso {
   currentUser: () => { is_superadmin: boolean } | null;
   loadCurrentUser?: () => Promise<{ is_superadmin: boolean }>;
+  refresh?: () => Promise<boolean>;
 }
 
 describe('superadminGuard', () => {
@@ -59,16 +60,31 @@ describe('superadminGuard', () => {
     expect((resultado as UrlTree).toString()).toBe(router.createUrlTree(['/dashboard']).toString());
   });
 
-  it('sin usuario en memoria, lo recarga antes de decidir', async () => {
+  it('sin usuario en memoria, renueva con la cookie y luego lo recarga antes de decidir', async () => {
     auth.currentUser = vi.fn().mockReturnValue(null);
+    auth.refresh = vi.fn().mockResolvedValue(true);
     auth.loadCurrentUser = vi.fn().mockResolvedValue({ is_superadmin: true });
     configurar(false);
     expect(await ejecutar()).toBe(true);
+    expect(auth.refresh).toHaveBeenCalled();
     expect(auth.loadCurrentUser).toHaveBeenCalled();
   });
 
-  it('si recargar el usuario falla, redirige a /acceder', async () => {
+  it('sin usuario en memoria y sin sesión que renovar, redirige a /acceder sin llamar a loadCurrentUser', async () => {
     auth.currentUser = vi.fn().mockReturnValue(null);
+    auth.refresh = vi.fn().mockResolvedValue(false);
+    auth.loadCurrentUser = vi.fn();
+    configurar(false);
+    const resultado = await ejecutar();
+    expect((resultado as UrlTree).toString()).toBe(
+      router.createUrlTree(['/acceder']).toString(),
+    );
+    expect(auth.loadCurrentUser).not.toHaveBeenCalled();
+  });
+
+  it('si recargar el usuario falla tras renovar la sesión, redirige a /acceder', async () => {
+    auth.currentUser = vi.fn().mockReturnValue(null);
+    auth.refresh = vi.fn().mockResolvedValue(true);
     auth.loadCurrentUser = vi.fn().mockRejectedValue(new Error('sin sesión'));
     configurar(false);
     const resultado = await ejecutar();

@@ -26,6 +26,15 @@ export const superadminGuard: CanActivateFn = async () => {
 
   let usuario = auth.currentUser();
   if (!usuario) {
+    // Sin token en memoria (recarga de página, pestaña nueva, URL directa a
+    // `/admin` sin pasar antes por `/dashboard`) hay que intentar renovar con la
+    // cookie antes de rendirse, igual que `authGuard`: sin este paso, entrar
+    // directamente a `/admin` con una sesión válida rebotaba siempre a
+    // `/acceder`, porque `loadCurrentUser()` fallaba sin `Authorization` antes
+    // de que nada intentara refrescar el token.
+    if (!(await auth.refresh())) {
+      return router.createUrlTree(['/acceder']);
+    }
     try {
       usuario = await auth.loadCurrentUser();
     } catch {
