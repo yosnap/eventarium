@@ -98,9 +98,11 @@ export class AuthService {
    * recarga de página pierde la suplantación (el token vive en memoria, nunca
    * en `localStorage`) — documentado como comportamiento esperado.
    */
-  private readonly impersonacion = signal<{ token: string; usuarioId: string; nombre: string } | null>(
-    null,
-  );
+  private readonly impersonacion = signal<{
+    token: string;
+    usuarioId: string;
+    nombre: string;
+  } | null>(null);
 
   readonly accessToken = this.token.asReadonly();
   readonly currentUser = this.usuario.asReadonly();
@@ -181,9 +183,14 @@ export class AuthService {
   }
 
   /**
-   * Crea la organización con el token puente de `verifyEmail`. La cabecera se fija a
-   * mano: el interceptor solo añade automáticamente el token de sesión normal
-   * (`accessToken`), que aquí sigue valiendo `null`.
+   * Crea la organización con el token puente de `verifyEmail` cuando existe (alta
+   * justo tras verificar el correo, sin sesión normal todavía); si no, con la sesión
+   * normal ya iniciada — el backend acepta cualquiera de los dos
+   * (`VerifiedUserDep` solo exige un token válido con el correo verificado, no un
+   * tipo de token concreto), así que una cuenta que ya tiene una organización puede
+   * dar de alta otra sin volver a verificar nada. La cabecera se fija a mano porque
+   * el interceptor solo añade automáticamente el token de sesión normal, que en el
+   * primer caso (justo tras verificar) todavía vale `null`.
    */
   async createOrganization(datos: {
     name: string;
@@ -192,9 +199,9 @@ export class AuthService {
     lastName: string;
     turnstileToken: string;
   }): Promise<{ id: string; slug: string; host: string }> {
-    const token = this.bridge();
+    const token = this.bridge() ?? this.tokenEfectivo();
     if (!token) {
-      throw new Error('No hay una sesión de verificación activa.');
+      throw new Error('No hay una sesión activa.');
     }
     return firstValueFrom(
       this.http.post<{ id: string; slug: string; host: string }>(

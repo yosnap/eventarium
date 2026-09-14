@@ -618,7 +618,8 @@
     "cerrarSesion": "Cerrar sesión",
     "sesionDe": "Sesión de {{nombre}}",
     "selectorOrganizacion": {
-      "titulo": "Cambiar de organización"
+      "titulo": "Cambiar de organización",
+      "nueva": "Nueva organización"
     },
     "login": {
       "titulo": "Acceso al panel",

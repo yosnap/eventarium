@@ -209,6 +209,56 @@ describe('shells', () => {
       expect(raiz.querySelector('#admin-nav-organizacion-titulo')).toBeNull();
     });
 
+    it('el panel de organización siempre ofrece dar de alta otra organización, aunque solo tenga una', async () => {
+      url.set('/dashboard');
+      const fixture = TestBed.createComponent(AdminShell);
+      await fixture.whenStable();
+      const raiz = fixture.nativeElement as HTMLElement;
+
+      const enlace = Array.from(raiz.querySelectorAll('a')).find(
+        (a) => a.getAttribute('href') === '/crear-organizacion',
+      );
+      expect(enlace).toBeTruthy();
+    });
+
+    it('el panel de plataforma no ofrece el selector de organización', async () => {
+      url.set('/admin');
+      const fixture = TestBed.createComponent(AdminShell);
+      await fixture.whenStable();
+      const raiz = fixture.nativeElement as HTMLElement;
+
+      const enlace = Array.from(raiz.querySelectorAll('a')).find(
+        (a) => a.getAttribute('href') === '/crear-organizacion',
+      );
+      expect(enlace).toBeFalsy();
+    });
+
+    it('con más de una organización, el selector ofrece cambiar a cada una por su host', async () => {
+      TestBed.overrideProvider(AuthService, {
+        useValue: {
+          ...configurarAuth(false),
+          listMyOrganizations: vi.fn().mockResolvedValue([
+            { organization_id: 'o1', slug: 'acme', name: 'Acme', host: 'acme.example' },
+            {
+              organization_id: 'o2',
+              slug: 'otra',
+              name: 'Otra organización',
+              host: 'otra.example',
+            },
+          ]),
+        },
+      });
+      url.set('/dashboard');
+      const fixture = TestBed.createComponent(AdminShell);
+      await fixture.whenStable();
+      const raiz = fixture.nativeElement as HTMLElement;
+
+      const enlace = Array.from(raiz.querySelectorAll('a')).find(
+        (a) => a.getAttribute('href') === 'https://otra.example/dashboard',
+      );
+      expect(enlace?.textContent?.trim()).toBe('Otra organización');
+    });
+
     it('el grupo de evento no existe fuera del ámbito de un evento', async () => {
       eventId.set(null);
       const fixture = TestBed.createComponent(AdminShell);

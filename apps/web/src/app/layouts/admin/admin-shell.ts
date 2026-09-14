@@ -45,7 +45,7 @@ import { PanelScope } from './panel-scope';
           </p>
           <div class="sesion">
             <app-theme-toggle />
-            @if (otrasOrganizaciones().length > 0) {
+            @if (!esPanelPlataforma()) {
               <nav [attr.aria-label]="t('admin.selectorOrganizacion.titulo')" class="selector">
                 @for (organizacion of otrasOrganizaciones(); track organizacion.organization_id) {
                   @if (organizacion.host) {
@@ -54,6 +54,7 @@ import { PanelScope } from './panel-scope';
                     }}</a>
                   }
                 }
+                <a routerLink="/crear-organizacion">{{ t('admin.selectorOrganizacion.nueva') }}</a>
               </nav>
             }
             @if (auth.currentUser(); as usuario) {
@@ -190,12 +191,13 @@ export class AdminShell {
   protected readonly esPanelPlataforma = this.panelScope.esPlataforma;
 
   protected readonly organizaciones = signal<readonly OrganizacionDeLaPersona[]>([]);
-  /** El selector solo tiene sentido con más de una organización, y **solo** en el
-   * panel de organización: en el de plataforma no se navega entre organizaciones. */
+  /** Los enlaces para cambiar de organización, aparte: con una sola no hay nada a lo
+   * que cambiar. El propio bloque (`nav`) sí se pinta siempre en el panel de
+   * organización, aunque esto quede vacío, porque también lleva el enlace para dar de
+   * alta una organización nueva — y ese tiene sentido tenga una o varias. En el panel
+   * de plataforma no se navega entre organizaciones. */
   protected readonly otrasOrganizaciones = computed(() =>
-    this.esPanelPlataforma() || this.organizaciones().length <= 1
-      ? []
-      : this.organizaciones(),
+    this.esPanelPlataforma() || this.organizaciones().length <= 1 ? [] : this.organizaciones(),
   );
 
   /** `null` sin evento activo o con fallo de carga: en ambos casos la navegación
