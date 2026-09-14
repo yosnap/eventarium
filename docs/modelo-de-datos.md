@@ -7,7 +7,6 @@ posteriores reutilizando estos cimientos.
 
 ```mermaid
 erDiagram
-  organizations ||--o{ organization_domains : "resuelve por host"
   organizations ||--o| organization_branding : "identidad visual"
   organizations ||--o{ roles : "clona plantillas"
   organizations ||--o{ organization_members : "equipo"
@@ -34,15 +33,8 @@ erDiagram
     text contact_email
     bool is_active
   }
-  organization_domains {
-    uuid id PK
-    uuid organization_id FK
-    text host UK
-    bool is_primary
-  }
   organization_branding {
     uuid organization_id PK
-    text template_key
     text logo_object_key
     text favicon_object_key
     jsonb social_links
@@ -257,7 +249,7 @@ se salta esa capa.
 plataforma declarada es conocida (`youtube`, `vimeo`, `twitch`), un dominio de su
 lista (`youtube.com`/`youtu.be`, `vimeo.com`, `twitch.tv`); para `other` basta con
 `https`. Sin esto, una sesión podría embeber un `iframe`/enlace controlado por
-terceros desde el propio dominio de la organización. Se aplica tanto al alta
+terceros servido desde nuestro propio dominio. Se aplica tanto al alta
 (`EventSessionCreate`) como a la edición — un `PATCH` parcial que solo toca uno de
 los dos campos se revalida en `service.update_session` contra el valor ya
 guardado del otro, no solo campo a campo.
@@ -479,12 +471,13 @@ de datos real: `app_user` puede leerlo y no puede insertar ni borrar. Lo escribe
 superadministrador, a través del módulo `admin`.
 
 RLS aísla por **organización**, no por si un evento está publicado: un borrador de
-la propia organización sigue siendo visible bajo RLS para cualquiera que resuelva
-el host correcto (incluido el contexto anónimo de los endpoints públicos, que solo
-fija `app.organization_id`, sin usuario). El filtro `status = 'published' AND
-visibility = 'public'` de las páginas públicas (`public_router.py`) es por tanto
-explícito en cada consulta, nunca delegado a RLS — ver
-`docs/arquitectura.md` § Páginas públicas con datos.
+la propia organización sigue siendo visible bajo RLS para cualquiera con el
+contexto de esa organización fijado (incluido el contexto anónimo de los endpoints
+públicos, que solo fija `app.organization_id`, sin usuario — y que hoy se fija desde
+el propio evento vía `app_resolve_public_event`). El filtro `status = 'published'
+AND visibility = 'public'` de las páginas públicas (`public_router.py`) es por tanto
+explícito en cada consulta (y dentro de la propia función de resolución), nunca
+delegado a RLS — ver `docs/arquitectura.md`.
 
 `users` tiene además una política solo de `INSERT` que permite crear la fila cuando hay
 contexto de organización: dar de alta a alguien crea primero el usuario y después la
@@ -563,17 +556,18 @@ con el mismo patrón que `app_resolve_organization` y las funciones de la fase a
 
 Confirmar un cambio de correo o completar una recuperación de contraseña llega por un
 enlace de correo, sin sesión ni contexto RLS (igual que el registro público). Listar
-"mis organizaciones" tiene el problema inverso: el contexto lo fija el host, no la
-persona. Mismo patrón que las funciones anteriores:
+"mis organizaciones" tiene el problema inverso: el contexto RLS está fijado a la
+organización **activa** de la sesión, y la consulta normal solo vería esa. Mismo
+patrón que las funciones anteriores:
 
 | Función | Uso |
 |---|---|
 | `app_change_user_email(user_id, new_email)` | Aplicar un cambio de correo ya confirmado por token; devuelve si cambió algo |
 | `app_set_user_password(user_id, password_hash)` | Aplicar una contraseña nueva (cambio autenticado con RLS normal; recuperación, sin sesión) |
-| `app_user_organizations(p_user_id)` | Listar las organizaciones de una persona con independencia del host; solo responde si `p_user_id` coincide con `app.user_id` de la sesión |
+| `app_user_organizations(p_user_id)` | Listar las organizaciones de una persona con independencia de la activa; solo responde si `p_user_id` coincide con `app.user_id` de la sesión |
 
-Tras `app_create_organization_row`, el resto del alta (clonar roles, crear el dominio y
-el branding por defecto, dar de alta a la persona como `owner`) ya ocurre con contexto
+Tras `app_create_organization_row`, el resto del alta (clonar roles, crear el
+branding por defecto, dar de alta a la persona como `owner`) ya ocurre con contexto
 RLS normal, fijado por `set_organization_context` con la organización recién creada.
 
 ### Invitaciones: dos funciones `SECURITY DEFINER` más

@@ -57,11 +57,11 @@ Los organizadores combinan hoy Luma/Eventbrite (registro), Sessionize/Pretalx (p
 |---|---|
 | **Asistente** | Inscribirse en segundos, recibir su entrada, saber la agenda, ver las charlas después |
 | **Organizador** | Crear y publicar eventos, aprobar inscritos, gestionar agenda, ponentes, patrocinadores, emails y estadísticas |
-| **Administrador de la organización** | Todo lo anterior más branding, dominio, roles, contabilidad y facturas |
+| **Administrador de la organización** | Todo lo anterior más branding, roles, contabilidad y facturas |
 | **Ponente** | Mantener su perfil (bio, foto, web, redes), ver su historial de ponencias, acceder a su página de ponencia |
 | **Voluntario / staff de puerta** | Escanear entradas y hacer check-in desde el móvil |
 | **Patrocinador** | Ver su presencia en la página del evento (sin acceso a la plataforma en el MVP) |
-| **Superadministrador de la instalación** | Crear organizaciones, gestionar dominios, configuración global |
+| **Superadministrador de la instalación** | Crear organizaciones, configuración global |
 
 ### Sistema de roles
 
@@ -97,7 +97,6 @@ Prioridad: **M** = MVP IAWIC Valencia · **S** = siguiente · **P** = posterior.
 - Organización con nombre, entidad legal, descripción, web, contacto, redes sociales, "quién está detrás".
 - Branding: logo, favicon, paleta (primario, secundario, acento, fondo, superficie, texto), tipografías, imagen de cabecera.
 - Plantillas de página de evento: el organizador elige una plantilla (`classic`, `minimal`, … ampliables) y el orden/visibilidad de bloques (hero, descripción, agenda, ponentes, patrocinadores, lugar, cercanías, registro). Modelo "renderer de bloques" guardado como JSON, no un CMS.
-- Dominio propio con TLS automático — **S** (subdominio/dominio de la instalación en M).
 - Superadmin: varias organizaciones por instalación — M en modelo de datos, **S** en interfaz.
 
 ### 4.2 Eventos y agenda — M
@@ -217,7 +216,7 @@ Marketplace público de eventos, app nativa, seating/mapas de asientos, POS fís
 | Vídeo | Embeds de plataformas externas |
 | Cookies | Orejime (Klaro accesible) — a confirmar frente a Klaro en la fase 5 según auditoría WCAG |
 | OCR | LLM vision vía pasarela de IA multi-proveedor propia (LiteLLM SDK embebido; sin motor autoalojado) |
-| Despliegue | Docker Compose (api, web, worker, postgres, redis, seaweedfs, caddy); Caddy con TLS on-demand para dominios propios; GitHub Actions; Coolify/Dokploy opcionales |
+| Despliegue | Docker Compose (api, web, worker, postgres, redis, seaweedfs, caddy); un único dominio por instalación; GitHub Actions; Coolify/Dokploy opcionales |
 | Repositorio | Monorepo `apps/api`, `apps/web`, `infra/`, `docs/`, `plans/` |
 
 Justificación completa en `docs/investigacion.md` §3-4.
@@ -304,7 +303,10 @@ Cada fase se convierte en su propio plan de implementación en `plans/` cuando s
 | ¿Cómo sabe la API de qué organización es un evento público? | Se deriva de la propia fila del evento (`event.organization_id`), nunca de la URL ni del host — mismo patrón que ya usaba `checkout_service.py` para fijar el contexto RLS de un pago. |
 | ¿Y el slug de un evento? | Pasa a ser **único en toda la instalación**, no solo dentro de su organización (antes `UNIQUE(organization_id, slug)`, ahora `UNIQUE(slug)`) — sin dominio por organización que ya lo desambigüe, dos organizaciones no pueden competir por el mismo slug. Mismo cambio para el perfil público de ponente (`speaker_public_profiles.public_slug`). |
 
-Ver el plan de implementación de este cambio en `plans/` (organización sin dominio: resolución de tenant por sesión/recurso).
+**Aplicada** (plan `plans/260914-0741-organizacion-sin-dominio/`, cerrado): resolución
+por sesión/recurso implementada, `organization_domains`/`platform_domains` retiradas del
+esquema, y con ellas la plantilla de portada por organización — la home pública es el
+directorio de eventos de toda la instalación.
 
 ### Preguntas abiertas
 

@@ -1,7 +1,9 @@
 # Arquitectura
 
-Plataforma de eventos multi-organización. Una sola instalación sirve a varias
-organizaciones, cada una con su dominio, su marca y sus datos, aislados entre sí.
+Plataforma de eventos multi-organización. Una sola instalación, en un único
+dominio, sirve a varias organizaciones: cada una con su marca y sus datos,
+aislados entre sí (plan «organización sin dominio», 2026-09-14: la organización
+activa viene de la sesión, nunca del host visitado).
 
 ## Vista general
 
@@ -9,7 +11,7 @@ organizaciones, cada una con su dominio, su marca y sus datos, aislados entre s�
 flowchart LR
   Visitante([Visitante]) --> Caddy
 
-  subgraph Caddy["Caddy — un único host por organización"]
+  subgraph Caddy["Caddy — un único dominio para toda la instalación"]
     R1["/api/*"]
     R2["/media/*"]
     R3["/  (resto)"]
@@ -17,7 +19,7 @@ flowchart LR
 
   R1 --> API["FastAPI\napps/api"]
   R3 --> Web["Angular SSR\napps/web"]
-  Web -. "branding por X-Tenant-Host" .-> API
+  Web -. "branding de plataforma" .-> API
   R2 --> S3[(SeaweedFS\nbucket media)]
 
   API --> PG[(PostgreSQL 16\nRLS por organización)]
@@ -27,9 +29,8 @@ flowchart LR
   Worker --> PG
 ```
 
-Web y API comparten host a propósito. De ahí salen tres propiedades: la cookie de
-sesión es first-party sin configurar nada, no hace falta CORS en producción, y solo hay
-una cabecera de host que revisar (`X-Forwarded-Host`) en lugar de un mapa de orígenes.
+Web y API comparten host a propósito. De ahí salen dos propiedades: la cookie de
+sesión es first-party sin configurar nada, y no hace falta CORS en producción.
 
 ## Multi-tenant: tabla compartida con Row-Level Security
 
@@ -81,43 +82,66 @@ quien comparta organización con ella.
 
 ### El problema del huevo y la gallina
 
-Resolver la organización por host ocurre *antes* de que exista contexto. En lugar de
-dar `BYPASSRLS` al rol de la API se expone una función `SECURITY DEFINER` de alcance
-mínimo:
+Varias operaciones ocurren *antes* de que exista contexto de organización: el
+login (busca a la persona por correo en una tabla global), la resolución pública
+de un evento por su slug (todavía no se sabe de qué organización es), el alta
+autoservicio de una organización (una organización que aún no existe no puede
+ser el contexto de nadie) o aceptar una invitación. En lugar de dar `BYPASSRLS`
+al rol de la API, cada una se resuelve con una función `SECURITY DEFINER` de
+alcance mínimo — `app_find_user_by_email`, `app_resolve_public_event`,
+`app_create_organization_row`, `app_accept_invited_user`… — que devuelve solo
+las columnas necesarias para el paso siguiente. El bypass queda acotado a una
+consulta concreta y auditable, en vez de a todo el rol.
 
-```sql
-app_resolve_organization(host text) RETURNS TABLE (id uuid, slug text, is_active boolean)
-```
+## Organización activa y resolución pública
 
-El bypass queda acotado a esa consulta concreta y auditable, en vez de a todo el rol.
+Sin dominio por organización, ninguna petición decide nada a partir del
+`Host`. La organización se resuelve por uno de dos caminos, según quién
+pregunta:
 
-## Resolución de la organización
+**Panel autenticado: la organización activa de la sesión.** El access token
+JWT lleva un claim `org` (`organization_id`) fijado al emitirlo. El login
+valida la identidad globalmente (correo + contraseña; `users` es una tabla
+global) y elige la organización activa inicial: la única a la que se
+pertenece, o la más reciente por `last_seen_at` si hay varias. Cambiar de
+organización activa es `POST /auth/switch-organization`: comprueba
+pertenencia real (misma consulta que `app_user_organizations`, sin ninguna
+rama para `is_superadmin` — el acceso de un superadmin a una organización
+ajena tiene un único camino auditado, la impersonación) y emite un token
+nuevo con ese `org`. Un intento de cambiar a una organización ajena devuelve
+el mismo error que si no existiera, para no confirmar UUIDs válidos.
+
+**Público: desde el propio recurso.** Las páginas públicas de evento,
+inscripción, entrada o invitación llevan el identificador del recurso en la
+URL (`/eventos/{slug}`, tokens de verificación…). La función
+`app_resolve_public_event(slug)` devuelve solo `(id, organization_id)` y
+únicamente si el evento es publicable — la comprobación de visibilidad va
+dentro de la función, no después, así que un evento no publicable ni
+siquiera revela que existe por su slug. Con el `organization_id` en mano, el
+router fija el contexto RLS igual que `checkout_service.iniciar_compra` y a
+partir de ahí todo se sirve con las políticas normales.
 
 ```mermaid
 sequenceDiagram
   participant N as Navegador
-  participant C as Caddy
   participant A as API
   participant D as PostgreSQL
 
-  N->>C: GET / (Host: eventos.example)
-  C->>A: X-Forwarded-Host: eventos.example
-  A->>A: ¿La IP de origen está en TRUSTED_PROXY_CIDRS?
-  A->>D: app_resolve_organization('eventos.example')
-  D-->>A: organización o nada
-  A->>A: Sin coincidencia → 404
-  A->>D: SET LOCAL app.organization_id
+  N->>A: GET /eventos/mi-evento (autenticado o no)
+  A->>D: app_resolve_public_event('mi-evento')
+  D-->>A: (id, organization_id) — solo si es publicable
+  A->>A: Sin fila → 404 uniforme
+  A->>D: SET LOCAL app.organization_id = organization_id
+  A-->>N: Detalle del evento
 ```
 
-Reglas:
-
-- Coincidencia **exacta** contra `organization_domains`. Ni subdominios ni comodines.
-- `X-Forwarded-Host` solo se acepta desde una IP en `TRUSTED_PROXY_CIDRS`.
-- Sin coincidencia, 404 antes de tocar ninguna otra tabla.
-- `X-Organization-Slug` y `DEFAULT_ORGANIZATION_SLUG` existen solo con
-  `APP_ENV=development`.
-- El token debe pertenecer a la organización resuelta: si no, 403. Sin esto bastaría
-  con cambiar el `Host` para llevarse una sesión de una organización a otra.
+El listado público (`GET /public/events`) lista los eventos publicables de
+**toda la instalación**: `app_list_public_event_organizations()` devuelve los
+`id` de organización con al menos un evento publicable y el endpoint fija el
+contexto RLS organización a organización, reutilizando las mismas consultas
+que el listado por organización que sustituye. `POST /public/cookie-consent`
+es de plataforma (`organization_id` siempre `NULL`), como las cuatro páginas
+legales.
 
 ## Autenticación
 
@@ -144,12 +168,12 @@ separado del token de sesión (`bridgeToken`, no `token`), precisamente para que
 de autenticación no trate a alguien que solo tiene el puente como si tuviera una sesión
 completa.
 
-Tras crear la organización **no hay auto-login**: cada organización vive en su propio
-subdominio (`{slug}.{dominio_base}`), y ni una cookie `Set-Cookie` emitida en el host
-donde corre `/crear-organizacion` ni un token en memoria sobreviven una navegación a otro
-origen. La respuesta del alta no lleva ningún token; el frontend enlaza a
-`https://{host}/admin/login` para que la persona inicie sesión ya en el subdominio de su
-organización.
+Tras crear la organización **la sesión queda activa en ella**: el propio
+`POST /organizations` emite tokens completos como `/auth/login` (access token
+con la organización recién creada como activa, cookie de refresco incluida).
+Quien llega aquí puede venir del enlace de verificación de correo sin ninguna
+cookie todavía, así que sin esto no habría sesión que activar — y sin dominio
+por organización no hay ningún otro sitio al que redirigir para conseguirla.
 
 ### Cuenta propia: cambio de correo, contraseña y recuperación
 
@@ -165,12 +189,12 @@ del huevo y la gallina que `verify-email`. Se resuelve igual: dos funciones
 `app_set_user_password(uuid, text)`, en vez de dar `BYPASSRLS` a esos flujos.
 
 `GET /users/me/organizations` (selector de organización del panel) tiene el problema
-inverso: el contexto RLS lo fija el *host*, no la persona, así que no hay forma de
-listar "mis organizaciones" con una consulta normal sin saber antes en qué host
-preguntar. `app_user_organizations(p_user_id uuid)` resuelve esto devolviendo filas
-solo cuando `p_user_id` coincide con `app.user_id` de la sesión — el parámetro no
-permite consultar por un id arbitrario, es una comprobación adicional dentro de la
-propia función, no una confianza ciega en quien la llama.
+inverso: el contexto RLS está fijado a la organización **activa**, así que una
+consulta normal solo vería esa, no todas las de la persona.
+`app_user_organizations(p_user_id uuid)` resuelve esto devolviendo filas solo cuando
+`p_user_id` coincide con `app.user_id` de la sesión — el parámetro no permite
+consultar por un id arbitrario, es una comprobación adicional dentro de la propia
+función, no una confianza ciega en quien la llama.
 
 **Revocar todas las sesiones salvo la actual** (cambio de contraseña) necesita saber
 la familia de refresh token de la petición en curso. La cookie de refresh tiene
@@ -272,7 +296,7 @@ autenticar. Retención de `audit_log`: indefinida, sin purga automática (es un 
 cumplimiento).
 
 Se instrumenta explícitamente cada acción sensible existente — cambio de permisos de
-un rol, alta de organización, alta de dominio — y las tres acciones nuevas de
+un rol, alta de organización — y las tres acciones nuevas de
 superadmin (`app/modules/admin/router.py`): listado de auditoría con filtros, export
 RGPD de un evento (ZIP con CSV de inscripciones/respuestas/entradas, sin el JWT del QR,
 con prefijado `'` de celdas que empiezan por `=`/`+`/`-`/`@`/tab/CR contra inyección de
@@ -364,15 +388,13 @@ eso la guarda vive en dos capas:
   `paid`. Protege cualquier camino nuevo que se añada más adelante, en el
   único sitio por el que necesariamente pasa la emisión.
 
-### Webhook: ámbito «cuentas conectadas», sin tenant por `Host`
+### Webhook: ámbito «cuentas conectadas»
 
-Todos los endpoints públicos resuelven la organización por el `Host` de la
-petición. Stripe llama a una URL fija (`/api/v1/webhooks/stripe`, bajo el
-mismo `API_PREFIX` que el resto de rutas — no hay ninguna ruta fuera de él),
-sin ese `Host`: es la única ruta de la instalación que no lo usa. El
-endpoint se registra en Stripe con `connect: true` (ámbito *cuentas
-conectadas*) y un único secreto de firma, porque los cuatro eventos que
-consume (`checkout.session.completed`, `charge.refunded`,
+Stripe llama a una URL fija (`/api/v1/webhooks/stripe`, bajo el mismo
+`API_PREFIX` que el resto de rutas — no hay ninguna ruta fuera de él) y sin
+autenticar. El endpoint se registra en Stripe con `connect: true` (ámbito
+*cuentas conectadas*) y un único secreto de firma, porque los cuatro eventos
+que consume (`checkout.session.completed`, `charge.refunded`,
 `account.updated`, `account.application.deauthorized`) llegan todos por ese
 ámbito con direct charges. En local: `stripe listen --forward-connect-to
 localhost:8000/api/v1/webhooks/stripe`.
@@ -420,29 +442,29 @@ resultado final.
 Una sola aplicación Angular 21 sirve la web pública y el panel.
 
 - **Público**: renderizado en servidor por petición (no prerenderizado), porque el
-  contenido depende del host.
+  contenido depende del recurso (el evento de la URL), y la raíz (`/`) es el
+  directorio de eventos de toda la instalación (redirige a `/eventos`).
 - **Panel**: solo cliente. Necesita la cookie de sesión, que el servidor no debe manejar.
 
 El theming son custom properties CSS que Tailwind consume: cambiar los colores en la
-base de datos cambia la interfaz sin recompilar. `TemplateRegistry` permite que cada
-organización elija la plantilla de su portada, cargada de forma perezosa.
+base de datos cambia la interfaz sin recompilar. Hay dos ámbitos — la plataforma
+(chrome de toda la web, `GET /tenant/branding`) y el evento (plantilla propia, si la
+eligió, aplicada al contenedor de su página pública). Sin dominio por organización
+no existe una tercera identidad «del sitio»: la marca de una organización concreta
+solo aparece dentro de las páginas de sus eventos.
 
 Si la API no responde, la aplicación muestra «sitio no disponible» en lugar de pintar la
-paleta por defecto: enseñar una marca que no es la de la organización sería peor que
-admitir el fallo.
+paleta por defecto: enseñar una marca que no es la real sería peor que admitir el fallo.
 
 ### Páginas públicas con datos: SSR real, no solo plantilla
 
 Las páginas públicas de evento, sesión y ponente (`features/public/events/`) piden
 datos a la API durante el renderizado en servidor, siguiendo el mismo patrón que
-`ThemingService` — no el de `home-page.ts`, que solo espera un `import()` dinámico
-sin ninguna petición HTTP y por tanto serviría un hueco vacío (o, peor, datos de otra
-organización por el atajo de desarrollo) si se copiara sin más para una página con
-datos reales.
+`ThemingService` — cada página resuelve su recurso por el slug de la URL, nunca
+por el host de la visita.
 
-1. La petición usa `ApiService.url()` + `ApiService.serverForwardHeaders()`, para
-   que en SSR lleve el `X-Forwarded-Host` real de la visita en vez del `Host`
-   interno del contenedor.
+1. La petición usa `ApiService.url()` + `ApiService.serverForwardHeaders()`, que
+   en SSR propagan el protocolo real de la visita.
 2. La carga se registra con `PendingTasks.run(...)` dentro de `ngOnInit`: en modo
    zoneless, sin esto el renderizado en servidor no esperaría a la petición
    asíncrona y serializaría la página con el estado inicial vacío.
@@ -476,8 +498,8 @@ dominio por plataforma del backend (`validate_video_url`, ver
 Las cuatro páginas legales (`/legal/aviso-legal`, `/legal/privacidad`,
 `/legal/cookies`, `/legal/condiciones-de-inscripcion`, `features/public/legal/
 legal-page.ts`) siguen el mismo patrón `TransferState`/`serverForwardHeaders()`
-de arriba, con una diferencia deliberada: el contenido (Markdown restringido
-editable por el tenant, ver `docs/modelo-de-datos.md`) se muestra primero como
+de arriba, con una diferencia deliberada: el contenido (Markdown restringido,
+editable solo por la plataforma, ver `docs/modelo-de-datos.md`) se muestra primero como
 texto plano interpolado por Angular — siempre escapado, tanto en SSR como antes
 de hidratar — y solo se sustituye por HTML saneado (`marked` + `DOMPurify`,
 `shared/legal/sanitize-markdown.ts`) dentro de `afterNextRender`, que nunca
@@ -491,9 +513,9 @@ pudiera ejecutarse.
 
 `shared/cookies/cookie-banner.ts`, integrado en `layouts/public/public-shell.ts`
 para aparecer en toda página pública. `core/cookies/cookie-consent.service.ts`
-guarda la decisión en `localStorage` (cada organización ya vive en su propio
-host, así que no hace falta espacio de nombres adicional) y llama a
-`POST /public/cookie-consent`. Cloudflare Turnstile (`shared/ui/
+guarda la decisión en `localStorage` y llama a
+`POST /public/cookie-consent` (registro de plataforma, sin organización:
+`organization_id` siempre `NULL`). Cloudflare Turnstile (`shared/ui/
 turnstile-widget.ts`) nunca pasa por este servicio: sigue cargando decida lo
 que decida la persona, clasificado como necesario en la página de cookies (ver
 `apps/api/app/modules/legal/templates.py`). Un script de ejemplo de categoría

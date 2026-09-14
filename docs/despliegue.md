@@ -77,9 +77,7 @@ S3_BUCKET=media
 S3_PUBLIC_BASE_URL=https://eventos.tu-dominio.org/media
 WEB_BASE_URL=https://eventos.tu-dominio.org
 JWT_SECRET=<openssl rand -base64 48>
-DEFAULT_ORGANIZATION_SLUG=
 TRUSTED_PROXY_CIDRS=10.0.0.0/8,172.16.0.0/12
-DOMINIO_BASE=tu-dominio.org
 ```
 
 Y en `web`:
@@ -87,21 +85,16 @@ Y en `web`:
 ```bash
 PORT=4000
 API_INTERNAL_URL=http://api:8000
-NG_ALLOWED_HOSTS=tu-dominio.org,*.tu-dominio.org
+NG_ALLOWED_HOSTS=tu-dominio.org
 ```
 
-Dos que suelen dar problemas:
+Una que suele dar problemas:
 
-- **`TRUSTED_PROXY_CIDRS`** decide desde dónde se acepta `X-Forwarded-Host`, que es lo
-  que determina la organización. Tiene que cubrir la red del proxy de EasyPanel y nada
-  más: abrirlo a `0.0.0.0/0` permitiría a cualquiera elegir organización con una
-  cabecera. Comprueba el rango real con `docker network inspect` en el servidor.
-- **`DEFAULT_ORGANIZATION_SLUG`** debe quedar vacío. La API se niega a arrancar en
-  producción si tiene valor: es un atajo de desarrollo que saltaría la resolución por
-  host.
-- **`DOMINIO_BASE`** es el dominio bajo el que se registra el subdominio de cada
-  organización nueva (`{slug}.{DOMINIO_BASE}`). La API se niega a arrancar en producción
-  si está vacío: sin él, el alta libre de organización no sabría qué host asignar.
+- **`TRUSTED_PROXY_CIDRS`** decide desde qué redes se acepta `X-Forwarded-For` al
+  calcular la IP real del cliente (limitadores de tasa). Tiene que cubrir la red del
+  proxy de EasyPanel y nada más: abrirlo a `0.0.0.0/0` dejaría a cualquiera falsear su
+  IP contra los límites. Comprueba el rango real con `docker network inspect` en el
+  servidor.
 
 ### 4. Roles de base de datos y migraciones
 
@@ -133,7 +126,7 @@ docker run --rm --network <red-del-proyecto> --env-file .env \
 
 docker run --rm --network <red-del-proyecto> --env-file .env \
   ghcr.io/yosnap/eventarium/api:sha-<commit> \
-  python -m app.cli create-organization mi-org "Mi Organización" eventos.tu-dominio.org
+  python -m app.cli create-organization mi-org "Mi Organización"
 ```
 
 Comprueba `https://eventos.tu-dominio.org/api/v1/health`: los tres valores deben ser
@@ -329,50 +322,29 @@ desactualizados, dependencia vulnerable o secreto en el diff.
 docker compose -f infra/docker-compose.prod.yml ps
 docker compose -f infra/docker-compose.prod.yml logs -f api
 
-# Añadir un dominio a una organización
-docker compose -f infra/docker-compose.prod.yml run --rm api \
-  python -m app.cli add-domain mi-org otro.dominio.org
-
 # Rotar las contraseñas de los roles de base de datos
 POSTGRES_APP_USER_PASSWORD=... POSTGRES_MAINTAINER_PASSWORD=... \
   infra/scripts/ensure-roles.sh "postgresql://postgres:...@localhost:5432/ia_week"
 # y actualiza DATABASE_URL y DATABASE_MIGRATIONS_URL en infra/env/.env
 ```
 
-## Varias organizaciones: un subdominio para cada una
+## Varias organizaciones: una sola instalación, un solo dominio
 
-Cada organización vive en su propio subdominio del dominio de la instalación:
-`iawic.tu-dominio.org`, `otra.tu-dominio.org`. La API resuelve la organización por el
-host exacto de la petición, contrastado contra `organization_domains`.
+Sin dominio por organización (plan «organización sin dominio», 2026-09-14), todas
+las organizaciones viven bajo el mismo dominio de la instalación. La organización
+activa la decide la sesión (claim `org` del access token, cambiable con
+`POST /auth/switch-organization`), y las páginas públicas resuelven cada recurso
+por su propio slug — nunca por el host. No hay DNS comodín, ni certificado
+comodín, ni `DOMINIO_BASE`, ni `add-domain`: el despliegue es el de un único
+sitio.
 
-Se eligió así frente a repartir por ruta (`/o/mi-org`) porque no toca la resolución por
-host, que ya está implementada y cubierta por tests de aislamiento, y porque deja el
-branding y las cookies limpiamente separados por organización.
-
-Lo que hay que preparar en el despliegue:
-
-1. **DNS comodín**: un registro `*.tu-dominio.org` apuntando al servidor.
-2. **Certificado comodín** para `*.tu-dominio.org` en EasyPanel, o TLS bajo demanda.
-3. **`NG_ALLOWED_HOSTS`**: incluir el comodín, por ejemplo
-   `tu-dominio.org,*.tu-dominio.org`. El SSR valida `Host` y `X-Forwarded-Host` contra
-   esta lista.
-
-Al dar de alta una organización se registra su subdominio, ya sea por CLI:
-
-```bash
-python -m app.cli create-organization mi-org "Mi Organización" mi-org.tu-dominio.org
-```
-
-o por el alta libre desde la propia aplicación (`POST /organizations`, tras verificar el
-correo): la persona elige nombre y slug, la API compone el host como
-`{slug}.{DOMINIO_BASE}` y registra el dominio igual que el CLI. Por eso `DOMINIO_BASE`
-(arriba) es obligatorio en producción.
+Dar de alta una organización no toca el despliegue: por CLI (`python -m app.cli
+create-organization mi-org "Mi Organización"`), por superadmin desde el panel, o
+por el alta libre de la propia aplicación (`POST /organizations`, que además deja
+la sesión activa en la organización recién creada). El identificador interno
+(`slug`) se genera a partir del nombre; no aparece en ninguna URL pública.
 
 Quien quiera una instalación aparte hace fork del repositorio y la despliega.
-
-El TLS bajo demanda para dominios de terceros (fase 9 del PRD) no está implementado:
-sin un endpoint que compruebe que el dominio está registrado, cualquiera podría forzar
-la emisión de certificados apuntando su dominio al servidor.
 
 ## Variables de entorno
 
@@ -386,7 +358,6 @@ Todas están documentadas en `infra/env/.env.example`. Las que solo aplican a pr
 | `GITHUB_REPOSITORY` | Origen de las imágenes en GHCR |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_USE_TLS`, `SMTP_FROM` | Proveedor de correo real para la verificación de cuentas. Mailpit solo existe en desarrollo |
 | `TURNSTILE_ENABLED`, `TURNSTILE_SECRET_KEY` | Anti-bot en el registro, el reenvío de verificación y el alta de organización. **`TURNSTILE_ENABLED` no puede ser `false` en producción**: el arranque de la API falla si lo es |
-| `DOMINIO_BASE` | Dominio bajo el que se registra el subdominio de cada organización nueva. **Obligatorio en producción**: el arranque de la API falla si está vacío |
 
 La clave pública de Turnstile (`turnstileSiteKey`) no es un secreto de la API: se
 compila en el bundle del frontend (`apps/web/src/environments/environment.ts`) antes de
