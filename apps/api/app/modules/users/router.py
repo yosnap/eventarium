@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.deps import CurrentUserDep, DbDep, PermissionsDep
 from app.core.permissions import Permission
+from app.core.ratelimit import CHECK_SLUG_POR_IP, limit_per_ip
 from app.modules.auth import service as auth_service
 from app.modules.events.models import SpeakerPublicProfile
 from app.modules.organizations.models import OrganizationMember
@@ -313,11 +314,14 @@ async def update_public_profile(
     "/me/public-profile/check-slug",
     summary="Comprobar disponibilidad de un identificador de ponente",
     description=(
-        "Ayuda de UX en vivo, mismo espíritu que el `check-slug` de organizaciones "
-        "pero sin `SECURITY DEFINER`: quien pregunta ya tiene contexto de "
-        "organización (autenticado), así que una consulta normal bajo RLS basta."
+        "Ayuda de UX en vivo, mismo espíritu que el `check-slug` de organizaciones: "
+        "el `public_slug` es único en toda la instalación, no solo dentro de la "
+        "organización de quien pregunta, así que hace falta `SECURITY DEFINER` "
+        "para verlo — una consulta normal bajo RLS no vería perfiles de otras "
+        "organizaciones."
     ),
     response_model=CheckPublicSlugResponse,
+    dependencies=[limit_per_ip("check-slug-ponente", CHECK_SLUG_POR_IP)],
 )
 async def check_public_slug(
     slug: str, usuario: CurrentUserDep, session: DbDep
@@ -325,13 +329,12 @@ async def check_public_slug(
     slug_limpio = slug.strip().lower()
     if not _SLUG_RE.fullmatch(slug_limpio):
         return CheckPublicSlugResponse(available=False)
-    existente = await session.scalar(
-        select(SpeakerPublicProfile.id).where(
-            SpeakerPublicProfile.organization_id == usuario.organization_id,
-            SpeakerPublicProfile.public_slug == slug_limpio,
+    disponible = (
+        await session.execute(
+            text("SELECT app_check_public_slug_available(:slug)"), {"slug": slug_limpio}
         )
-    )
-    return CheckPublicSlugResponse(available=existente is None)
+    ).scalar_one()
+    return CheckPublicSlugResponse(available=bool(disponible))
 
 
 @router.get(

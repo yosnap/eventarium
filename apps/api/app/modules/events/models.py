@@ -44,7 +44,10 @@ class Event(Base, TimestampMixin):
 
     __tablename__ = "events"
     __table_args__ = (
-        UniqueConstraint("organization_id", "slug", name="uq_events_organization_id_slug"),
+        # Sin dominio por organización, el slug es la única forma de resolver
+        # un evento en una URL pública: tiene que ser único en toda la
+        # instalación, no solo dentro de su organización.
+        UniqueConstraint("slug", name="uq_events_slug"),
         # Objetivo de las FK compuestas de las tablas hijas (event_sessions, event_members).
         UniqueConstraint("id", "organization_id", name="uq_events_id_organization_id"),
         # Stripe admite un `expires_at` de Checkout Session entre 30 minutos y
@@ -363,11 +366,9 @@ class SpeakerPublicProfile(Base, TimestampMixin):
         UniqueConstraint(
             "organization_id", "user_id", name="uq_speaker_public_profiles_organization_id_user_id"
         ),
-        UniqueConstraint(
-            "organization_id",
-            "public_slug",
-            name="uq_speaker_public_profiles_organization_id_public_slug",
-        ),
+        # Igual que `events.slug`: sin dominio por organización, único en toda
+        # la instalación.
+        UniqueConstraint("public_slug", name="uq_speaker_public_profiles_public_slug"),
         # Compuesta contra `(id, organization_id)` de `organization_members`: la
         # membresía de origen de la biografía debe pertenecer a esta misma
         # organización, no a una ajena (la integridad referencial no pasa por RLS).

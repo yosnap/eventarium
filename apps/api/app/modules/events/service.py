@@ -141,9 +141,12 @@ async def create_event(
     try:
         await session.flush()
     except IntegrityError as exc:
-        # La comprobación de arriba no cierra la carrera: dos altas con el mismo
-        # slug pueden llegar a la vez. El `UNIQUE(organization_id, slug)` es la
-        # única fuente de verdad ante esa carrera estrecha.
+        # El slug es único en toda la instalación (`UNIQUE(slug)`), no solo
+        # dentro de la organización: la comprobación de arriba solo ve, bajo
+        # RLS, los eventos de la propia organización, así que una colisión con
+        # el slug de OTRA organización es un flujo normal que solo se detecta
+        # aquí, en el `flush` — no únicamente la carrera entre dos altas
+        # simultáneas dentro de la misma organización.
         raise ConflictError(f"Ya existe un evento con el identificador «{datos['slug']}».") from exc
 
     # `event_id=evento.id` tras el `flush` (no antes de crearlo, como hacía

@@ -16,7 +16,11 @@
 
 Una plataforma de eventos **open source, autoinstalable y con marca propia** que permita a cualquier organizador publicar eventos, gestionar inscripciones con la fricción mínima de Luma, controlar el acceso con entradas QR, cobrar entradas, mostrar patrocinadores, publicar las ponencias en vídeo y llevar la contabilidad completa del evento, todo en un solo sistema.
 
-Cada instalación —o cada organización dentro de una instalación— tiene su logo, colores, plantilla de página, redes sociales, dominio y datos de la entidad responsable. **Nunca** se impone atribución ni marca del proyecto.
+Cada instalación —o cada organización dentro de una instalación— tiene su logo, colores, plantilla de página, redes sociales y datos de la entidad responsable. **Nunca** se impone atribución ni marca del proyecto.
+
+<!-- Corregido 2026-09-14: "y dominio" retirado de la frase anterior. Ver «Decisiones
+tomadas (2026-09-14)» — la organización nunca tiene un dominio propio; es un dato
+más, no un mecanismo de enrutado. -->
 
 ### Problema
 
@@ -26,7 +30,7 @@ Los organizadores combinan hoy Luma/Eventbrite (registro), Sessionize/Pretalx (p
 
 1. Registro tipo Luma sin cuenta obligatoria, con verificación de email, aprobación bajo demanda y lista de espera.
 2. Entradas QR firmadas e intransferibles con app de escaneo.
-3. White-label real sin coste: branding, plantillas y dominio propio por organización.
+3. White-label real sin coste: branding y plantillas por organización, en un único dominio de instalación (sin dominio propio por organización — ver «Decisiones tomadas (2026-09-14)»).
 4. Diferenciadores que ninguna plataforma revisada ofrece: **patrocinadores por niveles**, **contabilidad integrada del evento** (presupuesto, ingresos, gastos, aportaciones en especie, OCR de facturas) y **agenda con descansos y servicios** como datos de primera clase.
 5. Ponencias con vídeo en directo y grabado, visualizaciones, reviews e historial de ponente entre ediciones.
 
@@ -221,7 +225,7 @@ Justificación completa en `docs/investigacion.md` §3-4.
 ### Modelo de dominio (alto nivel)
 
 ```
-Organization ─┬─ OrganizationBranding, OrganizationDomain, EmailTemplate, SponsorTier, Role ─ RolePermission, RoleProfileField
+Organization ─┬─ OrganizationBranding, EmailTemplate, SponsorTier, Role ─ RolePermission, RoleProfileField
               ├─ OrganizationMember (User × Role, profile_data)
               └─ Event ─┬─ EventSession (talk|break|service) ─ SessionSpeaker, SessionVideo, SessionReview
                         ├─ EventMember (User × Role, p. ej. ponente)
@@ -259,7 +263,7 @@ User ─ UserSocialLink
 | 5 | Patrocinadores por niveles; legal y cookies; superadmin; backups | M |
 | 6 | Pagos Stripe Connect y tipos de entrada | S |
 | 7 | Contabilidad, OCR, informes | S |
-| 8 | Vídeo: contadores, reviews; dominio propio; recurrencia; lugares cercanos; escaneo de cookies; inglés | S |
+| 8 | Vídeo: contadores, reviews; ~~dominio propio~~ (retirado, ver decisión 2026-09-14); recurrencia; lugares cercanos; escaneo de cookies; inglés | S |
 | 9 | CfP, wallet, observabilidad avanzada | P |
 
 Cada fase se convierte en su propio plan de implementación en `plans/` cuando se apruebe este PRD.
@@ -290,6 +294,17 @@ Cada fase se convierte en su propio plan de implementación en `plans/` cuando s
 | Emisión en directo | YouTube para IAWIC; soporte genérico de embeds |
 | Reviews | Solo asistentes con check-in |
 | Nombre del producto | Pendiente; se propondrán nombres más adelante (no bloquea) |
+
+### Decisiones tomadas (2026-09-14)
+
+| Pregunta | Decisión |
+|---|---|
+| ¿Dominio propio por organización? | **No, retirado.** Una sola instalación vive en **un único dominio**, para el panel y para la web pública. El dominio dejó de ser el mecanismo con el que la API decide de qué organización es una petición — ese mecanismo desaparece; la organización pasa a ser un dato más de cada evento y de cada membresía, nunca una señal de enrutado. Superponía además dos cosas distintas que convenía separar: el aislamiento de datos entre organizaciones (necesario desde el primer día, vía RLS) y el dominio propio como función de marca blanca (fase 8, pospuesta, y ahora retirada del todo en vez de solo pospuesta). |
+| ¿Cómo sabe la API para qué organización trabaja un administrador? | Por una **organización activa** de su sesión, elegible en cualquier momento desde el selector del panel (ya existía la lista de organizaciones de la persona; lo que faltaba era que cambiar de una a otra no dependiera de navegar a otro dominio). |
+| ¿Cómo sabe la API de qué organización es un evento público? | Se deriva de la propia fila del evento (`event.organization_id`), nunca de la URL ni del host — mismo patrón que ya usaba `checkout_service.py` para fijar el contexto RLS de un pago. |
+| ¿Y el slug de un evento? | Pasa a ser **único en toda la instalación**, no solo dentro de su organización (antes `UNIQUE(organization_id, slug)`, ahora `UNIQUE(slug)`) — sin dominio por organización que ya lo desambigüe, dos organizaciones no pueden competir por el mismo slug. Mismo cambio para el perfil público de ponente (`speaker_public_profiles.public_slug`). |
+
+Ver el plan de implementación de este cambio en `plans/` (organización sin dominio: resolución de tenant por sesión/recurso).
 
 ### Preguntas abiertas
 
