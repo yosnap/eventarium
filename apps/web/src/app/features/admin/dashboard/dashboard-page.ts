@@ -17,6 +17,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Card } from '../../../shared/ui/card';
 import { Chip, ChipTone } from '../../../shared/ui/chip';
 import { DataTable, DataTableColumn } from '../../../shared/ui/data-table';
+import { PageHeader } from '../../../shared/ui/page-header';
 import { MetricasDeOrganizacion } from './organization-metrics.types';
 
 /** Una petición pendiente, resuelta para pintar. */
@@ -42,9 +43,21 @@ interface Pendiente {
 @Component({
   selector: 'app-dashboard-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, DatePipe, Alert, Card, Chip, DataTable],
+  imports: [TranslocoDirective, RouterLink, DatePipe, Alert, Card, Chip, DataTable, PageHeader],
   template: `
     <ng-container *transloco="let t">
+      <app-page-header [rotulo]="t('admin.escritorioPagina.rotulo')">
+        @if (pendientes().length > 0) {
+          {{ t('admin.escritorioPagina.cabeceraPendienteInicio') }}
+          <span class="mark">{{
+            t('admin.escritorioPagina.cabeceraPendienteCifra', { n: pendientes().length })
+          }}</span>
+          {{ t('admin.escritorioPagina.cabeceraPendienteFin') }}
+        } @else {
+          {{ t('admin.escritorioPagina.cabeceraAlDia') }}
+        }
+      </app-page-header>
+
       @if (error(); as mensaje) {
         <app-alert tone="error">{{ t(mensaje) }}</app-alert>
       }

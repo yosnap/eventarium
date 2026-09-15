@@ -694,11 +694,15 @@
         "draft": "Borrador",
         "published": "Publicado",
         "archived": "Archivado"
-      }
+      },
+      "rotulo": "Escritorio",
+      "cabeceraPendienteInicio": "Hay",
+      "cabeceraPendienteCifra": "{{n}} tareas",
+      "cabeceraPendienteFin": "pendientes en esta organización.",
+      "cabeceraAlDia": "Todo al día. No hay tareas pendientes."
     },
     "organizacion": {
       "titulo": "Organización",
-      "descripcion": "Datos generales de tu organización.",
       "nombre": "Nombre",
       "nombreLegal": "Razón social",
       "descripcionCampo": "Descripción",
@@ -708,7 +712,10 @@
       "correoInvalido": "Escribe un correo electrónico válido.",
       "guardando": "Guardando…",
       "guardado": "Cambios guardados.",
-      "error": "No hemos podido guardar los cambios."
+      "error": "No hemos podido guardar los cambios.",
+      "rotulo": "Organización",
+      "cabeceraInicio": "Los datos públicos de la organización:",
+      "cabeceraMarca": "lo que verá todo el mundo"
     },
     "branding": {
       "rotulo": "Marca",
@@ -754,7 +761,6 @@
     },
     "roles": {
       "titulo": "Roles",
-      "descripcion": "Roles del sistema y a medida de tu organización, con sus permisos y campos de perfil.",
       "casoVoluntario": "¿Quieres que un voluntario gestione invitaciones? Crea un rol a medida con los permisos de «Voluntario» más «Gestionar invitaciones» — un voluntario no puede crear ese rol por sí mismo, porque no tiene permiso para crear roles; tiene que crearlo antes alguien que sí lo tenga.",
       "crearRol": "Crear rol",
       "sistema": "Del sistema",
@@ -807,7 +813,8 @@
           "date": "Fecha",
           "select": "Selector",
           "boolean": "Sí/No"
-        }
+        },
+        "rotulo": "Roles"
       },
       "permisosClaves": {
         "organizations:read": "Ver los datos de la organización",
@@ -818,11 +825,13 @@
         "members:read": "Ver los miembros",
         "members:write": "Añadir miembros",
         "users:read": "Ver los datos de los usuarios"
-      }
+      },
+      "cabeceraInicio": "Los roles definen",
+      "cabeceraMarca": "lo que cada persona puede hacer",
+      "cabeceraFin": "en esta organización."
     },
     "members": {
       "titulo": "Miembros",
-      "descripcion": "Personas con acceso a esta organización.",
       "anadirMiembro": "Añadir miembro",
       "columnaNombre": "Nombre",
       "columnaCorreo": "Correo",
@@ -846,7 +855,8 @@
         "anadir": "Añadir",
         "anadiendo": "Añadiendo…",
         "error": "No hemos podido añadir a la persona.",
-        "exito": "Miembro añadido correctamente."
+        "exito": "Miembro añadido correctamente.",
+        "rotulo": "Miembros"
       },
       "invitaciones": {
         "titulo": "Invitaciones pendientes",
@@ -878,7 +888,9 @@
         "revocada": "Invitación revocada.",
         "confirmarRevocar": "¿Revocar esta invitación? La persona invitada ya no podrá aceptarla."
       },
-      "quitarRol": "Quitar el rol «{{rol}}»"
+      "quitarRol": "Quitar el rol «{{rol}}»",
+      "cabeceraInicio": "Las personas de la organización,",
+      "cabeceraMarca": "cada una con su rol"
     },
     "cuenta": {
       "titulo": "Mi cuenta",
@@ -922,11 +934,13 @@
         "actualizar": "Guardar cambios",
         "desactivar": "Desactivar",
         "exito": "Perfil público actualizado."
-      }
+      },
+      "rotulo": "Tu cuenta",
+      "cabeceraInicio": "Tu perfil y tus credenciales,",
+      "cabeceraMarca": "en una sola página"
     },
     "events": {
       "titulo": "Eventos",
-      "descripcion": "Crea y gestiona los eventos de tu organización.",
       "crearEvento": "Crear evento",
       "filtrarPorEstado": "Filtrar por estado",
       "estadoTodos": "Todos",
@@ -972,7 +986,8 @@
         "guardando": "Guardando…",
         "exito": "Cambios guardados.",
         "error": "No hemos podido guardar los cambios.",
-        "direccion": "Dirección"
+        "direccion": "Dirección",
+        "rotulo": "Datos del evento"
       },
       "agenda": {
         "titulo": "Agenda",
@@ -1007,7 +1022,9 @@
           "error": "No hemos podido guardar los participantes."
         },
         "sede": "Sede",
-        "sinSedeEspecifica": "Sin sede específica"
+        "sinSedeEspecifica": "Sin sede específica",
+        "cabeceraInicio": "Sesiones y",
+        "cabeceraMarca": "quien las imparte."
       },
       "roster": {
         "titulo": "Participantes del evento",
@@ -1114,7 +1131,8 @@
           "consentimientoGrabacion": "Grabación, aceptado el",
           "consentimientoGrabacionNo": "Grabación: no aceptado",
           "sinConsentimientos": "No hay datos de consentimiento.",
-          "error": "No hemos podido cargar la inscripción."
+          "error": "No hemos podido cargar la inscripción.",
+          "rotulo": "Inscripción"
         }
       },
       "registrationQuestions": {
@@ -1171,7 +1189,9 @@
           "marcar": "Marcar entrada",
           "yaUsada": "Ya usada el {{fecha}}",
           "error": "No hemos podido completar la búsqueda."
-        }
+        },
+        "cabeceraInicio": "Escaneo a la puerta,",
+        "cabeceraMarca": "con o sin conexión."
       },
       "sponsors": {
         "titulo": "Patrocinadores",
@@ -1199,7 +1219,9 @@
         "logoNoValido": "Solo se aceptan imágenes PNG, JPEG o WebP.",
         "logoDemasiadoGrande": "El logo no puede superar los 5 MB.",
         "error": "No hemos podido completar la operación.",
-        "tipoEnespecie": "En especie"
+        "tipoEnespecie": "En especie",
+        "cabeceraInicio": "Aportaciones y contraprestaciones,",
+        "cabeceraMarca": "en metálico y en especie"
       },
       "pagos": {
         "avisoConectarStripe": "Este evento es de pago; no podrá publicarse hasta conectar y verificar una cuenta de Stripe.",
@@ -1230,7 +1252,10 @@
         "inicioVenta": "Inicio de la venta",
         "finVenta": "Fin de la venta",
         "error": "No hemos podido completar la operación.",
-        "eventoGratuito": "Este evento no acepta pagos: los tipos de entrada solo aplican a eventos con inscripción de pago. Cambia el modo de inscripción del evento a «pago» para gestionarlos."
+        "eventoGratuito": "Este evento no acepta pagos: los tipos de entrada solo aplican a eventos con inscripción de pago. Cambia el modo de inscripción del evento a «pago» para gestionarlos.",
+        "cabeceraInicio": "Los tipos de entrada",
+        "cabeceraMarca": "definen el aforo y el precio",
+        "cabeceraFin": "de cada sesión."
       },
       "discountCodes": {
         "titulo": "Códigos de descuento",
@@ -1260,7 +1285,10 @@
         "vigenteDesde": "Vigente desde",
         "vigenteHasta": "Vigente hasta",
         "error": "No hemos podido completar la operación.",
-        "eventoGratuito": "Este evento no acepta pagos: los códigos de descuento solo aplican a eventos con inscripción de pago. Cambia el modo de inscripción del evento a «pago» para gestionarlos."
+        "eventoGratuito": "Este evento no acepta pagos: los códigos de descuento solo aplican a eventos con inscripción de pago. Cambia el modo de inscripción del evento a «pago» para gestionarlos.",
+        "cabeceraInicio": "Códigos con",
+        "cabeceraMarca": "descuento fijo o porcentaje",
+        "cabeceraFin": "para las inscripciones de pago."
       },
       "payments": {
         "titulo": "Pagos",
@@ -1301,7 +1329,9 @@
           "revocarEntrada": "Revocar también la entrada",
           "totalSiempreRevoca": "Un reembolso total revoca siempre la entrada.",
           "confirmar": "Confirmar reembolso"
-        }
+        },
+        "cabeceraInicio": "El dinero del evento:",
+        "cabeceraMarca": "inscripciones y reembolsos"
       },
       "accounting": {
         "titulo": "Contabilidad",
@@ -1475,7 +1505,14 @@
           "lista": "Lista",
           "pendiente": "Falta",
           "no_aplica": "No aplica"
-        }
+        },
+        "rotulo": "Resumen del evento",
+        "cabeceraLista": "El evento está listo para publicarse.",
+        "cabeceraUnaInicio": "Falta",
+        "cabeceraUnaFin": "pieza por completar antes de publicar.",
+        "cabeceraVariasInicio": "Faltan",
+        "cabeceraVariasCifra": "{{n}} piezas",
+        "cabeceraVariasFin": "por completar antes de publicar."
       },
       "speakers": {
         "rotulo": "Ponentes",
@@ -1539,14 +1576,16 @@
         },
         "verPerfilPublico": "Ver el perfil público",
         "piePerfil": "El perfil vive en la organización: al crear la siguiente edición, quien ya participó aparece con su ficha hecha."
-      }
+      },
+      "rotulo": "Eventos",
+      "cabeceraInicio": "Toda la programación de la organización,",
+      "cabeceraMarca": "de borrador a publicado"
     },
     "sponsorTiersNav": "Niveles de patrocinio",
     "stripeNav": "Pagos con Stripe",
     "superadminNav": "Instalación",
     "sponsorTiers": {
       "titulo": "Niveles de patrocinio",
-      "descripcion": "Define los niveles de patrocinio de tu organización (ej. Oro, Plata, Bronce). Se reutilizan entre eventos.",
       "sinNiveles": "Todavía no hay niveles de patrocinio.",
       "anadirNivel": "Añadir nivel",
       "editarNivel": "Editar nivel",
@@ -1562,7 +1601,9 @@
       "tamanoLogoMedium": "Mediano",
       "tamanoLogoSmall": "Pequeño",
       "beneficios": "Beneficios (texto libre)",
-      "error": "No hemos podido completar la operación."
+      "error": "No hemos podido completar la operación.",
+      "cabeceraInicio": "Cada nivel define",
+      "cabeceraMarca": "una aportación y sus beneficios"
     },
     "stripe": {
       "titulo": "Pagos con Stripe",
@@ -1580,7 +1621,10 @@
       "reconectar": "Reconectar con Stripe",
       "continuarOnboarding": "Continuar la verificación en Stripe",
       "actualizarEstado": "Actualizar estado",
-      "error": "No hemos podido completar la operación."
+      "error": "No hemos podido completar la operación.",
+      "rotulo": "Pagos con Stripe",
+      "cabeceraInicio": "La pasarela de pagos",
+      "cabeceraMarca": "cobra las inscripciones de pago"
     },
     "plataforma": {
       "identidad": {

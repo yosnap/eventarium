@@ -18,6 +18,7 @@ import { ApiError } from '../../../core/api/error.interceptor';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
+import { PageHeader } from '../../../shared/ui/page-header';
 import { isoAValorLocal } from './datetime-local';
 import { EventRoster, type RosterMember } from './event-roster';
 import { SessionForm, type EventSession } from './session-form';
@@ -41,9 +42,14 @@ interface DiaDeAgenda {
 @Component({
   selector: 'app-event-agenda',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, DatePipe, Alert, Button, Card, EventRoster, SessionForm, SessionParticipants],
+  imports: [TranslocoDirective, DatePipe, Alert, Button, Card, EventRoster, SessionForm, SessionParticipants, PageHeader],
   template: `
     <ng-container *transloco="let t">
+      <app-page-header [rotulo]="t('admin.events.agenda.titulo')">
+        {{ t('admin.events.agenda.cabeceraInicio') }}
+        <span class="mark">{{ t('admin.events.agenda.cabeceraMarca') }}</span>
+      </app-page-header>
+
       <app-event-roster [eventId]="eventId()" (cambio)="alCambiarRoster($event)" />
 
       <app-card [heading]="t('admin.events.agenda.titulo')">

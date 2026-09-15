@@ -11,6 +11,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Chip, ChipTone } from '../../../shared/ui/chip';
 import { DataTable, DataTableColumn } from '../../../shared/ui/data-table';
+import { PageHeader } from '../../../shared/ui/page-header';
 
 type EventStatus = 'draft' | 'published' | 'archived';
 
@@ -30,18 +31,27 @@ interface Page<T> {
 @Component({
   selector: 'app-events-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, DatePipe, Alert, Button, Chip, DataTable],
+  imports: [
+    TranslocoDirective,
+    RouterLink,
+    DatePipe,
+    Alert,
+    Button,
+    Chip,
+    DataTable,
+    PageHeader,
+  ],
   template: `
     <ng-container *transloco="let t">
-      <div class="cabecera">
-        <div>
-          <h1>{{ t('admin.events.titulo') }}</h1>
-          <p>{{ t('admin.events.descripcion') }}</p>
+      <app-page-header [rotulo]="t('admin.events.rotulo')">
+        {{ t('admin.events.cabeceraInicio') }}
+        <span class="mark">{{ t('admin.events.cabeceraMarca') }}</span>
+        <div acciones>
+          <a routerLink="nuevo">
+            <app-button type="button">{{ t('admin.events.crearEvento') }}</app-button>
+          </a>
         </div>
-        <a routerLink="nuevo">
-          <app-button type="button">{{ t('admin.events.crearEvento') }}</app-button>
-        </a>
-      </div>
+      </app-page-header>
 
       <div class="filtro">
         <label for="filtro-estado">{{ t('admin.events.filtrarPorEstado') }}</label>
@@ -81,16 +91,6 @@ interface Page<T> {
     </ng-container>
   `,
   styles: `
-    .cabecera {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: var(--space-md);
-      flex-wrap: wrap;
-    }
-    h1 {
-      margin: 0;
-    }
     .filtro {
       display: flex;
       align-items: center;

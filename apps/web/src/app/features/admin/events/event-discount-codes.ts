@@ -16,6 +16,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
+import { PageHeader } from '../../../shared/ui/page-header';
 import { isoAValorLocal } from './datetime-local';
 
 type RegistrationMode = 'free' | 'approval' | 'paid';
@@ -72,9 +73,15 @@ function vacio(): {
 @Component({
   selector: 'app-event-discount-codes',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input],
+  imports: [TranslocoDirective, Alert, Button, Card, Input, PageHeader],
   template: `
     <ng-container *transloco="let t">
+      <app-page-header [rotulo]="t('admin.events.discountCodes.titulo')">
+        {{ t('admin.events.discountCodes.cabeceraInicio') }}
+        <span class="mark">{{ t('admin.events.discountCodes.cabeceraMarca') }}</span>
+        {{ t('admin.events.discountCodes.cabeceraFin') }}
+      </app-page-header>
+
       <app-card [heading]="t('admin.events.discountCodes.titulo')">
         @if (cargandoEvento()) {
           <p>{{ t('comun.cargando') }}</p>

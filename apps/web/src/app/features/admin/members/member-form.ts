@@ -13,6 +13,7 @@ import { DynamicField } from '../../../shared/ui/dynamic-field';
 import { ProfileField, validateDynamicFieldValue } from '../../../shared/ui/dynamic-field.model';
 import { ErrorSummary, ResumenDeError } from '../../../shared/ui/error-summary';
 import { Input } from '../../../shared/ui/input';
+import { PageHeader } from '../../../shared/ui/page-header';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -33,10 +34,12 @@ type CampoBase = 'email' | 'firstName' | 'lastName' | 'roleId';
 @Component({
   selector: 'app-member-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, DynamicField, ErrorSummary, Input],
+  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, DynamicField, ErrorSummary, Input, PageHeader],
   template: `
     <ng-container *transloco="let t">
-      <h1>{{ t('admin.members.formulario.titulo') }}</h1>
+      <app-page-header [rotulo]="t('admin.members.formulario.rotulo')">
+        {{ t('admin.members.formulario.titulo') }}
+      </app-page-header>
 
       @if (cargando()) {
         <p>{{ t('comun.cargando') }}</p>
@@ -131,9 +134,6 @@ type CampoBase = 'email' | 'firstName' | 'lastName' | 'roleId';
     </ng-container>
   `,
   styles: `
-    h1 {
-      margin-top: 0;
-    }
     form {
       display: grid;
       gap: var(--space-lg);

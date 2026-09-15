@@ -19,6 +19,7 @@ import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { DataTable, DataTableColumn } from '../../../shared/ui/data-table';
 import { Dialog } from '../../../shared/ui/dialog';
+import { PageHeader } from '../../../shared/ui/page-header';
 
 type PaymentStatus = 'pending' | 'paid' | 'refunded' | 'partially_refunded' | 'expired';
 type RefundStatus = 'pending' | 'submitted' | 'succeeded' | 'failed';
@@ -76,9 +77,14 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
 @Component({
   selector: 'app-event-payments',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, DataTable, Dialog],
+  imports: [TranslocoDirective, Alert, Button, Card, DataTable, Dialog, PageHeader],
   template: `
     <ng-container *transloco="let t">
+      <app-page-header [rotulo]="t('admin.events.payments.titulo')">
+        {{ t('admin.events.payments.cabeceraInicio') }}
+        <span class="mark">{{ t('admin.events.payments.cabeceraMarca') }}</span>
+      </app-page-header>
+
       <app-card [heading]="t('admin.events.payments.titulo')">
         @if (error(); as mensaje) {
           <app-alert tone="error">{{ mensaje }}</app-alert>

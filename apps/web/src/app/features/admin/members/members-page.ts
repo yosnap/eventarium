@@ -10,6 +10,7 @@ import { displayName } from '../../../core/auth/auth.service';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { DataTable, DataTableColumn } from '../../../shared/ui/data-table';
+import { PageHeader } from '../../../shared/ui/page-header';
 import { InvitationsPanel } from './invitations-panel';
 
 interface MemberRole {
@@ -41,18 +42,18 @@ const LIMITE = 20;
 @Component({
   selector: 'app-members-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, DataTable, InvitationsPanel],
+  imports: [TranslocoDirective, RouterLink, Alert, Button, DataTable, PageHeader, InvitationsPanel],
   template: `
     <ng-container *transloco="let t">
-      <div class="cabecera">
-        <div>
-          <h1>{{ t('admin.members.titulo') }}</h1>
-          <p>{{ t('admin.members.descripcion') }}</p>
+      <app-page-header [rotulo]="t('admin.members.titulo')">
+        {{ t('admin.members.cabeceraInicio') }}
+        <span class="mark">{{ t('admin.members.cabeceraMarca') }}</span>
+        <div acciones>
+          <a routerLink="nuevo">
+            <app-button type="button">{{ t('admin.members.anadirMiembro') }}</app-button>
+          </a>
         </div>
-        <a routerLink="nuevo">
-          <app-button type="button">{{ t('admin.members.anadirMiembro') }}</app-button>
-        </a>
-      </div>
+      </app-page-header>
 
       @if (error(); as mensaje) {
         <app-alert tone="error">{{ mensaje }}</app-alert>
@@ -121,16 +122,6 @@ const LIMITE = 20;
     </ng-container>
   `,
   styles: `
-    .cabecera {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: var(--space-md);
-      flex-wrap: wrap;
-    }
-    h1 {
-      margin: 0;
-    }
     .paginacion {
       display: flex;
       align-items: center;

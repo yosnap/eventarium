@@ -17,6 +17,7 @@ import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
 import { Textarea } from '../../../shared/ui/textarea';
+import { PageHeader } from '../../../shared/ui/page-header';
 import { isoAValorLocal } from './datetime-local';
 
 type RegistrationMode = 'free' | 'approval' | 'paid';
@@ -70,9 +71,15 @@ function precioAEuros(cents: number): string {
 @Component({
   selector: 'app-event-ticket-types',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input, Textarea],
+  imports: [TranslocoDirective, Alert, Button, Card, Input, Textarea, PageHeader],
   template: `
     <ng-container *transloco="let t">
+      <app-page-header [rotulo]="t('admin.events.ticketTypes.titulo')">
+        {{ t('admin.events.ticketTypes.cabeceraInicio') }}
+        <span class="mark">{{ t('admin.events.ticketTypes.cabeceraMarca') }}</span>
+        {{ t('admin.events.ticketTypes.cabeceraFin') }}
+      </app-page-header>
+
       <app-card [heading]="t('admin.events.ticketTypes.titulo')">
         @if (cargandoEvento()) {
           <p>{{ t('comun.cargando') }}</p>

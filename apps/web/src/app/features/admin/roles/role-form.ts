@@ -13,6 +13,7 @@ import { ErrorSummary, ResumenDeError } from '../../../shared/ui/error-summary';
 import { FIELD_TYPES, FieldType } from '../../../shared/ui/dynamic-field.model';
 import { Input } from '../../../shared/ui/input';
 import { Textarea } from '../../../shared/ui/textarea';
+import { PageHeader } from '../../../shared/ui/page-header';
 
 const KEY_RE = /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/;
 
@@ -78,16 +79,16 @@ function campoDesdeApi(campo: RoleField): CampoDeFormulario {
 @Component({
   selector: 'app-role-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, ErrorSummary, Input, Textarea],
+  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, ErrorSummary, Input, Textarea, PageHeader],
   template: `
     <ng-container *transloco="let t">
-      <h1>
+      <app-page-header [rotulo]="t('admin.roles.formulario.rotulo')">
         {{
           esEdicion()
             ? t('admin.roles.formulario.tituloEditar', { nombre: name() })
             : t('admin.roles.formulario.tituloCrear')
         }}
-      </h1>
+      </app-page-header>
 
       @if (cargando()) {
         <p>{{ t('comun.cargando') }}</p>
@@ -257,9 +258,6 @@ function campoDesdeApi(campo: RoleField): CampoDeFormulario {
     </ng-container>
   `,
   styles: `
-    h1 {
-      margin-top: 0;
-    }
     form {
       display: grid;
       gap: var(--space-lg);

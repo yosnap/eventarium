@@ -6,6 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { Alert } from '../../../shared/ui/alert';
+import { PageHeader } from '../../../shared/ui/page-header';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
@@ -42,11 +43,13 @@ function vacio(): { name: string; logoSize: LogoSize; benefits: string } {
 @Component({
   selector: 'app-sponsor-tiers-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input, Textarea],
+  imports: [TranslocoDirective, Alert, Button, Card, Input, Textarea, PageHeader],
   template: `
     <ng-container *transloco="let t">
-      <h1>{{ t('admin.sponsorTiers.titulo') }}</h1>
-      <p>{{ t('admin.sponsorTiers.descripcion') }}</p>
+      <app-page-header [rotulo]="t('admin.sponsorTiers.titulo')">
+        {{ t('admin.sponsorTiers.cabeceraInicio') }}
+        <span class="mark">{{ t('admin.sponsorTiers.cabeceraMarca') }}</span>
+      </app-page-header>
 
       @if (error(); as mensaje) {
         <app-alert tone="error">{{ mensaje }}</app-alert>
@@ -154,9 +157,6 @@ function vacio(): { name: string; logoSize: LogoSize; benefits: string } {
     </ng-container>
   `,
   styles: `
-    h1 {
-      margin-top: 0;
-    }
     .niveles {
       list-style: none;
       margin: 0;

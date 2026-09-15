@@ -30,6 +30,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
+import { PageHeader } from '../../../shared/ui/page-header';
 
 /** Estado de un resultado en la lista visible — `pending` no existe en la API,
  * es el estado óptimista mientras el escaneo espera a sincronizarse. */
@@ -97,9 +98,14 @@ const VEREDICTO_POR_RESULTADO: Record<ResultadoUiEstado, EstadoVeredicto> = {
 @Component({
   selector: 'app-event-check-in',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, DatePipe, Alert, Button, Card, Input],
+  imports: [TranslocoDirective, DatePipe, Alert, Button, Card, Input, PageHeader],
   template: `
     <ng-container *transloco="let t">
+      <app-page-header [rotulo]="t('admin.events.checkIn.titulo')">
+        {{ t('admin.events.checkIn.cabeceraInicio') }}
+        <span class="mark">{{ t('admin.events.checkIn.cabeceraMarca') }}</span>
+      </app-page-header>
+
       <app-card [heading]="t('admin.events.checkIn.titulo')">
         <div class="contador" role="status">
           <span class="rotulo-seccion">{{ t('admin.events.checkIn.contadorRotulo') }}</span>

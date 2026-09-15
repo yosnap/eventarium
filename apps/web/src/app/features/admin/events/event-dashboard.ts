@@ -14,6 +14,7 @@ import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../../core/api/api.service';
 import { Alert } from '../../../shared/ui/alert';
 import { Card } from '../../../shared/ui/card';
+import { PageHeader } from '../../../shared/ui/page-header';
 import { Chip, ChipTone } from '../../../shared/ui/chip';
 import { EventDetails } from './event-details';
 import { EventoMetricas, PiezaDelEvento } from './event-metrics.types';
@@ -43,9 +44,25 @@ interface Escalon {
 @Component({
   selector: 'app-event-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Card, Chip, EventDetails],
+  imports: [TranslocoDirective, Alert, Card, Chip, EventDetails, PageHeader],
   template: `
     <ng-container *transloco="let t">
+      <app-page-header [rotulo]="t('admin.events.metricas.rotulo')">
+        @if (piezasPendientes().length === 0) {
+          {{ t('admin.events.metricas.cabeceraLista') }}
+        } @else if (piezasPendientes().length === 1) {
+          {{ t('admin.events.metricas.cabeceraUnaInicio') }}
+          <span class="mark">1</span>
+          {{ t('admin.events.metricas.cabeceraUnaFin') }}
+        } @else {
+          {{ t('admin.events.metricas.cabeceraVariasInicio') }}
+          <span class="mark">{{
+            t('admin.events.metricas.cabeceraVariasCifra', { n: piezasPendientes().length })
+          }}</span>
+          {{ t('admin.events.metricas.cabeceraVariasFin') }}
+        }
+      </app-page-header>
+
       @if (error(); as mensaje) {
         <app-alert tone="error">{{ t(mensaje) }}</app-alert>
       }

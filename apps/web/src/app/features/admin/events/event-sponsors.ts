@@ -17,6 +17,7 @@ import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
 import { Textarea } from '../../../shared/ui/textarea';
+import { PageHeader } from '../../../shared/ui/page-header';
 import { capitalizarClaveDeTraduccion } from '../../../shared/text/capitalizar-clave-de-traduccion';
 import {
   IMAGEN_MIMES_PERMITIDOS,
@@ -72,9 +73,14 @@ function vacio(): {
 @Component({
   selector: 'app-event-sponsors',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input, Textarea],
+  imports: [TranslocoDirective, Alert, Button, Card, Input, Textarea, PageHeader],
   template: `
     <ng-container *transloco="let t">
+      <app-page-header [rotulo]="t('admin.events.sponsors.titulo')">
+        {{ t('admin.events.sponsors.cabeceraInicio') }}
+        <span class="mark">{{ t('admin.events.sponsors.cabeceraMarca') }}</span>
+      </app-page-header>
+
       <app-card [heading]="t('admin.events.sponsors.titulo')">
         @if (error(); as mensaje) {
           <app-alert tone="error">{{ mensaje }}</app-alert>

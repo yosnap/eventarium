@@ -12,6 +12,7 @@ import { Card } from '../../../shared/ui/card';
 import { ErrorSummary, ResumenDeError } from '../../../shared/ui/error-summary';
 import { Input } from '../../../shared/ui/input';
 import { AddressMap } from '../../../shared/ui/address-map';
+import { PageHeader } from '../../../shared/ui/page-header';
 import { isoAValorLocal } from './datetime-local';
 import { EventDetails } from './event-details';
 
@@ -61,16 +62,16 @@ const VENTANA_DE_PAGO_POR_DEFECTO = 30;
     Input,
     AddressMap,
     EventDetails,
-  ],
+    PageHeader],
   template: `
     <ng-container *transloco="let t">
-      <h1>
+      <app-page-header [rotulo]="t('admin.events.formulario.rotulo')">
         {{
           esEdicion()
             ? t('admin.events.formulario.tituloEditar')
             : t('admin.events.formulario.tituloCrear')
         }}
-      </h1>
+      </app-page-header>
 
       @if (cargando()) {
         <p>{{ t('comun.cargando') }}</p>
@@ -203,9 +204,6 @@ const VENTANA_DE_PAGO_POR_DEFECTO = 30;
     </ng-container>
   `,
   styles: `
-    h1 {
-      margin-top: 0;
-    }
     form {
       display: grid;
       gap: var(--space-lg);

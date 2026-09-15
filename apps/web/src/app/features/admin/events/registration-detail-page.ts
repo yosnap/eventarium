@@ -10,6 +10,7 @@ import { ApiError } from '../../../core/api/error.interceptor';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
+import { PageHeader } from '../../../shared/ui/page-header';
 import { claveDeEstado, type RegistrationDetail } from './registration-types';
 
 /**
@@ -20,17 +21,19 @@ import { claveDeEstado, type RegistrationDetail } from './registration-types';
 @Component({
   selector: 'app-registration-detail-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, DatePipe, Alert, Button, Card],
+  imports: [TranslocoDirective, RouterLink, DatePipe, Alert, Button, Card, PageHeader],
   template: `
     <ng-container *transloco="let t">
-      <div class="cabecera">
-        <h1>{{ t('admin.events.registrations.detalle.titulo') }}</h1>
-        <a [routerLink]="['/dashboard/events', eventId()]">
-          <app-button variant="secundario" type="button">
-            {{ t('admin.events.registrations.detalle.volver') }}
-          </app-button>
-        </a>
-      </div>
+      <app-page-header [rotulo]="t('admin.events.registrations.detalle.rotulo')">
+        {{ t('admin.events.registrations.detalle.titulo') }}
+        <div acciones>
+          <a [routerLink]="['/dashboard/events', eventId()]">
+            <app-button variant="secundario" type="button">
+              {{ t('admin.events.registrations.detalle.volver') }}
+            </app-button>
+          </a>
+        </div>
+      </app-page-header>
 
       @if (cargando()) {
         <p>{{ t('comun.cargando') }}</p>
@@ -188,17 +191,6 @@ import { claveDeEstado, type RegistrationDetail } from './registration-types';
     </ng-container>
   `,
   styles: `
-    .cabecera {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: var(--space-md);
-      flex-wrap: wrap;
-      margin-bottom: var(--space-lg);
-    }
-    h1 {
-      margin: 0;
-    }
     app-card {
       display: block;
       margin-bottom: var(--space-lg);

@@ -13,6 +13,7 @@ import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
 import { PasswordStrength, isPasswordValid } from '../../../shared/ui/password-strength';
+import { PageHeader } from '../../../shared/ui/page-header';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const TIPOS_DE_ENLACE = ['twitter', 'linkedin', 'instagram', 'web'] as const;
@@ -26,10 +27,14 @@ const TIPOS_DE_ENLACE = ['twitter', 'linkedin', 'instagram', 'web'] as const;
 @Component({
   selector: 'app-account-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input, PasswordStrength],
+  imports: [TranslocoDirective, Alert, Button, Card, Input, PasswordStrength, PageHeader],
   template: `
     <ng-container *transloco="let t">
-      <h1>{{ t('admin.cuenta.titulo') }}</h1>
+      <app-page-header [rotulo]="t('admin.cuenta.rotulo')">
+        {{ t('admin.cuenta.cabeceraInicio') }}
+        <span class="mark">{{ t('admin.cuenta.cabeceraMarca') }}</span>
+      </app-page-header>
+
 
       <app-card [heading]="t('admin.cuenta.perfil.titulo')">
         <form (submit)="guardarPerfil($event)" novalidate>
@@ -197,9 +202,6 @@ const TIPOS_DE_ENLACE = ['twitter', 'linkedin', 'instagram', 'web'] as const;
     </ng-container>
   `,
   styles: `
-    h1 {
-      margin-top: 0;
-    }
     app-card {
       display: block;
       margin-bottom: var(--space-lg);

@@ -11,6 +11,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Chip, ChipTone } from '../../../shared/ui/chip';
+import { PageHeader } from '../../../shared/ui/page-header';
 
 type EstadoVisual = 'sin_conectar' | 'desautorizada' | 'pendiente' | 'operativa';
 
@@ -36,11 +37,14 @@ function estadoVisualDe(estado: StripeAccountStatus | null): EstadoVisual {
 @Component({
   selector: 'app-stripe-connection',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Chip],
+  imports: [TranslocoDirective, Alert, Button, Card, Chip, PageHeader],
   template: `
     <ng-container *transloco="let t">
-      <h1>{{ t('admin.stripe.titulo') }}</h1>
-      <p>{{ t('admin.stripe.aviso') }}</p>
+      <app-page-header [rotulo]="t('admin.stripe.rotulo')">
+        {{ t('admin.stripe.cabeceraInicio') }}
+        <span class="mark">{{ t('admin.stripe.cabeceraMarca') }}</span>
+      </app-page-header>
+      <p class="hint">{{ t('admin.stripe.aviso') }}</p>
 
       @if (cargando()) {
         <p>{{ t('comun.cargando') }}</p>
@@ -114,9 +118,6 @@ function estadoVisualDe(estado: StripeAccountStatus | null): EstadoVisual {
     </ng-container>
   `,
   styles: `
-    h1 {
-      margin-top: 0;
-    }
     .acciones {
       display: flex;
       gap: var(--space-md);
