@@ -46,7 +46,8 @@ class OrganizationResponse(BaseModel):
     legal_name: str | None = None
     description: str | None = None
     website: str | None = None
-    contact_email: EmailStr | None = None
+    # str, no EmailStr: misma razón que MemberResponse.email.
+    contact_email: str | None = None
     is_active: bool
 
 
@@ -113,7 +114,10 @@ class MemberResponse(BaseModel):
     datos como advierte `SpeakerPublicProfile` (`events/models.py`)."""
 
     user_id: str
-    email: EmailStr
+    # str, no EmailStr: un email de dominio reservado (p. ej. example.test)
+    # ya guardado reventaría la lectura completa de miembros al validar de
+    # nuevo al serializar. El formato se valida en la entrada, no aquí.
+    email: str
     first_name: str | None
     last_name: str | None
     roles: list[MemberRoleOut]
@@ -144,7 +148,9 @@ class InvitationResponse(BaseModel):
     """Invitación tal y como la ve el organizador, con el estado calculado."""
 
     id: str
-    email: EmailStr
+    # str, no EmailStr: misma razón que MemberResponse.email — lo validado
+    # en la entrada no se revalida al leer.
+    email: str
     role_id: str
     role_key: str
     event_id: str | None

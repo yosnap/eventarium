@@ -3,7 +3,13 @@
 from __future__ import annotations
 
 from httpx import AsyncClient
+from sqlalchemy import select
 
+from app.core.database import SessionApp, set_organization_context
+from app.core.security import hash_password
+from app.modules.organizations.models import OrganizationMember
+from app.modules.roles.models import Role
+from app.modules.users.models import User
 from tests.conftest import OrganizacionDePrueba, iniciar_sesion
 
 MIEMBROS = "/api/v1/organizations/me/members"
@@ -40,6 +46,48 @@ async def test_alta_de_miembro_con_perfil_valido(
     cuerpo = respuesta.json()
     assert cuerpo["roles"][0]["role_key"] == "speaker"
     assert cuerpo["profile_data"]["bio"] == "Ingeniera de datos"
+
+
+async def test_listar_miembro_con_email_de_dominio_reservado(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    # Un email con dominio reservado (example.test) puede colarse en la base
+    # de datos por vías que no pasan por MemberCreate (datos importados,
+    # semillas, cambios de criterio del validador): el listado de miembros no
+    # puede revientar al serializar, así que el email de salida es un str.
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+    async with SessionApp() as session:
+        async with session.begin():
+            await set_organization_context(session, organizacion.id)
+            rol = await session.scalar(
+                select(Role).where(
+                    Role.organization_id == organizacion.id, Role.key == "speaker"
+                )
+            )
+            assert rol is not None
+            usuario = User(
+                email="andres.vidal.demo@example.test",
+                first_name="Andrés",
+                last_name="Vidal",
+                password_hash=hash_password("ClaveDePrueba-2026!"),
+                is_active=True,
+            )
+            session.add(usuario)
+            await session.flush()
+            session.add(
+                OrganizationMember(
+                    organization_id=organizacion.id,
+                    user_id=usuario.id,
+                    role_id=rol.id,
+                    profile_data={},
+                )
+            )
+
+    listado = await cliente.get(MIEMBROS, headers=cabeceras)
+    assert listado.status_code == 200, listado.text
+    emails = [persona["email"] for persona in listado.json()["items"]]
+    assert "andres.vidal.demo@example.test" in emails
 
 
 async def test_falta_un_campo_obligatorio_del_rol(
