@@ -19,6 +19,7 @@ export type ButtonVariant = 'primario' | 'secundario' | 'terciario' | 'peligro';
   template: `
     <button
       [type]="type()"
+      [attr.form]="form()"
       [disabled]="disabled() || loading()"
       [attr.aria-busy]="loading() ? 'true' : null"
       [class]="clases()"
@@ -115,6 +116,9 @@ export type ButtonVariant = 'primario' | 'secundario' | 'terciario' | 'peligro';
 export class Button {
   readonly variant = input<ButtonVariant>('primario');
   readonly type = input<'button' | 'submit'>('button');
+  /** Id del formulario al que pertenece este botón cuando vive fuera de él
+   * (p. ej. el guardar de la cabecera de página). `null` = sin asociar. */
+  readonly form = input<string | null>(null);
   readonly disabled = input(false);
   readonly loading = input(false);
   /** Ancho completo del contenedor. */

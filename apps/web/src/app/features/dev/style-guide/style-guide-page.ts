@@ -10,6 +10,7 @@ import { EstadosSection } from './sections/estados-section';
 import { FondoSection } from './sections/fondo-section';
 import { SelectSection } from './sections/select-section';
 import { SuperficiesSection } from './sections/superficies-section';
+import { CookiesSection } from './sections/cookies-section';
 import { PatronesPanelSection } from './sections/patrones-panel-section';
 import { TablasSection } from './sections/tablas-section';
 import { TemasSection } from './sections/temas-section';
@@ -55,6 +56,7 @@ interface EntradaIndice {
     TablasSection,
     PatronesPanelSection,
     FondoSection,
+    CookiesSection,
     TemasSection,
   ],
   template: `
@@ -89,6 +91,7 @@ interface EntradaIndice {
           <app-style-guide-patrones-panel-section />
           <app-style-guide-fondo-section />
           <app-style-guide-temas-section />
+          <app-style-guide-cookies-section />
         </div>
       </div>
     </ng-container>
@@ -179,5 +182,6 @@ export class StyleGuidePage {
     { href: '#patrones-panel', claveTexto: 'admin.catalogoEstilo.patronesPanel.titulo' },
     { href: '#fondo', claveTexto: 'admin.catalogoEstilo.fondo.titulo' },
     { href: '#temas', claveTexto: 'admin.catalogoEstilo.temas.titulo' },
+    { href: '#cookies', claveTexto: 'admin.catalogoEstilo.cookies.titulo' },
   ];
 }

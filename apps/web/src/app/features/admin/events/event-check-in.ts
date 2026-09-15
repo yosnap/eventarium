@@ -71,6 +71,22 @@ function generarId(): string {
   return crypto.randomUUID();
 }
 
+/** Mapea un resultado de escaneo al estado visual del veredicto del prototipo
+ * (checkin-movil.html): ok/dup/bad sobre fondos tenues. `pending` (aún sin
+ * respuesta del servidor) pinta neutro. */
+type EstadoVeredicto = 'ok' | 'dup' | 'bad' | 'neutro';
+
+const VEREDICTO_POR_RESULTADO: Record<ResultadoUiEstado, EstadoVeredicto> = {
+  valid: 'ok',
+  manual: 'ok',
+  pending: 'neutro',
+  duplicate: 'dup',
+  revoked: 'bad',
+  expired: 'bad',
+  invalid_signature: 'bad',
+  not_found: 'bad',
+};
+
 /**
  * App de escaneo y check-in (fase 4 del PRD, fase 3 de trabajo).
  *
@@ -85,33 +101,73 @@ function generarId(): string {
   template: `
     <ng-container *transloco="let t">
       <app-card [heading]="t('admin.events.checkIn.titulo')">
-        <p class="contador" role="status">
-          {{
-            t('admin.events.checkIn.contador', {
-              escaneados: escaneados(),
-              total: totalConfirmados() ?? '—',
-            })
-          }}
-        </p>
-        @if (pendientesEnCola() > 0) {
-          <p role="status">
-            {{ t('admin.events.checkIn.pendientesDeSincronizar', { n: pendientesEnCola() }) }}
+        <div class="contador" role="status">
+          <span class="rotulo-seccion">{{ t('admin.events.checkIn.contadorRotulo') }}</span>
+          <p class="contador__cifra">
+            {{ escaneados() }}<span class="contador__total">/ {{ totalConfirmados() ?? '—' }}</span>
           </p>
-        }
+        </div>
 
-        <div class="camara">
+        <div class="visor">
           <video #video muted playsinline [hidden]="!!camaraError()"></video>
+          @if (!camaraError()) {
+            <div class="reticle" aria-hidden="true">
+              <span></span><span></span><span></span><span></span>
+              <div class="scanline"></div>
+            </div>
+          }
           @if (camaraError(); as mensaje) {
-            <app-alert tone="info">{{ mensaje }}</app-alert>
+            <div class="visor-error">
+              <app-alert tone="info">{{ mensaje }}</app-alert>
+            </div>
           }
         </div>
 
-        <h3>{{ t('admin.events.checkIn.resultadosTitulo') }}</h3>
+        @if (resultados().length > 0) {
+          <div class="verdict" [attr.data-state]="estadoVeredicto(resultados()[0])" role="status">
+            <span class="rotulo-seccion">{{ t('admin.events.checkIn.ultimoEscaneo') }}</span>
+            <p class="verdict__titulo">{{ t('admin.events.checkIn.resultado.' + resultados()[0].result) }}</p>
+            @if (resultados()[0].fullName || resultados()[0].email) {
+              <p class="verdict__persona">
+                {{ resultados()[0].fullName }} ({{ resultados()[0].email }})
+              </p>
+            }
+            @if (
+              (resultados()[0].result === 'duplicate' || resultados()[0].result === 'revoked') &&
+              resultados()[0].usedAt
+            ) {
+              <p class="verdict__detalle">
+                {{
+                  t('admin.events.checkIn.usadaEl', { fecha: resultados()[0].usedAt | date: 'short' })
+                }}
+                @if (resultados()[0].usedByEventMemberId; as miembro) {
+                  {{ t('admin.events.checkIn.porMiembro', { id: miembro }) }}
+                }
+              </p>
+            }
+          </div>
+        }
+
+        <div class="barra-estado">
+          <span class="conexion" [class.sin-cobertura]="!enLinea()">
+            <span class="punto" aria-hidden="true"></span>
+            {{ enLinea() ? t('admin.events.checkIn.enLinea') : t('admin.events.checkIn.sinCobertura') }}
+          </span>
+          @if (pendientesEnCola() > 0) {
+            <span role="status">
+              {{ t('admin.events.checkIn.pendientesDeSincronizar', { n: pendientesEnCola() }) }}
+            </span>
+          }
+        </div>
+
         @if (resultados().length === 0) {
+          <h3>{{ t('admin.events.checkIn.resultadosTitulo') }}</h3>
           <p>{{ t('admin.events.checkIn.sinResultados') }}</p>
-        } @else {
+        } @else if (resultados().length > 1) {
+          <h3>{{ t('admin.events.checkIn.resultadosTitulo') }}</h3>
           <ul class="resultados" aria-live="polite">
-            @for (item of resultados(); track item.clientScanId) {
+            @for (item of resultados(); track item.clientScanId; let i = $index) {
+              @if (i > 0) {
               <li [class]="'estado-' + item.result">
                 <span class="icono" aria-hidden="true">{{ icono(item.result) }}</span>
                 <span class="texto">
@@ -133,6 +189,7 @@ function generarId(): string {
                   }
                 </span>
               </li>
+              }
             }
           </ul>
         }
@@ -188,16 +245,186 @@ function generarId(): string {
        táctiles, el contador y el resultado se leen a distancia (ver la sección
        de chequeo táctil en el plan de la fase 5). El resultado nunca se
        comunica solo por color: cada fila lleva su icono y su texto. */
-    .contador {
-      font-weight: 600;
-      font-size: var(--fs-h3);
+    /* Contador del prototipo: rótulo mono + cifra grande tabular. */
+    .contador__cifra {
+      margin: 4px 0 0;
+      font-family: var(--font-mono);
+      font-size: var(--fs-metric);
+      line-height: 1;
+      letter-spacing: -0.02em;
       font-variant-numeric: tabular-nums;
     }
-    .camara video {
-      width: 100%;
+    .contador__total {
+      font-size: 0.5em;
+      color: var(--muted);
+    }
+
+    /* Visor: retícula de fondo + reticle de esquinas + scanline
+       (checkin-movil.html: .viewer/.reticle/.scanline). */
+    .visor {
+      position: relative;
+      aspect-ratio: 1 / 1;
       max-width: 28rem;
-      border-radius: var(--radius-md);
+      margin-inline: auto;
       background-color: var(--surface-2);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+    }
+    .visor video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .visor::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 28px 28px;
+      opacity: 0.5;
+      pointer-events: none;
+    }
+    .reticle {
+      position: relative;
+      width: 170px;
+      height: 170px;
+    }
+    .reticle span {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      border: 2px solid var(--accent);
+    }
+    .reticle span:nth-child(1) {
+      top: 0;
+      left: 0;
+      border-right: 0;
+      border-bottom: 0;
+    }
+    .reticle span:nth-child(2) {
+      top: 0;
+      right: 0;
+      border-left: 0;
+      border-bottom: 0;
+    }
+    .reticle span:nth-child(3) {
+      bottom: 0;
+      left: 0;
+      border-right: 0;
+      border-top: 0;
+    }
+    .reticle span:nth-child(4) {
+      bottom: 0;
+      right: 0;
+      border-left: 0;
+      border-top: 0;
+    }
+    .scanline {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background-color: var(--accent);
+      opacity: 0.85;
+      animation: sweep 2.4s ease-in-out infinite;
+    }
+    @keyframes sweep {
+      0%,
+      100% {
+        top: 4px;
+      }
+      50% {
+        top: calc(100% - 6px);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .scanline {
+        animation: none;
+        top: 50%;
+      }
+    }
+    .visor-error {
+      padding: var(--space-lg);
+    }
+
+    /* Tarjeta de veredicto: estados sobre fondos tenues, texto display
+       grande — legible a distancia y nunca solo por color (checkin-movil.html). */
+    .verdict {
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      background-color: var(--surface);
+      display: grid;
+      gap: 8px;
+    }
+    .verdict[data-state='ok'] {
+      border-color: oklch(87.6% 0.229 152.4 / 0.55);
+      background-color: var(--accent-dim);
+    }
+    .verdict[data-state='dup'] {
+      border-color: oklch(67% 0.222 37.4 / 0.55);
+      background-color: var(--warn-dim);
+    }
+    .verdict[data-state='bad'] {
+      border-color: oklch(67.3% 0.214 24.5 / 0.55);
+      background-color: var(--danger-dim);
+    }
+    .verdict__titulo {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 1.9rem;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      line-height: 1;
+    }
+    .verdict[data-state='ok'] .verdict__titulo {
+      color: var(--accent);
+    }
+    .verdict[data-state='dup'] .verdict__titulo {
+      color: var(--warn);
+    }
+    .verdict[data-state='bad'] .verdict__titulo {
+      color: var(--danger);
+    }
+    .verdict__persona {
+      margin: 0;
+      font-size: var(--fs-sm);
+      color: var(--muted);
+    }
+    .verdict__detalle {
+      margin: 0;
+      font-size: var(--fs-sm);
+      color: var(--muted);
+    }
+
+    /* Barra de estado inferior: punto de conexión + cola pendiente. */
+    .barra-estado {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      font-size: var(--fs-sm);
+      color: var(--muted);
+    }
+    .punto {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: var(--accent);
+      margin-right: 6px;
+    }
+    .sin-cobertura .punto {
+      background-color: var(--warn);
     }
     .resultados {
       max-height: 22rem;
@@ -290,8 +517,15 @@ export class EventCheckIn implements OnInit, OnDestroy {
   private ultimoTokenDetectado: string | null = null;
   private ultimoTimestampDeteccion = 0;
   private sincronizando = false;
-  private readonly alRecuperarConexion = (): void => void this.sincronizar();
+  private readonly alRecuperarConexion = (): void => {
+    this.enLinea.set(navigator.onLine);
+    void this.sincronizar();
+  };
+  private readonly alPerderConexion = (): void => this.enLinea.set(false);
   private urlDelManifiesto: string | null = null;
+
+  /** Estado de conexión para la barra de estado: el punto verde del prototipo. */
+  protected readonly enLinea = signal(true);
 
   ngOnInit(): void {
     void this.cargarEstadisticas();
@@ -303,7 +537,9 @@ export class EventCheckIn implements OnInit, OnDestroy {
     this.instalarManifiestoDinamico();
     void this.actualizarPendientes();
     void this.iniciarCamara();
+    this.enLinea.set(navigator.onLine);
     window.addEventListener('online', this.alRecuperarConexion);
+    window.addEventListener('offline', this.alPerderConexion);
     this.intervaloReintento = setInterval(() => void this.sincronizar(), INTERVALO_REINTENTO_MS);
     // Sin esto, unos escaneos que quedaron en la cola de una sesión anterior
     // (recarga o cierre con la sincronización a medias) no se reintentan
@@ -325,6 +561,7 @@ export class EventCheckIn implements OnInit, OnDestroy {
       clearInterval(this.intervaloReintento);
     }
     window.removeEventListener('online', this.alRecuperarConexion);
+    window.removeEventListener('offline', this.alPerderConexion);
     if (this.urlDelManifiesto) {
       URL.revokeObjectURL(this.urlDelManifiesto);
       // No basta con revocar el blob: sin quitar el `<link>` del `<head>`,
@@ -369,6 +606,10 @@ export class EventCheckIn implements OnInit, OnDestroy {
       document.head.appendChild(enlace);
     }
     enlace.href = this.urlDelManifiesto;
+  }
+
+  protected estadoVeredicto(item: { result: ResultadoUiEstado }): EstadoVeredicto {
+    return VEREDICTO_POR_RESULTADO[item.result];
   }
 
   protected icono(result: ResultadoUiEstado): string {

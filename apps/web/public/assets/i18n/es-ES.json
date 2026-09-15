@@ -627,6 +627,22 @@
         "acentoTitulo": "Mismo tono, otra luz",
         "acentoDescripcion": "El verde se queda demasiado claro sobre papel. Se conserva el tono y baja la luminosidad hasta que el botón primario vuelve a ser legible.",
         "nota": "El tema se aplica antes del primer pintado, así que no hay destello al recargar, y se recuerda entre pantallas."
+      },
+      "cookies": {
+        "titulo": "Aviso de cookies",
+        "uso": "El banner y sus categorías, tal y como los usa la web pública",
+        "notaBanner": "Barra anclada abajo, nunca un muro modal: la página sigue leyéndose mientras está abierta.",
+        "bannerEtiqueta": "Muestra del aviso de cookies",
+        "bannerTitulo": "Usamos cookies necesarias para que la inscripción funcione.",
+        "bannerTexto": "Las de medición y comunicación solo se activan si tú lo dices.",
+        "soloNecesarias": "Solo las necesarias",
+        "aceptarTodas": "Aceptar todas",
+        "elegir": "Elegir",
+        "categoriaRotulo": "Interruptor del panel",
+        "medicion": "Medición",
+        "medicionHint": "Cuántas personas empiezan el formulario y cuántas lo terminan.",
+        "si": "Sí",
+        "notaInterruptor": "Rechazar cuesta exactamente lo mismo que aceptar: mismo estilo, mismo tamaño, a la misma altura. El estado se lee por posición y texto, no solo por color."
       }
     },
     "cerrarSesion": "Cerrar sesión",
@@ -695,6 +711,7 @@
       "error": "No hemos podido guardar los cambios."
     },
     "branding": {
+      "rotulo": "Marca",
       "titulo": "Identidad visual",
       "descripcion": "Así se ve tu marca en la web pública.",
       "plantilla": "Plantilla",
@@ -1096,7 +1113,10 @@
       "checkIn": {
         "titulo": "Check-in",
         "enlaceDesdeEvento": "Ir a la app de escaneo",
-        "contador": "Escaneados: {{escaneados}} de {{total}}",
+        "contadorRotulo": "Entradas verificadas",
+        "ultimoEscaneo": "Último escaneo",
+        "enLinea": "En línea",
+        "sinCobertura": "Sin cobertura",
         "pendientesDeSincronizar": "{{n}} escaneo(s) pendiente(s) de sincronizar",
         "sinCamara": "No se pudo acceder a la cámara. Usa la búsqueda manual.",
         "resultadosTitulo": "Últimos escaneos",

@@ -9,6 +9,7 @@ import { ApiError } from '../../../core/api/error.interceptor';
 import { ThemingService } from '../../../core/theming/theming.service';
 import { PlantillaDeTema } from '../../../core/theming/theme-template.model';
 import { Alert } from '../../../shared/ui/alert';
+import { PageHeader } from '../../../shared/ui/page-header';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Textarea } from '../../../shared/ui/textarea';
@@ -56,18 +57,29 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
 @Component({
   selector: 'app-branding-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, Textarea],
+  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, PageHeader, Textarea],
   template: `
     <ng-container *transloco="let t">
-      <h1>{{ t('admin.branding.titulo') }}</h1>
-      <p>{{ t('admin.branding.descripcion') }}</p>
+      <app-page-header [rotulo]="t('admin.branding.rotulo')">
+        {{ t('admin.branding.titulo') }}
+        <app-button
+          acciones
+          type="submit"
+          [form]="'form-branding'"
+          [disabled]="cargando() || !!errorDeCarga()"
+          [loading]="guardando()"
+        >
+          {{ guardando() ? t('admin.branding.guardando') : t('comun.guardar') }}
+        </app-button>
+      </app-page-header>
+      <p class="descripcion">{{ t('admin.branding.descripcion') }}</p>
 
       @if (cargando()) {
         <p>{{ t('comun.cargando') }}</p>
       } @else if (errorDeCarga(); as mensaje) {
         <app-alert tone="error" [title]="t('admin.branding.error')">{{ mensaje }}</app-alert>
       } @else {
-        <form (submit)="guardar($event)" novalidate>
+        <form id="form-branding" (submit)="guardar($event)" novalidate>
           <div class="tarjetas">
             <app-card [heading]="t('admin.branding.logotipo')">
               <p class="nombre-organizacion">
@@ -169,16 +181,14 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
             <app-alert tone="error" [title]="t('admin.branding.error')">{{ mensaje }}</app-alert>
           }
 
-          <app-button type="submit" [loading]="guardando()">
-            {{ guardando() ? t('admin.branding.guardando') : t('comun.guardar') }}
-          </app-button>
         </form>
       }
     </ng-container>
   `,
   styles: `
-    h1 {
-      margin-top: 0;
+    .descripcion {
+      margin: 0 0 var(--sp-5);
+      color: var(--muted);
     }
     form {
       display: grid;

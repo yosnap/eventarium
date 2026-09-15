@@ -1,7 +1,11 @@
 import 'fake-indexeddb/auto';
 
 import { provideHttpClient } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import {
+  HttpTestingController,
+  TestRequest,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@jsverse/transloco';
@@ -190,32 +194,46 @@ describe('EventCheckIn', () => {
 
     await componente.encolarEscaneo('token-valido');
     await avanzar(fixture);
-
-    const peticion = http.expectOne(
-      (peticion) => peticion.url === '/api/v1/events/e1/tickets/scan/batch',
-    );
-    peticion.flush([
-      {
-        client_scan_id: peticion.request.body.scans[0].client_scan_id,
-        result: 'valid',
-        ticket_id: 't1',
-        registration_id: 'r1',
-        full_name: 'Persona Válida',
-        email: 'valida@example.com',
-        used_at: null,
-        used_by_event_member_id: null,
-      },
-    ]);
+    await componente.encolarEscaneo('token-manual');
     await avanzar(fixture);
 
-    const fila = fixture.nativeElement.querySelector(
-      '.resultados li',
-    ) as HTMLElement | null;
+    // Cada escaneo dispara su propia sincronización, en serie: la segunda no
+    // sale hasta que la primera termina. Patrón del test de la cola offline —
+    // contestar, disparar `online` para reintentar, contestar.
+    const batch = '/api/v1/events/e1/tickets/scan/batch';
+    const responder = (peticion: TestRequest) =>
+      peticion.flush(
+        peticion.request.body.scans.map((escaneo: { client_scan_id: string; token: string }) => ({
+          client_scan_id: escaneo.client_scan_id,
+          result: 'valid',
+          ticket_id: 't1',
+          registration_id: 'r1',
+          full_name: escaneo.token === 'token-valido' ? 'Persona Válida' : 'Persona Manual',
+          email: escaneo.token === 'token-valido' ? 'valida@example.com' : 'manual@example.com',
+          used_at: null,
+          used_by_event_member_id: null,
+        })),
+      );
+    responder(http.expectOne((p) => p.url === batch));
+    await avanzar(fixture);
+    window.dispatchEvent(new Event('online'));
+    await avanzar(fixture);
+    responder(http.expectOne((p) => p.url === batch));
+    await avanzar(fixture);
+
+    // El último escaneo pinta la tarjeta de veredicto: el color es refuerzo
+    // (data-state); el texto del resultado es el que informa, y sin color la
+    // tarjeta sigue diciendo lo mismo.
+    const veredicto = fixture.nativeElement.querySelector('.verdict') as HTMLElement | null;
+    expect(veredicto).not.toBeNull();
+    expect(veredicto!.getAttribute('data-state')).toBe('ok');
+    expect(veredicto!.textContent).toContain('Persona Manual');
+    // Y el feed conserva la fila del escaneo anterior con icono + texto:
+    // quitar el color no puede dejar la fila sin significado.
+    const fila = fixture.nativeElement.querySelector('.resultados li') as HTMLElement | null;
     expect(fila).not.toBeNull();
-    // El color es refuerzo (clase de estado); el texto y el icono son los que
-    // informan. Quitar el color no puede dejar la fila sin significado.
     expect(fila!.getAttribute('class')).toContain('estado-valid');
-    expect(fila!.textContent).toBeTruthy();
+    expect(fila!.textContent).toContain('Persona Válida');
     expect(fila!.querySelector('.icono')?.getAttribute('aria-hidden')).toBe('true');
   });
 
