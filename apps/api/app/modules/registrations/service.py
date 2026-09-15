@@ -631,6 +631,7 @@ async def reject_registration(
     organization_id: uuid.UUID,
     event_id: uuid.UUID,
     registration_id: uuid.UUID,
+    reason: str | None = None,
 ) -> EventRegistration:
     """Rechaza una inscripción `pending_approval`.
 
@@ -658,7 +659,7 @@ async def reject_registration(
     )
     inscripcion.status = "rejected"
     inscripcion.rejected_at = datetime.now(UTC)
-    await send_registration_rejected_email.kiq(inscripcion.email, str(organization_id))
+    await send_registration_rejected_email.kiq(inscripcion.email, str(organization_id), reason)
     return inscripcion
 
 

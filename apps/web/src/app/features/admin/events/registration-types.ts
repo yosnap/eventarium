@@ -58,6 +58,13 @@ export interface RegistrationDetail extends RegistrationListItem {
 export interface RegistrationStats {
   readonly initiated: number;
   readonly verified: number;
+  /** Pasaron por aprobación (`approved_at`), sea cual sea su estado actual —
+   * no es un estado en sí: tras aprobar, la fila queda `confirmed` o
+   * `waitlisted`. Tercer escalón del embudo. */
+  readonly approved: number;
+  /** Entradas emitidas (`event_tickets.issued_at`), sin las revocadas.
+   * Cuarto y último escalón del embudo. */
+  readonly issued: number;
   readonly pending_approval: number;
   readonly pending_payment: number;
   readonly confirmed: number;

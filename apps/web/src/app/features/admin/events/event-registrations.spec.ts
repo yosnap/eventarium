@@ -31,6 +31,8 @@ const ITEMS = [
 const STATS = {
   initiated: 10,
   verified: 8,
+  approved: 6,
+  issued: 5,
   pending_approval: 1,
   confirmed: 5,
   rejected: 1,
@@ -111,7 +113,7 @@ describe('EventRegistrations', () => {
     expect(contenedor).not.toBeNull();
     const tabla = contenedor!.querySelector('table') as HTMLTableElement;
     expect(tabla.querySelector('caption')?.textContent?.trim()).toBeTruthy();
-    expect(tabla.querySelectorAll('th[scope="col"]').length).toBe(5);
+    expect(tabla.querySelectorAll('th[scope="col"]').length).toBe(4);
 
     const ranura = contenedor!.querySelector('.ranura-scroll') as HTMLElement;
     expect(ranura.getAttribute('tabindex')).toBe('0');
@@ -155,18 +157,19 @@ describe('EventRegistrations', () => {
     await avanzar(fixture);
   });
 
-  it('filtra por estado y vuelve a pedir el listado', async () => {
+  it('filtra por estado con el segmentado y vuelve a pedir el listado', async () => {
     const fixture = TestBed.createComponent(EventRegistrations);
     fixture.componentRef.setInput('eventId', 'e1');
     await avanzar(fixture);
     flushCargaInicial(http);
     await avanzar(fixture);
 
-    const select = fixture.nativeElement.querySelector(
-      '#registros-filtro-estado',
-    ) as HTMLSelectElement;
-    select.value = 'confirmed';
-    select.dispatchEvent(new Event('change'));
+    const grupo = fixture.nativeElement.querySelector('[role="group"]') as HTMLElement;
+    const boton = Array.from(grupo.querySelectorAll('button')).find(
+      (b) => (b as HTMLButtonElement).textContent?.trim() === 'Confirmadas',
+    ) as HTMLButtonElement | undefined;
+    expect(boton).toBeTruthy();
+    boton?.click();
     await avanzar(fixture);
 
     const peticion = http.expectOne(
@@ -176,6 +179,145 @@ describe('EventRegistrations', () => {
     peticion.flush(pagina([]));
     await avanzar(fixture);
   });
+
+  it('la búsqueda filtra en cliente por nombre o email dentro de la página cargada', async () => {
+    const fixture = TestBed.createComponent(EventRegistrations);
+    fixture.componentRef.setInput('eventId', 'e1');
+    await avanzar(fixture);
+    flushCargaInicial(
+      http,
+      pagina([
+        ITEMS[0],
+        {
+          ...ITEMS[0],
+          id: 'r2',
+          email: 'otra@example.com',
+          full_name: 'Otra Persona',
+        },
+      ]),
+    );
+    await avanzar(fixture);
+
+    expect(fixture.nativeElement.textContent).toContain('Otra Persona');
+
+    const busqueda = fixture.nativeElement.querySelector(
+      'input[type="search"]',
+    ) as HTMLInputElement;
+    busqueda.value = 'persona de prueba';
+    busqueda.dispatchEvent(new Event('input'));
+    await avanzar(fixture);
+
+    expect(fixture.nativeElement.textContent).toContain('Persona de Prueba');
+    expect(fixture.nativeElement.textContent).not.toContain('Otra Persona');
+    // Sin recarga al servidor: es un filtro puramente cliente.
+    http.expectNone((peticion) => peticion.url === '/api/v1/events/e1/registrations');
+  });
+
+  it('el rechazo abre un diálogo con el mensaje prellenado y envía el motivo', async () => {
+    const fixture = TestBed.createComponent(EventRegistrations);
+    fixture.componentRef.setInput('eventId', 'e1');
+    await avanzar(fixture);
+    flushCargaInicial(http);
+    await avanzar(fixture);
+
+    const nativo = fixture.nativeElement;
+    const dialogo = nativo.querySelector('dialog') as HTMLDialogElement;
+    if (!HTMLDialogElement.prototype.showModal) {
+      HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+        this.setAttribute('open', '');
+      };
+      HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+        this.removeAttribute('open');
+      };
+    }
+
+    const botonRechazar = Array.from(nativo.querySelectorAll('button')).find(
+      (b) => (b as HTMLButtonElement).textContent?.trim() === 'Rechazar',
+    ) as HTMLButtonElement | undefined;
+    expect(botonRechazar).toBeTruthy();
+    botonRechazar?.click();
+    await avanzar(fixture);
+
+    expect(dialogo.hasAttribute('open')).toBe(true);
+    const textarea = dialogo.querySelector('textarea') as HTMLTextAreaElement;
+    expect(textarea.value).toContain('Gracias por tu interés');
+
+    const botonConfirmar = Array.from(dialogo.querySelectorAll('button')).find(
+      (b) => (b as HTMLButtonElement).textContent?.trim() === 'Rechazar y avisar',
+    ) as HTMLButtonElement | undefined;
+    botonConfirmar?.click();
+    await avanzar(fixture);
+
+    const peticion = http.expectOne(
+      (peticion) => peticion.url === '/api/v1/events/e1/registrations/r1/reject',
+    );
+    expect(peticion.request.body.reason).toContain('Gracias por tu interés');
+    peticion.flush({ ...ITEMS[0], status: 'rejected' });
+    await avanzar(fixture);
+
+    http
+      .expectOne((peticion) => peticion.url === '/api/v1/events/e1/registrations')
+      .flush(pagina([{ ...ITEMS[0], status: 'rejected' }]));
+    http
+      .expectOne((peticion) => peticion.url === '/api/v1/events/e1/registrations/stats')
+      .flush(STATS);
+    await avanzar(fixture);
+
+    expect(dialogo.hasAttribute('open')).toBe(false);
+  });
+
+  it('el rechazo con el mensaje vaciado envía reason: null, no una cadena vacía', async () => {
+    const fixture = TestBed.createComponent(EventRegistrations);
+    fixture.componentRef.setInput('eventId', 'e1');
+    await avanzar(fixture);
+    flushCargaInicial(http);
+    await avanzar(fixture);
+
+    const nativo = fixture.nativeElement;
+    if (!HTMLDialogElement.prototype.showModal) {
+      HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+        this.setAttribute('open', '');
+      };
+      HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+        this.removeAttribute('open');
+      };
+    }
+
+    const botonRechazar = Array.from(nativo.querySelectorAll('button')).find(
+      (b) => (b as HTMLButtonElement).textContent?.trim() === 'Rechazar',
+    ) as HTMLButtonElement | undefined;
+    botonRechazar?.click();
+    await avanzar(fixture);
+
+    const dialogo = nativo.querySelector('dialog') as HTMLDialogElement;
+    const textarea = dialogo.querySelector('textarea') as HTMLTextAreaElement;
+    // Vacía el mensaje prellenado: un rechazo silencioso, sin motivo.
+    textarea.value = '   ';
+    textarea.dispatchEvent(new Event('input'));
+    await avanzar(fixture);
+
+    const botonConfirmar = Array.from(dialogo.querySelectorAll('button')).find(
+      (b) => (b as HTMLButtonElement).textContent?.trim() === 'Rechazar y avisar',
+    ) as HTMLButtonElement | undefined;
+    botonConfirmar?.click();
+    await avanzar(fixture);
+
+    const peticion = http.expectOne(
+      (peticion) => peticion.url === '/api/v1/events/e1/registrations/r1/reject',
+    );
+    expect(peticion.request.body.reason).toBeNull();
+    peticion.flush({ ...ITEMS[0], status: 'rejected' });
+    await avanzar(fixture);
+
+    http
+      .expectOne((peticion) => peticion.url === '/api/v1/events/e1/registrations')
+      .flush(pagina([{ ...ITEMS[0], status: 'rejected' }]));
+    http
+      .expectOne((peticion) => peticion.url === '/api/v1/events/e1/registrations/stats')
+      .flush(STATS);
+    await avanzar(fixture);
+  });
+
   it('no tiene violaciones de accesibilidad en tema claro', async () => {
     document.documentElement.setAttribute('data-theme', 'light');
     try {

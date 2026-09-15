@@ -225,6 +225,38 @@ class TestEmailsPorTransicion:
 
         assert respuesta.status_code == 200, respuesta.text
         assert _tareas_de_email_mockeadas["rechazada"].await_count == 1
+        # Sin body: rechazo directo, como antes de que `reason` existiera.
+        assert _tareas_de_email_mockeadas["rechazada"].call_args.args[-1] is None
+
+    async def test_rechazar_con_motivo_lo_pasa_al_email_sin_persistirlo(
+        self, cliente: AsyncClient, organizacion: OrganizacionDePrueba, _tareas_de_email_mockeadas
+    ) -> None:
+        _, cabeceras = await iniciar_sesion(cliente, organizacion)
+        evento = await _crear_y_publicar_evento(
+            cliente, cabeceras, "rechazar-con-motivo", registration_mode="approval"
+        )
+        registration_id = await _crear_inscripcion(
+            organizacion, evento, email="pendiente@example.com", status="pending_approval"
+        )
+
+        respuesta = await cliente.post(
+            f"{EVENTS}/{evento['id']}/registrations/{registration_id}/reject",
+            headers=cabeceras,
+            json={"reason": "El aforo de esta edición ya está completo."},
+        )
+
+        assert respuesta.status_code == 200, respuesta.text
+        assert _tareas_de_email_mockeadas["rechazada"].await_count == 1
+        assert (
+            _tareas_de_email_mockeadas["rechazada"].call_args.args[-1]
+            == "El aforo de esta edición ya está completo."
+        )
+        # El motivo viaja al correo, no se guarda en la fila de la inscripción.
+        releida = await cliente.get(
+            f"{EVENTS}/{evento['id']}/registrations/{registration_id}", headers=cabeceras
+        )
+        assert "reason" not in releida.json()
+        assert "El aforo" not in releida.text
 
     async def test_cancelar_por_organizador_encola_email_de_cancelacion_y_promocion(
         self, cliente: AsyncClient, organizacion: OrganizacionDePrueba, _tareas_de_email_mockeadas

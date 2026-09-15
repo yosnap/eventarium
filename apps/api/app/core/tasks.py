@@ -307,16 +307,39 @@ async def send_registration_waitlisted_email(
 
 
 @broker.task(retry_on_error=True, max_retries=5)
-async def send_registration_rejected_email(to_email: str, organization_id: str) -> None:
-    """Rechazo de una inscripción `pending_approval` por el organizador."""
+async def send_registration_rejected_email(
+    to_email: str, organization_id: str, reason: str | None = None
+) -> None:
+    """Rechazo de una inscripción `pending_approval` por el organizador.
+
+    `reason` es el mensaje que el organizador escribe en el diálogo de
+    rechazo; no se guarda en ninguna tabla (solo viaja aquí), así que un
+    reenvío posterior del mismo rechazo (alta duplicada sobre una
+    inscripción ya `rejected`) no puede reconstruirlo. Parámetro opcional al
+    final: la tarea puede tener mensajes en cola con la firma antigua
+    (2 posicionales) — un worker desplegado antes que la API que ya encola
+    3 fallaría con `TypeError`, así que en un despliegue continuo los
+    workers se actualizan primero.
+
+    Nota de retención: el `reason` no llega a Postgres, pero `broker`
+    (`RedisStreamBroker`) no fija `maxlen` — un mensaje ya `XACK`eado no se
+    borra del stream de Redis por sí solo. Acota la retención del dato en la
+    base de datos de negocio, no en la infraestructura de mensajería
+    compartida por todas las tareas del sistema (ajustar eso es una decisión
+    de infraestructura aparte, no específica de este correo).
+    """
+    cuerpo = (
+        "Hola,\n\n"
+        "El organizador del evento no ha aprobado tu inscripción. Si crees que "
+        "es un error, contacta directamente con la organización."
+    )
+    motivo = reason.strip() if reason else None
+    if motivo:
+        cuerpo += f"\n\nMensaje del organizador:\n{motivo}"
     await get_email_provider().send(
         to=to_email,
         subject="Tu inscripción no ha sido aprobada",
-        body=(
-            "Hola,\n\n"
-            "El organizador del evento no ha aprobado tu inscripción. Si crees que "
-            "es un error, contacta directamente con la organización."
-        ),
+        body=cuerpo,
     )
 
 

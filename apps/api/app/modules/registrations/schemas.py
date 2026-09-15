@@ -61,6 +61,19 @@ class RegistrationMessageResponse(BaseModel):
     message: str
 
 
+class RegistrationRejectRequest(BaseModel):
+    """Motivo opcional del rechazo, dirigido a la persona rechazada.
+
+    No se guarda en ninguna tabla: viaja solo en el correo de aviso, igual
+    que cualquier otro campo de texto libre en un cuerpo de correo. Nota de
+    alcance: esto acota la retención en Postgres, no en la cola de tareas —
+    ver el comentario de `send_registration_rejected_email`
+    (`app/core/tasks.py`) sobre Redis Streams.
+    """
+
+    reason: Annotated[str, Field(max_length=500)] | None = None
+
+
 class VerifyRegistrationRequest(BaseModel):
     """Token del enlace de verificación recibido por correo."""
 

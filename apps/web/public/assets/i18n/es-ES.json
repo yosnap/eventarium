@@ -1028,16 +1028,55 @@
       },
       "registrations": {
         "titulo": "Inscripciones",
+        "tablaTitulo": "Solicitudes",
+        "columnaPersona": "Persona",
+        "buscarPlaceholder": "Buscar por nombre o correo",
+        "sinCoincidencias": "Ninguna solicitud coincide con el filtro.",
+        "notaAlcancePagina": "La búsqueda y el filtro «Otras» solo miran esta página; usa la paginación para ver el resto.",
+        "cabecera": {
+          "sinPendientes": "Ninguna solicitud espera tu decisión",
+          "una": "Hay una solicitud esperando tu decisión",
+          "variasInicio": "Hay",
+          "variasMarca": "{{n}} solicitudes",
+          "variasFin": "esperando tu decisión"
+        },
+        "kpis": {
+          "confirmadas": "Confirmadas",
+          "confirmadasDescriptor": "{{tasa}} de conversión",
+          "porAprobar": "Por aprobar",
+          "porAprobarDescriptor": "Esperando tu decisión",
+          "listaEspera": "Lista de espera",
+          "emitidas": "Entradas emitidas",
+          "emitidasDescriptor": "Del formulario a la entrada"
+        },
+        "embudo": {
+          "titulo": "Del formulario a la entrada",
+          "iniciado": "Formulario iniciado",
+          "verificado": "Email verificado",
+          "aprobada": "Aprobada",
+          "emitida": "Entrada emitida",
+          "insight": "Verificación completada por el {{tasa}} de quienes empiezan el formulario."
+        },
+        "filtroSegmentado": {
+          "todas": "Todas",
+          "pendientes": "Pendientes",
+          "confirmadas": "Confirmadas",
+          "espera": "En espera",
+          "otras": "Otras"
+        },
+        "dialogoRechazo": {
+          "rotulo": "Rechazar solicitud",
+          "mensajeLabel": "Mensaje que recibirá",
+          "mensajePorDefecto": "Gracias por tu interés. Esta edición tiene el aforo completo y no podemos darte plaza. Te avisamos en la próxima.",
+          "confirmar": "Rechazar y avisar"
+        },
         "filtrarPorEstado": "Filtrar por estado",
-        "estadoTodos": "Todos",
         "estadoPendingVerification": "Pendiente de verificación",
         "estadoPendingApproval": "Pendiente de aprobación",
         "estadoConfirmed": "Confirmada",
         "estadoRejected": "Rechazada",
         "estadoCancelled": "Cancelada",
         "estadoWaitlisted": "En lista de espera",
-        "columnaEmail": "Correo",
-        "columnaNombre": "Nombre",
         "columnaEstado": "Estado",
         "columnaFecha": "Fecha de alta",
         "columnaAcciones": "Acciones",
@@ -1050,15 +1089,6 @@
         "paginaDe": "Página {{actual}} de {{total}}",
         "error": "No hemos podido completar la operación.",
         "estadisticas": {
-          "iniciados": "Iniciados",
-          "verificados": "Verificados",
-          "pendientesAprobacion": "Pendientes de aprobación",
-          "confirmados": "Confirmados",
-          "rechazados": "Rechazados",
-          "cancelados": "Cancelados",
-          "listaEspera": "En lista de espera",
-          "tasaVerificados": "Tasa de verificación",
-          "tasaConfirmados": "Tasa de confirmación",
           "error": "No hemos podido cargar las estadísticas."
         },
         "detalle": {
