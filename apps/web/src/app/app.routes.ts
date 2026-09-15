@@ -133,6 +133,10 @@ export const routes: Routes = [
     redirectTo: '/dashboard/events/:eventId/patrocinadores',
   },
   {
+    path: 'admin/events/:eventId/ponentes',
+    redirectTo: '/dashboard/events/:eventId/ponentes',
+  },
+  {
     path: 'admin/events/:eventId/inscripciones',
     redirectTo: '/dashboard/events/:eventId/inscripciones',
   },
@@ -256,6 +260,11 @@ export const routes: Routes = [
         path: 'events/:eventId/patrocinadores',
         loadComponent: () =>
           import('./features/admin/events/event-sponsors').then((m) => m.EventSponsors),
+      },
+      {
+        path: 'events/:eventId/ponentes',
+        loadComponent: () =>
+          import('./features/admin/events/event-speakers').then((m) => m.EventSpeakers),
       },
       {
         path: 'events/:eventId/inscripciones',

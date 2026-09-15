@@ -42,6 +42,9 @@ CHECK_SLUG_POR_IP = 30
 # Mismo riesgo de *email bombing* que el reenvío de verificación: reutilizable y
 # encola correo, con Turnstile obligatorio delante.
 FORGOT_PASSWORD_POR_IP = 3
+# «Pedir bio» a un ponente es una acción manual de panel que encola correo:
+# un bucle de cliente sobre ella sería la vía más directa a email bombing.
+PEDIR_BIO_POR_IP = 5
 # El token tiene 256 bits de entropía, pero el endpoint necesita su propio tope, igual
 # que verify-email.
 RESET_PASSWORD_POR_IP = 20

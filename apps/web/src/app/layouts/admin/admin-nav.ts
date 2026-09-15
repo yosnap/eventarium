@@ -73,6 +73,10 @@ export function enlacesDeEvento(eventId: string, aceptaPagos: boolean): readonly
     );
   }
   enlaces.push({
+    path: ['/dashboard/events', eventId, 'ponentes'],
+    labelKey: 'admin.events.speakers.rotulo',
+  });
+  enlaces.push({
     path: ['/dashboard/events', eventId, 'inscripciones'],
     labelKey: 'admin.events.registrations.titulo',
   });

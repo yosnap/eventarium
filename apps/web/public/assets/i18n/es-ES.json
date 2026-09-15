@@ -1476,6 +1476,69 @@
           "pendiente": "Falta",
           "no_aplica": "No aplica"
         }
+      },
+      "speakers": {
+        "rotulo": "Ponentes",
+        "error": "No hemos podido completar la operación.",
+        "invitarPonente": "Invitar ponente",
+        "cabecera": {
+          "sinBio": "Todas las fichas de los ponentes están completas.",
+          "unaInicio": "A",
+          "unaFin": "ficha le falta bio para publicarse",
+          "variasInicio": "A",
+          "cifra": "{{n}} fichas",
+          "variasFin": "les falta bio para publicarse"
+        },
+        "kpis": {
+          "enPrograma": "En el programa",
+          "enProgramaDescriptor": "De {{n}} sesiones",
+          "fichaCompleta": "Ficha completa",
+          "fichaCompletaDescriptor": "Listas para publicar",
+          "sinBio": "Sin bio",
+          "sinBioDescriptor": "Bloquean la página pública",
+          "repiten": "Repiten edición",
+          "repitenDescriptor": "Perfil ya en la organización"
+        },
+        "panelFichas": "Fichas",
+        "buscarPlaceholder": "Buscar por nombre o tema",
+        "filtroEtiqueta": "Filtrar fichas",
+        "filtro": {
+          "todas": "Todas",
+          "incompletas": "Incompletas",
+          "repiten": "Repiten",
+          "sin-sesion": "Sin sesión"
+        },
+        "sinCoincidencias": "Ningún ponente coincide con el filtro.",
+        "columnaPonente": "Ponente",
+        "columnaSesion": "Sesión asignada",
+        "columnaFicha": "Ficha",
+        "columnaEdiciones": "Ediciones",
+        "sinAsignar": "Sin asignar",
+        "masSesiones": "+{{n}}",
+        "pedirBio": "Pedir bio",
+        "bioPedida": "Recordatorio enviado para que complete su ficha.",
+        "asignarSesion": "Asignar sesión",
+        "historial": "Historial",
+        "historialRotulo": "Historial de participación",
+        "historialExplicacion": "Derivado de su participación en eventos de esta organización.",
+        "historialVacio": "Todavía no ha participado en ninguna sesión.",
+        "fichaCompleta": "Ficha completa al 100 %",
+        "ariaFicha": "Ficha al {{pct}} %: falta {{faltan}}",
+        "campos": {
+          "bio": "bio",
+          "titular": "titular",
+          "empresa": "empresa",
+          "curriculum": "currículum",
+          "web": "web",
+          "contacto": "correo de contacto"
+        },
+        "rol": {
+          "speaker": "Ponente",
+          "moderator": "Moderador/a",
+          "presenter": "Presentador/a"
+        },
+        "verPerfilPublico": "Ver el perfil público",
+        "piePerfil": "El perfil vive en la organización: al crear la siguiente edición, quien ya participó aparece con su ficha hecha."
       }
     },
     "sponsorTiersNav": "Niveles de patrocinio",

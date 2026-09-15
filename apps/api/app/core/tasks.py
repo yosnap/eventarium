@@ -508,3 +508,30 @@ async def send_waitlist_promotion_email(
             f"Si ya no quieres asistir, cancela tu inscripción aquí:\n{enlace_cancelacion}"
         ),
     )
+
+
+@broker.task(retry_on_error=True, max_retries=5)
+async def send_speaker_bio_request_email(
+    to_email: str, organization_id: str, event_name: str
+) -> None:
+    """Aviso al ponente de que el organizador necesita su ficha completa.
+
+    El destino es su cuenta (`/dashboard/account`), donde rellena su perfil
+    de ponente; no hay un formulario por evento ni un token de un solo uso.
+    La persona destinataria ya tiene cuenta en la organización: el mensaje
+    no crea credenciales ni enlaces de acceso, solo recuerda la tarea.
+    """
+    base = await base_url_de_organizacion(uuid.UUID(organization_id))
+    enlace = f"{base}/dashboard/account"
+    await get_email_provider().send(
+        to=to_email,
+        subject=f"Falta tu ficha para «{event_name}»",
+        body=(
+            "Hola,\n\n"
+            f"Para publicar el programa de «{event_name}» falta completar tu ficha "
+            "de ponente (biografía, titular y demás datos de perfil).\n\n"
+            "Puedes completarla desde tu cuenta:\n"
+            f"{enlace}\n\n"
+            "Si tienes cualquier duda, responde directamente a la organización."
+        ),
+    )

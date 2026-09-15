@@ -495,3 +495,64 @@ class PublicEventDetail(BaseModel):
     # decisión de tanda 3, aquí solo se exponen los datos.
     venues: list[PublicVenue] = Field(default_factory=list)
     sponsor_tiers: list[PublicSponsorTier] = Field(default_factory=list)
+
+
+# --- Ponentes del evento (panel de organizador) ------------------------------
+
+
+class SpeakerSessionOut(BaseModel):
+    """Una sesión de la agenda donde el ponente está asignado."""
+
+    id: str
+    titulo: str
+    starts_at: datetime | None
+
+
+class SpeakerCompletitudOut(BaseModel):
+    """Estado de la ficha del ponente, sobre las claves del perfil de ponente.
+
+    `faltantes` nombra las claves sin rellenar para que el panel pueda decir
+    «falta bio y foto» sin adivinarlo del porcentaje.
+    """
+
+    porcentaje: int
+    rellenas: int
+    total: int
+    faltantes: list[str]
+
+
+class SpeakerRowOut(BaseModel):
+    """Fila de la vista agregada de ponentes de un evento."""
+
+    organization_member_id: str
+    user_id: str
+    email: str
+    first_name: str | None
+    last_name: str | None
+    # Titular profesional de su ficha (`profile_data.titular`), para pintar
+    # bajo el nombre; `None` si no lo rellenó.
+    titular: str | None
+    sesiones: list[SpeakerSessionOut]
+    completitud: SpeakerCompletitudOut
+    # Eventos de esta organización donde la persona está en el roster,
+    # incluido el actual: primera participación = 1, repetir = más de 1.
+    ediciones: int
+    # Slug del perfil público si la persona lo activó; `None` si no.
+    public_slug: str | None
+
+
+class EventSpeakersViewOut(BaseModel):
+    """Vista agregada de ponentes, con el total de sesiones del evento."""
+
+    items: list[SpeakerRowOut]
+    total_sesiones: int
+
+
+class SpeakerHistoryItemOut(BaseModel):
+    """Una línea del historial de participación de una persona."""
+
+    evento_titulo: str
+    # Rol con el que participó en esa sesión; `None` si la asignación no lo
+    # fija.
+    rol: str | None
+    fecha: datetime | None
