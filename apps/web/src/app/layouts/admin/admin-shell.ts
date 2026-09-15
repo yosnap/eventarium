@@ -17,6 +17,7 @@ import { BrandMark } from '../../shared/ui/brand-mark';
 import { Button } from '../../shared/ui/button';
 import { ThemeToggle } from '../../shared/ui/theme-toggle';
 import { AdminNav } from './admin-nav';
+import { OrgSelector } from './org-selector';
 import { EventScope } from './event-scope';
 import { PanelScope } from './panel-scope';
 
@@ -28,7 +29,7 @@ import { PanelScope } from './panel-scope';
 @Component({
   selector: 'app-admin-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, TranslocoDirective, Button, ThemeToggle, AdminNav, BrandMark],
+  imports: [RouterOutlet, RouterLink, TranslocoDirective, Button, ThemeToggle, AdminNav, BrandMark, OrgSelector],
   template: `
     <ng-container *transloco="let t">
       <a class="skip-link" href="#contenido-admin">{{ t('comun.saltarAlContenido') }}</a>
@@ -46,19 +47,12 @@ import { PanelScope } from './panel-scope';
           <div class="sesion">
             <app-theme-toggle />
             @if (!esPanelPlataforma()) {
-              <nav [attr.aria-label]="t('admin.selectorOrganizacion.titulo')" class="selector">
-                @for (organizacion of otrasOrganizaciones(); track organizacion.organization_id) {
-                  <button
-                    type="button"
-                    class="enlace-organizacion"
-                    [disabled]="cambiandoOrganizacion()"
-                    (click)="cambiarOrganizacion(organizacion.organization_id)"
-                  >
-                    {{ organizacion.name }}
-                  </button>
-                }
-                <a routerLink="/crear-organizacion">{{ t('admin.selectorOrganizacion.nueva') }}</a>
-              </nav>
+              <app-org-selector
+                [organizaciones]="organizaciones()"
+                [activaId]="auth.currentUser()?.organization_id ?? null"
+                [cambiando]="cambiandoOrganizacion()"
+                (cambiar)="cambiarOrganizacion($event)"
+              />
             }
             @if (errorCambioOrganizacion(); as mensaje) {
               <p role="alert" class="error-organizacion">{{ mensaje }}</p>
@@ -152,25 +146,6 @@ import { PanelScope } from './panel-scope';
       align-items: center;
       gap: var(--space-md);
     }
-    .selector {
-      display: flex;
-      gap: var(--space-sm);
-    }
-    /* Mismo aspecto que un enlace de la barra, aunque sea un <button>: cambiar
-       de organización ya no navega a otra URL, dispara una acción. */
-    .enlace-organizacion {
-      background: none;
-      border: none;
-      padding: 0;
-      font: inherit;
-      color: inherit;
-      text-decoration: underline;
-      cursor: pointer;
-    }
-    .enlace-organizacion:disabled {
-      cursor: wait;
-      opacity: 0.6;
-    }
     .error-organizacion {
       color: var(--danger);
       font-size: var(--fs-sm);
@@ -219,21 +194,6 @@ export class AdminShell {
   protected readonly esPanelPlataforma = this.panelScope.esPlataforma;
 
   protected readonly organizaciones = signal<readonly OrganizacionDeLaPersona[]>([]);
-  /** Los enlaces para cambiar de organización, aparte: con una sola no hay nada a lo
-   * que cambiar. El propio bloque (`nav`) sí se pinta siempre en el panel de
-   * organización, aunque esto quede vacío, porque también lleva el enlace para dar de
-   * alta una organización nueva — y ese tiene sentido tenga una o varias. En el panel
-   * de plataforma no se navega entre organizaciones. Excluye la organización activa:
-   * "otras" quiere decir eso, y ofrecer "cambiar" a la que ya está activa solo rota
-   * la familia de refresh y recarga la página sin que cambie nada. */
-  protected readonly otrasOrganizaciones = computed(() => {
-    if (this.esPanelPlataforma() || this.organizaciones().length <= 1) {
-      return [];
-    }
-    const activaId = this.auth.currentUser()?.organization_id;
-    return this.organizaciones().filter((o) => o.organization_id !== activaId);
-  });
-
   /**
    * Nombre a mostrar en la cabecera del panel de organización.
    *

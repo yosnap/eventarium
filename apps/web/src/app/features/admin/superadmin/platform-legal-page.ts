@@ -9,6 +9,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Textarea } from '../../../shared/ui/textarea';
+import { PageHeader } from '../../../shared/ui/page-header';
 
 interface PaginaLegal {
   content: string;
@@ -35,11 +36,12 @@ const CLAVE_LEGALES = '/admin/legal-pages';
 @Component({
   selector: 'app-platform-legal-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Textarea],
+  imports: [TranslocoDirective, Alert, Button, Card, Textarea, PageHeader],
   template: `
     <ng-container *transloco="let t">
-      <h1>{{ t('admin.plataforma.legales.titulo') }}</h1>
-      <p class="descripcion">{{ t('admin.plataforma.legales.descripcion') }}</p>
+      <app-page-header [rotulo]="t('admin.plataforma.legales.rotulo')">
+        {{ t('admin.plataforma.legales.descripcion') }}
+      </app-page-header>
 
       @if (error(); as mensaje) {
         <app-alert tone="error" [title]="t('comun.error')">{{ mensaje }}</app-alert>

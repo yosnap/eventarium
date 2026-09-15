@@ -11,6 +11,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
+import { PageHeader } from '../../../shared/ui/page-header';
 
 type ModoDeTema = 'dark' | 'light';
 
@@ -108,11 +109,12 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
 @Component({
   selector: 'app-theme-templates-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input],
+  imports: [TranslocoDirective, Alert, Button, Card, Input, PageHeader],
   template: `
     <ng-container *transloco="let t">
-      <h1>{{ t('admin.superadmin.plantillas.titulo') }}</h1>
-      <p>{{ t('admin.superadmin.plantillas.descripcion') }}</p>
+      <app-page-header [rotulo]="t('admin.superadmin.plantillas.rotulo')">
+        {{ t('admin.superadmin.plantillas.descripcion') }}
+      </app-page-header>
 
       @if (cargando()) {
         <p>{{ t('comun.cargando') }}</p>

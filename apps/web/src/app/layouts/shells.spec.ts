@@ -212,6 +212,8 @@ describe('shells', () => {
       await fixture.whenStable();
       const raiz = fixture.nativeElement as HTMLElement;
 
+      // El alta vive dentro del menú del selector (oculto hasta abrirlo,
+      // pero presente en el DOM).
       const enlace = Array.from(raiz.querySelectorAll('a')).find(
         (a) => a.getAttribute('href') === '/crear-organizacion',
       );
@@ -247,9 +249,16 @@ describe('shells', () => {
       await fixture.whenStable();
       const raiz = fixture.nativeElement as HTMLElement;
 
-      const boton = Array.from(raiz.querySelectorAll('button')).find(
-        (b) => b.textContent?.trim() === 'Otra organización',
+      const disparador = Array.from(raiz.querySelectorAll('button')).find((b) =>
+        b.classList.contains('disparador'),
       );
+      expect(disparador).toBeTruthy();
+      disparador?.click();
+      await fixture.whenStable();
+
+      const boton = Array.from(
+        raiz.querySelectorAll('button[role="option"]') as NodeListOf<HTMLButtonElement>,
+      ).find((b) => b.textContent?.includes('Otra organización'));
       expect(boton).toBeTruthy();
 
       const ubicacionOriginal = Object.getOwnPropertyDescriptor(window, 'location')!;

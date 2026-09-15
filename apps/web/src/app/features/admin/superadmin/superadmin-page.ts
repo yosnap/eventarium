@@ -11,6 +11,7 @@ import { Card } from '../../../shared/ui/card';
 import { Chip, ChipTone } from '../../../shared/ui/chip';
 import { DataTable, DataTableColumn } from '../../../shared/ui/data-table';
 import { Input } from '../../../shared/ui/input';
+import { PageHeader } from '../../../shared/ui/page-header';
 import { MetricasDePlataforma } from './platform-metrics.types';
 
 interface AuditLogEntry {
@@ -42,10 +43,13 @@ const AUDIT_LOG_URL = '/admin/audit-log';
 @Component({
   selector: 'app-superadmin-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Chip, DataTable, Input],
+  imports: [TranslocoDirective, Alert, Button, Card, Chip, DataTable, Input, PageHeader],
   template: `
     <ng-container *transloco="let t">
-      <h1>{{ t('admin.superadmin.titulo') }}</h1>
+      <app-page-header [rotulo]="t('admin.superadmin.rotulo')">
+        {{ t('admin.superadmin.cabeceraInicio') }}
+        <span class="mark">{{ t('admin.superadmin.cabeceraMarca') }}</span>
+      </app-page-header>
 
       @if (metricas(); as m) {
         <div class="salud">

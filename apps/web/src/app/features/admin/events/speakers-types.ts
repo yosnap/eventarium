@@ -42,14 +42,4 @@ export interface SpeakerHistoryItem {
   readonly fecha: string | null;
 }
 
-/** Iniciales para el monograma: primera letra de nombre y apellidos, con el
- * correo como último recurso cuando falta todo. */
-export function monograma(first: string | null, last: string | null, email: string): string {
-  const iniciales = [first?.trim()[0], last?.trim()[0]]
-    .filter((letra): letra is string => !!letra)
-    .map((letra) => letra.toUpperCase());
-  if (iniciales.length > 0) {
-    return iniciales.join('');
-  }
-  return email.slice(0, 2).toUpperCase();
-}
+export { monograma } from '../../../shared/text/monograma';

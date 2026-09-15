@@ -11,6 +11,7 @@ import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
 import { Select, SelectOption } from '../../../shared/ui/select';
+import { PageHeader } from '../../../shared/ui/page-header';
 
 /** Identidad de la plataforma tal y como la devuelve `GET /admin/identity`. */
 interface IdentidadDePlataforma {
@@ -32,11 +33,12 @@ const CLAVE_IDENTIDAD = '/admin/identity';
 @Component({
   selector: 'app-platform-identity-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input, Select],
+  imports: [TranslocoDirective, Alert, Button, Card, Input, Select, PageHeader],
   template: `
     <ng-container *transloco="let t">
-      <h1>{{ t('admin.plataforma.identidad.titulo') }}</h1>
-      <p class="descripcion">{{ t('admin.plataforma.identidad.descripcion') }}</p>
+      <app-page-header [rotulo]="t('admin.plataforma.identidad.rotulo')">
+        {{ t('admin.plataforma.identidad.descripcion') }}
+      </app-page-header>
 
       @if (error(); as mensaje) {
         <app-alert tone="error" [title]="t('comun.error')">{{ mensaje }}</app-alert>

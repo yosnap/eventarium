@@ -11,6 +11,7 @@ import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
 import { Select, SelectOption } from '../../../shared/ui/select';
+import { PageHeader } from '../../../shared/ui/page-header';
 
 interface Organizacion {
   readonly id: string;
@@ -37,11 +38,12 @@ interface Miembro {
 @Component({
   selector: 'app-impersonation-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input, Select],
+  imports: [TranslocoDirective, Alert, Button, Card, Input, Select, PageHeader],
   template: `
     <ng-container *transloco="let t">
-      <h1>{{ t('admin.plataforma.impersonar.titulo') }}</h1>
-      <p class="descripcion">{{ t('admin.plataforma.impersonar.descripcion') }}</p>
+      <app-page-header [rotulo]="t('admin.plataforma.impersonar.rotulo')">
+        {{ t('admin.plataforma.impersonar.descripcion') }}
+      </app-page-header>
 
       @if (error(); as mensaje) {
         <app-alert tone="error" [title]="t('comun.error')">{{ mensaje }}</app-alert>

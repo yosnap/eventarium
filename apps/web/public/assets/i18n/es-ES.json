@@ -1645,7 +1645,8 @@
         "guardado": "Identidad de la plataforma actualizada.",
         "errorCarga": "No hemos podido cargar la identidad de la plataforma.",
         "errorGuardar": "No hemos podido guardar la identidad.",
-        "errorSubida": "No hemos podido subir la imagen."
+        "errorSubida": "No hemos podido subir la imagen.",
+        "rotulo": "Identidad de plataforma"
       },
       "legales": {
         "titulo": "Páginas legales de la plataforma",
@@ -1658,7 +1659,8 @@
         "plantillaPorDefecto": "Usando la plantilla por defecto. Escribe un texto para personalizarla.",
         "guardado": "Páginas legales actualizadas.",
         "errorCarga": "No hemos podido cargar las páginas legales de la plataforma.",
-        "errorGuardar": "No hemos podido guardar las páginas legales."
+        "errorGuardar": "No hemos podido guardar las páginas legales.",
+        "rotulo": "Documentos legales"
       },
       "impersonar": {
         "titulo": "Suplantar una cuenta",
@@ -1674,7 +1676,8 @@
         "contrasenaAyuda": "Se pide para confirmar que eres tú quien entra, no solo alguien con tu sesión abierta.",
         "entrar": "Entrar como esa persona",
         "errorCarga": "No hemos podido cargar los datos.",
-        "errorEntrar": "No hemos podido abrir la suplantación."
+        "errorEntrar": "No hemos podido abrir la suplantación.",
+        "rotulo": "Impersonación"
       },
       "herramientas": "Herramientas de administración",
       "error": "No se pudieron cargar los datos de la instalación.",
@@ -1711,7 +1714,6 @@
       }
     },
     "superadmin": {
-      "titulo": "Superadministración",
       "descripcion": "Auditoría de la instalación, exportación RGPD y borrado de inscritos bajo solicitud. Ninguna de estas acciones está disponible para un organizador.",
       "auditoria": {
         "titulo": "Registro de auditoría",
@@ -1773,8 +1775,12 @@
         "parInsuficiente": "«{{primero}}» y «{{segundo}}» en modo {{modo}}: {{ratio}}:1.",
         "guardado": "Plantilla guardada.",
         "errorGuardar": "No hemos podido guardar la plantilla.",
-        "errorLista": "No hemos podido cargar el catálogo de plantillas."
-      }
+        "errorLista": "No hemos podido cargar el catálogo de plantillas.",
+        "rotulo": "Plantillas de tema"
+      },
+      "rotulo": "Plataforma",
+      "cabeceraInicio": "La instalación está",
+      "cabeceraMarca": "bajo control"
     },
     "tituloPlataforma": "Administración de Eventarium"
   },
