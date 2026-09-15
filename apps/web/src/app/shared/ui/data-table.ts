@@ -21,6 +21,9 @@ export interface DataTableColumn {
  * columnas. Las cabeceras llevan rótulo mono en mayúsculas con tracking; las celdas
  * numéricas usan `font-variant-numeric: tabular-nums` alineadas a la derecha, para
  * que las cifras no bailen entre filas.
+ *
+ * Ranura opcional `[pie]`, reenviada al `[pie]` de `<app-panel>` (fila de
+ * totales `.tot`): sin contenido proyectado, el pie no aparece.
  */
 @Component({
   selector: 'app-data-table',
@@ -50,6 +53,7 @@ export interface DataTableColumn {
           </tbody>
         </table>
       </div>
+      <ng-content select="[pie]" ngProjectAs="[pie]" />
     </app-panel>
   `,
   styles: `

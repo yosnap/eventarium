@@ -267,4 +267,104 @@ describe('EventAccounting', () => {
 
     expect(fixture.nativeElement.querySelector('[role="alert"]')).toBeTruthy();
   });
+
+  it('una partida que se pasa del presupuesto se marca con warn, aviso en cabecera y consumo de contingencia', async () => {
+    const fixture = TestBed.createComponent(EventAccounting);
+    fixture.componentRef.setInput('eventId', 'e1');
+    fixture.detectChanges();
+    await avanzar(fixture);
+
+    http
+      .expectOne((p) => p.url === `${BASE}/budget/summary` && p.method === 'GET')
+      .flush(
+        resumen({
+          consumido_contingencia_cents: 30_000,
+          disponible_contingencia_cents: -25_000,
+          por_partida: [
+            { budget_line_id: 'bl1', ejecutado_cents: 60_000, budgeted_cents: 100_000, exceso_cents: 0 },
+            { budget_line_id: null, ejecutado_cents: 50_000, budgeted_cents: 20_000, exceso_cents: 30_000 },
+          ],
+        }),
+      );
+    http.expectOne((p) => p.url === `${BASE}/incomes` && p.method === 'GET').flush(ingresos());
+    http.expectOne((p) => p.url === `${BASE}/budget-lines` && p.method === 'GET').flush(lineas());
+    http.expectOne((p) => p.url === `${BASE}/expenses` && p.method === 'GET').flush(gastos());
+    await avanzarHastaQueTermineLaCarga(fixture);
+
+    const texto = fixture.nativeElement.textContent as string;
+    // Aviso de cabecera del panel de presupuesto, en singular.
+    expect(texto).toContain('Una partida se ha pasado');
+    // El desglose de contingencia nombra la partida que se pasó y su exceso.
+    expect(texto).toContain('Sin partida · se pasó de 200.00 € a 500.00 €');
+    expect(texto).toContain('− 300.00 €');
+    // El raíl de contingencia anuncia las dos cifras reales, no solo color.
+    expect(texto).toContain('300.00 € consumidos');
+
+    // La fila pasada lleva la clase de warn y su porcentaje también.
+    const filaSobre = fixture.nativeElement.querySelector('.part.sobre') as HTMLElement;
+    expect(filaSobre).not.toBeNull();
+    expect(filaSobre.querySelector('.pct.sobre')).not.toBeNull();
+  });
+
+  it('la previsión de cierre muestra cobrado, pagado y caja hoy derivados de los datos', async () => {
+    const fixture = TestBed.createComponent(EventAccounting);
+    fixture.componentRef.setInput('eventId', 'e1');
+    fixture.detectChanges();
+    await avanzar(fixture);
+
+    // La vista de ingresos incluye una valoración en especie: cuenta como
+    // ingreso en el libro, pero la foto de caja la excluye.
+    const base = ingresos();
+    const ingresosConEspecie = {
+      ...base,
+      ingresos: [
+        ...base.ingresos,
+        {
+          origen: 'patrocinio' as const,
+          concepto: 'Patrocinio en especie — Localia',
+          importe_cents: 20_000,
+          fecha: null,
+          peso_sobre_el_total: '0.200000',
+          referencia_id: 'sp1',
+          en_especie: true,
+        },
+      ],
+    };
+    http
+      .expectOne((p) => p.url === `${BASE}/budget/summary` && p.method === 'GET')
+      .flush(resumen());
+    http
+      .expectOne((p) => p.url === `${BASE}/incomes` && p.method === 'GET')
+      .flush(ingresosConEspecie);
+    http.expectOne((p) => p.url === `${BASE}/budget-lines` && p.method === 'GET').flush(lineas());
+    http.expectOne((p) => p.url === `${BASE}/expenses` && p.method === 'GET').flush(gastos());
+    await avanzarHastaQueTermineLaCarga(fixture);
+
+    const texto = fixture.nativeElement.textContent as string;
+    expect(texto).toContain('Cobrado');
+    expect(texto).toContain('Pagado');
+    expect(texto).toContain('Caja hoy');
+    // Cobrado = 800.00 (solo bancario: la especie de 200.00 no entra) ·
+    // Pagado = 600.00 (metálico) · Caja = +200.00.
+    expect(texto).toContain('+ 200.00 €');
+    // El pie de ingresos SÍ suma la especie (total del libro, no de caja).
+    expect(texto).toContain('Total de ingresos');
+  });
+
+  it('las tablas de movimientos muestran su pie de totales', async () => {
+    const fixture = TestBed.createComponent(EventAccounting);
+    fixture.componentRef.setInput('eventId', 'e1');
+    fixture.detectChanges();
+    await avanzar(fixture);
+
+    flushCarga(http);
+    await avanzarHastaQueTermineLaCarga(fixture);
+
+    const texto = fixture.nativeElement.textContent as string;
+    expect(texto).toContain('Total de ingresos');
+    expect(texto).toContain('800.00 €');
+    expect(texto).toContain('Total de gastos en metálico');
+    expect(texto).toContain('600.00 €');
+    expect(texto).toContain('Total valorado en especie');
+  });
 });

@@ -35,6 +35,10 @@ class IncomeLineOut(BaseModel):
     # tiene sentido un peso sobre compromisos todavía no cobrados).
     peso_sobre_el_total: Annotated[Decimal, Field(decimal_places=6)] | None
     referencia_id: str
+    # True en las valoraciones en especie: ingreso que no pasa por el banco.
+    # Quien calcula una foto de caja (cobrado/pagado) la excluye con esta
+    # marca; quien suma el total de ingresos la incluye (Decisión #3).
+    en_especie: bool = False
 
 
 class IncomesViewOut(BaseModel):

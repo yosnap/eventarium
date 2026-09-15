@@ -49,6 +49,11 @@ class LineaIngreso:
     fecha: datetime | None
     peso_sobre_el_total: Decimal | None
     referencia_id: str
+    # True solo en las valoraciones en especie: cuenta como ingreso (Decisión
+    # #3) pero nunca pasa por el banco, así que quien suma "cobrado" para una
+    # foto de caja la excluye con esta marca en vez de adivinarla por el
+    # concepto o por `fecha`.
+    en_especie: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,6 +103,7 @@ async def _lineas_de_patrocinio(
                     fecha=None,
                     peso_sobre_el_total=None,
                     referencia_id=str(patrocinador.id),
+                    en_especie=True,
                 )
             )
             continue
@@ -237,6 +243,7 @@ def _con_peso_sobre_el_total(lineas: list[LineaIngreso], total_cents: int) -> li
                 _PRECISION_PESO_SOBRE_EL_TOTAL, rounding=ROUND_HALF_UP
             ),
             referencia_id=linea.referencia_id,
+            en_especie=linea.en_especie,
         )
         for linea in lineas
     ]

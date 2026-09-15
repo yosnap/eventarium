@@ -180,6 +180,7 @@ async def list_incomes(evento: EventoDep, session: DbDep) -> IncomesViewOut:
                 fecha=linea.fecha,
                 peso_sobre_el_total=linea.peso_sobre_el_total,
                 referencia_id=linea.referencia_id,
+                en_especie=linea.en_especie,
             )
             for linea in vista.ingresos
         ],
@@ -191,6 +192,7 @@ async def list_incomes(evento: EventoDep, session: DbDep) -> IncomesViewOut:
                 fecha=linea.fecha,
                 peso_sobre_el_total=linea.peso_sobre_el_total,
                 referencia_id=linea.referencia_id,
+                en_especie=linea.en_especie,
             )
             for linea in vista.comprometido
         ],

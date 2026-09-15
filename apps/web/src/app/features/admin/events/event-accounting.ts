@@ -1,124 +1,75 @@
-import { SlicePipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
-  type ElementRef,
   type OnInit,
   computed,
   inject,
   input,
   signal,
-  viewChildren,
 } from '@angular/core';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../../../core/api/api.service';
-import { ExpenseForm } from './expense-form';
 import { ApiError } from '../../../core/api/error.interceptor';
+import { fechaRelativa } from '../../../shared/text/fecha-relativa';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
-import { Card } from '../../../shared/ui/card';
-import { Chip } from '../../../shared/ui/chip';
+import { DataTable, type DataTableColumn } from '../../../shared/ui/data-table';
+import { KpiCard } from '../../../shared/ui/kpi-card';
+import { PageHeader } from '../../../shared/ui/page-header';
+import { Panel } from '../../../shared/ui/panel';
+import { AccountingBudgetPanel } from './accounting-budget-panel';
+import { AccountingContingencyPanel } from './accounting-contingency-panel';
+import { AccountingForecastPanel } from './accounting-forecast-panel';
+import { AccountingMovementsPanel } from './accounting-movements-panel';
+import {
+  type BudgetLine,
+  type BudgetSummary,
+  type Expense,
+  type IncomesView,
+  euros,
+} from './accounting-types';
+import { ExpenseForm } from './expense-form';
 
-type Movimiento = 'ingresos' | 'gastos' | 'especie';
-
-/** Orden fijo del `tablist` de movimientos — roving tabindex + flechas
- * izquierda/derecha entre estos tres, mismo patrón que
- * `event-agenda-section.ts`/`event-venues-page.ts` (WCAG 2.1.1, hallazgo
- * Alto A4 del code review de la fase 5: antes solo el `click` cambiaba de
- * pestaña, dejando dos de las tres inalcanzables por teclado). */
-const MOVIMIENTOS: readonly Movimiento[] = ['ingresos', 'gastos', 'especie'];
-
-const CLAVE_PESTANA: Record<Movimiento, string> = {
-  ingresos: 'admin.events.accounting.movimientos.pestanaIngresos',
-  gastos: 'admin.events.accounting.movimientos.pestanaGastos',
-  especie: 'admin.events.accounting.movimientos.pestanaEspecie',
-};
-
-interface ContingencyLine {
-  readonly budget_line_id: string | null;
-  readonly ejecutado_cents: number;
-  readonly budgeted_cents: number;
-  readonly exceso_cents: number;
-}
-
-interface TimeSeriesPoint {
-  readonly periodo: string;
-  readonly ingresos_cents: number;
-  readonly gastos_cents: number;
-}
-
-interface BudgetSummary {
-  readonly event_id: string;
-  readonly budget_approved_at: string | null;
-  readonly total_budgeted_cents: number;
-  readonly contingency_fund_percent: string;
-  readonly contingency_fund_cents: number | null;
-  readonly consumido_contingencia_cents: number;
-  readonly disponible_contingencia_cents: number | null;
-  readonly gasto_sin_partida_cents: number;
-  readonly ejecutado_en_especie_cents: number;
-  readonly por_partida: readonly ContingencyLine[];
-  readonly evolucion_temporal: readonly TimeSeriesPoint[];
-}
-
-interface IncomeLine {
-  readonly origen: 'patrocinio' | 'entradas' | 'subvencion';
-  readonly concepto: string;
-  readonly importe_cents: number;
-  readonly fecha: string | null;
-  readonly referencia_id: string;
-}
-
-interface IncomesView {
-  readonly ingresos: readonly IncomeLine[];
-  readonly comprometido: readonly IncomeLine[];
-  readonly total_ingresos_cents: number;
-  readonly moneda: string;
-}
-
-interface BudgetLine {
-  readonly id: string;
-  readonly event_id: string;
-  readonly name: string;
-  readonly budgeted_cents: number;
-  readonly sort_order: number;
-}
-
-interface Expense {
-  readonly id: string;
-  readonly event_id: string;
-  readonly budget_line_id: string | null;
-  readonly sponsor_id: string | null;
-  readonly provider_name: string;
-  readonly expense_date: string;
-  readonly base_cents: number;
-  readonly vat_cents: number | null;
-  readonly total_cents: number;
-}
-
-function euros(cents: number): string {
-  return (cents / 100).toFixed(2);
+interface KpiVisible {
+  readonly rotulo: string;
+  readonly valor: string;
+  readonly descriptor: string | null;
+  readonly tono: 'warn' | 'accent' | null;
 }
 
 /**
- * Panel de contabilidad de un evento (PRD fase 7, fase 5 de trabajo): KPIs,
- * presupuesto frente a ejecutado por partida (con «Sin partida»), fondo de
- * contingencia, evolución temporal, movimientos por pestañas y alta manual
- * de gasto/partida. Fiel campo a campo a `contabilidad-evento.html`
- * (comparación documentada en el report de cierre de la fase, no aquí).
+ * Panel de contabilidad de un evento: KPIs, presupuesto frente a ejecutado
+ * por partida, fondo de contingencia, previsión de cierre, evolución
+ * temporal, movimientos por pestañas y alta manual de gasto/partida — fiel
+ * a `contabilidad-evento.html`, comparado campo a campo. Los cuatro paneles
+ * mayores (presupuesto, contingencia, previsión, movimientos) viven en sus
+ * propios componentes: reunirlos aquí habría dejado el fichero por encima
+ * de las 1000 líneas.
  *
- * El bloque «Añadir gasto por documento» (OCR, fase 4 del plan) queda
- * deshabilitado con un aviso: esa fase no está implementada todavía y esta
- * pantalla no depende de ella para cerrarse (plan.md, Fase 5: "el flujo de
- * OCR se integra... sin reabrir esta fase para ello").
+ * El bloque «Añadir gasto por documento» (OCR) queda deshabilitado con un
+ * aviso: esa función no está implementada todavía y esta pantalla no
+ * depende de ella para funcionar.
  */
 @Component({
   selector: 'app-event-accounting',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Chip, ExpenseForm, SlicePipe],
+  imports: [
+    TranslocoDirective,
+    Alert,
+    Button,
+    DataTable,
+    KpiCard,
+    PageHeader,
+    Panel,
+    AccountingBudgetPanel,
+    AccountingContingencyPanel,
+    AccountingForecastPanel,
+    AccountingMovementsPanel,
+    ExpenseForm,
+  ],
   template: `
     <ng-container *transloco="let t">
       @if (error(); as mensaje) {
@@ -131,9 +82,16 @@ function euros(cents: number): string {
       @if (cargando()) {
         <p>{{ t('comun.cargando') }}</p>
       } @else if (resumen(); as r) {
-        <div class="cabecera">
-          <h2>{{ t('admin.events.accounting.titulo') }}</h2>
-          <div class="acciones-exportar">
+        <app-page-header [rotulo]="t('admin.events.accounting.rotulo')">
+          {{
+            saldo() >= 0
+              ? t('admin.events.accounting.cabecera.positivoInicio')
+              : t('admin.events.accounting.cabecera.negativoInicio')
+          }}
+          <span class="mark">{{
+            t('admin.events.accounting.cabecera.saldoMarca', { saldo: euros(saldo()) })
+          }}</span>
+          <div acciones>
             <app-button variant="secundario" type="button" (pulsado)="exportar('csv')">
               {{ t('admin.events.accounting.exportarCsv') }}
             </app-button>
@@ -141,296 +99,78 @@ function euros(cents: number): string {
               {{ t('admin.events.accounting.exportarPdf') }}
             </app-button>
           </div>
+        </app-page-header>
+
+        <div class="kpis" [attr.aria-label]="t('admin.events.accounting.kpis.titulo')">
+          @for (kpi of kpis(); track kpi.rotulo) {
+            <app-kpi-card
+              [rotulo]="kpi.rotulo"
+              [valor]="kpi.valor"
+              [descriptor]="kpi.descriptor"
+              [tono]="kpi.tono"
+            />
+          }
         </div>
 
-        <section class="kpis" aria-label="{{ t('admin.events.accounting.kpis.titulo') }}">
-          <div class="kpi">
-            <div class="etiqueta">{{ t('admin.events.accounting.kpis.presupuesto') }}</div>
-            <div class="valor">{{ euros(r.total_budgeted_cents) }} €</div>
-          </div>
-          <div class="kpi">
-            <div class="etiqueta">{{ t('admin.events.accounting.kpis.ejecutadoMetalico') }}</div>
-            <div class="valor">{{ euros(ejecutadoMetalico()) }} €</div>
-          </div>
-          <div class="kpi">
-            <div class="etiqueta">{{ t('admin.events.accounting.kpis.ejecutadoEnEspecie') }}</div>
-            <div class="valor">{{ euros(r.ejecutado_en_especie_cents) }} €</div>
-          </div>
-          <div class="kpi">
-            <div class="etiqueta">{{ t('admin.events.accounting.kpis.ejecutadoTotal') }}</div>
-            <div class="valor">{{ euros(ejecutadoTotal()) }} €</div>
-          </div>
-          <div class="kpi">
-            <div class="etiqueta">{{ t('admin.events.accounting.kpis.ingresos') }}</div>
-            <div class="valor">{{ euros(totalIngresos()) }} €</div>
-          </div>
-          <div class="kpi">
-            <div class="etiqueta">{{ t('admin.events.accounting.kpis.comprometido') }}</div>
-            <div class="valor">{{ euros(totalComprometido()) }} €</div>
-          </div>
-          <div class="kpi">
-            <div class="etiqueta">{{ t('admin.events.accounting.kpis.saldo') }}</div>
-            <div class="valor" [class.positivo]="saldo() >= 0" [class.negativo]="saldo() < 0">
-              {{ saldo() >= 0 ? '+' : '' }}{{ euros(saldo()) }} €
-            </div>
-          </div>
-          <div class="kpi">
-            <div class="etiqueta">{{ t('admin.events.accounting.kpis.contingencia') }}</div>
-            <div class="valor">
-              {{
-                r.disponible_contingencia_cents !== null
-                  ? euros(r.disponible_contingencia_cents) + ' €'
-                  : '—'
-              }}
-            </div>
-          </div>
-        </section>
+        <app-accounting-budget-panel
+          class="bloque"
+          [porPartida]="r.por_partida"
+          [lineas]="lineas()"
+        />
 
-        <app-card [heading]="t('admin.events.accounting.partidas.titulo')">
-          @if (r.por_partida.length === 0) {
-            <p>{{ t('admin.events.accounting.partidas.sinDatos') }}</p>
-          } @else {
-            <table>
-              <caption class="sr-only">
-                {{
-                  t('admin.events.accounting.partidas.titulo')
-                }}
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">{{ t('admin.events.accounting.partidas.columnaPartida') }}</th>
-                  <th scope="col">
-                    {{ t('admin.events.accounting.partidas.columnaPresupuesto') }}
-                  </th>
-                  <th scope="col">{{ t('admin.events.accounting.partidas.columnaEjecutado') }}</th>
-                  <th scope="col">{{ t('admin.events.accounting.partidas.columnaPorcentaje') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (linea of r.por_partida; track linea.budget_line_id ?? 'sin-partida') {
-                  <tr [class.sobre]="linea.exceso_cents > 0">
-                    <td>{{ nombrePartida(linea.budget_line_id) }}</td>
-                    <td>{{ euros(linea.budgeted_cents) }} €</td>
-                    <td>{{ euros(linea.ejecutado_cents) }} €</td>
-                    <td>
-                      <div class="barra" role="img" [attr.aria-label]="ariaBarra(linea)">
-                        <div
-                          class="barra-relleno"
-                          [class.sobre]="linea.exceso_cents > 0"
-                          [style.width.%]="porcentaje(linea)"
-                        ></div>
-                      </div>
-                      {{ porcentajeTexto(linea) }}
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          }
-        </app-card>
+        <app-accounting-contingency-panel
+          class="bloque"
+          [fundPercent]="r.contingency_fund_percent"
+          [fundCents]="r.contingency_fund_cents"
+          [consumidoCents]="r.consumido_contingencia_cents"
+          [disponibleCents]="r.disponible_contingencia_cents"
+          [totalPresupuestadoCents]="r.total_budgeted_cents"
+          [porPartida]="r.por_partida"
+          [lineas]="lineas()"
+        />
 
-        <app-card [heading]="t('admin.events.accounting.contingencia.titulo')">
-          <p>
-            {{
-              t('admin.events.accounting.contingencia.dotacion', {
-                porcentaje: r.contingency_fund_percent,
-                total: r.contingency_fund_cents !== null ? euros(r.contingency_fund_cents) : '—',
-              })
-            }}
-          </p>
-          <p>
-            {{ t('admin.events.accounting.contingencia.consumido') }}:
-            {{ euros(r.consumido_contingencia_cents) }} € ·
-            {{ t('admin.events.accounting.contingencia.disponible') }}:
-            {{
-              r.disponible_contingencia_cents !== null
-                ? euros(r.disponible_contingencia_cents) + ' €'
-                : '—'
-            }}
-          </p>
-        </app-card>
+        <app-accounting-forecast-panel
+          class="bloque"
+          [saldoCents]="saldo()"
+          [cobradoCents]="totalCobrado()"
+          [pagadoCents]="ejecutadoMetalico()"
+        />
 
-        <app-card [heading]="t('admin.events.accounting.evolucion.titulo')">
+        <app-panel class="bloque">
+          <div cabecera>
+            <span class="rotulo-seccion">{{ t('admin.events.accounting.evolucion.titulo') }}</span>
+          </div>
           @if (r.evolucion_temporal.length === 0) {
-            <p>{{ t('admin.events.accounting.evolucion.sinDatos') }}</p>
+            <p class="panel-cuerpo">{{ t('admin.events.accounting.evolucion.sinDatos') }}</p>
           } @else {
-            <table>
-              <caption class="sr-only">
-                {{
-                  t('admin.events.accounting.evolucion.titulo')
-                }}
-              </caption>
-              <thead>
+            <app-data-table
+              [columnas]="columnasDeEvolucion()"
+              [caption]="t('admin.events.accounting.evolucion.titulo')"
+            >
+              @for (punto of r.evolucion_temporal; track punto.periodo) {
                 <tr>
-                  <th scope="col">{{ t('admin.events.accounting.evolucion.columnaPeriodo') }}</th>
-                  <th scope="col">{{ t('admin.events.accounting.evolucion.columnaIngresos') }}</th>
-                  <th scope="col">{{ t('admin.events.accounting.evolucion.columnaGastos') }}</th>
+                  <td>{{ punto.periodo }}</td>
+                  <td class="numerica">{{ euros(punto.ingresos_cents) }} €</td>
+                  <td class="numerica">{{ euros(punto.gastos_cents) }} €</td>
                 </tr>
-              </thead>
-              <tbody>
-                @for (punto of r.evolucion_temporal; track punto.periodo) {
-                  <tr>
-                    <td>{{ punto.periodo }}</td>
-                    <td>{{ euros(punto.ingresos_cents) }} €</td>
-                    <td>{{ euros(punto.gastos_cents) }} €</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
+              }
+            </app-data-table>
           }
-        </app-card>
+        </app-panel>
 
-        <app-card [heading]="t('admin.events.accounting.movimientos.titulo')">
-          <div
-            role="tablist"
-            [attr.aria-label]="t('admin.events.accounting.movimientos.titulo')"
-            class="tabs"
-          >
-            @for (movimiento of MOVIMIENTOS; track movimiento; let indice = $index) {
-              <button
-                #pestanaBoton
-                role="tab"
-                type="button"
-                [id]="'movimiento-tab-' + movimiento"
-                [attr.aria-selected]="pestana() === movimiento"
-                [attr.aria-controls]="'movimiento-panel-' + movimiento"
-                [tabIndex]="pestana() === movimiento ? 0 : -1"
-                (click)="seleccionarPestana(movimiento, false)"
-                (keydown)="alPulsarTeclaPestana($event, indice)"
-              >
-                {{ t(claveEtiquetaPestana(movimiento)) }}
-              </button>
-            }
+        <app-accounting-movements-panel
+          class="bloque"
+          [ingresosCombinados]="ingresosCombinados()"
+          [gastosMetalico]="gastosMetalico()"
+          [gastosEnEspecie]="gastosEnEspecie()"
+          [lineas]="lineas()"
+        />
+
+        <app-panel class="bloque">
+          <div cabecera>
+            <span class="rotulo-seccion">{{ t('admin.events.accounting.altaPartida.titulo') }}</span>
           </div>
-
-          <div
-            role="tabpanel"
-            id="movimiento-panel-ingresos"
-            [attr.aria-labelledby]="'movimiento-tab-ingresos'"
-            [hidden]="pestana() !== 'ingresos'"
-          >
-            <table>
-              <caption class="sr-only">
-                {{
-                  t('admin.events.accounting.movimientos.pestanaIngresos')
-                }}
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">{{ t('admin.events.accounting.movimientos.columnaOrigen') }}</th>
-                  <th scope="col">
-                    {{ t('admin.events.accounting.movimientos.columnaConcepto') }}
-                  </th>
-                  <th scope="col">{{ t('admin.events.accounting.movimientos.columnaFecha') }}</th>
-                  <th scope="col">{{ t('admin.events.accounting.movimientos.columnaEstado') }}</th>
-                  <th scope="col">{{ t('admin.events.accounting.movimientos.columnaImporte') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (linea of ingresosCombinados(); track linea.referencia_id + linea.cobrado) {
-                  <tr>
-                    <td>{{ t('admin.events.accounting.origen.' + linea.origen) }}</td>
-                    <td>{{ linea.concepto }}</td>
-                    <td>{{ linea.fecha ? (linea.fecha | slice: 0 : 10) : '—' }}</td>
-                    <td>
-                      <app-chip [tone]="linea.cobrado ? 'ok' : 'espera'">
-                        {{
-                          t(
-                            linea.cobrado
-                              ? 'admin.events.accounting.movimientos.estadoCobrado'
-                              : 'admin.events.accounting.movimientos.estadoComprometido'
-                          )
-                        }}
-                      </app-chip>
-                    </td>
-                    <td>{{ euros(linea.importe_cents) }} €</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-
-          <div
-            role="tabpanel"
-            id="movimiento-panel-gastos"
-            [attr.aria-labelledby]="'movimiento-tab-gastos'"
-            [hidden]="pestana() !== 'gastos'"
-          >
-            <table>
-              <caption class="sr-only">
-                {{
-                  t('admin.events.accounting.movimientos.pestanaGastos')
-                }}
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">
-                    {{ t('admin.events.accounting.movimientos.columnaProveedor') }}
-                  </th>
-                  <th scope="col">{{ t('admin.events.accounting.partidas.columnaPartida') }}</th>
-                  <th scope="col">{{ t('admin.events.accounting.movimientos.columnaFecha') }}</th>
-                  <th scope="col">{{ t('admin.events.accounting.movimientos.columnaBase') }}</th>
-                  <th scope="col">{{ t('admin.events.accounting.movimientos.columnaIva') }}</th>
-                  <th scope="col">{{ t('admin.events.accounting.movimientos.columnaTotal') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (gasto of gastosMetalico(); track gasto.id) {
-                  <tr>
-                    <td>{{ gasto.provider_name }}</td>
-                    <td>{{ nombrePartida(gasto.budget_line_id) }}</td>
-                    <td>{{ gasto.expense_date | slice: 0 : 10 }}</td>
-                    <td>{{ euros(gasto.base_cents) }} €</td>
-                    <td>
-                      {{
-                        gasto.vat_cents !== null
-                          ? euros(gasto.vat_cents) + ' €'
-                          : t('admin.events.accounting.movimientos.exento')
-                      }}
-                    </td>
-                    <td>{{ euros(gasto.total_cents) }} €</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-
-          <div
-            role="tabpanel"
-            id="movimiento-panel-especie"
-            [attr.aria-labelledby]="'movimiento-tab-especie'"
-            [hidden]="pestana() !== 'especie'"
-          >
-            <table>
-              <caption class="sr-only">
-                {{
-                  t('admin.events.accounting.movimientos.pestanaEspecie')
-                }}
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">
-                    {{ t('admin.events.accounting.movimientos.columnaProveedor') }}
-                  </th>
-                  <th scope="col">{{ t('admin.events.accounting.partidas.columnaPartida') }}</th>
-                  <th scope="col">{{ t('admin.events.accounting.movimientos.columnaTotal') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (gasto of gastosEnEspecie(); track gasto.id) {
-                  <tr>
-                    <td>{{ gasto.provider_name }}</td>
-                    <td>{{ nombrePartida(gasto.budget_line_id) }}</td>
-                    <td>{{ euros(gasto.total_cents) }} €</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-        </app-card>
-
-        <app-card [heading]="t('admin.events.accounting.altaPartida.titulo')">
-          <form (submit)="crearPartida($event)" novalidate class="formulario">
+          <form (submit)="crearPartida($event)" novalidate class="panel-cuerpo formulario">
             <div class="campo">
               <label for="partida-nombre">{{
                 t('admin.events.accounting.altaPartida.nombre')
@@ -462,7 +202,7 @@ function euros(cents: number): string {
               {{ t('admin.events.accounting.altaPartida.boton') }}
             </app-button>
           </form>
-        </app-card>
+        </app-panel>
 
         <app-expense-form
           [eventId]="eventId()"
@@ -477,111 +217,26 @@ function euros(cents: number): string {
     </ng-container>
   `,
   styles: `
-    .cabecera {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: var(--space-md);
-      margin-bottom: var(--space-md);
-    }
-    .acciones-exportar {
-      display: flex;
-      gap: var(--space-sm);
+    .bloque {
+      display: block;
+      margin-bottom: var(--sp-6);
     }
     .kpis {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: var(--space-md);
-      margin-bottom: var(--space-lg);
-    }
-    .kpi {
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      background: var(--surface);
-      padding: var(--space-md);
-    }
-    .etiqueta {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--muted);
-    }
-    .valor {
-      font-family: var(--font-mono);
-      font-size: 1.5rem;
-      margin-top: 6px;
-    }
-    .valor.positivo {
-      color: var(--accent);
-    }
-    .valor.negativo {
-      color: var(--danger);
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: var(--space-md);
-    }
-    th,
-    td {
-      text-align: left;
-      padding: var(--space-sm);
-      border-bottom: 1px solid var(--border);
-      vertical-align: middle;
-    }
-    tr.sobre td {
-      color: var(--danger);
-    }
-    .barra {
-      display: inline-block;
-      width: 100px;
-      height: 10px;
-      border: 1px solid var(--border);
-      border-radius: 3px;
-      overflow: hidden;
-      vertical-align: middle;
-      margin-right: 8px;
-      background: var(--surface);
-    }
-    .barra-relleno {
-      height: 100%;
-      background: var(--muted);
-    }
-    .barra-relleno.sobre {
-      background: var(--danger);
-    }
-    .tabs {
-      display: flex;
-      gap: 4px;
-      margin-bottom: var(--space-md);
-    }
-    .tabs button {
-      min-height: 2.25rem;
-      padding: 0 14px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      background: transparent;
-      cursor: pointer;
-    }
-    .tabs button[aria-selected='true'] {
-      background: var(--accent);
-      color: var(--on-accent);
-      font-weight: 600;
+      grid-template-columns: repeat(auto-fit, minmax(11.125rem, 1fr));
+      gap: var(--sp-4);
+      margin-bottom: var(--sp-6);
     }
     .formulario {
       display: grid;
       gap: var(--space-sm);
       max-width: 28rem;
-      margin-bottom: var(--space-md);
     }
     .campo {
       display: grid;
       gap: var(--space-xs);
     }
-    .campo input,
-    .campo select {
-      /* La pintura del control la da la regla compartida de styles.css; aquí
-         solo la densidad algo menor de este formulario. */
+    .campo input {
       min-height: 2.5rem;
     }
   `,
@@ -602,15 +257,10 @@ export class EventAccounting implements OnInit {
   protected readonly lineas = signal<readonly BudgetLine[]>([]);
   protected readonly gastos = signal<readonly Expense[]>([]);
 
-  protected readonly MOVIMIENTOS = MOVIMIENTOS;
-  protected readonly pestana = signal<Movimiento>('ingresos');
-  private readonly botonesPestana = viewChildren<ElementRef<HTMLButtonElement>>('pestanaBoton');
-
   protected readonly nombrePartidaNueva = signal('');
   protected readonly importePartidaNueva = signal('');
   protected readonly creandoPartida = signal(false);
   protected readonly errorPartida = signal<string | null>(null);
-
 
   protected readonly euros = euros;
 
@@ -618,26 +268,31 @@ export class EventAccounting implements OnInit {
   protected readonly totalComprometido = computed(() =>
     (this.ingresos()?.comprometido ?? []).reduce((acc, l) => acc + l.importe_cents, 0),
   );
-  /** Ejecutado en metálico: KPI propio (plan.md Decisión #4, hallazgo Alto
-   * A1 del code review de la fase 5 — antes se fusionaba con la especie en
-   * un único "Ejecutado", ocultando justo la cifra que la decisión exige
-   * mantener separada). `por_partida` ya incluye la fila "sin partida"; no
-   * se suma `gasto_sin_partida_cents` aparte, contaría dos veces. */
+  /** Ejecutado en metálico: KPI propio, separado del ejecutado en especie —
+   * `por_partida` ya incluye la fila «sin partida», así que no se suma
+   * `gasto_sin_partida_cents` aparte (contaría dos veces). */
   protected readonly ejecutadoMetalico = computed(() => {
     const r = this.resumen();
     return r ? r.por_partida.reduce((acc, l) => acc + l.ejecutado_cents, 0) : 0;
   });
-  /** Ejecutado total: KPI informativo que reconcilia el criterio de
-   * aceptación de plan.md (suma de partidas metálico + especie == Ejecutado
-   * total mostrado). No sustituye el desglose de A1, se muestra además. */
   protected readonly ejecutadoTotal = computed(
     () => this.ejecutadoMetalico() + (this.resumen()?.ejecutado_en_especie_cents ?? 0),
   );
   /** Saldo de caja: ingresos (incluida la especie, cobrada desde que se
    * valora) menos todo lo ejecutado, en metálico y en especie — misma
-   * fórmula que `service.saldo_cents` en el backend (`export.py`), nunca
-   * reimplementada de otro modo aquí. */
+   * fórmula que `service.saldo_cents` en el backend (`export.py`). */
   protected readonly saldo = computed(() => this.totalIngresos() - this.ejecutadoTotal());
+
+  /** Lo efectivamente cobrado por el banco (no lo comprometido, no la
+   * especie): la fila «Cobrado» de la foto de caja de la previsión de cierre.
+   * Las valoraciones en especie cuentan como ingreso en el libro (mismo
+   * importe como ingreso y como gasto), pero jamás pasan por el banco, así
+   * que incluirlas aquí inflaría la caja. */
+  protected readonly totalCobrado = computed(() =>
+    (this.ingresos()?.ingresos ?? [])
+      .filter((l) => !l.en_especie)
+      .reduce((acc, l) => acc + l.importe_cents, 0),
+  );
 
   protected readonly gastosMetalico = computed(() =>
     this.gastos().filter((g) => g.sponsor_id === null),
@@ -657,67 +312,106 @@ export class EventAccounting implements OnInit {
     ];
   });
 
+  protected readonly kpis = computed<readonly KpiVisible[]>(() => {
+    const r = this.resumen();
+    if (!r) {
+      return [];
+    }
+    const t = (clave: string, params?: Record<string, unknown>) =>
+      this.transloco.translate(clave, params);
+    const pctEjecutado =
+      r.total_budgeted_cents > 0
+        ? Math.round((this.ejecutadoTotal() / r.total_budgeted_cents) * 100)
+        : null;
+    return [
+      {
+        rotulo: t('admin.events.accounting.kpis.presupuesto'),
+        valor: `${euros(r.total_budgeted_cents)} €`,
+        descriptor: r.budget_approved_at
+          ? t('admin.events.accounting.kpis.presupuestoDescriptor', {
+              fecha: fechaRelativa(r.budget_approved_at),
+            })
+          : null,
+        tono: null,
+      },
+      {
+        rotulo: t('admin.events.accounting.kpis.ejecutadoMetalico'),
+        valor: `${euros(this.ejecutadoMetalico())} €`,
+        descriptor: null,
+        tono: null,
+      },
+      {
+        rotulo: t('admin.events.accounting.kpis.ejecutadoEnEspecie'),
+        valor: `${euros(r.ejecutado_en_especie_cents)} €`,
+        descriptor: null,
+        tono: null,
+      },
+      {
+        rotulo: t('admin.events.accounting.kpis.ejecutadoTotal'),
+        valor: `${euros(this.ejecutadoTotal())} €`,
+        descriptor:
+          pctEjecutado !== null
+            ? t('admin.events.accounting.kpis.ejecutadoTotalDescriptor', { pct: pctEjecutado })
+            : null,
+        tono: pctEjecutado !== null && pctEjecutado > 100 ? 'warn' : null,
+      },
+      {
+        rotulo: t('admin.events.accounting.kpis.ingresos'),
+        valor: `${euros(this.totalIngresos())} €`,
+        descriptor: null,
+        tono: null,
+      },
+      {
+        rotulo: t('admin.events.accounting.kpis.comprometido'),
+        valor: `${euros(this.totalComprometido())} €`,
+        descriptor: null,
+        tono: null,
+      },
+      {
+        rotulo: t('admin.events.accounting.kpis.saldo'),
+        valor: euros(this.saldo()) + ' €',
+        descriptor: t('admin.events.accounting.kpis.saldoDescriptor'),
+        tono: this.saldo() >= 0 ? 'accent' : 'warn',
+      },
+      {
+        rotulo: t('admin.events.accounting.kpis.contingencia'),
+        valor:
+          r.disponible_contingencia_cents !== null
+            ? `${euros(r.disponible_contingencia_cents)} €`
+            : '—',
+        descriptor:
+          r.contingency_fund_cents !== null
+            ? t('admin.events.accounting.kpis.contingenciaDescriptor', {
+                fondo: euros(r.contingency_fund_cents),
+                consumido: euros(r.consumido_contingencia_cents),
+              })
+            : null,
+        tono: r.disponible_contingencia_cents !== null && r.disponible_contingencia_cents <= 0
+          ? 'warn'
+          : null,
+      },
+    ];
+  });
+
+  protected readonly columnasDeEvolucion = computed<DataTableColumn[]>(() => {
+    const t = (clave: string): string => this.transloco.translate(clave);
+    return [
+      { key: 'periodo', label: t('admin.events.accounting.evolucion.columnaPeriodo') },
+      {
+        key: 'ingresos',
+        label: t('admin.events.accounting.evolucion.columnaIngresos'),
+        numerica: true,
+      },
+      {
+        key: 'gastos',
+        label: t('admin.events.accounting.evolucion.columnaGastos'),
+        numerica: true,
+      },
+    ];
+  });
+
   ngOnInit(): void {
     void this.cargar();
-  }
-
-  protected claveEtiquetaPestana(movimiento: Movimiento): string {
-    return CLAVE_PESTANA[movimiento];
-  }
-
-  protected seleccionarPestana(movimiento: Movimiento, enfocar: boolean): void {
-    this.pestana.set(movimiento);
-    if (enfocar) {
-      const indice = MOVIMIENTOS.indexOf(movimiento);
-      this.botonesPestana()[indice]?.nativeElement.focus();
-    }
-  }
-
-  /** Roving tabindex del `tablist` (WCAG 2.1.1): flechas izquierda/derecha
-   * mueven el foco y activan la pestaña siguiente/anterior, con vuelta al
-   * principio/final — mismo patrón que
-   * `event-agenda-section.ts#alPulsarTecla`. */
-  protected alPulsarTeclaPestana(evento: KeyboardEvent, indice: number): void {
-    const total = MOVIMIENTOS.length;
-    let siguiente: number | null = null;
-    if (evento.key === 'ArrowRight') {
-      siguiente = (indice + 1) % total;
-    } else if (evento.key === 'ArrowLeft') {
-      siguiente = (indice - 1 + total) % total;
-    }
-    if (siguiente !== null) {
-      evento.preventDefault();
-      this.seleccionarPestana(MOVIMIENTOS[siguiente], true);
-    }
-  }
-
-  protected nombrePartida(budgetLineId: string | null): string {
-    if (budgetLineId === null) {
-      return this.transloco.translate('admin.events.accounting.partidas.sinPartida');
-    }
-    return (
-      this.lineas().find((l) => l.id === budgetLineId)?.name ??
-      this.transloco.translate('admin.events.accounting.partidas.sinPartida')
-    );
-  }
-
-  protected porcentaje(linea: ContingencyLine): number {
-    if (linea.budgeted_cents <= 0) {
-      return linea.ejecutado_cents > 0 ? 100 : 0;
-    }
-    return Math.min(100, Math.round((linea.ejecutado_cents / linea.budgeted_cents) * 100));
-  }
-
-  protected porcentajeTexto(linea: ContingencyLine): string {
-    if (linea.budgeted_cents <= 0) {
-      return '—';
-    }
-    return `${Math.round((linea.ejecutado_cents / linea.budgeted_cents) * 100)}%`;
-  }
-
-  protected ariaBarra(linea: ContingencyLine): string {
-    const nombre = this.nombrePartida(linea.budget_line_id);
-    return `${nombre}: ${euros(linea.ejecutado_cents)} € de ${euros(linea.budgeted_cents)} €`;
   }
 
   protected alTexto(evento: Event): string {

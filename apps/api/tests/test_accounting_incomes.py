@@ -214,6 +214,9 @@ async def test_patrocinador_en_especie_cuenta_siempre_en_ingresos(
     assert vista.total_ingresos_cents == 30_000
     # "Peso sobre el total" solo tiene sentido en "Ingresos", nunca almacenado.
     assert linea.peso_sobre_el_total == Decimal("1")
+    # La marca que distingue una valoración en especie de un cobro bancario:
+    # cuenta como ingreso, pero una foto de caja la excluye.
+    assert linea.en_especie is True
 
 
 # --- `crear_ingreso_manual`: origin fijo a `subvencion` ----------------------

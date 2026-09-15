@@ -440,6 +440,50 @@ describe('componentes compartidos', () => {
         await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
       });
     }
+
+    /** Anfitrión con la ranura `[pie]` rellena con elementos hoja, como una
+     * fila de totales — sin envoltorio intermedio, para que la franja flex
+     * separe etiqueta y cifra. */
+    @Component({
+      selector: 'app-anfitrion-tabla-con-pie',
+      imports: [DataTable],
+      template: `
+        <app-data-table caption="Gastos" [columnas]="columnas">
+          <tr>
+            <td>Catering</td>
+          </tr>
+          <span pie>Total</span>
+          <strong pie>500 €</strong>
+        </app-data-table>
+      `,
+    })
+    class AnfitrionTablaConPie {
+      columnas: readonly DataTableColumn[] = [{ key: 'concepto', label: 'Concepto' }];
+    }
+
+    it('sin la ranura [pie] no muestra fila de totales', async () => {
+      const fixture = await montar(AnfitrionTabla);
+      expect(fixture.nativeElement.textContent).not.toContain('Total');
+      // La franja del pie existe en el DOM (reenvía la ranura), pero sin
+      // contenido proyectado debe quedar oculta: ni borde ni padding.
+      const franja = fixture.nativeElement.querySelector('.panel__pie') as HTMLElement;
+      expect(franja).not.toBeNull();
+      expect(getComputedStyle(franja).display).toBe('none');
+    });
+
+    it('con la ranura [pie] rellena, la reenvía al pie de app-panel', async () => {
+      const fixture = await montar(AnfitrionTablaConPie);
+      expect(fixture.nativeElement.textContent).toContain('Total');
+      expect(fixture.nativeElement.textContent).toContain('500 €');
+      // Y la franja del pie es visible, no solo está en el DOM.
+      const franja = fixture.nativeElement.querySelector('.panel__pie') as HTMLElement;
+      expect(getComputedStyle(franja).display).not.toBe('none');
+      // Etiqueta y cifra son items directos de la franja flex (space-between
+      // las separa); un envoltorio intermedio las dejaría pegadas.
+      const itemsDirectos = Array.from(franja.children).map((n) => n.tagName.toLowerCase());
+      expect(itemsDirectos).toEqual(['span', 'strong']);
+      await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+    });
   });
 
   describe('cobertura por temas de los componentes existentes', () => {

@@ -1305,35 +1305,69 @@
       },
       "accounting": {
         "titulo": "Contabilidad",
+        "rotulo": "Libro del evento",
         "error": "No hemos podido completar la operación.",
         "exportado": "Balance exportado.",
         "exportarCsv": "Exportar CSV",
         "exportarPdf": "Exportar PDF",
+        "cabecera": {
+          "positivoInicio": "El evento cierra en positivo, con un saldo de",
+          "negativoInicio": "El evento cierra en negativo, atento a la caja: el saldo es de",
+          "saldoMarca": "{{saldo}} €"
+        },
         "kpis": {
           "titulo": "Resumen del presupuesto",
           "presupuesto": "Presupuesto",
+          "presupuestoDescriptor": "Aprobado {{fecha}}",
           "ejecutadoMetalico": "Ejecutado en metálico",
           "ejecutadoEnEspecie": "Ejecutado en especie",
           "ejecutadoTotal": "Ejecutado total",
+          "ejecutadoTotalDescriptor": "{{pct}} % del presupuesto",
           "ingresos": "Ingresos",
           "comprometido": "Comprometido",
           "saldo": "Saldo",
-          "contingencia": "Contingencia"
+          "saldoDescriptor": "Ingresos menos gastos",
+          "contingencia": "Contingencia",
+          "contingenciaDescriptor": "De {{fondo}} € · consumido {{consumido}} €"
         },
         "partidas": {
           "titulo": "Presupuesto frente a ejecutado",
           "sinDatos": "Todavía no hay partidas de presupuesto en este evento.",
           "sinPartida": "Sin partida",
           "columnaPartida": "Partida",
+          "columnaComparacion": "Comparación",
           "columnaPresupuesto": "Presupuesto",
           "columnaEjecutado": "Ejecutado",
-          "columnaPorcentaje": "%"
+          "columnaPorcentaje": "%",
+          "pasadaUna": "Una partida se ha pasado",
+          "pasadas": "{{n}} partidas se han pasado",
+          "leyendaPresupuestado": "Presupuestado",
+          "leyendaEjecutado": "Ejecutado dentro de lo previsto",
+          "leyendaSobre": "Ejecutado por encima",
+          "totalPartidas": "Total de partidas",
+          "totalValores": "{{presupuesto}} € presupuestado · {{ejecutado}} € ejecutado",
+          "aria": "{{nombre}}: ejecutado {{ejecutado}} € sobre {{presupuesto}} € presupuestados, un {{porcentaje}} %",
+          "ariaSobre": "{{nombre}}: ejecutado {{ejecutado}} € sobre {{presupuesto}} € presupuestados, un {{porcentaje}} %, por encima de lo previsto",
+          "ariaSinPresupuesto": "{{nombre}}: ejecutado {{ejecutado}} € sin presupuesto asignado"
         },
         "contingencia": {
           "titulo": "Fondo de contingencia",
-          "dotacion": "Dotación inicial: {{porcentaje}}% del presupuesto ({{total}} €)",
-          "consumido": "Consumido",
-          "disponible": "Disponible"
+          "explicacion": "Un porcentaje del presupuesto reservado para lo que se salga de cuenta. No es una partida más: solo se consume cuando una partida se pasa, y por la diferencia exacta.",
+          "sinFondo": "Este evento no tiene fondo de contingencia dotado.",
+          "aria": "Fondo de contingencia: consumidos {{consumido}} € de {{fondo}} €, quedan disponibles {{disponible}} €",
+          "consumidos": "{{importe}} € consumidos",
+          "libres": "{{importe}} € libres",
+          "dotacionInicial": "Dotación inicial · {{porcentaje}} % de {{total}} €",
+          "consumoDePartida": "{{nombre}} · se pasó de {{presupuesto}} € a {{ejecutado}} €",
+          "disponibleAhora": "Disponible ahora mismo"
+        },
+        "prevision": {
+          "titulo": "Previsión de cierre",
+          "saldoHoy": "Saldo contable a día de hoy",
+          "sinCompromisos": "Esta previsión no descuenta compromisos pendientes de facturar: ese dato no está disponible todavía.",
+          "cobrado": "Cobrado",
+          "pagado": "Pagado",
+          "cajaHoy": "Caja hoy"
         },
         "evolucion": {
           "titulo": "Evolución temporal",
@@ -1358,7 +1392,11 @@
           "columnaTotal": "Total",
           "exento": "Exento",
           "estadoCobrado": "Cobrado",
-          "estadoComprometido": "Comprometido"
+          "estadoComprometido": "Comprometido",
+          "totalIngresos": "Total de ingresos",
+          "totalGastos": "Total de gastos en metálico",
+          "totalEspecie": "Total valorado en especie",
+          "explicacionEspecie": "Lo que no pasa por el banco también cuenta. Cada aportación en especie se anota dos veces —como ingreso y como gasto por el mismo importe—, así que no altera el saldo pero sí refleja lo que costaría el evento si hubiera que pagarlo todo."
         },
         "origen": {
           "patrocinio": "Patrocinio",
@@ -1378,6 +1416,9 @@
           "titulo": "Añadir un gasto",
           "proveedor": "Proveedor",
           "sinPartida": "Sin partida",
+          "base": "Base imponible (€)",
+          "iva": "IVA (€)",
+          "crear": "Añadir gasto",
           "boton": "Añadir gasto",
           "proveedorRequerido": "Escribe el nombre del proveedor.",
           "fechaRequerida": "Indica la fecha del gasto.",
