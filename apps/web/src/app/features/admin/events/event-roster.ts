@@ -56,6 +56,7 @@ interface GroupedMember extends Persona {
 
 interface Page<T> {
   readonly items: readonly T[];
+  readonly total: number;
 }
 
 /**
@@ -320,18 +321,28 @@ export class EventRoster implements OnInit {
 
   private async cargarMiembrosDeLaOrganizacion(): Promise<void> {
     try {
-      const pagina = await firstValueFrom(
-        this.http.get<Page<GroupedMember>>(this.api.url('/organizations/me/members'), {
-          params: { limit: 200, offset: 0 },
-        }),
-      );
-      // Desde la fase 4 del plan de invitaciones, cada persona trae **todos**
-      // sus roles en un solo elemento — se despliega de vuelta a una opción
-      // por (persona, rol), que es lo que necesita este selector: añadir a
-      // alguien al roster es añadir una membresía concreta, no a la persona
-      // en abstracto.
+      // El selector necesita a toda la organización, así que se paginan las
+      // peticiones hasta agotar (el backend limita cada página a 100).
+      const personas: GroupedMember[] = [];
+      let offset = 0;
+      for (;;) {
+        const pagina = await firstValueFrom(
+          this.http.get<Page<GroupedMember>>(this.api.url('/organizations/me/members'), {
+            params: { limit: 100, offset },
+          }),
+        );
+        personas.push(...pagina.items);
+        offset += pagina.items.length;
+        if (personas.length >= pagina.total || pagina.items.length === 0) {
+          break;
+        }
+      }
+      // Cada persona trae **todos** sus roles en un solo elemento — se
+      // despliega de vuelta a una opción por (persona, rol), que es lo que
+      // necesita este selector: añadir a alguien al roster es añadir una
+      // membresía concreta, no a la persona en abstracto.
       const opciones: OrganizationMemberOption[] = [];
-      for (const persona of pagina.items) {
+      for (const persona of personas) {
         for (const rol of persona.roles) {
           opciones.push({
             id: rol.id,
