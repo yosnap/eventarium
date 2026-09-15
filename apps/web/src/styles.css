@@ -260,3 +260,27 @@ body::before {
   border: 2px solid var(--on-accent);
   box-shadow: var(--shadow-md);
 }
+
+/* ── Utilidades del panel ───────────────────────────────────────────────────
+ * Patrones compartidos por las pantallas de administración (fase 0 del plan
+ * 260915-0052). Clases globales porque viven en contenido proyectado, donde
+ * los estilos encapsulados de los componentes no llegan. */
+
+/* Cuerpo con padding de panel (.panel__body, eventarium.css:189): para
+ * contenido no tabular dentro de un app-panel con cabecera. Las tablas no lo
+ * necesitan — gestionan su propio padding de celda, como la referencia. */
+.panel-cuerpo {
+  padding: var(--sp-5);
+}
+
+/* Celda de persona apilada (.who, panel-organizador.html:35-36): nombre
+ * encima, detalle (email) debajo en muted. */
+.persona-apilada {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.persona-apilada small {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}

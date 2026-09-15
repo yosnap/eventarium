@@ -10,6 +10,7 @@ import { EstadosSection } from './sections/estados-section';
 import { FondoSection } from './sections/fondo-section';
 import { SelectSection } from './sections/select-section';
 import { SuperficiesSection } from './sections/superficies-section';
+import { PatronesPanelSection } from './sections/patrones-panel-section';
 import { TablasSection } from './sections/tablas-section';
 import { TemasSection } from './sections/temas-section';
 import { TipografiaSection } from './sections/tipografia-section';
@@ -52,6 +53,7 @@ interface EntradaIndice {
     SuperficiesSection,
     DatosSection,
     TablasSection,
+    PatronesPanelSection,
     FondoSection,
     TemasSection,
   ],
@@ -84,6 +86,7 @@ interface EntradaIndice {
           <app-style-guide-superficies-section />
           <app-style-guide-datos-section />
           <app-style-guide-tablas-section />
+          <app-style-guide-patrones-panel-section />
           <app-style-guide-fondo-section />
           <app-style-guide-temas-section />
         </div>
@@ -173,6 +176,7 @@ export class StyleGuidePage {
     { href: '#superficies', claveTexto: 'admin.catalogoEstilo.superficies.titulo' },
     { href: '#datos', claveTexto: 'admin.catalogoEstilo.datos.titulo' },
     { href: '#tablas', claveTexto: 'admin.catalogoEstilo.tablas.titulo' },
+    { href: '#patrones-panel', claveTexto: 'admin.catalogoEstilo.patronesPanel.titulo' },
     { href: '#fondo', claveTexto: 'admin.catalogoEstilo.fondo.titulo' },
     { href: '#temas', claveTexto: 'admin.catalogoEstilo.temas.titulo' },
   ];

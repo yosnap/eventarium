@@ -212,16 +212,32 @@ export function enlacesDeEvento(eventId: string, aceptaPagos: boolean): readonly
       display: grid;
       gap: var(--space-xs);
     }
+    /* .side a del prototipo (panel-organizador.html:7-11): fs-sm, muted,
+       hover con surface-hi; el activo es fondo tenue + barra inset de accent,
+       no un bloque de acento completo. */
     a {
-      display: block;
-      padding: var(--space-sm) var(--space-md);
-      border-radius: var(--radius-md);
-      color: var(--fg);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-height: 40px;
+      padding: 0 12px;
+      border-radius: var(--radius-sm);
+      color: var(--muted);
+      font-size: var(--fs-sm);
       text-decoration: none;
+      transition:
+        background-color 0.15s,
+        color 0.15s;
+    }
+    a:hover {
+      background-color: var(--surface-hi);
+      color: var(--fg);
     }
     a.activo {
-      background-color: var(--accent);
-      color: var(--on-accent);
+      background-color: var(--surface-hi);
+      color: var(--fg);
+      box-shadow: inset 2px 0 0 var(--accent);
     }
   `,
 })

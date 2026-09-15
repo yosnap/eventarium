@@ -2,7 +2,6 @@ import { HttpClient } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
-  ElementRef,
   type OnInit,
   computed,
   inject,
@@ -19,6 +18,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { DataTable, DataTableColumn } from '../../../shared/ui/data-table';
+import { Dialog } from '../../../shared/ui/dialog';
 
 type PaymentStatus = 'pending' | 'paid' | 'refunded' | 'partially_refunded' | 'expired';
 type RefundStatus = 'pending' | 'submitted' | 'succeeded' | 'failed';
@@ -76,7 +76,7 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
 @Component({
   selector: 'app-event-payments',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, DataTable],
+  imports: [TranslocoDirective, Alert, Button, Card, DataTable, Dialog],
   template: `
     <ng-container *transloco="let t">
       <app-card [heading]="t('admin.events.payments.titulo')">
@@ -136,9 +136,9 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
         }
       </app-card>
 
-      <dialog #dialogo (cancel)="cerrarDialogo()" (close)="cerrarDialogo()">
+      <app-dialog #dialogo (cerrado)="pagoSeleccionado.set(null)">
         @if (pagoSeleccionado(); as pago) {
-          <form (submit)="confirmarReembolso($event)" novalidate class="dialogo-contenido">
+          <form (submit)="confirmarReembolso($event)" novalidate class="dialogo-cuerpo">
             <h2>{{ t('admin.events.payments.dialogo.titulo') }}</h2>
             <dl class="resumen">
               <dt>{{ t('admin.events.payments.dialogo.total') }}</dt>
@@ -183,7 +183,7 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
             }
 
             <div class="acciones-dialogo">
-              <app-button variant="secundario" type="button" (pulsado)="cerrarDialogo()">
+              <app-button variant="secundario" type="button" (pulsado)="dialogo.cerrar()">
                 {{ t('comun.cancelar') }}
               </app-button>
               <app-button type="submit" variant="peligro" [loading]="confirmando()">
@@ -192,7 +192,7 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
             </div>
           </form>
         }
-      </dialog>
+      </app-dialog>
     </ng-container>
   `,
   styles: `
@@ -205,20 +205,11 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
       color: var(--danger);
       font-weight: 600;
     }
-    dialog {
-      border: none;
-      border-radius: var(--radius-md);
-      padding: 0;
-      max-width: 28rem;
-      width: 90vw;
-    }
-    dialog::backdrop {
-      background-color: var(--backdrop);
-    }
-    .dialogo-contenido {
+    /* El fondo, borde, radio y padding del diálogo los aporta app-dialog;
+       aquí solo lo específico de este formulario. */
+    .dialogo-cuerpo {
       display: grid;
       gap: var(--space-md);
-      padding: var(--space-lg);
     }
     .resumen {
       display: grid;
@@ -272,7 +263,7 @@ export class EventPayments implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
-  private readonly dialogoRef = viewChild<ElementRef<HTMLDialogElement>>('dialogo');
+  private readonly dialogo = viewChild.required(Dialog);
 
   /** Las columnas de la tabla de pagos, con la etiqueta ya traducida. */
   protected readonly columnasDePagos = computed<DataTableColumn[]>(() => {
@@ -343,12 +334,7 @@ export class EventPayments implements OnInit {
     this.importeEuros.set(euros(pendiente(pago)));
     this.revocarEntrada.set(false);
     this.errorDialogo.set(null);
-    this.dialogoRef()?.nativeElement.showModal();
-  }
-
-  protected cerrarDialogo(): void {
-    this.dialogoRef()?.nativeElement.close();
-    this.pagoSeleccionado.set(null);
+    this.dialogo().abrir();
   }
 
   protected async confirmarReembolso(evento: SubmitEvent): Promise<void> {
@@ -382,7 +368,7 @@ export class EventPayments implements OnInit {
           revoke_ticket: esTotal ? true : this.revocarEntrada(),
         }),
       );
-      this.cerrarDialogo();
+      this.dialogo().cerrar();
       this.avisoAccion.set(this.transloco.translate('admin.events.payments.reembolsoSolicitado'));
       await this.cargar();
     } catch (error) {

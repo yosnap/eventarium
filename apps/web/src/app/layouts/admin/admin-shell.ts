@@ -189,8 +189,10 @@ import { PanelScope } from './panel-scope';
       background-color: var(--surface-2);
       padding-block: var(--space-md);
     }
+    /* .main del prototipo: --sp-6 (32px) arriba y a los lados, --sp-8 (72px)
+       abajo — el panel respira al final de la página. */
     main {
-      padding: var(--space-lg);
+      padding: var(--sp-6) var(--sp-6) var(--sp-8);
     }
     @media (max-width: 48rem) {
       .cuerpo {
