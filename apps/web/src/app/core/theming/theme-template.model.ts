@@ -58,8 +58,32 @@ export const TOKENS_DE_PLANTILLA: readonly string[] = [
   'backdrop',
   'shadow-md',
   'shadow-lg',
+  'font-display',
+  'font-body',
 ];
 
 /** Tokens que no son un color suelto sino un `box-shadow` completo: no tienen
  * selector de color, se editan por texto (mismo contrato que el backend). */
 export const TOKENS_DE_SOMBRA: readonly string[] = ['shadow-md', 'shadow-lg'];
+
+/** Tokens tipográficos de la plantilla: van en ambos modos con el mismo valor
+ * (la tipografía no cambia con el tema) y se eligen de las familias
+ * autoalojadas, no se escriben a mano. */
+export const TOKENS_DE_FUENTE: readonly string[] = ['font-display', 'font-body'];
+
+/** Familias autoalojadas que una plantilla puede declarar, por rol. Contrato
+ * de dos lados con `FAMILIAS_DE_FUENTE` de `theme_templates/schemas.py`. */
+export const FAMILIAS_DISPLAY: readonly string[] = [
+  'Bebas Neue',
+  'Archivo Black',
+  'Oswald',
+  'Playfair Display',
+];
+
+export const FAMILIAS_BODY: readonly string[] = ['DM Sans', 'Inter', 'Lora'];
+
+/** Las claves de fuente admitidas por token (`font-display` → FAMILIAS_DISPLAY). */
+export const FAMILIAS_POR_TOKEN: Readonly<Record<string, readonly string[]>> = {
+  'font-display': FAMILIAS_DISPLAY,
+  'font-body': FAMILIAS_BODY,
+};

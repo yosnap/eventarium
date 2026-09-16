@@ -82,3 +82,81 @@
   font-display: swap;
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122;
 }
+
+/* --- Familias del selector de tipografía (fase de fuentes) ----------------
+ * Cuatro familias de display/cuerpo adicionales, autoalojadas con el mismo
+ * criterio que las tres originales: subconjunto latin (U+0000-00FF cubre los
+ * diacríticos castellanos), sin CDN de terceros. Bebas Neue sigue disponible
+ * pero Oswald ofrece la condensada con minúsculas y acentos completos. */
+
+@font-face {
+  font-family: 'Archivo Black';
+  src: url('/assets/fonts/archivo-black/archivo-black-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+20AC;
+}
+
+@font-face {
+  font-family: 'Oswald';
+  src: url('/assets/fonts/oswald/oswald-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+20AC;
+}
+
+@font-face {
+  font-family: 'Oswald';
+  src: url('/assets/fonts/oswald/oswald-600.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+20AC;
+}
+
+@font-face {
+  font-family: 'Playfair Display';
+  src: url('/assets/fonts/playfair-display/playfair-display-600.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+20AC;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('/assets/fonts/inter/inter-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+20AC;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('/assets/fonts/inter/inter-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+20AC;
+}
+
+@font-face {
+  font-family: 'Lora';
+  src: url('/assets/fonts/lora/lora-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+20AC;
+}
+
+@font-face {
+  font-family: 'Lora';
+  src: url('/assets/fonts/lora/lora-600.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+20AC;
+}

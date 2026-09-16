@@ -8,7 +8,9 @@ import { ApiError } from '../../../core/api/error.interceptor';
 import { AvisoDeContraste, comprobarContrasteDePlantilla } from '../../../core/theming/contrast';
 import { alfaDe, hexParaSelector, oklchDeHex } from '../../../core/theming/oklch';
 import {
+  FAMILIAS_POR_TOKEN,
   PlantillaDeTema,
+  TOKENS_DE_FUENTE,
   TOKENS_DE_PLANTILLA,
   TOKENS_DE_SOMBRA,
 } from '../../../core/theming/theme-template.model';
@@ -263,7 +265,7 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
                 <span role="columnheader">{{ t('admin.superadmin.plantillas.modo.dark') }}</span>
                 <span role="columnheader">{{ t('admin.superadmin.plantillas.modo.light') }}</span>
               </div>
-              @for (token of tokens; track token) {
+              @for (token of tokensDeColor; track token) {
                 <div class="token-fila" role="row">
                   <span class="token-nombre" role="rowheader">{{ token }}</span>
                   @for (modo of modos; track modo) {
@@ -296,6 +298,23 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
                   }
                 </div>
               }
+            </div>
+
+            <div class="tipografia">
+              <app-radio-group
+                nombre="fuente-display"
+                [etiqueta]="t('admin.superadmin.plantillas.fuenteDisplay')"
+                [opciones]="familiasDisplay()"
+                [valor]="fuenteDe('font-display')"
+                (valorChange)="cambiarFuente('font-display', $event)"
+              />
+              <app-radio-group
+                nombre="fuente-body"
+                [etiqueta]="t('admin.superadmin.plantillas.fuenteBody')"
+                [opciones]="familiasBody()"
+                [valor]="fuenteDe('font-body')"
+                (valorChange)="cambiarFuente('font-body', $event)"
+              />
             </div>
 
             @if (avisosAMostrar().length > 0) {
@@ -388,6 +407,16 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
       text-transform: uppercase;
       color: var(--accent);
     }
+    .tipografia {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--sp-4);
+    }
+    @media (max-width: 48rem) {
+      .tipografia {
+        grid-template-columns: 1fr;
+      }
+    }
     .previsualizacion {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -398,7 +427,17 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
       gap: var(--space-xs);
     }
     @media (max-width: 48rem) {
-      .previsualizacion {
+      .tipografia {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--sp-4);
+    }
+    @media (max-width: 48rem) {
+      .tipografia {
+        grid-template-columns: 1fr;
+      }
+    }
+    .previsualizacion {
         grid-template-columns: 1fr;
       }
     }
@@ -494,7 +533,37 @@ export class ThemeTemplatesPage {
   private readonly transloco = inject(TranslocoService);
 
   protected readonly modos: readonly ModoDeTema[] = ['dark', 'light'];
-  protected readonly tokens = TOKENS_DE_PLANTILLA;
+  /** Los tokens que pinta la tabla de colores: sin sombras ni fuentes, que
+   * tienen su propia sección de edición. */
+  protected readonly tokensDeColor = TOKENS_DE_PLANTILLA.filter(
+    (token) => !TOKENS_DE_SOMBRA.includes(token) && !TOKENS_DE_FUENTE.includes(token),
+  );
+
+  /** Las familias seleccionables de cada token tipográfico, ya traducidas. */
+  protected readonly familiasDisplay = computed<readonly { valor: string; etiqueta: string }[]>(
+    () => FAMILIAS_POR_TOKEN['font-display'].map((familia) => ({ valor: familia, etiqueta: familia })),
+  );
+
+  protected readonly familiasBody = computed<readonly { valor: string; etiqueta: string }[]>(
+    () => FAMILIAS_POR_TOKEN['font-body'].map((familia) => ({ valor: familia, etiqueta: familia })),
+  );
+
+  /** La familia elegida de un token tipográfico (vive en ambos modos igual). */
+  protected fuenteDe(token: string): string {
+    return this.formulario().tokens['dark'][token] ?? '';
+  }
+
+  /** Cambia un token tipográfico en los dos modos a la vez: la tipografía no
+   * cambia con el tema. */
+  protected cambiarFuente(token: string, familia: string): void {
+    this.formulario.update((actual) => ({
+      ...actual,
+      tokens: {
+        dark: { ...actual.tokens.dark, [token]: familia },
+        light: { ...actual.tokens.light, [token]: familia },
+      },
+    }));
+  }
 
   /** Tokens del formulario para el preview en vivo (lo que se ve es lo que hay). */
   protected readonly tokensEnVivo = computed(() => this.formulario().tokens);

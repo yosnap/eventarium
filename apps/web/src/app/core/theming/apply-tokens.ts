@@ -27,6 +27,14 @@ const FORMATO_OKLCH = /^oklch\(\s*[\d.]+%\s+[\d.]+\s+[\d.]+\s*(?:\/\s*[\d.]+%?)?
  * la lista blanca exige hex o `oklch()` exactos.
  */
 const TOKENS_DE_SOMBRA = new Set(['shadow-md', 'shadow-lg']);
+
+/** Tokens tipográficos: su valor no es un color sino el nombre de una familia
+ * autoalojada (mismo contrato que `FAMILIAS_POR_TOKEN` de theme-template.model). */
+const TOKENS_DE_FUENTE = new Set(['font-display', 'font-body']);
+const FAMILIAS_POR_TOKEN: Record<string, Set<string>> = {
+  'font-display': new Set(['Bebas Neue', 'Archivo Black', 'Oswald', 'Playfair Display']),
+  'font-body': new Set(['DM Sans', 'Inter', 'Lora']),
+};
 const FORMATO_SOMBRA_CON_OKLCH = /oklch\(\s*[\d.]+%\s+[\d.]+\s+[\d.]+\s*(?:\/\s*[\d.]+%?)?\s*\)/i;
 
 /**
@@ -44,6 +52,9 @@ function esValorSeguro(nombreToken: string, valor: unknown): valor is string {
   }
   if (TOKENS_DE_SOMBRA.has(nombreToken)) {
     return FORMATO_SOMBRA_CON_OKLCH.test(valor);
+  }
+  if (TOKENS_DE_FUENTE.has(nombreToken)) {
+    return FAMILIAS_POR_TOKEN[nombreToken]?.has(valor) ?? false;
   }
   return FORMATO_HEX.test(valor) || FORMATO_OKLCH.test(valor);
 }

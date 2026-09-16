@@ -29,6 +29,8 @@ type Modo = 'dark' | 'light';
         [style.--t-muted]="tokensDelModo()['muted']"
         [style.--t-accent]="tokensDelModo()['accent']"
         [style.--t-on-accent]="tokensDelModo()['on-accent']"
+        [style.--t-font-display]="tokensDelModo()['font-display']"
+        [style.--t-font-body]="tokensDelModo()['font-body']"
       >
         <article class="ficha">
           <span class="ficha-acento" aria-hidden="true"></span>
@@ -55,7 +57,8 @@ type Modo = 'dark' | 'light';
       border-radius: var(--radius-md);
       padding: var(--sp-4);
       border: 1px solid var(--border);
-      font-family: var(--font-body);
+      /* La fuente de la plantilla manda dentro; la del panel, fuera. */
+      font-family: var(--t-font-body, var(--font-body));
       min-height: 10rem;
       display: grid;
       align-content: center;
@@ -86,6 +89,7 @@ type Modo = 'dark' | 'light';
     }
     .ficha-titulo {
       margin: 0;
+      font-family: var(--t-font-display, var(--font-display));
       font-size: 1.05rem;
       line-height: 1.25;
       color: var(--t-fg);

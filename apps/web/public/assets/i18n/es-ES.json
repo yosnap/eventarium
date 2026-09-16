@@ -1807,7 +1807,9 @@
         "previewFecha": "16 sept · 09:00 · Valencia",
         "previewChip": "Entradas abiertas",
         "previewBoton": "Inscribirme",
-        "previsualizacion": "Previsualización"
+        "previsualizacion": "Previsualización",
+        "fuenteDisplay": "Fuente de los títulos",
+        "fuenteBody": "Fuente de los textos"
       },
       "rotulo": "Plataforma",
       "cabeceraInicio": "La instalación está",

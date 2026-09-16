@@ -96,7 +96,13 @@ _TOKENS_CLARO: dict[str, str] = {
 
 
 def _tokens_validos() -> dict[str, dict[str, str]]:
-    return {"dark": copy.deepcopy(_TOKENS_OSCURO), "light": copy.deepcopy(_TOKENS_CLARO)}
+    tokens = {"dark": copy.deepcopy(_TOKENS_OSCURO), "light": copy.deepcopy(_TOKENS_CLARO)}
+    # Los tokens tipográficos son obligatorios como el resto: pareja por defecto
+    # del catálogo, en los dos modos (la tipografía no cambia con el tema).
+    for modo in tokens.values():
+        modo["font-display"] = "Bebas Neue"
+        modo["font-body"] = "DM Sans"
+    return tokens
 
 
 async def _hacer_superadmin(email: str) -> None:
@@ -113,11 +119,15 @@ async def _restaurar_catalogo_tras_cada_test() -> AsyncIterator[None]:
     `conftest.py` (truncarla borraría la semilla de `0038` para el resto de
     la suite, que no vuelve a sembrarse hasta el siguiente `alembic upgrade
     head`). En su lugar, cada test de este fichero deja el catálogo como lo
-    encontró: solo `por-defecto`, que además es la predeterminada."""
+    encontró: las cinco sembradas (por defecto + los cuatro juegos), con
+    «por-defecto» como predeterminada."""
     yield
     async with SessionMaintenance() as session:
         await session.execute(
-            text("DELETE FROM theme_templates WHERE key NOT IN ('por-defecto')")
+            text(
+                "DELETE FROM theme_templates "
+                "WHERE key NOT IN ('por-defecto', 'neon', 'editorial', 'festival', 'bosque')"
+            )
         )
         await session.execute(text("UPDATE theme_templates SET is_default = false"))
         await session.execute(

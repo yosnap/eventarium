@@ -46,8 +46,24 @@ TOKENS_DE_PLANTILLA: frozenset[str] = frozenset(
         "backdrop",
         "shadow-md",
         "shadow-lg",
+        # Tipografía: la familia se elige de las autoalojadas, no se escribe a mano.
+        "font-display",
+        "font-body",
     }
 )
+
+# Familias autoalojadas (`styles/font-faces.css`) que puede declarar cada token
+# tipográfico. Un valor fuera de estas listas es un 422: una familia sin
+# binario propio haría caer los títulos a la reserva del navegador sin aviso.
+FAMILIAS_DISPLAY: frozenset[str] = frozenset(
+    {"Bebas Neue", "Archivo Black", "Oswald", "Playfair Display"}
+)
+FAMILIAS_BODY: frozenset[str] = frozenset({"DM Sans", "Inter", "Lora"})
+
+FAMILIAS_POR_TOKEN: dict[str, frozenset[str]] = {
+    "font-display": FAMILIAS_DISPLAY,
+    "font-body": FAMILIAS_BODY,
+}
 
 _HEX_6_RE = re.compile(r"^#[0-9a-f]{6}$", re.IGNORECASE)
 # `L` exige `%`: contrato de dos lados con `PATRON_OKLCH` de
@@ -109,7 +125,14 @@ def validar_tokens_de_plantilla(tokens: dict[str, Any]) -> dict[str, dict[str, s
                 raise ValueError(
                     f"El token «{token}» del modo «{modo}» debe ser una cadena de texto."
                 )
-            if token in TOKENS_DE_SOMBRA:
+            if token in FAMILIAS_POR_TOKEN:
+                if valor.strip() not in FAMILIAS_POR_TOKEN[token]:
+                    raise ValueError(
+                        f"El token «{token}» del modo «{modo}» declara «{valor}», que no "
+                        "es una familia autoalojada. Familias admitidas: "
+                        f"{sorted(FAMILIAS_POR_TOKEN[token])}."
+                    )
+            elif token in TOKENS_DE_SOMBRA:
                 if not es_formato_de_sombra_valido(valor):
                     raise ValueError(
                         f"El token «{token}» del modo «{modo}» tiene un formato de "
