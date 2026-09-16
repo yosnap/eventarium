@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { TranslocoDirective } from '@jsverse/transloco';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
+import { SegmentedFilter } from '../../../shared/ui/segmented-filter';
 import { BotonesSection } from './sections/botones-section';
 import { CamposSection } from './sections/campos-section';
 import { ChipsSection } from './sections/chips-section';
@@ -16,16 +17,33 @@ import { TablasSection } from './sections/tablas-section';
 import { TemasSection } from './sections/temas-section';
 import { TipografiaSection } from './sections/tipografia-section';
 
-interface EntradaIndice {
-  readonly href: string;
-  readonly claveTexto: string;
-}
+/** Identificador de categoría del catálogo; cada una corresponde a una sección. */
+export type Categoria =
+  | 'color'
+  | 'tipografia'
+  | 'botones'
+  | 'estados'
+  | 'chips'
+  | 'campos'
+  | 'select'
+  | 'superficies'
+  | 'datos'
+  | 'tablas'
+  | 'patrones-panel'
+  | 'fondo'
+  | 'temas'
+  | 'cookies';
 
 /**
  * Réplica del prototipo real `sistema-componentes.html`: el catálogo interno de
- * `shared/ui`, sección por sección y en el mismo orden, con un índice lateral pegajoso
- * de enlaces ancla. Cada sección vive en su propio componente bajo `./sections/` para
- * mantener este fichero corto y cada pieza enfocada en un único bloque del prototipo.
+ * `shared/ui`, sección por sección y en el mismo orden — pero en **pestañas
+ * horizontales** por categoría (patrón del catálogo de Bloom Marbella), no en una
+ * página larga con índice ancla: los enlaces ancla no llevaban a ningún sitio (las
+ * secciones nunca tuvieron `id`) y una página de esta longitud era inabarcable.
+ * Cada pestaña muestra su única sección; el resto no se monta.
+ *
+ * Cada sección vive en su propio componente bajo `./sections/` para mantener este
+ * fichero corto y cada pieza enfocada en un único bloque del prototipo.
  *
  * Réplica completa a propósito, aunque alguna sección (p. ej. Color, Tipografía,
  * Estados, Fondo, Temas) no tenga hoy un consumidor real fuera de esta página: así lo
@@ -44,6 +62,7 @@ interface EntradaIndice {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     TranslocoDirective,
+    SegmentedFilter,
     ColorSection,
     TipografiaSection,
     BotonesSection,
@@ -67,33 +86,58 @@ interface EntradaIndice {
         <p class="introduccion">{{ t('admin.catalogoEstilo.introduccion') }}</p>
       </div>
 
-      <div class="armazon">
-        <nav class="indice" [attr.aria-label]="t('admin.catalogoEstilo.indice')">
-          <span class="rotulo-seccion">{{ t('admin.catalogoEstilo.indiceRotulo') }}</span>
-          <ol>
-            @for (entrada of indice; track entrada.href) {
-              <li><a [href]="entrada.href">{{ t(entrada.claveTexto) }}</a></li>
-            }
-          </ol>
-        </nav>
+      <app-segmented-filter
+        class="pestanas"
+        [opciones]="pestanas()"
+        [valor]="categoria()"
+        [etiqueta]="t('admin.catalogoEstilo.indice')"
+        (cambio)="categoria.set($event)"
+      />
 
-        <div class="secciones">
+      @switch (categoria()) {
+        @case ('color') {
           <app-style-guide-color-section />
+        }
+        @case ('tipografia') {
           <app-style-guide-tipografia-section />
+        }
+        @case ('botones') {
           <app-style-guide-botones-section />
+        }
+        @case ('estados') {
           <app-style-guide-estados-section />
+        }
+        @case ('chips') {
           <app-style-guide-chips-section />
+        }
+        @case ('campos') {
           <app-style-guide-campos-section />
+        }
+        @case ('select') {
           <app-style-guide-select-section />
+        }
+        @case ('superficies') {
           <app-style-guide-superficies-section />
+        }
+        @case ('datos') {
           <app-style-guide-datos-section />
+        }
+        @case ('tablas') {
           <app-style-guide-tablas-section />
+        }
+        @case ('patrones-panel') {
           <app-style-guide-patrones-panel-section />
+        }
+        @case ('fondo') {
           <app-style-guide-fondo-section />
+        }
+        @case ('temas') {
           <app-style-guide-temas-section />
+        }
+        @case ('cookies') {
           <app-style-guide-cookies-section />
-        </div>
-      </div>
+        }
+      }
     </ng-container>
   `,
   styles: `
@@ -109,79 +153,44 @@ interface EntradaIndice {
       margin-top: var(--space-md);
       color: var(--muted);
     }
-    .armazon {
-      display: grid;
-      grid-template-columns: 210px minmax(0, 1fr);
-      gap: var(--space-lg);
-    }
-    .indice {
-      position: sticky;
-      top: 5rem;
-      align-self: start;
-    }
-    .indice ol {
-      list-style: none;
-      margin: var(--space-sm) 0 0;
-      padding: 0;
-      display: grid;
-      gap: 1px;
-    }
-    .indice a {
+    .pestanas {
       display: block;
-      min-height: 34px;
-      padding: 7px 11px;
-      border-radius: var(--radius-sm);
-      text-decoration: none;
-      font-size: var(--fs-sm);
-      color: var(--muted);
-      transition:
-        background-color 0.15s,
-        color 0.15s;
-    }
-    .indice a:hover {
-      background: var(--surface-hi);
-      color: var(--fg);
-    }
-    .secciones > * {
-      display: block;
-      padding-bottom: var(--space-lg);
       margin-bottom: var(--space-lg);
-      border-bottom: 1px solid var(--border);
-    }
-    .secciones > *:last-child {
-      border-bottom: 0;
-      margin-bottom: 0;
-      padding-bottom: 0;
-    }
-    @media (max-width: 860px) {
-      .armazon {
-        grid-template-columns: 1fr;
-        gap: var(--space-md);
-      }
-      .indice {
-        position: static;
-      }
-      .indice ol {
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      }
     }
   `,
 })
 export class StyleGuidePage {
-  protected readonly indice: readonly EntradaIndice[] = [
-    { href: '#color', claveTexto: 'admin.catalogoEstilo.color.titulo' },
-    { href: '#tipografia', claveTexto: 'admin.catalogoEstilo.tipografia.titulo' },
-    { href: '#botones', claveTexto: 'admin.catalogoEstilo.botones.titulo' },
-    { href: '#estados', claveTexto: 'admin.catalogoEstilo.estados.titulo' },
-    { href: '#chips', claveTexto: 'admin.catalogoEstilo.chips.titulo' },
-    { href: '#campos', claveTexto: 'admin.catalogoEstilo.campos.titulo' },
-    { href: '#select', claveTexto: 'admin.catalogoEstilo.select.titulo' },
-    { href: '#superficies', claveTexto: 'admin.catalogoEstilo.superficies.titulo' },
-    { href: '#datos', claveTexto: 'admin.catalogoEstilo.datos.titulo' },
-    { href: '#tablas', claveTexto: 'admin.catalogoEstilo.tablas.titulo' },
-    { href: '#patrones-panel', claveTexto: 'admin.catalogoEstilo.patronesPanel.titulo' },
-    { href: '#fondo', claveTexto: 'admin.catalogoEstilo.fondo.titulo' },
-    { href: '#temas', claveTexto: 'admin.catalogoEstilo.temas.titulo' },
-    { href: '#cookies', claveTexto: 'admin.catalogoEstilo.cookies.titulo' },
-  ];
+  private readonly transloco = inject(TranslocoService);
+
+  /** La pestaña activa; el orden de `CATEGORIAS` es el del prototipo. */
+  protected readonly categoria = signal<Categoria>('color');
+
+  protected readonly pestanas = computed<readonly { valor: Categoria; etiqueta: string }[]>(() =>
+    CATEGORIAS.map((valor) => ({
+      valor,
+      etiqueta: this.transloco.translate('admin.catalogoEstilo.' + claveDe(valor) + '.titulo'),
+    })),
+  );
+}
+
+/** Orden de las pestañas, el mismo que tenían las secciones (y el del prototipo). */
+export const CATEGORIAS: readonly Categoria[] = [
+  'color',
+  'tipografia',
+  'botones',
+  'estados',
+  'chips',
+  'campos',
+  'select',
+  'superficies',
+  'datos',
+  'tablas',
+  'patrones-panel',
+  'fondo',
+  'temas',
+  'cookies',
+];
+
+function claveDe(categoria: Categoria): string {
+  return categoria === 'patrones-panel' ? 'patronesPanel' : categoria;
 }

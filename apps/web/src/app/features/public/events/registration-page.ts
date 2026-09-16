@@ -30,6 +30,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Breadcrumb, type BreadcrumbItem } from '../../../shared/ui/breadcrumb';
 import { Button } from '../../../shared/ui/button';
 import { Checkbox } from '../../../shared/ui/checkbox';
+import { RadioGroup } from '../../../shared/ui/radio';
 import { ErrorSummary, type ResumenDeError } from '../../../shared/ui/error-summary';
 import { Input } from '../../../shared/ui/input';
 import { Reveal } from '../../../shared/ui/reveal.directive';
@@ -80,6 +81,7 @@ function precioEnEuros(cents: number): string {
     Button,
     Checkbox,
     ErrorSummary,
+    RadioGroup,
     Input,
     Reveal,
     TurnstileWidget,
@@ -170,18 +172,13 @@ function precioEnEuros(cents: number): string {
                         @case ('single_choice') {
                           <fieldset [id]="'insc-pregunta-' + pregunta.id" tabindex="-1">
                             <legend>{{ etiquetaConObligatoria(pregunta) }}</legend>
-                            @for (opcion of pregunta.options ?? []; track opcion) {
-                              <label class="opcion">
-                                <input
-                                  type="radio"
-                                  [name]="'pregunta-' + pregunta.id"
-                                  [value]="opcion"
-                                  [checked]="valorTexto(pregunta.id) === opcion"
-                                  (change)="fijarTexto(pregunta.id, opcion)"
-                                />
-                                {{ opcion }}
-                              </label>
-                            }
+                            <app-radio-group
+                              [nombre]="'pregunta-' + pregunta.id"
+                              [etiqueta]="etiquetaConObligatoria(pregunta)"
+                              [opciones]="(pregunta.options ?? []).map((opcion) => ({ valor: opcion, etiqueta: opcion }))"
+                              [valor]="valorTexto(pregunta.id)"
+                              (valorChange)="fijarTexto(pregunta.id, $event)"
+                            />
                             @if (erroresPreguntas()[pregunta.id]; as mensaje) {
                               <p class="error-pregunta">{{ mensaje }}</p>
                             }
@@ -209,18 +206,16 @@ function precioEnEuros(cents: number): string {
                   @if (esCompraDePago()) {
                     <fieldset id="insc-tipo-entrada" class="tipo-entrada" tabindex="-1">
                       <legend>{{ t('inscripcion.tipoEntrada.titulo') }} *</legend>
-                      @for (tipo of ticketTypes(); track tipo.id) {
-                        <label class="opcion">
-                          <input
-                            type="radio"
-                            name="tipo-entrada"
-                            [value]="tipo.id"
-                            [checked]="ticketTypeId() === tipo.id"
-                            (change)="seleccionarTipo(tipo.id)"
-                          />
-                          {{ tipo.name }} — {{ precioTipo(tipo) }} {{ tipo.currency.toUpperCase() }}
-                        </label>
-                      }
+                      <app-radio-group
+                        nombre="tipo-entrada"
+                        [etiqueta]="t('inscripcion.tipoEntrada.titulo')"
+                        [opciones]="ticketTypes().map((tipo) => ({
+                          valor: tipo.id,
+                          etiqueta: tipo.name + ' — ' + precioTipo(tipo) + ' ' + tipo.currency.toUpperCase(),
+                        }))"
+                        [valor]="ticketTypeId() ?? ''"
+                        (valorChange)="seleccionarTipo($event)"
+                      />
                       @if (errorTicketType(); as mensaje) {
                         <p class="error-pregunta">{{ mensaje }}</p>
                       }
