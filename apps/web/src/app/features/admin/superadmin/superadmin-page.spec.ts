@@ -269,13 +269,13 @@ describe('SuperadminPage — escritorio de la plataforma', () => {
     };
   }
 
-  it('muestra la salud de las tres dependencias', async () => {
+  it('muestra la salud de las tres dependencias con su producto real', async () => {
     const fixture = await montarConMetricas();
     const raiz = fixture.nativeElement as HTMLElement;
 
-    expect(raiz.textContent).toContain('Base de datos');
-    expect(raiz.textContent).toContain('Almacenamiento');
-    expect(raiz.textContent).toContain('Caché');
+    expect(raiz.textContent).toContain('PostgreSQL');
+    expect(raiz.textContent).toContain('SeaweedFS');
+    expect(raiz.textContent).toContain('Redis');
     expect(raiz.textContent).toContain('Correcto');
   });
 

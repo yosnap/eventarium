@@ -57,6 +57,9 @@ import { PanelScope } from './panel-scope';
             @if (errorCambioOrganizacion(); as mensaje) {
               <p role="alert" class="error-organizacion">{{ mensaje }}</p>
             }
+            @if (cambioDePanel(); as destino) {
+              <a [routerLink]="destino.ruta" class="cambio-panel">{{ t(destino.etiqueta) }}</a>
+            }
             @if (auth.currentUser(); as usuario) {
               <a routerLink="/dashboard/account">{{
                 t('admin.sesionDe', { nombre: nombreDe(usuario) })
@@ -151,6 +154,11 @@ import { PanelScope } from './panel-scope';
       font-size: var(--fs-sm);
       margin: 0;
     }
+    .cambio-panel {
+      font-size: var(--fs-sm);
+      color: var(--accent);
+      white-space: nowrap;
+    }
     .cuerpo {
       display: grid;
       grid-template-columns: minmax(12rem, 16rem) 1fr;
@@ -227,6 +235,31 @@ export class AdminShell {
       cargando: this.eventScope.cargando(),
       aceptaPagos: this.eventScope.registrationMode() === 'paid',
     };
+  });
+
+  /**
+   * El único puente visible entre los dos árboles de ruta, para quien tiene
+   * las dos condiciones a la vez (superadmin que además organiza). Antes de
+   * esto, cruzar de un panel al otro exigía escribir la URL a mano —
+   * `admin-nav.ts` nunca ofrece los enlaces del panel contrario a propósito
+   * (evita mandar a un árbol del que el guard te rebota), así que hacía falta
+   * este puente en la cabecera, que sí ve los dos paneles.
+   *
+   * En `/admin`, solo aparece si la persona pertenece a alguna organización
+   * (no todo superadmin organiza): sin eso, «Ir a mi organización» llevaría a
+   * un escritorio sin datos que mostrar.
+   */
+  protected readonly cambioDePanel = computed(() => {
+    const usuario = this.auth.currentUser();
+    if (!usuario?.is_superadmin) {
+      return null;
+    }
+    if (this.esPanelPlataforma()) {
+      return this.organizaciones().length > 0
+        ? { ruta: '/dashboard', etiqueta: 'admin.irAMiOrganizacion' }
+        : null;
+    }
+    return { ruta: '/admin', etiqueta: 'admin.irAPlataforma' };
   });
 
   /** Deshabilita el selector mientras se cambia de organización, para no

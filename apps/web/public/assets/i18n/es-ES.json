@@ -699,7 +699,14 @@
       "cabeceraPendienteInicio": "Hay",
       "cabeceraPendienteCifra": "{{n}} tareas",
       "cabeceraPendienteFin": "pendientes en esta organización.",
-      "cabeceraAlDia": "Todo al día. No hay tareas pendientes."
+      "cabeceraAlDia": "Todo al día. No hay tareas pendientes.",
+      "kpis": {
+        "eventosPublicados": "Eventos publicados",
+        "proximosEventos": "Próximos eventos",
+        "inscritosConfirmados": "Inscritos confirmados",
+        "inscritosConfirmadosDescriptor": "Aforo total: {{aforo}}",
+        "ingresosTotales": "Ingresos totales"
+      }
     },
     "organizacion": {
       "titulo": "Organización",
@@ -1683,11 +1690,14 @@
       "error": "No se pudieron cargar los datos de la instalación.",
       "salud": {
         "titulo": "Estado de la instalación",
-        "database": "Base de datos",
-        "storage": "Almacenamiento",
-        "redis": "Caché",
+        "database": "PostgreSQL · base de datos",
+        "storage": "SeaweedFS · almacenamiento",
+        "redis": "Redis · caché y tareas",
         "ok": "Correcto",
-        "error": "Con error"
+        "error": "Con error",
+        "version": "Versión de la plataforma",
+        "stack": "Stack de la instalación",
+        "stackValor": "FastAPI · Angular · PostgreSQL · Redis · SeaweedFS · Stripe Connect"
       },
       "cifras": {
         "titulo": "Totales",
@@ -1711,6 +1721,16 @@
         "inactiva": "Desactivada",
         "noCobra": "Publica de pago sin poder cobrar",
         "sinInscripciones": "Publica y no recibe inscripciones"
+      },
+      "changelog": {
+        "titulo": "Historial de cambios",
+        "version": "v{{v}}",
+        "sinDatos": "Todavía no hay entradas en el historial.",
+        "categoria": {
+          "agregado": "Agregado",
+          "modificado": "Modificado",
+          "corregido": "Corregido"
+        }
       }
     },
     "superadmin": {
@@ -1776,13 +1796,26 @@
         "guardado": "Plantilla guardada.",
         "errorGuardar": "No hemos podido guardar la plantilla.",
         "errorLista": "No hemos podido cargar el catálogo de plantillas.",
-        "rotulo": "Plantillas de tema"
+        "rotulo": "Plantillas de tema",
+        "modoPorDefecto": "Modo con el que se abre la plataforma",
+        "tokensTabla": "Tokens de la plantilla, por modo",
+        "token": "Token",
+        "copiarDePorDefecto": "Partir de los colores de la plantilla por defecto",
+        "selectorDe": "Elegir color de {{token}}",
+        "previewRotulo": "Evento",
+        "previewTitulo": "Festival de IA",
+        "previewFecha": "16 sept · 09:00 · Valencia",
+        "previewChip": "Entradas abiertas",
+        "previewBoton": "Inscribirme",
+        "previsualizacion": "Previsualización"
       },
       "rotulo": "Plataforma",
       "cabeceraInicio": "La instalación está",
       "cabeceraMarca": "bajo control"
     },
-    "tituloPlataforma": "Administración de Eventarium"
+    "tituloPlataforma": "Administración de Eventarium",
+    "irAPlataforma": "Ir a la plataforma",
+    "irAMiOrganizacion": "Ir a mi organización"
   },
   "miEntrada": {
     "titulo": "Tu entrada",

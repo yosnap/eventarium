@@ -17,7 +17,9 @@ import { Alert } from '../../../shared/ui/alert';
 import { Card } from '../../../shared/ui/card';
 import { Chip, ChipTone } from '../../../shared/ui/chip';
 import { DataTable, DataTableColumn } from '../../../shared/ui/data-table';
+import { KpiCard } from '../../../shared/ui/kpi-card';
 import { PageHeader } from '../../../shared/ui/page-header';
+import { Panel } from '../../../shared/ui/panel';
 import { MetricasDeOrganizacion } from './organization-metrics.types';
 
 /** Una petición pendiente, resuelta para pintar. */
@@ -25,6 +27,14 @@ interface Pendiente {
   readonly clave: string;
   readonly cantidad: number;
   readonly enlace: string;
+}
+
+/** Un KPI ya resuelto (etiqueta y valor traducidos/formateados), listo para pintar. */
+interface KpiVisible {
+  readonly rotulo: string;
+  readonly valor: string;
+  readonly descriptor: string | null;
+  readonly tono: 'warn' | 'accent' | null;
 }
 
 /**
@@ -43,7 +53,18 @@ interface Pendiente {
 @Component({
   selector: 'app-dashboard-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, DatePipe, Alert, Card, Chip, DataTable, PageHeader],
+  imports: [
+    TranslocoDirective,
+    RouterLink,
+    DatePipe,
+    Alert,
+    Card,
+    Chip,
+    DataTable,
+    KpiCard,
+    PageHeader,
+    Panel,
+  ],
   template: `
     <ng-container *transloco="let t">
       <app-page-header [rotulo]="t('admin.escritorioPagina.rotulo')">
@@ -76,12 +97,30 @@ interface Pendiente {
           </app-card>
         }
 
-        <app-card [heading]="t('admin.escritorioPagina.eventos')">
+        @if (kpis().length > 0) {
+          <div class="kpis">
+            @for (kpi of kpis(); track kpi.rotulo) {
+              <app-kpi-card
+                [rotulo]="kpi.rotulo"
+                [valor]="kpi.valor"
+                [descriptor]="kpi.descriptor"
+                [tono]="kpi.tono"
+              />
+            }
+          </div>
+        }
+
+        <app-panel class="bloque">
+          <div cabecera>
+            <span class="rotulo-seccion">{{ t('admin.escritorioPagina.eventos') }}</span>
+          </div>
           @if (m.eventos.length === 0) {
-            <p>{{ t('admin.escritorioPagina.sinEventos') }}</p>
-            <a routerLink="/dashboard/events/nuevo">{{
-              t('admin.escritorioPagina.crearPrimerEvento')
-            }}</a>
+            <div class="panel-cuerpo">
+              <p>{{ t('admin.escritorioPagina.sinEventos') }}</p>
+              <a routerLink="/dashboard/events/nuevo">{{
+                t('admin.escritorioPagina.crearPrimerEvento')
+              }}</a>
+            </div>
           } @else {
             <app-data-table
               [columnas]="columnasDeEventos()"
@@ -117,7 +156,7 @@ interface Pendiente {
               }
             </app-data-table>
           }
-        </app-card>
+        </app-panel>
 
         <div class="cifras">
           @if (m.cifras; as c) {
@@ -204,6 +243,16 @@ interface Pendiente {
       justify-content: space-between;
       gap: var(--space-md);
     }
+    .bloque {
+      display: block;
+      margin-bottom: var(--sp-6);
+    }
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(11.25rem, 1fr));
+      gap: var(--sp-4);
+      margin-bottom: var(--sp-6);
+    }
     .cifras {
       display: grid;
       gap: var(--space-md);
@@ -284,6 +333,64 @@ export class DashboardPage implements OnInit {
       });
     }
     return columnas;
+  });
+
+  /**
+   * Los KPI de cabecera: eventos publicados y próximos son siempre visibles
+   * (vienen del propio listado de eventos, sin permiso adicional); inscritos y
+   * dinero solo aparecen cuando `cifras`/`dinero` llegaron, exactamente igual
+   * que las columnas de la tabla — la misma frontera de permiso, en dos sitios
+   * distintos de la misma pantalla.
+   */
+  protected readonly kpis = computed<readonly KpiVisible[]>(() => {
+    const m = this.metricas();
+    if (!m) {
+      return [];
+    }
+    const t = (clave: string, params?: Record<string, unknown>) =>
+      this.transloco.translate(clave, params);
+    const ahora = Date.now();
+    const publicados = m.eventos.filter((evento) => evento.status === 'published').length;
+    const proximos = m.eventos.filter(
+      (evento) => evento.status === 'published' && new Date(evento.starts_at).getTime() >= ahora,
+    ).length;
+    const lista: KpiVisible[] = [
+      {
+        rotulo: t('admin.escritorioPagina.kpis.eventosPublicados'),
+        valor: String(publicados),
+        descriptor: null,
+        tono: null,
+      },
+      {
+        rotulo: t('admin.escritorioPagina.kpis.proximosEventos'),
+        valor: String(proximos),
+        descriptor: null,
+        tono: null,
+      },
+    ];
+    if (m.cifras) {
+      lista.push({
+        rotulo: t('admin.escritorioPagina.kpis.inscritosConfirmados'),
+        valor: String(m.cifras.reservadas),
+        descriptor:
+          m.cifras.aforo_total !== null
+            ? t('admin.escritorioPagina.kpis.inscritosConfirmadosDescriptor', {
+                aforo: m.cifras.aforo_total,
+              })
+            : null,
+        tono: null,
+      });
+    }
+    if (m.dinero) {
+      const totalCents = Object.values(m.dinero.por_moneda).reduce((suma, valor) => suma + valor, 0);
+      lista.push({
+        rotulo: t('admin.escritorioPagina.kpis.ingresosTotales'),
+        valor: this.formatearCents(totalCents),
+        descriptor: null,
+        tono: 'accent',
+      });
+    }
+    return lista;
   });
 
   /**

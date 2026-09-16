@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
+import { version as VERSION_WEB } from '../../../../../package.json';
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { Alert } from '../../../shared/ui/alert';
@@ -11,8 +12,20 @@ import { Card } from '../../../shared/ui/card';
 import { Chip, ChipTone } from '../../../shared/ui/chip';
 import { DataTable, DataTableColumn } from '../../../shared/ui/data-table';
 import { Input } from '../../../shared/ui/input';
+import { KpiCard } from '../../../shared/ui/kpi-card';
 import { PageHeader } from '../../../shared/ui/page-header';
+import { Panel } from '../../../shared/ui/panel';
+import { ChangelogPanel } from './changelog-panel';
+import { CHANGELOG } from './changelog.data';
 import { MetricasDePlataforma } from './platform-metrics.types';
+
+/** Un KPI ya resuelto (etiqueta y valor traducidos/formateados), listo para pintar. */
+interface KpiVisible {
+  readonly rotulo: string;
+  readonly valor: string;
+  readonly descriptor: string | null;
+  readonly tono: 'warn' | 'accent' | null;
+}
 
 interface AuditLogEntry {
   readonly id: string;
@@ -43,7 +56,19 @@ const AUDIT_LOG_URL = '/admin/audit-log';
 @Component({
   selector: 'app-superadmin-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Chip, DataTable, Input, PageHeader],
+  imports: [
+    TranslocoDirective,
+    Alert,
+    Button,
+    Card,
+    ChangelogPanel,
+    Chip,
+    DataTable,
+    Input,
+    KpiCard,
+    PageHeader,
+    Panel,
+  ],
   template: `
     <ng-container *transloco="let t">
       <app-page-header [rotulo]="t('admin.superadmin.rotulo')">
@@ -52,53 +77,21 @@ const AUDIT_LOG_URL = '/admin/audit-log';
       </app-page-header>
 
       @if (metricas(); as m) {
-        <div class="salud">
-          <app-card [heading]="t('admin.plataforma.salud.titulo')">
-            <ul class="estados">
-              <li>
-                <span>{{ t('admin.plataforma.salud.database') }}</span>
-                <app-chip [tone]="tonoDeSalud(m.salud.database)">{{
-                  t('admin.plataforma.salud.' + m.salud.database)
-                }}</app-chip>
-              </li>
-              <li>
-                <span>{{ t('admin.plataforma.salud.storage') }}</span>
-                <app-chip [tone]="tonoDeSalud(m.salud.storage)">{{
-                  t('admin.plataforma.salud.' + m.salud.storage)
-                }}</app-chip>
-              </li>
-              <li>
-                <span>{{ t('admin.plataforma.salud.redis') }}</span>
-                <app-chip [tone]="tonoDeSalud(m.salud.redis)">{{
-                  t('admin.plataforma.salud.' + m.salud.redis)
-                }}</app-chip>
-              </li>
-            </ul>
-          </app-card>
-
-          <app-card [heading]="t('admin.plataforma.cifras.titulo')">
-            <dl class="lista">
-              <div>
-                <dt>{{ t('admin.plataforma.cifras.organizaciones') }}</dt>
-                <dd>{{ m.cifras.organizaciones_activas }} / {{ m.cifras.organizaciones_totales }}</dd>
-              </div>
-              <div>
-                <dt>{{ t('admin.plataforma.cifras.eventos') }}</dt>
-                <dd>{{ m.cifras.eventos_totales }}</dd>
-              </div>
-              <div>
-                <dt>{{ t('admin.plataforma.cifras.publicados') }}</dt>
-                <dd>{{ m.cifras.eventos_publicados }}</dd>
-              </div>
-              <div>
-                <dt>{{ t('admin.plataforma.cifras.usuarios') }}</dt>
-                <dd>{{ m.cifras.usuarios }}</dd>
-              </div>
-            </dl>
-          </app-card>
+        <div class="kpis">
+          @for (kpi of kpis(); track kpi.rotulo) {
+            <app-kpi-card
+              [rotulo]="kpi.rotulo"
+              [valor]="kpi.valor"
+              [descriptor]="kpi.descriptor"
+              [tono]="kpi.tono"
+            />
+          }
         </div>
 
-        <app-card [heading]="t('admin.plataforma.actividad.titulo')">
+        <app-panel class="bloque">
+          <div cabecera>
+            <span class="rotulo-seccion">{{ t('admin.plataforma.actividad.titulo') }}</span>
+          </div>
           <p class="nota">{{ t('admin.plataforma.actividad.ayuda') }}</p>
           <app-data-table
             [columnas]="columnasDeActividad()"
@@ -133,7 +126,7 @@ const AUDIT_LOG_URL = '/admin/audit-log';
               </tr>
             }
           </app-data-table>
-        </app-card>
+        </app-panel>
       } @else if (errorMetricas()) {
         <app-alert tone="error">{{ t('admin.plataforma.error') }}</app-alert>
       }
@@ -189,10 +182,10 @@ const AUDIT_LOG_URL = '/admin/audit-log';
           >
             @for (entrada of entradas(); track entrada.id) {
               <tr>
-                <td>{{ entrada.created_at }}</td>
+                <td>{{ fechaHora(entrada.created_at) }}</td>
                 <td>{{ entrada.action }}</td>
-                <td>{{ entrada.organization_id ?? '—' }}</td>
-                <td>{{ entrada.entity_type }} · {{ entrada.entity_id ?? '—' }}</td>
+                <td>{{ nombreDeOrganizacion(entrada.organization_id) }}</td>
+                <td>{{ resumenEntidad(entrada.entity_type, entrada.entity_id) }}</td>
                 <td>
                   <code>{{ resumenDetalle(entrada.detail) }}</code>
                 </td>
@@ -264,6 +257,43 @@ const AUDIT_LOG_URL = '/admin/audit-log';
           </app-button>
         </form>
       </app-card>
+
+      @if (metricas(); as m) {
+        <app-card [heading]="t('admin.plataforma.salud.titulo')">
+          <div class="version-instalacion">
+            <span class="rotulo-seccion">{{ t('admin.plataforma.salud.version') }}</span>
+            <span class="version-valor">v{{ versionWeb }}</span>
+          </div>
+          <ul class="estados">
+            <li>
+              <span>{{ t('admin.plataforma.salud.database') }}</span>
+              <app-chip [tone]="tonoDeSalud(m.salud.database)">{{
+                t('admin.plataforma.salud.' + m.salud.database)
+              }}</app-chip>
+            </li>
+            <li>
+              <span>{{ t('admin.plataforma.salud.storage') }}</span>
+              <app-chip [tone]="tonoDeSalud(m.salud.storage)">{{
+                t('admin.plataforma.salud.' + m.salud.storage)
+              }}</app-chip>
+            </li>
+            <li>
+              <span>{{ t('admin.plataforma.salud.redis') }}</span>
+              <app-chip [tone]="tonoDeSalud(m.salud.redis)">{{
+                t('admin.plataforma.salud.' + m.salud.redis)
+              }}</app-chip>
+            </li>
+          </ul>
+          <dl class="lista">
+            <div>
+              <dt>{{ t('admin.plataforma.salud.stack') }}</dt>
+              <dd>{{ t('admin.plataforma.salud.stackValor') }}</dd>
+            </div>
+          </dl>
+        </app-card>
+      }
+
+      <app-changelog-panel class="bloque" [versiones]="changelog" />
     </ng-container>
   `,
   styles: `
@@ -299,35 +329,46 @@ const AUDIT_LOG_URL = '/admin/audit-log';
       display: block;
       margin-bottom: var(--space-lg);
     }
-    .salud {
-      display: grid;
-      gap: var(--space-md);
-      grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    .bloque {
+      display: block;
+      margin-bottom: var(--sp-6);
     }
-    .estados,
-    .lista {
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(11.25rem, 1fr));
+      gap: var(--sp-4);
+      margin-bottom: var(--sp-6);
+    }
+    .estados {
       display: grid;
       gap: var(--space-sm);
       margin: 0;
       padding: 0;
       list-style: none;
     }
-    .estados li,
-    .lista > div {
+    .estados li {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: var(--space-md);
     }
-    .lista dt {
-      color: var(--muted);
+    .version-instalacion {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: var(--space-md);
+      padding-bottom: var(--space-md);
+      border-bottom: 1px solid var(--border);
     }
-    .lista dd {
-      margin: 0;
-      font-variant-numeric: tabular-nums;
+    .version-valor {
+      font-family: var(--font-mono);
+      font-size: var(--fs-metric);
+      line-height: 1;
+      letter-spacing: -0.02em;
     }
     .nota {
-      margin: 0 0 var(--space-md);
+      margin: 0;
+      padding: var(--sp-4) var(--sp-5) 0;
       color: var(--muted);
       font-size: 0.875rem;
     }
@@ -337,6 +378,51 @@ export class SuperadminPage {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
+
+  protected readonly changelog = CHANGELOG;
+
+  /** Versión del paquete web, que es la que marca el release del producto. */
+  protected readonly versionWeb = VERSION_WEB;
+
+  /**
+   * Los KPI de cabecera de la instalación: los mismos cuatro totales que antes
+   * vivían en una lista de definición, ahora en `app-kpi-card`. Ninguno es
+   * dinero — la frontera la sostiene `MetricasDePlataforma`, que no tiene
+   * ningún campo monetario por contrato.
+   */
+  protected readonly kpis = computed<readonly KpiVisible[]>(() => {
+    const m = this.metricas();
+    if (!m) {
+      return [];
+    }
+    const t = (clave: string): string => this.transloco.translate(clave);
+    return [
+      {
+        rotulo: t('admin.plataforma.cifras.organizaciones'),
+        valor: `${m.cifras.organizaciones_activas} / ${m.cifras.organizaciones_totales}`,
+        descriptor: null,
+        tono: null,
+      },
+      {
+        rotulo: t('admin.plataforma.cifras.eventos'),
+        valor: String(m.cifras.eventos_totales),
+        descriptor: null,
+        tono: null,
+      },
+      {
+        rotulo: t('admin.plataforma.cifras.publicados'),
+        valor: String(m.cifras.eventos_publicados),
+        descriptor: null,
+        tono: null,
+      },
+      {
+        rotulo: t('admin.plataforma.cifras.usuarios'),
+        valor: String(m.cifras.usuarios),
+        descriptor: null,
+        tono: null,
+      },
+    ];
+  });
 
   /** Las columnas de la tabla de actividad, con la etiqueta ya traducida. */
   protected readonly columnasDeActividad = computed<DataTableColumn[]>(() => {
@@ -425,12 +511,59 @@ export class SuperadminPage {
     return new Intl.DateTimeFormat('es-ES', { dateStyle: 'short' }).format(new Date(valor));
   }
 
+  /** Fecha y hora local de una entrada de auditoría: el ISO crudo con nanosegundos
+   * y zona UTC no se lee de un vistazo, y es el dato que se mira primero. */
+  protected fechaHora(iso: string): string {
+    return new Intl.DateTimeFormat('es-ES', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    }).format(new Date(iso));
+  }
+
+  /**
+   * El nombre de la organización, no su UUID: la auditoría se lee para saber
+   * **quién** hizo qué, y nadie conoce un identificador de memoria. El mapa sale
+   * de las métricas de plataforma ya cargadas; una organización ausente (borrada
+   * después del hecho) se dice con el identificador acortado, no con un silencio.
+   */
+  protected readonly organizacionesPorId = computed(() => {
+    const mapa = new Map<string, string>();
+    for (const org of this.metricas()?.organizaciones ?? []) {
+      mapa.set(org.id, org.name);
+    }
+    return mapa;
+  });
+
+  protected nombreDeOrganizacion(id: string | null): string {
+    if (!id) {
+      return '—';
+    }
+    return this.organizacionesPorId().get(id) ?? id.slice(0, 8) + '…';
+  }
+
+  /** «user · 0a08dd9-…»: el tipo de entidad en claro, el identificador acortado
+   * (los UUID completos parten las filas de la tabla y no aportan nada legible). */
+  protected resumenEntidad(tipo: string, id: string | null): string {
+    if (!id) {
+      return tipo;
+    }
+    return `${tipo} · ${id.slice(0, 8)}…`;
+  }
+
   protected alValorDe(evento: Event): string {
     return (evento.target as HTMLInputElement).value;
   }
 
+  /** El detalle como pares «clave: valor» sin llaves ni comillas: sigue siendo
+   * exactamente lo que registró el backend (los importes siguen como
+   * [redactado]), pero sin la sintaxis JSON por delante. */
   protected resumenDetalle(detalle: Record<string, unknown>): string {
-    return JSON.stringify(detalle);
+    return Object.entries(detalle)
+      .map(([clave, valor]) => {
+        const texto = typeof valor === 'object' && valor !== null ? JSON.stringify(valor) : String(valor);
+        return `${clave}: ${texto}`;
+      })
+      .join(', ');
   }
 
   protected filtrar(evento: Event): void {
