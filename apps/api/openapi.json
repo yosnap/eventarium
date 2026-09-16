@@ -13148,7 +13148,7 @@
           "platform_role"
         ],
         "title": "PlatformUserActionResult",
-        "description": "Confirmación de `deactivate`/`platform-role` — sin `organization_count`\n(esos dos endpoints no lo calculan; no vale la pena una consulta extra\nsolo para una respuesta de confirmación)."
+        "description": "Confirmación de `deactivate`/`platform-role` — sin `organization_names`\n(esos dos endpoints no lo calculan; no vale la pena una consulta extra\nsolo para una respuesta de confirmación)."
       },
       "PlatformUserDetail": {
         "properties": {
@@ -13310,9 +13310,9 @@
             "format": "date-time",
             "title": "Created At"
           },
-          "organization_count": {
-            "type": "integer",
-            "title": "Organization Count"
+          "organization_names": {
+            "type": "string",
+            "title": "Organization Names"
           }
         },
         "type": "object",
@@ -13324,7 +13324,7 @@
           "is_active",
           "platform_role",
           "created_at",
-          "organization_count"
+          "organization_names"
         ],
         "title": "PlatformUserSummary",
         "description": "Una fila del listado — nunca incluye `password_hash`."

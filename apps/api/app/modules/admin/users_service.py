@@ -28,10 +28,11 @@ async def listar_usuarios(
     platform_role: str | None,
     limit: int,
     offset: int,
-) -> tuple[list[tuple[User, int]], int]:
-    """Devuelve `(usuario, nº de organizaciones)` por fila, más el total sin
-    paginar. El filtro por organización se resuelve con un `EXISTS`, no un
-    `JOIN`, para no duplicar filas de usuario cuando pertenece a varias."""
+) -> tuple[list[tuple[User, str]], int]:
+    """Devuelve `(usuario, nombres de sus organizaciones separados por coma)`
+    por fila, más el total sin paginar. El filtro por organización se
+    resuelve con un `EXISTS`, no un `JOIN`, para no duplicar filas de
+    usuario cuando pertenece a varias."""
     condiciones = []
     if q:
         patron = f"%{q}%"
@@ -51,15 +52,19 @@ async def listar_usuarios(
 
     total = await session.scalar(select(func.count()).select_from(User).where(*condiciones))
 
-    conteo_organizaciones = (
-        select(OrganizationMember.user_id, func.count(func.distinct(OrganizationMember.organization_id)).label("n"))
+    nombres_organizaciones = (
+        select(
+            OrganizationMember.user_id,
+            func.string_agg(Organization.name.distinct(), ", ").label("nombres"),
+        )
+        .join(Organization, Organization.id == OrganizationMember.organization_id)
         .group_by(OrganizationMember.user_id)
         .subquery()
     )
     filas = (
         await session.execute(
-            select(User, func.coalesce(conteo_organizaciones.c.n, 0))
-            .outerjoin(conteo_organizaciones, conteo_organizaciones.c.user_id == User.id)
+            select(User, func.coalesce(nombres_organizaciones.c.nombres, ""))
+            .outerjoin(nombres_organizaciones, nombres_organizaciones.c.user_id == User.id)
             .where(*condiciones)
             .order_by(User.created_at.desc())
             .limit(limit)

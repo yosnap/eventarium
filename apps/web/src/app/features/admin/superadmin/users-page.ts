@@ -89,7 +89,7 @@ const LIMITE = 20;
                 }}
               </td>
               <td>{{ usuario.platform_role ?? t('admin.plataforma.usuarios.sinRol') }}</td>
-              <td class="numerica">{{ usuario.organization_count }}</td>
+              <td>{{ usuario.organization_names || t('admin.plataforma.usuarios.sinOrganizaciones') }}</td>
             </tr>
           }
         </app-data-table>
@@ -303,7 +303,7 @@ export class UsersPage {
       { key: 'correo', label: t('admin.plataforma.usuarios.columnaCorreo') },
       { key: 'estado', label: t('admin.plataforma.usuarios.columnaEstado') },
       { key: 'rol', label: t('admin.plataforma.usuarios.rolDePlataforma') },
-      { key: 'organizaciones', label: t('admin.plataforma.usuarios.columnaOrganizaciones'), numerica: true },
+      { key: 'organizaciones', label: t('admin.plataforma.usuarios.columnaOrganizaciones') },
     ];
   });
 

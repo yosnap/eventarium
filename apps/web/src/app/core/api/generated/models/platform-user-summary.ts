@@ -12,6 +12,6 @@ export interface PlatformUserSummary {
   id: string;
   is_active: boolean;
   last_name: (string | null);
-  organization_count: number;
+  organization_names: string;
   platform_role: (string | null);
 }

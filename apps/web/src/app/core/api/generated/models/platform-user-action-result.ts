@@ -3,7 +3,7 @@
 
 
 /**
- * Confirmación de `deactivate`/`platform-role` — sin `organization_count`
+ * Confirmación de `deactivate`/`platform-role` — sin `organization_names`
  * (esos dos endpoints no lo calculan; no vale la pena una consulta extra
  * solo para una respuesta de confirmación).
  */

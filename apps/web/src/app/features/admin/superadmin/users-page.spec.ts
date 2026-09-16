@@ -21,7 +21,7 @@ const USUARIO_RESUMEN = {
   is_active: true,
   platform_role: null,
   created_at: '2026-09-01T10:00:00Z',
-  organization_count: 1,
+  organization_names: 'IA Week',
 };
 
 const USUARIO_DETALLE = {

@@ -21,7 +21,7 @@ class PlatformUserSummary(BaseModel):
     is_active: bool
     platform_role: str | None
     created_at: datetime
-    organization_count: int
+    organization_names: str
 
 
 class PlatformUserOrganization(BaseModel):
@@ -58,7 +58,7 @@ class PlatformRoleUpdate(BaseModel):
 
 
 class PlatformUserActionResult(BaseModel):
-    """Confirmación de `deactivate`/`platform-role` — sin `organization_count`
+    """Confirmación de `deactivate`/`platform-role` — sin `organization_names`
     (esos dos endpoints no lo calculan; no vale la pena una consulta extra
     solo para una respuesta de confirmación)."""
 

@@ -72,9 +72,9 @@ async def list_users(
                 is_active=usuario.is_active,
                 platform_role=usuario.platform_role,
                 created_at=usuario.created_at,
-                organization_count=nº_organizaciones,
+                organization_names=nombres_organizaciones,
             )
-            for usuario, nº_organizaciones in filas
+            for usuario, nombres_organizaciones in filas
         ],
         total=total,
         limit=paginacion.limit,
