@@ -164,6 +164,69 @@ async def test_no_se_puede_impersonar_a_un_superadministrador(
     assert respuesta.status_code == 403, respuesta.text
 
 
+async def test_soporte_puede_impersonar_y_listar_miembros(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """El rol aditivo `soporte` (plan `260916-0810-usuarios-y-permisos-
+    plataforma`) alcanza estos dos endpoints igual que `superadmin`."""
+    async with SessionMaintenance() as session:
+        usuario = await session.scalar(
+            select(User).where(User.email == organizacion.owner_email)
+        )
+        assert usuario is not None
+        usuario.platform_role = "soporte"
+        await session.commit()
+
+    await crear_rol(organizacion, key="normal_soporte", permisos=[])
+    persona = await crear_miembro(organizacion, "normal_soporte")
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+    listado = await cliente.get(
+        f"{ADMIN}/organizations/{organizacion.id}/members", headers=cabeceras
+    )
+    assert listado.status_code == 200, listado.text
+
+    respuesta = await cliente.post(
+        IMPERSONATE,
+        headers=cabeceras,
+        json={
+            "user_id": str(persona.user_id),
+            "organization_id": str(organizacion.id),
+            "reason": "Reproducir una incidencia",
+            "password": organizacion.owner_password,
+        },
+    )
+    assert respuesta.status_code == 201, respuesta.text
+
+
+async def test_no_se_puede_impersonar_a_otro_miembro_del_personal_de_plataforma(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """Ni a un superadmin ni a otro `soporte`: sería una vía para operar con
+    sus privilegios sin su contraseña."""
+    await _hacer_superadmin(organizacion.owner_email)
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+    objetivo = await crear_miembro(organizacion, "organizer")
+    async with SessionMaintenance() as session:
+        usuario = await session.get(User, objetivo.user_id)
+        assert usuario is not None
+        usuario.platform_role = "soporte"
+        await session.commit()
+
+    respuesta = await cliente.post(
+        IMPERSONATE,
+        headers=cabeceras,
+        json={
+            "user_id": str(objetivo.user_id),
+            "organization_id": str(organizacion.id),
+            "reason": "No debería poder",
+            "password": organizacion.owner_password,
+        },
+    )
+    assert respuesta.status_code == 403, respuesta.text
+
+
 async def test_un_usuario_normal_no_puede_impersonar(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:

@@ -1,15 +1,17 @@
 """Endpoints de impersonación: entrar y salir de una sesión de suplantación.
 
-Un administrador de plataforma entra a la cuenta de una persona para **ver** lo
-que ella ve. La sesión es de solo lectura (la bloquea una dependencia global de
-`main.py`) y caduca antes que una normal.
+Personal de plataforma (`superadmin` o el rol aditivo `soporte`, plan
+`260916-0810-usuarios-y-permisos-plataforma`) entra a la cuenta de una
+persona para **ver** lo que ella ve. La sesión es de solo lectura (la
+bloquea una dependencia global de `main.py`) y caduca antes que una normal.
 
 Qué NO puede hacer un token de impersonación, y dónde está cada barrera:
 
 - **Escribir**: dependencia global `bloquear_escritura_si_impersona`.
-- **Usar los endpoints de administración**: `require_superadmin` rechaza
-  cualquier token con `impersonated_by` — el claim `sa` no basta como defensa,
-  porque ese gate mira la fila de `users` del suplantado.
+- **Usar los endpoints de administración**: `require_superadmin`/
+  `require_platform_staff` rechazan cualquier token con `impersonated_by` —
+  el claim `sa` no basta como defensa, porque ese gate mira la fila de
+  `users` del suplantado.
 - **Seguir vivo tras salir**: la clave de sesión en Redis se borra al salir y
   `get_token_claims` la consulta en cada petición.
 """
@@ -28,7 +30,7 @@ from app.core.deps import (
     CurrentUser,
     get_maintenance_db,
     get_token_claims,
-    require_superadmin,
+    require_platform_staff,
 )
 from app.core.ratelimit import IMPERSONATION_POR_IP, limit_per_ip
 from app.core.security import (
@@ -53,7 +55,7 @@ from app.shared.identifiers import new_uuid7
 router = APIRouter(prefix="/admin", tags=["administración"])
 
 MaintenanceDb = Annotated[AsyncSession, Depends(get_maintenance_db)]
-Superadmin = Annotated[CurrentUser, Depends(require_superadmin)]
+PlatformStaff = Annotated[CurrentUser, Depends(require_platform_staff)]
 TokenClaims = Annotated[AccessTokenClaims, Depends(get_token_claims)]
 
 #: Vida de una sesión de impersonación. Más corta que un access token normal:
@@ -75,12 +77,12 @@ _TTL_MINUTOS = 15
 )
 async def impersonate(
     datos: ImpersonationRequest,
-    superadmin: Superadmin,
+    actor: PlatformStaff,
     session: MaintenanceDb,
 ) -> ImpersonationResponse:
     # Reautenticación: la misma exigencia que las operaciones RGPD, que son
     # menos sensibles que esta.
-    admin = await session.get(User, superadmin.id)
+    admin = await session.get(User, actor.id)
     if admin is None or not verify_password(datos.password, admin.password_hash):
         raise AuthenticationError("La contraseña no es correcta.")
 
@@ -88,10 +90,11 @@ async def impersonate(
     if objetivo is None or not objetivo.is_active:
         raise NotFoundError("El usuario no existe o está desactivado.")
 
-    # Nunca suplantar a otro administrador de plataforma: sería una vía para
-    # operar con sus privilegios sin su contraseña.
-    if objetivo.is_superadmin:
-        raise PermissionDeniedError("No se puede suplantar a un administrador de la plataforma.")
+    # Nunca suplantar a otro miembro del personal de plataforma (superadmin o
+    # soporte): sería una vía para operar con sus privilegios sin su
+    # contraseña.
+    if objetivo.is_superadmin or objetivo.platform_role is not None:
+        raise PermissionDeniedError("No se puede suplantar a personal de la plataforma.")
 
     # El usuario tiene que ser **miembro** de esa organización: el token fija la
     # organización del suplantado, y suplantarlo en una a la que no pertenece no
@@ -112,7 +115,7 @@ async def impersonate(
         objetivo.id,
         datos.organization_id,
         is_superadmin=False,
-        impersonated_by=superadmin.id,
+        impersonated_by=actor.id,
         ttl_minutes=_TTL_MINUTOS,
     )
     # El `jti` es la clave de la sesión en Redis (lo que permite revocarla al
@@ -120,12 +123,12 @@ async def impersonate(
     # empareja la entrada con la salida.
     claims = decode_access_token(token)
     await impersonation.abrir_sesion(
-        jti=claims.jti, admin_id=superadmin.id, session_id=session_id, segundos=segundos
+        jti=claims.jti, admin_id=actor.id, session_id=session_id, segundos=segundos
     )
 
     await registrar_auditoria(
         session,
-        actor_user_id=superadmin.id,
+        actor_user_id=actor.id,
         organization_id=datos.organization_id,
         action="impersonation.started",
         entity_type="user",
@@ -213,7 +216,7 @@ def _enmascarar_email(email: str) -> str:
 )
 async def list_impersonable_members(
     organization_id: uuid.UUID,
-    _: Superadmin,
+    _: PlatformStaff,
     session: MaintenanceDb,
 ) -> list[ImpersonableMember]:
     filas = (
@@ -232,7 +235,9 @@ async def list_impersonable_members(
             nombre=f"{usuario.first_name or ''} {usuario.last_name or ''}".strip() or usuario.email,
             email_enmascarado=_enmascarar_email(usuario.email),
             role_key=rol_key,
-            suplantable=not usuario.is_superadmin and usuario.is_active,
+            suplantable=not usuario.is_superadmin
+            and usuario.platform_role is None
+            and usuario.is_active,
         )
         for usuario, rol_key in filas
     ]
