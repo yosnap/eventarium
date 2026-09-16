@@ -8942,6 +8942,10 @@
             },
             "type": "array",
             "title": "Permissions"
+          },
+          "notify_similar_events": {
+            "type": "boolean",
+            "title": "Notify Similar Events"
           }
         },
         "type": "object",
@@ -8953,7 +8957,8 @@
           "is_superadmin",
           "organization_id",
           "roles",
-          "permissions"
+          "permissions",
+          "notify_similar_events"
         ],
         "title": "CurrentUserResponse",
         "description": "Usuario autenticado en el contexto de la organización actual."
@@ -17686,11 +17691,22 @@
               }
             ],
             "title": "Locale"
+          },
+          "notify_similar_events": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notify Similar Events"
           }
         },
         "type": "object",
         "title": "UserMeUpdate",
-        "description": "Campos editables directamente, sin flujo propio (nombre, locale).\n\nEl correo no está aquí: tiene su propio flujo con confirmación\n(`POST /users/me/change-email`)."
+        "description": "Campos editables directamente, sin flujo propio (nombre, locale,\npreferencia de notificaciones).\n\nEl correo no está aquí: tiene su propio flujo con confirmación\n(`POST /users/me/change-email`)."
       },
       "UserSummary": {
         "properties": {

@@ -58,6 +58,27 @@ async def test_patch_me_actualiza_nombre_y_locale(
     assert cuerpo["last_name"] == "Nombre"
 
 
+async def test_patch_me_activa_y_desactiva_la_preferencia_de_notificaciones(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+    inicial = await cliente.get(ME, headers=cabeceras)
+    assert inicial.status_code == 200
+    assert inicial.json()["notify_similar_events"] is False
+
+    activar = await cliente.patch(ME, headers=cabeceras, json={"notify_similar_events": True})
+    assert activar.status_code == 200
+    assert activar.json()["notify_similar_events"] is True
+
+    relectura = await cliente.get(ME, headers=cabeceras)
+    assert relectura.json()["notify_similar_events"] is True
+
+    desactivar = await cliente.patch(ME, headers=cabeceras, json={"notify_similar_events": False})
+    assert desactivar.status_code == 200
+    assert desactivar.json()["notify_similar_events"] is False
+
+
 async def test_change_email_exige_la_contrasena_actual(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:

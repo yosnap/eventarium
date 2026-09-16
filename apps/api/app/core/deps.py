@@ -112,6 +112,7 @@ class CurrentUser:
         "is_superadmin",
         "organization_id",
         "refresh_family",
+        "notify_similar_events",
     )
 
     def __init__(
@@ -124,6 +125,7 @@ class CurrentUser:
         is_superadmin: bool,
         organization_id: uuid.UUID,
         refresh_family: str | None = None,
+        notify_similar_events: bool = False,
     ) -> None:
         self.id = id
         self.email = email
@@ -132,6 +134,7 @@ class CurrentUser:
         self.is_superadmin = is_superadmin
         self.organization_id = organization_id
         self.refresh_family = refresh_family
+        self.notify_similar_events = notify_similar_events
 
 
 async def get_current_user(
@@ -153,8 +156,8 @@ async def get_current_user(
     fila = (
         await session.execute(
             text(
-                "SELECT id, email, first_name, last_name, is_superadmin, is_active "
-                "FROM users WHERE id = :id"
+                "SELECT id, email, first_name, last_name, is_superadmin, is_active, "
+                "notify_similar_events FROM users WHERE id = :id"
             ),
             {"id": claims.user_id},
         )
@@ -170,6 +173,7 @@ async def get_current_user(
         is_superadmin=fila[4],
         organization_id=claims.organization_id,
         refresh_family=claims.family,
+        notify_similar_events=fila[6],
     )
 
 

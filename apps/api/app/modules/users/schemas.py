@@ -41,10 +41,12 @@ class CurrentUserResponse(BaseModel):
     organization_id: str
     roles: list[str]
     permissions: list[Permission]
+    notify_similar_events: bool
 
 
 class UserMeUpdate(BaseModel):
-    """Campos editables directamente, sin flujo propio (nombre, locale).
+    """Campos editables directamente, sin flujo propio (nombre, locale,
+    preferencia de notificaciones).
 
     El correo no está aquí: tiene su propio flujo con confirmación
     (`POST /users/me/change-email`).
@@ -53,6 +55,11 @@ class UserMeUpdate(BaseModel):
     first_name: Annotated[str, Field(min_length=1, max_length=100)] | None = None
     last_name: Annotated[str, Field(min_length=1, max_length=100)] | None = None
     locale: Annotated[str, Field(min_length=2, max_length=10)] | None = None
+    # "Avisarme de eventos similares" — la persona la activa sobre sí misma.
+    # Sin motor de envío todavía (plan `260916-0810-usuarios-y-permisos-
+    # plataforma`, fase 3): el campo se guarda desde ya para no perder la
+    # señal hasta que exista ese motor.
+    notify_similar_events: bool | None = None
 
 
 class ChangeEmailRequest(BaseModel):

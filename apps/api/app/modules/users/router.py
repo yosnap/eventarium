@@ -61,6 +61,7 @@ async def get_me(
         organization_id=str(usuario.organization_id),
         roles=sorted(claves),
         permissions=sorted(Permission(p) for p in permisos),
+        notify_similar_events=usuario.notify_similar_events,
     )
 
 
