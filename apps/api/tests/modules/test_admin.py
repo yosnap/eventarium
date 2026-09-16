@@ -127,10 +127,15 @@ def test_todas_las_rutas_de_admin_exigen_superadmin() -> None:
     """Recorre las rutas del router de administración y exige su dependencia de gate.
 
     `get_maintenance_db` (BYPASSRLS) no autentica por sí solo: la única barrera
-    de los endpoints de administración es el `Depends(require_superadmin)` que
-    cada función declara a mano. Un endpoint nuevo que lo olvide quedaría
-    expuesto con permisos de mantenimiento y sin autenticar, y ningún test
-    funcional de otro camino lo detectaría.
+    de los endpoints de administración es `Depends(require_superadmin)` o, en
+    los de solo lectura del directorio de usuarios (plan
+    `260916-0810-usuarios-y-permisos-plataforma`),
+    `Depends(require_platform_staff)` —aditiva, nunca sustituye a
+    `require_superadmin` en escritura sensible, y comparte sus dos garantías
+    (lectura en base de datos en cada petición, rechazo explícito de tokens
+    de impersonación)— que cada función declara a mano. Un endpoint nuevo que
+    olvide ambas quedaría expuesto con permisos de mantenimiento y sin
+    autenticar, y ningún test funcional de otro camino lo detectaría.
     """
     # El prefijo `/api/v1` lo aplica el `include_router` de `main.py`, no la ruta
     # en sí: filtrar por `/api/v1/admin` devolvería vacío y el test pasaría sin
@@ -147,6 +152,7 @@ def test_todas_las_rutas_de_admin_exigen_superadmin() -> None:
     ]
     assert rutas, "el recorrido no encontró ninguna ruta de /admin: el test no comprobaría nada"
 
+    GATES_VALIDOS = {"require_superadmin", "require_platform_staff"}
     sin_gate = []
     for ruta in rutas:
         nombres = {
@@ -154,9 +160,10 @@ def test_todas_las_rutas_de_admin_exigen_superadmin() -> None:
             for dependencia in ruta.dependant.dependencies
             if dependencia.call is not None
         }
-        # El gate se declara como `Depends(require_superadmin)`, directo o como
-        # alias `Superadmin`; en ambos casos la dependencia resuelta es la misma.
-        if "require_superadmin" not in nombres:
+        # El gate se declara como `Depends(require_superadmin)` (o
+        # `require_platform_staff`), directo o vía alias (`Superadmin`,
+        # `PlatformStaff`); en ambos casos la dependencia resuelta es la misma.
+        if not (GATES_VALIDOS & nombres):
             sin_gate.append(ruta.path)
 
-    assert not sin_gate, f"rutas de /admin sin require_superadmin: {sin_gate}"
+    assert not sin_gate, f"rutas de /admin sin require_superadmin/require_platform_staff: {sin_gate}"

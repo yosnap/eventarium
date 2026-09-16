@@ -2138,6 +2138,258 @@
         }
       }
     },
+    "/api/v1/admin/users": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Listar el directorio de usuarios de la instalación",
+        "description": "Toda persona con cuenta (organizador, asistente con cuenta, o ambos), filtrable por organización, rol de plataforma y búsqueda en email/nombre. Accesible a `soporte`, no solo a `superadmin`.",
+        "operationId": "list_users_api_v1_admin_users_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "name": "platform_role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Platform Role"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Elementos por página",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Elementos por página"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Elementos omitidos",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Elementos omitidos"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_PlatformUserSummary_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Ver el detalle de un usuario",
+        "description": "Organizaciones en las que participa y con qué rol, nº de inscripciones como asistente, rol de plataforma y preferencia de notificaciones (solo lectura: la persona la activa sobre sí misma desde su perfil, nunca se escribe aquí). Accesible a `soporte`.",
+        "operationId": "get_user_api_v1_admin_users__user_id__get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformUserDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/deactivate": {
+      "post": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Desactivar un usuario (borrado suave)",
+        "description": "`is_active = false` y anonimización de nombre/avatar; el email se mantiene. No toca sus organizaciones ni sus inscripciones. Revoca todas sus sesiones activas. Exclusivo de `superadmin`; rechaza la propia cuenta como objetivo.",
+        "operationId": "deactivate_user_api_v1_admin_users__user_id__deactivate_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformUserActionResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/platform-role": {
+      "put": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Asignar o retirar el rol de plataforma soporte",
+        "description": "`platform_role: 'soporte' | null`. Nunca acepta `'superadmin'` — ese poder sigue siendo exclusivamente `is_superadmin`. Exclusivo de `superadmin`; rechaza el propio rol como objetivo.",
+        "operationId": "update_platform_role_api_v1_admin_users__user_id__platform_role_put",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformRoleUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformUserActionResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/identity": {
       "get": {
         "tags": [
@@ -12178,6 +12430,37 @@
         ],
         "title": "Page[MemberResponse]"
       },
+      "Page_PlatformUserSummary_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PlatformUserSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[PlatformUserSummary]"
+      },
       "Page_RegistrationListItem_": {
         "properties": {
           "items": {
@@ -12779,6 +13062,267 @@
         "type": "object",
         "title": "PlatformLegalPagesUpdate",
         "description": "Actualización parcial de las páginas legales de plataforma.\n\nUn campo ausente no se toca; presente con `null` restaura la plantilla\npor defecto."
+      },
+      "PlatformRoleUpdate": {
+        "properties": {
+          "platform_role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "soporte"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "platform_role"
+        ],
+        "title": "PlatformRoleUpdate",
+        "description": "Cuerpo de `PUT /admin/users/{id}/platform-role`.\n\nNunca acepta `\"superadmin\"`: ese poder sigue siendo exclusivamente\n`is_superadmin`, fuera de este endpoint a propósito."
+      },
+      "PlatformUserActionResult": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "platform_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "first_name",
+          "last_name",
+          "is_active",
+          "platform_role"
+        ],
+        "title": "PlatformUserActionResult",
+        "description": "Confirmación de `deactivate`/`platform-role` — sin `organization_count`\n(esos dos endpoints no lo calculan; no vale la pena una consulta extra\nsolo para una respuesta de confirmación)."
+      },
+      "PlatformUserDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "platform_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform Role"
+          },
+          "notify_similar_events": {
+            "type": "boolean",
+            "title": "Notify Similar Events"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "organizations": {
+            "items": {
+              "$ref": "#/components/schemas/PlatformUserOrganization"
+            },
+            "type": "array",
+            "title": "Organizations"
+          },
+          "registrations_count": {
+            "type": "integer",
+            "title": "Registrations Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "first_name",
+          "last_name",
+          "is_active",
+          "platform_role",
+          "notify_similar_events",
+          "created_at",
+          "organizations",
+          "registrations_count"
+        ],
+        "title": "PlatformUserDetail",
+        "description": "Detalle de un usuario para el directorio de plataforma."
+      },
+      "PlatformUserOrganization": {
+        "properties": {
+          "organization_id": {
+            "type": "string",
+            "title": "Organization Id"
+          },
+          "organization_name": {
+            "type": "string",
+            "title": "Organization Name"
+          },
+          "role_name": {
+            "type": "string",
+            "title": "Role Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "organization_id",
+          "organization_name",
+          "role_name"
+        ],
+        "title": "PlatformUserOrganization",
+        "description": "Una organización en la que participa el usuario, y con qué rol."
+      },
+      "PlatformUserSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "platform_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform Role"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "organization_count": {
+            "type": "integer",
+            "title": "Organization Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "first_name",
+          "last_name",
+          "is_active",
+          "platform_role",
+          "created_at",
+          "organization_count"
+        ],
+        "title": "PlatformUserSummary",
+        "description": "Una fila del listado — nunca incluye `password_hash`."
       },
       "ProfileFieldInput": {
         "properties": {

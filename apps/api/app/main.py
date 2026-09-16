@@ -17,6 +17,7 @@ from app.modules.accounting.router import router as accounting_router
 from app.modules.admin.impersonation_router import router as admin_impersonation_router
 from app.modules.admin.platform_router import router as admin_platform_router
 from app.modules.admin.router import router as admin_router
+from app.modules.admin.users_router import router as admin_users_router
 from app.modules.auth.router import router as auth_router
 from app.modules.events.public_router import router as events_public_router
 from app.modules.events.router import router as events_router
@@ -112,6 +113,7 @@ def create_app() -> FastAPI:
     api.include_router(users_router)
     api.include_router(roles_router)
     api.include_router(admin_router)
+    api.include_router(admin_users_router)
     api.include_router(admin_platform_router)
     api.include_router(admin_impersonation_router)
     api.include_router(events_router)
