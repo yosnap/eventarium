@@ -39,7 +39,8 @@ describe('ThemeToggle', () => {
     const boton = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
 
     expect(boton).toBeTruthy();
-    expect(boton.getAttribute('aria-pressed')).toBe('false');
+    // El modo por defecto es claro, y `aria-pressed` dice si el tema ya es claro.
+    expect(boton.getAttribute('aria-pressed')).toBe('true');
     expect(boton.getAttribute('aria-label')?.length).toBeGreaterThan(0);
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
@@ -54,9 +55,9 @@ describe('ThemeToggle', () => {
 
     const botonTrasClick = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
     expect(botonTrasClick).toBe(referenciaOriginal);
-    expect(botonTrasClick.getAttribute('aria-pressed')).toBe('true');
+    expect(botonTrasClick.getAttribute('aria-pressed')).toBe('false');
 
     const servicio = TestBed.inject(ThemeModeService);
-    expect(servicio.modo()).toBe('claro');
+    expect(servicio.modo()).toBe('oscuro');
   });
 });
