@@ -7,6 +7,7 @@ import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { AvisoDeContraste, comprobarContrasteDePlantilla } from '../../../core/theming/contrast';
 import { alfaDe, hexParaSelector, oklchDeHex } from '../../../core/theming/oklch';
+import { ThemingService } from '../../../core/theming/theming.service';
 import {
   FAMILIAS_POR_TOKEN,
   PlantillaDeTema,
@@ -152,18 +153,24 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
           } @else {
             <div class="catalogo">
               @for (plantilla of plantillas(); track plantilla.id) {
-                <button
-                  type="button"
+                <div
                   class="tarjeta"
                   [class.tarjeta-activa]="formulario().id === plantilla.id"
-                  (click)="editar(plantilla)"
-                  [attr.aria-pressed]="formulario().id === plantilla.id"
                 >
-                  <app-theme-template-preview
-                    class="tarjeta-miniatura"
-                    [tokens]="plantilla.tokens"
-                    [modo]="modoDeMiniatura(plantilla)"
-                  />
+                  <button
+                    type="button"
+                    class="tarjeta-editar"
+                    (click)="editar(plantilla)"
+                    [attr.aria-label]="
+                      t('admin.superadmin.plantillas.editarNombre', { name: plantilla.name })
+                    "
+                  >
+                    <app-theme-template-preview
+                      class="tarjeta-miniatura"
+                      [tokens]="plantilla.tokens"
+                      [modo]="modoDeMiniatura(plantilla)"
+                    />
+                  </button>
                   <span class="tarjeta-pie">
                     <span class="tarjeta-nombre">{{ plantilla.name }}</span>
                     @if (plantilla.is_default) {
@@ -172,7 +179,22 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
                       }}</span>
                     }
                   </span>
-                </button>
+                  @if (enUsoId() === plantilla.id) {
+                    <span class="tarjeta-uso">{{ t('admin.superadmin.plantillas.enUso') }}</span>
+                  } @else {
+                    <app-button
+                      type="button"
+                      variant="terciario"
+                      [loading]="aplicandoId() === plantilla.id"
+                      (pulsado)="usar(plantilla)"
+                    >
+                      {{ t('admin.superadmin.plantillas.usar') }}
+                    </app-button>
+                  }
+                  @if (errorAplicar(); as mensaje) {
+                    <p role="alert" class="error-aplicar">{{ mensaje }}</p>
+                  }
+                </div>
               }
             </div>
           }
@@ -388,8 +410,29 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
       border-width: 2px;
       padding: calc(var(--sp-3) - 1px);
     }
+    .tarjeta-editar {
+      display: block;
+      width: 100%;
+      padding: 0;
+      border: none;
+      background: none;
+      cursor: pointer;
+      text-align: left;
+    }
     .tarjeta-miniatura {
       pointer-events: none;
+    }
+    .tarjeta-uso {
+      font-family: var(--font-mono);
+      font-size: var(--fs-label);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .error-aplicar {
+      margin: 0;
+      color: var(--danger);
+      font-size: var(--fs-sm);
     }
     .tarjeta-pie {
       display: flex;
@@ -531,6 +574,7 @@ export class ThemeTemplatesPage {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
+  private readonly theming = inject(ThemingService);
 
   protected readonly modos: readonly ModoDeTema[] = ['dark', 'light'];
   /** Los tokens que pinta la tabla de colores: sin sombras ni fuentes, que
@@ -563,6 +607,40 @@ export class ThemeTemplatesPage {
         light: { ...actual.tokens.light, [token]: familia },
       },
     }));
+  }
+
+  /** La plantilla que la plataforma tiene aplicada ahora mismo. */
+  protected readonly enUsoId = computed(() => this.theming.plataforma()?.theme_template_id ?? null);
+
+  /** Id de la plantilla cuya aplicación está en tránsito, para el estado del botón. */
+  protected readonly aplicandoId = signal<string | null>(null);
+
+  protected readonly errorAplicar = signal<string | null>(null);
+
+  /**
+   * Aplica la plantilla a toda la plataforma: PATCH de identidad (solo el
+   * `theme_template_id`, el nombre no se toca) y recarga del branding, que
+   * reinyecta los tokens —colores y fuentes— en el documento al instante.
+   */
+  protected async usar(plantilla: PlantillaDeTema): Promise<void> {
+    this.aplicandoId.set(plantilla.id);
+    this.errorAplicar.set(null);
+    try {
+      await firstValueFrom(
+        this.http.patch(this.api.url('/admin/identity'), {
+          theme_template_id: plantilla.id,
+        }),
+      );
+      await this.theming.load();
+    } catch (error) {
+      this.errorAplicar.set(
+        error instanceof ApiError
+          ? error.message
+          : this.transloco.translate('admin.superadmin.plantillas.errorAplicar'),
+      );
+    } finally {
+      this.aplicandoId.set(null);
+    }
   }
 
   /** Tokens del formulario para el preview en vivo (lo que se ve es lo que hay). */

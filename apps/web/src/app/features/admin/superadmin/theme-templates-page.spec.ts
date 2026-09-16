@@ -63,7 +63,7 @@ describe('ThemeTemplatesPage', () => {
   it('bloquea el guardado con role="alert" si un par crítico no cumple 4,5:1', async () => {
     const fixture = await crearYCargar();
 
-    (fixture.nativeElement.querySelector('.tarjeta') as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelector('.tarjeta-editar') as HTMLButtonElement).click();
     await avanzar(fixture);
 
     // Deja los campos oscuros de fg/bg casi iguales: el par crítico deja de cumplir AA.
@@ -85,7 +85,7 @@ describe('ThemeTemplatesPage', () => {
   it('muestra el rechazo del servidor (422) en el mismo role="alert", nunca un genérico', async () => {
     const fixture = await crearYCargar();
 
-    (fixture.nativeElement.querySelector('.tarjeta') as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelector('.tarjeta-editar') as HTMLButtonElement).click();
     await avanzar(fixture);
 
     (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
@@ -108,7 +108,7 @@ describe('ThemeTemplatesPage', () => {
   it('pinta el detalle exacto (par, modo, ratio) de `problem.errors` en el mismo role="alert" que el aviso local', async () => {
     const fixture = await crearYCargar();
 
-    (fixture.nativeElement.querySelector('.tarjeta') as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelector('.tarjeta-editar') as HTMLButtonElement).click();
     await avanzar(fixture);
 
     (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
@@ -210,7 +210,7 @@ describe('ThemeTemplatesPage', () => {
   it('permite marcar la plantilla como predeterminada al editar, y lo envía en el PATCH', async () => {
     const fixture = await crearYCargar();
 
-    (fixture.nativeElement.querySelector('.tarjeta') as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelector('.tarjeta-editar') as HTMLButtonElement).click();
     await avanzar(fixture);
 
     const casilla = fixture.nativeElement.querySelector(

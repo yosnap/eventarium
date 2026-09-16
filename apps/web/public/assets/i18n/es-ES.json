@@ -1809,7 +1809,11 @@
         "previewBoton": "Inscribirme",
         "previsualizacion": "Previsualización",
         "fuenteDisplay": "Fuente de los títulos",
-        "fuenteBody": "Fuente de los textos"
+        "fuenteBody": "Fuente de los textos",
+        "usar": "Usar en la plataforma",
+        "enUso": "En uso",
+        "editarNombre": "Editar la plantilla {{name}}",
+        "errorAplicar": "No hemos podido aplicar la plantilla."
       },
       "rotulo": "Plataforma",
       "cabeceraInicio": "La instalación está",
