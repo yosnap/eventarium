@@ -384,6 +384,9 @@ describe('shells', () => {
     });
 
     it('el catálogo de componentes aparece en el panel de plataforma', async () => {
+      // soloSuperadmin: el beforeEach de este describe monta con esSuperadmin
+      // false por defecto; este enlace concreto necesita superadmin de verdad.
+      TestBed.overrideProvider(AuthService, { useValue: configurarAuth(true) });
       url.set('/admin');
       const fixture = TestBed.createComponent(AdminShell);
       await fixture.whenStable();

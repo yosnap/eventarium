@@ -1,6 +1,8 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
+
+import { AuthService } from '../../core/auth/auth.service';
 
 /**
  * Un enlace de navegación del panel.
@@ -32,16 +34,25 @@ export const ORGANIZATION_NAV_LINKS: readonly AdminNavLink[] = [
 ];
 
 export const PLATFORM_NAV_LINKS: readonly AdminNavLink[] = [
-  { path: ['/admin'], labelKey: 'admin.superadminNav', exact: true },
-  { path: ['/admin/identidad'], labelKey: 'admin.plataforma.identidad.titulo' },
-  { path: ['/admin/legales'], labelKey: 'admin.plataforma.legales.titulo' },
-  { path: ['/admin/plantillas'], labelKey: 'admin.superadmin.plantillas.titulo' },
+  { path: ['/admin'], labelKey: 'admin.superadminNav', exact: true, soloSuperadmin: true },
+  { path: ['/admin/identidad'], labelKey: 'admin.plataforma.identidad.titulo', soloSuperadmin: true },
+  { path: ['/admin/legales'], labelKey: 'admin.plataforma.legales.titulo', soloSuperadmin: true },
+  {
+    path: ['/admin/plantillas'],
+    labelKey: 'admin.superadmin.plantillas.titulo',
+    soloSuperadmin: true,
+  },
+  // Suplantar y el directorio de usuarios aceptan también el rol de
+  // plataforma `soporte` en el backend (`require_platform_staff`, plan
+  // `260916-0810-usuarios-y-permisos-plataforma`): sin `soloSuperadmin`,
+  // listos para cuando el guard del panel se abra a ese rol.
   { path: ['/admin/suplantar'], labelKey: 'admin.plataforma.impersonar.titulo' },
+  { path: ['/admin/usuarios'], labelKey: 'admin.plataforma.usuarios.titulo' },
   // La caja de piezas con la que se construyen la landing y la presentación del
   // portal, y de la que salen las plantillas que luego usan las organizaciones
   // (mismo papel que cumple para Luma): trabajo de quien administra la
   // instalación, no de un organizador.
-  { path: ['/admin/estilo'], labelKey: 'admin.catalogoDeComponentes' },
+  { path: ['/admin/estilo'], labelKey: 'admin.catalogoDeComponentes', soloSuperadmin: true },
 ];
 
 /**
@@ -121,7 +132,7 @@ export function enlacesDeEvento(eventId: string, aceptaPagos: boolean): readonly
         </h2>
         <nav [attr.aria-labelledby]="'admin-nav-plataforma-titulo'">
           <ul>
-            @for (enlace of PLATFORM_NAV_LINKS; track enlace.path.join('/')) {
+            @for (enlace of enlacesDePlataforma(); track enlace.path.join('/')) {
               <li>
                 <a
                   [routerLink]="enlace.path"
@@ -246,6 +257,8 @@ export function enlacesDeEvento(eventId: string, aceptaPagos: boolean): readonly
   `,
 })
 export class AdminNav {
+  private readonly auth = inject(AuthService);
+
   /** `true` cuando el panel pintado es el de la plataforma (`/admin`). */
   readonly plataforma = input<boolean>(false);
   /** `null` cuando no hay evento activo o cuando su carga ha fallado: en ambos casos
@@ -253,7 +266,15 @@ export class AdminNav {
   readonly evento = input<AdminNavEvento | null>(null);
 
   protected readonly ORGANIZATION_NAV_LINKS = ORGANIZATION_NAV_LINKS;
-  protected readonly PLATFORM_NAV_LINKS = PLATFORM_NAV_LINKS;
+
+  /** `PLATFORM_NAV_LINKS` sin los enlaces `soloSuperadmin` para quien no lo
+   * es — hoy el guard del panel ya exige superadmin para entrar aquí
+   * siquiera, así que en la práctica no filtra nada todavía; deja el panel
+   * listo para el día en que se abra también a `soporte`. */
+  protected readonly enlacesDePlataforma = computed(() => {
+    const esSuperadmin = this.auth.currentUser()?.is_superadmin ?? false;
+    return PLATFORM_NAV_LINKS.filter((enlace) => !enlace.soloSuperadmin || esSuperadmin);
+  });
 
   protected readonly enlacesEvento = computed(() => {
     const datosEvento = this.evento();

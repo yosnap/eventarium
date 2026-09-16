@@ -1,13 +1,21 @@
-import { provideZonelessChangeDetection } from '@angular/core';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
 import { describe, expect, it } from 'vitest';
 
 import es from '../../../../public/assets/i18n/es-ES.json';
+import { AuthService } from '../../core/auth/auth.service';
 import { AdminNav, enlacesDeEvento } from './admin-nav';
 
-function configurar() {
+/** Solo lo que `AdminNav` lee de `AuthService`: quien monta el panel de
+ * plataforma en un test es superadmin por defecto (mismo supuesto que ya
+ * garantiza el guard real del panel, `superadminGuard`) — así los enlaces
+ * `soloSuperadmin` siguen apareciendo salvo que un test concreto diga lo
+ * contrario. */
+function configurar(esSuperadmin = true) {
   TestBed.configureTestingModule({
     imports: [
       TranslocoTestingModule.forRoot({
@@ -15,12 +23,21 @@ function configurar() {
         translocoConfig: { availableLangs: ['es-ES'], defaultLang: 'es-ES' },
       }),
     ],
-    providers: [provideZonelessChangeDetection(), provideRouter([])],
+    providers: [
+      provideZonelessChangeDetection(),
+      provideRouter([]),
+      provideHttpClient(),
+      provideHttpClientTesting(),
+      {
+        provide: AuthService,
+        useValue: { currentUser: signal({ is_superadmin: esSuperadmin }) },
+      },
+    ],
   });
 }
 
-async function montar(plataforma: boolean) {
-  configurar();
+async function montar(plataforma: boolean, esSuperadmin = true) {
+  configurar(esSuperadmin);
   const fixture = TestBed.createComponent(AdminNav);
   fixture.componentRef.setInput('plataforma', plataforma);
   await fixture.whenStable();
@@ -154,5 +171,21 @@ describe('AdminNav — panel de plataforma', () => {
     // organización concreta.
     const raiz = await montar(true);
     expect(enlacesDe(raiz)).toContain('/admin/estilo');
+  });
+
+  it('sin superadmin: oculta los enlaces soloSuperadmin pero no usuarios ni suplantar', async () => {
+    // `soporte` (rol aditivo, plan 260916-0810-usuarios-y-permisos-
+    // plataforma) no debe ver plantillas/identidad/legales/estilo —el
+    // backend se los rechazaría con 403—, pero sí el directorio de usuarios
+    // y la suplantación, que sí aceptan su rol.
+    const raiz = await montar(true, false);
+    const enlaces = enlacesDe(raiz);
+    expect(enlaces).not.toContain('/admin');
+    expect(enlaces).not.toContain('/admin/plantillas');
+    expect(enlaces).not.toContain('/admin/identidad');
+    expect(enlaces).not.toContain('/admin/legales');
+    expect(enlaces).not.toContain('/admin/estilo');
+    expect(enlaces).toContain('/admin/usuarios');
+    expect(enlaces).toContain('/admin/suplantar');
   });
 });

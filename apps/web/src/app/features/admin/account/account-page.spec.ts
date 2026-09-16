@@ -72,9 +72,37 @@ describe('AccountPage', () => {
     formularioPerfil.dispatchEvent(new Event('submit'));
     await fixture.whenStable();
 
-    expect(auth.updateMe).toHaveBeenCalledWith({ firstName: 'Ana', lastName: 'Propietaria' });
+    expect(auth.updateMe).toHaveBeenCalledWith({
+      firstName: 'Ana',
+      lastName: 'Propietaria',
+      notifySimilarEvents: false,
+    });
     expect(fixture.nativeElement.textContent).toContain('Perfil actualizado');
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('activa la preferencia de avisos y la envía a updateMe', async () => {
+    const fixture = TestBed.createComponent(AccountPage);
+    await fixture.whenStable();
+    const auth = TestBed.inject(AuthService);
+
+    const casilla = fixture.nativeElement.querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement;
+    expect(casilla.checked).toBe(false);
+    casilla.click();
+    casilla.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+
+    const formularioPerfil = fixture.nativeElement.querySelector('form') as HTMLFormElement;
+    formularioPerfil.dispatchEvent(new Event('submit'));
+    await fixture.whenStable();
+
+    expect(auth.updateMe).toHaveBeenCalledWith({
+      firstName: 'Ana',
+      lastName: 'Propietaria',
+      notifySimilarEvents: true,
+    });
   });
 
   it('solicitar el cambio de correo exige contraseña actual', async () => {

@@ -12,6 +12,7 @@ export interface CurrentUserResponse {
   id: string;
   is_superadmin: boolean;
   last_name: (string | null);
+  notify_similar_events: boolean;
   organization_id: string;
   permissions: Array<Permission>;
   roles: Array<string>;

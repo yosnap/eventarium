@@ -111,6 +111,14 @@ export type { UpdateThemeTemplateApiV1AdminThemeTemplatesTemplateIdPatch$Params 
 export { updateThemeTemplateApiV1AdminThemeTemplatesTemplateIdPatch as updateThemeTemplateApiV1AdminThemeTemplatesTemplateIdPatch } from './fn/administracion/update-theme-template-api-v-1-admin-theme-templates-template-id-patch';
 export type { GetPlatformMetricsApiV1AdminMetricsGet$Params as GetPlatformMetricsApiV1AdminMetricsGet$Params } from './fn/administracion/get-platform-metrics-api-v-1-admin-metrics-get';
 export { getPlatformMetricsApiV1AdminMetricsGet as getPlatformMetricsApiV1AdminMetricsGet } from './fn/administracion/get-platform-metrics-api-v-1-admin-metrics-get';
+export type { ListUsersApiV1AdminUsersGet$Params as ListUsersApiV1AdminUsersGet$Params } from './fn/administracion/list-users-api-v-1-admin-users-get';
+export { listUsersApiV1AdminUsersGet as listUsersApiV1AdminUsersGet } from './fn/administracion/list-users-api-v-1-admin-users-get';
+export type { GetUserApiV1AdminUsersUserIdGet$Params as GetUserApiV1AdminUsersUserIdGet$Params } from './fn/administracion/get-user-api-v-1-admin-users-user-id-get';
+export { getUserApiV1AdminUsersUserIdGet as getUserApiV1AdminUsersUserIdGet } from './fn/administracion/get-user-api-v-1-admin-users-user-id-get';
+export type { DeactivateUserApiV1AdminUsersUserIdDeactivatePost$Params as DeactivateUserApiV1AdminUsersUserIdDeactivatePost$Params } from './fn/administracion/deactivate-user-api-v-1-admin-users-user-id-deactivate-post';
+export { deactivateUserApiV1AdminUsersUserIdDeactivatePost as deactivateUserApiV1AdminUsersUserIdDeactivatePost } from './fn/administracion/deactivate-user-api-v-1-admin-users-user-id-deactivate-post';
+export type { UpdatePlatformRoleApiV1AdminUsersUserIdPlatformRolePut$Params as UpdatePlatformRoleApiV1AdminUsersUserIdPlatformRolePut$Params } from './fn/administracion/update-platform-role-api-v-1-admin-users-user-id-platform-role-put';
+export { updatePlatformRoleApiV1AdminUsersUserIdPlatformRolePut as updatePlatformRoleApiV1AdminUsersUserIdPlatformRolePut } from './fn/administracion/update-platform-role-api-v-1-admin-users-user-id-platform-role-put';
 export type { GetPlatformIdentityApiV1AdminIdentityGet$Params as GetPlatformIdentityApiV1AdminIdentityGet$Params } from './fn/administracion/get-platform-identity-api-v-1-admin-identity-get';
 export { getPlatformIdentityApiV1AdminIdentityGet as getPlatformIdentityApiV1AdminIdentityGet } from './fn/administracion/get-platform-identity-api-v-1-admin-identity-get';
 export type { UpdatePlatformIdentityApiV1AdminIdentityPatch$Params as UpdatePlatformIdentityApiV1AdminIdentityPatch$Params } from './fn/administracion/update-platform-identity-api-v-1-admin-identity-patch';

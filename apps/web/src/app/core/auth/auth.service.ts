@@ -15,6 +15,10 @@ export interface UsuarioAutenticado {
    * (`/users/me`, `CurrentUserResponse`). La organización activa de la
    * sesión — nunca la del host, que ya no determina nada. */
   readonly organization_id?: string;
+  /** "Avisarme de eventos similares" — mismo motivo de ausencia que
+   * `organization_id`: no viaja en `UserSummary` del login, solo en
+   * `CurrentUserResponse`. */
+  readonly notify_similar_events?: boolean;
 }
 
 /**
@@ -275,12 +279,17 @@ export class AuthService {
   }
 
   /** Nombre y locale. El correo tiene su propio flujo (`changeEmail`). */
-  async updateMe(datos: { firstName?: string; lastName?: string; locale?: string }): Promise<void> {
+  async updateMe(
+    datos: { firstName?: string; lastName?: string; locale?: string; notifySimilarEvents?: boolean },
+  ): Promise<void> {
     const respuesta = await firstValueFrom(
       this.http.patch<UsuarioAutenticado>(this.api.url('/users/me'), {
         ...(datos.firstName !== undefined ? { first_name: datos.firstName } : {}),
         ...(datos.lastName !== undefined ? { last_name: datos.lastName } : {}),
         ...(datos.locale !== undefined ? { locale: datos.locale } : {}),
+        ...(datos.notifySimilarEvents !== undefined
+          ? { notify_similar_events: datos.notifySimilarEvents }
+          : {}),
       }),
     );
     this.usuario.set(respuesta);

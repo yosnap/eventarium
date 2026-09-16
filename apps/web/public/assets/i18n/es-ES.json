@@ -12,7 +12,9 @@
     "tema": {
       "activarOscuro": "Activar el tema oscuro",
       "activarClaro": "Activar el tema claro"
-    }
+    },
+    "si": "Sí",
+    "no": "No"
   },
   "errores": {
     "sitioNoDisponible": "Sitio no disponible",
@@ -907,7 +909,9 @@
         "titulo": "Perfil",
         "nombre": "Nombre",
         "apellidos": "Apellidos",
-        "exito": "Perfil actualizado."
+        "exito": "Perfil actualizado.",
+        "avisarmeEventosSimilares": "Avisarme de eventos similares",
+        "avisarmeEventosSimilaresPista": "Guardamos tu preferencia ya; todavía no enviamos avisos automáticos."
       },
       "correo": {
         "titulo": "Correo electrónico",
@@ -1731,6 +1735,36 @@
           "modificado": "Modificado",
           "corregido": "Corregido"
         }
+      },
+      "usuarios": {
+        "titulo": "Usuarios",
+        "descripcion": "Directorio de toda persona con cuenta en la instalación: organizadores, asistentes con cuenta, o ambos.",
+        "filtros": "Filtros",
+        "buscar": "Buscar por email o nombre",
+        "organizacion": "Organización",
+        "todasLasOrganizaciones": "Todas las organizaciones",
+        "rolDePlataforma": "Rol de plataforma",
+        "todosLosRoles": "Todos los roles",
+        "sinRol": "Sin rol",
+        "filtrar": "Filtrar",
+        "sinResultados": "No hay usuarios que coincidan con estos filtros.",
+        "activo": "Activo",
+        "inactivo": "Inactivo",
+        "columnaNombre": "Nombre",
+        "columnaCorreo": "Correo",
+        "columnaEstado": "Estado",
+        "columnaOrganizaciones": "Organizaciones",
+        "detalle": "Detalle",
+        "sinOrganizaciones": "No participa en ninguna organización.",
+        "inscripciones": "Inscripciones como asistente",
+        "preferenciaNotificaciones": "Avisar de eventos similares",
+        "guardarRol": "Guardar rol",
+        "desactivar": "Desactivar",
+        "confirmarDesactivar": "Confirmar desactivación",
+        "errorLista": "No hemos podido cargar el directorio de usuarios.",
+        "errorDetalle": "No hemos podido cargar el detalle de este usuario.",
+        "errorRol": "No hemos podido guardar el rol de plataforma.",
+        "errorDesactivar": "No hemos podido desactivar a este usuario."
       }
     },
     "superadmin": {

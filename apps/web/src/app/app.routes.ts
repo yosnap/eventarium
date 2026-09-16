@@ -329,6 +329,11 @@ export const routes: Routes = [
           import('./features/admin/superadmin/impersonation-page').then((m) => m.ImpersonationPage),
       },
       {
+        path: 'usuarios',
+        loadComponent: () =>
+          import('./features/admin/superadmin/users-page').then((m) => m.UsersPage),
+      },
+      {
         // Catálogo de componentes: la caja de piezas con la que se construyen la
         // landing y la presentación del portal, y de la que salen las plantillas
         // que luego usan las organizaciones (mismo papel que cumple para Luma).

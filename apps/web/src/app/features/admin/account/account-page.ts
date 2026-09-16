@@ -11,6 +11,7 @@ import {
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
+import { Checkbox } from '../../../shared/ui/checkbox';
 import { Input } from '../../../shared/ui/input';
 import { PasswordStrength, isPasswordValid } from '../../../shared/ui/password-strength';
 import { PageHeader } from '../../../shared/ui/page-header';
@@ -27,7 +28,7 @@ const TIPOS_DE_ENLACE = ['twitter', 'linkedin', 'instagram', 'web'] as const;
 @Component({
   selector: 'app-account-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input, PasswordStrength, PageHeader],
+  imports: [TranslocoDirective, Alert, Button, Card, Checkbox, Input, PasswordStrength, PageHeader],
   template: `
     <ng-container *transloco="let t">
       <app-page-header [rotulo]="t('admin.cuenta.rotulo')">
@@ -47,6 +48,11 @@ const TIPOS_DE_ENLACE = ['twitter', 'linkedin', 'instagram', 'web'] as const;
             [label]="t('admin.cuenta.perfil.apellidos')"
             autocomplete="family-name"
             [(value)]="lastName"
+          />
+          <app-checkbox
+            [label]="t('admin.cuenta.perfil.avisarmeEventosSimilares')"
+            [hint]="t('admin.cuenta.perfil.avisarmeEventosSimilaresPista')"
+            [(checked)]="notifySimilarEvents"
           />
           @if (errorPerfil(); as mensaje) {
             <app-alert tone="error">{{ mensaje }}</app-alert>
@@ -242,6 +248,9 @@ export class AccountPage {
 
   protected readonly firstName = signal(this.auth.currentUser()?.first_name ?? '');
   protected readonly lastName = signal(this.auth.currentUser()?.last_name ?? '');
+  protected readonly notifySimilarEvents = signal(
+    this.auth.currentUser()?.notify_similar_events ?? false,
+  );
   protected readonly guardandoPerfil = signal(false);
   protected readonly exitoPerfil = signal(false);
   protected readonly errorPerfil = signal<string | null>(null);
@@ -314,6 +323,7 @@ export class AccountPage {
       await this.auth.updateMe({
         firstName: this.firstName().trim(),
         lastName: this.lastName().trim(),
+        notifySimilarEvents: this.notifySimilarEvents(),
       });
       this.exitoPerfil.set(true);
     } catch (error) {
