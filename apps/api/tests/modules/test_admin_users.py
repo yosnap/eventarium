@@ -9,6 +9,7 @@ sensible, nadie se desactiva/retira el rol a sí mismo.
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
@@ -16,6 +17,8 @@ from sqlalchemy import select, update
 
 from app.core.database import SessionMaintenance
 from app.modules.auth.router import COOKIE_NOMBRE
+from app.modules.events.models import Event
+from app.modules.registrations.models import EventRegistration
 from app.modules.users.models import User
 from tests.conftest import OrganizacionDePrueba, crear_miembro, iniciar_sesion, iniciar_sesion_con
 
@@ -156,6 +159,50 @@ async def test_desactivar_impide_el_login_y_anonimiza_sin_tocar_organizaciones(
             select(OrganizationMember).where(OrganizationMember.id == objetivo.member_id)
         )
         assert miembro is not None
+
+
+async def test_desactivar_no_toca_las_inscripciones_del_usuario(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """El email de `EventRegistration` es una copia propia del formulario, no
+    una referencia a `User`: desactivar/anonimizar la cuenta no debe tocar
+    ninguna fila de inscripción, con o sin `user_id` enlazado."""
+    objetivo = await crear_miembro(organizacion, "organizer")
+    ahora = datetime.now(UTC)
+    async with SessionMaintenance() as session:
+        evento = Event(
+            organization_id=organizacion.id,
+            slug="evento-de-prueba-desactivar",
+            title="Evento de prueba",
+            starts_at=ahora,
+            ends_at=ahora + timedelta(hours=2),
+            location_mode="in_person",
+        )
+        session.add(evento)
+        await session.flush()
+        inscripcion = EventRegistration(
+            event_id=evento.id,
+            organization_id=organizacion.id,
+            email=objetivo.email,
+            full_name="Asistente de Prueba",
+            status="confirmed",
+            confirmed_at=ahora,
+            user_id=objetivo.user_id,
+        )
+        session.add(inscripcion)
+        await session.commit()
+        inscripcion_id = inscripcion.id
+
+    cabeceras = await _superadmin_headers(cliente, organizacion)
+    respuesta = await cliente.post(f"{ADMIN_USERS}/{objetivo.user_id}/deactivate", headers=cabeceras)
+    assert respuesta.status_code == 200, respuesta.text
+
+    async with SessionMaintenance() as session:
+        fila = await session.get(EventRegistration, inscripcion_id)
+        assert fila is not None
+        assert fila.email == objetivo.email
+        assert fila.user_id == objetivo.user_id
+        assert fila.status == "confirmed"
 
 
 async def test_no_se_puede_desactivar_la_propia_cuenta(
