@@ -58,6 +58,7 @@ export type { EventResponse } from './models/event-response';
 export type { EventSessionCreate } from './models/event-session-create';
 export type { EventSessionResponse } from './models/event-session-response';
 export type { EventSessionUpdate } from './models/event-session-update';
+export type { EventSpeakersViewOut } from './models/event-speakers-view-out';
 export type { EventUpdate } from './models/event-update';
 export type { EventVenueCreate } from './models/event-venue-create';
 export type { EventVenueResponse } from './models/event-venue-response';
@@ -147,6 +148,7 @@ export type { RegistrationQuestionCreate } from './models/registration-question-
 export type { RegistrationQuestionPublic } from './models/registration-question-public';
 export type { RegistrationQuestionResponse } from './models/registration-question-response';
 export type { RegistrationQuestionUpdate } from './models/registration-question-update';
+export type { RegistrationRejectRequest } from './models/registration-reject-request';
 export type { RegistrationStats } from './models/registration-stats';
 export type { ResendVerificationRequest } from './models/resend-verification-request';
 export type { ResetPasswordRequest } from './models/reset-password-request';
@@ -166,6 +168,10 @@ export type { SessionParticipantsUpdate } from './models/session-participants-up
 export type { SocialLinkInput } from './models/social-link-input';
 export type { SocialLinkResponse } from './models/social-link-response';
 export type { SocialLinkUpdate } from './models/social-link-update';
+export type { SpeakerCompletitudOut } from './models/speaker-completitud-out';
+export type { SpeakerHistoryItemOut } from './models/speaker-history-item-out';
+export type { SpeakerRowOut } from './models/speaker-row-out';
+export type { SpeakerSessionOut } from './models/speaker-session-out';
 export type { SponsorCreate } from './models/sponsor-create';
 export type { SponsorPaymentDetailOut } from './models/sponsor-payment-detail-out';
 export type { SponsorPaymentDetailUpsert } from './models/sponsor-payment-detail-upsert';

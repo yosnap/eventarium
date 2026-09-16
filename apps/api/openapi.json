@@ -2913,6 +2913,150 @@
         }
       }
     },
+    "/api/v1/events/{event_id}/speakers": {
+      "get": {
+        "tags": [
+          "eventos"
+        ],
+        "summary": "Vista agregada de ponentes del evento",
+        "description": "Una fila por ponente del roster (rol de ponente en la organización), con sus sesiones asignadas, el estado de su ficha, cuántos eventos de la organización acumula y su perfil público si lo activó. Una consulta por tabla: nada de resolver el historial ponente a ponente.",
+        "operationId": "list_event_speakers_api_v1_events__event_id__speakers_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventSpeakersViewOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/speakers/{user_id}/historial": {
+      "get": {
+        "tags": [
+          "eventos"
+        ],
+        "summary": "Historial de participación de un ponente",
+        "description": "Solo para el diálogo del panel: eventos de esta organización donde la persona participó, sin filtro de publicación porque el organizador ve también borradores.",
+        "operationId": "list_speaker_history_api_v1_events__event_id__speakers__user_id__historial_get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SpeakerHistoryItemOut"
+                  },
+                  "title": "Response List Speaker History Api V1 Events  Event Id  Speakers  User Id  Historial Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/speakers/{organization_member_id}/pedir-bio": {
+      "post": {
+        "tags": [
+          "eventos"
+        ],
+        "summary": "Pedir al ponente que complete su ficha",
+        "description": "Encola un correo al ponente con el enlace a su cuenta, donde rellena su perfil. La persona debe estar en el roster del evento.",
+        "operationId": "request_speaker_bio_api_v1_events__event_id__speakers__organization_member_id__pedir_bio_post",
+        "parameters": [
+          {
+            "name": "organization_member_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Organization Member Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/events/{event_id}/members": {
       "get": {
         "tags": [
@@ -3904,6 +4048,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RegistrationRejectRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Datos"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -9955,6 +10116,28 @@
         "title": "EventSessionUpdate",
         "description": "Campos editables de una sesión."
       },
+      "EventSpeakersViewOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SpeakerRowOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total_sesiones": {
+            "type": "integer",
+            "title": "Total Sesiones"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total_sesiones"
+        ],
+        "title": "EventSpeakersViewOut",
+        "description": "Vista agregada de ponentes, con el total de sesiones del evento."
+      },
       "EventUpdate": {
         "properties": {
           "title": {
@@ -11036,6 +11219,11 @@
           "referencia_id": {
             "type": "string",
             "title": "Referencia Id"
+          },
+          "en_especie": {
+            "type": "boolean",
+            "title": "En Especie",
+            "default": false
           }
         },
         "type": "object",
@@ -11225,7 +11413,6 @@
           },
           "email": {
             "type": "string",
-            "format": "email",
             "title": "Email"
           },
           "role_id": {
@@ -11415,7 +11602,6 @@
           },
           "email": {
             "type": "string",
-            "format": "email",
             "title": "Email"
           },
           "first_name": {
@@ -11809,8 +11995,7 @@
           "contact_email": {
             "anyOf": [
               {
-                "type": "string",
-                "format": "email"
+                "type": "string"
               },
               {
                 "type": "null"
@@ -14631,6 +14816,25 @@
         "title": "RegistrationQuestionUpdate",
         "description": "Edición parcial de una pregunta personalizada.\n\n`type`/`options` solo se aplican si la pregunta no tiene respuestas\nasociadas todavía — el servicio responde 409 si las hay (decisión #6 del\nPRD, fase 3)."
       },
+      "RegistrationRejectRequest": {
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "title": "RegistrationRejectRequest",
+        "description": "Motivo opcional del rechazo, dirigido a la persona rechazada.\n\nNo se guarda en ninguna tabla: viaja solo en el correo de aviso, igual\nque cualquier otro campo de texto libre en un cuerpo de correo. Nota de\nalcance: esto acota la retención en Postgres, no en la cola de tareas —\nver el comentario de `send_registration_rejected_email`\n(`app/core/tasks.py`) sobre Redis Streams."
+      },
       "RegistrationStats": {
         "properties": {
           "initiated": {
@@ -14782,6 +14986,10 @@
             },
             "type": "object",
             "title": "Tokens"
+          },
+          "default_mode": {
+            "type": "string",
+            "title": "Default Mode"
           }
         },
         "type": "object",
@@ -14789,7 +14997,8 @@
           "id",
           "key",
           "name",
-          "tokens"
+          "tokens",
+          "default_mode"
         ],
         "title": "ResolvedTheme",
         "description": "La plantilla de tema de la plataforma, ya resuelta.\n\nResolución: `COALESCE(platform_branding.theme_template_id, la que tiene\nis_default)`. `None` si por lo que sea no hubiera ninguna plantilla en el\ncatálogo — defensa para que el cliente se quede con la base de\n`tokens.css` en vez de romper."
@@ -15314,6 +15523,198 @@
         ],
         "title": "SocialLinkUpdate",
         "description": "Enlace social del perfil de una persona."
+      },
+      "SpeakerCompletitudOut": {
+        "properties": {
+          "porcentaje": {
+            "type": "integer",
+            "title": "Porcentaje"
+          },
+          "rellenas": {
+            "type": "integer",
+            "title": "Rellenas"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "faltantes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Faltantes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "porcentaje",
+          "rellenas",
+          "total",
+          "faltantes"
+        ],
+        "title": "SpeakerCompletitudOut",
+        "description": "Estado de la ficha del ponente, sobre las claves del perfil de ponente.\n\n`faltantes` nombra las claves sin rellenar para que el panel pueda decir\n«falta bio y foto» sin adivinarlo del porcentaje."
+      },
+      "SpeakerHistoryItemOut": {
+        "properties": {
+          "evento_titulo": {
+            "type": "string",
+            "title": "Evento Titulo"
+          },
+          "rol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rol"
+          },
+          "fecha": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha"
+          }
+        },
+        "type": "object",
+        "required": [
+          "evento_titulo",
+          "rol",
+          "fecha"
+        ],
+        "title": "SpeakerHistoryItemOut",
+        "description": "Una línea del historial de participación de una persona."
+      },
+      "SpeakerRowOut": {
+        "properties": {
+          "organization_member_id": {
+            "type": "string",
+            "title": "Organization Member Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
+          "titular": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Titular"
+          },
+          "sesiones": {
+            "items": {
+              "$ref": "#/components/schemas/SpeakerSessionOut"
+            },
+            "type": "array",
+            "title": "Sesiones"
+          },
+          "completitud": {
+            "$ref": "#/components/schemas/SpeakerCompletitudOut"
+          },
+          "ediciones": {
+            "type": "integer",
+            "title": "Ediciones"
+          },
+          "public_slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Slug"
+          }
+        },
+        "type": "object",
+        "required": [
+          "organization_member_id",
+          "user_id",
+          "email",
+          "first_name",
+          "last_name",
+          "titular",
+          "sesiones",
+          "completitud",
+          "ediciones",
+          "public_slug"
+        ],
+        "title": "SpeakerRowOut",
+        "description": "Fila de la vista agregada de ponentes de un evento."
+      },
+      "SpeakerSessionOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "titulo": {
+            "type": "string",
+            "title": "Titulo"
+          },
+          "starts_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starts At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "titulo",
+          "starts_at"
+        ],
+        "title": "SpeakerSessionOut",
+        "description": "Una sesión de la agenda donde el ponente está asignado."
       },
       "SponsorCreate": {
         "properties": {
@@ -15941,6 +16342,10 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Tokens"
+          },
+          "default_mode": {
+            "type": "string",
+            "title": "Default Mode"
           }
         },
         "type": "object",
@@ -15948,7 +16353,8 @@
           "id",
           "key",
           "name",
-          "tokens"
+          "tokens",
+          "default_mode"
         ],
         "title": "ThemeResolved",
         "description": "Plantilla de tema efectiva del chrome de plataforma."
@@ -16012,6 +16418,15 @@
             "type": "boolean",
             "title": "Is Default",
             "default": false
+          },
+          "default_mode": {
+            "type": "string",
+            "enum": [
+              "dark",
+              "light"
+            ],
+            "title": "Default Mode",
+            "default": "light"
           }
         },
         "type": "object",
@@ -16050,6 +16465,10 @@
           "is_default": {
             "type": "boolean",
             "title": "Is Default"
+          },
+          "default_mode": {
+            "type": "string",
+            "title": "Default Mode"
           }
         },
         "type": "object",
@@ -16058,7 +16477,8 @@
           "key",
           "name",
           "tokens",
-          "is_default"
+          "is_default",
+          "default_mode"
         ],
         "title": "ThemeTemplateResponse",
         "description": "Una plantilla tal y como la ve la superadministración."
@@ -16100,11 +16520,26 @@
               }
             ],
             "title": "Is Default"
+          },
+          "default_mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "dark",
+                  "light"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Mode"
           }
         },
         "type": "object",
         "title": "ThemeTemplateUpdate",
-        "description": "Edición de `name`, `tokens` e `is_default`. No se puede cambiar `key`."
+        "description": "Edición de `name`, `tokens`, `is_default` y `default_mode`. No se puede\ncambiar `key`."
       },
       "TicketDetail": {
         "properties": {

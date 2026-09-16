@@ -8,10 +8,12 @@ import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
 import { RegistrationListItem } from '../../models/registration-list-item';
+import { RegistrationRejectRequest } from '../../models/registration-reject-request';
 
 export interface RejectRegistrationApiV1EventsEventIdRegistrationsRegistrationIdRejectPost$Params {
   registration_id: string;
   event_id: string;
+      body?: (RegistrationRejectRequest | null)
 }
 
 export function rejectRegistrationApiV1EventsEventIdRegistrationsRegistrationIdRejectPost(http: HttpClient, rootUrl: string, params: RejectRegistrationApiV1EventsEventIdRegistrationsRegistrationIdRejectPost$Params, context?: HttpContext): Observable<StrictHttpResponse<RegistrationListItem>> {
@@ -19,6 +21,7 @@ export function rejectRegistrationApiV1EventsEventIdRegistrationsRegistrationIdR
   if (params) {
     rb.path('registration_id', params.registration_id, {});
     rb.path('event_id', params.event_id, {});
+    rb.body(params.body, 'application/json');
   }
 
   return http.request(

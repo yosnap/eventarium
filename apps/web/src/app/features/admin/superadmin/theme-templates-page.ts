@@ -6,12 +6,20 @@ import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { AvisoDeContraste, comprobarContrasteDePlantilla } from '../../../core/theming/contrast';
-import { PlantillaDeTema, TOKENS_DE_PLANTILLA } from '../../../core/theming/theme-template.model';
+import { alfaDe, hexParaSelector, oklchDeHex } from '../../../core/theming/oklch';
+import {
+  PlantillaDeTema,
+  TOKENS_DE_PLANTILLA,
+  TOKENS_DE_SOMBRA,
+} from '../../../core/theming/theme-template.model';
 import { Alert } from '../../../shared/ui/alert';
+import { Checkbox } from '../../../shared/ui/checkbox';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
 import { PageHeader } from '../../../shared/ui/page-header';
+import { RadioGroup } from '../../../shared/ui/radio';
+import { ThemeTemplatePreview } from './theme-template-preview';
 
 type ModoDeTema = 'dark' | 'light';
 
@@ -20,6 +28,7 @@ interface FormularioDePlantilla {
   name: string;
   key: string;
   isDefault: boolean;
+  defaultMode: 'dark' | 'light';
   tokens: { dark: Record<string, string>; light: Record<string, string> };
 }
 
@@ -50,6 +59,7 @@ function formularioVacio(): FormularioDePlantilla {
     name: '',
     key: '',
     isDefault: false,
+    defaultMode: 'light',
     tokens: { dark: modoVacio(), light: modoVacio() },
   };
 }
@@ -92,6 +102,7 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
     name: plantilla.name,
     key: plantilla.key,
     isDefault: plantilla.is_default ?? false,
+    defaultMode: plantilla.default_mode === 'dark' ? 'dark' : 'light',
     tokens: {
       dark: { ...base.tokens.dark, ...plantilla.tokens.dark },
       light: { ...base.tokens.light, ...plantilla.tokens.light },
@@ -109,7 +120,17 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
 @Component({
   selector: 'app-theme-templates-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input, PageHeader],
+  imports: [
+    TranslocoDirective,
+    Alert,
+    Button,
+    Card,
+    Checkbox,
+    Input,
+    PageHeader,
+    RadioGroup,
+    ThemeTemplatePreview,
+  ],
   template: `
     <ng-container *transloco="let t">
       <app-page-header [rotulo]="t('admin.superadmin.plantillas.rotulo')">
@@ -127,16 +148,31 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
           @if (plantillas().length === 0) {
             <p>{{ t('admin.superadmin.plantillas.sinPlantillas') }}</p>
           } @else {
-            <ul class="lista">
+            <div class="catalogo">
               @for (plantilla of plantillas(); track plantilla.id) {
-                <li>
-                  <button type="button" class="fila" (click)="editar(plantilla)">
-                    <span class="nombre">{{ plantilla.name }}</span>
-                    <span class="clave">{{ plantilla.key }}</span>
-                  </button>
-                </li>
+                <button
+                  type="button"
+                  class="tarjeta"
+                  [class.tarjeta-activa]="formulario().id === plantilla.id"
+                  (click)="editar(plantilla)"
+                  [attr.aria-pressed]="formulario().id === plantilla.id"
+                >
+                  <app-theme-template-preview
+                    class="tarjeta-miniatura"
+                    [tokens]="plantilla.tokens"
+                    [modo]="modoDeMiniatura(plantilla)"
+                  />
+                  <span class="tarjeta-pie">
+                    <span class="tarjeta-nombre">{{ plantilla.name }}</span>
+                    @if (plantilla.is_default) {
+                      <span class="tarjeta-predeterminada">{{
+                        t('admin.superadmin.plantillas.predeterminada')
+                      }}</span>
+                    }
+                  </span>
+                </button>
               }
-            </ul>
+            </div>
           }
           <app-button type="button" variant="secundario" (pulsado)="nueva()">
             {{ t('admin.superadmin.plantillas.nueva') }}
@@ -151,6 +187,33 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
           "
         >
           <form (submit)="guardar($event)" novalidate>
+            @if (!formulario().id) {
+              <app-button type="button" variant="secundario" (pulsado)="copiarDePorDefecto()">
+                {{ t('admin.superadmin.plantillas.copiarDePorDefecto') }}
+              </app-button>
+            }
+
+            <div class="previsualizacion">
+              <div class="preview-modo">
+                <span class="rotulo-seccion">{{
+                  t('admin.superadmin.plantillas.modo.dark')
+                }}</span>
+                <app-theme-template-preview
+                  [tokens]="tokensEnVivo()"
+                  modo="dark"
+                />
+              </div>
+              <div class="preview-modo">
+                <span class="rotulo-seccion">{{
+                  t('admin.superadmin.plantillas.modo.light')
+                }}</span>
+                <app-theme-template-preview
+                  [tokens]="tokensEnVivo()"
+                  modo="light"
+                />
+              </div>
+            </div>
+
             <app-input
               fieldId="plantilla-nombre"
               [label]="t('admin.superadmin.plantillas.nombre')"
@@ -176,42 +239,64 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
               />
             }
 
-            <label class="predeterminada">
-              <input
-                type="checkbox"
-                [checked]="formulario().isDefault"
-                (change)="cambiarIsDefault($event)"
-              />
-              {{ t('admin.superadmin.plantillas.predeterminada') }}
-            </label>
+            <app-checkbox
+              fieldId="plantilla-predeterminada"
+              [label]="t('admin.superadmin.plantillas.predeterminada')"
+              [checked]="formulario().isDefault"
+              (checkedChange)="cambiarIsDefault($event)"
+            />
             <p class="predeterminada-pista">
               {{ t('admin.superadmin.plantillas.predeterminadaPista') }}
             </p>
 
-            @for (modo of modos; track modo) {
-              <fieldset class="modo">
-                <legend>{{ t('admin.superadmin.plantillas.modo.' + modo) }}</legend>
-                <div class="tokens">
-                  @for (token of tokens; track token) {
-                    <div class="token-fila">
-                      <input
-                        type="color"
-                        class="muestra"
-                        [value]="valorParaSelector(modo, token)"
-                        (input)="cambiarToken(modo, token, colorDelEvento($event))"
-                        [attr.aria-label]="token"
-                      />
-                      <app-input
-                        [fieldId]="'token-' + modo + '-' + token"
-                        [label]="token"
-                        [value]="formulario().tokens[modo][token]"
-                        (valueChange)="cambiarToken(modo, token, $event)"
-                      />
+            <app-radio-group
+              nombre="modo-por-defecto"
+              [etiqueta]="t('admin.superadmin.plantillas.modoPorDefecto')"
+              [opciones]="modosSelector()"
+              [valor]="formulario().defaultMode"
+              (valorChange)="cambiarModoPorDefecto($event)"
+            />
+
+            <div class="tokens" role="table" [attr.aria-label]="t('admin.superadmin.plantillas.tokensTabla')">
+              <div class="token-cabecera" role="row">
+                <span role="columnheader">{{ t('admin.superadmin.plantillas.token') }}</span>
+                <span role="columnheader">{{ t('admin.superadmin.plantillas.modo.dark') }}</span>
+                <span role="columnheader">{{ t('admin.superadmin.plantillas.modo.light') }}</span>
+              </div>
+              @for (token of tokens; track token) {
+                <div class="token-fila" role="row">
+                  <span class="token-nombre" role="rowheader">{{ token }}</span>
+                  @for (modo of modos; track modo) {
+                    <div class="token-modo" role="cell">
+                      @if (esColor(token)) {
+                        <input
+                          type="color"
+                          class="selector"
+                          [value]="hexParaSelector(formulario().tokens[modo][token] ?? '') ?? '#808080'"
+                          (input)="elegirColor(modo, token, $event)"
+                          [attr.aria-label]="t('admin.superadmin.plantillas.selectorDe', { token: token })"
+                        />
+                        <app-input
+                          [fieldId]="'token-' + modo + '-' + token"
+                          [label]="'token ' + token + ' ' + modo"
+                          [etiquetaOculta]="true"
+                          [value]="formulario().tokens[modo][token]"
+                          (valueChange)="cambiarToken(modo, token, $event)"
+                        />
+                      } @else {
+                        <app-input
+                          [fieldId]="'token-' + modo + '-' + token"
+                          [label]="'token ' + token + ' ' + modo"
+                          [etiquetaOculta]="true"
+                          [value]="formulario().tokens[modo][token]"
+                          (valueChange)="cambiarToken(modo, token, $event)"
+                        />
+                      }
                     </div>
                   }
                 </div>
-              </fieldset>
-            }
+              }
+            </div>
 
             @if (avisosAMostrar().length > 0) {
               <div role="alert" class="avisos">
@@ -257,59 +342,130 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
     h1 {
       margin-top: 0;
     }
-    .lista {
-      list-style: none;
-      margin: 0 0 var(--space-md);
-      padding: 0;
+    .catalogo {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+      gap: var(--sp-4);
+      margin-bottom: var(--space-md);
+    }
+    .tarjeta {
       display: grid;
       gap: var(--space-xs);
-    }
-    .fila {
-      display: flex;
-      justify-content: space-between;
-      width: 100%;
-      padding: var(--space-sm) var(--space-md);
+      padding: var(--sp-3);
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
       background: none;
       cursor: pointer;
       font: inherit;
       color: var(--fg);
+      text-align: left;
     }
-    .clave {
-      color: var(--muted);
-      font-size: 0.875rem;
+    .tarjeta:hover {
+      border-color: var(--border-strong);
+    }
+    /* La tarjeta que se está editando, marcada por borde, no solo por color. */
+    .tarjeta-activa {
+      border-color: var(--accent);
+      border-width: 2px;
+      padding: calc(var(--sp-3) - 1px);
+    }
+    .tarjeta-miniatura {
+      pointer-events: none;
+    }
+    .tarjeta-pie {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-xs);
+    }
+    .tarjeta-nombre {
+      font-weight: 600;
+    }
+    .tarjeta-predeterminada {
+      font-family: var(--font-mono);
+      font-size: var(--fs-label);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .previsualizacion {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--sp-4);
+    }
+    .preview-modo {
+      display: grid;
+      gap: var(--space-xs);
+    }
+    @media (max-width: 48rem) {
+      .previsualizacion {
+        grid-template-columns: 1fr;
+      }
     }
     form {
       display: grid;
       gap: var(--space-lg);
     }
-    .modo {
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      padding: var(--space-md);
-    }
     .tokens {
       display: grid;
-      gap: var(--space-sm);
-      margin-top: var(--space-sm);
+      gap: var(--space-xs);
     }
+    .token-cabecera,
     .token-fila {
+      display: grid;
+      grid-template-columns: minmax(7rem, 1fr) 1fr 1fr;
+      gap: var(--space-sm);
+      align-items: center;
+    }
+    .token-cabecera {
+      font-family: var(--font-mono);
+      font-size: var(--fs-label);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: var(--space-xs) 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .token-nombre {
+      font-family: var(--font-mono);
+      font-size: var(--fs-sm);
+      color: var(--muted);
+    }
+    .token-modo {
       display: flex;
       align-items: center;
       gap: var(--space-sm);
     }
-    .token-fila app-input {
-      flex: 1;
-    }
-    .muestra {
-      width: 2.5rem;
-      height: 2.5rem;
+    .selector {
+      flex: 0 0 auto;
+      width: 2.25rem;
+      height: 2.25rem;
       padding: 0;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
       background: none;
       cursor: pointer;
+    }
+    .token-modo app-input {
+      flex: 1;
+    }
+    @media (max-width: 48rem) {
+      .token-cabecera,
+      .token-fila {
+        grid-template-columns: 1fr;
+      }
+      .token-nombre {
+        border-bottom: 1px dashed var(--border);
+        padding-bottom: var(--space-xs);
+      }
+    }
+    .muestra {
+      flex-shrink: 0;
+      width: 2.5rem;
+      height: 2.5rem;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      background-color: var(--surface);
     }
     .avisos {
       border: 1px solid var(--danger);
@@ -325,12 +481,6 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
       margin: 0;
       color: var(--muted);
     }
-    .predeterminada {
-      display: flex;
-      align-items: center;
-      gap: var(--space-xs);
-      cursor: pointer;
-    }
     .predeterminada-pista {
       margin: calc(-1 * var(--space-sm)) 0 0;
       color: var(--muted);
@@ -345,6 +495,25 @@ export class ThemeTemplatesPage {
 
   protected readonly modos: readonly ModoDeTema[] = ['dark', 'light'];
   protected readonly tokens = TOKENS_DE_PLANTILLA;
+
+  /** Tokens del formulario para el preview en vivo (lo que se ve es lo que hay). */
+  protected readonly tokensEnVivo = computed(() => this.formulario().tokens);
+
+  /** El modo con el que pinta la miniatura del catálogo: el de apertura de la plantilla. */
+  protected modoDeMiniatura(plantilla: PlantillaDeTema): 'dark' | 'light' {
+    return plantilla.default_mode === 'dark' ? 'dark' : 'light';
+  }
+
+  /** Las dos opciones del selector de modo por defecto, ya traducidas. */
+  /** Alias protegidos: las funciones importadas no son visibles a la plantilla. */
+  protected readonly hexParaSelector = hexParaSelector;
+
+  protected readonly modosSelector = computed<readonly { valor: ModoDeTema; etiqueta: string }[]>(
+    () => [
+      { valor: 'light', etiqueta: this.transloco.translate('admin.superadmin.plantillas.modo.light') },
+      { valor: 'dark', etiqueta: this.transloco.translate('admin.superadmin.plantillas.modo.dark') },
+    ],
+  );
 
   protected readonly cargando = signal(true);
   protected readonly errorLista = signal<string | null>(null);
@@ -438,26 +607,49 @@ export class ThemeTemplatesPage {
     this.formulario.update((actual) => ({ ...actual, key: valor.slice(0, LONGITUD_MAXIMA_CLAVE) }));
   }
 
-  protected cambiarIsDefault(evento: Event): void {
-    const marcada = (evento.target as HTMLInputElement).checked;
+  protected cambiarIsDefault(marcada: boolean): void {
     this.formulario.update((actual) => ({ ...actual, isDefault: marcada }));
   }
 
-  protected colorDelEvento(evento: Event): string {
-    return (evento.target as HTMLInputElement).value;
+  protected cambiarModoPorDefecto(modo: 'dark' | 'light'): void {
+    this.formulario.update((actual) => ({ ...actual, defaultMode: modo }));
   }
 
-  /** El selector nativo de color exige `#rrggbb` exacto; un valor a medio escribir u
-   * `oklch()` no lo cumple, así que se sustituye por un neutro para no romper el
-   * control mientras la persona escribe un valor válido de otro formato.
-   *
-   * Este `black` de reserva es una excepción deliberada a la regla de tokens del
-   * panel: no es un color de la interfaz que deba seguir al tema, es el valor que
-   * el `<input type="color">` necesita para pintar mientras el token elegido no
-   * es un hex válido. El color de verdad lo pone quien edita la plantilla. */
-  protected valorParaSelector(modo: ModoDeTema, token: string): string {
-    const valor = this.formulario().tokens[modo][token] ?? '';
-    return /^#[0-9a-f]{6}$/i.test(valor) ? valor : 'black';
+  /**
+   * Al crear, los tokens parten de la plantilla predeterminada del catálogo
+   * (o de la primera que haya): nadie debe rellenar 42 valores desde cero.
+   * Es un punto de partida editable, no una vinculación.
+   */
+  protected copiarDePorDefecto(): void {
+    const base = this.plantillas().find((p) => p.is_default) ?? this.plantillas()[0];
+    if (!base) {
+      return;
+    }
+    this.formulario.update((actual) => ({
+      ...actual,
+      tokens: {
+        dark: { ...actual.tokens.dark, ...base.tokens.dark },
+        light: { ...actual.tokens.light, ...base.tokens.light },
+      },
+    }));
+  }
+
+  /**
+   * Al elegir en el selector nativo (solo sabe `#rrggbb`), el token se escribe
+   * en `oklch(...)` — el formato del sistema — conservando la alfa que tuviera
+   * (los `*-dim` van con transparencia). Las sombras no son colores: su
+   * selector se oculta y se editan por texto.
+   */
+  protected elegirColor(modo: ModoDeTema, token: string, evento: Event): void {
+    const hex = (evento.target as HTMLInputElement).value;
+    const convertido = oklchDeHex(hex, alfaDe(this.formulario().tokens[modo][token] ?? ''));
+    if (convertido) {
+      this.cambiarToken(modo, token, convertido);
+    }
+  }
+
+  protected esColor(token: string): boolean {
+    return !TOKENS_DE_SOMBRA.includes(token);
   }
 
   protected cambiarToken(modo: ModoDeTema, token: string, valor: string): void {
@@ -505,6 +697,7 @@ export class ThemeTemplatesPage {
               name: actual.name,
               tokens: actual.tokens,
               is_default: actual.isDefault,
+              default_mode: actual.defaultMode,
             }),
           )
         : await firstValueFrom(
@@ -513,6 +706,7 @@ export class ThemeTemplatesPage {
               name: actual.name,
               tokens: actual.tokens,
               is_default: actual.isDefault,
+              default_mode: actual.defaultMode,
             }),
           );
       this.formulario.set(formularioDesdePlantilla(respuesta));

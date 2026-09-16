@@ -9,11 +9,11 @@ import {
 } from './theme-cookie';
 
 describe('theme-cookie', () => {
-  it('sin cabecera, no hay preferencia (leerModoDeCookieOpcional) y el valor por defecto es oscuro', () => {
+  it('sin cabecera, no hay preferencia (leerModoDeCookieOpcional) y el valor por defecto es claro', () => {
     expect(leerModoDeCookieOpcional(null)).toBeNull();
     expect(leerModoDeCookieOpcional(undefined)).toBeNull();
     expect(leerModoDeCookieOpcional('')).toBeNull();
-    expect(leerModoDeCookie(null)).toBe('oscuro');
+    expect(leerModoDeCookie(null)).toBe('claro');
   });
 
   it('lee la cookie entre otras cookies', () => {

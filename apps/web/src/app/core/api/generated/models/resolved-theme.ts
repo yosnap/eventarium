@@ -11,6 +11,7 @@
  * `tokens.css` en vez de romper.
  */
 export interface ResolvedTheme {
+  default_mode: string;
   id: string;
   key: string;
   name: string;

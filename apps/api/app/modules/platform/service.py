@@ -62,7 +62,13 @@ async def branding_publico(session: AsyncSession) -> PlatformBrandingResponse:
         social_links=list(branding.social_links or []),
         theme_template_id=str(branding.theme_template_id) if branding.theme_template_id else None,
         theme=(
-            ThemeResolved(id=str(tema.id), key=tema.key, name=tema.name, tokens=tema.tokens)
+            ThemeResolved(
+                id=str(tema.id),
+                key=tema.key,
+                name=tema.name,
+                tokens=tema.tokens,
+                default_mode=tema.default_mode,
+            )
             if tema is not None
             else None
         ),

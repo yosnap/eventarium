@@ -40,7 +40,7 @@ import { TranslocoService } from '@jsverse/transloco';
           (focus)="enFoco.set(true)"
           (blur)="enFoco.set(false); blurred.emit()"
         />
-        <label [for]="idCampo()">{{ label() }}</label>
+        <label [for]="idCampo()" [class.sr-only]="etiquetaOculta()">{{ label() }}</label>
         @if (esPassword()) {
           <button
             type="button"
@@ -178,6 +178,9 @@ import { TranslocoService } from '@jsverse/transloco';
 })
 export class Input {
   readonly label = input.required<string>();
+  /** Oculta la etiqueta visualmente (sigue en el DOM para lectores de pantalla):
+   * para tablas/celdas donde el rótulo de columna ya dice qué es el campo. */
+  readonly etiquetaOculta = input(false);
   readonly type = input<'text' | 'email' | 'password' | 'url' | 'date' | 'datetime-local'>('text');
   readonly autocomplete = input<string | null>(null);
   readonly required = input(false);

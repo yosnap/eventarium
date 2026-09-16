@@ -33,3 +33,7 @@ class ThemeTemplate(Base, TimestampMixin):
     # exactamente las claves de `TOKENS_DE_PLANTILLA` (schemas.py).
     tokens: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # El modo con el que abre quien no ha elegido todavía: la plantilla trae los
+    # dos modos completos y este dice cuál se sirve primero. Valores admitidos:
+    # 'dark' | 'light' (validado en schemas.py).
+    default_mode: Mapped[str] = mapped_column(String(5), nullable=False, default="light")

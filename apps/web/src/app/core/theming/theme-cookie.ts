@@ -42,9 +42,9 @@ export function leerModoDeCookieOpcional(
   return null;
 }
 
-/** Igual que `leerModoDeCookieOpcional`, pero con oscuro como valor por defecto. */
+/** Igual que `leerModoDeCookieOpcional`, pero con claro como valor por defecto. */
 export function leerModoDeCookie(cabeceraCookie: string | null | undefined): ModoDeTema {
-  return leerModoDeCookieOpcional(cabeceraCookie) ?? 'oscuro';
+  return leerModoDeCookieOpcional(cabeceraCookie) ?? 'claro';
 }
 
 /** Cadena completa para `document.cookie` o para la cabecera `Set-Cookie`. */
@@ -53,9 +53,9 @@ export function serializarCookieDeTema(modo: ModoDeTema): string {
 }
 
 /**
- * Atributo `data-theme` que corresponde a un modo, o `null` si es el modo por defecto
- * (oscuro) y por tanto no hace falta ningún atributo: `tokens.css` ya pinta oscuro en
- * `:root` sin necesidad de `[data-theme]`.
+ * Atributo `data-theme` que corresponde a un modo, o `null` si es el modo cuyo
+ * aspecto ya pinta `tokens.css` en `:root` sin atributo: el oscuro. El claro solo
+ * existe como `[data-theme='light']`, así que siempre viaja en el atributo.
  */
 export function atributoDeTemaParaHtml(modo: ModoDeTema): 'light' | null {
   return modo === 'claro' ? 'light' : null;

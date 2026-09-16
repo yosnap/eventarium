@@ -3,9 +3,11 @@
 
 
 /**
- * Edición de `name`, `tokens` e `is_default`. No se puede cambiar `key`.
+ * Edición de `name`, `tokens`, `is_default` y `default_mode`. No se puede
+ * cambiar `key`.
  */
 export interface ThemeTemplateUpdate {
+  default_mode?: ('dark' | 'light' | null);
   is_default?: (boolean | null);
   name?: (string | null);
   tokens?: ({

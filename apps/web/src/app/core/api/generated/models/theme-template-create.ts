@@ -6,6 +6,7 @@
  * Alta de una plantilla de tema.
  */
 export interface ThemeTemplateCreate {
+  default_mode?: 'dark' | 'light';
   is_default?: boolean;
   key: string;
   name: string;

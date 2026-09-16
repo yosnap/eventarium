@@ -14,6 +14,8 @@ class ThemeResolved(BaseModel):
     key: str
     name: str
     tokens: dict[str, Any]
+    # El modo con el que abre quien no ha elegido todavía (cookie de tema ausente).
+    default_mode: str
 
 
 class PlatformBrandingResponse(BaseModel):

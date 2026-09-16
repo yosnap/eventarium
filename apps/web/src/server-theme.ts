@@ -6,8 +6,9 @@ import { atributoDeTemaParaHtml, leerModoDeCookie } from './app/core/theming/the
  * ningún script inline**: `styles.css` resuelve `color-scheme` a partir de este mismo
  * atributo (`[data-theme='light'] { color-scheme: light; }`), así que pintarlo aquí
  * basta para que los dos —el fondo y los controles nativos— lleguen correctos en la
- * primera respuesta. Sin cookie o con `eventarium.tema=oscuro`, no se toca el HTML:
- * `tokens.css` ya pinta oscuro en `:root` por defecto.
+ * primera respuesta. Con `eventarium.tema=oscuro` no se toca el HTML:
+ * `tokens.css` ya pinta oscuro en `:root` por defecto. Sin cookie, el modo
+ * resuelto es claro y sí se pinta `data-theme="light"`.
  *
  * En su propio módulo, separado de `server.ts`: ese fichero construye
  * `AngularNodeAppEngine` en cuanto se importa (código de nivel superior), lo que exige

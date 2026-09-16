@@ -110,22 +110,18 @@ async def _hacer_superadmin(email: str) -> None:
 @pytest.fixture(autouse=True)
 async def _restaurar_catalogo_tras_cada_test() -> AsyncIterator[None]:
     """`theme_templates` no está en la lista de truncado global de
-    `conftest.py` (truncarla borraría la semilla de `0014` para el resto de
+    `conftest.py` (truncarla borraría la semilla de `0038` para el resto de
     la suite, que no vuelve a sembrarse hasta el siguiente `alembic upgrade
     head`). En su lugar, cada test de este fichero deja el catálogo como lo
-    encontró: solo `oscuro`/`claro`, con `oscuro` por defecto."""
+    encontró: solo `por-defecto`, que además es la predeterminada."""
     yield
     async with SessionMaintenance() as session:
         await session.execute(
-            text("DELETE FROM theme_templates WHERE key NOT IN ('oscuro', 'claro')")
+            text("DELETE FROM theme_templates WHERE key NOT IN ('por-defecto')")
         )
-        # Dos `UPDATE` separados, no uno con `is_default = (key = 'oscuro')`:
-        # el índice único parcial se comprueba fila a fila, no al final de la
-        # sentencia, así que una sola sentencia puede dejar dos filas en
-        # `true` a la vez según el orden interno de Postgres.
         await session.execute(text("UPDATE theme_templates SET is_default = false"))
         await session.execute(
-            text("UPDATE theme_templates SET is_default = true WHERE key = 'oscuro'")
+            text("UPDATE theme_templates SET is_default = true WHERE key = 'por-defecto'")
         )
         await session.commit()
 
@@ -141,16 +137,17 @@ async def _superadmin_headers(
 # --- Lectura y permisos --------------------------------------------------
 
 
-async def test_listar_plantillas_incluye_las_dos_sembradas(
+async def test_listar_plantillas_incluye_la_sembrada(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
     cabeceras = await _superadmin_headers(cliente, organizacion)
     respuesta = await cliente.get(ADMIN_THEME_TEMPLATES, headers=cabeceras)
     assert respuesta.status_code == 200
     claves = {plantilla["key"] for plantilla in respuesta.json()}
-    assert {"oscuro", "claro"}.issubset(claves)
-    oscuro = next(p for p in respuesta.json() if p["key"] == "oscuro")
-    assert oscuro["is_default"] is True
+    assert "por-defecto" in claves
+    por_defecto = next(p for p in respuesta.json() if p["key"] == "por-defecto")
+    assert por_defecto["is_default"] is True
+    assert por_defecto["default_mode"] == "light"
 
 
 async def test_endpoints_rechazan_a_quien_no_es_superadmin(
@@ -281,20 +278,32 @@ async def test_crear_plantilla_rechaza_contraste_insuficiente_solo_en_modo_claro
 async def test_editar_plantilla_marca_is_default_y_desmarca_la_anterior(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
+    """Con una segunda plantilla marcada predeterminada, la que lo era pierde
+    la marca: el catálogo admite una sola predeterminada."""
     cabeceras = await _superadmin_headers(cliente, organizacion)
-    lista = (await cliente.get(ADMIN_THEME_TEMPLATES, headers=cabeceras)).json()
-    claro = next(p for p in lista if p["key"] == "claro")
-    oscuro = next(p for p in lista if p["key"] == "oscuro")
+    por_defecto = next(
+        p for p in (await cliente.get(ADMIN_THEME_TEMPLATES, headers=cabeceras)).json()
+        if p["key"] == "por-defecto"
+    )
+
+    creada = await cliente.post(
+        ADMIN_THEME_TEMPLATES,
+        headers=cabeceras,
+        json={"key": "segunda", "name": "Segunda", "tokens": _tokens_validos()},
+    )
+    assert creada.status_code == 201, creada.text
 
     respuesta = await cliente.patch(
-        f"{ADMIN_THEME_TEMPLATES}/{claro['id']}", headers=cabeceras, json={"is_default": True}
+        f"{ADMIN_THEME_TEMPLATES}/{creada.json()['id']}",
+        headers=cabeceras,
+        json={"is_default": True},
     )
     assert respuesta.status_code == 200
     assert respuesta.json()["is_default"] is True
 
     lista_tras = (await cliente.get(ADMIN_THEME_TEMPLATES, headers=cabeceras)).json()
-    oscuro_tras = next(p for p in lista_tras if p["id"] == oscuro["id"])
-    assert oscuro_tras["is_default"] is False
+    por_defecto_tras = next(p for p in lista_tras if p["id"] == por_defecto["id"])
+    assert por_defecto_tras["is_default"] is False
 
 
 async def test_editar_plantilla_rechaza_contraste_insuficiente_y_no_modifica_la_fila(
@@ -302,20 +311,20 @@ async def test_editar_plantilla_rechaza_contraste_insuficiente_y_no_modifica_la_
 ) -> None:
     cabeceras = await _superadmin_headers(cliente, organizacion)
     lista = (await cliente.get(ADMIN_THEME_TEMPLATES, headers=cabeceras)).json()
-    oscuro = next(p for p in lista if p["key"] == "oscuro")
-    tokens_originales = oscuro["tokens"]
+    por_defecto = next(p for p in lista if p["key"] == "por-defecto")
+    tokens_originales = por_defecto["tokens"]
 
     tokens_rotos = copy.deepcopy(tokens_originales)
     tokens_rotos["dark"]["warn"] = tokens_rotos["dark"]["surface"]
 
     respuesta = await cliente.patch(
-        f"{ADMIN_THEME_TEMPLATES}/{oscuro['id']}", headers=cabeceras, json={"tokens": tokens_rotos}
+        f"{ADMIN_THEME_TEMPLATES}/{por_defecto['id']}", headers=cabeceras, json={"tokens": tokens_rotos}
     )
     assert respuesta.status_code == 422
 
     tras = await cliente.get(ADMIN_THEME_TEMPLATES, headers=cabeceras)
-    oscuro_tras = next(p for p in tras.json() if p["id"] == oscuro["id"])
-    assert oscuro_tras["tokens"] == tokens_originales
+    por_defecto_tras = next(p for p in tras.json() if p["id"] == por_defecto["id"])
+    assert por_defecto_tras["tokens"] == tokens_originales
 
 
 async def test_editar_plantilla_con_id_inexistente_devuelve_404(
@@ -338,7 +347,7 @@ async def test_app_user_puede_leer_pero_no_escribir_theme_templates() -> None:
 
     async with SessionApp() as session, session.begin():
         filas = (await session.execute(text("SELECT id FROM theme_templates"))).all()
-        assert len(filas) >= 2
+        assert len(filas) >= 1
 
     with pytest.raises(DBAPIError):
         async with SessionApp() as session, session.begin():

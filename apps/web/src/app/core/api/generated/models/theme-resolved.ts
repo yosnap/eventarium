@@ -6,6 +6,7 @@
  * Plantilla de tema efectiva del chrome de plataforma.
  */
 export interface ThemeResolved {
+  default_mode: string;
   id: string;
   key: string;
   name: string;

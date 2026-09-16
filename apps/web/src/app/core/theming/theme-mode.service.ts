@@ -17,7 +17,6 @@ import {
   leerModoDeCookieOpcional,
   serializarCookieDeTema,
 } from './theme-cookie';
-
 /**
  * Modo oscuro/claro elegido por la persona que navega.
  *
@@ -63,31 +62,43 @@ export class ThemeModeService {
     this.pintarAtributo(nuevo);
   }
 
+  /**
+   * El modo de apertura que declara la plantilla de tema activa, cuando el
+   * visitante aún no ha elegido. Con cookie guardada no hace nada: la elección
+   * de la persona manda sobre la de la plantilla. Tampoco escribe cookie — no
+   * es una elección del visitante, y otra plantilla puede preferir otro modo.
+   */
+  establecerModoPorDefecto(modo: 'oscuro' | 'claro'): void {
+    if (leerModoDeCookieOpcional(this.esNavegador ? this.documento.cookie : null) !== null) {
+      return;
+    }
+    if (this.modoActual() === modo) {
+      return;
+    }
+    this.modoActual.set(modo);
+    if (this.esNavegador) {
+      this.pintarAtributo(modo);
+    }
+  }
+
   private resolverModoInicial(): ModoDeTema {
     if (this.esNavegador) {
       return this.resolverModoEnNavegador();
     }
-    // En servidor no se escribe nada; a falta de cookie en la petición, oscuro.
+    // En servidor no se escribe nada; a falta de cookie en la petición, claro.
     return leerModoDeCookie(this.peticion?.headers.get('cookie') ?? null);
   }
 
   /**
-   * La preferencia guardada gana; si no hay ninguna, se respeta
-   * `prefers-color-scheme`; a falta de todo, oscuro. Solo la cookie es anti-parpadeo
-   * garantizado (la resuelve también `server.ts`): sin cookie, un navegador que
-   * prefiere claro puede ver un instante el oscuro por defecto antes de que este
-   * servicio se inicialice, igual que cualquier lectura de `prefers-color-scheme` que
+   * La preferencia guardada gana; si no hay ninguna, claro. Solo la cookie es
+   * anti-parpadeo garantizado (la resuelve también `server.ts`): sin cookie, un
+   * navegador que ya haya visto la web verá un instante el claro por defecto antes de
+   * que este servicio lea su cookie, igual que cualquier lectura de preferencia que
    * SSR no puede conocer.
    */
   private resolverModoEnNavegador(): ModoDeTema {
     const deCookie = leerModoDeCookieOpcional(this.documento.cookie);
-    if (deCookie) {
-      return deCookie;
-    }
-    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-      return window.matchMedia('(prefers-color-scheme: light)').matches ? 'claro' : 'oscuro';
-    }
-    return 'oscuro';
+    return deCookie ?? 'claro';
   }
 
   private pintarAtributo(modo: ModoDeTema): void {

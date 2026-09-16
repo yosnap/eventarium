@@ -37,6 +37,7 @@ async def branding(session: SessionDep) -> BrandingResponse:
                     key=plataforma.theme.key,
                     name=plataforma.theme.name,
                     tokens=plataforma.theme.tokens,
+                    default_mode=plataforma.theme.default_mode,
                 )
                 if plataforma.theme is not None
                 else None

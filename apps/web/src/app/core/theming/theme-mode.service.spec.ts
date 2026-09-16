@@ -34,45 +34,45 @@ describe('ThemeModeService', () => {
     return TestBed.inject(ThemeModeService);
   }
 
-  it('sin cookie y sin prefers-color-scheme, el modo por defecto es oscuro', () => {
+  it('sin cookie, el modo por defecto es claro', () => {
     const servicio = crear();
-    expect(servicio.modo()).toBe('oscuro');
-    expect(servicio.esClaro()).toBe(false);
+    expect(servicio.modo()).toBe('claro');
+    expect(servicio.esClaro()).toBe(true);
   });
 
   it('respeta la cookie guardada en el navegador', () => {
-    document.cookie = `${NOMBRE_COOKIE_TEMA}=claro`;
+    document.cookie = `${NOMBRE_COOKIE_TEMA}=oscuro`;
     const servicio = crear();
-    expect(servicio.modo()).toBe('claro');
+    expect(servicio.modo()).toBe('oscuro');
   });
 
   it('en servidor lee la cookie de la petición y no escribe nada', () => {
-    const servicio = crear('server', peticionConCookie(`${NOMBRE_COOKIE_TEMA}=claro`));
-    expect(servicio.modo()).toBe('claro');
+    const servicio = crear('server', peticionConCookie(`${NOMBRE_COOKIE_TEMA}=oscuro`));
+    expect(servicio.modo()).toBe('oscuro');
 
     servicio.alternar();
-    expect(servicio.modo()).toBe('claro');
+    expect(servicio.modo()).toBe('oscuro');
   });
 
-  it('en servidor sin cookie en la petición, devuelve oscuro', () => {
+  it('en servidor sin cookie en la petición, devuelve claro', () => {
     const servicio = crear('server', peticionConCookie(null));
-    expect(servicio.modo()).toBe('oscuro');
+    expect(servicio.modo()).toBe('claro');
   });
 
   it('alternar() cambia el modo, escribe la cookie y pinta data-theme', () => {
     const servicio = crear();
+    expect(servicio.modo()).toBe('claro');
+
+    servicio.alternar();
+
     expect(servicio.modo()).toBe('oscuro');
+    expect(servicio.esClaro()).toBe(false);
+    expect(document.cookie).toContain(`${NOMBRE_COOKIE_TEMA}=oscuro`);
+    expect(document.documentElement.getAttribute('data-theme')).toBeNull();
 
     servicio.alternar();
 
     expect(servicio.modo()).toBe('claro');
-    expect(servicio.esClaro()).toBe(true);
-    expect(document.cookie).toContain(`${NOMBRE_COOKIE_TEMA}=claro`);
     expect(document.documentElement.getAttribute('data-theme')).toBe('light');
-
-    servicio.alternar();
-
-    expect(servicio.modo()).toBe('oscuro');
-    expect(document.documentElement.getAttribute('data-theme')).toBeNull();
   });
 });

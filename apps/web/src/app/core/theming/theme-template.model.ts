@@ -24,6 +24,10 @@ export interface PlantillaDeTema {
    * respuesta de superadministración (`ThemeTemplateResponse`), que sí gestiona cuál
    * es la plantilla por defecto. */
   readonly is_default?: boolean;
+  /** El modo con el que abre quien no ha elegido todavía ('dark' | 'light').
+   * Presente en la superadministración y en la plantilla resuelta de
+   * `/tenant/branding`; ausente en el catálogo público. */
+  readonly default_mode?: string;
 }
 
 /**
@@ -55,3 +59,7 @@ export const TOKENS_DE_PLANTILLA: readonly string[] = [
   'shadow-md',
   'shadow-lg',
 ];
+
+/** Tokens que no son un color suelto sino un `box-shadow` completo: no tienen
+ * selector de color, se editan por texto (mismo contrato que el backend). */
+export const TOKENS_DE_SOMBRA: readonly string[] = ['shadow-md', 'shadow-lg'];

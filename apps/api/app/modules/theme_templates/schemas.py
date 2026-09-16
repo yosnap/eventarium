@@ -11,7 +11,7 @@ tipografía y su escala siguen siendo de plataforma y no entran aquí.
 from __future__ import annotations
 
 import re
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -132,6 +132,7 @@ class ThemeTemplateCreate(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=80)]
     tokens: dict[str, Any]
     is_default: bool = False
+    default_mode: Literal["dark", "light"] = "light"
 
     @field_validator("tokens")
     @classmethod
@@ -140,11 +141,13 @@ class ThemeTemplateCreate(BaseModel):
 
 
 class ThemeTemplateUpdate(BaseModel):
-    """Edición de `name`, `tokens` e `is_default`. No se puede cambiar `key`."""
+    """Edición de `name`, `tokens`, `is_default` y `default_mode`. No se puede
+    cambiar `key`."""
 
     name: Annotated[str, Field(min_length=1, max_length=80)] | None = None
     tokens: dict[str, Any] | None = None
     is_default: bool | None = None
+    default_mode: Literal["dark", "light"] | None = None
 
     @field_validator("tokens")
     @classmethod
@@ -162,6 +165,7 @@ class ThemeTemplateResponse(BaseModel):
     name: str
     tokens: dict[str, dict[str, str]]
     is_default: bool
+    default_mode: str
 
 
 class ThemeTemplateCatalogItem(BaseModel):

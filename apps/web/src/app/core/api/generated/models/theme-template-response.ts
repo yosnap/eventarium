@@ -6,6 +6,7 @@
  * Una plantilla tal y como la ve la superadministración.
  */
 export interface ThemeTemplateResponse {
+  default_mode: string;
   id: string;
   is_default: boolean;
   key: string;

@@ -7,6 +7,7 @@
  */
 export interface IncomeLineOut {
   concepto: string;
+  en_especie?: boolean;
   fecha: (string | null);
   importe_cents: number;
   origen: 'patrocinio' | 'entradas' | 'subvencion';

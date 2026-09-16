@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../api/api.service';
 import { Branding, PlatformBranding } from './branding.model';
+import { ThemeModeService } from './theme-mode.service';
 import { applyTokensDePlataforma } from './apply-tokens';
 
 /** El branding resuelto en SSR viaja al navegador para no repetir la petición. */
@@ -16,6 +17,7 @@ export class ThemingService {
   private readonly api = inject(ApiService);
   private readonly documento = inject(DOCUMENT);
   private readonly transferState = inject(TransferState);
+  private readonly modo = inject(ThemeModeService);
 
   private readonly estado = signal<Branding | null>(null);
   private readonly errorEstado = signal<string | null>(null);
@@ -73,6 +75,13 @@ export class ThemingService {
     // El chrome es de plataforma; la plantilla propia de un evento se aplica a
     // su página (ver `applyTokensDeEvento`), no al documento entero.
     applyTokensDePlataforma(branding.platform, this.documento);
+
+    // El modo de apertura lo declara la plantilla resuelta; el conmutador
+    // decide después (su servicio ignora esto si el visitante ya eligió).
+    const modoDePlantilla = branding.platform.theme?.default_mode;
+    if (modoDePlantilla === 'dark' || modoDePlantilla === 'light') {
+      this.modo.establecerModoPorDefecto(modoDePlantilla === 'dark' ? 'oscuro' : 'claro');
+    }
 
     this.documento.title = branding.platform.name;
     if (branding.platform.favicon_url) {

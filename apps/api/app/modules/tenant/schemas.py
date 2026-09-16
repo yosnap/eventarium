@@ -18,6 +18,9 @@ class ResolvedTheme(BaseModel):
     key: str
     name: str
     tokens: dict[str, dict[str, str]]
+    # Modo de apertura de la plantilla ('dark' | 'light'), para el fallback del
+    # conmutador cuando el visitante aún no ha elegido.
+    default_mode: str
 
 
 class PlatformBrandingBlock(BaseModel):

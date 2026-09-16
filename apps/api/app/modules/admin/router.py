@@ -248,6 +248,7 @@ def _to_theme_template_response(plantilla: ThemeTemplate) -> ThemeTemplateRespon
         name=plantilla.name,
         tokens=plantilla.tokens,
         is_default=plantilla.is_default,
+        default_mode=plantilla.default_mode,
     )
 
 
@@ -310,6 +311,7 @@ async def create_theme_template(
         name=datos.name,
         tokens=datos.tokens,
         is_default=datos.is_default,
+        default_mode=datos.default_mode,
     )
     session.add(plantilla)
     await session.flush()
@@ -353,6 +355,8 @@ async def update_theme_template(
         if datos.is_default:
             await theme_templates_repository.clear_default(session, except_id=plantilla.id)
         plantilla.is_default = datos.is_default
+    if datos.default_mode is not None:
+        plantilla.default_mode = datos.default_mode
     await session.flush()
 
     await registrar_auditoria(
