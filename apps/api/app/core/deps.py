@@ -317,6 +317,59 @@ async def require_superadmin(
     )
 
 
+async def require_platform_staff(
+    claims: Annotated[AccessTokenClaims, Depends(get_token_claims)],
+    session: Annotated[AsyncSession, Depends(get_maintenance_db)],
+) -> CurrentUser:
+    """Personal de plataforma: `superadmin` **o** el rol aditivo `soporte`.
+
+    Aditiva sobre `require_superadmin`, nunca la sustituye: los endpoints de
+    escritura sensible (desactivar un usuario, asignar/retirar un rol de
+    plataforma) siguen exigiendo `require_superadmin` sin más, no esta
+    dependencia. `soporte` solo alcanza lectura (directorio de
+    usuarios/eventos) y suplantación.
+
+    Mismas dos garantías que `require_superadmin`, por el mismo motivo —
+    plan `260916-0810-usuarios-y-permisos-plataforma`, hallazgos S-1/S-2 del
+    red-team de ese plan:
+
+    - `is_superadmin`/`platform_role` se comprueban **en base de datos**, en
+      cada petición, nunca desde un claim del JWT: un token antiguo no
+      conserva el privilegio si se revocó, y retirar `soporte` a alguien
+      tiene efecto en la siguiente petición, no al expirar el token.
+    - Un token de **impersonación** se rechaza siempre, aunque la cuenta
+      suplantada sea `superadmin` o `soporte` en la base de datos: sin esta
+      comprobación, una sesión de suplantación pasaría estos endpoints, que
+      son precisamente los que no debe poder usar.
+    """
+    if claims.impersonated_by is not None:
+        raise PermissionDeniedError(
+            "Una sesión de suplantación no puede usar los endpoints de administración."
+        )
+
+    fila = (
+        await session.execute(
+            text(
+                "SELECT id, email, first_name, last_name, is_superadmin, is_active, "
+                "platform_role FROM users WHERE id = :id"
+            ),
+            {"id": claims.user_id},
+        )
+    ).first()
+    if fila is None or not fila[5]:
+        raise AuthenticationError("El usuario ya no existe o está desactivado.")
+    if not fila[4] and fila[6] != "soporte":
+        raise PermissionDeniedError("Se requieren privilegios de personal de plataforma.")
+    return CurrentUser(
+        id=fila[0],
+        email=fila[1],
+        first_name=fila[2],
+        last_name=fila[3],
+        is_superadmin=fila[4],
+        organization_id=claims.organization_id or uuid.UUID(int=0),
+    )
+
+
 class VerifiedUser:
     """Persona con el correo verificado, sin organización todavía.
 

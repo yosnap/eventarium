@@ -37,6 +37,18 @@ class User(Base, TimestampMixin):
     locale: Mapped[str] = mapped_column(String(10), nullable=False, default="es-ES")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_superadmin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Rol de plataforma aditivo, distinto de `is_superadmin`: hoy solo admite
+    # 'soporte' (puede ver el directorio de usuarios/eventos de cualquier
+    # organización y suplantar cuentas, pero no desactivar usuarios ni asignar
+    # roles de plataforma). `NULL` es el caso normal. Sin `CHECK` en base de
+    # datos a propósito: catálogo pequeño validado en el schema Pydantic del
+    # endpoint que lo escribe, mismo criterio ligero que otros catálogos
+    # cerrados del proyecto.
+    platform_role: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Preferencia self-service ("avisarme de eventos similares"); la activa la
+    # propia persona desde su perfil. Sin motor de envío todavía — el campo se
+    # guarda desde ya para no perder la señal hasta que exista ese motor.
+    notify_similar_events: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     # Nulo hasta que la persona verifica su correo. No se reutiliza `is_active`: esa
     # columna ya gatea el login y los miembros invitados se crean activos sin verificar.
     email_verified_at: Mapped[datetime | None] = mapped_column(

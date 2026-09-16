@@ -86,6 +86,17 @@ Reglas comunes:
 - **Historial de participación** para cualquier rol: cada persona acumula "participó en el evento X como Y" dentro de la organización (Valencia, Barcelona…). Se deriva de la asignación persona × evento × rol; no se mantiene a mano. En el perfil público del ponente se muestra como historial de ponencias; en el panel del organizador se ve para todos los roles (p. ej. "este presentador ya estuvo en IAWIC Valencia").
 - Los datos de perfil de un rol viven en la organización (se reutilizan entre ediciones); los específicos de un evento (charla asignada, sala, tareas de voluntario) viven en la participación en ese evento.
 
+### Roles de plataforma — S
+
+Distintos de los roles de organización de arriba: gobiernan qué puede hacer alguien sobre la instalación entera (todas las organizaciones), no dentro de una. Hoy solo existe un booleano `is_superadmin` en `User`; pasa a un catálogo pequeño y cerrado, mismo patrón de permisos de un catálogo fijo que los roles de organización:
+
+| Rol de plataforma | Permisos |
+|---|---|
+| `superadmin` | Todos — organizaciones, plantillas de tema, identidad de la plataforma, usuarios, roles de plataforma |
+| `soporte` | Ver usuarios y eventos de cualquier organización, suplantar una cuenta; **sin** borrar usuarios ni cambiar roles de plataforma ni facturación |
+
+Una persona puede no tener ningún rol de plataforma (caso normal: solo es organizador/asistente).
+
 ---
 
 ## 4. Alcance funcional
@@ -174,6 +185,11 @@ Prioridad: **M** = MVP IAWIC Valencia · **S** = siguiente · **P** = posterior.
 ### 4.11 Plataforma — M / S
 
 - Superadmin, auditoría de acciones sensibles, exportación de datos de un evento (RGPD), borrado de inscritos bajo solicitud — **M**.
+- **Directorio de usuarios** (`/admin`) — **S**: listado de toda persona con cuenta en la instalación (organizador, asistente con cuenta, o ambos), con filtro por rol de plataforma/organización y buscador. Detalle por usuario: en qué organizaciones participa y con qué rol, en qué eventos se ha inscrito (como asistente vía QR sin cuenta se sigue viendo por `Registration.email`, sin fila de usuario). **Borrado suave**: desactivar/anonimizar (nombre e identificadores personales sustituidos, cuenta inutilizable para iniciar sesión), nunca eliminación física de la fila ni de sus organizaciones/inscripciones — mismo espíritu que el borrado de inscritos bajo solicitud ya M.
+- **Preferencia de notificaciones** — **S**: campo en el perfil de usuario ("avisarme de eventos similares") que la persona activa desde su cuenta; se guarda desde ya aunque el motor que efectivamente envíe esas notificaciones (eventos en la misma ciudad, mismo ponente…) sea **P**.
+- **Roles de plataforma** — **S**: ver subsección "Roles de plataforma" en §3.
+- **Biblioteca de medios** — **P**: listado de los archivos ya subidos a `StorageProvider` (logos, imágenes de cabecera, adjuntos), con posibilidad de reutilizar uno existente en vez de resubir. Sin gestor de recorte/edición en el MVP.
+- **Analítica de plataforma** — **P**: panel con cifras agregadas de toda la instalación (eventos totales/activos, inscripciones por periodo, organizaciones activas) y su evolución en el tiempo, no solo el embudo por evento que ya tiene el organizador (§4.3).
 - Instalación con Docker Compose + Caddy; backups automatizados de PostgreSQL y almacenamiento con restauración probada — **M**.
 - Observabilidad mínima (métricas, logs) — **S**.
 - i18n: interfaz en español de España por defecto, inglés en **S**; cambio de idioma en runtime.
@@ -307,6 +323,15 @@ Cada fase se convierte en su propio plan de implementación en `plans/` cuando s
 por sesión/recurso implementada, `organization_domains`/`platform_domains` retiradas del
 esquema, y con ellas la plantilla de portada por organización — la home pública es el
 directorio de eventos de toda la instalación.
+
+### Decisiones tomadas (2026-09-16)
+
+| Pregunta | Decisión |
+|---|---|
+| ¿Qué usuarios muestra el directorio de `/admin`? | Todos los que tienen cuenta en la instalación (organizador, asistente con cuenta, o ambos), con filtros por rol/organización — no solo quien tiene un rol de plataforma |
+| ¿Qué pasa al "eliminar" un usuario desde `/admin`? | **Borrado suave**: desactivar/anonimizar, nunca borrado físico. Sus organizaciones e inscripciones permanecen intactas |
+| ¿Qué son los "permisos" que faltan, si el RBAC por organización ya existe? | **Roles de plataforma** — hoy solo hay un booleano `is_superadmin`; pasa a un catálogo pequeño (`superadmin`, `soporte`…), ver §3 |
+| ¿Se prepara ya el campo de preferencia de notificaciones (eventos similares/misma ciudad/mismo ponente)? | Sí, solo el campo en el perfil de usuario ahora; el motor de envío que lo consuma queda en **P** |
 
 ### Preguntas abiertas
 
