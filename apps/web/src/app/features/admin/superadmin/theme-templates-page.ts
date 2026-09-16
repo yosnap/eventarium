@@ -731,6 +731,11 @@ export class ThemeTemplatesPage {
     this.errorContrasteServidor.set([]);
     this.guardadoOk.set(false);
     this.errorGuardar.set(null);
+    // Sin esto, los 42 tokens quedan vacíos hasta que alguien pulse el botón
+    // de copiar: guardar así da una pared de avisos de contraste «—:1»
+    // (par sin poder calcularse) en vez de un error útil. Punto de partida
+    // editable, nunca una vinculación a la plantilla por defecto.
+    this.copiarDePorDefecto();
   }
 
   protected editar(plantilla: PlantillaDeTema): void {
