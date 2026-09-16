@@ -819,6 +819,15 @@ export class ThemeTemplatesPage {
         this.http.get<PlantillaDeTema[]>(this.api.url('/admin/theme-templates')),
       );
       this.plantillas.set(lista);
+      // El formulario de alta es visible desde que carga la página, antes de que
+      // el catálogo llegue: su estado inicial (`formularioVacio()`) no tiene
+      // colores. En cuanto el catálogo resuelve, se rellena solo —si nadie ha
+      // tocado ya el formulario (está creando o editando otra plantilla)—, para
+      // que guardar sin tocar nada no choque con una pared de avisos de
+      // contraste «—:1» por no haber ni un color que comparar.
+      if (!this.formulario().id && this.formulario().name.trim().length === 0) {
+        this.copiarDePorDefecto();
+      }
     } catch (error) {
       this.errorLista.set(
         error instanceof ApiError

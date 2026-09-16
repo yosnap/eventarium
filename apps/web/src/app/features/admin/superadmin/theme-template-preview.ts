@@ -18,6 +18,7 @@ type Modo = 'dark' | 'light';
 @Component({
   selector: 'app-theme-template-preview',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [TranslocoDirective],
   template: `
     <ng-container *transloco="let t">
       <div
