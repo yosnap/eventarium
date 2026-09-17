@@ -115,8 +115,6 @@ def upgrade() -> None:
         for tabla in TABLAS_CON_PLANTILLA:
             bind.execute(
                 sa.text(
-                    # noqa: S608 — el nombre de tabla viene de la tupla
-                    # constante TABLAS_CON_PLANTILLA, no de entrada externa.
                     f"UPDATE {tabla} "
                     "SET theme_template_id = :superviviente "
                     "WHERE theme_template_id = :descartada"
