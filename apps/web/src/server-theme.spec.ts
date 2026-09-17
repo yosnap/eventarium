@@ -11,10 +11,11 @@ describe('pintarTemaEnHtml (server.ts)', () => {
     expect(resultado).toContain('<html lang="es-ES" data-theme="light">');
   });
 
-  it('sin cookie, devuelve el oscuro por defecto: no toca el HTML', () => {
+  it('sin cookie, el modo resuelto es claro: pinta data-theme="light"', () => {
+    // El claro es el modo por defecto (decisión del dueño): solo el oscuro
+    // puede dejarse al `:root` de `tokens.css`; el claro hay que pintarlo.
     const resultado = pintarTemaEnHtml(HTML_BASE, undefined);
-    expect(resultado).toBe(HTML_BASE);
-    expect(resultado).not.toContain('data-theme');
+    expect(resultado).toContain('<html lang="es-ES" data-theme="light">');
   });
 
   it('con eventarium.tema=oscuro explícito, tampoco toca el HTML', () => {
