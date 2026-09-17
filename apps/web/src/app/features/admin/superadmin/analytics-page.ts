@@ -386,17 +386,23 @@ export class AnalyticsPage {
   }
 
   private async cargarConsentimientos(): Promise<void> {
+    // Capturado antes de la petición: si el selector cambia mientras vuela,
+    // la respuesta que llegue tarde se descarta — dos clics rápidos no
+    // pueden pintar el periodo antiguo bajo el selector nuevo
+    // (code-review de la fase 3, A-1).
+    const diasPedidos = this.diasConsentimientos();
     this.errorConsentimientos.set(null);
-    const dias = Number(this.diasConsentimientos());
     try {
       const respuesta = await firstValueFrom(
         this.http.get<{ celdas: CeldaDeConsentimientos[] }>(this.api.url(CONSENTIMIENTOS_URL), {
           headers: this.api.serverForwardHeaders(),
-          params: { desde: this.fechaHaceDias(dias), hasta: hoyIso() },
+          params: { desde: this.fechaHaceDias(Number(diasPedidos)), hasta: hoyIso() },
         }),
       );
+      if (this.diasConsentimientos() !== diasPedidos) return;
       this.celdasConsentimientos.set(respuesta.celdas);
     } catch {
+      if (this.diasConsentimientos() !== diasPedidos) return;
       this.errorConsentimientos.set(
         this.transloco.translate('admin.plataforma.analitica.errorConsentimientos'),
       );
@@ -404,16 +410,19 @@ export class AnalyticsPage {
   }
 
   private async cargarGa4(): Promise<void> {
+    const diasPedidos = this.diasGa4();
     this.errorGa4.set(null);
     try {
       const respuesta = await firstValueFrom(
         this.http.get<StatsDeGa4>(this.api.url(GA4_URL), {
           headers: this.api.serverForwardHeaders(),
-          params: { dias: Number(this.diasGa4()) },
+          params: { dias: Number(diasPedidos) },
         }),
       );
+      if (this.diasGa4() !== diasPedidos) return;
       this.ga4.set(respuesta);
     } catch {
+      if (this.diasGa4() !== diasPedidos) return;
       this.errorGa4.set(this.transloco.translate('admin.plataforma.analitica.errorGa4'));
     }
   }

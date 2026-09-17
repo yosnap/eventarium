@@ -11,8 +11,9 @@ export interface UsuarioAutenticado {
   readonly last_name: string | null;
   readonly is_superadmin: boolean;
   /** Rol aditivo de plataforma (`soporte`): lectura del panel de plataforma
-   * sin ser superadmin. Ausente en la respuesta del login (`UserSummary`),
-   * presente en `loadCurrentUser()` — mismo motivo que `organization_id`. */
+   * sin ser superadmin. Viaja en la respuesta del login (`UserSummary`,
+   * migración `0042`) y en `loadCurrentUser()`: el guard del panel decide
+   * con él nada más entrar, sin esperar a un `/users/me` extra. */
   readonly platform_role?: string | null;
   /** Ausente en la respuesta del login (`UserSummary`, sin organización
    * resuelta todavía en ese momento); presente en `loadCurrentUser()`

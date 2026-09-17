@@ -5,6 +5,8 @@
     "cerrar": "Cerrar",
     "volver": "Volver",
     "guardar": "Guardar",
+    "guardado": "Guardado",
+    "error": "Se ha producido un error",
     "cancelar": "Cancelar",
     "mostrarPassword": "Mostrar la contraseña",
     "ocultarPassword": "Ocultar la contraseña",

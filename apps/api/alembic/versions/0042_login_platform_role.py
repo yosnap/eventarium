@@ -8,8 +8,12 @@ un `/users/me` extra (fase 3 del plan
 sesión en una pestaña fresca sería rebotado del panel por el frontend
 aunque el backend (`require_platform_staff`) le dejaría entrar.
 
-`CREATE OR REPLACE FUNCTION` permite añadir columnas **al final** del
-`RETURNS TABLE` sin recrear dependencias; ninguna otra firma cambia.
+PostgreSQL exige que el row type de los OUT parámetros coincida
+**exactamente** en un CREATE OR REPLACE — añadir una columna se rechaza con
+«cannot change return type of existing function» (comprobado en PG 16) —,
+así que la función va con DROP + CREATE, reaplicando los permisos
+(`REVOKE ALL ... FROM PUBLIC` / `GRANT EXECUTE ... TO app_user`) que la
+`0031` impuso y que el DROP habría perdido.
 
 Revision ID: 0042_login_platform_role
 Revises: 0041_analytics_settings
@@ -60,14 +64,23 @@ $$
 
 def upgrade() -> None:
     # PostgreSQL exige que el row type de los OUT parámetros coincida
-    # exactamente en un CREATE OR REPLACE: añadir la columna exige DROP antes.
-    # No hay vistas ni políticas que dependan de esta función (solo la llama
-    # la API en runtime), así que el DROP es seguro. Y asyncpg no admite
-    # varias sentencias por execute(): DROP y CREATE van separados.
+    # exactamente en un CREATE OR REPLACE: añadir la columna exige DROP antes
+    # (fallaba con «cannot change return type of existing function»). No hay
+    # vistas ni políticas que dependan de esta función (solo la llama la API
+    # en runtime), así que el DROP es seguro. Y asyncpg no admite varias
+    # sentencias por execute(): cada sentencia va separada.
     op.execute(_DROP_FUNCION)
     op.execute(_CON_PLATFORM_ROLE)
+    # El DROP+CREATE pierde el hardening de permisos que la `0031` impuso:
+    # la función recreada nace con EXECUTE a PUBLIC y es SECURITY DEFINER
+    # (devuelve `password_hash` por email) — REVOKE + GRANT otra vez, en
+    # upgrade y downgrade (code-review de la fase 3, C-1).
+    op.execute("REVOKE ALL ON FUNCTION app_find_user_for_login(text) FROM PUBLIC")
+    op.execute("GRANT EXECUTE ON FUNCTION app_find_user_for_login(text) TO app_user")
 
 
 def downgrade() -> None:
     op.execute(_DROP_FUNCION)
     op.execute(_SIN_PLATFORM_ROLE)
+    op.execute("REVOKE ALL ON FUNCTION app_find_user_for_login(text) FROM PUBLIC")
+    op.execute("GRANT EXECUTE ON FUNCTION app_find_user_for_login(text) TO app_user")
