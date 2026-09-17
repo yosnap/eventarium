@@ -5,7 +5,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../api/api.service';
 import { CookieCategory, NON_ESSENTIAL_CATEGORIES } from './cookie-category';
-import { DummyAnalyticsService } from './dummy-analytics.service';
+import { ScriptsDeAnaliticaService } from './scripts-analitica.service';
 
 const CLAVE_LOCAL_STORAGE = 'cookie-consent';
 
@@ -34,7 +34,7 @@ interface DecisionGuardada {
 export class CookieConsentService {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
-  private readonly dummyAnalytics = inject(DummyAnalyticsService);
+  private readonly scriptsDeAnalitica = inject(ScriptsDeAnaliticaService);
   private readonly esNavegador = isPlatformBrowser(inject(PLATFORM_ID));
 
   private readonly decisionTomada = signal(false);
@@ -115,9 +115,7 @@ export class CookieConsentService {
   }
 
   private activarScriptsDeLasCategorias(categorias: readonly CookieCategory[]): void {
-    if (categorias.includes('analytics')) {
-      this.dummyAnalytics.activar();
-    }
+    this.scriptsDeAnalitica.activarSiConsentidas(categorias);
   }
 
   private leerDecisionGuardada(): DecisionGuardada | null {
