@@ -73,24 +73,25 @@ async def test_actualizar_el_branding_con_una_plantilla_de_tema(
 
     catalogo = await cliente.get("/api/v1/organizations/me/theme-templates", headers=cabeceras)
     assert catalogo.status_code == 200
-    claro = next(p for p in catalogo.json() if p["key"] == "claro")
+    # `0038` fusionó las plantillas `oscuro`/`claro` en una única con dos modos.
+    por_defecto = next(p for p in catalogo.json() if p["key"] == "por-defecto")
 
     respuesta = await cliente.put(
         BRANDING,
         headers=cabeceras,
         json={
-            "theme_template_id": claro["id"],
+            "theme_template_id": por_defecto["id"],
             "social_links": [],
             "organizer_blurb": "Comunidad de IA en Valencia",
         },
     )
     assert respuesta.status_code == 200, respuesta.text
-    assert respuesta.json()["theme_template_id"] == claro["id"]
+    assert respuesta.json()["theme_template_id"] == por_defecto["id"]
     # El resto de campos vivos del branding se conserva.
     assert respuesta.json()["organizer_blurb"] == "Comunidad de IA en Valencia"
 
     releido = await cliente.get(BRANDING, headers=cabeceras)
-    assert releido.json()["theme_template_id"] == claro["id"]
+    assert releido.json()["theme_template_id"] == por_defecto["id"]
 
 
 async def test_actualizar_el_branding_con_una_plantilla_de_tema_inexistente(
