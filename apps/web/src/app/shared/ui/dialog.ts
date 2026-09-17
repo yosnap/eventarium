@@ -90,7 +90,11 @@ export class Dialog {
   }
 
   cerrar(): void {
-    this.elemento().nativeElement.close();
+    // jsdom no implementa el cierre del `<dialog>` nativo: el estado interno se
+    // procesa igual y el DOM de prueba no depende de ese método.
+    if (typeof this.elemento().nativeElement.close === 'function') {
+      this.elemento().nativeElement.close();
+    }
     this.procesarCierre();
   }
 

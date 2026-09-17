@@ -102,7 +102,7 @@ describe('PlatformIdentityPage', () => {
     const fichero = new File([new Uint8Array([1])], 'logo.png', { type: 'image/png' });
     Object.defineProperty(entrada, 'files', { value: [fichero] });
 
-    const subida = fixture.componentInstance.subirLogo({ target: entrada } as unknown as Event);
+    const subida = fixture.componentInstance.subirImagenDirecta(fichero, 'logo');
     await avanzar(fixture);
     const peticion = http.expectOne(`${IDENTIDAD_URL}/logo`);
     expect(peticion.request.method).toBe('PUT');

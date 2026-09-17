@@ -14,6 +14,7 @@ import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Textarea } from '../../../shared/ui/textarea';
 import { ThemeTemplatePreview } from '../superadmin/theme-template-preview';
+import { MediaPicker } from '../../../shared/ui/media-picker';
 
 interface SocialLink {
   kind: string;
@@ -66,6 +67,7 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
     Card,
     PageHeader,
     Textarea,
+    MediaPicker,
     ThemeTemplatePreview,
   ],
   template: `
@@ -96,21 +98,15 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
                 {{ nombreOrganizacion() }}
                 <a routerLink="/dashboard/organization">{{ t('admin.branding.editarNombre') }}</a>
               </p>
-              @if (previaLogo(); as url) {
-                <img [src]="url" [alt]="t('admin.branding.logotipo')" height="64" />
-              } @else {
-                <p>{{ t('admin.branding.sinLogotipo') }}</p>
-              }
-              <label class="etiqueta-fichero" for="logo">{{ t('admin.branding.subirLogo') }}</label>
-              <input
-                id="logo"
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                (change)="alSeleccionarLogo($event)"
-              />
-              @if (errorLogo(); as mensaje) {
-                <p class="error">{{ mensaje }}</p>
-              }
+            <app-media-picker
+              [etiqueta]="t('admin.branding.logotipo')"
+              aceptados="image/png,image/jpeg,image/webp"
+              [url]="previaLogo()"
+              (ficheroElegido)="alSeleccionarLogo($event)"
+            />
+            @if (errorLogo(); as mensaje) {
+              <p class="error">{{ mensaje }}</p>
+            }
             </app-card>
 
             <app-card [heading]="t('admin.branding.redesSociales')">
@@ -375,20 +371,14 @@ export class BrandingPage {
     this.socialLinks.update((actuales) => actuales.filter((_, i) => i !== indice));
   }
 
-  protected alSeleccionarLogo(evento: Event): void {
+  protected alSeleccionarLogo(fichero: File): void {
     this.errorLogo.set(null);
-    const fichero = (evento.target as HTMLInputElement).files?.[0] ?? null;
-    if (!fichero) {
-      return;
-    }
     if (!LOGO_MIMES_PERMITIDOS.has(fichero.type)) {
       this.errorLogo.set(this.transloco.translate('admin.branding.logoNoValido'));
-      (evento.target as HTMLInputElement).value = '';
       return;
     }
     if (fichero.size > LOGO_TAMANO_MAXIMO) {
       this.errorLogo.set(this.transloco.translate('admin.branding.logoDemasiadoGrande'));
-      (evento.target as HTMLInputElement).value = '';
       return;
     }
     this.logoPendiente = fichero;

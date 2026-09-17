@@ -1956,5 +1956,21 @@
   "impersonacion": {
     "aviso": "Estás suplantando a {nombre}. La sesión es de solo lectura.",
     "salir": "Salir de la suplantación"
+  },
+  "ui": {
+    "media": {
+      "pestanaSubir": "Subir",
+      "pestanaUrl": "Desde URL",
+      "pestanaBiblioteca": "Biblioteca",
+      "sueltaAqui": "Arrastra la imagen aquí",
+      "oPulsaParaElegir": "o pulsa para elegir un fichero",
+      "urlEtiqueta": "Dirección de la imagen",
+      "usarUrl": "Usar esta URL",
+      "bibliotecaVacia": "Todavía no hay imágenes guardadas.",
+      "sinImagen": "Sin imagen",
+      "elegir": "Elegir imagen",
+      "cambiar": "Cambiar",
+      "quitar": "Quitar"
+    }
   }
 }
