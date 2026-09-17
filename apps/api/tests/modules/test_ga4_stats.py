@@ -17,12 +17,14 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from google.api_core.exceptions import NotFound, PermissionDenied, ResourceExhausted
+from google.api_core.exceptions import GoogleAPIError, NotFound, PermissionDenied, ResourceExhausted
+from google.auth.exceptions import RefreshError
 from httpx import AsyncClient
 from sqlalchemy import update
 
 from app.core.config import get_settings
 from app.core.database import SessionMaintenance
+from app.core.redis_client import get_redis
 from app.modules.admin import ga4_client
 from app.modules.users.models import User
 from tests.conftest import OrganizacionDePrueba, iniciar_sesion
@@ -202,20 +204,51 @@ async def test_cuota_agotada_devuelve_estado_y_no_el_error_crudo(
         assert "CUOTA-BINGO" not in registro.getMessage()
 
 
-async def test_property_no_encontrado_tiene_detalle_propio(
+async def test_property_no_encontrado_o_sin_acceso_tienen_detalle_propio(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """NotFound (404) y PermissionDenied (403, el caso habitual cuando la
+    cuenta de servicio no tiene la propiedad compartida) comparten el detalle
+    de despliegue — code-review de la fase 2, M-1."""
+    _simular_credencial_valida(monkeypatch)
+    cabeceras = await _cabeceras_de(cliente, organizacion, "superadmin")
+
+    for error in (NotFound("PROPERTY-BINGO"), PermissionDenied("PERMISO-BINGO")):
+        monkeypatch.setattr(ga4_client, "_cliente", ClienteFalso(error=error))
+        respuesta = await cliente.get(GA4_STATS, headers=cabeceras)
+
+        assert respuesta.status_code == 200, respuesta.text
+        cuerpo = respuesta.json()
+        assert cuerpo["estado"] == "error_proveedor"
+        assert "property ID" in cuerpo["detalle"]
+        assert "BINGO" not in respuesta.text
+
+
+async def test_google_rechaza_la_credencial_no_produce_500(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """RefreshError/TransportError de google.auth NO son GoogleAPIError: la
+    primera llamada real refresca el token y sin salida de red, con la clave
+    revocada o con el reloj desfasado, la excepción llegaba hasta el 500
+    (code-review de la fase 2, I-1.1)."""
     cabeceras = await _cabeceras_de(cliente, organizacion, "superadmin")
     _simular_credencial_valida(monkeypatch)
-    monkeypatch.setattr(ga4_client, "_cliente", ClienteFalso(error=NotFound("PROPERTY-BINGO")))
+    falsifico = ClienteFalso(error=RefreshError("AUTH-BINGO"))
+    monkeypatch.setattr(ga4_client, "_cliente", falsifico)
 
-    respuesta = await cliente.get(GA4_STATS, headers=cabeceras)
+    with caplog.at_level(logging.WARNING):
+        respuesta = await cliente.get(GA4_STATS, headers=cabeceras)
 
     assert respuesta.status_code == 200, respuesta.text
     cuerpo = respuesta.json()
     assert cuerpo["estado"] == "error_proveedor"
-    assert "property ID" in cuerpo["detalle"]
-    assert "PROPERTY-BINGO" not in respuesta.text
+    assert "credencial" in cuerpo["detalle"]
+    assert "AUTH-BINGO" not in respuesta.text
+    for registro in caplog.records:
+        assert "AUTH-BINGO" not in registro.getMessage()
 
 
 async def test_fallo_generico_de_la_api_da_estado_y_no_500(
@@ -223,7 +256,7 @@ async def test_fallo_generico_de_la_api_da_estado_y_no_500(
 ) -> None:
     cabeceras = await _cabeceras_de(cliente, organizacion, "superadmin")
     _simular_credencial_valida(monkeypatch)
-    falsifico = ClienteFalso(error=PermissionDenied("PERMISO-BINGO"))
+    falsifico = ClienteFalso(error=GoogleAPIError("GENERICO-BINGO"))
     monkeypatch.setattr(ga4_client, "_cliente", falsifico)
 
     respuesta = await cliente.get(GA4_STATS, headers=cabeceras)
@@ -231,7 +264,24 @@ async def test_fallo_generico_de_la_api_da_estado_y_no_500(
     assert respuesta.status_code == 200, respuesta.text
     cuerpo = respuesta.json()
     assert cuerpo["estado"] == "error_proveedor"
-    assert "PERMISO-BINGO" not in respuesta.text
+    assert "GENERICO-BINGO" not in respuesta.text
+
+
+async def test_respuesta_con_metricas_incompletas_no_produce_500(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Una fila con menos métricas que las pedidas es un contrato roto del
+    proveedor, no una razón para romper el panel (code-review fase 2, I-1.3):
+    el mapeo de la respuesta va dentro del try que traduce a estado."""
+    cabeceras = await _cabeceras_de(cliente, organizacion, "superadmin")
+    _simular_credencial_valida(monkeypatch)
+    corta = SimpleNamespace(rows=[SimpleNamespace(metric_values=[SimpleNamespace(value="12")])])
+    monkeypatch.setattr(ga4_client, "_cliente", ClienteFalso(corta))
+
+    respuesta = await cliente.get(GA4_STATS, headers=cabeceras)
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["estado"] == "error_proveedor"
 
 
 # --- Caso feliz -------------------------------------------------------------
@@ -299,6 +349,27 @@ async def test_segunda_peticion_sale_de_la_cache(
 
     assert segunda.status_code == 200
     assert segunda.json()["usuarios_activos"] == 12
+    assert falsifico.llamadas == 1
+
+
+async def test_cache_corrupta_cuenta_como_miss(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Un valor que ya no valida en la clave (esquema anterior de un
+    despliegue previo, dato corrupto) no debe romper el panel con un 500:
+    se reconsulta la API (code-review de la fase 2, I-1.4)."""
+    cabeceras = await _cabeceras_de(cliente, organizacion, "superadmin")
+    _simular_credencial_valida(monkeypatch)
+    falsifico = ClienteFalso(_respuesta_con_datos())
+    monkeypatch.setattr(ga4_client, "_cliente", falsifico)
+    await get_redis().set("ga4_stats:30", "{no-es-json-corrupto")
+
+    respuesta = await cliente.get(GA4_STATS, headers=cabeceras)
+
+    assert respuesta.status_code == 200, respuesta.text
+    cuerpo = respuesta.json()
+    assert cuerpo["estado"] == "datos"
+    assert cuerpo["usuarios_activos"] == 12
     assert falsifico.llamadas == 1
 
 

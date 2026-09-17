@@ -26,11 +26,13 @@ from typing import Any
 from google.analytics.data_v1beta import BetaAnalyticsDataAsyncClient
 from google.analytics.data_v1beta.types import DateRange, Metric, RunReportRequest
 from google.api_core.exceptions import (
-    GoogleAPIError,
     NotFound,
+    PermissionDenied,
     ResourceExhausted,
 )
+from google.auth.exceptions import GoogleAuthError
 from google.oauth2 import service_account
+from pydantic import ValidationError
 
 from app.core.config import get_settings
 from app.core.redis_client import get_redis
@@ -61,6 +63,10 @@ _CREDENCIAL_ILEGIBLE = (
 )
 _CUOTA_AGOTADA = "Se ha agotado la cuota de la API de Datos de GA4. Inténtalo de nuevo más tarde."
 _PROPERTY_INUTIL = "El property ID de GA4 no existe o la cuenta de servicio no tiene acceso a él."
+_CREDENCIAL_RECHAZADA = (
+    "Google ha rechazado la credencial de la cuenta de servicio. "
+    "Revisa GA4_SERVICE_ACCOUNT_JSON y la hora del servidor."
+)
 _API_FALLIDA = "La API de Datos de GA4 no ha respondido. Inténtalo de nuevo más tarde."
 
 _cliente: BetaAnalyticsDataAsyncClient | None = None
@@ -128,8 +134,13 @@ async def _consultar(dias: DiasDeGa4) -> Ga4StatsResponse:
     if credenciales is None:
         return Ga4StatsResponse(estado="credencial_invalida", detalle=_CREDENCIAL_ILEGIBLE)
 
-    cliente = _reservar_cliente(credenciales)
+    # Todo lo que puede lanzar (construcción del canal gRPC incluida, y el
+    # mapeo de la respuesta) va dentro: el contrato del módulo es «nunca un
+    # 500» — code-review de la fase 2: RefreshError/TransportError de
+    # google.auth no son GoogleAPIError, y una fila corta o un canal roto
+    # tampoco caen en la familia de la API.
     try:
+        cliente = _reservar_cliente(credenciales)
         respuesta = await cliente.run_report(
             request=RunReportRequest(
                 property=f"properties/{settings.ga4_property_id}",
@@ -142,24 +153,27 @@ async def _consultar(dias: DiasDeGa4) -> Ga4StatsResponse:
             ),
             timeout=_TIMEOUT_SEGUNDOS,
         )
+        return Ga4StatsResponse(
+            estado="datos",
+            usuarios_activos=_de_fila(respuesta, 0),
+            sesiones=_de_fila(respuesta, 1),
+            vistas_pagina=_de_fila(respuesta, 2),
+        )
     except ResourceExhausted:
         logger.warning("GA4: cuota de la API de Datos agotada.")
         return Ga4StatsResponse(estado="cuota_agotada", detalle=_CUOTA_AGOTADA)
-    except NotFound:
-        # El detalle distingue este caso de un fallo genérico porque es el
-        # único que depende de la configuración del despliegue, no de Google.
+    except (NotFound, PermissionDenied):
+        # La API responde 403 (PermissionDenied) cuando la cuenta no tiene
+        # acceso a la propiedad y 404 si no existe: mismo remedio de
+        # despliegue, mismo detalle (code-review de la fase 2, M-1).
         logger.warning("GA4: la propiedad indicada no existe o la cuenta no tiene acceso.")
         return Ga4StatsResponse(estado="error_proveedor", detalle=_PROPERTY_INUTIL)
-    except GoogleAPIError as error:
-        logger.warning("GA4: error de la API de Datos (%s).", type(error).__name__)
+    except GoogleAuthError as error:
+        logger.warning("GA4: Google rechaza la credencial (%s).", type(error).__name__)
+        return Ga4StatsResponse(estado="error_proveedor", detalle=_CREDENCIAL_RECHAZADA)
+    except Exception as error:  # noqa: BLE001 — deliberado: el contrato es nunca un 500
+        logger.warning("GA4: fallo inesperado de la consulta (%s).", type(error).__name__)
         return Ga4StatsResponse(estado="error_proveedor", detalle=_API_FALLIDA)
-
-    return Ga4StatsResponse(
-        estado="datos",
-        usuarios_activos=_de_fila(respuesta, 0),
-        sesiones=_de_fila(respuesta, 1),
-        vistas_pagina=_de_fila(respuesta, 2),
-    )
 
 
 async def estadisticas_ultimos_dias(dias: DiasDeGa4) -> Ga4StatsResponse:
@@ -177,7 +191,12 @@ async def estadisticas_ultimos_dias(dias: DiasDeGa4) -> Ga4StatsResponse:
         logger.warning("GA4: Redis no responde; se consulta la API sin caché.")
         en_cache = None
     if en_cache:
-        return Ga4StatsResponse.model_validate_json(en_cache)
+        # Un valor que ya no valida (esquema anterior, dato corrupto) cuenta
+        # como miss: se reconsulta, nunca un 500 por una entrada de caché.
+        try:
+            return Ga4StatsResponse.model_validate_json(en_cache)
+        except ValidationError:
+            logger.warning("GA4: entrada de caché no válida; se vuelve a consultar la API.")
 
     resultado = await _consultar(dias)
 
