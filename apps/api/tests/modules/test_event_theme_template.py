@@ -32,6 +32,25 @@ async def _plantillas() -> list[ThemeTemplate]:
         return list(filas)
 
 
+async def _cabeceras_superadmin(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> tuple[str, dict[str, str]]:
+    """Sesión del dueño de la organización promovida a superadmin: los endpoints
+    admin del catálogo exigen superadmin, y el dueño de prueba es el usuario
+    disponible sin inventar cuentas nuevas."""
+    from app.modules.users.models import User
+
+    async with SessionMaintenance() as session:
+        usuario = await session.scalar(
+            select(User).where(User.email == organizacion.owner_email)
+        )
+        assert usuario is not None
+        usuario.is_superadmin = True
+        await session.commit()
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    return "", cabeceras
+
+
 async def _crear_evento(cliente: AsyncClient, cabeceras: dict[str, str], slug: str) -> dict:
     respuesta = await cliente.post(
         EVENTS,
@@ -125,10 +144,10 @@ class TestPlantillaPorEvento:
 class TestTemaEnLaFichaPublica:
     """La plantilla del evento llega a su ficha pública, con la herencia resuelta.
 
-    Se resuelve en el servidor —evento → organización → por defecto— y no en el
-    cliente: encadenar tres consultas desde el navegador para pintar una página
-    pública sería absurdo, y el catálogo es una tabla de instalación que el
-    visitante no tiene por qué conocer.
+    Se resuelve en el servidor —evento → organización → plataforma aplicada →
+    por defecto— y no en el cliente: encadenar consultas desde el navegador
+    para pintar una página pública sería absurdo, y el catálogo es una tabla de
+    instalación que el visitante no tiene por qué conocer.
     """
 
     async def test_sin_eleccion_la_ficha_hereda_una_plantilla(
@@ -148,6 +167,59 @@ class TestTemaEnLaFichaPublica:
         # El catálogo tiene al menos la de por defecto: sin elección, se sirve esa.
         assert tema is not None
         assert tema["tokens"]
+
+    async def test_sin_eleccion_ni_de_la_organizacion_gana_la_aplicada_a_la_plataforma(
+        self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
+    ) -> None:
+        """«Usar en la plataforma» es lo que ve el visitante: un evento sin
+        plantilla propia y una organización sin plantilla heredan la aplicada a
+        la plataforma, y solo si no la hay, la marcada por defecto del catálogo.
+        Sin este nivel, cambiar la plantilla de la plataforma dejaba las fichas
+        públicas colgadas de un `is_default` viejo."""
+        plantillas = await _plantillas()
+        _, cabeceras = await iniciar_sesion(cliente, organizacion)
+        evento = await _crear_evento(cliente, cabeceras, "tema-plataforma-aplicada")
+        await cliente.patch(
+            f"{EVENTS}/{evento['id']}",
+            headers=cabeceras,
+            json={"status": "published", "visibility": "public"},
+        )
+
+        # La organización renuncia explícitamente (PUT con null) para que el
+        # camino probado sea exactamente el del visitante real.
+        await cliente.put(
+            "/api/v1/organizations/me/branding",
+            headers=cabeceras,
+            json={"theme_template_id": None},
+        )
+
+        # Se aplica a la plataforma una plantilla distinta de la marcada por
+        # defecto en el catálogo, para que el test distinga niveles.
+        aplicada = next(
+            (p for p in plantillas if not p.is_default),
+            None,
+        )
+        marcada = next((p for p in plantillas if p.is_default), None)
+        if aplicada is None or marcada is None:
+            pytest.skip("el catálogo no permite distinguir aplicada de por defecto")
+
+        _, cabeceras_admin = await _cabeceras_superadmin(cliente, organizacion)
+        await cliente.patch(
+            f"/api/v1/admin/theme-templates/{aplicada.id}",
+            headers=cabeceras_admin,
+            json={"is_default": False},
+        )
+        # «Usar en la plataforma»: es exactamente la acción que el dueño pulsa
+        # en la tarjeta del catálogo.
+        await cliente.patch(
+            "/api/v1/admin/identity",
+            headers=cabeceras_admin,
+            json={"theme_template_id": str(aplicada.id)},
+        )
+
+        ficha = await cliente.get(f"/api/v1/public/events/{evento['slug']}")
+        assert ficha.status_code == 200, ficha.text
+        assert ficha.json()["theme"]["id"] == str(aplicada.id)
 
     async def test_la_ficha_sirve_la_plantilla_que_eligio_el_evento(
         self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
