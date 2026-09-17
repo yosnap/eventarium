@@ -11,11 +11,11 @@ mismo nivel de exposición que el HTML que cargaría los scripts.
 
 from __future__ import annotations
 
-import pytest
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
+import pytest
 from httpx import AsyncClient
-from sqlalchemy import select, text, update
+from sqlalchemy import text, update
 
 from app.core.database import SessionMaintenance
 from app.modules.legal.models import CookieConsent
@@ -134,7 +134,11 @@ async def test_soporte_lee_pero_no_escribe(
     escritura = await cliente.put(
         ADMIN_SETTINGS,
         headers=cabeceras,
-        json={"ga4_measurement_id": "G-HACK", "meta_pixel_id": None, "cloudflare_analytics_token": None},
+        json={
+            "ga4_measurement_id": "G-HACK",
+            "meta_pixel_id": None,
+            "cloudflare_analytics_token": None,
+        },
     )
     assert escritura.status_code == 403
 
@@ -147,7 +151,11 @@ async def test_sin_sesion_no_hay_nada(
     assert (
         await cliente.put(
             ADMIN_SETTINGS,
-            json={"ga4_measurement_id": None, "meta_pixel_id": None, "cloudflare_analytics_token": None},
+            json={
+                "ga4_measurement_id": None,
+                "meta_pixel_id": None,
+                "cloudflare_analytics_token": None,
+            },
         )
     ).status_code == 401
 

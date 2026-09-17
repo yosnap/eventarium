@@ -26,7 +26,9 @@ from app.shared.errors import AuthenticationError, PermissionDeniedError
 from tests.conftest import OrganizacionDePrueba
 
 
-async def _fijar(user_id: uuid.UUID, *, is_superadmin: bool = False, platform_role: str | None = None) -> None:
+async def _fijar(
+    user_id: uuid.UUID, *, is_superadmin: bool = False, platform_role: str | None = None
+) -> None:
     async with SessionMaintenance() as session:
         await session.execute(
             update(User)

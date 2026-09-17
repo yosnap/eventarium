@@ -11,7 +11,6 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 
-import pytest
 from httpx import AsyncClient
 from sqlalchemy import select, update
 
@@ -33,7 +32,9 @@ async def _hacer_superadmin(email: str) -> None:
 
 async def _hacer_soporte(email: str) -> None:
     async with SessionMaintenance() as session:
-        await session.execute(update(User).where(User.email == email).values(platform_role="soporte"))
+        await session.execute(
+            update(User).where(User.email == email).values(platform_role="soporte")
+        )
         await session.commit()
 
 
@@ -137,7 +138,9 @@ async def test_desactivar_impide_el_login_y_anonimiza_sin_tocar_organizaciones(
     objetivo = await crear_miembro(organizacion, "organizer")
     cabeceras = await _superadmin_headers(cliente, organizacion)
 
-    respuesta = await cliente.post(f"{ADMIN_USERS}/{objetivo.user_id}/deactivate", headers=cabeceras)
+    respuesta = await cliente.post(
+        f"{ADMIN_USERS}/{objetivo.user_id}/deactivate", headers=cabeceras
+    )
     assert respuesta.status_code == 200, respuesta.text
     cuerpo = respuesta.json()
     assert cuerpo["is_active"] is False
@@ -194,7 +197,9 @@ async def test_desactivar_no_toca_las_inscripciones_del_usuario(
         inscripcion_id = inscripcion.id
 
     cabeceras = await _superadmin_headers(cliente, organizacion)
-    respuesta = await cliente.post(f"{ADMIN_USERS}/{objetivo.user_id}/deactivate", headers=cabeceras)
+    respuesta = await cliente.post(
+        f"{ADMIN_USERS}/{objetivo.user_id}/deactivate", headers=cabeceras
+    )
     assert respuesta.status_code == 200, respuesta.text
 
     async with SessionMaintenance() as session:
@@ -222,7 +227,9 @@ async def test_soporte_no_puede_desactivar(
     await _hacer_soporte(organizacion.owner_email)
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
 
-    respuesta = await cliente.post(f"{ADMIN_USERS}/{objetivo.user_id}/deactivate", headers=cabeceras)
+    respuesta = await cliente.post(
+        f"{ADMIN_USERS}/{objetivo.user_id}/deactivate", headers=cabeceras
+    )
     assert respuesta.status_code == 403, respuesta.text
 
 

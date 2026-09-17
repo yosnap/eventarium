@@ -15,7 +15,12 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import registrar_auditoria
-from app.core.deps import CurrentUser, get_maintenance_db, require_platform_staff, require_superadmin
+from app.core.deps import (
+    CurrentUser,
+    get_maintenance_db,
+    require_platform_staff,
+    require_superadmin,
+)
 from app.modules.admin import users_service
 from app.modules.admin.users_schemas import (
     PlatformRoleUpdate,
@@ -137,7 +142,9 @@ async def deactivate_user(
     superadmin: Superadmin,
     session: MaintenanceDb,
 ) -> PlatformUserActionResult:
-    usuario = await users_service.desactivar_usuario(session, actor_id=superadmin.id, user_id=user_id)
+    usuario = await users_service.desactivar_usuario(
+        session, actor_id=superadmin.id, user_id=user_id
+    )
     await revoke_all_families(usuario.id)
     await registrar_auditoria(
         session,

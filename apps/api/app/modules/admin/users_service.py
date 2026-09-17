@@ -37,7 +37,11 @@ async def listar_usuarios(
     if q:
         patron = f"%{q}%"
         condiciones.append(
-            or_(User.email.ilike(patron), User.first_name.ilike(patron), User.last_name.ilike(patron))
+            or_(
+                User.email.ilike(patron),
+                User.first_name.ilike(patron),
+                User.last_name.ilike(patron),
+            )
         )
     if platform_role is not None:
         condiciones.append(User.platform_role == platform_role)
@@ -103,7 +107,9 @@ async def obtener_usuario(
     return usuario, [(fila[0], fila[1]) for fila in organizaciones], int(nº_inscripciones or 0)
 
 
-async def desactivar_usuario(session: AsyncSession, *, actor_id: uuid.UUID, user_id: uuid.UUID) -> User:
+async def desactivar_usuario(
+    session: AsyncSession, *, actor_id: uuid.UUID, user_id: uuid.UUID
+) -> User:
     """Borrado suave: `is_active = false` + anonimización de nombre/avatar.
 
     El email se mantiene intacto a propósito (decisión cerrada en la fase 1

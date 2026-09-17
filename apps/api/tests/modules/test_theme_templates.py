@@ -328,7 +328,9 @@ async def test_editar_plantilla_rechaza_contraste_insuficiente_y_no_modifica_la_
     tokens_rotos["dark"]["warn"] = tokens_rotos["dark"]["surface"]
 
     respuesta = await cliente.patch(
-        f"{ADMIN_THEME_TEMPLATES}/{por_defecto['id']}", headers=cabeceras, json={"tokens": tokens_rotos}
+        f"{ADMIN_THEME_TEMPLATES}/{por_defecto['id']}",
+        headers=cabeceras,
+        json={"tokens": tokens_rotos},
     )
     assert respuesta.status_code == 422
 

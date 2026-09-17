@@ -14,11 +14,11 @@ from app.core.deps import bloquear_escritura_si_impersona
 from app.core.redis_client import close_redis
 from app.core.storage import get_storage
 from app.modules.accounting.router import router as accounting_router
+from app.modules.admin.analytics_router import router as admin_analytics_router
 from app.modules.admin.impersonation_router import router as admin_impersonation_router
 from app.modules.admin.platform_router import router as admin_platform_router
 from app.modules.admin.router import router as admin_router
 from app.modules.admin.users_router import router as admin_users_router
-from app.modules.admin.analytics_router import router as admin_analytics_router
 from app.modules.auth.router import router as auth_router
 from app.modules.events.public_router import router as events_public_router
 from app.modules.events.router import router as events_router

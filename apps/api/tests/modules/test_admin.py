@@ -166,4 +166,6 @@ def test_todas_las_rutas_de_admin_exigen_superadmin() -> None:
         if not (GATES_VALIDOS & nombres):
             sin_gate.append(ruta.path)
 
-    assert not sin_gate, f"rutas de /admin sin require_superadmin/require_platform_staff: {sin_gate}"
+    assert not sin_gate, (
+        f"rutas de /admin sin require_superadmin/require_platform_staff: {sin_gate}"
+    )
