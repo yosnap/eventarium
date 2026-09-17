@@ -11,4 +11,5 @@ export interface UserSummary {
   id: string;
   is_superadmin: boolean;
   last_name: (string | null);
+  platform_role: (string | null);
 }

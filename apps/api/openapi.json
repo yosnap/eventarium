@@ -18191,6 +18191,17 @@
           "is_superadmin": {
             "type": "boolean",
             "title": "Is Superadmin"
+          },
+          "platform_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform Role"
           }
         },
         "type": "object",
@@ -18199,7 +18210,8 @@
           "email",
           "first_name",
           "last_name",
-          "is_superadmin"
+          "is_superadmin",
+          "platform_role"
         ],
         "title": "UserSummary",
         "description": "Datos mínimos del usuario autenticado."
