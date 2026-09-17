@@ -177,10 +177,13 @@ Prioridad: **M** = MVP IAWIC Valencia · **S** = siguiente · **P** = posterior.
 
 ### 4.10 Legal y cookies — M
 
-- Banner de cookies (Klaro) con "rechazar" al mismo nivel que "aceptar", categorías separadas; bloqueo de scripts hasta consentimiento.
-- Páginas legales (aviso legal, privacidad, cookies, condiciones de inscripción) generadas desde plantillas con los datos de la entidad responsable, editables.
-- **Escaneo automático de cookies** — **S**: rastreo periódico de las páginas públicas de la propia instalación (navegador headless) para inventariar cookies y detectar las no declaradas. No existe solución open source fiable; se construye una versión ligera propia.
-- Registro auditable de consentimientos (inscripción y cookies).
+- Banner de cookies con "rechazar" al mismo nivel que "aceptar", categorías separadas (`necessary`/`analytics`/`marketing`); bloqueo de scripts hasta consentimiento — construido.
+- Páginas legales (aviso legal, privacidad, cookies, condiciones de inscripción), editables desde `/admin/legales` — construido.
+- Registro de consentimientos de cookies, **anónimo a propósito** (sin `user_id`, email ni IP/hash de IP — un hash sin sal es reversible por fuerza bruta, no cuenta como anonimización) — construido, pero hoy `app_user` solo tiene `INSERT`, nada lo lee todavía.
+- **Panel de consentimientos agregados** (`/admin`) — **S**: conteos/porcentajes de aceptación por categoría y periodo, sin identificar a nadie — respeta la anonimización ya decidida, no la revierte.
+- **Proveedores externos de analítica** (`/admin`) — **S**: configurar los identificadores de GA4, Meta Pixel y Cloudflare Web Analytics (no son secretos, son IDs semi-públicos) para que el banner los cargue solo tras consentir `analytics`/`marketing`, sustituyendo el script de ejemplo (`DummyAnalyticsService`) que hoy solo demuestra que el bloqueo funciona.
+- **Estadísticas de GA4 embebidas en `/admin`** — **S**: lectura de la API de Datos de GA4 (Google Analytics Data API) para mostrar gráficas sin salir del panel. Requiere una credencial de cuenta de servicio de Google con acceso de solo lectura a la propiedad GA4 — va como variable de entorno gestionada por quien despliega, no como campo editable desde la interfaz (no hay cifrado en reposo en este proyecto para secretos en BD; todo secreto de terceros vive hoy en variables de entorno, mismo patrón que Stripe/SMTP/Turnstile). Meta Pixel y Cloudflare quedan solo en modo "cargar script" en esta fase — sus APIs de estadísticas (Meta Marketing API, Cloudflare Analytics API) exigen cada una su propio flujo de credenciales y quedan fuera de este primer corte.
+- **Escaneo automático de cookies** — **P**: rastreo periódico de las páginas públicas de la propia instalación (navegador headless) para inventariar cookies y detectar las no declaradas. No existe solución open source fiable; se construiría una versión ligera propia.
 
 ### 4.11 Plataforma — M / S
 
@@ -332,6 +335,9 @@ directorio de eventos de toda la instalación.
 | ¿Qué pasa al "eliminar" un usuario desde `/admin`? | **Borrado suave**: desactivar/anonimizar, nunca borrado físico. Sus organizaciones e inscripciones permanecen intactas |
 | ¿Qué son los "permisos" que faltan, si el RBAC por organización ya existe? | **Roles de plataforma** — hoy solo hay un booleano `is_superadmin`; pasa a un catálogo pequeño (`superadmin`, `soporte`…), ver §3 |
 | ¿Se prepara ya el campo de preferencia de notificaciones (eventos similares/misma ciudad/mismo ponente)? | Sí, solo el campo en el perfil de usuario ahora; el motor de envío que lo consuma queda en **P** |
+| El panel de consentimientos de cookies: ¿identifica a quién ha consentido? | No — se mantiene anónimo (decisión ya cerrada); el panel nuevo es solo agregado (conteos por categoría/periodo), nunca por visita identificable |
+| ¿Dónde vive la credencial de la API de Google Analytics? | Variable de entorno, gestionada por quien despliega — no editable desde `/admin`; el proyecto no tiene cifrado en reposo para secretos en BD, y no se construye esa infraestructura solo para esto (mismo patrón que Stripe/SMTP/Turnstile) |
+| ¿Se conecta también la API de estadísticas de Meta Pixel y Cloudflare en este primer corte? | No — cada una exige su propio flujo de credenciales (Meta Marketing API, Cloudflare Analytics API); en esta fase solo cargan su script tras consentimiento, sin panel de estadísticas propio |
 
 ### Preguntas abiertas
 
