@@ -44,7 +44,6 @@ from app.modules.payments import service as payments_service
 from app.modules.payments.models import EventPayment, EventTicketType
 from app.modules.registrations.models import EventRegistration, EventRegistrationConsent
 from app.modules.roles.models import Role
-from app.modules.tickets.models import EventTicket
 from app.modules.tickets.service import emitir_entrada
 from app.modules.users.models import User
 

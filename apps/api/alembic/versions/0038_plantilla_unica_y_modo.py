@@ -32,8 +32,9 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision: str = "0038_plantilla_unica_y_modo"
 down_revision: str | None = "0037_sin_plantilla_portada"

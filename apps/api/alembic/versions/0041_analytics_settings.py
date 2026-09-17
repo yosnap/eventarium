@@ -25,8 +25,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision: str = "0041_analytics_settings"
 down_revision: str | None = "0040_roles_plataforma"

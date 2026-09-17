@@ -16,8 +16,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision: str = "0043_gtm_container_id"
 down_revision: str | None = "0042_login_platform_role"
