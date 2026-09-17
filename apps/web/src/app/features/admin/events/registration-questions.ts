@@ -15,6 +15,7 @@ import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
+import { Checkbox } from '../../../shared/ui/checkbox';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
 import {
@@ -46,7 +47,7 @@ function vacio(): {
 @Component({
   selector: 'app-registration-questions',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, NgTemplateOutlet, Alert, Button, Card, Input],
+  imports: [TranslocoDirective, NgTemplateOutlet, Alert, Button, Card, Checkbox, Input],
   template: `
     <ng-container *transloco="let t">
       <app-card [heading]="t('admin.events.registrationQuestions.titulo')">
@@ -169,14 +170,11 @@ function vacio(): {
             [(value)]="etiqueta"
           />
 
-          <label class="campo-checkbox">
-            <input
-              type="checkbox"
-              [checked]="obligatoria()"
-              (change)="alCambiarObligatoria($event)"
-            />
-            {{ t('admin.events.registrationQuestions.obligatoria') }}
-          </label>
+          <app-checkbox
+            [label]="t('admin.events.registrationQuestions.obligatoria')"
+            [checked]="obligatoria()"
+            (checkedChange)="alCambiarObligatoria($event)"
+          />
 
           @if (tipo() !== 'short_text') {
             <div class="campo-materiales">
@@ -285,12 +283,6 @@ function vacio(): {
       color: var(--fg);
       font: inherit;
     }
-    .campo-checkbox {
-      display: flex;
-      align-items: center;
-      gap: var(--space-sm);
-      font-weight: 500;
-    }
     .ayuda {
       margin: 0;
       color: var(--muted);
@@ -364,8 +356,8 @@ export class RegistrationQuestions implements OnInit {
     this.tipo.set((evento.target as HTMLSelectElement).value as RegistrationQuestionType);
   }
 
-  protected alCambiarObligatoria(evento: Event): void {
-    this.obligatoria.set((evento.target as HTMLInputElement).checked);
+  protected alCambiarObligatoria(marcada: boolean): void {
+    this.obligatoria.set(marcada);
   }
 
   protected alTextarea(evento: Event): string {

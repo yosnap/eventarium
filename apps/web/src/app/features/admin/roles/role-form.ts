@@ -8,6 +8,7 @@ import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
+import { Checkbox } from '../../../shared/ui/checkbox';
 import { Card } from '../../../shared/ui/card';
 import { ErrorSummary, ResumenDeError } from '../../../shared/ui/error-summary';
 import { FIELD_TYPES, FieldType } from '../../../shared/ui/dynamic-field.model';
@@ -79,7 +80,18 @@ function campoDesdeApi(campo: RoleField): CampoDeFormulario {
 @Component({
   selector: 'app-role-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, ErrorSummary, Input, Textarea, PageHeader],
+  imports: [
+    TranslocoDirective,
+    RouterLink,
+    Alert,
+    Button,
+    Card,
+    Checkbox,
+    ErrorSummary,
+    Input,
+    Textarea,
+    PageHeader,
+  ],
   template: `
     <ng-container *transloco="let t">
       <app-page-header [rotulo]="t('admin.roles.formulario.rotulo')">
@@ -141,22 +153,18 @@ function campoDesdeApi(campo: RoleField): CampoDeFormulario {
           <app-card [heading]="t('admin.roles.formulario.permisos')">
             <div class="permisos">
               @for (permiso of permisosDisponibles; track permiso) {
-                <label
+                <app-checkbox
                   class="permiso"
+                  [label]="t('admin.roles.permisosClaves.' + permiso)"
                   [title]="
                     actorTienePermiso(permiso)
-                      ? ''
+                      ? null
                       : t('admin.roles.formulario.permisoNoDisponible')
                   "
-                >
-                  <input
-                    type="checkbox"
-                    [checked]="permissions().has(permiso)"
-                    [disabled]="!actorTienePermiso(permiso)"
-                    (change)="alCambiarPermiso(permiso, $event)"
-                  />
-                  {{ t('admin.roles.permisosClaves.' + permiso) }}
-                </label>
+                  [disabled]="!actorTienePermiso(permiso)"
+                  [checked]="permissions().has(permiso)"
+                  (checkedChange)="alCambiarPermiso(permiso, $event)"
+                />
               }
             </div>
           </app-card>
@@ -215,14 +223,11 @@ function campoDesdeApi(campo: RoleField): CampoDeFormulario {
                         (blurred)="validarCampo($index)"
                       />
                     }
-                    <label class="requerido">
-                      <input
-                        type="checkbox"
-                        [checked]="campo.requerido"
-                        (change)="alCambiarRequerido($index, $event)"
-                      />
-                      {{ t('admin.roles.formulario.campoObligatorio') }}
-                    </label>
+                    <app-checkbox
+                      [label]="t('admin.roles.formulario.campoObligatorio')"
+                      [checked]="campo.requerido"
+                      (checkedChange)="alCambiarRequerido($index, $event)"
+                    />
                     <app-button variant="secundario" type="button" (pulsado)="quitarCampo($index)">
                       {{ t('admin.roles.formulario.quitarCampo') }}
                     </app-button>
@@ -302,12 +307,6 @@ function campoDesdeApi(campo: RoleField): CampoDeFormulario {
       margin: 0;
       color: var(--muted);
       font-size: 0.8125rem;
-    }
-    .requerido {
-      display: flex;
-      align-items: center;
-      gap: var(--space-sm);
-      min-height: 2.75rem;
     }
     .acciones-finales {
       display: flex;
@@ -426,8 +425,7 @@ export class RoleForm {
     );
   }
 
-  protected alCambiarPermiso(permiso: string, evento: Event): void {
-    const marcado = (evento.target as HTMLInputElement).checked;
+  protected alCambiarPermiso(permiso: string, marcado: boolean): void {
     this.permissions.update((actuales) => {
       const nuevo = new Set(actuales);
       if (marcado) nuevo.add(permiso);
@@ -469,8 +467,7 @@ export class RoleForm {
     );
   }
 
-  protected alCambiarRequerido(indice: number, evento: Event): void {
-    const requerido = (evento.target as HTMLInputElement).checked;
+  protected alCambiarRequerido(indice: number, requerido: boolean): void {
     this.profileFields.update((actuales) =>
       actuales.map((campo, i) => (i === indice ? { ...campo, requerido } : campo)),
     );

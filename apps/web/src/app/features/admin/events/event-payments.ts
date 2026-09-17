@@ -16,6 +16,7 @@ import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
+import { Checkbox } from '../../../shared/ui/checkbox';
 import { Card } from '../../../shared/ui/card';
 import { DataTable, DataTableColumn } from '../../../shared/ui/data-table';
 import { Dialog } from '../../../shared/ui/dialog';
@@ -77,7 +78,7 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
 @Component({
   selector: 'app-event-payments',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, DataTable, Dialog, PageHeader],
+  imports: [TranslocoDirective, Alert, Button, Card, Checkbox, DataTable, Dialog, PageHeader],
   template: `
     <ng-container *transloco="let t">
       <app-page-header [rotulo]="t('admin.events.payments.titulo')">
@@ -172,14 +173,10 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
             </div>
 
             @if (esParcial(pago)) {
-              <label class="campo-casilla">
-                <input
-                  type="checkbox"
-                  [checked]="revocarEntrada()"
-                  (change)="revocarEntrada.set(alCasilla($event))"
-                />
-                {{ t('admin.events.payments.dialogo.revocarEntrada') }}
-              </label>
+              <app-checkbox
+                [label]="t('admin.events.payments.dialogo.revocarEntrada')"
+                [(checked)]="revocarEntrada"
+              />
             } @else {
               <p class="ayuda">{{ t('admin.events.payments.dialogo.totalSiempreRevoca') }}</p>
             }
@@ -245,11 +242,6 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
       color: var(--fg);
       font: inherit;
       min-height: 2.75rem;
-    }
-    .campo-casilla {
-      display: flex;
-      align-items: center;
-      gap: var(--space-sm);
     }
     .ayuda {
       margin: 0;

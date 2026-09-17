@@ -14,7 +14,7 @@ import { ChangeDetectionStrategy, Component, input, model } from '@angular/core'
   selector: 'app-checkbox',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <label class="check">
+    <label class="check" [attr.title]="title() ?? null">
       <input
         type="checkbox"
         [id]="fieldId()"
@@ -55,6 +55,8 @@ import { ChangeDetectionStrategy, Component, input, model } from '@angular/core'
 })
 export class Checkbox {
   readonly label = input.required<string>();
+  /** Texto flotante del label («permiso no disponible»), opcional. */
+  readonly title = input<string | null>(null);
   readonly hint = input<string | null>(null);
   readonly disabled = input(false);
   /** Id del `<input>` real, para enlazar desde un ancla externa (p. ej.
