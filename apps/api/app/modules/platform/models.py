@@ -92,3 +92,27 @@ class PlatformLegalPage(Base, TimestampMixin):
     id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=new_uuid7)
     kind: Mapped[str] = mapped_column(String(40), nullable=False)
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class PlatformAnalyticsSettings(Base, TimestampMixin):
+    """Identificadores de proveedores externos de analítica: exactamente **una** fila.
+
+    Misma forma que `PlatformBranding` (PK `'default'`). Los tres campos son
+    **identificadores semi-públicos, no secretos**: el `ga4_measurement_id`
+    (`G-…`) y el `meta_pixel_id` ya viajan en el HTML de cualquier sitio que
+    los use, y el "token" de Cloudflare Web Analytics (hallazgo red-team #5)
+    se embebe en el snippet público del beacon por diseño de Cloudflare.
+    Que nadie los trate como credenciales — ni pegue ahí una real por error.
+    Las credenciales de verdad (p. ej. la cuenta de servicio de la API de
+    Datos de GA4) viven en variables de entorno, no en esta tabla.
+    """
+
+    __tablename__ = "platform_analytics_settings"
+    __table_args__ = (
+        CheckConstraint("singleton = 'default'", name="ck_platform_analytics_settings_singleton"),
+    )
+
+    singleton: Mapped[str] = mapped_column(String(20), primary_key=True, default="default")
+    ga4_measurement_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    meta_pixel_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    cloudflare_analytics_token: Mapped[str | None] = mapped_column(String(100), nullable=True)
