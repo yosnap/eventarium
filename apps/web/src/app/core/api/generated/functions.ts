@@ -127,6 +127,8 @@ export type { UpdateAnalyticsSettingsApiV1AdminAnalyticsSettingsPut$Params as Up
 export { updateAnalyticsSettingsApiV1AdminAnalyticsSettingsPut as updateAnalyticsSettingsApiV1AdminAnalyticsSettingsPut } from './fn/administracion/update-analytics-settings-api-v-1-admin-analytics-settings-put';
 export type { GetConsentimientosStatsApiV1AdminCookieConsentsStatsGet$Params as GetConsentimientosStatsApiV1AdminCookieConsentsStatsGet$Params } from './fn/administracion/get-consentimientos-stats-api-v-1-admin-cookie-consents-stats-get';
 export { getConsentimientosStatsApiV1AdminCookieConsentsStatsGet as getConsentimientosStatsApiV1AdminCookieConsentsStatsGet } from './fn/administracion/get-consentimientos-stats-api-v-1-admin-cookie-consents-stats-get';
+export type { GetGa4StatsApiV1AdminAnalyticsProvidersGa4StatsGet$Params as GetGa4StatsApiV1AdminAnalyticsProvidersGa4StatsGet$Params } from './fn/administracion/get-ga-4-stats-api-v-1-admin-analytics-providers-ga-4-stats-get';
+export { getGa4StatsApiV1AdminAnalyticsProvidersGa4StatsGet as getGa4StatsApiV1AdminAnalyticsProvidersGa4StatsGet } from './fn/administracion/get-ga-4-stats-api-v-1-admin-analytics-providers-ga-4-stats-get';
 export type { GetPlatformIdentityApiV1AdminIdentityGet$Params as GetPlatformIdentityApiV1AdminIdentityGet$Params } from './fn/administracion/get-platform-identity-api-v-1-admin-identity-get';
 export { getPlatformIdentityApiV1AdminIdentityGet as getPlatformIdentityApiV1AdminIdentityGet } from './fn/administracion/get-platform-identity-api-v-1-admin-identity-get';
 export type { UpdatePlatformIdentityApiV1AdminIdentityPatch$Params as UpdatePlatformIdentityApiV1AdminIdentityPatch$Params } from './fn/administracion/update-platform-identity-api-v-1-admin-identity-patch';

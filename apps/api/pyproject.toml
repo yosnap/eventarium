@@ -33,6 +33,11 @@ dependencies = [
     # estable (15.6.1): desde la v13 el SDK ya no tiene `stripe.error`
     # (excepción a capturar: `stripe.StripeError`, del módulo raíz).
     "stripe[async]>=15.6,<16.0",
+    # API de Datos de GA4 (fase 2 del plan de cookies): estadísticas de
+    # tráfico dentro del panel. Librería oficial (módulo
+    # `google.analytics.data_v1beta`); sigue en beta en Google, no es un
+    # rango holgado sin motivo.
+    "google-analytics-data>=0.19,<1.0",
 ]
 
 [dependency-groups]

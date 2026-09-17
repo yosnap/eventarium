@@ -2539,6 +2539,50 @@
         }
       }
     },
+    "/api/v1/admin/analytics-providers/ga4-stats": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Estadísticas de tráfico de GA4 de los últimos días",
+        "description": "Nunca falla con 500/503: si la credencial o la API no están\ndisponibles responde con un `estado` explícito — la pantalla del panel\nse renderiza igual (fase 2 del plan de cookies).\n\nLa validación de `dias` es manual (error de dominio 422) en vez de\n`Literal[7, 30]` en la firma: FastAPI entrega los query params como\n`str` y no los coerciona contra un `Literal` de enteros — el mismo\ninvariante del enum, validado donde sí funciona.",
+        "operationId": "get_ga4_stats_api_v1_admin_analytics_providers_ga4_stats_get",
+        "parameters": [
+          {
+            "name": "dias",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 30,
+              "title": "Dias"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ga4StatsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/identity": {
       "get": {
         "tags": [
@@ -11517,6 +11561,71 @@
         ],
         "title": "ForgotPasswordRequest",
         "description": "Datos para pedir la recuperación de una contraseña olvidada."
+      },
+      "Ga4StatsResponse": {
+        "properties": {
+          "estado": {
+            "type": "string",
+            "enum": [
+              "datos",
+              "no_configurado",
+              "credencial_invalida",
+              "cuota_agotada",
+              "error_proveedor"
+            ],
+            "title": "Estado"
+          },
+          "detalle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detalle"
+          },
+          "usuarios_activos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usuarios Activos"
+          },
+          "sesiones": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sesiones"
+          },
+          "vistas_pagina": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vistas Pagina"
+          }
+        },
+        "type": "object",
+        "required": [
+          "estado"
+        ],
+        "title": "Ga4StatsResponse",
+        "description": "Estadísticas de GA4 de los últimos `dias` días.\n\n`estado` es siempre explícito: el panel debe poder renderizarse sin\nestadísticas (credencial ausente, JSON de la cuenta de servicio\ncorrupto, cuota agotada o la API de Google caída) — nunca un 500 ni un\nerror genérico. Los cuatro estados sin datos llevan `detalle` fijo,\nconstruido en el código: **nunca** interpola el mensaje de la excepción\nde Google, que puede contener fragmentos de la credencial de entrada\n(hallazgo red-team #2). Con `estado == \"datos\"` las tres métricas van\ninformadas; en el resto son `null`."
       },
       "GenericMessageResponse": {
         "properties": {

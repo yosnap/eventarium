@@ -72,6 +72,7 @@ export type { ExpenseCreate } from './models/expense-create';
 export type { ExpenseOut } from './models/expense-out';
 export type { ExpenseUpdate } from './models/expense-update';
 export type { ForgotPasswordRequest } from './models/forgot-password-request';
+export type { Ga4StatsResponse } from './models/ga-4-stats-response';
 export type { GenericMessageResponse } from './models/generic-message-response';
 export type { HealthResponse } from './models/health-response';
 export type { HttpValidationError } from './models/http-validation-error';

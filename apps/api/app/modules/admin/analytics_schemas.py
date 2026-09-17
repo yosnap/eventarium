@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Literal, get_args
 
 from pydantic import BaseModel, Field
 
@@ -52,3 +53,44 @@ class ConsentimientosStatsResponse(BaseModel):
     identificador de visita ni una fila individual: solo celdas semana×categoría."""
 
     celdas: list[CeldaDeConsentimientos]
+
+
+# --- Estadísticas de GA4 (fase 2) ------------------------------------------
+
+DiasDeGa4 = Literal[7, 30]
+"""Únicos rangos admitidos (hallazgo red-team #4: un `N` sin restringir
+permitiría vaciar la caché variándolo en cada petición; con un enum el
+número de claves posibles es finito)."""
+
+DIAS_PERMITIDOS = get_args(DiasDeGa4)
+"""Valores en runtime del enum anterior: el router valida el query param
+contra ellos con un error de dominio (FastAPI entrega los query params como
+`str` y no los coerciona contra un `Literal` de enteros)."""
+
+EstadoGa4 = Literal[
+    "datos",
+    "no_configurado",
+    "credencial_invalida",
+    "cuota_agotada",
+    "error_proveedor",
+]
+
+
+class Ga4StatsResponse(BaseModel):
+    """Estadísticas de GA4 de los últimos `dias` días.
+
+    `estado` es siempre explícito: el panel debe poder renderizarse sin
+    estadísticas (credencial ausente, JSON de la cuenta de servicio
+    corrupto, cuota agotada o la API de Google caída) — nunca un 500 ni un
+    error genérico. Los cuatro estados sin datos llevan `detalle` fijo,
+    construido en el código: **nunca** interpola el mensaje de la excepción
+    de Google, que puede contener fragmentos de la credencial de entrada
+    (hallazgo red-team #2). Con `estado == "datos"` las tres métricas van
+    informadas; en el resto son `null`.
+    """
+
+    estado: EstadoGa4
+    detalle: str | None = None
+    usuarios_activos: int | None = None
+    sesiones: int | None = None
+    vistas_pagina: int | None = None

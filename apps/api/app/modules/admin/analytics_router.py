@@ -9,19 +9,28 @@ Lectura (`GET` settings y agregados) accesible a `require_platform_staff`
 from __future__ import annotations
 
 from datetime import date
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import CurrentUser, get_maintenance_db, require_platform_staff, require_superadmin
-from app.modules.admin import analytics_service
+from app.core.deps import (
+    CurrentUser,
+    get_maintenance_db,
+    require_platform_staff,
+    require_superadmin,
+)
+from app.modules.admin import analytics_service, ga4_client
 from app.modules.admin.analytics_schemas import (
+    DIAS_PERMITIDOS,
     AnalyticsSettingsResponse,
     AnalyticsSettingsUpdate,
     ConsentimientosStatsResponse,
+    DiasDeGa4,
+    Ga4StatsResponse,
 )
 from app.modules.platform.models import PlatformAnalyticsSettings
+from app.shared.errors import ValidationDomainError
 
 router = APIRouter(prefix="/admin", tags=["administración"])
 
@@ -70,3 +79,26 @@ async def get_consentimientos_stats(
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     return ConsentimientosStatsResponse(celdas=celdas)
+
+
+@router.get(
+    "/analytics-providers/ga4-stats",
+    summary="Estadísticas de tráfico de GA4 de los últimos días",
+    response_model=Ga4StatsResponse,
+)
+async def get_ga4_stats(
+    _: PlatformStaff,
+    dias: int = Query(default=30),
+) -> Ga4StatsResponse:
+    """Nunca falla con 500/503: si la credencial o la API no están
+    disponibles responde con un `estado` explícito — la pantalla del panel
+    se renderiza igual (fase 2 del plan de cookies).
+
+    La validación de `dias` es manual (error de dominio 422) en vez de
+    `Literal[7, 30]` en la firma: FastAPI entrega los query params como
+    `str` y no los coerciona contra un `Literal` de enteros — el mismo
+    invariante del enum, validado donde sí funciona.
+    """
+    if dias not in DIAS_PERMITIDOS:
+        raise ValidationDomainError("El parámetro dias solo acepta 7 o 30.")
+    return await ga4_client.estadisticas_ultimos_dias(cast(DiasDeGa4, dias))
