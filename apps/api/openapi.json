@@ -382,6 +382,28 @@
         }
       }
     },
+    "/api/v1/tenant/analytics": {
+      "get": {
+        "tags": [
+          "tenant"
+        ],
+        "summary": "Identificadores de analítica configurados",
+        "description": "Los identificadores de los proveedores de analítica que el banner de cookies cargará solo tras el consentimiento correspondiente. Público a propósito: son los mismos valores que ya viajarían en el HTML si los scripts se incrustaran directamente.",
+        "operationId": "analytics_api_v1_tenant_analytics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsPublicResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/organizations/check-slug": {
       "get": {
         "tags": [
@@ -2373,6 +2395,133 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PlatformUserActionResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/analytics-settings": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Identificadores de los proveedores de analítica",
+        "operationId": "get_analytics_settings_api_v1_admin_analytics_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsSettingsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Reemplazar los identificadores de los proveedores",
+        "operationId": "update_analytics_settings_api_v1_admin_analytics_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalyticsSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsSettingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/cookie-consents/stats": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Agregado semanal de consentimientos por categoría",
+        "operationId": "get_consentimientos_stats_api_v1_admin_cookie_consents_stats_get",
+        "parameters": [
+          {
+            "name": "desde",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Desde"
+            }
+          },
+          {
+            "name": "hasta",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Hasta"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentimientosStatsResponse"
                 }
               }
             }
@@ -7891,6 +8040,134 @@
         "title": "ActividadDeOrganizacionOut",
         "description": "Qué hace una organización, sin ningún importe.\n\nLas cuatro marcas de tiempo responden a preguntas distintas y por eso van\nseparadas, no fundidas en un «última actividad»: una cuenta que crea eventos\npero no recibe inscripciones está rota, y una que recibe inscripciones sin\naccesos nuevos puede estar abandonada.\n\n`evento_mas_reciente` es `updated_at` («última vez que se tocó un evento») y\n`ultimo_evento_creado` es `created_at` («último dado de alta»): editar un\nevento existente es trabajar, y con una sola marca se leería como parada."
       },
+      "AnalyticsPublicResponse": {
+        "properties": {
+          "ga4_measurement_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ga4 Measurement Id"
+          },
+          "meta_pixel_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta Pixel Id"
+          },
+          "cloudflare_analytics_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cloudflare Analytics Token"
+          }
+        },
+        "type": "object",
+        "title": "AnalyticsPublicResponse",
+        "description": "Identificadores de analítica configurados, sin autenticar.\n\nMismo nivel de exposición que el HTML público que cargaría los scripts:\nlos tres valores son semi-públicos por diseño de cada proveedor\n(`PlatformAnalyticsSettings`). `null` = proveedor sin configurar: el\nbanner no carga su script."
+      },
+      "AnalyticsSettingsResponse": {
+        "properties": {
+          "ga4_measurement_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ga4 Measurement Id"
+          },
+          "meta_pixel_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta Pixel Id"
+          },
+          "cloudflare_analytics_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cloudflare Analytics Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ga4_measurement_id",
+          "meta_pixel_id",
+          "cloudflare_analytics_token"
+        ],
+        "title": "AnalyticsSettingsResponse",
+        "description": "Los identificadores semi-públicos de los proveedores de analítica.\n\nNinguno es un secreto (viajan en el HTML público por diseño de cada\nproveedor) — ver `PlatformAnalyticsSettings`."
+      },
+      "AnalyticsSettingsUpdate": {
+        "properties": {
+          "ga4_measurement_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ga4 Measurement Id"
+          },
+          "meta_pixel_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta Pixel Id"
+          },
+          "cloudflare_analytics_token": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cloudflare Analytics Token"
+          }
+        },
+        "type": "object",
+        "title": "AnalyticsSettingsUpdate",
+        "description": "Reemplazo completo de los identificadores: un `PUT` envía los tres\nvalores (cada uno puede ser `null` para dejar el proveedor sin usar)."
+      },
       "AuditLogEntry": {
         "properties": {
           "id": {
@@ -8435,6 +8712,38 @@
         "title": "CancelRegistrationResponse",
         "description": "Resultado de cancelar una inscripción por autocancelación."
       },
+      "CeldaDeConsentimientos": {
+        "properties": {
+          "semana": {
+            "type": "string",
+            "format": "date",
+            "title": "Semana"
+          },
+          "categoria": {
+            "type": "string",
+            "title": "Categoria"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "semana",
+          "categoria",
+          "total"
+        ],
+        "title": "CeldaDeConsentimientos",
+        "description": "Una celda del agregado semanal: semana (lunes), categoría y total.\n\n`total: null` significa «celda suprimida por debajo del umbral», no cero —\nel cero real sí se muestra (cero visits no identifica a nadie)."
+      },
       "ChangeEmailConfirmRequest": {
         "properties": {
           "token": {
@@ -8828,6 +9137,23 @@
         ],
         "title": "ConfirmWaitlistPromotionResponse",
         "description": "Resultado de confirmar una promoción de lista de espera."
+      },
+      "ConsentimientosStatsResponse": {
+        "properties": {
+          "celdas": {
+            "items": {
+              "$ref": "#/components/schemas/CeldaDeConsentimientos"
+            },
+            "type": "array",
+            "title": "Celdas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "celdas"
+        ],
+        "title": "ConsentimientosStatsResponse",
+        "description": "Agregado semanal de consentimientos por categoría. Nunca incluye un\nidentificador de visita ni una fila individual: solo celdas semana×categoría."
       },
       "ContingencyLineOut": {
         "properties": {

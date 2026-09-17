@@ -23,6 +23,8 @@ export type { LogoutApiV1AuthLogoutPost$Params as LogoutApiV1AuthLogoutPost$Para
 export { logoutApiV1AuthLogoutPost as logoutApiV1AuthLogoutPost } from './fn/autenticacion/logout-api-v-1-auth-logout-post';
 export type { BrandingApiV1TenantBrandingGet$Params as BrandingApiV1TenantBrandingGet$Params } from './fn/tenant/branding-api-v-1-tenant-branding-get';
 export { brandingApiV1TenantBrandingGet as brandingApiV1TenantBrandingGet } from './fn/tenant/branding-api-v-1-tenant-branding-get';
+export type { AnalyticsApiV1TenantAnalyticsGet$Params as AnalyticsApiV1TenantAnalyticsGet$Params } from './fn/tenant/analytics-api-v-1-tenant-analytics-get';
+export { analyticsApiV1TenantAnalyticsGet as analyticsApiV1TenantAnalyticsGet } from './fn/tenant/analytics-api-v-1-tenant-analytics-get';
 export type { CheckSlugApiV1OrganizationsCheckSlugGet$Params as CheckSlugApiV1OrganizationsCheckSlugGet$Params } from './fn/organizaciones/check-slug-api-v-1-organizations-check-slug-get';
 export { checkSlugApiV1OrganizationsCheckSlugGet as checkSlugApiV1OrganizationsCheckSlugGet } from './fn/organizaciones/check-slug-api-v-1-organizations-check-slug-get';
 export type { CreateOrganizationApiV1OrganizationsPost$Params as CreateOrganizationApiV1OrganizationsPost$Params } from './fn/organizaciones/create-organization-api-v-1-organizations-post';
@@ -119,6 +121,12 @@ export type { DeactivateUserApiV1AdminUsersUserIdDeactivatePost$Params as Deacti
 export { deactivateUserApiV1AdminUsersUserIdDeactivatePost as deactivateUserApiV1AdminUsersUserIdDeactivatePost } from './fn/administracion/deactivate-user-api-v-1-admin-users-user-id-deactivate-post';
 export type { UpdatePlatformRoleApiV1AdminUsersUserIdPlatformRolePut$Params as UpdatePlatformRoleApiV1AdminUsersUserIdPlatformRolePut$Params } from './fn/administracion/update-platform-role-api-v-1-admin-users-user-id-platform-role-put';
 export { updatePlatformRoleApiV1AdminUsersUserIdPlatformRolePut as updatePlatformRoleApiV1AdminUsersUserIdPlatformRolePut } from './fn/administracion/update-platform-role-api-v-1-admin-users-user-id-platform-role-put';
+export type { GetAnalyticsSettingsApiV1AdminAnalyticsSettingsGet$Params as GetAnalyticsSettingsApiV1AdminAnalyticsSettingsGet$Params } from './fn/administracion/get-analytics-settings-api-v-1-admin-analytics-settings-get';
+export { getAnalyticsSettingsApiV1AdminAnalyticsSettingsGet as getAnalyticsSettingsApiV1AdminAnalyticsSettingsGet } from './fn/administracion/get-analytics-settings-api-v-1-admin-analytics-settings-get';
+export type { UpdateAnalyticsSettingsApiV1AdminAnalyticsSettingsPut$Params as UpdateAnalyticsSettingsApiV1AdminAnalyticsSettingsPut$Params } from './fn/administracion/update-analytics-settings-api-v-1-admin-analytics-settings-put';
+export { updateAnalyticsSettingsApiV1AdminAnalyticsSettingsPut as updateAnalyticsSettingsApiV1AdminAnalyticsSettingsPut } from './fn/administracion/update-analytics-settings-api-v-1-admin-analytics-settings-put';
+export type { GetConsentimientosStatsApiV1AdminCookieConsentsStatsGet$Params as GetConsentimientosStatsApiV1AdminCookieConsentsStatsGet$Params } from './fn/administracion/get-consentimientos-stats-api-v-1-admin-cookie-consents-stats-get';
+export { getConsentimientosStatsApiV1AdminCookieConsentsStatsGet as getConsentimientosStatsApiV1AdminCookieConsentsStatsGet } from './fn/administracion/get-consentimientos-stats-api-v-1-admin-cookie-consents-stats-get';
 export type { GetPlatformIdentityApiV1AdminIdentityGet$Params as GetPlatformIdentityApiV1AdminIdentityGet$Params } from './fn/administracion/get-platform-identity-api-v-1-admin-identity-get';
 export { getPlatformIdentityApiV1AdminIdentityGet as getPlatformIdentityApiV1AdminIdentityGet } from './fn/administracion/get-platform-identity-api-v-1-admin-identity-get';
 export type { UpdatePlatformIdentityApiV1AdminIdentityPatch$Params as UpdatePlatformIdentityApiV1AdminIdentityPatch$Params } from './fn/administracion/update-platform-identity-api-v-1-admin-identity-patch';

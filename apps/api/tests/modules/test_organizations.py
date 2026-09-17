@@ -73,7 +73,7 @@ async def test_actualizar_el_branding_con_una_plantilla_de_tema(
 
     catalogo = await cliente.get("/api/v1/organizations/me/theme-templates", headers=cabeceras)
     assert catalogo.status_code == 200
-    claro = next(p for p in catalogo.json() if p["key"] == "claro")
+    claro = next(p for p in catalogo.json() if p["key"] == "por-defecto")
 
     respuesta = await cliente.put(
         BRANDING,
