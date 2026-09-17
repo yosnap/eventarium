@@ -13,6 +13,7 @@ import { PageHeader } from '../../../shared/ui/page-header';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Textarea } from '../../../shared/ui/textarea';
+import { ThemeTemplatePreview } from '../superadmin/theme-template-preview';
 
 interface SocialLink {
   kind: string;
@@ -57,7 +58,16 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
 @Component({
   selector: 'app-branding-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, PageHeader, Textarea],
+  imports: [
+    TranslocoDirective,
+    RouterLink,
+    Alert,
+    Button,
+    Card,
+    PageHeader,
+    Textarea,
+    ThemeTemplatePreview,
+  ],
   template: `
     <ng-container *transloco="let t">
       <app-page-header [rotulo]="t('admin.branding.rotulo')">
@@ -140,39 +150,39 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
             </app-card>
           </div>
 
-          <fieldset class="plantillas-de-tema">
-            <legend>{{ t('admin.branding.plantillaDeTema') }}</legend>
+          <div
+            class="plantillas"
+            role="radiogroup"
+            [attr.aria-label]="t('admin.branding.plantillaDeTema')"
+          >
             @for (plantilla of plantillasDeTema(); track plantilla.id) {
-              <label class="opcion-plantilla">
-                <input
-                  type="radio"
-                  name="plantilla-de-tema"
-                  [value]="plantilla.id"
-                  [checked]="plantilla.id === themeTemplateId()"
-                  (change)="themeTemplateId.set(plantilla.id)"
-                />
-                <span class="muestras">
-                  @for (modo of modos; track modo) {
-                    <span
-                      class="muestra"
-                      [style.background]="plantilla.tokens[modo]['bg']"
-                      [style.color]="plantilla.tokens[modo]['fg']"
-                      [style.border-color]="plantilla.tokens[modo]['border']"
-                    >
-                      <span
-                        class="acento"
-                        [style.background]="plantilla.tokens[modo]['accent']"
-                      ></span>
-                    </span>
-                  }
+              <button
+                type="button"
+                role="radio"
+                class="plantilla-tarjeta"
+                [class.plantilla-activa]="plantilla.id === themeTemplateId()"
+                [attr.aria-checked]="plantilla.id === themeTemplateId()"
+                (click)="themeTemplateId.set(plantilla.id)"
+              >
+                <span class="plantilla-minis">
+                  <app-theme-template-preview
+                    class="plantilla-miniatura"
+                    [tokens]="plantilla.tokens"
+                    modo="dark"
+                  />
+                  <app-theme-template-preview
+                    class="plantilla-miniatura"
+                    [tokens]="plantilla.tokens"
+                    modo="light"
+                  />
                 </span>
-                <span class="nombre-plantilla">{{ plantilla.name }}</span>
-              </label>
+                <span class="plantilla-nombre">{{ plantilla.name }}</span>
+              </button>
             }
             @if (plantillasDeTema().length === 0) {
               <p>{{ t('admin.branding.sinPlantillasDeTema') }}</p>
             }
-          </fieldset>
+          </div>
 
           @if (guardado()) {
             <app-alert tone="exito">{{ t('admin.branding.guardado') }}</app-alert>
@@ -241,37 +251,41 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
       display: block;
       margin-bottom: var(--space-sm);
     }
-    .plantillas-de-tema {
+    .plantillas {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+      gap: var(--sp-4);
+    }
+    .plantilla-tarjeta {
+      display: grid;
+      gap: var(--space-xs);
+      padding: var(--sp-3);
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      padding: var(--space-md);
-      display: grid;
-      gap: var(--space-sm);
-    }
-    .opcion-plantilla {
-      display: flex;
-      align-items: center;
-      gap: var(--space-sm);
+      background: none;
       cursor: pointer;
+      font: inherit;
+      color: var(--fg);
+      text-align: left;
     }
-    .muestras {
-      display: flex;
-      gap: 2px;
+    .plantilla-tarjeta:hover {
+      border-color: var(--border-strong);
     }
-    .muestra {
-      width: 2rem;
-      height: 2rem;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
+    /* La elegida se marca por borde, no solo por color (WCAG 1.4.1). */
+    .plantilla-activa {
+      border-color: var(--accent);
+      border-width: 2px;
+      padding: calc(var(--sp-3) - 1px);
+    }
+    .plantilla-minis {
       display: grid;
-      place-items: center;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-xs);
     }
-    .acento {
-      width: 0.75rem;
-      height: 0.75rem;
-      border-radius: 50%;
+    .plantilla-miniatura {
+      pointer-events: none;
     }
-    .nombre-plantilla {
+    .plantilla-nombre {
       font-weight: 500;
     }
   `,

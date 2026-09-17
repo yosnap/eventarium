@@ -78,20 +78,22 @@ describe('BrandingPage', () => {
     const fixture = await crearYCargar();
 
     expect(fixture.nativeElement.textContent).toContain('Organización de prueba');
-    const radios = fixture.nativeElement.querySelectorAll('input[type="radio"]');
-    expect(radios.length).toBe(2);
-    const marcado = Array.from(radios).find((r) => (r as HTMLInputElement).checked) as
-      | HTMLInputElement
-      | undefined;
-    expect(marcado?.value).toBe(PLANTILLA_OSCURA.id);
+    const opciones = Array.from(
+      fixture.nativeElement.querySelectorAll('[role="radio"]'),
+    ) as HTMLElement[];
+    expect(opciones.length).toBe(2);
+    const marcada = opciones.find((r) => r.getAttribute('aria-checked') === 'true');
+    expect(marcada?.textContent).toContain(PLANTILLA_OSCURA.name);
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
   it('la galería de plantillas es un grupo de radios con nombre accesible por opción', async () => {
     const fixture = await crearYCargar();
 
-    const fieldset = fixture.nativeElement.querySelector('fieldset');
-    expect(fieldset.querySelector('legend')).toBeTruthy();
+    const grupo = fixture.nativeElement.querySelector('[role="radiogroup"]');
+    expect(grupo.getAttribute('aria-label')).toBeTruthy();
+    const opciones = grupo.querySelectorAll('[role="radio"]');
+    expect(opciones.length).toBe(2);
     expect(fixture.nativeElement.textContent).toContain('Claro');
     expect(fixture.nativeElement.textContent).toContain('Oscuro');
   });
@@ -99,12 +101,11 @@ describe('BrandingPage', () => {
   it('elegir otra plantilla de tema la envía en el PUT', async () => {
     const fixture = await crearYCargar();
 
-    const radios = Array.from(
-      fixture.nativeElement.querySelectorAll('input[type="radio"]'),
-    ) as HTMLInputElement[];
-    const radioClaro = radios.find((r) => r.value === PLANTILLA_CLARA.id)!;
-    radioClaro.checked = true;
-    radioClaro.dispatchEvent(new Event('change'));
+    const tarjetas = Array.from(
+      fixture.nativeElement.querySelectorAll('.plantilla-tarjeta'),
+    ) as HTMLButtonElement[];
+    const tarjetaClara = tarjetas.find((t) => t.textContent?.includes(PLANTILLA_CLARA.name))!;
+    tarjetaClara.click();
     await avanzar(fixture);
 
     (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
