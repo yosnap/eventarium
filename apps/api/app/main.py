@@ -15,6 +15,7 @@ from app.core.redis_client import close_redis
 from app.core.storage import get_storage
 from app.modules.accounting.router import router as accounting_router
 from app.modules.admin.analytics_router import router as admin_analytics_router
+from app.modules.admin.ga4_client import close_ga4
 from app.modules.admin.impersonation_router import router as admin_impersonation_router
 from app.modules.admin.platform_router import router as admin_platform_router
 from app.modules.admin.router import router as admin_router
@@ -65,6 +66,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         await close_redis()
+        await close_ga4()
 
 
 def create_app() -> FastAPI:

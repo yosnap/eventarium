@@ -128,7 +128,7 @@ describe('AnalyticsPage', () => {
   it('soporte ve los campos deshabilitados y no puede guardar', async () => {
     const fixture = await crearYCargar({ is_superadmin: false, platform_role: 'soporte' });
 
-    expect(fixture.nativeElement.querySelectorAll('input:disabled').length).toBe(3);
+    expect(fixture.nativeElement.querySelectorAll('input:disabled').length).toBe(4);
     expect(fixture.nativeElement.querySelector('button[type="submit"]')).toBeNull();
 
     await fixture.componentInstance['guardar'](new Event('submit'));

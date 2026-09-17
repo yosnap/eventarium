@@ -72,7 +72,7 @@ async def _restaurar_settings() -> None:
         await session.execute(
             text(
                 "UPDATE platform_analytics_settings SET ga4_measurement_id = null, "
-                "meta_pixel_id = null, cloudflare_analytics_token = null"
+                "meta_pixel_id = null, cloudflare_analytics_token = null, gtm_container_id = null"
             )
         )
         await session.commit()
@@ -98,6 +98,7 @@ async def test_superadmin_lee_y_escribe_la_configuracion(
         "ga4_measurement_id": None,
         "meta_pixel_id": None,
         "cloudflare_analytics_token": None,
+            "gtm_container_id": None,
     }
 
     escritura = await cliente.put(
@@ -107,6 +108,7 @@ async def test_superadmin_lee_y_escribe_la_configuracion(
             "ga4_measurement_id": "G-TEST123",
             "meta_pixel_id": "1234567890",
             "cloudflare_analytics_token": "abc123",
+            "gtm_container_id": None,
         },
     )
     assert escritura.status_code == 200, escritura.text
@@ -138,6 +140,7 @@ async def test_soporte_lee_pero_no_escribe(
             "ga4_measurement_id": "G-HACK",
             "meta_pixel_id": None,
             "cloudflare_analytics_token": None,
+            "gtm_container_id": None,
         },
     )
     assert escritura.status_code == 403
@@ -155,6 +158,7 @@ async def test_sin_sesion_no_hay_nada(
                 "ga4_measurement_id": None,
                 "meta_pixel_id": None,
                 "cloudflare_analytics_token": None,
+            "gtm_container_id": None,
             },
         )
     ).status_code == 401
@@ -235,6 +239,7 @@ async def test_identificadores_publicos_sin_sesion(
             "ga4_measurement_id": "G-PUB123",
             "meta_pixel_id": None,
             "cloudflare_analytics_token": "tok-publico",
+            "gtm_container_id": None,
         },
     )
 
@@ -244,4 +249,5 @@ async def test_identificadores_publicos_sin_sesion(
         "ga4_measurement_id": "G-PUB123",
         "meta_pixel_id": None,
         "cloudflare_analytics_token": "tok-publico",
+            "gtm_container_id": None,
     }

@@ -8118,6 +8118,17 @@
               }
             ],
             "title": "Cloudflare Analytics Token"
+          },
+          "gtm_container_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gtm Container Id"
           }
         },
         "type": "object",
@@ -8158,13 +8169,25 @@
               }
             ],
             "title": "Cloudflare Analytics Token"
+          },
+          "gtm_container_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gtm Container Id"
           }
         },
         "type": "object",
         "required": [
           "ga4_measurement_id",
           "meta_pixel_id",
-          "cloudflare_analytics_token"
+          "cloudflare_analytics_token",
+          "gtm_container_id"
         ],
         "title": "AnalyticsSettingsResponse",
         "description": "Los identificadores semi-públicos de los proveedores de analítica.\n\nNinguno es un secreto (viajan en el HTML público por diseño de cada\nproveedor) — ver `PlatformAnalyticsSettings`."
@@ -8206,6 +8229,18 @@
               }
             ],
             "title": "Cloudflare Analytics Token"
+          },
+          "gtm_container_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gtm Container Id"
           }
         },
         "type": "object",

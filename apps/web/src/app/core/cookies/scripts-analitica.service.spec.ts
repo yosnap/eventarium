@@ -12,6 +12,7 @@ const IDS_COMPLETOS = {
   ga4_measurement_id: 'G-TEST123',
   meta_pixel_id: '1234567890',
   cloudflare_analytics_token: 'tok-publico',
+  gtm_container_id: null as string | null,
 };
 
 function scriptPorId(id: string): HTMLScriptElement | null {
@@ -23,7 +24,7 @@ describe('ScriptsDeAnaliticaService', () => {
   let servicio: ScriptsDeAnaliticaService;
 
   beforeEach(() => {
-    for (const id of ['ga4-analytics-script', 'meta-pixel-script', 'cloudflare-analytics-script']) {
+    for (const id of ['ga4-analytics-script', 'gtm-script', 'meta-pixel-script', 'cloudflare-analytics-script']) {
       document.getElementById(id)?.remove();
     }
     delete (window as unknown as { dataLayer?: unknown[] }).dataLayer;
@@ -57,6 +58,7 @@ describe('ScriptsDeAnaliticaService', () => {
     http.expectOne(IDENTIFICADORES_URL).flush(IDS_COMPLETOS);
     await Promise.resolve();
     await Promise.resolve();
+    await Promise.resolve();
 
     const script = scriptPorId('ga4-analytics-script');
     expect(script).not.toBeNull();
@@ -69,7 +71,28 @@ describe('ScriptsDeAnaliticaService', () => {
     servicio.activarSiConsentidas(['necessary', 'analytics']);
     await Promise.resolve();
     await Promise.resolve();
+    await Promise.resolve();
     expect(document.querySelectorAll('#ga4-analytics-script').length).toBe(1);
+  });
+
+  it('analytics con contenedor de GTM inyecta gtm.js y omite el gtag directo', async () => {
+    servicio.activarSiConsentidas(['necessary', 'analytics']);
+
+    http.expectOne(IDENTIFICADORES_URL).flush({
+      ...IDS_COMPLETOS,
+      gtm_container_id: 'GTM-TEST9',
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const script = scriptPorId('gtm-script');
+    expect(script).not.toBeNull();
+    expect(script?.src).toContain('googletagmanager.com/gtm.js?id=GTM-TEST9');
+    expect(script?.src).toContain('l=dataLayer');
+    expect(scriptPorId('ga4-analytics-script')).toBeNull();
+    const capa = (window as unknown as { dataLayer?: unknown[] }).dataLayer ?? [];
+    expect(capa.length).toBeGreaterThanOrEqual(1);
   });
 
   it('marketing con píxel configurado inyecta fbevents y prepara el stub de fbq', async () => {

@@ -25,6 +25,7 @@ class AnalyticsSettingsResponse(BaseModel):
     ga4_measurement_id: str | None
     meta_pixel_id: str | None
     cloudflare_analytics_token: str | None
+    gtm_container_id: str | None
 
 
 class AnalyticsSettingsUpdate(BaseModel):
@@ -34,6 +35,7 @@ class AnalyticsSettingsUpdate(BaseModel):
     ga4_measurement_id: str | None = Field(default=None, max_length=100)
     meta_pixel_id: str | None = Field(default=None, max_length=100)
     cloudflare_analytics_token: str | None = Field(default=None, max_length=100)
+    gtm_container_id: str | None = Field(default=None, max_length=100)
 
 
 class CeldaDeConsentimientos(BaseModel):

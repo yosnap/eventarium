@@ -11,5 +11,6 @@
 export interface AnalyticsSettingsResponse {
   cloudflare_analytics_token: (string | null);
   ga4_measurement_id: (string | null);
+  gtm_container_id: (string | null);
   meta_pixel_id: (string | null);
 }

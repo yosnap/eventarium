@@ -116,3 +116,7 @@ class PlatformAnalyticsSettings(Base, TimestampMixin):
     ga4_measurement_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     meta_pixel_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     cloudflare_analytics_token: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Contenedor de Google Tag Manager: cuando está configurado, es el único
+    # tag que se inyecta (la medición de GA4 va dentro del contenedor, y el
+    # gtag directo se omite para no contar doble).
+    gtm_container_id: Mapped[str | None] = mapped_column(String(100), nullable=True)

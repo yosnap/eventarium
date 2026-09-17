@@ -53,8 +53,7 @@ los demás se reintentan en la siguiente petición."""
 _CLAVE_CACHE = "ga4_stats:{dias}"
 
 _SIN_CREDENCIAL = (
-    "No hay credencial de la cuenta de servicio de Google configurada "
-    "(GA4_SERVICE_ACCOUNT_JSON)."
+    "No hay credencial de la cuenta de servicio de Google configurada (GA4_SERVICE_ACCOUNT_JSON)."
 )
 _SIN_PROPERTY = "No hay property ID de GA4 configurado (GA4_PROPERTY_ID)."
 _CREDENCIAL_ILEGIBLE = (
@@ -70,6 +69,18 @@ _CREDENCIAL_RECHAZADA = (
 _API_FALLIDA = "La API de Datos de GA4 no ha respondido. Inténtalo de nuevo más tarde."
 
 _cliente: BetaAnalyticsDataAsyncClient | None = None
+
+
+async def close_ga4() -> None:
+    """Cierra el canal gRPC del cliente compartido en el apagado, como
+    `close_redis`: un canal por proceso muere con el proceso, pero el cierre
+    limpio evita que el apagado espere a que el transport expire solo."""
+    global _cliente
+    if _cliente is None:
+        return
+    cliente, _cliente = _cliente, None
+    # `transport` es un atributo interno del cliente gapic sin anotaciones.
+    await cliente.transport.close()  # type: ignore[no-untyped-call]
 
 
 def _cargar_credenciales(json_o_ruta: str) -> service_account.Credentials | None:

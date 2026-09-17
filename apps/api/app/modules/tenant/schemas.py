@@ -57,3 +57,4 @@ class AnalyticsPublicResponse(BaseModel):
     ga4_measurement_id: str | None = None
     meta_pixel_id: str | None = None
     cloudflare_analytics_token: str | None = None
+    gtm_container_id: str | None = None

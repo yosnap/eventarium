@@ -1708,7 +1708,9 @@
         "ga4Vistas": "Vistas de página",
         "ga4SinDatos": "Las estadísticas de GA4 no están disponibles",
         "errorConsentimientos": "No hemos podido cargar los agregados de consentimientos.",
-        "errorGa4": "No hemos podido cargar las estadísticas de GA4."
+        "errorGa4": "No hemos podido cargar las estadísticas de GA4.",
+        "idGtm": "Contenedor de Google Tag Manager",
+        "idGtmAyuda": "Identificador del contenedor (GTM-…). Si está configurado, es el único tag que se inyecta y por ahí va la medición de GA4; el gtag directo se omite para no contar doble."
       },
       "impersonar": {
         "titulo": "Suplantar una cuenta",

@@ -19,6 +19,7 @@ interface AjustesDeAnalitica {
   readonly ga4_measurement_id: string | null;
   readonly meta_pixel_id: string | null;
   readonly cloudflare_analytics_token: string | null;
+  readonly gtm_container_id: string | null;
 }
 
 /** Una celda del agregado semanal de consentimientos (fase 1). */
@@ -99,6 +100,12 @@ function hoyIso(): string {
           }
 
           <div class="campos">
+            <app-input
+              [label]="t('admin.plataforma.analitica.idGtm')"
+              [hint]="t('admin.plataforma.analitica.idGtmAyuda')"
+              [disabled]="!esSuperadmin()"
+              [(value)]="gtmContainerId"
+            />
             <app-input
               [label]="t('admin.plataforma.analitica.idGa4')"
               [hint]="t('admin.plataforma.analitica.idGa4Ayuda')"
@@ -268,6 +275,7 @@ export class AnalyticsPage {
   protected readonly ga4MeasurementId = signal('');
   protected readonly metaPixelId = signal('');
   protected readonly cloudflareToken = signal('');
+  protected readonly gtmContainerId = signal('');
 
   protected readonly celdasConsentimientos = signal<CeldaDeConsentimientos[] | null>(null);
   protected readonly errorConsentimientos = signal<string | null>(null);
@@ -354,6 +362,7 @@ export class AnalyticsPage {
             ga4_measurement_id: oNull(this.ga4MeasurementId()),
             meta_pixel_id: oNull(this.metaPixelId()),
             cloudflare_analytics_token: oNull(this.cloudflareToken()),
+            gtm_container_id: oNull(this.gtmContainerId()),
           },
           { headers: this.api.serverForwardHeaders() },
         ),
@@ -380,6 +389,7 @@ export class AnalyticsPage {
       this.ga4MeasurementId.set(ajustes.ga4_measurement_id ?? '');
       this.metaPixelId.set(ajustes.meta_pixel_id ?? '');
       this.cloudflareToken.set(ajustes.cloudflare_analytics_token ?? '');
+      this.gtmContainerId.set(ajustes.gtm_container_id ?? '');
     } catch {
       this.error.set(this.transloco.translate('admin.plataforma.analitica.errorCarga'));
     }

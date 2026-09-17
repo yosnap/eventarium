@@ -76,4 +76,5 @@ async def analytics(session: SessionDep) -> AnalyticsPublicResponse:
         ga4_measurement_id=fila.ga4_measurement_id if fila else None,
         meta_pixel_id=fila.meta_pixel_id if fila else None,
         cloudflare_analytics_token=fila.cloudflare_analytics_token if fila else None,
+        gtm_container_id=fila.gtm_container_id if fila else None,
     )

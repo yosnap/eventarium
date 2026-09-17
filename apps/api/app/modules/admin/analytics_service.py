@@ -51,6 +51,7 @@ async def actualizar_configuracion_analitica(
     fila.ga4_measurement_id = datos.ga4_measurement_id
     fila.meta_pixel_id = datos.meta_pixel_id
     fila.cloudflare_analytics_token = datos.cloudflare_analytics_token
+    fila.gtm_container_id = datos.gtm_container_id
     await session.flush()
 
     await registrar_auditoria(
@@ -64,6 +65,7 @@ async def actualizar_configuracion_analitica(
             "ga4_measurement_id": fila.ga4_measurement_id,
             "meta_pixel_id": fila.meta_pixel_id,
             "cloudflare_analytics_token": fila.cloudflare_analytics_token,
+            "gtm_container_id": fila.gtm_container_id,
         },
     )
     return fila

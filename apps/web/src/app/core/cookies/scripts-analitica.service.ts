@@ -12,6 +12,7 @@ interface IdentificadoresDeAnalitica {
   readonly ga4_measurement_id: string | null;
   readonly meta_pixel_id: string | null;
   readonly cloudflare_analytics_token: string | null;
+  readonly gtm_container_id: string | null;
 }
 
 const IDENTIFICADORES_URL = '/tenant/analytics';
@@ -19,6 +20,7 @@ const IDENTIFICADORES_URL = '/tenant/analytics';
 interface VentanaConGtag {
   dataLayer?: unknown[];
   gtag?: (...args: unknown[]) => void;
+  gtm?: (...args: unknown[]) => void;
 }
 
 /** El stub de `fbq` de la receta oficial de Meta: función auto-referenciada
@@ -72,12 +74,51 @@ export class ScriptsDeAnaliticaService {
       return;
     }
     if (categorias.includes('analytics')) {
-      void this.activarGa4();
+      void this.activarGtmOga4();
       void this.activarCloudflare();
     }
     if (categorias.includes('marketing')) {
       void this.activarMetaPixel();
     }
+  }
+
+  /**
+   * GTM y el gtag directo de GA4 son excluyentes: ambos mandarían al mismo
+   * property y las visitas se contarían por duplicado. El contenedor manda —
+   * la medición de GA4 va dentro de GTM y los informes siguen viniendo de la
+   * API de Datos, que no depende de esta elección.
+   */
+  private async activarGtmOga4(): Promise<void> {
+    const identificadores = await this.obtenerIdentificadores();
+    if (identificadores?.gtm_container_id) {
+      this.activarGtm(identificadores.gtm_container_id);
+    } else {
+      await this.activarGa4();
+    }
+  }
+
+  /** Snippet oficial de Google Tag Manager: dataLayer + stub `gtm`, y el
+   * contenedor con `&l=dataLayer` explícito, por TypeScript sin script inline. */
+  private activarGtm(contenedor: string): void {
+    if (this.documento.getElementById('gtm-script')) {
+      return;
+    }
+    const ventana = window as unknown as VentanaConGtag;
+    ventana.dataLayer = ventana.dataLayer ?? [];
+    if (!ventana.gtm) {
+      /* eslint-disable prefer-rest-params -- la receta oficial usa el objeto arguments */
+      ventana.gtm = function (): void {
+        ventana.dataLayer?.push(arguments);
+      };
+      /* eslint-enable prefer-rest-params */
+    }
+    ventana.gtm('js', new Date());
+
+    const script = this.documento.createElement('script');
+    script.id = 'gtm-script';
+    script.async = true;
+    script.src = `https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(contenedor)}&l=dataLayer`;
+    this.documento.head.appendChild(script);
   }
 
   private async activarGa4(): Promise<void> {
