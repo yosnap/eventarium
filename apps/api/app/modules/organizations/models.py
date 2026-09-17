@@ -103,9 +103,7 @@ class OrganizationMember(Base, TimestampMixin):
     #: una columna global haría «saltar» la marca de todas las demás cuando entra
     #: en una. `None` es «no consta», no «hace mucho»: las filas anteriores a la
     #: migración no tienen el dato.
-    last_seen_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 # Import al final, no al principio: `OrganizationInvitation` vive en su propio

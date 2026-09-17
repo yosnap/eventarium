@@ -382,10 +382,14 @@ def _clave_con_texto(profile_data: dict[str, Any], clave: str) -> bool:
 async def list_event_speakers(
     evento: Annotated[Event, Depends(_obtener_evento_o_404)], session: DbDep
 ) -> EventSpeakersViewOut:
-    filas, sesiones, ediciones, slugs, total_sesiones = (
-        await speakers_repository.listar_ponentes_del_evento(
-            session, evento.organization_id, evento.id
-        )
+    (
+        filas,
+        sesiones,
+        ediciones,
+        slugs,
+        total_sesiones,
+    ) = await speakers_repository.listar_ponentes_del_evento(
+        session, evento.organization_id, evento.id
     )
     items: list[SpeakerRowOut] = []
     for miembro, miembro_org, persona, _rol in filas:
@@ -397,9 +401,7 @@ async def list_event_speakers(
                 email=persona.email,
                 first_name=persona.first_name,
                 last_name=persona.last_name,
-                titular=titular.strip()
-                if isinstance(titular, str) and titular.strip()
-                else None,
+                titular=titular.strip() if isinstance(titular, str) and titular.strip() else None,
                 sesiones=[
                     SpeakerSessionOut(id=str(id_sesion), titulo=titulo, starts_at=empieza)
                     for id_sesion, titulo, empieza in sesiones.get(miembro.id, [])

@@ -22,9 +22,7 @@ LOGIN = "/api/v1/auth/login"
 CONTRASENA = "OrgFuerte1!"
 
 
-async def _registrar_y_verificar(
-    cliente: AsyncClient, app_db: AsyncSession, email: str
-) -> str:
+async def _registrar_y_verificar(cliente: AsyncClient, app_db: AsyncSession, email: str) -> str:
     """Registra, verifica y devuelve el access token puente (sin organización)."""
     with (
         patch("app.modules.auth.service._password_filtrada", return_value=False),
@@ -107,9 +105,7 @@ async def test_un_slug_repetido_devuelve_409(
         "last_name": "B",
         "turnstile_token": "",
     }
-    respuesta = await cliente.post(
-        CREAR, headers={"Authorization": f"Bearer {bridge}"}, json=datos
-    )
+    respuesta = await cliente.post(CREAR, headers={"Authorization": f"Bearer {bridge}"}, json=datos)
     assert respuesta.status_code == 409
 
 

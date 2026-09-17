@@ -106,6 +106,7 @@ async def get_public_slugs_by_user_ids(
     )
     return {user_id: slug for user_id, slug in filas}
 
+
 async def listar_ponentes_del_evento(
     session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID
 ) -> tuple[
@@ -180,9 +181,7 @@ async def listar_ponentes_del_evento(
 
     total_sesiones = (
         await session.execute(
-            select(func.count())
-            .select_from(EventSession)
-            .where(EventSession.event_id == event_id)
+            select(func.count()).select_from(EventSession).where(EventSession.event_id == event_id)
         )
     ).scalar_one()
 

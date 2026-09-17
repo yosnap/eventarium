@@ -64,9 +64,7 @@ async def _anadir_como_miembro(organizacion: OrganizacionDePrueba, email: str) -
 
 
 async def _organization_id_del_token(cliente: AsyncClient, token: str) -> str:
-    respuesta = await cliente.get(
-        "/api/v1/users/me", headers={"Authorization": f"Bearer {token}"}
-    )
+    respuesta = await cliente.get("/api/v1/users/me", headers={"Authorization": f"Bearer {token}"})
     assert respuesta.status_code == 200, respuesta.text
     return str(respuesta.json()["organization_id"])
 

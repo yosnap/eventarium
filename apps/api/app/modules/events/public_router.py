@@ -468,9 +468,7 @@ async def get_public_session(
     response_model=PublicSpeakerProfile,
     dependencies=[limit_per_ip("public-speaker-detail", PUBLICO_POR_IP)],
 )
-async def get_public_speaker(
-    public_slug: str, session: SessionDep
-) -> PublicSpeakerProfile:
+async def get_public_speaker(public_slug: str, session: SessionDep) -> PublicSpeakerProfile:
     # `public_slug` es único en toda la instalación desde la fase 0: la
     # organización se resuelve desde el propio perfil, no por host
     # (`app_resolve_speaker_organization`, SECURITY DEFINER de alcance mínimo).

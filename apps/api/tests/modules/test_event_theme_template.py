@@ -41,9 +41,7 @@ async def _cabeceras_superadmin(
     from app.modules.users.models import User
 
     async with SessionMaintenance() as session:
-        usuario = await session.scalar(
-            select(User).where(User.email == organizacion.owner_email)
-        )
+        usuario = await session.scalar(select(User).where(User.email == organizacion.owner_email))
         assert usuario is not None
         usuario.is_superadmin = True
         await session.commit()

@@ -238,12 +238,8 @@ async def test_el_presupuesto_tiene_limite_de_peticiones_por_ip(
 
     payload = {"ticket_type_id": tipo["id"], "turnstile_token": "token-de-prueba"}
     for _ in range(CHECKOUT_QUOTE_POR_IP):
-        respuesta = await cliente.post(
-            _url_quote(evento["slug"]), json=payload
-        )
+        respuesta = await cliente.post(_url_quote(evento["slug"]), json=payload)
         assert respuesta.status_code == 200
 
-    bloqueada = await cliente.post(
-        _url_quote(evento["slug"]), json=payload
-    )
+    bloqueada = await cliente.post(_url_quote(evento["slug"]), json=payload)
     assert bloqueada.status_code == 429

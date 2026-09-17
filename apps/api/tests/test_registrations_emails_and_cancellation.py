@@ -293,9 +293,7 @@ class TestAutocancelacionPublica:
         )
         token = await generate_token(PROPOSITO_CANCELACION_INSCRIPCION, confirmada_id)
 
-        respuesta = await cliente.post(
-            CANCEL, json={"token": token}
-        )
+        respuesta = await cliente.post(CANCEL, json={"token": token})
 
         assert respuesta.status_code == 200, respuesta.text
         assert await _estado(confirmada_id) == "cancelled"
@@ -312,9 +310,7 @@ class TestAutocancelacionPublica:
         )
         token = await generate_token(PROPOSITO_CANCELACION_INSCRIPCION, registration_id)
 
-        respuesta = await cliente.post(
-            CANCEL, json={"token": token}
-        )
+        respuesta = await cliente.post(CANCEL, json={"token": token})
 
         assert respuesta.status_code == 200, respuesta.text
         assert _tareas_de_email_mockeadas["cancelada"].await_count == 0
@@ -322,9 +318,7 @@ class TestAutocancelacionPublica:
     async def test_token_invalido_da_error_generico(
         self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
     ) -> None:
-        respuesta = await cliente.post(
-            CANCEL, json={"token": "inventado"}
-        )
+        respuesta = await cliente.post(CANCEL, json={"token": "inventado"})
         assert respuesta.status_code == 422
 
     async def test_reutilizar_el_token_falla(
@@ -337,12 +331,8 @@ class TestAutocancelacionPublica:
         )
         token = await generate_token(PROPOSITO_CANCELACION_INSCRIPCION, registration_id)
 
-        primera = await cliente.post(
-            CANCEL, json={"token": token}
-        )
-        segunda = await cliente.post(
-            CANCEL, json={"token": token}
-        )
+        primera = await cliente.post(CANCEL, json={"token": token})
+        segunda = await cliente.post(CANCEL, json={"token": token})
 
         assert primera.status_code == 200, primera.text
         assert segunda.status_code == 422
@@ -393,9 +383,7 @@ class TestReenvioSegunEstadoActual:
             organizacion, evento, email="ya-rechazado@example.com", status="rejected"
         )
 
-        respuesta = await _inscribir(
-            cliente, "reenvio-rechazada", email="ya-rechazado@example.com"
-        )
+        respuesta = await _inscribir(cliente, "reenvio-rechazada", email="ya-rechazado@example.com")
 
         assert respuesta.status_code == 202, respuesta.text
         assert _tareas_de_email_mockeadas["rechazada"].await_count == 1
@@ -409,9 +397,7 @@ class TestReenvioSegunEstadoActual:
             organizacion, evento, email="ya-cancelado@example.com", status="cancelled"
         )
 
-        respuesta = await _inscribir(
-            cliente, "reenvio-cancelada", email="ya-cancelado@example.com"
-        )
+        respuesta = await _inscribir(cliente, "reenvio-cancelada", email="ya-cancelado@example.com")
 
         assert respuesta.status_code == 202, respuesta.text
         assert _tareas_de_email_mockeadas["cancelada"].await_count == 1

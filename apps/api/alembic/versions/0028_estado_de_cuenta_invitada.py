@@ -80,11 +80,11 @@ def upgrade() -> None:
     op.execute(_ACCEPT_INVITED_USER)
 
     op.execute("REVOKE ALL ON FUNCTION app_find_user_by_email(text) FROM PUBLIC")
-    op.execute(
-        "REVOKE ALL ON FUNCTION app_accept_invited_user(uuid, text, text, text) FROM PUBLIC"
-    )
+    op.execute("REVOKE ALL ON FUNCTION app_accept_invited_user(uuid, text, text, text) FROM PUBLIC")
     op.execute("GRANT EXECUTE ON FUNCTION app_find_user_by_email(text) TO app_user")
-    op.execute("GRANT EXECUTE ON FUNCTION app_accept_invited_user(uuid, text, text, text) TO app_user")
+    op.execute(
+        "GRANT EXECUTE ON FUNCTION app_accept_invited_user(uuid, text, text, text) TO app_user"
+    )
 
 
 def downgrade() -> None:

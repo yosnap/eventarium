@@ -148,16 +148,12 @@ async def test_quitar_un_rol_deja_los_demas_intactos(
     )
 
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
-    respuesta = await cliente.delete(
-        f"{MIEMBROS}/{membership_id_volunteer}", headers=cabeceras
-    )
+    respuesta = await cliente.delete(f"{MIEMBROS}/{membership_id_volunteer}", headers=cabeceras)
     assert respuesta.status_code == 204, respuesta.text
 
     listado = await cliente.get(MIEMBROS, headers=cabeceras)
     fila = next(
-        item
-        for item in listado.json()["items"]
-        if item["email"] == "dos-roles-quitar@example.com"
+        item for item in listado.json()["items"] if item["email"] == "dos-roles-quitar@example.com"
     )
     assert [r["role_key"] for r in fila["roles"]] == ["organizer"]
 

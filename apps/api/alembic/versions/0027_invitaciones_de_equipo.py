@@ -121,7 +121,9 @@ def _crear_tabla() -> None:
         unique=False,
     )
     op.create_index(op.f("ix_organization_invitations_role_id"), _TABLA, ["role_id"], unique=False)
-    op.create_index(op.f("ix_organization_invitations_event_id"), _TABLA, ["event_id"], unique=False)
+    op.create_index(
+        op.f("ix_organization_invitations_event_id"), _TABLA, ["event_id"], unique=False
+    )
 
 
 def _verificar_privilegios_de_app_user() -> None:

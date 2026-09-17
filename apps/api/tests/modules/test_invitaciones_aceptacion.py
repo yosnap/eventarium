@@ -201,17 +201,16 @@ async def test_token_caducado_revocado_y_aceptado_dan_mensajes_distintos(
     respuesta_caducada = await cliente.get(f"/api/v1/public/invitations/{token_caducado}")
     respuesta_revocada = await cliente.get(f"/api/v1/public/invitations/{token_revocado}")
     respuesta_aceptada = await cliente.get(f"/api/v1/public/invitations/{token_aceptado}")
-    respuesta_invalida = await cliente.get(
-        "/api/v1/public/invitations/token-que-nunca-existio"
-    )
+    respuesta_invalida = await cliente.get("/api/v1/public/invitations/token-que-nunca-existio")
 
     mensajes = {
         r.json()["detail"]
         for r in (respuesta_caducada, respuesta_revocada, respuesta_aceptada, respuesta_invalida)
     }
-    assert all(r.status_code == 404 for r in (
-        respuesta_caducada, respuesta_revocada, respuesta_aceptada, respuesta_invalida
-    ))
+    assert all(
+        r.status_code == 404
+        for r in (respuesta_caducada, respuesta_revocada, respuesta_aceptada, respuesta_invalida)
+    )
     assert len(mensajes) == 4  # las cuatro respuestas dicen algo distinto
 
 
@@ -222,9 +221,7 @@ async def test_correo_con_contrasena_ya_puesta_no_puede_aceptar(
     puede ganar contraseña después por otra vía (p. ej. una recuperación)."""
     invitation_id, token = await _crear_invitacion(organizacion, email="con-clave@example.com")
     async with SessionMaintenance() as session:
-        usuario = await session.scalar(
-            select(User).where(User.email == "con-clave@example.com")
-        )
+        usuario = await session.scalar(select(User).where(User.email == "con-clave@example.com"))
         assert usuario is not None
         usuario.password_hash = hash_password("ya-tengo-contraseña-1A!")
         await session.commit()
@@ -238,5 +235,3 @@ async def test_correo_con_contrasena_ya_puesta_no_puede_aceptar(
         json={"first_name": "Con", "last_name": "Clave", "password": CONTRASENA_ACEPTAR},
     )
     assert aceptar.status_code == 409, aceptar.text
-
-

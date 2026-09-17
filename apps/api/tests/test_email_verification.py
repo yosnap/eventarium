@@ -41,9 +41,7 @@ def _correo_encolado_sincrono():
 async def test_registro_crea_usuario_no_verificado_y_encola_correo(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba, _correo_encolado_sincrono: AsyncMock
 ) -> None:
-    respuesta = await cliente.post(
-        REGISTER, json=DATOS_REGISTRO
-    )
+    respuesta = await cliente.post(REGISTER, json=DATOS_REGISTRO)
     assert respuesta.status_code == 202
 
     _correo_encolado_sincrono.assert_awaited_once()
@@ -75,23 +73,17 @@ async def test_verificar_token_marca_el_correo_y_el_segundo_intento_falla(
     assert fila is not None
     token = await generate_token(PROPOSITO_VERIFICACION_CORREO, str(fila[0]))
 
-    primera = await cliente.get(
-        VERIFY, params={"token": token}
-    )
+    primera = await cliente.get(VERIFY, params={"token": token})
     assert primera.status_code == 200
 
-    segunda = await cliente.get(
-        VERIFY, params={"token": token}
-    )
+    segunda = await cliente.get(VERIFY, params={"token": token})
     assert segunda.status_code == 422
 
 
 async def test_token_no_existente_devuelve_422(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    respuesta = await cliente.get(
-        VERIFY, params={"token": "no-existe"}
-    )
+    respuesta = await cliente.get(VERIFY, params={"token": "no-existe"})
     assert respuesta.status_code == 422
 
 
@@ -146,9 +138,7 @@ async def test_registro_sin_redis_devuelve_503(
         "app.modules.auth.verification.require_redis",
         side_effect=ServiceUnavailableError("Redis caído"),
     ):
-        respuesta = await cliente.post(
-            REGISTER, json=DATOS_REGISTRO
-        )
+        respuesta = await cliente.post(REGISTER, json=DATOS_REGISTRO)
     assert respuesta.status_code == 503
 
 
@@ -156,9 +146,7 @@ async def test_contrasena_filtrada_rechaza_el_registro(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
     with patch("app.modules.auth.service._password_filtrada", return_value=True):
-        respuesta = await cliente.post(
-            REGISTER, json=DATOS_REGISTRO
-        )
+        respuesta = await cliente.post(REGISTER, json=DATOS_REGISTRO)
     assert respuesta.status_code == 422
 
 
@@ -178,9 +166,7 @@ async def test_turnstile_invalido_rechaza_el_registro(
         patch("app.core.turnstile.verify_turnstile_token", return_value=False),
     ):
         settings_falso.return_value.turnstile_enabled = True
-        respuesta = await cliente.post(
-            REGISTER, json=DATOS_REGISTRO
-        )
+        respuesta = await cliente.post(REGISTER, json=DATOS_REGISTRO)
     assert respuesta.status_code == 422
 
 
@@ -195,7 +181,5 @@ async def test_turnstile_caido_devuelve_503(
         ),
     ):
         settings_falso.return_value.turnstile_enabled = True
-        respuesta = await cliente.post(
-            REGISTER, json=DATOS_REGISTRO
-        )
+        respuesta = await cliente.post(REGISTER, json=DATOS_REGISTRO)
     assert respuesta.status_code == 503

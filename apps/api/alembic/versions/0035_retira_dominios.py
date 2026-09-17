@@ -30,6 +30,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "0035_retira_dominios"
@@ -42,7 +43,9 @@ def upgrade() -> None:
     op.execute("DROP FUNCTION IF EXISTS app_resolve_organization(text)")
     op.execute("DROP FUNCTION IF EXISTS app_resolve_organization_by_slug(text)")
 
-    op.drop_index(op.f("ix_organization_domains_organization_id"), table_name="organization_domains")
+    op.drop_index(
+        op.f("ix_organization_domains_organization_id"), table_name="organization_domains"
+    )
     op.drop_table("organization_domains")
     op.drop_table("platform_domains")
 
@@ -55,10 +58,16 @@ def downgrade() -> None:
         sa.Column("host", sa.String(length=255), nullable=False),
         sa.Column("is_primary", sa.Boolean(), nullable=False),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.Column(
-            "updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.ForeignKeyConstraint(
             ["organization_id"],
@@ -88,10 +97,16 @@ def downgrade() -> None:
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("host", sa.String(length=255), nullable=False),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.Column(
-            "updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.PrimaryKeyConstraint("id", name="pk_platform_domains"),
         sa.UniqueConstraint("host", name="uq_platform_domains_host"),

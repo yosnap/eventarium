@@ -61,9 +61,7 @@ async def test_listar_miembro_con_email_de_dominio_reservado(
         async with session.begin():
             await set_organization_context(session, organizacion.id)
             rol = await session.scalar(
-                select(Role).where(
-                    Role.organization_id == organizacion.id, Role.key == "speaker"
-                )
+                select(Role).where(Role.organization_id == organizacion.id, Role.key == "speaker")
             )
             assert rol is not None
             usuario = User(

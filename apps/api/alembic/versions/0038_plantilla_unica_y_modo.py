@@ -32,8 +32,9 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision: str = "0038_plantilla_unica_y_modo"
 down_revision: str | None = "0037_sin_plantilla_portada"
@@ -114,11 +115,16 @@ def upgrade() -> None:
         for tabla in TABLAS_CON_PLANTILLA:
             bind.execute(
                 sa.text(
-                    f"UPDATE {tabla} SET theme_template_id = :superviviente "
+                    # noqa: S608 — el nombre de tabla viene de la tupla
+                    # constante TABLAS_CON_PLANTILLA, no de entrada externa.
+                    f"UPDATE {tabla} "
+                    "SET theme_template_id = :superviviente "
                     "WHERE theme_template_id = :descartada"
                 ).bindparams(superviviente=superviviente, descartada=descartada)
             )
-        bind.execute(sa.text("DELETE FROM theme_templates WHERE id = :id").bindparams(id=descartada))
+        bind.execute(
+            sa.text("DELETE FROM theme_templates WHERE id = :id").bindparams(id=descartada)
+        )
         bind.execute(
             sa.text(
                 "UPDATE theme_templates SET key = 'por-defecto', name = 'Por defecto', "

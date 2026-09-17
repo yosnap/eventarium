@@ -381,9 +381,7 @@ async def _encolar_correo_de_invitacion(
     dependencies=[require_permission(Permission.INVITATIONS_MANAGE)],
 )
 async def list_invitations(usuario: CurrentUserDep, session: DbDep) -> list[InvitationResponse]:
-    filas = (
-        await session.execute(repository.invitations_query(usuario.organization_id))
-    ).all()
+    filas = (await session.execute(repository.invitations_query(usuario.organization_id))).all()
     return [_invitation_response(invitacion, rol.key) for invitacion, rol in filas]
 
 
@@ -442,9 +440,7 @@ async def create_invitation(
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[require_permission(Permission.INVITATIONS_MANAGE)],
 )
-async def revoke_invitation(
-    invitation_id: str, usuario: CurrentUserDep, session: DbDep
-) -> None:
+async def revoke_invitation(invitation_id: str, usuario: CurrentUserDep, session: DbDep) -> None:
     await invitations_service.revoke_invitation(
         session, organization_id=usuario.organization_id, invitation_id=uuid.UUID(invitation_id)
     )

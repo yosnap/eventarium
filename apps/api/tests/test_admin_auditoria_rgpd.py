@@ -401,9 +401,7 @@ class TestBorradoRgpd:
         _, cabeceras = await iniciar_sesion(cliente, organizacion)
         evento = await _crear_y_publicar_evento(cliente, cabeceras, "borrado-rgpd", capacity=1)
 
-        registration_id = await _inscribir_y_confirmar(
-        cliente, evento, "confirmado@example.com"
-        )
+        registration_id = await _inscribir_y_confirmar(cliente, evento, "confirmado@example.com")
         await _inscribir_sin_verificar(cliente, organizacion, evento, "en-espera@example.com")
 
         ticket_id = await _escanear_ticket(cliente, cabeceras, evento, registration_id)

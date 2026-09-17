@@ -251,9 +251,7 @@ async def test_reenviar_emite_un_token_nuevo_e_invalida_el_anterior(
 async def test_borrar_un_rol_cancela_sus_invitaciones_pendientes(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    role_id = await crear_rol(
-        organizacion, key="finanzas", permisos=[Permission.ACCOUNTING_READ]
-    )
+    role_id = await crear_rol(organizacion, key="finanzas", permisos=[Permission.ACCOUNTING_READ])
 
     async with SessionMaintenance() as session:
         resultado = await invitations_service.create_invitation(

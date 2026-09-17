@@ -661,9 +661,7 @@ async def test_reutilizar_pago_expira_la_sesion_de_stripe_anterior(
         "ticket_type_id": tipo["id"],
         "turnstile_token": "token-de-prueba",
     }
-    primera = await cliente.post(
-        _url_checkout(evento["slug"]), json=payload
-    )
+    primera = await cliente.post(_url_checkout(evento["slug"]), json=payload)
     assert primera.status_code == 200, primera.text
 
     async with SessionMaintenance() as session:
@@ -684,9 +682,7 @@ async def test_reutilizar_pago_expira_la_sesion_de_stripe_anterior(
         await session.commit()
 
     fake.v1.checkout.sessions.create_async.return_value = _sesion_creada("cs_segunda_sesion")
-    segunda = await cliente.post(
-        _url_checkout(evento["slug"]), json=payload
-    )
+    segunda = await cliente.post(_url_checkout(evento["slug"]), json=payload)
     assert segunda.status_code == 200, segunda.text
 
     fake.v1.checkout.sessions.expire_async.assert_awaited_once_with(
@@ -911,9 +907,7 @@ async def test_idempotency_key_distinta_por_intento_de_checkout(
         "ticket_type_id": tipo["id"],
         "turnstile_token": "token-de-prueba",
     }
-    primera = await cliente.post(
-        _url_checkout(evento["slug"]), json=payload
-    )
+    primera = await cliente.post(_url_checkout(evento["slug"]), json=payload)
     assert primera.status_code == 200, primera.text
     _, primera_kwargs = fake.v1.checkout.sessions.create_async.call_args
     primera_clave = primera_kwargs["options"]["idempotency_key"]
@@ -932,9 +926,7 @@ async def test_idempotency_key_distinta_por_intento_de_checkout(
         await session.commit()
 
     fake.v1.checkout.sessions.create_async.return_value = _sesion_creada("cs_test_2")
-    segunda = await cliente.post(
-        _url_checkout(evento["slug"]), json=payload
-    )
+    segunda = await cliente.post(_url_checkout(evento["slug"]), json=payload)
     assert segunda.status_code == 200, segunda.text
     _, segunda_kwargs = fake.v1.checkout.sessions.create_async.call_args
     segunda_clave = segunda_kwargs["options"]["idempotency_key"]

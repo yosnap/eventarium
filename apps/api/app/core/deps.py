@@ -406,9 +406,7 @@ async def require_verified_user(
     """
     fila = (
         await session.execute(
-            text(
-                "SELECT id, email, email_verified_at, is_active FROM app_find_user_by_id(:id)"
-            ),
+            text("SELECT id, email, email_verified_at, is_active FROM app_find_user_by_id(:id)"),
             {"id": claims.user_id},
         )
     ).first()
