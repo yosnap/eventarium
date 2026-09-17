@@ -38,6 +38,11 @@ class CurrentUserResponse(BaseModel):
     first_name: str | None
     last_name: str | None
     is_superadmin: bool
+    # Rol aditivo de plataforma (`soporte`, plan `260916-0810`): el panel de
+    # plataforma lo usa para dejar entrar a lectura al soporte sin que sea
+    # superadmin (guard + visibilidad de enlaces), igual que hace el backend
+    # con `require_platform_staff`.
+    platform_role: str | None
     organization_id: str
     roles: list[str]
     permissions: list[Permission]

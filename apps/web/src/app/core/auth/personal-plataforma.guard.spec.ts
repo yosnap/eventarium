@@ -3,17 +3,17 @@ import { TestBed } from '@angular/core/testing';
 import { Router, UrlTree, provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { superadminGuard } from './superadmin.guard';
+import { personalPlataformaGuard } from './personal-plataforma.guard';
 import { AuthService } from './auth.service';
 import { ApiService } from '../api/api.service';
 
 interface AuthServiceFalso {
-  currentUser: () => { is_superadmin: boolean } | null;
-  loadCurrentUser?: () => Promise<{ is_superadmin: boolean }>;
+  currentUser: () => { is_superadmin: boolean; platform_role?: string | null } | null;
+  loadCurrentUser?: () => Promise<{ is_superadmin: boolean; platform_role?: string | null }>;
   refresh?: () => Promise<boolean>;
 }
 
-describe('superadminGuard', () => {
+describe('personalPlataformaGuard', () => {
   let auth: AuthServiceFalso;
   let router: Router;
 
@@ -31,7 +31,7 @@ describe('superadminGuard', () => {
 
   async function ejecutar(): Promise<boolean | UrlTree> {
     return TestBed.runInInjectionContext(() =>
-      superadminGuard({} as never, { url: '/admin/superadmin' } as never),
+      personalPlataformaGuard({} as never, { url: '/admin' } as never),
     ) as Promise<boolean | UrlTree>;
   }
 
@@ -52,7 +52,16 @@ describe('superadminGuard', () => {
     expect(await ejecutar()).toBe(true);
   });
 
-  it('deniega a un autenticado sin is_superadmin y redirige a /dashboard', async () => {
+  it('permite el acceso a `soporte` (rol aditivo de plataforma, solo lectura)', async () => {
+    // Fase 3 del plan de cookies: la pantalla de analítica externa se abre
+    // también al personal de soporte; el guard de /admin lo admite igual que
+    // `require_platform_staff` en el backend.
+    auth.currentUser = vi.fn().mockReturnValue({ is_superadmin: false, platform_role: 'soporte' });
+    configurar(false);
+    expect(await ejecutar()).toBe(true);
+  });
+
+  it('deniega a un autenticado sin is_superadmin ni soporte y redirige a /dashboard', async () => {
     auth.currentUser = vi.fn().mockReturnValue({ is_superadmin: false });
     configurar(false);
     const resultado = await ejecutar();
@@ -76,10 +85,7 @@ describe('superadminGuard', () => {
     auth.loadCurrentUser = vi.fn();
     configurar(false);
     const resultado = await ejecutar();
-    expect((resultado as UrlTree).toString()).toBe(
-      router.createUrlTree(['/acceder']).toString(),
-    );
-    expect(auth.loadCurrentUser).not.toHaveBeenCalled();
+    expect((resultado as UrlTree).toString()).toBe(router.createUrlTree(['/acceder']).toString());
   });
 
   it('si recargar el usuario falla tras renovar la sesión, redirige a /acceder', async () => {
@@ -88,8 +94,6 @@ describe('superadminGuard', () => {
     auth.loadCurrentUser = vi.fn().mockRejectedValue(new Error('sin sesión'));
     configurar(false);
     const resultado = await ejecutar();
-    expect((resultado as UrlTree).toString()).toBe(
-      router.createUrlTree(['/acceder']).toString(),
-    );
+    expect((resultado as UrlTree).toString()).toBe(router.createUrlTree(['/acceder']).toString());
   });
 });

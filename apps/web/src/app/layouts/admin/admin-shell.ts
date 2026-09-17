@@ -11,7 +11,12 @@ import {
 import { Router, RouterLink, RouterOutlet } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
-import { AuthService, OrganizacionDeLaPersona, displayName } from '../../core/auth/auth.service';
+import {
+  AuthService,
+  OrganizacionDeLaPersona,
+  displayName,
+  esPersonalDePlataforma,
+} from '../../core/auth/auth.service';
 import { ApiError } from '../../core/api/error.interceptor';
 import { BrandMark } from '../../shared/ui/brand-mark';
 import { Button } from '../../shared/ui/button';
@@ -29,7 +34,16 @@ import { PanelScope } from './panel-scope';
 @Component({
   selector: 'app-admin-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, TranslocoDirective, Button, ThemeToggle, AdminNav, BrandMark, OrgSelector],
+  imports: [
+    RouterOutlet,
+    RouterLink,
+    TranslocoDirective,
+    Button,
+    ThemeToggle,
+    AdminNav,
+    BrandMark,
+    OrgSelector,
+  ],
   template: `
     <ng-container *transloco="let t">
       <a class="skip-link" href="#contenido-admin">{{ t('comun.saltarAlContenido') }}</a>
@@ -251,7 +265,7 @@ export class AdminShell {
    */
   protected readonly cambioDePanel = computed(() => {
     const usuario = this.auth.currentUser();
-    if (!usuario?.is_superadmin) {
+    if (!esPersonalDePlataforma(usuario)) {
       return null;
     }
     if (this.esPanelPlataforma()) {

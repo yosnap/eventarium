@@ -110,6 +110,7 @@ class CurrentUser:
         "first_name",
         "last_name",
         "is_superadmin",
+        "platform_role",
         "organization_id",
         "refresh_family",
         "notify_similar_events",
@@ -126,12 +127,14 @@ class CurrentUser:
         organization_id: uuid.UUID,
         refresh_family: str | None = None,
         notify_similar_events: bool = False,
+        platform_role: str | None = None,
     ) -> None:
         self.id = id
         self.email = email
         self.first_name = first_name
         self.last_name = last_name
         self.is_superadmin = is_superadmin
+        self.platform_role = platform_role
         self.organization_id = organization_id
         self.refresh_family = refresh_family
         self.notify_similar_events = notify_similar_events
@@ -157,7 +160,7 @@ async def get_current_user(
         await session.execute(
             text(
                 "SELECT id, email, first_name, last_name, is_superadmin, is_active, "
-                "notify_similar_events FROM users WHERE id = :id"
+                "notify_similar_events, platform_role FROM users WHERE id = :id"
             ),
             {"id": claims.user_id},
         )
@@ -174,6 +177,7 @@ async def get_current_user(
         organization_id=claims.organization_id,
         refresh_family=claims.family,
         notify_similar_events=fila[6],
+        platform_role=fila[7],
     )
 
 
@@ -371,6 +375,7 @@ async def require_platform_staff(
         last_name=fila[3],
         is_superadmin=fila[4],
         organization_id=claims.organization_id or uuid.UUID(int=0),
+        platform_role=fila[6],
     )
 
 

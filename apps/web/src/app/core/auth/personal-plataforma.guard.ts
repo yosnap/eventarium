@@ -2,16 +2,22 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 
 import { ApiService } from '../api/api.service';
-import { AuthService } from './auth.service';
+import { esPersonalDePlataforma, AuthService } from './auth.service';
 
 /**
  * Protege el panel de la plataforma (`/admin` y sus secciones, catálogo de
- * componentes incluido). El backend ya exige `is_superadmin` en cada endpoint
- * (`require_superadmin`); este guard cierra el hueco de que, hasta ahora, el
- * panel solo estaba oculto por un enlace condicional en `admin-shell.ts` y era
+ * componentes incluido). El backend ya comprueba los privilegios en cada
+ * endpoint (`require_superadmin` para escritura, `require_platform_staff`
+ * para lectura); este guard cierra el hueco de que, hasta ahora, el panel
+ * solo estaba oculto por un enlace condicional en `admin-shell.ts` y era
  * alcanzable por URL directa a cualquier autenticado.
+ *
+ * Entra el **personal de plataforma** —superadmin, o el rol aditivo
+ * `soporte` (fase 3 del plan de cookies: la pantalla de analítica externa
+ * es de lectura también para soporte)—. Las páginas de escritura siguen
+ * filtradas por `soloSuperadmin` en el nav y por 403 del backend.
  */
-export const superadminGuard: CanActivateFn = async () => {
+export const personalPlataformaGuard: CanActivateFn = async () => {
   const auth = inject(AuthService);
   const api = inject(ApiService);
   const router = inject(Router);
@@ -40,7 +46,8 @@ export const superadminGuard: CanActivateFn = async () => {
     }
   }
 
-  // Quien no administra la instalación vuelve a **su** panel, que es `/dashboard`.
-  // Redirigir a `/admin` lo dejaría rebotando contra este mismo guard.
-  return usuario.is_superadmin ? true : router.createUrlTree(['/dashboard']);
+  // Quien no es personal de plataforma vuelve a **su** panel, que es
+  // `/dashboard`. Redirigir a `/admin` lo dejaría rebotando contra este
+  // mismo guard.
+  return esPersonalDePlataforma(usuario) ? true : router.createUrlTree(['/dashboard']);
 };

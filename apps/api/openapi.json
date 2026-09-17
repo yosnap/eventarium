@@ -9295,6 +9295,17 @@
             "type": "boolean",
             "title": "Is Superadmin"
           },
+          "platform_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform Role"
+          },
           "organization_id": {
             "type": "string",
             "title": "Organization Id"
@@ -9325,6 +9336,7 @@
           "first_name",
           "last_name",
           "is_superadmin",
+          "platform_role",
           "organization_id",
           "roles",
           "permissions",

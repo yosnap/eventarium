@@ -1673,6 +1673,41 @@
         "errorGuardar": "No hemos podido guardar las páginas legales.",
         "rotulo": "Documentos legales"
       },
+      "analitica": {
+        "titulo": "Cookies y analítica externa",
+        "rotulo": "Cookies y analítica externa",
+        "descripcion": "Identificadores de los proveedores de analítica, agregados de consentimientos y estadísticas de tráfico de la plataforma, sin salir del panel.",
+        "soloLectura": {
+          "titulo": "Solo lectura",
+          "texto": "La configuración solo puede cambiarla quien administra la instalación."
+        },
+        "proveedores": "Proveedores de analítica",
+        "idGa4": "Measurement ID de GA4",
+        "idGa4Ayuda": "Identificador público que viaja en el HTML (formato G-XXXXXXX).",
+        "idMeta": "ID de Meta Pixel",
+        "idMetaAyuda": "Identificador público del píxel de Meta.",
+        "idCloudflare": "Token de Cloudflare Web Analytics",
+        "idCloudflareAyuda": "Identificador público del script de Cloudflare.",
+        "guardado": "Configuración de analítica actualizada.",
+        "errorCarga": "No hemos podido cargar la configuración de analítica.",
+        "errorGuardar": "No hemos podido guardar la configuración de analítica.",
+        "consentimientos": "Consentimientos de cookies",
+        "consentimientosSinDatos": "Aún no hay consentimientos registrados en este periodo.",
+        "consentimientosNota": "Las celdas con «—» se omiten por privacidad cuando el recuento semanal es muy pequeño.",
+        "semana": "Semana",
+        "dias": {
+          "etiqueta": "Periodo",
+          "ultimos7": "Últimos 7 días",
+          "ultimos30": "Últimos 30 días"
+        },
+        "ga4": "Estadísticas de GA4",
+        "ga4Usuarios": "Usuarios activos",
+        "ga4Sesiones": "Sesiones",
+        "ga4Vistas": "Vistas de página",
+        "ga4SinDatos": "Las estadísticas de GA4 no están disponibles",
+        "errorConsentimientos": "No hemos podido cargar los agregados de consentimientos.",
+        "errorGa4": "No hemos podido cargar las estadísticas de GA4."
+      },
       "impersonar": {
         "titulo": "Suplantar una cuenta",
         "descripcion": "Entra a la cuenta de una persona para ver lo que ella ve. La sesión es de solo lectura, queda registrada en la auditoría y caduca sola.",

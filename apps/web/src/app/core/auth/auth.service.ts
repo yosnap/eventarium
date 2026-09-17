@@ -10,6 +10,10 @@ export interface UsuarioAutenticado {
   readonly first_name: string | null;
   readonly last_name: string | null;
   readonly is_superadmin: boolean;
+  /** Rol aditivo de plataforma (`soporte`): lectura del panel de plataforma
+   * sin ser superadmin. Ausente en la respuesta del login (`UserSummary`),
+   * presente en `loadCurrentUser()` — mismo motivo que `organization_id`. */
+  readonly platform_role?: string | null;
   /** Ausente en la respuesta del login (`UserSummary`, sin organización
    * resuelta todavía en ese momento); presente en `loadCurrentUser()`
    * (`/users/me`, `CurrentUserResponse`). La organización activa de la
@@ -19,6 +23,19 @@ export interface UsuarioAutenticado {
    * `organization_id`: no viaja en `UserSummary` del login, solo en
    * `CurrentUserResponse`. */
   readonly notify_similar_events?: boolean;
+}
+
+/**
+ * Quien el backend deja entrar en el panel de plataforma
+ * (`require_platform_staff`): superadmin, o el rol aditivo `soporte`
+ * (solo lectura de lo que administra la instalación). El guard de las rutas
+ * `/admin`, la visibilidad de los enlaces del nav y el puente entre paneles
+ * comparten esta única definición para no divergir del backend.
+ */
+export function esPersonalDePlataforma(
+  usuario: Pick<UsuarioAutenticado, 'is_superadmin' | 'platform_role'> | null,
+): boolean {
+  return !!usuario && (usuario.is_superadmin || usuario.platform_role === 'soporte');
 }
 
 /**
@@ -279,9 +296,12 @@ export class AuthService {
   }
 
   /** Nombre y locale. El correo tiene su propio flujo (`changeEmail`). */
-  async updateMe(
-    datos: { firstName?: string; lastName?: string; locale?: string; notifySimilarEvents?: boolean },
-  ): Promise<void> {
+  async updateMe(datos: {
+    firstName?: string;
+    lastName?: string;
+    locale?: string;
+    notifySimilarEvents?: boolean;
+  }): Promise<void> {
     const respuesta = await firstValueFrom(
       this.http.patch<UsuarioAutenticado>(this.api.url('/users/me'), {
         ...(datos.firstName !== undefined ? { first_name: datos.firstName } : {}),

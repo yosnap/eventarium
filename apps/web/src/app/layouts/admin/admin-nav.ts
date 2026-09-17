@@ -35,8 +35,20 @@ export const ORGANIZATION_NAV_LINKS: readonly AdminNavLink[] = [
 
 export const PLATFORM_NAV_LINKS: readonly AdminNavLink[] = [
   { path: ['/admin'], labelKey: 'admin.superadminNav', exact: true, soloSuperadmin: true },
-  { path: ['/admin/identidad'], labelKey: 'admin.plataforma.identidad.titulo', soloSuperadmin: true },
+  {
+    path: ['/admin/identidad'],
+    labelKey: 'admin.plataforma.identidad.titulo',
+    soloSuperadmin: true,
+  },
   { path: ['/admin/legales'], labelKey: 'admin.plataforma.legales.titulo', soloSuperadmin: true },
+  // Cookies y analítica externa: lectura para todo el personal de plataforma
+  // (fase 3 del plan de cookies) — sin `soloSuperadmin`, visible también para
+  // `soporte`. La etiqueta lleva la palabra «cookies»: la causa raíz que
+  // motivó el plan fue buscar esa palabra en el menú y no encontrarla.
+  {
+    path: ['/admin/analitica-externa'],
+    labelKey: 'admin.plataforma.analitica.titulo',
+  },
   {
     path: ['/admin/plantillas'],
     labelKey: 'admin.superadmin.plantillas.titulo',

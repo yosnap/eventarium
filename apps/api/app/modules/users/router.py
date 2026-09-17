@@ -58,6 +58,7 @@ async def get_me(
         first_name=usuario.first_name,
         last_name=usuario.last_name,
         is_superadmin=usuario.is_superadmin,
+        platform_role=usuario.platform_role,
         organization_id=str(usuario.organization_id),
         roles=sorted(claves),
         permissions=sorted(Permission(p) for p in permisos),
