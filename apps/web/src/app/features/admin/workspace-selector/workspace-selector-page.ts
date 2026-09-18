@@ -93,11 +93,7 @@ type AccionEnCurso = 'organizacion' | 'plataforma' | 'sesion' | null;
           }
 
           <p class="cerrar-sesion">
-            <button
-              type="button"
-              [disabled]="accionEnCurso() !== null"
-              (click)="cerrarSesion()"
-            >
+            <button type="button" [disabled]="accionEnCurso() !== null" (click)="cerrarSesion()">
               {{ t('admin.cerrarSesion') }}
             </button>
           </p>

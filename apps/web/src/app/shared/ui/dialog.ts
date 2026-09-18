@@ -1,10 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  ElementRef,
-  output,
-  viewChild,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, output, viewChild } from '@angular/core';
 
 /**
  * Diálogo modal sobre `<dialog>` nativo.
@@ -30,12 +24,7 @@ import {
          nativo ya gestiona con el evento cancel: no hay equivalente keyup que
          tenga sentido sobre el fondo, de ahí las dos excepciones documentadas. -->
     <!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -->
-    <dialog
-      #elemento
-      (cancel)="cerrar()"
-      (close)="procesarCierre()"
-      (click)="alClic($event)"
-    >
+    <dialog #elemento (cancel)="cerrar()" (close)="procesarCierre()" (click)="alClic($event)">
       <div class="cuerpo">
         <ng-content />
       </div>

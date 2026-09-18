@@ -98,15 +98,15 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
                 {{ nombreOrganizacion() }}
                 <a routerLink="/dashboard/organization">{{ t('admin.branding.editarNombre') }}</a>
               </p>
-            <app-media-picker
-              [etiqueta]="t('admin.branding.logotipo')"
-              aceptados="image/png,image/jpeg,image/webp"
-              [url]="previaLogo()"
-              (ficheroElegido)="alSeleccionarLogo($event)"
-            />
-            @if (errorLogo(); as mensaje) {
-              <p class="error">{{ mensaje }}</p>
-            }
+              <app-media-picker
+                [etiqueta]="t('admin.branding.logotipo')"
+                aceptados="image/png,image/jpeg,image/webp"
+                [url]="previaLogo()"
+                (ficheroElegido)="alSeleccionarLogo($event)"
+              />
+              @if (errorLogo(); as mensaje) {
+                <p class="error">{{ mensaje }}</p>
+              }
             </app-card>
 
             <app-card [heading]="t('admin.branding.redesSociales')">
@@ -190,7 +190,6 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
           @if (error(); as mensaje) {
             <app-alert tone="error" [title]="t('admin.branding.error')">{{ mensaje }}</app-alert>
           }
-
         </form>
       }
     </ng-container>

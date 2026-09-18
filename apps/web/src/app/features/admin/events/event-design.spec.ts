@@ -11,8 +11,20 @@ import es from '../../../../../public/assets/i18n/es-ES.json';
 import { EventDesign } from './event-design';
 
 const TOKENS_PLANTILLA = {
-  dark: { bg: '#0a0a0a', surface: '#181818', fg: '#f0f0f0', accent: '#22c55e', 'on-accent': '#000000' },
-  light: { bg: '#ffffff', surface: '#f5f5f5', fg: '#161616', accent: '#16a34a', 'on-accent': '#ffffff' },
+  dark: {
+    bg: '#0a0a0a',
+    surface: '#181818',
+    fg: '#f0f0f0',
+    accent: '#22c55e',
+    'on-accent': '#000000',
+  },
+  light: {
+    bg: '#ffffff',
+    surface: '#f5f5f5',
+    fg: '#161616',
+    accent: '#16a34a',
+    'on-accent': '#ffffff',
+  },
 };
 
 function plantillas() {
@@ -58,7 +70,11 @@ async function avanzar(fixture: ComponentFixture<unknown>): Promise<void> {
 
 function flushCarga(
   http: HttpTestingController,
-  opciones: { plantillasDevueltas?: unknown; brandingThemeId?: string | null; evento?: unknown } = {},
+  opciones: {
+    plantillasDevueltas?: unknown;
+    brandingThemeId?: string | null;
+    evento?: unknown;
+  } = {},
 ): void {
   http
     .expectOne((p) => p.url === '/api/v1/organizations/me/theme-templates')
@@ -119,7 +135,9 @@ describe('EventDesign', () => {
 
     const raiz = fixture.nativeElement as HTMLElement;
     const botones = Array.from(raiz.querySelectorAll('.plantilla-tarjeta'));
-    const editorial = botones.find((b) => b.textContent?.includes('Editorial')) as HTMLButtonElement;
+    const editorial = botones.find((b) =>
+      b.textContent?.includes('Editorial'),
+    ) as HTMLButtonElement;
     editorial.click();
     await avanzar(fixture);
 

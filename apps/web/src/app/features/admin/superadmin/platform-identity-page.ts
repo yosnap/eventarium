@@ -155,7 +155,10 @@ export class PlatformIdentityPage {
   readonly plantillas = signal<readonly PlantillaDeTema[]>([]);
 
   readonly opcionesDePlantilla = computed<readonly SelectOption[]>(() => [
-    { value: '', label: this.transloco.translate('admin.plataforma.identidad.plantillaPorDefecto') },
+    {
+      value: '',
+      label: this.transloco.translate('admin.plataforma.identidad.plantillaPorDefecto'),
+    },
     ...this.plantillas().map((p) => ({ value: p.id, label: p.name })),
   ]);
 
@@ -216,18 +219,15 @@ export class PlatformIdentityPage {
   }
 
   private async subirImagen(fichero: File, tipo: 'logo' | 'favicon'): Promise<void> {
-
     this.guardado.set(false);
     this.error.set(null);
     const datos = new FormData();
     datos.append('fichero', fichero);
     try {
       const identidad = await firstValueFrom(
-        this.http.put<IdentidadDePlataforma>(
-          this.api.url(`${CLAVE_IDENTIDAD}/${tipo}`),
-          datos,
-          { headers: this.api.serverForwardHeaders() },
-        ),
+        this.http.put<IdentidadDePlataforma>(this.api.url(`${CLAVE_IDENTIDAD}/${tipo}`), datos, {
+          headers: this.api.serverForwardHeaders(),
+        }),
       );
       this.aplicar(identidad);
       this.guardado.set(true);

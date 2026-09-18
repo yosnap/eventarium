@@ -18,7 +18,11 @@ const CATALOGO_URL = '/api/v1/organizations/me/theme-templates';
 
 const ORGANIZACION_VALIDA = { name: 'Organización de prueba' };
 
-const PLANTILLA_OSCURA = plantillaDeTemaDePrueba({ id: 'tema-oscuro', key: 'oscuro', name: 'Oscuro' });
+const PLANTILLA_OSCURA = plantillaDeTemaDePrueba({
+  id: 'tema-oscuro',
+  key: 'oscuro',
+  name: 'Oscuro',
+});
 const PLANTILLA_CLARA = plantillaDeTemaDePrueba({ id: 'tema-claro', key: 'claro', name: 'Claro' });
 const CATALOGO = [PLANTILLA_OSCURA, PLANTILLA_CLARA];
 

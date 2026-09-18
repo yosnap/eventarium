@@ -5,11 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { componentesOklchDeHex } from './oklch';
 import { contrastRatio } from './contrast';
-import {
-  CROMA_MAXIMA,
-  colorTieneCromaSuficiente,
-  derivarPaletaDeAcento,
-} from './accent-palette';
+import { CROMA_MAXIMA, colorTieneCromaSuficiente, derivarPaletaDeAcento } from './accent-palette';
 
 const CONTRASTE_MINIMO_AA = 4.5;
 
@@ -33,10 +29,7 @@ interface FixtureCompartido {
 /** Fixture única compartida con `apps/api/tests/modules/test_accent_palette.py`
  * — red de seguridad contra una divergencia futura entre las dos
  * implementaciones de la fórmula (Fase 3 del plan «diseño del evento»). */
-const RUTA_FIXTURE = path.resolve(
-  process.cwd(),
-  '../api/tests/fixtures/casos_paleta_acento.json',
-);
+const RUTA_FIXTURE = path.resolve(process.cwd(), '../api/tests/fixtures/casos_paleta_acento.json');
 const FIXTURE: FixtureCompartido = JSON.parse(readFileSync(RUTA_FIXTURE, 'utf-8'));
 
 const MATICES_DE_PRUEBA: readonly string[] = FIXTURE.matices.map((caso) => caso.hex);

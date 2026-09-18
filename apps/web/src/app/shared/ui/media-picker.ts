@@ -1,11 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  input,
-  model,
-  output,
-  viewChild,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, model, output, viewChild } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
 
 import { Button } from './button';

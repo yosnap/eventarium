@@ -83,9 +83,11 @@ describe('LoginPage', () => {
     // un organizador que acaba de entrar sería un fallo de autorización.
     expect(
       await entrarYVerDestino(null, {
-        listMyOrganizations: vi.fn().mockResolvedValue([
-          { organization_id: 'o1', slug: 'acme', name: 'Acme', role_name: 'Propietario' },
-        ]),
+        listMyOrganizations: vi
+          .fn()
+          .mockResolvedValue([
+            { organization_id: 'o1', slug: 'acme', name: 'Acme', role_name: 'Propietario' },
+          ]),
       }),
     ).toBe('/dashboard');
   });
@@ -93,9 +95,11 @@ describe('LoginPage', () => {
   it('respeta el destino pedido en `redirigir` cuando solo hay 1 espacio', async () => {
     expect(
       await entrarYVerDestino('/dashboard/events/e1', {
-        listMyOrganizations: vi.fn().mockResolvedValue([
-          { organization_id: 'o1', slug: 'acme', name: 'Acme', role_name: 'Propietario' },
-        ]),
+        listMyOrganizations: vi
+          .fn()
+          .mockResolvedValue([
+            { organization_id: 'o1', slug: 'acme', name: 'Acme', role_name: 'Propietario' },
+          ]),
       }),
     ).toBe('/dashboard/events/e1');
   });
@@ -111,9 +115,11 @@ describe('LoginPage', () => {
   it('con 2+ espacios (organizaciones + plataforma), navega al selector', async () => {
     expect(
       await entrarYVerDestino(null, {
-        listMyOrganizations: vi.fn().mockResolvedValue([
-          { organization_id: 'o1', slug: 'acme', name: 'Acme', role_name: 'Propietario' },
-        ]),
+        listMyOrganizations: vi
+          .fn()
+          .mockResolvedValue([
+            { organization_id: 'o1', slug: 'acme', name: 'Acme', role_name: 'Propietario' },
+          ]),
         currentUser: (() => ({ is_superadmin: true })) as unknown as AuthService['currentUser'],
       }),
     ).toBe('/espacio-de-trabajo');

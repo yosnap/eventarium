@@ -17,7 +17,11 @@ import {
   colorTieneCromaSuficiente,
   derivarPaletaDeAcento,
 } from '../../../core/theming/accent-palette';
-import { FAMILIAS_BODY, FAMILIAS_DISPLAY, PlantillaDeTema } from '../../../core/theming/theme-template.model';
+import {
+  FAMILIAS_BODY,
+  FAMILIAS_DISPLAY,
+  PlantillaDeTema,
+} from '../../../core/theming/theme-template.model';
 import { Alert } from '../../../shared/ui/alert';
 import { Card } from '../../../shared/ui/card';
 import { PageHeader } from '../../../shared/ui/page-header';
@@ -420,12 +424,8 @@ export class EventDesign implements OnInit {
         firstValueFrom(
           this.http.get<PlantillaDeTema[]>(this.api.url('/organizations/me/theme-templates')),
         ),
-        firstValueFrom(
-          this.http.get<BrandingDiseno>(this.api.url('/organizations/me/branding')),
-        ),
-        firstValueFrom(
-          this.http.get<EventoDiseno>(this.api.url(`/events/${this.eventId()}`)),
-        ),
+        firstValueFrom(this.http.get<BrandingDiseno>(this.api.url('/organizations/me/branding'))),
+        firstValueFrom(this.http.get<EventoDiseno>(this.api.url(`/events/${this.eventId()}`))),
       ]);
       this.plantillas.set(plantillas);
       this.brandingThemeId.set(branding.theme_template_id);
@@ -519,7 +519,10 @@ export class EventDesign implements OnInit {
     if (enCurso?.tipo === 'personalizar' || enCurso?.tipo === 'combinada') {
       Object.assign(base, enCurso.overrides);
     }
-    if (this.accionPendiente?.tipo === 'personalizar' || this.accionPendiente?.tipo === 'combinada') {
+    if (
+      this.accionPendiente?.tipo === 'personalizar' ||
+      this.accionPendiente?.tipo === 'combinada'
+    ) {
       Object.assign(base, this.accionPendiente.overrides);
     }
     return base;

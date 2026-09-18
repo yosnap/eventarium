@@ -167,7 +167,12 @@ describe('WorkspaceSelectorPage', () => {
     const ubicacionOriginal = Object.getOwnPropertyDescriptor(window, 'location')!;
     const asignacionDeUrl = vi.fn();
     Object.defineProperty(window, 'location', {
-      value: { ...window.location, set href(url: string) { asignacionDeUrl(url); } },
+      value: {
+        ...window.location,
+        set href(url: string) {
+          asignacionDeUrl(url);
+        },
+      },
       writable: true,
       configurable: true,
     });

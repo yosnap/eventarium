@@ -24,7 +24,12 @@ describe('ScriptsDeAnaliticaService', () => {
   let servicio: ScriptsDeAnaliticaService;
 
   beforeEach(() => {
-    for (const id of ['ga4-analytics-script', 'gtm-script', 'meta-pixel-script', 'cloudflare-analytics-script']) {
+    for (const id of [
+      'ga4-analytics-script',
+      'gtm-script',
+      'meta-pixel-script',
+      'cloudflare-analytics-script',
+    ]) {
       document.getElementById(id)?.remove();
     }
     delete (window as unknown as { dataLayer?: unknown[] }).dataLayer;
