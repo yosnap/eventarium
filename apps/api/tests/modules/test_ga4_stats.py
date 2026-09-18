@@ -53,9 +53,7 @@ class ClienteFalso:
         return self.respuesta
 
 
-def _respuesta_con_datos(
-    usuarios: str = "12", sesiones: str = "34", vistas: str = "56"
-) -> Any:
+def _respuesta_con_datos(usuarios: str = "12", sesiones: str = "34", vistas: str = "56") -> Any:
     return SimpleNamespace(
         rows=[
             SimpleNamespace(
@@ -382,12 +380,8 @@ async def test_sin_sesion_y_dias_invalido(
     assert (await cliente.get(GA4_STATS)).status_code == 401
 
     cabeceras = await _cabeceras_de(cliente, organizacion, "superadmin")
-    assert (
-        await cliente.get(GA4_STATS, headers=cabeceras, params={"dias": 15})
-    ).status_code == 422
-    assert (
-        await cliente.get(GA4_STATS, headers=cabeceras, params={"dias": 0})
-    ).status_code == 422
+    assert (await cliente.get(GA4_STATS, headers=cabeceras, params={"dias": 15})).status_code == 422
+    assert (await cliente.get(GA4_STATS, headers=cabeceras, params={"dias": 0})).status_code == 422
 
 
 async def test_soporte_puede_leer_estadisticas(

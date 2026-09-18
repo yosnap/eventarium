@@ -29,9 +29,7 @@ PUBLICO = "/api/v1/tenant/analytics"
 
 async def _hacer_superadmin(email: str) -> None:
     async with SessionMaintenance() as session:
-        await session.execute(
-            update(User).where(User.email == email).values(is_superadmin=True)
-        )
+        await session.execute(update(User).where(User.email == email).values(is_superadmin=True))
         await session.commit()
 
 
@@ -98,7 +96,7 @@ async def test_superadmin_lee_y_escribe_la_configuracion(
         "ga4_measurement_id": None,
         "meta_pixel_id": None,
         "cloudflare_analytics_token": None,
-            "gtm_container_id": None,
+        "gtm_container_id": None,
     }
 
     escritura = await cliente.put(
@@ -125,6 +123,47 @@ async def test_superadmin_lee_y_escribe_la_configuracion(
             )
         ).all()
     assert len(acciones) == 1
+
+
+async def test_escribir_recrea_la_fila_default_si_no_existe(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """La sesión de mantenimiento sí puede borrar la fila `'default'`
+    (`REVOKE DELETE` solo protege a `app_user`): sin el `session.add` sobre
+    el objeto de reserva, mutar y hacer `flush()` no escribía nada, y el
+    endpoint devolvía 200 con la auditoría registrada sin persistir el
+    cambio (hallazgo de red-team)."""
+    cabeceras = await _superadmin_headers(cliente, organizacion)
+    async with SessionMaintenance() as session:
+        await session.execute(
+            text("DELETE FROM platform_analytics_settings WHERE singleton = 'default'")
+        )
+        await session.commit()
+
+    escritura = await cliente.put(
+        ADMIN_SETTINGS,
+        headers=cabeceras,
+        json={
+            "ga4_measurement_id": "G-TEST123",
+            "meta_pixel_id": None,
+            "cloudflare_analytics_token": None,
+            "gtm_container_id": None,
+        },
+    )
+    assert escritura.status_code == 200, escritura.text
+    assert escritura.json()["ga4_measurement_id"] == "G-TEST123"
+
+    async with SessionMaintenance() as session:
+        fila = (
+            await session.execute(
+                text(
+                    "SELECT ga4_measurement_id FROM platform_analytics_settings "
+                    "WHERE singleton = 'default'"
+                )
+            )
+        ).first()
+    assert fila is not None, "la fila 'default' debía haberse recreado"
+    assert fila[0] == "G-TEST123"
 
 
 async def test_soporte_lee_pero_no_escribe(
@@ -158,7 +197,7 @@ async def test_sin_sesion_no_hay_nada(
                 "ga4_measurement_id": None,
                 "meta_pixel_id": None,
                 "cloudflare_analytics_token": None,
-            "gtm_container_id": None,
+                "gtm_container_id": None,
             },
         )
     ).status_code == 401
@@ -191,9 +230,7 @@ async def test_agregado_semanal_por_categoria_con_supresion(
 
     cuerpo = respuesta.json()
     assert set(cuerpo) == {"celdas"}  # nunca filas individuales ni ids
-    celdas = {
-        (celda["semana"], celda["categoria"]): celda["total"] for celda in cuerpo["celdas"]
-    }
+    celdas = {(celda["semana"], celda["categoria"]): celda["total"] for celda in cuerpo["celdas"]}
 
     semana_actual = lunes.date().isoformat()
     assert celdas[(semana_actual, "necessary")] == 8
@@ -249,5 +286,5 @@ async def test_identificadores_publicos_sin_sesion(
         "ga4_measurement_id": "G-PUB123",
         "meta_pixel_id": None,
         "cloudflare_analytics_token": "tok-publico",
-            "gtm_container_id": None,
+        "gtm_container_id": None,
     }

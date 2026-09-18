@@ -304,9 +304,7 @@ async def test_get_organizations_agrega_varios_roles_de_la_misma_organizacion(
     `(organization_id, user_id, role_id)`, no `(organization_id, user_id)`: una
     persona puede tener más de un rol en la misma organización. La respuesta
     agrega los nombres en una sola cadena en vez de duplicar la fila."""
-    segundo_rol_id = await crear_rol(
-        organizacion, key="editor-extra", permisos=[], nombre="Editor"
-    )
+    segundo_rol_id = await crear_rol(organizacion, key="editor-extra", permisos=[], nombre="Editor")
     async with SessionMaintenance() as session:
         session.add(
             OrganizationMember(

@@ -7,7 +7,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, timedelta
 
-from sqlalchemy import select, text
+from sqlalchemy import inspect, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import registrar_auditoria
@@ -33,11 +33,13 @@ async def obtener_configuracion_analitica(
     session: AsyncSession,
 ) -> PlatformAnalyticsSettings:
     """La configuración única de proveedores (la fila `'default'`)."""
-    fila = (await session.execute(
-        select(PlatformAnalyticsSettings).where(
-            PlatformAnalyticsSettings.singleton == "default"
+    fila = (
+        await session.execute(
+            select(PlatformAnalyticsSettings).where(
+                PlatformAnalyticsSettings.singleton == "default"
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
     return fila or _fila_de_reserva()
 
 
@@ -48,6 +50,13 @@ async def actualizar_configuracion_analitica(
 ) -> PlatformAnalyticsSettings:
     """Reemplaza los tres identificadores y lo deja registrado en auditoría."""
     fila = await obtener_configuracion_analitica(session)
+    if inspect(fila).transient:
+        # La fila `'default'` no existía (no debería pasar tras la `0041`,
+        # pero la sesión de mantenimiento sí puede borrarla): sin este
+        # `add`, mutar y hacer `flush()` sobre un objeto transitorio no
+        # escribe nada, y el endpoint devolvía 200 con la auditoría
+        # registrada sin persistir el cambio (hallazgo de red-team).
+        session.add(fila)
     fila.ga4_measurement_id = datos.ga4_measurement_id
     fila.meta_pixel_id = datos.meta_pixel_id
     fila.cloudflare_analytics_token = datos.cloudflare_analytics_token
@@ -104,9 +113,10 @@ async def agregados_de_consentimiento(
     """
     desde_efectivo, hasta_efectivo = _acotar_rango(desde, hasta)
 
-    filas = (await session.execute(
-        text(
-            """
+    filas = (
+        await session.execute(
+            text(
+                """
             SELECT date_trunc('week', created_at AT TIME ZONE 'UTC')::date AS semana,
                    categoria,
                    count(*) AS total
@@ -117,9 +127,10 @@ async def agregados_de_consentimiento(
             GROUP BY semana, categoria
             ORDER BY semana, categoria
             """
-        ),
-        {"desde": desde_efectivo, "hasta": hasta_efectivo},
-    )).all()
+            ),
+            {"desde": desde_efectivo, "hasta": hasta_efectivo},
+        )
+    ).all()
 
     return [
         CeldaDeConsentimientos(

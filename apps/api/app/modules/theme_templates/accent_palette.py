@@ -71,7 +71,7 @@ def hex_a_oklch(hex_color: str) -> tuple[float, float, float]:
         proporcion = canal_0_255 / 255
         if proporcion <= 0.04045:
             return proporcion / 12.92
-        return ((proporcion + 0.055) / 1.055) ** 2.4
+        return float(((proporcion + 0.055) / 1.055) ** 2.4)
 
     r, g, b = (lineal(canal) for canal in rgb)
 

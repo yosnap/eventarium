@@ -59,11 +59,7 @@ def upgrade() -> None:
             "singleton = 'default'", name="ck_platform_analytics_settings_singleton"
         ),
     )
-    op.execute(
-        sa.text(
-            "INSERT INTO platform_analytics_settings (singleton) VALUES ('default')"
-        )
-    )
+    op.execute(sa.text("INSERT INTO platform_analytics_settings (singleton) VALUES ('default')"))
     op.execute("REVOKE INSERT, UPDATE, DELETE ON platform_analytics_settings FROM app_user")
 
 

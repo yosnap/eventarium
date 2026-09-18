@@ -67,11 +67,13 @@ async def branding(session: SessionDep) -> BrandingResponse:
     dependencies=[limit_per_ip("tenant-analytics", ANALITICA_POR_IP)],
 )
 async def analytics(session: SessionDep) -> AnalyticsPublicResponse:
-    fila = (await session.execute(
-        select(PlatformAnalyticsSettings).where(
-            PlatformAnalyticsSettings.singleton == "default"
+    fila = (
+        await session.execute(
+            select(PlatformAnalyticsSettings).where(
+                PlatformAnalyticsSettings.singleton == "default"
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
     return AnalyticsPublicResponse(
         ga4_measurement_id=fila.ga4_measurement_id if fila else None,
         meta_pixel_id=fila.meta_pixel_id if fila else None,
