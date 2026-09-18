@@ -142,6 +142,14 @@ class Event(Base, TimestampMixin):
         nullable=True,
     )
 
+    #: Ajustes de color/fuente sobre la plantilla resuelta. Objeto plano
+    #: opcional `{accent?, font-display?, font-body?}` — NUNCA la forma
+    #: `{dark:{...}, light:{...}}` de una plantilla completa. Los 8 valores
+    #: finales del acento (accent/accent-hi/accent-dim/on-accent × modo) se
+    #: derivan al resolver el tema (`theme_templates/accent_palette.py`), no
+    #: se guardan resueltos aquí.
+    theme_overrides: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+
     sessions: Mapped[list[EventSession]] = relationship(
         back_populates="event", cascade="all, delete-orphan", lazy="selectin"
     )

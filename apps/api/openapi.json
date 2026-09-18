@@ -1526,7 +1526,7 @@
           "usuarios"
         ],
         "summary": "Organizaciones a las que pertenece la persona",
-        "description": "Para el selector de organización del panel, cuando pertenece a más de una.",
+        "description": "Para el selector de espacio de trabajo, cuando pertenece a más de una. El orden (`last_seen_at` descendente) se fija aquí, no solo dentro de `app_user_organizations`: el `ORDER BY` de una función SQL no se propaga de forma garantizada a través de este `SELECT` externo.",
         "operationId": "list_my_organizations_api_v1_users_me_organizations_get",
         "responses": {
           "200": {
@@ -10361,6 +10361,18 @@
               }
             ],
             "title": "Theme Template Id"
+          },
+          "theme_overrides": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Theme Overrides"
           }
         },
         "type": "object",
@@ -10392,7 +10404,8 @@
           "budget_approved_at",
           "contingency_fund_cents",
           "accounting_currency",
-          "theme_template_id"
+          "theme_template_id",
+          "theme_overrides"
         ],
         "title": "EventResponse",
         "description": "Evento tal y como lo ve el panel de administración."
@@ -11073,6 +11086,18 @@
               }
             ],
             "title": "Theme Template Id"
+          },
+          "theme_overrides": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Theme Overrides"
           }
         },
         "type": "object",
@@ -12673,16 +12698,28 @@
           "name": {
             "type": "string",
             "title": "Name"
+          },
+          "role_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Name"
           }
         },
         "type": "object",
         "required": [
           "organization_id",
           "slug",
-          "name"
+          "name",
+          "role_name"
         ],
         "title": "OrganizationMembershipResponse",
-        "description": "Una organización a la que pertenece la persona, para el selector del panel.\n\nSin dominio por organización (fase 6 del plan «organización sin\ndominio»): ya no lleva `host`, campo que solo devolvía `NULL` desde que\n`organization_domains` se retiró."
+        "description": "Una organización a la que pertenece la persona, para el selector del panel.\n\nSin dominio por organización (fase 6 del plan «organización sin\ndominio»): ya no lleva `host`, campo que solo devolvía `NULL` desde que\n`organization_domains` se retiró.\n\n`role_name` puede ser `None`: `app_user_organizations` usa `LEFT JOIN\nroles` (plan «selector de espacio de trabajo»), así que un fallo de\nresolución del rol no hace desaparecer la organización de la lista."
       },
       "OrganizationResponse": {
         "properties": {
@@ -17413,6 +17450,14 @@
             },
             "type": "object",
             "title": "Tokens"
+          },
+          "is_default": {
+            "type": "boolean",
+            "title": "Is Default"
+          },
+          "default_mode": {
+            "type": "string",
+            "title": "Default Mode"
           }
         },
         "type": "object",
@@ -17420,10 +17465,12 @@
           "id",
           "key",
           "name",
-          "tokens"
+          "tokens",
+          "is_default",
+          "default_mode"
         ],
         "title": "ThemeTemplateCatalogItem",
-        "description": "Una plantilla tal y como la ve el catálogo del panel de la organización."
+        "description": "Una plantilla tal y como la ve el catálogo del panel de la organización.\n\n`is_default`/`default_mode` se añaden en la fase 1 del plan «diseño del\nevento»: el panel de organizador necesita resolver en cliente la cadena\nevento→organización→catálogo (sabiendo cuál es la plantilla por\ndefecto) y pintar cada miniatura en el modo correcto — antes solo los\nexponía `ThemeTemplateResponse` de superadministración."
       },
       "ThemeTemplateCreate": {
         "properties": {

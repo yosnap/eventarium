@@ -4,9 +4,17 @@
 
 /**
  * Una plantilla tal y como la ve el catálogo del panel de la organización.
+ *
+ * `is_default`/`default_mode` se añaden en la fase 1 del plan «diseño del
+ * evento»: el panel de organizador necesita resolver en cliente la cadena
+ * evento→organización→catálogo (sabiendo cuál es la plantilla por
+ * defecto) y pintar cada miniatura en el modo correcto — antes solo los
+ * exponía `ThemeTemplateResponse` de superadministración.
  */
 export interface ThemeTemplateCatalogItem {
+  default_mode: string;
   id: string;
+  is_default: boolean;
   key: string;
   name: string;
   tokens: {

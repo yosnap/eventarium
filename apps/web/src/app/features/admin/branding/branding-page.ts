@@ -161,16 +161,20 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
                 (click)="themeTemplateId.set(plantilla.id)"
               >
                 <span class="plantilla-minis">
-                  <app-theme-template-preview
-                    class="plantilla-miniatura"
-                    [tokens]="plantilla.tokens"
-                    modo="dark"
-                  />
-                  <app-theme-template-preview
-                    class="plantilla-miniatura"
-                    [tokens]="plantilla.tokens"
-                    modo="light"
-                  />
+                  <span class="plantilla-mini-marco">
+                    <app-theme-template-preview
+                      class="plantilla-miniatura"
+                      [tokens]="plantilla.tokens"
+                      modo="dark"
+                    />
+                  </span>
+                  <span class="plantilla-mini-marco">
+                    <app-theme-template-preview
+                      class="plantilla-miniatura"
+                      [tokens]="plantilla.tokens"
+                      modo="light"
+                    />
+                  </span>
                 </span>
                 <span class="plantilla-nombre">{{ plantilla.name }}</span>
               </button>
@@ -278,7 +282,27 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
       grid-template-columns: 1fr 1fr;
       gap: var(--space-xs);
     }
+    /* ThemeTemplatePreview está pensado para su tamaño real (título, chip y
+       botón con su tipografía normal, min-height:10rem) — a la anchura de un
+       hueco de esta rejilla (mitad de una tarjeta de ~15rem) el texto se corta.
+       En vez de reescribir el componente para un tamaño "mini" que no existe,
+       se renderiza a un ancho de referencia (--ancho-referencia) y se
+       reescala visualmente al hueco real: el marco fija el tamaño final y
+       recorta lo que sobre, la miniatura se pinta más grande y se encoge con
+       transform, así el texto interno nunca se ve obligado a envolver ni
+       desbordar. */
+    .plantilla-mini-marco {
+      --ancho-referencia: 13rem;
+      --factor-escala: 0.62;
+      overflow: hidden;
+      border-radius: var(--radius-md);
+      aspect-ratio: 7 / 5;
+    }
     .plantilla-miniatura {
+      display: block;
+      width: var(--ancho-referencia);
+      transform: scale(var(--factor-escala));
+      transform-origin: top left;
       pointer-events: none;
     }
     .plantilla-nombre {

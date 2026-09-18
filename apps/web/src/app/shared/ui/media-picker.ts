@@ -10,13 +10,17 @@ import { TranslocoDirective } from '@jsverse/transloco';
 
 import { Button } from './button';
 import { MediaDialog } from './media-dialog';
+import { MediaFields } from './media-fields';
 
 /**
- * Campo de selección de imagen: previsualización de la actual y acciones
- * Elegir/Quitar. Abre el `MediaDialog` (pestañas Subir/URL/Biblioteca) y
- * expone los dos resultados por separado — `ficheroElegido` (quien llama lo
- * sube con su propio endpoint) y el `model` de URL (para una URL escrita o
- * elegida de la biblioteca).
+ * Campo de selección de imagen.
+ *
+ * Sin imagen todavía, muestra el dropzone/pestañas (`MediaFields`) directo
+ * en la página: abrir un modal para el primer paso sería fricción de más
+ * cuando no hay nada que el modal tenga que tapar. Con imagen ya elegida,
+ * pasa a previsualización + Cambiar/Quitar, y "Cambiar" sí abre el modal
+ * (`MediaDialog`) — ahí sí hace falta, para no ocupar el espacio del campo
+ * con el dropzone entero solo por sustituir una imagen que ya se ve bien.
  *
  * Referencia: el media picker de Coetools — valor plano por URL, preview
  * dentro del campo, y la gestión del fichero fuera del componente.
@@ -24,27 +28,31 @@ import { MediaDialog } from './media-dialog';
 @Component({
   selector: 'app-media-picker',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Button, MediaDialog],
+  imports: [TranslocoDirective, Button, MediaDialog, MediaFields],
   template: `
     <ng-container *transloco="let t">
       <span class="etiqueta">{{ etiqueta() }}</span>
-      <div class="campo">
-        @if (url(); as actual) {
+      @if (url(); as actual) {
+        <div class="campo">
           <img class="previsualizacion" [src]="actual" [alt]="etiqueta()" />
-        } @else {
-          <span class="vacio">{{ t('ui.media.sinImagen') }}</span>
-        }
-        <div class="acciones">
-          <app-button variant="secundario" type="button" (pulsado)="abrir()">
-            {{ url() ? t('ui.media.cambiar') : t('ui.media.elegir') }}
-          </app-button>
-          @if (url()) {
+          <div class="acciones">
+            <app-button variant="secundario" type="button" (pulsado)="abrir()">
+              {{ t('ui.media.cambiar') }}
+            </app-button>
             <app-button variant="terciario" type="button" (pulsado)="quitar()">
               {{ t('ui.media.quitar') }}
             </app-button>
-          }
+          </div>
         </div>
-      </div>
+      } @else {
+        <app-media-fields
+          [aceptados]="aceptados()"
+          [biblioteca]="biblioteca()"
+          [tituloBiblioteca]="etiqueta()"
+          (ficheroElegido)="ficheroElegido.emit($event)"
+          (urlElegida)="url.set($event)"
+        />
+      }
 
       <app-media-dialog
         #dialogo
@@ -78,17 +86,6 @@ import { MediaDialog } from './media-dialog';
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
       background-color: var(--surface-2);
-    }
-    .vacio {
-      display: grid;
-      place-items: center;
-      width: 4rem;
-      height: 4rem;
-      border: 2px dashed var(--border-strong);
-      border-radius: var(--radius-md);
-      color: var(--faint);
-      font-size: var(--fs-xs, 0.75rem);
-      text-align: center;
     }
     .acciones {
       display: grid;

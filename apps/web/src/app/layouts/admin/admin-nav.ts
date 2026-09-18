@@ -78,6 +78,7 @@ export const PLATFORM_NAV_LINKS: readonly AdminNavLink[] = [
 export function enlacesDeEvento(eventId: string, aceptaPagos: boolean): readonly AdminNavLink[] {
   const enlaces: AdminNavLink[] = [
     { path: ['/dashboard/events', eventId, 'agenda'], labelKey: 'admin.events.agenda.titulo' },
+    { path: ['/dashboard/events', eventId, 'diseno'], labelKey: 'admin.events.design.titulo' },
     {
       path: ['/dashboard/events', eventId, 'patrocinadores'],
       labelKey: 'admin.events.sponsors.titulo',

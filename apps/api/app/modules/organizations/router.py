@@ -179,7 +179,12 @@ async def list_theme_templates_catalog(
     plantillas = await theme_templates_repository.list_theme_templates(session)
     return [
         ThemeTemplateCatalogItem(
-            id=str(plantilla.id), key=plantilla.key, name=plantilla.name, tokens=plantilla.tokens
+            id=str(plantilla.id),
+            key=plantilla.key,
+            name=plantilla.name,
+            tokens=plantilla.tokens,
+            is_default=plantilla.is_default,
+            default_mode=plantilla.default_mode,
         )
         for plantilla in plantillas
     ]

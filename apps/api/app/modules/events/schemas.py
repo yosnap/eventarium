@@ -7,10 +7,11 @@ from decimal import Decimal
 from typing import Annotated, Any, Literal
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, EmailStr, Field, model_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 from app.modules.organizations.schemas import SLUG_PATTERN
 from app.modules.sponsors.schemas import PublicSponsorTier
+from app.modules.theme_templates.schemas import validar_theme_overrides
 
 EventStatus = Literal["draft", "published", "archived"]
 EventVisibility = Literal["public", "hidden", "private"]
@@ -126,6 +127,17 @@ class EventUpdate(BaseModel):
     # cambia nada (PATCH parcial); para volver a heredar la de la organización
     # se envía cadena vacía, que el servicio traduce a `NULL`.
     theme_template_id: str | None = None
+    # Ajustes de color/fuente sobre la plantilla resuelta. Semántica DISTINTA
+    # de `theme_template_id` (a propósito, no un descuido): campo AUSENTE del
+    # body = sin cambios (PATCH parcial, `exclude_unset`); un `null` EXPLÍCITO
+    # = borra los overrides existentes; un objeto = lo reemplaza entero, no
+    # se fusiona con el anterior.
+    theme_overrides: dict[str, Any] | None = None
+
+    @field_validator("theme_overrides")
+    @classmethod
+    def _validar_theme_overrides(cls, valor: dict[str, Any] | None) -> dict[str, Any] | None:
+        return validar_theme_overrides(valor)
 
     @model_validator(mode="after")
     def _validar_fechas(self) -> EventUpdate:
@@ -188,6 +200,8 @@ class EventResponse(BaseModel):
     accounting_currency: str
     # `None` significa que hereda la plantilla de la organización.
     theme_template_id: str | None
+    # `None` significa sin personalización propia (usa la plantilla resuelta tal cual).
+    theme_overrides: dict[str, Any] | None
 
 
 class EventVenueCreate(BaseModel):

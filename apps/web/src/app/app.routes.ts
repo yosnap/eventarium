@@ -11,6 +11,14 @@ export const routes: Routes = [
     canActivate: [guestGuard],
   },
   {
+    path: 'espacio-de-trabajo',
+    loadComponent: () =>
+      import('./features/admin/workspace-selector/workspace-selector-page').then(
+        (m) => m.WorkspaceSelectorPage,
+      ),
+    canActivate: [authGuard],
+  },
+  {
     path: 'registro',
     loadComponent: () =>
       import('./features/public/register/register-page').then((m) => m.RegisterPage),
@@ -245,6 +253,11 @@ export const routes: Routes = [
         path: 'events/:eventId/agenda',
         loadComponent: () =>
           import('./features/admin/events/event-agenda').then((m) => m.EventAgenda),
+      },
+      {
+        path: 'events/:eventId/diseno',
+        loadComponent: () =>
+          import('./features/admin/events/event-design').then((m) => m.EventDesign),
       },
       {
         path: 'events/:eventId/entradas',

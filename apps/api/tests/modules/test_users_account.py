@@ -10,13 +10,14 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import text
 
-from app.core.database import SessionApp, set_organization_context
+from app.core.database import SessionApp, SessionMaintenance, set_organization_context
 from app.core.tasks import send_email_change_confirmation, send_email_change_warning
 from app.modules.auth import service as auth_service
 from app.modules.auth.router import COOKIE_NOMBRE
 from app.modules.auth.verification import PROPOSITO_CAMBIO_CORREO, generate_token
+from app.modules.organizations.models import OrganizationMember
 from app.shared.errors import ConflictError
-from tests.conftest import OrganizacionDePrueba, crear_organizacion, iniciar_sesion
+from tests.conftest import OrganizacionDePrueba, crear_organizacion, crear_rol, iniciar_sesion
 
 ME = "/api/v1/users/me"
 CHANGE_EMAIL = "/api/v1/users/me/change-email"
@@ -283,6 +284,46 @@ async def test_get_organizations_lista_solo_las_propias(
     slugs = {fila["slug"] for fila in respuesta.json()}
     assert slugs == {organizacion.slug}
     assert segunda.slug not in slugs
+
+
+async def test_get_organizations_incluye_el_nombre_del_rol(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+    respuesta = await cliente.get(ORGANIZATIONS, headers=cabeceras)
+    assert respuesta.status_code == 200
+    fila = next(f for f in respuesta.json() if f["slug"] == organizacion.slug)
+    assert fila["role_name"] == "Propietario"
+
+
+async def test_get_organizations_agrega_varios_roles_de_la_misma_organizacion(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """La unique constraint de `organization_members` es
+    `(organization_id, user_id, role_id)`, no `(organization_id, user_id)`: una
+    persona puede tener más de un rol en la misma organización. La respuesta
+    agrega los nombres en una sola cadena en vez de duplicar la fila."""
+    segundo_rol_id = await crear_rol(
+        organizacion, key="editor-extra", permisos=[], nombre="Editor"
+    )
+    async with SessionMaintenance() as session:
+        session.add(
+            OrganizationMember(
+                organization_id=organizacion.id,
+                user_id=organizacion.owner_id,
+                role_id=segundo_rol_id,
+                profile_data={},
+            )
+        )
+        await session.commit()
+
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    respuesta = await cliente.get(ORGANIZATIONS, headers=cabeceras)
+    assert respuesta.status_code == 200
+    filas = [f for f in respuesta.json() if f["slug"] == organizacion.slug]
+    assert len(filas) == 1, "no debe duplicar la organización por tener 2 roles"
+    assert filas[0]["role_name"] == "Editor, Propietario"
 
 
 async def test_app_user_organizations_no_devuelve_organizaciones_ajenas(

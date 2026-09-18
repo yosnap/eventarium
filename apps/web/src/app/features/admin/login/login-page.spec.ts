@@ -41,9 +41,20 @@ describe('LoginPage', () => {
     document.documentElement.removeAttribute('data-theme');
   });
 
-  async function entrarYVerDestino(destino: string | null): Promise<string> {
+  async function entrarYVerDestino(
+    destino: string | null,
+    auth: Partial<AuthService> = {},
+  ): Promise<string> {
     const login = vi.fn().mockResolvedValue(undefined);
-    configurar({ login } as unknown as Partial<AuthService>, rutaConRedirigir(destino));
+    configurar(
+      {
+        login,
+        listMyOrganizations: vi.fn().mockResolvedValue([]),
+        currentUser: () => null,
+        ...auth,
+      } as unknown as Partial<AuthService>,
+      rutaConRedirigir(destino),
+    );
     const router = TestBed.inject(Router);
     const navegar = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
 
@@ -67,14 +78,64 @@ describe('LoginPage', () => {
     return navegar.mock.calls[0]?.[0] as string;
   }
 
-  it('sin destino explícito entra al escritorio de la organización, no a la plataforma', async () => {
-    // `/admin` es la plataforma y exige `superadminGuard`; mandar ahí a un
-    // organizador que acaba de entrar sería un fallo de autorización.
-    expect(await entrarYVerDestino(null)).toBe('/dashboard');
+  it('con 1 organización y sin rol de plataforma, entra al escritorio de la organización', async () => {
+    // `/admin` es la plataforma y exige `personalPlataformaGuard`; mandar ahí a
+    // un organizador que acaba de entrar sería un fallo de autorización.
+    expect(
+      await entrarYVerDestino(null, {
+        listMyOrganizations: vi.fn().mockResolvedValue([
+          { organization_id: 'o1', slug: 'acme', name: 'Acme', role_name: 'Propietario' },
+        ]),
+      }),
+    ).toBe('/dashboard');
   });
 
-  it('respeta el destino pedido en `redirigir`', async () => {
-    expect(await entrarYVerDestino('/dashboard/events/e1')).toBe('/dashboard/events/e1');
+  it('respeta el destino pedido en `redirigir` cuando solo hay 1 espacio', async () => {
+    expect(
+      await entrarYVerDestino('/dashboard/events/e1', {
+        listMyOrganizations: vi.fn().mockResolvedValue([
+          { organization_id: 'o1', slug: 'acme', name: 'Acme', role_name: 'Propietario' },
+        ]),
+      }),
+    ).toBe('/dashboard/events/e1');
+  });
+
+  it('admin de plataforma sin organizaciones entra directo a /admin', async () => {
+    expect(
+      await entrarYVerDestino(null, {
+        currentUser: (() => ({ is_superadmin: true })) as unknown as AuthService['currentUser'],
+      }),
+    ).toBe('/admin');
+  });
+
+  it('con 2+ espacios (organizaciones + plataforma), navega al selector', async () => {
+    expect(
+      await entrarYVerDestino(null, {
+        listMyOrganizations: vi.fn().mockResolvedValue([
+          { organization_id: 'o1', slug: 'acme', name: 'Acme', role_name: 'Propietario' },
+        ]),
+        currentUser: (() => ({ is_superadmin: true })) as unknown as AuthService['currentUser'],
+      }),
+    ).toBe('/espacio-de-trabajo');
+  });
+
+  it('con 2+ organizaciones (sin rol de plataforma), navega al selector', async () => {
+    expect(
+      await entrarYVerDestino(null, {
+        listMyOrganizations: vi.fn().mockResolvedValue([
+          { organization_id: 'o1', slug: 'acme', name: 'Acme', role_name: 'Propietario' },
+          { organization_id: 'o2', slug: 'otra', name: 'Otra', role_name: 'Editor' },
+        ]),
+      }),
+    ).toBe('/espacio-de-trabajo');
+  });
+
+  it('un fallo al contar espacios tras un login válido no aborta el login: degrada al destino por defecto', async () => {
+    expect(
+      await entrarYVerDestino(null, {
+        listMyOrganizations: vi.fn().mockRejectedValue(new Error('red caída')),
+      }),
+    ).toBe('/dashboard');
   });
 
   it('no tiene violaciones de accesibilidad', async () => {

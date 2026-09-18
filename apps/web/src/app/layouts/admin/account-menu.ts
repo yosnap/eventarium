@@ -12,23 +12,31 @@ import {
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 
-import { monograma } from '../../shared/text/monograma';
-
 /**
- * Selector de organizaciones como menú desplegable de primera clase: botón
- * con el monograma y el nombre de la organización activa, y un panel con
- * todas las organizaciones (la activa marcada) y la acción de dar de alta
- * una nueva.
+ * Menú de cuenta como menú desplegable de primera clase: botón con el email
+ * de la persona, y un panel con "Mi cuenta", "Cambiar de espacio de trabajo"
+ * y "Cerrar sesión".
  *
- * Patrón combobox del sistema (el mismo que `select.ts`): el foco se queda
- * en el botón y la opción activa es virtual, anunciada con
- * `aria-activedescendant` — nada de perseguir el foco DOM por las opciones.
- * Abre con Enter/Espacio o ArrowDown; flechas, Home y End mueven la opción
- * activa; Enter activa; Escape cierra. La organización activa se anuncia
- * con `aria-selected`; cambiar a la que ya está activa no existe aquí.
+ * Sustituye a `OrgSelector` (retirado): antes solo aparecía fuera del panel
+ * de plataforma y solo dejaba elegir organización; este menú es visible en
+ * `/admin` Y `/dashboard`, y "Cambiar de espacio de trabajo" abre la
+ * pantalla completa del selector (organizaciones + plataforma), no un
+ * desplegable inline.
+ *
+ * `nuevaOrganizacion`: `OrgSelector` siempre ofrecía "Nueva organización"
+ * (`/crear-organizacion`) dentro de su desplegable; se conserva aquí como
+ * cuarto ítem opcional para no perder esa función al retirar el componente
+ * — quien monta este menú decide su visibilidad (hoy, solo fuera del panel
+ * de plataforma, igual que antes).
+ *
+ * Mismo patrón combobox del sistema que `org-selector.ts` (y `select.ts`):
+ * el foco se queda en el botón, la opción activa es virtual y se anuncia con
+ * `aria-activedescendant`. Abre con Enter/Espacio o ArrowDown; flechas, Home
+ * y End mueven la opción activa; Enter activa; Escape cierra; clic fuera
+ * cierra.
  */
 @Component({
-  selector: 'app-org-selector',
+  selector: 'app-account-menu',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink, TranslocoDirective],
   template: `
@@ -40,74 +48,74 @@ import { monograma } from '../../shared/text/monograma';
           class="disparador"
           role="combobox"
           aria-haspopup="listbox"
-          [attr.aria-label]="t('admin.selectorOrganizacion.titulo')"
-          [attr.aria-controls]="'org-selector-lista'"
+          [attr.aria-label]="t('admin.menuCuenta.titulo')"
+          [attr.aria-controls]="'account-menu-lista'"
           [attr.aria-expanded]="abierta()"
           [attr.aria-activedescendant]="abierta() ? idOpcion(indiceActivo()) : null"
-          [disabled]="cambiando()"
           (click)="alternar()"
           (keydown)="alPulsar($event)"
         >
-          @if (activa(); as org) {
-            <span class="monograma" aria-hidden="true">{{
-              monograma(org.name, null, org.name)
-            }}</span>
-          }
-          <span class="nombre">{{ activa()?.name }}</span>
+          <span class="email">{{ email() }}</span>
           <span class="chevron" aria-hidden="true">▾</span>
         </button>
 
         <ul
           #menu
-          id="org-selector-lista"
+          id="account-menu-lista"
           role="listbox"
-          [attr.aria-label]="t('admin.selectorOrganizacion.titulo')"
+          [attr.aria-label]="t('admin.menuCuenta.titulo')"
           [hidden]="!abierta()"
         >
-          @for (organizacion of organizaciones(); track organizacion.organization_id) {
+          <li role="none" class="email-completo">{{ email() }}</li>
+          <li role="none">
+            <a
+              role="option"
+              [id]="idOpcion(0)"
+              [attr.aria-selected]="'false'"
+              class="elemento"
+              routerLink="/dashboard/account"
+              (click)="abierta.set(false)"
+            >
+              {{ t('admin.menuCuenta.miCuenta') }}
+            </a>
+          </li>
+          <li role="none">
+            <a
+              role="option"
+              [id]="idOpcion(1)"
+              [attr.aria-selected]="'false'"
+              class="elemento"
+              routerLink="/espacio-de-trabajo"
+              (click)="abierta.set(false)"
+            >
+              {{ t('admin.menuCuenta.cambiarEspacio') }}
+            </a>
+          </li>
+          @if (nuevaOrganizacion()) {
             <li role="none">
-              @if (esActiva(organizacion)) {
-                <span
-                  role="option"
-                  [id]="idOpcion($index)"
-                  [attr.aria-selected]="'true'"
-                  class="elemento activa"
-                >
-                  <span class="monograma" aria-hidden="true">{{
-                    monograma(organizacion.name, null, organizacion.name)
-                  }}</span>
-                  <span>{{ organizacion.name }}</span>
-                  <span class="check" aria-hidden="true">✓</span>
-                </span>
-              } @else {
-                <button
-                  role="option"
-                  type="button"
-                  [id]="idOpcion($index)"
-                  [attr.aria-selected]="'false'"
-                  class="elemento"
-                  [disabled]="cambiando()"
-                  (click)="cambiar.emit(organizacion.organization_id)"
-                >
-                  <span class="monograma" aria-hidden="true">{{
-                    monograma(organizacion.name, null, organizacion.name)
-                  }}</span>
-                  <span>{{ organizacion.name }}</span>
-                </button>
-              }
+              <a
+                role="option"
+                [id]="idOpcion(2)"
+                [attr.aria-selected]="'false'"
+                class="elemento"
+                routerLink="/crear-organizacion"
+                (click)="abierta.set(false)"
+              >
+                {{ t('admin.menuCuenta.nuevaOrganizacion') }}
+              </a>
             </li>
           }
           <li role="none" class="separador">
-            <a
+            <button
               role="option"
-              [id]="idOpcion(organizaciones().length)"
+              type="button"
+              [id]="idOpcion(totalOpciones() - 1)"
               [attr.aria-selected]="'false'"
-              class="elemento nueva"
-              routerLink="/crear-organizacion"
-              (click)="abierta.set(false)"
+              class="elemento"
+              (click)="alCerrarSesion()"
             >
-              {{ t('admin.selectorOrganizacion.nueva') }}
-            </a>
+              {{ t('admin.cerrarSesion') }}
+            </button>
           </li>
         </ul>
       </div>
@@ -134,28 +142,11 @@ import { monograma } from '../../shared/text/monograma';
     .disparador:hover {
       background-color: var(--surface-hi);
     }
-    .disparador:disabled {
-      cursor: wait;
-      opacity: 0.6;
-    }
-    .nombre {
+    .email {
       max-width: 12rem;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-    }
-    .monograma {
-      width: 24px;
-      height: 24px;
-      flex: 0 0 auto;
-      display: grid;
-      place-items: center;
-      border: 1px solid var(--border-strong);
-      border-radius: var(--radius-sm);
-      background-color: var(--surface-2);
-      font-family: var(--font-display);
-      font-size: 0.75rem;
-      color: var(--muted);
     }
     .chevron {
       color: var(--muted);
@@ -173,6 +164,14 @@ import { monograma } from '../../shared/text/monograma';
       background-color: var(--surface);
       box-shadow: 0 12px 28px rgb(0 0 0 / 0.18);
       z-index: 50;
+    }
+    .email-completo {
+      padding: 8px 10px;
+      font-size: var(--fs-sm);
+      color: var(--muted);
+      word-break: break-all;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 6px;
     }
     .elemento {
       display: flex;
@@ -194,14 +193,6 @@ import { monograma } from '../../shared/text/monograma';
     button.elemento:hover {
       background-color: var(--surface-hi);
     }
-    .activa {
-      color: var(--fg);
-      background-color: var(--surface-hi);
-    }
-    .activa .check {
-      margin-left: auto;
-      color: var(--accent);
-    }
     .separador {
       border-top: 1px solid var(--border);
       margin-top: 6px;
@@ -209,35 +200,30 @@ import { monograma } from '../../shared/text/monograma';
     }
   `,
 })
-export class OrgSelector {
+export class AccountMenu {
   private static contador = 0;
 
-  readonly organizaciones = input.required<
-    readonly { organization_id: string; name: string }[]
-  >();
-  readonly activaId = input<string | null>(null);
-  readonly cambiando = input(false);
+  readonly email = input.required<string>();
+  readonly nuevaOrganizacion = input(false);
+  readonly cerrarSesion = output<void>();
 
-  readonly cambiar = output<string>();
+  private readonly instancia = AccountMenu.contador++;
+  /** "Mi cuenta" + "Cambiar de espacio" + "Cerrar sesión", más "Nueva
+   * organización" cuando `nuevaOrganizacion()` es `true`. */
+  protected readonly totalOpciones = computed(() => (this.nuevaOrganizacion() ? 4 : 3));
 
-  private readonly instancia = OrgSelector.contador++;
-
-  protected readonly monograma = monograma;
   protected readonly abierta = signal(false);
   protected readonly indiceActivo = signal(0);
   private readonly menu = viewChild.required<ElementRef<HTMLUListElement>>('menu');
   private readonly anfitrion = viewChild.required<ElementRef<HTMLDivElement>>('anfitrion');
 
-  protected readonly activa = computed(() =>
-    this.organizaciones().find((o) => o.organization_id === this.activaId()) ?? null,
-  );
-
   protected idOpcion(indice: number): string {
-    return `org-selector-${this.instancia}-opcion-${indice}`;
+    return `account-menu-${this.instancia}-opcion-${indice}`;
   }
 
-  protected esActiva(organizacion: { organization_id: string }): boolean {
-    return organizacion.organization_id === this.activaId();
+  protected alCerrarSesion(): void {
+    this.abierta.set(false);
+    this.cerrarSesion.emit();
   }
 
   @HostListener('document:click', ['$event'])
@@ -253,21 +239,18 @@ export class OrgSelector {
       this.cerrar();
       return;
     }
-    // Al abrir, la opción activa es la primera (el botón es el anfitrión del
-    // foco; el índice solo elige qué opción anunciar y activar).
     this.indiceActivo.set(0);
     this.abierta.set(true);
   }
 
   protected alPulsar(evento: KeyboardEvent): void {
-    const total = this.totalDeOpciones();
+    const total = this.totalOpciones();
     if (evento.key === 'Escape') {
       evento.preventDefault();
       this.cerrar();
       return;
     }
     if (evento.key === 'Tab') {
-      // El menú no retiene el foco: se cierra y la tabulación continúa.
       this.cerrar();
       return;
     }
@@ -310,23 +293,8 @@ export class OrgSelector {
   }
 
   private activarIndice(indice: number): void {
-    if (indice === this.totalDeOpciones() - 1) {
-      // La última opción es «Nueva organización», que navega por routerLink:
-      // su click se dispara aquí para que el botón anfitrión maneje todo.
-      this.menu().nativeElement.querySelector<HTMLAnchorElement>('.nueva')?.click();
-      return;
-    }
-    // El índice recorre las opciones en orden; el elemento que toca puede ser
-    // el span de la activa (sin acción) o un botón de cambio.
     const opciones = this.menu().nativeElement.querySelectorAll('[role="option"]');
     const elemento = opciones[indice] as HTMLElement | null;
-    if (elemento instanceof HTMLButtonElement) {
-      elemento.click();
-    }
-  }
-
-  private totalDeOpciones(): number {
-    // Una opción por organización, más «Nueva organización» al pie.
-    return this.organizaciones().length + 1;
+    elemento?.click();
   }
 }

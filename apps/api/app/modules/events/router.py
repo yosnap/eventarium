@@ -87,6 +87,7 @@ def _event_response(evento: Event) -> EventResponse:
         contingency_fund_cents=evento.contingency_fund_cents,
         accounting_currency=evento.accounting_currency,
         theme_template_id=(str(evento.theme_template_id) if evento.theme_template_id else None),
+        theme_overrides=evento.theme_overrides,
     )
 
 

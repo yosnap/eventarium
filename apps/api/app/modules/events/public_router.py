@@ -67,6 +67,7 @@ from app.modules.sponsors.schemas import (
     PublicSponsorHistoryItem,
     PublicSponsorTier,
 )
+from app.modules.theme_templates.accent_palette import fusionar_overrides
 from app.modules.users.models import User, UserSocialLink
 from app.modules.users.schemas import (
     PublicSpeakerHistoryItem,
@@ -181,6 +182,15 @@ async def _tema_del_evento(session: AsyncSession, evento: Event) -> PublicTheme 
     aquí y no en el cliente porque encadenar tres consultas desde el navegador
     para pintar una página pública sería absurdo, y porque el catálogo es una
     tabla de instalación que el visitante no tiene por qué conocer.
+
+    Único punto de fusión de `theme_overrides` en el backend (fase 1 del plan
+    «diseño del evento»): el panel de organizador calcula su propia vista
+    previa en el cliente, no hay un segundo resolutor de tokens en el
+    servidor. `fusionar_overrides` copia `tokens` antes de tocarlo — el dict
+    de esta fila ya es nuevo en cada petición (deserializado por el driver a
+    partir de `text(...)`, no el mismo objeto que el mapa de identidad del
+    ORM que usa el catálogo de `organizations/router.py`), pero se copia
+    igual, sin depender de esa garantía implícita.
     """
     fila = (
         await session.execute(
@@ -201,7 +211,11 @@ async def _tema_del_evento(session: AsyncSession, evento: Event) -> PublicTheme 
 
     if fila is None or fila[0] is None:
         return None
-    return PublicTheme(id=str(fila[0]), key=fila[1], name=fila[2], tokens=fila[3])
+
+    tokens = fila[3]
+    if evento.theme_overrides:
+        tokens = fusionar_overrides(tokens, evento.theme_overrides)
+    return PublicTheme(id=str(fila[0]), key=fila[1], name=fila[2], tokens=tokens)
 
 
 @router.get(

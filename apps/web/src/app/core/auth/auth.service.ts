@@ -74,7 +74,7 @@ export interface OrganizacionDeLaPersona {
   readonly organization_id: string;
   readonly slug: string;
   readonly name: string;
-  readonly host: string | null;
+  readonly role_name: string | null;
 }
 
 export interface MembresiaPublicable {

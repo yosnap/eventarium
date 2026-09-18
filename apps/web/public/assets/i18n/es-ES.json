@@ -650,11 +650,17 @@
       }
     },
     "cerrarSesion": "Cerrar sesión",
-    "sesionDe": "Sesión de {{nombre}}",
-    "selectorOrganizacion": {
-      "titulo": "Cambiar de organización",
-      "nueva": "Nueva organización",
-      "error": "No se ha podido cambiar de organización. Inténtalo de nuevo."
+    "espacioDeTrabajo": {
+      "titulo": "Elige un espacio de trabajo",
+      "descripcion": "Tienes acceso a varios espacios. Selecciona con cuál quieres trabajar.",
+      "plataforma": "Admin Eventarium",
+      "error": "No se ha podido cambiar de espacio de trabajo. Inténtalo de nuevo."
+    },
+    "menuCuenta": {
+      "titulo": "Cuenta",
+      "miCuenta": "Mi cuenta",
+      "cambiarEspacio": "Cambiar de espacio de trabajo",
+      "nuevaOrganizacion": "Nueva organización"
     },
     "login": {
       "titulo": "Acceso al panel",
@@ -1038,6 +1044,33 @@
         "sinSedeEspecifica": "Sin sede específica",
         "cabeceraInicio": "Sesiones y",
         "cabeceraMarca": "quien las imparte."
+      },
+      "design": {
+        "titulo": "Diseño",
+        "cabeceraInicio": "Elige una plantilla y",
+        "cabeceraMarca": "personalízala.",
+        "descripcion": "Cada cambio se aplica al instante en la página pública — no hace falta guardar.",
+        "plantillaTitulo": "Plantilla",
+        "plantillaDescripcion": "Un clic la aplica. Puedes seguir personalizándola abajo.",
+        "aplicada": "Aplicada",
+        "personalizarTitulo": "Personalizar",
+        "personalizarDescripcion": "Un solo color de acento — el resto de la paleta y el contraste se calculan solos.",
+        "colorAcento": "Color de acento",
+        "colorAcromatico": "El color de acento necesita algo de saturación — el blanco, el negro y los grises no sirven como acento.",
+        "fuenteTitulo": "Tipografía de títulos",
+        "fuenteTexto": "Tipografía de texto",
+        "previewOscuro": "Vista pública · oscuro",
+        "previewClaro": "Vista pública · claro",
+        "aplicadoAhora": "Aplicado ahora mismo",
+        "plantillaAplicada": "Plantilla «{{nombre}}» aplicada",
+        "colorAplicado": "Color de acento aplicado",
+        "fuenteTituloAplicada": "Tipografía de título aplicada",
+        "fuenteTextoAplicada": "Tipografía de texto aplicada",
+        "error": "No se ha podido aplicar el cambio. Inténtalo de nuevo.",
+        "previewRotulo": "Evento",
+        "previewTitulo": "Festival de IA",
+        "previewFecha": "16 sept · Valencia",
+        "previewBoton": "Inscribirse"
       },
       "roster": {
         "titulo": "Participantes del evento",
@@ -1892,9 +1925,7 @@
       "cabeceraInicio": "La instalación está",
       "cabeceraMarca": "bajo control"
     },
-    "tituloPlataforma": "Administración de Eventarium",
-    "irAPlataforma": "Ir a la plataforma",
-    "irAMiOrganizacion": "Ir a mi organización"
+    "tituloPlataforma": "Administración de Eventarium"
   },
   "miEntrada": {
     "titulo": "Tu entrada",
@@ -1967,8 +1998,6 @@
       "urlEtiqueta": "Dirección de la imagen",
       "usarUrl": "Usar esta URL",
       "bibliotecaVacia": "Todavía no hay imágenes guardadas.",
-      "sinImagen": "Sin imagen",
-      "elegir": "Elegir imagen",
       "cambiar": "Cambiar",
       "quitar": "Quitar"
     }
