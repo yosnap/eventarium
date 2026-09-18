@@ -77,7 +77,8 @@ ignore = ["B008"]  # Depends() en argumentos por defecto es el idioma de FastAPI
 # aplicación (`app/`), no en la suite, que necesita construir excepciones y
 # firmas reales del SDK para simular a Stripe sin red.
 "tests/**" = ["S101", "S105", "S106", "S107", "TID251"]
-"alembic/**" = ["E501"]
+"alembic/**" = ["E501", "S608"]
+"scripts/**" = ["S608"]
 "app/modules/payments/stripe_client.py" = ["TID251"]
 
 [tool.mypy]

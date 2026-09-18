@@ -251,9 +251,7 @@ async def test_desactivar_revoca_las_sesiones_activas(
     )
     assert respuesta.status_code == 200, respuesta.text
 
-    refresco = await cliente.post(
-        "/api/v1/auth/refresh", cookies={COOKIE_NOMBRE: refresh_objetivo}
-    )
+    refresco = await cliente.post("/api/v1/auth/refresh", cookies={COOKIE_NOMBRE: refresh_objetivo})
     assert refresco.status_code in (401, 403), refresco.text
 
 

@@ -104,7 +104,11 @@ async def test_vista_agregada_con_ficha_sesion_y_ediciones(
         cliente, cabeceras, evento["id"], str(ponente.member_id)
     )
     await _asignar_sesion(
-        cliente, cabeceras, evento["id"], sesiones[0]["id"], sesiones[0]["updated_at"],
+        cliente,
+        cabeceras,
+        evento["id"],
+        sesiones[0]["id"],
+        sesiones[0]["updated_at"],
         miembro_evento,
     )
 
@@ -195,7 +199,11 @@ async def test_historial_para_el_dialogo_sin_filtro_de_publicacion(
         cliente, cabeceras, evento["id"], str(ponente.member_id)
     )
     await _asignar_sesion(
-        cliente, cabeceras, evento["id"], sesiones[0]["id"], sesiones[0]["updated_at"],
+        cliente,
+        cabeceras,
+        evento["id"],
+        sesiones[0]["id"],
+        sesiones[0]["updated_at"],
         miembro_evento,
     )
 
@@ -241,6 +249,7 @@ async def test_pedir_bio_a_alieno_da_404(
     )
     assert respuesta.status_code == 404, respuesta.text
     _pedir_bio_mockeado.assert_not_awaited()
+
 
 async def test_pedir_bio_a_alguien_que_no_es_ponente_da_404(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba, _pedir_bio_mockeado: AsyncMock

@@ -69,5 +69,3 @@ class PlatformLegalPagesUpdate(BaseModel):
     privacy_policy_content: Annotated[str, Field(max_length=20_000)] | None = None
     cookies_policy_content: Annotated[str, Field(max_length=20_000)] | None = None
     registration_terms_content: Annotated[str, Field(max_length=20_000)] | None = None
-
-

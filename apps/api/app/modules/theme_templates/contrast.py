@@ -58,9 +58,7 @@ class ColorNoParseableError(ValueError):
 
 def _canal_lineal(valor_0_255: float) -> float:
     proporcion = valor_0_255 / 255
-    return (
-        proporcion / 12.92 if proporcion <= 0.03928 else ((proporcion + 0.055) / 1.055) ** 2.4
-    )
+    return proporcion / 12.92 if proporcion <= 0.03928 else ((proporcion + 0.055) / 1.055) ** 2.4
 
 
 def parse_hex_color(color: str) -> tuple[float, float, float] | None:

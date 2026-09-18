@@ -105,8 +105,7 @@ async def test_confirmar_encola_email_con_qr_adjunto(
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "email-con-qr", capacity=5)
 
-    await _inscribir_y_confirmar(
-        cliente, evento, "asistente@example.com")
+    await _inscribir_y_confirmar(cliente, evento, "asistente@example.com")
 
     llamada = send_registration_confirmed_email.kiq.call_args
     assert llamada is not None
@@ -152,9 +151,7 @@ async def test_flujo_completo_confirmar_escanear_duplicar_cancelar_revocar(
     """Test end-to-end de cierre de la fase 4 del PRD (Validation del plan)."""
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "flujo-completo", capacity=5)
-    registration_id = await _inscribir_y_confirmar(
-        cliente, evento, "asistente@example.com"
-    )
+    registration_id = await _inscribir_y_confirmar(cliente, evento, "asistente@example.com")
 
     async with SessionMaintenance() as session:
         ticket_id = await session.scalar(
@@ -205,8 +202,7 @@ async def test_mi_entrada_confirmada_muestra_qr(
 ) -> None:
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "mi-entrada-confirmada", capacity=5)
-    await _inscribir_y_confirmar(
-        cliente, evento, "asistente@example.com")
+    await _inscribir_y_confirmar(cliente, evento, "asistente@example.com")
     _, _, cancel_token, _ = send_registration_confirmed_email.kiq.call_args.args
 
     respuesta = await cliente.get(MY_TICKET, params={"token": cancel_token})
@@ -227,9 +223,7 @@ async def test_mi_entrada_cancelada_no_muestra_qr(
 ) -> None:
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "mi-entrada-cancelada", capacity=5)
-    registration_id = await _inscribir_y_confirmar(
-        cliente, evento, "asistente@example.com"
-    )
+    registration_id = await _inscribir_y_confirmar(cliente, evento, "asistente@example.com")
     _, _, cancel_token, _ = send_registration_confirmed_email.kiq.call_args.args
 
     cancelacion = await cliente.post(
@@ -262,9 +256,7 @@ async def test_mi_entrada_no_consume_el_token_de_cancelacion(
     invalidar el enlace de cancelar que llegó en el mismo correo."""
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_y_publicar_evento(cliente, cabeceras, "mi-entrada-no-consume", capacity=5)
-    registration_id = await _inscribir_y_confirmar(
-        cliente, evento, "asistente@example.com"
-    )
+    registration_id = await _inscribir_y_confirmar(cliente, evento, "asistente@example.com")
     _, _, cancel_token, _ = send_registration_confirmed_email.kiq.call_args.args
 
     for _ in range(3):

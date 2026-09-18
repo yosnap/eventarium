@@ -79,9 +79,7 @@ def _crear_tabla_event_venues() -> None:
 def _anadir_columnas_de_geocodificacion_a_events() -> None:
     op.add_column("events", sa.Column("latitude", sa.Numeric(9, 6), nullable=True))
     op.add_column("events", sa.Column("longitude", sa.Numeric(9, 6), nullable=True))
-    op.add_column(
-        "events", sa.Column("geocoded_at", sa.DateTime(timezone=True), nullable=True)
-    )
+    op.add_column("events", sa.Column("geocoded_at", sa.DateTime(timezone=True), nullable=True))
 
 
 def _anadir_venue_id_a_event_sessions() -> None:

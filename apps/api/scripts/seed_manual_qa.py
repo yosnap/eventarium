@@ -126,7 +126,11 @@ async def _get_or_create_speaker(
 
 
 async def _get_or_create_event_member(
-    session: AsyncSession, *, organization_id: uuid.UUID, event_id: uuid.UUID, member: OrganizationMember
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    member: OrganizationMember,
 ) -> EventMember:
     existente = await events_repository.get_event_member_by_organization_member(
         session, organization_id, event_id, member.id
@@ -142,7 +146,12 @@ async def _get_or_create_event_member(
 
 
 async def _get_or_create_session(
-    session: AsyncSession, *, organization_id: uuid.UUID, event_id: uuid.UUID, titulo: str, datos: dict
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    titulo: str,
+    datos: dict,
 ) -> EventSession:
     existente = await session.scalar(
         select(EventSession).where(
@@ -154,7 +163,10 @@ async def _get_or_create_session(
     if existente is not None:
         return existente
     return await events_service.create_session(
-        session, organization_id=organization_id, event_id=event_id, datos={"title": titulo, **datos}
+        session,
+        organization_id=organization_id,
+        event_id=event_id,
+        datos={"title": titulo, **datos},
     )
 
 
@@ -187,7 +199,12 @@ async def _get_or_create_participant(
 
 
 async def _get_or_create_ticket_type(
-    session: AsyncSession, *, organization_id: uuid.UUID, event_id: uuid.UUID, nombre: str, datos: dict
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    nombre: str,
+    datos: dict,
 ) -> EventTicketType:
     existente = await session.scalar(
         select(EventTicketType).where(
@@ -433,11 +450,12 @@ async def _sembrar_evento_gratuito(
 async def main() -> None:
     settings = get_settings()
     async with maintenance_session() as session:
-        organizacion = await session.scalar(select(Organization).where(Organization.slug == ORG_SLUG))
+        organizacion = await session.scalar(
+            select(Organization).where(Organization.slug == ORG_SLUG)
+        )
         if organizacion is None:
             raise RuntimeError(
-                f"No existe la organización «{ORG_SLUG}»: ejecuta primero "
-                "`python -m app.cli seed`."
+                f"No existe la organización «{ORG_SLUG}»: ejecuta primero `python -m app.cli seed`."
             )
 
         rol_speaker = await session.scalar(
@@ -477,8 +495,13 @@ async def main() -> None:
 
     print("\n--- Evento de pago (ya confirmado, sin pasar por Stripe) ---")
     print(f"Ficha del evento:        {base}/eventos/{evento_pago.slug}")
-    print(f"Sesión presencial:       {base}/eventos/{evento_pago.slug}/sesiones/{pago['sesion_presencial'].id}")
-    print(f"Sesión online:           {base}/eventos/{evento_pago.slug}/sesiones/{pago['sesion_online'].id}")
+    sesion_presencial = pago["sesion_presencial"]
+    sesion_online = pago["sesion_online"]
+    print(
+        f"Sesión presencial:       {base}/eventos/{evento_pago.slug}/sesiones/"
+        f"{sesion_presencial.id}"
+    )
+    print(f"Sesión online:           {base}/eventos/{evento_pago.slug}/sesiones/{sesion_online.id}")
     print(f"Ponente:                 {base}/ponentes/{pago['ponente_slug']}")
     print(
         "Retorno de pago (debe salir «confirmado»): "
@@ -492,7 +515,10 @@ async def main() -> None:
 
     print("\n--- Evento gratuito (inscríbete de verdad en el navegador) ---")
     print(f"Ficha del evento:        {base}/eventos/{evento_gratis.slug}")
-    print(f"Sesión:                  {base}/eventos/{evento_gratis.slug}/sesiones/{gratis['sesion'].id}")
+    sesion_gratis = gratis["sesion"]
+    print(
+        f"Sesión:                  {base}/eventos/{evento_gratis.slug}/sesiones/{sesion_gratis.id}"
+    )
     print(f"Ponente:                 {base}/ponentes/{gratis['ponente_slug']}")
     print(f"Formulario de inscripción: {base}/eventos/{evento_gratis.slug}/inscribirse")
     print(

@@ -25,9 +25,7 @@ async def test_sembrar_dos_veces_no_duplica_nada() -> None:
     assert primero.created is True
     assert primero.owner_password, "la primera siembra debe generar una contraseña"
 
-    conteos = {
-        modelo: await _contar(modelo) for modelo in (Organization, Role, OrganizationMember)
-    }
+    conteos = {modelo: await _contar(modelo) for modelo in (Organization, Role, OrganizationMember)}
 
     async with SessionMaintenance() as session:
         segundo = await seed_demo(session)

@@ -221,8 +221,7 @@ async def remove_member_role(
     )
     if (total_roles or 0) <= 1:
         raise ConflictError(
-            "No puedes quitar el último rol de una persona. "
-            "Sácala de la organización en su lugar."
+            "No puedes quitar el último rol de una persona. Sácala de la organización en su lugar."
         )
 
     rol = await session.get(Role, miembro.role_id)

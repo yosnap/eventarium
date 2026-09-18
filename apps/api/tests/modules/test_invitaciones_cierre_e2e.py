@@ -88,9 +88,7 @@ async def test_la_misma_persona_es_ponente_en_dos_organizaciones_sin_duplicar_cu
     assert aceptar_a.status_code == 200, aceptar_a.text
 
     async with SessionMaintenance() as session:
-        usuario = await session.scalar(
-            select(User).where(User.email == CORREO_PONENTE_ITINERANTE)
-        )
+        usuario = await session.scalar(select(User).where(User.email == CORREO_PONENTE_ITINERANTE))
         assert usuario is not None
         user_id = usuario.id
 
@@ -137,9 +135,7 @@ async def test_la_misma_persona_es_ponente_en_dos_organizaciones_sin_duplicar_cu
     # 3) Un solo usuario en `users`, dos membresías, dos fichas independientes.
     async with SessionMaintenance() as session:
         usuarios = (
-            await session.scalars(
-                select(User).where(User.email == CORREO_PONENTE_ITINERANTE)
-            )
+            await session.scalars(select(User).where(User.email == CORREO_PONENTE_ITINERANTE))
         ).all()
         assert len(usuarios) == 1
 

@@ -54,13 +54,14 @@ _CLAVES_CORREGIDAS = {
 
 def _actualizar(valores: dict[str, str]) -> None:
     parche = ", ".join(f'"{clave}": "{valor}"' for clave, valor in valores.items())
-    op.execute(
-        f"""
-        UPDATE theme_templates
-        SET tokens = jsonb_set(tokens, '{{light}}', (tokens->'light') || '{{{parche}}}'::jsonb)
-        WHERE key IN ('oscuro', 'claro')
-        """
+    sql = (  # noqa: S608 — las claves del parche son literales del módulo.
+        f"UPDATE theme_templates "
+        f"SET tokens = jsonb_set(tokens, '{{light}}', "
+        f"(tokens->'light') || "
+        f"'{{{parche}}}'::jsonb) "
+        f"WHERE key IN ('oscuro', 'claro')"
     )
+    op.execute(sql)
 
 
 def upgrade() -> None:

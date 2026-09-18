@@ -170,9 +170,7 @@ async def test_soporte_puede_impersonar_y_listar_miembros(
     """El rol aditivo `soporte` (plan `260916-0810-usuarios-y-permisos-
     plataforma`) alcanza estos dos endpoints igual que `superadmin`."""
     async with SessionMaintenance() as session:
-        usuario = await session.scalar(
-            select(User).where(User.email == organizacion.owner_email)
-        )
+        usuario = await session.scalar(select(User).where(User.email == organizacion.owner_email))
         assert usuario is not None
         usuario.platform_role = "soporte"
         await session.commit()

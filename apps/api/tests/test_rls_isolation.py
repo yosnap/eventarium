@@ -125,9 +125,7 @@ async def test_no_se_puede_insertar_en_otra_organizacion(
 
     # La fila no existe: la comprobación se hace con el rol de mantenimiento.
     async with SessionMaintenance() as session:
-        encontrada = await session.scalar(
-            text("SELECT count(*) FROM roles WHERE key = 'intruso'")
-        )
+        encontrada = await session.scalar(text("SELECT count(*) FROM roles WHERE key = 'intruso'"))
     assert encontrada == 0
 
 

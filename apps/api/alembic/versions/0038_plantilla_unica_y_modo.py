@@ -115,11 +115,14 @@ def upgrade() -> None:
         for tabla in TABLAS_CON_PLANTILLA:
             bind.execute(
                 sa.text(
-                    f"UPDATE {tabla} SET theme_template_id = :superviviente "
+                    f"UPDATE {tabla} "
+                    "SET theme_template_id = :superviviente "
                     "WHERE theme_template_id = :descartada"
                 ).bindparams(superviviente=superviviente, descartada=descartada)
             )
-        bind.execute(sa.text("DELETE FROM theme_templates WHERE id = :id").bindparams(id=descartada))
+        bind.execute(
+            sa.text("DELETE FROM theme_templates WHERE id = :id").bindparams(id=descartada)
+        )
         bind.execute(
             sa.text(
                 "UPDATE theme_templates SET key = 'por-defecto', name = 'Por defecto', "

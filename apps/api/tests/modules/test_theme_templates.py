@@ -292,7 +292,8 @@ async def test_editar_plantilla_marca_is_default_y_desmarca_la_anterior(
     la marca: el catálogo admite una sola predeterminada."""
     cabeceras = await _superadmin_headers(cliente, organizacion)
     por_defecto = next(
-        p for p in (await cliente.get(ADMIN_THEME_TEMPLATES, headers=cabeceras)).json()
+        p
+        for p in (await cliente.get(ADMIN_THEME_TEMPLATES, headers=cabeceras)).json()
         if p["key"] == "por-defecto"
     )
 

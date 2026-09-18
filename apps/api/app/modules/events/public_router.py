@@ -177,8 +177,9 @@ async def _sedes_publicas(
 async def _tema_del_evento(session: AsyncSession, evento: Event) -> PublicTheme | None:
     """La plantilla del evento, con la herencia ya resuelta.
 
-    Tres niveles, y el orden importa: la del evento si la eligió, si no la de su
-    organización, y si tampoco la marcada por defecto en el catálogo. Se resuelve
+    Cuatro niveles, y el orden importa: la del evento si la eligió, si no la de
+    su organización, si no la aplicada a la plataforma («Usar en la
+    plataforma»), y si tampoco la marcada por defecto en el catálogo. Se resuelve
     aquí y no en el cliente porque encadenar tres consultas desde el navegador
     para pintar una página pública sería absurdo, y porque el catálogo es una
     tabla de instalación que el visitante no tiene por qué conocer.
@@ -198,9 +199,11 @@ async def _tema_del_evento(session: AsyncSession, evento: Event) -> PublicTheme 
                 "SELECT t.id, t.key, t.name, t.tokens "
                 "FROM events e "
                 "LEFT JOIN organization_branding b ON b.organization_id = e.organization_id "
+                "LEFT JOIN platform_branding pb ON pb.singleton = 'default' "
                 "LEFT JOIN theme_templates t ON t.id = COALESCE("
                 "    e.theme_template_id, "
                 "    b.theme_template_id, "
+                "    pb.theme_template_id, "
                 "    (SELECT id FROM theme_templates WHERE is_default IS TRUE LIMIT 1)"
                 ") "
                 "WHERE e.id = :id"
@@ -479,9 +482,7 @@ async def get_public_session(
     response_model=PublicSpeakerProfile,
     dependencies=[limit_per_ip("public-speaker-detail", PUBLICO_POR_IP)],
 )
-async def get_public_speaker(
-    public_slug: str, session: SessionDep
-) -> PublicSpeakerProfile:
+async def get_public_speaker(public_slug: str, session: SessionDep) -> PublicSpeakerProfile:
     # `public_slug` es único en toda la instalación desde la fase 0: la
     # organización se resuelve desde el propio perfil, no por host
     # (`app_resolve_speaker_organization`, SECURITY DEFINER de alcance mínimo).

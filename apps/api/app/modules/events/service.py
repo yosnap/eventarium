@@ -661,9 +661,7 @@ async def list_public_events_across_organizations(
                 repository.public_events_with_confirmed_count_query(organization_id)
             )
         ).all()
-        ids_de_pago = [
-            evento.id for evento, _ in filas if evento.registration_mode == "paid"
-        ]
+        ids_de_pago = [evento.id for evento, _ in filas if evento.registration_mode == "paid"]
         precios = await payments_service.get_min_public_prices(
             session, organization_id=organization_id, event_ids=ids_de_pago
         )

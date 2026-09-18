@@ -323,8 +323,12 @@ async def test_ficha_publica_de_patrocinador_incluye_nivel_e_historial_por_nombr
     await cliente.post(
         f"{EVENTS}/{evento_anterior['id']}/sponsors",
         headers=cabeceras,
-        json={"tier_id": plata["id"], "name": "Empresa Repetida", "contribution_type": "en_especie",
-              "contribution_description": "Catering"},
+        json={
+            "tier_id": plata["id"],
+            "name": "Empresa Repetida",
+            "contribution_type": "en_especie",
+            "contribution_description": "Catering",
+        },
     )
 
     evento_actual = await _crear_evento(cliente, cabeceras, "ficha-patrocinador-2026")
@@ -368,14 +372,16 @@ async def test_ficha_publica_de_patrocinador_404_si_el_evento_no_es_publico(
         await cliente.post(
             f"{EVENTS}/{evento['id']}/sponsors",
             headers=cabeceras,
-            json={"tier_id": nivel["id"], "name": "Sin publicar", "contribution_type": "en_especie",
-                  "contribution_description": "Material"},
+            json={
+                "tier_id": nivel["id"],
+                "name": "Sin publicar",
+                "contribution_type": "en_especie",
+                "contribution_description": "Material",
+            },
         )
     ).json()
 
-    respuesta = await cliente.get(
-        f"{PUBLIC_EVENTS}/{evento['slug']}/sponsors/{patrocinador['id']}"
-    )
+    respuesta = await cliente.get(f"{PUBLIC_EVENTS}/{evento['slug']}/sponsors/{patrocinador['id']}")
     assert respuesta.status_code == 404
 
 
