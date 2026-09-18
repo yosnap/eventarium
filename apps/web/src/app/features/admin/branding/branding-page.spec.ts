@@ -83,20 +83,20 @@ describe('BrandingPage', () => {
 
     expect(fixture.nativeElement.textContent).toContain('Organización de prueba');
     const opciones = Array.from(
-      fixture.nativeElement.querySelectorAll('[role="radio"]'),
+      fixture.nativeElement.querySelectorAll('.plantilla-tarjeta'),
     ) as HTMLElement[];
     expect(opciones.length).toBe(2);
-    const marcada = opciones.find((r) => r.getAttribute('aria-checked') === 'true');
+    const marcada = opciones.find((r) => r.getAttribute('aria-pressed') === 'true');
     expect(marcada?.textContent).toContain(PLANTILLA_OSCURA.name);
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
-  it('la galería de plantillas es un grupo de radios con nombre accesible por opción', async () => {
+  it('la galería de plantillas tiene nombre accesible y cada tarjeta indica si está aplicada', async () => {
     const fixture = await crearYCargar();
 
-    const grupo = fixture.nativeElement.querySelector('[role="radiogroup"]');
+    const grupo = fixture.nativeElement.querySelector('.plantillas');
     expect(grupo.getAttribute('aria-label')).toBeTruthy();
-    const opciones = grupo.querySelectorAll('[role="radio"]');
+    const opciones = grupo.querySelectorAll('.plantilla-tarjeta');
     expect(opciones.length).toBe(2);
     expect(fixture.nativeElement.textContent).toContain('Claro');
     expect(fixture.nativeElement.textContent).toContain('Oscuro');

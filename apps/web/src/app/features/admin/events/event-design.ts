@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   computed,
   inject,
   input,
@@ -42,6 +43,11 @@ interface EventoDiseno {
 
 interface BrandingDiseno {
   readonly theme_template_id: string | null;
+}
+
+/** Solo el campo que esta pantalla necesita de `GET /tenant/branding`. */
+interface TenantBrandingDiseno {
+  readonly platform: { readonly theme_template_id: string | null };
 }
 
 /** Qué acción está en vuelo — una sola a la vez (cola de un elemento, ver
@@ -333,10 +339,12 @@ export class EventDesign implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
+  private readonly destroyRef = inject(DestroyRef);
 
   protected readonly cargando = signal(true);
   protected readonly plantillas = signal<readonly PlantillaDeTema[]>([]);
   protected readonly brandingThemeId = signal<string | null>(null);
+  protected readonly plataformaThemeId = signal<string | null>(null);
   protected readonly evento = signal<EventoDiseno | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly mensajeAplicado = signal<string | null>(null);
@@ -356,6 +364,12 @@ export class EventDesign implements OnInit {
     (familia) => ({ value: familia, label: familia }),
   );
 
+  /** Misma cadena que resuelve el backend en `_tema_del_evento`: evento →
+   * organización → plantilla aplicada a la plataforma («Usar en la
+   * plataforma») → catálogo por defecto. Sin el nivel de plataforma, un
+   * evento sin plantilla propia ni de organización mostraba aquí el
+   * catálogo por defecto mientras la ficha pública servía la de plataforma
+   * (hallazgo de red-team tras fusionar con `develop`). */
   protected readonly plantillaActivaId = computed(() => {
     const evento = this.evento();
     if (!evento) {
@@ -364,6 +378,7 @@ export class EventDesign implements OnInit {
     return (
       evento.theme_template_id ??
       this.brandingThemeId() ??
+      this.plataformaThemeId() ??
       this.plantillas().find((p) => p.is_default)?.id ??
       null
     );
@@ -412,6 +427,18 @@ export class EventDesign implements OnInit {
     return { dark: combinar('dark'), light: combinar('light') };
   });
 
+  constructor() {
+    // El debounce de color programa un `setTimeout` con efecto de red (un
+    // PATCH cuando venza): sin esto, navegar a otra pantalla en esos 400 ms
+    // deja el temporizador vivo y dispara el PATCH desde un componente ya
+    // destruido (hallazgo de red-team).
+    this.destroyRef.onDestroy(() => {
+      if (this.temporizadorColor) {
+        clearTimeout(this.temporizadorColor);
+      }
+    });
+  }
+
   ngOnInit(): void {
     void this.cargar();
   }
@@ -420,15 +447,17 @@ export class EventDesign implements OnInit {
     this.cargando.set(true);
     this.error.set(null);
     try {
-      const [plantillas, branding, evento] = await Promise.all([
+      const [plantillas, branding, tenantBranding, evento] = await Promise.all([
         firstValueFrom(
           this.http.get<PlantillaDeTema[]>(this.api.url('/organizations/me/theme-templates')),
         ),
         firstValueFrom(this.http.get<BrandingDiseno>(this.api.url('/organizations/me/branding'))),
+        firstValueFrom(this.http.get<TenantBrandingDiseno>(this.api.url('/tenant/branding'))),
         firstValueFrom(this.http.get<EventoDiseno>(this.api.url(`/events/${this.eventId()}`))),
       ]);
       this.plantillas.set(plantillas);
       this.brandingThemeId.set(branding.theme_template_id);
+      this.plataformaThemeId.set(tenantBranding.platform.theme_template_id);
       this.evento.set(evento);
     } catch (error) {
       this.error.set(this.mensajeDeError(error));
@@ -442,7 +471,13 @@ export class EventDesign implements OnInit {
   }
 
   protected elegirPlantilla(plantilla: PlantillaDeTema): void {
-    if (plantilla.id === this.plantillaActivaId()) {
+    // Comparar contra el id YA EXPLÍCITO del evento, no contra
+    // `plantillaActivaId()` (que incluye lo heredado de organización/
+    // plataforma/catálogo): si no, clicar la tarjeta que hoy se ve marcada
+    // por herencia no hacía nada, y no había forma de fijarla en el evento
+    // — cuando la organización cambiara de plantilla, el evento la seguiría
+    // en silencio (hallazgo de red-team).
+    if (plantilla.id === this.evento()?.theme_template_id) {
       return;
     }
     this.encolar({ tipo: 'plantilla', plantillaId: plantilla.id });

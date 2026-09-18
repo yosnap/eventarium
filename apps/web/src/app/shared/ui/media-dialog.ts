@@ -25,6 +25,7 @@ import { MediaFields } from './media-fields';
         [aceptados]="aceptados()"
         [biblioteca]="biblioteca()"
         [tituloBiblioteca]="titulo()"
+        [permitirUrl]="permitirUrl()"
         (ficheroElegido)="alElegirFichero($event)"
         (urlElegida)="alElegirUrl($event)"
       />
@@ -42,6 +43,8 @@ export class MediaDialog {
   readonly aceptados = input.required<string>();
   /** Imágenes existentes para la pestaña Biblioteca (opcional). */
   readonly biblioteca = input<readonly { url: string; etiqueta: string }[]>([]);
+  /** Si el consumidor puede persistir una URL elegida (ver `MediaFields`). */
+  readonly permitirUrl = input(true);
 
   /** El `File` elegido en la pestaña Subir. */
   readonly ficheroElegido = output<File>();

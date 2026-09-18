@@ -4,7 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CookieBanner } from './cookie-banner';
 import { CookieConsentService } from '../../core/cookies/cookie-consent.service';
@@ -273,6 +273,70 @@ describe('CookieBanner', () => {
     expect(new Set(persistido.categories)).toEqual(
       new Set(['necessary', 'analytics', 'marketing']),
     );
+  });
+
+  it('retirar una categoría ya consentida recarga la página en vez de dejar los scripts corriendo', async () => {
+    localStorage.setItem(
+      'cookie-consent',
+      JSON.stringify({
+        categories: ['necessary', 'analytics', 'marketing'],
+        version: 1,
+        created_at: 'x',
+      }),
+    );
+    const fixture = TestBed.createComponent(CookieBanner);
+    await avanzar(fixture);
+    // Consentimiento previo con analítica: el constructor activa sus
+    // scripts, que consultan los identificadores públicos una vez.
+    http
+      .expectOne('/api/v1/tenant/analytics')
+      .flush({
+        ga4_measurement_id: 'G-TEST123',
+        meta_pixel_id: null,
+        cloudflare_analytics_token: null,
+      });
+    await avanzar(fixture);
+    expect(document.getElementById('ga4-analytics-script')).not.toBeNull();
+
+    const recargar = vi.fn();
+    const ubicacionOriginal = Object.getOwnPropertyDescriptor(window, 'location')!;
+    Object.defineProperty(window, 'location', {
+      value: { ...window.location, reload: recargar },
+      writable: true,
+      configurable: true,
+    });
+
+    try {
+      const consentimiento = TestBed.inject(CookieConsentService);
+      consentimiento.abrirGestionDeCookies();
+      await avanzar(fixture);
+
+      const raiz = fixture.nativeElement as HTMLElement;
+      const dialogo = raiz.querySelector('dialog') as HTMLDialogElement;
+      const interruptores = Array.from(
+        dialogo.querySelectorAll('button[role="switch"]:not([disabled])'),
+      ) as HTMLButtonElement[];
+      // Desactiva medición (interruptores[0]), que ya estaba consentida.
+      interruptores[0].dispatchEvent(new Event('click'));
+      await avanzar(fixture);
+
+      const guardar = Array.from(dialogo.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('Guardar mi elección'),
+      );
+      guardar?.dispatchEvent(new Event('click'));
+      await avanzar(fixture);
+
+      const peticion = http.expectOne('/api/v1/public/cookie-consent');
+      peticion.flush(null, { status: 204, statusText: 'No Content' });
+      await avanzar(fixture);
+
+      // No debe volver a consultar `/tenant/analytics`: retirar una
+      // categoría no reactiva scripts, recarga la página.
+      http.expectNone('/api/v1/tenant/analytics');
+      expect(recargar).toHaveBeenCalledOnce();
+    } finally {
+      Object.defineProperty(window, 'location', ubicacionOriginal);
+    }
   });
 
   it('"Cancelar" tras reabrir "Preferencias de cookies" cierra sin cambiar la decisión guardada', async () => {

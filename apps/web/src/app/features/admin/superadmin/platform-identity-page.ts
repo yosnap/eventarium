@@ -82,6 +82,8 @@ const CLAVE_IDENTIDAD = '/admin/identity';
             [etiqueta]="t('admin.plataforma.identidad.logotipo')"
             aceptados="image/png,image/jpeg,image/webp"
             [url]="logoUrl()"
+            [permitirUrl]="false"
+            [permitirQuitar]="false"
             (ficheroElegido)="subirImagenDirecta($event, 'logo')"
           />
           <app-media-picker
@@ -89,6 +91,8 @@ const CLAVE_IDENTIDAD = '/admin/identity';
             [etiqueta]="t('admin.plataforma.identidad.favicon')"
             aceptados="image/png,image/jpeg,image/webp"
             [url]="faviconUrl()"
+            [permitirUrl]="false"
+            [permitirQuitar]="false"
             (ficheroElegido)="subirImagenDirecta($event, 'favicon')"
           />
         </div>

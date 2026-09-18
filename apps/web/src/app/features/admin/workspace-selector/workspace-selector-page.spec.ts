@@ -237,6 +237,29 @@ describe('WorkspaceSelectorPage', () => {
     expect(navegar).toHaveBeenCalledWith(['/acceder']);
   });
 
+  it('un fallo al cerrar sesión muestra el error y no deja la pantalla bloqueada', async () => {
+    const logout = vi.fn().mockRejectedValue(new Error('red caída'));
+    configurar(authDePrueba({ logout }) as Partial<AuthService>);
+    const fixture = TestBed.createComponent(WorkspaceSelectorPage);
+    await fixture.whenStable();
+    const raiz = fixture.nativeElement as HTMLElement;
+
+    const botonCerrarSesion = Array.from(raiz.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Cerrar sesión'),
+    );
+    botonCerrarSesion?.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // Sin el `try/finally`, todos los botones se quedaban deshabilitados
+    // para siempre (`[disabled]="accionEnCurso() !== null"`).
+    const botonOrganizacion = Array.from(raiz.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Acme'),
+    );
+    expect(botonOrganizacion?.disabled).toBe(false);
+    expect(raiz.textContent).toContain('No se ha podido cambiar de espacio de trabajo');
+  });
+
   it('no tiene violaciones de accesibilidad', async () => {
     configurar(authDePrueba() as Partial<AuthService>);
     const fixture = TestBed.createComponent(WorkspaceSelectorPage);

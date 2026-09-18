@@ -273,7 +273,22 @@ export class WorkspaceSelectorPage {
       return;
     }
     this.accionEnCurso.set('sesion');
-    await this.auth.logout();
-    await this.router.navigate(['/acceder']);
+    this.error.set(null);
+    try {
+      await this.auth.logout();
+      await this.router.navigate(['/acceder']);
+    } catch (error) {
+      // Sin este catch, un fallo de red dejaba `accionEnCurso` en 'sesion'
+      // para siempre: todos los botones de la pantalla tienen
+      // `[disabled]="accionEnCurso() !== null"`, así que la persona se
+      // quedaba sin poder elegir organización ni reintentar (hallazgo de
+      // red-team).
+      this.accionEnCurso.set(null);
+      this.error.set(
+        error instanceof ApiError
+          ? error.message
+          : this.transloco.translate('admin.espacioDeTrabajo.error'),
+      );
+    }
   }
 }

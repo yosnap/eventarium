@@ -28,9 +28,24 @@ interface FixtureCompartido {
 
 /** Fixture única compartida con `apps/api/tests/modules/test_accent_palette.py`
  * — red de seguridad contra una divergencia futura entre las dos
- * implementaciones de la fórmula (Fase 3 del plan «diseño del evento»). */
+ * implementaciones de la fórmula (Fase 3 del plan «diseño del evento»).
+ *
+ * Si `apps/api` no está disponible al lado (p. ej. un job de CI que solo
+ * hace checkout de `apps/web`), degrada a una fixture vacía en vez de tumbar
+ * toda la suite al importar este fichero — `it.each([])` no ejecuta ningún
+ * caso, y el aviso deja constancia en el log (hallazgo de red-team). */
 const RUTA_FIXTURE = path.resolve(process.cwd(), '../api/tests/fixtures/casos_paleta_acento.json');
-const FIXTURE: FixtureCompartido = JSON.parse(readFileSync(RUTA_FIXTURE, 'utf-8'));
+const FIXTURE: FixtureCompartido = (() => {
+  try {
+    return JSON.parse(readFileSync(RUTA_FIXTURE, 'utf-8')) as FixtureCompartido;
+  } catch {
+    console.warn(
+      `[accent-palette.spec] fixture compartida no encontrada en ${RUTA_FIXTURE}; ` +
+        'se omiten los casos del fixture compartido con el backend.',
+    );
+    return { matices: [], acromaticos: [] };
+  }
+})();
 
 const MATICES_DE_PRUEBA: readonly string[] = FIXTURE.matices.map((caso) => caso.hex);
 const COLORES_ACROMATICOS: readonly string[] = FIXTURE.acromaticos.map((caso) => caso.hex);

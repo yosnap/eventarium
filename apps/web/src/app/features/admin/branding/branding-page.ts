@@ -102,6 +102,8 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
                 [etiqueta]="t('admin.branding.logotipo')"
                 aceptados="image/png,image/jpeg,image/webp"
                 [url]="previaLogo()"
+                [permitirUrl]="false"
+                [permitirQuitar]="false"
                 (ficheroElegido)="alSeleccionarLogo($event)"
               />
               @if (errorLogo(); as mensaje) {
@@ -146,18 +148,13 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
             </app-card>
           </div>
 
-          <div
-            class="plantillas"
-            role="radiogroup"
-            [attr.aria-label]="t('admin.branding.plantillaDeTema')"
-          >
+          <div class="plantillas" [attr.aria-label]="t('admin.branding.plantillaDeTema')">
             @for (plantilla of plantillasDeTema(); track plantilla.id) {
               <button
                 type="button"
-                role="radio"
                 class="plantilla-tarjeta"
                 [class.plantilla-activa]="plantilla.id === themeTemplateId()"
-                [attr.aria-checked]="plantilla.id === themeTemplateId()"
+                [attr.aria-pressed]="plantilla.id === themeTemplateId()"
                 (click)="themeTemplateId.set(plantilla.id)"
               >
                 <span class="plantilla-minis">

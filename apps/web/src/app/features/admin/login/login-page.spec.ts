@@ -104,6 +104,17 @@ describe('LoginPage', () => {
     ).toBe('/dashboard/events/e1');
   });
 
+  it('respeta `redirigir` aunque haya 2+ espacios (no lo descarta por el selector)', async () => {
+    expect(
+      await entrarYVerDestino('/dashboard/events/e1', {
+        listMyOrganizations: vi.fn().mockResolvedValue([
+          { organization_id: 'o1', slug: 'acme', name: 'Acme', role_name: 'Propietario' },
+          { organization_id: 'o2', slug: 'otra', name: 'Otra', role_name: 'Editor' },
+        ]),
+      }),
+    ).toBe('/dashboard/events/e1');
+  });
+
   it('admin de plataforma sin organizaciones entra directo a /admin', async () => {
     expect(
       await entrarYVerDestino(null, {

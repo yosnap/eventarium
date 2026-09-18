@@ -73,6 +73,7 @@ function flushCarga(
   opciones: {
     plantillasDevueltas?: unknown;
     brandingThemeId?: string | null;
+    plataformaThemeId?: string | null;
     evento?: unknown;
   } = {},
 ): void {
@@ -82,6 +83,9 @@ function flushCarga(
   http
     .expectOne((p) => p.url === '/api/v1/organizations/me/branding')
     .flush({ theme_template_id: opciones.brandingThemeId ?? null });
+  http
+    .expectOne((p) => p.url === '/api/v1/tenant/branding')
+    .flush({ platform: { theme_template_id: opciones.plataformaThemeId ?? null } });
   http.expectOne((p) => p.url === '/api/v1/events/e1').flush(opciones.evento ?? eventoBase());
 }
 
@@ -126,6 +130,21 @@ describe('EventDesign', () => {
     await esperarSinViolacionesDeAccesibilidad(raiz);
   });
 
+  it('sin plantilla propia ni de organización, hereda la aplicada a la plataforma (no el catálogo por defecto)', async () => {
+    const fixture = TestBed.createComponent(EventDesign);
+    fixture.componentRef.setInput('eventId', 'e1');
+    await avanzar(fixture);
+    // Ni el evento ni la organización tienen plantilla propia, pero la
+    // plataforma sí tiene "Editorial" aplicada — debe ganar al catálogo por
+    // defecto ("Bosque"), igual que resuelve el backend en `_tema_del_evento`
+    // (hallazgo de red-team tras fusionar con develop).
+    flushCarga(http, { plataformaThemeId: 'p2' });
+    await avanzar(fixture);
+
+    const raiz = fixture.nativeElement as HTMLElement;
+    expect(raiz.querySelector('.plantilla-activa')?.textContent).toContain('Editorial');
+  });
+
   it('clic en una tarjeta no activa aplica la plantilla con PATCH inmediato', async () => {
     const fixture = TestBed.createComponent(EventDesign);
     fixture.componentRef.setInput('eventId', 'e1');
@@ -148,6 +167,29 @@ describe('EventDesign', () => {
 
     expect(raiz.querySelector('.plantilla-activa')?.textContent).toContain('Editorial');
     expect(raiz.textContent).toContain('Aplicada');
+  });
+
+  it('clic en la tarjeta heredada (sin plantilla propia todavía) SÍ la fija en el evento', async () => {
+    const fixture = TestBed.createComponent(EventDesign);
+    fixture.componentRef.setInput('eventId', 'e1');
+    await avanzar(fixture);
+    // El evento no tiene theme_template_id propio: "Bosque" se ve marcada
+    // por herencia del catálogo por defecto, pero no está fijada todavía —
+    // antes de este fix, clicarla no hacía nada (hallazgo de red-team).
+    flushCarga(http);
+    await avanzar(fixture);
+
+    const raiz = fixture.nativeElement as HTMLElement;
+    const bosque = Array.from(raiz.querySelectorAll('.plantilla-tarjeta')).find((b) =>
+      b.textContent?.includes('Bosque'),
+    ) as HTMLButtonElement;
+    bosque.click();
+    await avanzar(fixture);
+
+    const peticion = http.expectOne((p) => p.url === '/api/v1/events/e1' && p.method === 'PATCH');
+    expect(peticion.request.body).toEqual({ theme_template_id: 'p1' });
+    peticion.flush({ ...eventoBase({ theme_template_id: 'p1' }) });
+    await avanzar(fixture);
   });
 
   it('cambiar de fuente vacía un debounce de color pendiente antes de aplicar la fuente', async () => {
@@ -205,6 +247,34 @@ describe('EventDesign', () => {
         theme_overrides: { accent: '#3b82f6', 'font-display': fuenteElegida },
       });
       await avanzar(fixture);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('destruir el componente con un debounce de color pendiente no dispara el PATCH', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const fixture = TestBed.createComponent(EventDesign);
+      fixture.componentRef.setInput('eventId', 'e1');
+      await avanzar(fixture);
+      flushCarga(http);
+      await avanzar(fixture);
+
+      const raiz = fixture.nativeElement as HTMLElement;
+      const colorInput = raiz.querySelector('input[type="color"]') as HTMLInputElement;
+      colorInput.value = '#3b82f6';
+      colorInput.dispatchEvent(new Event('input'));
+      await avanzar(fixture);
+
+      // Se destruye antes de que venza el debounce (400ms) — navegar a otra
+      // pantalla no debe dejar un temporizador vivo que dispare un PATCH
+      // desde un componente ya destruido.
+      fixture.destroy();
+      vi.advanceTimersByTime(500);
+      await Promise.resolve();
+
+      http.expectNone((p) => p.url === '/api/v1/events/e1' && p.method === 'PATCH');
     } finally {
       vi.useRealTimers();
     }

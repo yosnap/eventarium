@@ -32,9 +32,11 @@ import { MediaFields } from './media-fields';
             <app-button variant="secundario" type="button" (pulsado)="abrir()">
               {{ t('ui.media.cambiar') }}
             </app-button>
-            <app-button variant="terciario" type="button" (pulsado)="quitar()">
-              {{ t('ui.media.quitar') }}
-            </app-button>
+            @if (permitirQuitar()) {
+              <app-button variant="terciario" type="button" (pulsado)="quitar()">
+                {{ t('ui.media.quitar') }}
+              </app-button>
+            }
           </div>
         </div>
       } @else {
@@ -42,6 +44,7 @@ import { MediaFields } from './media-fields';
           [aceptados]="aceptados()"
           [biblioteca]="biblioteca()"
           [tituloBiblioteca]="etiqueta()"
+          [permitirUrl]="permitirUrl()"
           (ficheroElegido)="ficheroElegido.emit($event)"
           (urlElegida)="url.set($event)"
         />
@@ -52,6 +55,7 @@ import { MediaFields } from './media-fields';
         [titulo]="etiqueta()"
         [aceptados]="aceptados()"
         [biblioteca]="biblioteca()"
+        [permitirUrl]="permitirUrl()"
         (ficheroElegido)="ficheroElegido.emit($event)"
         (urlElegida)="url.set($event)"
       />
@@ -93,6 +97,14 @@ export class MediaPicker {
   readonly aceptados = input.required<string>();
   /** Imágenes existentes para la pestaña Biblioteca (opcional). */
   readonly biblioteca = input<readonly { url: string; etiqueta: string }[]>([]);
+  /** Si el consumidor puede persistir una URL elegida (ver `MediaFields`). */
+  readonly permitirUrl = input(true);
+  /** Si hay una acción real de "Quitar" detrás (borrado en el servidor). Por
+   * defecto `true`; ningún consumidor actual la implementa todavía — sin
+   * esto, "Quitar" solo limpiaba la previsualización local sin borrar nada
+   * en el servidor, y la imagen volvía a aparecer al recargar (hallazgo de
+   * red-team). */
+  readonly permitirQuitar = input(true);
 
   /** La URL actual de la imagen, en doble enlace. */
   readonly url = model<string | null>(null);

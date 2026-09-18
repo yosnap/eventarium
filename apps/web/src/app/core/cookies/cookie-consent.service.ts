@@ -96,11 +96,21 @@ export class CookieConsentService {
 
   private async decidir(categorias: CookieCategory[]): Promise<void> {
     const unicas = [...new Set(categorias)];
+    const anteriores = this.categoriasActivas();
+    // Si se retira una categoría que ya estaba activa, los scripts de
+    // terceros correspondientes (GA4, Meta Pixel, Cloudflare) ya están
+    // inyectados y corriendo: no hay API de "desactivar" que puedan ofrecer
+    // de forma genérica. Recargar es la única forma fiable de que dejen de
+    // ejecutarse — sin esto, retirar el consentimiento no tenía efecto real.
+    const seRetiraAlgunaCategoria = [...anteriores].some((c) => !unicas.includes(c));
+
     this.categoriasActivas.set(new Set(unicas));
     this.decisionTomada.set(true);
     this.gestionSolicitada.set(false);
     this.guardarDecision(unicas);
-    this.activarScriptsDeLasCategorias(unicas);
+    if (!seRetiraAlgunaCategoria) {
+      this.activarScriptsDeLasCategorias(unicas);
+    }
 
     try {
       await firstValueFrom(
@@ -111,6 +121,10 @@ export class CookieConsentService {
       // activados o no según corresponda): un fallo de red al registrar el
       // consentimiento no debe bloquear la navegación de quien decide.
       console.error('[cookies] no se ha podido registrar el consentimiento:', error);
+    }
+
+    if (seRetiraAlgunaCategoria && this.esNavegador) {
+      window.location.reload();
     }
   }
 

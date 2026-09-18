@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
 
 import { Button } from './button';
@@ -21,19 +21,21 @@ import { Input } from './input';
   imports: [TranslocoDirective, Button, Input],
   template: `
     <ng-container *transloco="let t">
-      <div class="pestanas" role="tablist">
-        @for (tab of pestanasDisponibles; track tab.valor) {
-          <button
-            type="button"
-            role="tab"
-            [class.pestana-activa]="pestana() === tab.valor"
-            [attr.aria-selected]="pestana() === tab.valor"
-            (click)="pestana.set(tab.valor)"
-          >
-            {{ t(tab.etiqueta) }}
-          </button>
-        }
-      </div>
+      @if (pestanasDisponibles().length > 1) {
+        <div class="pestanas" role="tablist">
+          @for (tab of pestanasDisponibles(); track tab.valor) {
+            <button
+              type="button"
+              role="tab"
+              [class.pestana-activa]="pestana() === tab.valor"
+              [attr.aria-selected]="pestana() === tab.valor"
+              (click)="pestana.set(tab.valor)"
+            >
+              {{ t(tab.etiqueta) }}
+            </button>
+          }
+        </div>
+      }
 
       @switch (pestana()) {
         @case ('subir') {
@@ -56,7 +58,7 @@ import { Input } from './input';
         }
         @case ('url') {
           <app-input
-            fieldId="media-url"
+            [fieldId]="idUrl"
             [label]="t('ui.media.urlEtiqueta')"
             [value]="urlEscrita()"
             (valueChange)="urlEscrita.set($event)"
@@ -167,12 +169,25 @@ import { Input } from './input';
   `,
 })
 export class MediaFields {
+  private static contador = 0;
+  /** Id único por instancia: dos `MediaFields` en la misma página (p. ej.
+   * logo y favicon en identidad de plataforma) no pueden compartir el id del
+   * campo de URL — `label[for]` apuntaría al input equivocado (hallazgo de
+   * red-team). */
+  protected readonly idUrl = `media-url-${MediaFields.contador++}`;
+
   /** Tipos aceptados por el selector de fichero (igual que `accept`). */
   readonly aceptados = input.required<string>();
   /** Imágenes existentes para la pestaña Biblioteca (opcional). */
   readonly biblioteca = input<readonly { url: string; etiqueta: string }[]>([]);
   /** Etiqueta accesible de la rejilla de biblioteca (título del campo/diálogo). */
   readonly tituloBiblioteca = input('');
+  /** Si el consumidor puede persistir una URL elegida (pestaña "URL"). Por
+   * defecto `true`; ningún consumidor actual lo soporta todavía (ambos solo
+   * suben fichero), así que lo desactivan explícitamente — sin esto, elegir
+   * una URL actualizaba la previsualización y se perdía en silencio al
+   * guardar (hallazgo de red-team). */
+  readonly permitirUrl = input(true);
 
   /** El `File` elegido en la pestaña Subir. */
   readonly ficheroElegido = output<File>();
@@ -183,11 +198,21 @@ export class MediaFields {
   protected readonly arrastrando = signal(false);
   protected readonly urlEscrita = signal('');
 
-  protected readonly pestanasDisponibles = [
-    { valor: 'subir' as const, etiqueta: 'ui.media.pestanaSubir' },
-    { valor: 'url' as const, etiqueta: 'ui.media.pestanaUrl' },
-    { valor: 'biblioteca' as const, etiqueta: 'ui.media.pestanaBiblioteca' },
-  ];
+  protected readonly pestanasDisponibles = computed(() =>
+    (
+      [
+        { valor: 'subir' as const, etiqueta: 'ui.media.pestanaSubir' },
+        { valor: 'url' as const, etiqueta: 'ui.media.pestanaUrl' },
+        { valor: 'biblioteca' as const, etiqueta: 'ui.media.pestanaBiblioteca' },
+      ] as const
+    ).filter((tab) => {
+      if (tab.valor === 'url') return this.permitirUrl();
+      // Sin imágenes que ofrecer, la pestaña Biblioteca no tiene nada que
+      // hacer salvo mostrar un estado vacío permanente.
+      if (tab.valor === 'biblioteca') return this.biblioteca().length > 0;
+      return true;
+    }),
+  );
 
   /** Reinicia a la pestaña Subir y limpia la URL escrita — quien envuelve
    * este componente en un diálogo lo llama al reabrirlo, para no arrastrar
