@@ -14,6 +14,8 @@ from app.core.deps import bloquear_escritura_si_impersona
 from app.core.redis_client import close_redis
 from app.core.storage import get_storage
 from app.modules.accounting.router import router as accounting_router
+from app.modules.admin.analytics_router import router as admin_analytics_router
+from app.modules.admin.ga4_client import close_ga4
 from app.modules.admin.impersonation_router import router as admin_impersonation_router
 from app.modules.admin.platform_router import router as admin_platform_router
 from app.modules.admin.router import router as admin_router
@@ -24,6 +26,8 @@ from app.modules.events.router import router as events_router
 from app.modules.health.router import router as health_router
 from app.modules.legal.router import router_cookie_consent as cookie_consent_router
 from app.modules.legal.router import router_public as legal_public_router
+from app.modules.media.router import folders_router as media_folders_router
+from app.modules.media.router import router as media_router
 from app.modules.metrics.router import router as metrics_router
 from app.modules.organizations.invitations_public_router import (
     router as invitations_public_router,
@@ -64,6 +68,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         await close_redis()
+        await close_ga4()
 
 
 def create_app() -> FastAPI:
@@ -114,6 +119,7 @@ def create_app() -> FastAPI:
     api.include_router(roles_router)
     api.include_router(admin_router)
     api.include_router(admin_users_router)
+    api.include_router(admin_analytics_router)
     api.include_router(admin_platform_router)
     api.include_router(admin_impersonation_router)
     api.include_router(events_router)
@@ -125,6 +131,8 @@ def create_app() -> FastAPI:
     api.include_router(tickets_public_router)
     api.include_router(sponsor_tiers_router)
     api.include_router(sponsors_router)
+    api.include_router(media_router)
+    api.include_router(media_folders_router)
     api.include_router(payments_router)
     api.include_router(payments_ticket_types_router)
     api.include_router(payments_discount_codes_router)

@@ -6,5 +6,5 @@ export interface BodyUploadPlatformFaviconApiV1AdminIdentityFaviconPut {
   /**
    * Imagen del favicon
    */
-  fichero: string;
+  fichero?: (string | null);
 }

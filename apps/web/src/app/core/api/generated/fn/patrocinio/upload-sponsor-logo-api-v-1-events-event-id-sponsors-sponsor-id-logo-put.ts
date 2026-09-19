@@ -13,7 +13,7 @@ import { SponsorResponse } from '../../models/sponsor-response';
 export interface UploadSponsorLogoApiV1EventsEventIdSponsorsSponsorIdLogoPut$Params {
   sponsor_id: string;
   event_id: string;
-      body: BodyUploadSponsorLogoApiV1EventsEventIdSponsorsSponsorIdLogoPut
+      body?: BodyUploadSponsorLogoApiV1EventsEventIdSponsorsSponsorIdLogoPut
 }
 
 export function uploadSponsorLogoApiV1EventsEventIdSponsorsSponsorIdLogoPut(http: HttpClient, rootUrl: string, params: UploadSponsorLogoApiV1EventsEventIdSponsorsSponsorIdLogoPut$Params, context?: HttpContext): Observable<StrictHttpResponse<SponsorResponse>> {

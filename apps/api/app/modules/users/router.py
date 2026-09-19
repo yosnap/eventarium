@@ -58,6 +58,7 @@ async def get_me(
         first_name=usuario.first_name,
         last_name=usuario.last_name,
         is_superadmin=usuario.is_superadmin,
+        platform_role=usuario.platform_role,
         organization_id=str(usuario.organization_id),
         roles=sorted(claves),
         permissions=sorted(Permission(p) for p in permisos),
@@ -343,17 +344,28 @@ async def check_public_slug(
 @router.get(
     "/me/organizations",
     summary="Organizaciones a las que pertenece la persona",
-    description="Para el selector de organización del panel, cuando pertenece a más de una.",
+    description=(
+        "Para el selector de espacio de trabajo, cuando pertenece a más de una. "
+        "El orden (`last_seen_at` descendente) se fija aquí, no solo dentro de "
+        "`app_user_organizations`: el `ORDER BY` de una función SQL no se "
+        "propaga de forma garantizada a través de este `SELECT` externo."
+    ),
     response_model=list[OrganizationMembershipResponse],
 )
 async def list_my_organizations(
     usuario: CurrentUserDep, session: DbDep
 ) -> list[OrganizationMembershipResponse]:
     filas = await session.execute(
-        text("SELECT organization_id, slug, name FROM app_user_organizations(:id)"),
+        text(
+            "SELECT organization_id, slug, name, role_name "
+            "FROM app_user_organizations(:id) "
+            "ORDER BY last_seen_at DESC NULLS LAST, name, organization_id"
+        ),
         {"id": usuario.id},
     )
     return [
-        OrganizationMembershipResponse(organization_id=str(fila[0]), slug=fila[1], name=fila[2])
+        OrganizationMembershipResponse(
+            organization_id=str(fila[0]), slug=fila[1], name=fila[2], role_name=fila[3]
+        )
         for fila in filas
     ]

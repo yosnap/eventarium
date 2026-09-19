@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -75,6 +76,49 @@ async def test_el_listado_publico_solo_incluye_published_public(
     slugs = [e["slug"] for e in listado.json()]
     assert slugs == ["publico"]
     assert borrador["slug"] not in slugs
+
+
+async def test_el_listado_publico_resuelve_la_portada_de_biblioteca_de_varias_organizaciones(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    otra_organizacion: OrganizacionDePrueba,
+) -> None:
+    """Regresión: `list_public_events_across_organizations` fija el contexto
+    RLS organización a organización dentro de un bucle; resolver la portada
+    de biblioteca DESPUÉS de que el bucle termine la resolvía con el
+    contexto de la ÚLTIMA organización, y la portada de cualquier evento de
+    otra organización salía `null` en silencio (`Media` tiene `FORCE ROW
+    LEVEL SECURITY`)."""
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    )
+
+    async def _publicar_con_portada_de_biblioteca(org: OrganizacionDePrueba, slug: str) -> None:
+        _, cabeceras = await iniciar_sesion(cliente, org)
+        evento = await _crear_evento(cliente, cabeceras, slug=slug)
+        subido = await cliente.post(
+            "/api/v1/organizations/me/media",
+            headers=cabeceras,
+            data={"kind": "events"},
+            files={"fichero": (f"{slug}.png", png, "image/png")},
+        )
+        assert subido.status_code == 200, subido.text
+        asignada = await cliente.put(
+            f"{EVENTS}/{evento['id']}/cover",
+            headers=cabeceras,
+            json={"media_id": subido.json()["id"]},
+        )
+        assert asignada.status_code == 200, asignada.text
+        await _publicar(cliente, cabeceras, evento["id"])
+
+    await _publicar_con_portada_de_biblioteca(organizacion, "portada-org-a")
+    await _publicar_con_portada_de_biblioteca(otra_organizacion, "portada-org-b")
+
+    listado = await cliente.get(PUBLIC_EVENTS)
+    assert listado.status_code == 200, listado.text
+    portadas = {e["slug"]: e["cover_url"] for e in listado.json()}
+    assert portadas["portada-org-a"] is not None
+    assert portadas["portada-org-b"] is not None
 
 
 async def test_el_listado_y_el_detalle_incluyen_el_precio_desde_del_tipo_mas_barato(

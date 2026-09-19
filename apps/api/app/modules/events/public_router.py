@@ -57,16 +57,19 @@ from app.modules.events.schemas import (
     PublicTheme,
     PublicVenue,
 )
+from app.modules.media.models import Media
 from app.modules.organizations.models import OrganizationMember
 from app.modules.payments import service as payments_service
 from app.modules.registrations import repository as registrations_repository
 from app.modules.sponsors import repository as sponsors_repository
+from app.modules.sponsors.models import Sponsor
 from app.modules.sponsors.schemas import (
     PublicSponsor,
     PublicSponsorDetail,
     PublicSponsorHistoryItem,
     PublicSponsorTier,
 )
+from app.modules.theme_templates.accent_palette import fusionar_overrides
 from app.modules.users.models import User, UserSocialLink
 from app.modules.users.schemas import (
     PublicSpeakerHistoryItem,
@@ -84,10 +87,24 @@ def _display_name(persona: User) -> str:
     return nombre or "Persona"
 
 
-def _cover_url(evento: Event) -> str | None:
-    if not evento.cover_object_key:
-        return None
-    return get_storage().public_url(evento.cover_object_key)
+async def _cover_url(session: AsyncSession, evento: Event) -> str | None:
+    almacen = get_storage()
+    if evento.cover_media_id is not None:
+        media = await session.get(Media, evento.cover_media_id)
+        return almacen.public_url(media.object_key) if media else None
+    if evento.cover_object_key:
+        return almacen.public_url(evento.cover_object_key)
+    return None
+
+
+async def _sponsor_logo_url(session: AsyncSession, patrocinador: Sponsor) -> str | None:
+    almacen = get_storage()
+    if patrocinador.logo_media_id is not None:
+        media = await session.get(Media, patrocinador.logo_media_id)
+        return almacen.public_url(media.object_key) if media else None
+    if patrocinador.logo_object_key:
+        return almacen.public_url(patrocinador.logo_object_key)
+    return None
 
 
 async def _sesiones_publicas(
@@ -182,6 +199,15 @@ async def _tema_del_evento(session: AsyncSession, evento: Event) -> PublicTheme 
     aquí y no en el cliente porque encadenar tres consultas desde el navegador
     para pintar una página pública sería absurdo, y porque el catálogo es una
     tabla de instalación que el visitante no tiene por qué conocer.
+
+    Único punto de fusión de `theme_overrides` en el backend (fase 1 del plan
+    «diseño del evento»): el panel de organizador calcula su propia vista
+    previa en el cliente, no hay un segundo resolutor de tokens en el
+    servidor. `fusionar_overrides` copia `tokens` antes de tocarlo — el dict
+    de esta fila ya es nuevo en cada petición (deserializado por el driver a
+    partir de `text(...)`, no el mismo objeto que el mapa de identidad del
+    ORM que usa el catálogo de `organizations/router.py`), pero se copia
+    igual, sin depender de esa garantía implícita.
     """
     fila = (
         await session.execute(
@@ -204,7 +230,11 @@ async def _tema_del_evento(session: AsyncSession, evento: Event) -> PublicTheme 
 
     if fila is None or fila[0] is None:
         return None
-    return PublicTheme(id=str(fila[0]), key=fila[1], name=fila[2], tokens=fila[3])
+
+    tokens = fila[3]
+    if evento.theme_overrides:
+        tokens = fusionar_overrides(tokens, evento.theme_overrides)
+    return PublicTheme(id=str(fila[0]), key=fila[1], name=fila[2], tokens=tokens)
 
 
 @router.get(
@@ -220,7 +250,7 @@ async def list_public_events(session: SessionDep) -> list[PublicEventSummary]:
             slug=evento.slug,
             title=evento.title,
             summary=evento.summary,
-            cover_url=_cover_url(evento),
+            cover_url=cover_url,
             timezone=evento.timezone,
             starts_at=evento.starts_at,
             ends_at=evento.ends_at,
@@ -235,7 +265,7 @@ async def list_public_events(session: SessionDep) -> list[PublicEventSummary]:
             price_currency=precio.tipo.currency if precio else None,
             price_multiple=precio.varios_precios if precio else False,
         )
-        for evento, reservadas, precio in filas
+        for evento, reservadas, precio, cover_url in filas
     ]
 
 
@@ -255,7 +285,6 @@ async def _sponsor_tiers_publicos(
     if not filas:
         return []
 
-    almacen = get_storage()
     grupos: dict[uuid.UUID, PublicSponsorTier] = {}
     orden: list[uuid.UUID] = []
     for patrocinador, nivel in filas:
@@ -268,9 +297,7 @@ async def _sponsor_tiers_publicos(
             PublicSponsor(
                 id=str(patrocinador.id),
                 name=patrocinador.name,
-                logo_url=almacen.public_url(patrocinador.logo_object_key)
-                if patrocinador.logo_object_key
-                else None,
+                logo_url=await _sponsor_logo_url(session, patrocinador),
                 website=patrocinador.website,
                 contribution_type=patrocinador.contribution_type,
                 contribution_description=patrocinador.contribution_description,
@@ -308,7 +335,7 @@ async def get_public_event(
         title=evento.title,
         summary=evento.summary,
         description=evento.description,
-        cover_url=_cover_url(evento),
+        cover_url=await _cover_url(session, evento),
         timezone=evento.timezone,
         starts_at=evento.starts_at,
         ends_at=evento.ends_at,
@@ -374,13 +401,10 @@ async def get_public_sponsor(
         )
     ).all()
 
-    almacen = get_storage()
     return PublicSponsorDetail(
         id=str(patrocinador.id),
         name=patrocinador.name,
-        logo_url=almacen.public_url(patrocinador.logo_object_key)
-        if patrocinador.logo_object_key
-        else None,
+        logo_url=await _sponsor_logo_url(session, patrocinador),
         website=patrocinador.website,
         contribution_type=patrocinador.contribution_type,  # type: ignore[arg-type]
         contribution_description=patrocinador.contribution_description,

@@ -43,3 +43,18 @@ class BrandingResponse(BaseModel):
     """Identidad visual de la instalación."""
 
     platform: PlatformBrandingBlock
+
+
+class AnalyticsPublicResponse(BaseModel):
+    """Identificadores de analítica configurados, sin autenticar.
+
+    Mismo nivel de exposición que el HTML público que cargaría los scripts:
+    los tres valores son semi-públicos por diseño de cada proveedor
+    (`PlatformAnalyticsSettings`). `null` = proveedor sin configurar: el
+    banner no carga su script.
+    """
+
+    ga4_measurement_id: str | None = None
+    meta_pixel_id: str | None = None
+    cloudflare_analytics_token: str | None = None
+    gtm_container_id: str | None = None

@@ -8,9 +8,14 @@
  * Sin dominio por organización (fase 6 del plan «organización sin
  * dominio»): ya no lleva `host`, campo que solo devolvía `NULL` desde que
  * `organization_domains` se retiró.
+ *
+ * `role_name` puede ser `None`: `app_user_organizations` usa `LEFT JOIN
+ * roles` (plan «selector de espacio de trabajo»), así que un fallo de
+ * resolución del rol no hace desaparecer la organización de la lista.
  */
 export interface OrganizationMembershipResponse {
   name: string;
   organization_id: string;
+  role_name: (string | null);
   slug: string;
 }

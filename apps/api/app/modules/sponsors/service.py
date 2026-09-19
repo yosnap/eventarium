@@ -145,12 +145,14 @@ async def delete_sponsor(
 ) -> str | None:
     """Borra el patrocinador y devuelve la clave de su logo (si tenía), para que
     el router la borre del almacén en un `BackgroundTask` tras el commit —
-    mismo patrón que `events/router.py:upload_cover`."""
+    mismo patrón que `events/router.py:upload_cover`. Si el logo está
+    gestionado por la biblioteca de medios (`logo_media_id` no nulo), no se
+    devuelve clave: ese objeto puede seguir en uso en otro sitio."""
     patrocinador = await repository.get_sponsor(session, organization_id, event_id, sponsor_id)
     if patrocinador is None:
         raise NotFoundError("Ese patrocinador no existe.")
 
-    clave_logo = patrocinador.logo_object_key
+    clave_logo = patrocinador.logo_object_key if patrocinador.logo_media_id is None else None
     await session.delete(patrocinador)
     await session.flush()
     return clave_logo

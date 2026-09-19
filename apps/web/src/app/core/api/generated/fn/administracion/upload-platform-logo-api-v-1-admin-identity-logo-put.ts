@@ -11,10 +11,10 @@ import { BodyUploadPlatformLogoApiV1AdminIdentityLogoPut } from '../../models/bo
 import { PlatformBrandingResponse } from '../../models/platform-branding-response';
 
 export interface UploadPlatformLogoApiV1AdminIdentityLogoPut$Params {
-      body: BodyUploadPlatformLogoApiV1AdminIdentityLogoPut
+      body?: BodyUploadPlatformLogoApiV1AdminIdentityLogoPut
 }
 
-export function uploadPlatformLogoApiV1AdminIdentityLogoPut(http: HttpClient, rootUrl: string, params: UploadPlatformLogoApiV1AdminIdentityLogoPut$Params, context?: HttpContext): Observable<StrictHttpResponse<PlatformBrandingResponse>> {
+export function uploadPlatformLogoApiV1AdminIdentityLogoPut(http: HttpClient, rootUrl: string, params?: UploadPlatformLogoApiV1AdminIdentityLogoPut$Params, context?: HttpContext): Observable<StrictHttpResponse<PlatformBrandingResponse>> {
   const rb = new RequestBuilder(rootUrl, uploadPlatformLogoApiV1AdminIdentityLogoPut.PATH, 'put');
   if (params) {
     rb.body(params.body, 'multipart/form-data');

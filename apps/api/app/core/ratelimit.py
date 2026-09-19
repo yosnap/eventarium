@@ -71,6 +71,9 @@ MI_ENTRADA_POR_IP = 20
 # Páginas legales (fase 5 del PRD): lectura pública sin token, mismo tope que
 # el resto de contenido público de solo lectura.
 LEGAL_PAGES_POR_IP = PUBLICO_POR_IP
+# Identificadores públicos de analítica (fase 1 del plan de cookies):
+# mismo nivel de exposición que el propio HTML que los cargaría.
+ANALITICA_POR_IP = PUBLICO_POR_IP
 # El banner de cookies llama a este endpoint como mucho una vez por decisión
 # real (aceptar/rechazar/personalizar); más permisivo que el registro porque
 # no encola correo ni consume ningún recurso escaso, pero sigue necesitando

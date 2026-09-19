@@ -38,6 +38,12 @@ class UserSummary(BaseModel):
     first_name: str | None
     last_name: str | None
     is_superadmin: bool
+    # Rol aditivo de plataforma: el guard del panel de plataforma decide con
+    # él sin esperar a un `/users/me` extra — justo tras un login fresco,
+    # `currentUser()` es este resumen y sin el campo un `soporte` sería
+    # rebotado aunque el backend le dejaría entrar (fase 3 del plan de
+    # cookies). Mismo nivel de exposición que `is_superadmin`.
+    platform_role: str | None
 
 
 class LoginResponse(TokenResponse):

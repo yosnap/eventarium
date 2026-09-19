@@ -9,13 +9,17 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import typer
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import maintenance_session
 from app.core.security import generate_password, hash_password
+from app.core.storage import get_storage
+from app.modules.media.models import Media, PlatformMedia
 from app.modules.organizations import service
 from app.modules.users.models import User
 from app.seed.demo import seed_demo
@@ -114,6 +118,74 @@ def export_openapi(
     esquema = create_app().openapi()
     destino.write_text(json.dumps(esquema, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     typer.echo(f"OpenAPI exportado a {destino}")
+
+
+async def _purgar_media(session: AsyncSession, limite: datetime, etiqueta: str) -> int:
+    almacen = get_storage()
+    filas = (
+        (
+            await session.execute(
+                select(Media).where(Media.deleted_at.is_not(None), Media.deleted_at < limite)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for fila in filas:
+        typer.echo(f"Purgado ({etiqueta}): {fila.id} — {fila.filename}")
+        await almacen.delete_object(fila.object_key)
+        await session.delete(fila)
+    return len(filas)
+
+
+async def _purgar_platform_media(session: AsyncSession, limite: datetime, etiqueta: str) -> int:
+    almacen = get_storage()
+    filas = (
+        (
+            await session.execute(
+                select(PlatformMedia).where(
+                    PlatformMedia.deleted_at.is_not(None), PlatformMedia.deleted_at < limite
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for fila in filas:
+        typer.echo(f"Purgado ({etiqueta}): {fila.id} — {fila.filename}")
+        await almacen.delete_object(fila.object_key)
+        await session.delete(fila)
+    return len(filas)
+
+
+async def purgar_medios_huerfanos(older_than_days: int) -> int:
+    """Lógica de `purge-orphaned-media`, en una función de módulo (no anidada
+    en el comando Typer) para poder probarla directamente sin pasar por
+    `asyncio.run` — invocarlo desde un test ya `async def` fallaría, porque
+    ya hay un bucle de eventos en marcha."""
+    limite = datetime.now(UTC) - timedelta(days=older_than_days)
+    async with maintenance_session() as session:
+        total = await _purgar_media(session, limite, "organización")
+        total += await _purgar_platform_media(session, limite, "plataforma")
+    return total
+
+
+@app.command("purge-orphaned-media")
+def purge_orphaned_media(
+    older_than_days: int = typer.Option(
+        30, "--older-than-days", help="Solo purga filas en papelera más antiguas que N días."
+    ),
+) -> None:
+    """Borra de verdad (almacén + fila) los medios en papelera hace tiempo.
+
+    Estrictamente manual: nada en el proyecto invoca este comando solo.
+    `DELETE /organizations/me/media/{id}` y su equivalente de plataforma solo
+    marcan `deleted_at` — nunca borran el objeto real, porque quien lo envió
+    a la papelera puede querer restaurarlo. Este comando es el único punto
+    que libera el espacio de verdad, y solo cuando alguien lo ejecuta.
+    """
+    total = asyncio.run(purgar_medios_huerfanos(older_than_days))
+    typer.echo(f"Total purgado: {total}")
 
 
 if __name__ == "__main__":

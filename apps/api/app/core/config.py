@@ -126,6 +126,16 @@ class Settings(BaseSettings):
     # de trabajo.
     stripe_webhook_retention_days: int = 90
 
+    # Estadísticas de GA4 dentro del panel (fase 2 del plan de cookies).
+    # La credencial de la cuenta de servicio es el secreto real y solo vive
+    # aquí: su JSON inline (o la ruta a su fichero) y el property ID numérico
+    # de GA4 NO se guardan en base de datos — en `platform_analytics_settings`
+    # solo está el `ga4_measurement_id` público que el frontend carga en el
+    # HTML. Vacíos por defecto: el endpoint de estadísticas responde con un
+    # estado explícito «no configurado» y el resto del panel no se ve afectado.
+    ga4_service_account_json: str = ""
+    ga4_property_id: str = ""
+
     @field_validator("jwt_secret", "ticket_qr_secret")
     @classmethod
     def _validar_secreto(cls, valor: str) -> str:

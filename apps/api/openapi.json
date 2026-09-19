@@ -382,6 +382,28 @@
         }
       }
     },
+    "/api/v1/tenant/analytics": {
+      "get": {
+        "tags": [
+          "tenant"
+        ],
+        "summary": "Identificadores de analítica configurados",
+        "description": "Los identificadores de los proveedores de analítica que el banner de cookies cargará solo tras el consentimiento correspondiente. Público a propósito: son los mismos valores que ya viajarían en el HTML si los scripts se incrustaran directamente.",
+        "operationId": "analytics_api_v1_tenant_analytics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsPublicResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/organizations/check-slug": {
       "get": {
         "tags": [
@@ -640,8 +662,8 @@
         "tags": [
           "organizaciones"
         ],
-        "summary": "Subir el logotipo",
-        "description": "Acepta PNG, JPEG o WebP de hasta 5 MB. El tipo se comprueba por contenido.",
+        "summary": "Subir o asignar el logotipo",
+        "description": "Multipart (`fichero`): sube una imagen nueva, PNG/JPEG/WebP de hasta 5 MB. JSON (`{media_id}`): asigna una imagen ya subida a la biblioteca de medios.",
         "operationId": "upload_logo_api_v1_organizations_me_branding_logo_put",
         "requestBody": {
           "content": {
@@ -650,8 +672,7 @@
                 "$ref": "#/components/schemas/Body_upload_logo_api_v1_organizations_me_branding_logo_put"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -1504,7 +1525,7 @@
           "usuarios"
         ],
         "summary": "Organizaciones a las que pertenece la persona",
-        "description": "Para el selector de organización del panel, cuando pertenece a más de una.",
+        "description": "Para el selector de espacio de trabajo, cuando pertenece a más de una. El orden (`last_seen_at` descendente) se fija aquí, no solo dentro de `app_user_organizations`: el `ORDER BY` de una función SQL no se propaga de forma garantizada a través de este `SELECT` externo.",
         "operationId": "list_my_organizations_api_v1_users_me_organizations_get",
         "responses": {
           "200": {
@@ -2390,6 +2411,177 @@
         }
       }
     },
+    "/api/v1/admin/analytics-settings": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Identificadores de los proveedores de analítica",
+        "operationId": "get_analytics_settings_api_v1_admin_analytics_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsSettingsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Reemplazar los identificadores de los proveedores",
+        "operationId": "update_analytics_settings_api_v1_admin_analytics_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalyticsSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsSettingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/cookie-consents/stats": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Agregado semanal de consentimientos por categoría",
+        "operationId": "get_consentimientos_stats_api_v1_admin_cookie_consents_stats_get",
+        "parameters": [
+          {
+            "name": "desde",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Desde"
+            }
+          },
+          {
+            "name": "hasta",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Hasta"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentimientosStatsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/analytics-providers/ga4-stats": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Estadísticas de tráfico de GA4 de los últimos días",
+        "description": "Nunca falla con 500/503: si la credencial o la API no están\ndisponibles responde con un `estado` explícito — la pantalla del panel\nse renderiza igual (fase 2 del plan de cookies).\n\nLa validación de `dias` es manual (error de dominio 422) en vez de\n`Literal[7, 30]` en la firma: FastAPI entrega los query params como\n`str` y no los coerciona contra un `Literal` de enteros — el mismo\ninvariante del enum, validado donde sí funciona.",
+        "operationId": "get_ga4_stats_api_v1_admin_analytics_providers_ga4_stats_get",
+        "parameters": [
+          {
+            "name": "dias",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 30,
+              "title": "Dias"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ga4StatsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/identity": {
       "get": {
         "tags": [
@@ -2457,8 +2649,8 @@
         "tags": [
           "administración"
         ],
-        "summary": "Subir el logotipo de la plataforma",
-        "description": "Acepta PNG, JPEG o WebP de hasta 5 MB. El tipo se comprueba por contenido.",
+        "summary": "Subir o asignar el logotipo de la plataforma",
+        "description": "Multipart (`fichero`): sube una imagen nueva, PNG/JPEG/WebP de hasta 5 MB. JSON (`{media_id}`): asigna una imagen ya subida a la biblioteca de plataforma.",
         "operationId": "upload_platform_logo_api_v1_admin_identity_logo_put",
         "requestBody": {
           "content": {
@@ -2467,8 +2659,7 @@
                 "$ref": "#/components/schemas/Body_upload_platform_logo_api_v1_admin_identity_logo_put"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -2499,7 +2690,7 @@
         "tags": [
           "administración"
         ],
-        "summary": "Subir el favicon de la plataforma",
+        "summary": "Subir o asignar el favicon de la plataforma",
         "description": "Mismas reglas que el logotipo.",
         "operationId": "upload_platform_favicon_api_v1_admin_identity_favicon_put",
         "requestBody": {
@@ -2507,6 +2698,379 @@
             "multipart/form-data": {
               "schema": {
                 "$ref": "#/components/schemas/Body_upload_platform_favicon_api_v1_admin_identity_favicon_put"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformBrandingResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/platform/media": {
+      "post": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Subir una imagen a la biblioteca de plataforma",
+        "description": "Multipart (`fichero`): sube una imagen nueva. JSON (`{url}`): la descarga y reprocesa en el servidor — mismo dispatch manual que `POST /organizations/me/media` (Fase 2).",
+        "operationId": "upload_platform_media_api_v1_admin_platform_media_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_platform_media_api_v1_admin_platform_media_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Listar la biblioteca de plataforma",
+        "operationId": "list_platform_media_api_v1_admin_platform_media_get",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "name": "folder_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Folder Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Elementos por página",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Elementos por página"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Elementos omitidos",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Elementos omitidos"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_MediaResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/platform/media/{media_id}": {
+      "delete": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Enviar a la papelera",
+        "operationId": "delete_platform_media_api_v1_admin_platform_media__media_id__delete",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Media Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Editar alt/carpeta",
+        "operationId": "update_platform_media_api_v1_admin_platform_media__media_id__patch",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Media Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/platform/media/{media_id}/restore": {
+      "post": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Restaurar de la papelera",
+        "operationId": "restore_platform_media_api_v1_admin_platform_media__media_id__restore_post",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Media Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/platform/media/{media_id}/crop": {
+      "patch": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Recortar (crea una imagen nueva)",
+        "operationId": "crop_platform_media_api_v1_admin_platform_media__media_id__crop_patch",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Media Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaCropRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/platform/media-folders": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Listar carpetas",
+        "operationId": "list_platform_media_folders_api_v1_admin_platform_media_folders_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MediaFolderResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Platform Media Folders Api V1 Admin Platform Media Folders Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Crear una carpeta",
+        "operationId": "create_platform_media_folder_api_v1_admin_platform_media_folders_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformMediaFolderCreate"
               }
             }
           },
@@ -2518,7 +3082,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlatformBrandingResponse"
+                  "$ref": "#/components/schemas/MediaFolderResponse"
                 }
               }
             }
@@ -2918,8 +3482,8 @@
         "tags": [
           "eventos"
         ],
-        "summary": "Subir la portada del evento",
-        "description": "Acepta PNG, JPEG o WebP de hasta 5 MB. El tipo se comprueba por contenido.",
+        "summary": "Subir o asignar la portada del evento",
+        "description": "Multipart (`fichero`): sube una imagen nueva, PNG/JPEG/WebP de hasta 5 MB. JSON (`{media_id}`): asigna una imagen ya subida a la biblioteca de medios.",
         "operationId": "upload_cover_api_v1_events__event_id__cover_put",
         "parameters": [
           {
@@ -2933,7 +3497,6 @@
           }
         ],
         "requestBody": {
-          "required": true,
           "content": {
             "multipart/form-data": {
               "schema": {
@@ -5600,8 +6163,8 @@
         "tags": [
           "patrocinio"
         ],
-        "summary": "Subir el logotipo de un patrocinador",
-        "description": "Acepta PNG, JPEG o WebP de hasta 5 MB. El tipo se comprueba por contenido.",
+        "summary": "Subir o asignar el logotipo de un patrocinador",
+        "description": "Multipart (`fichero`): sube una imagen nueva, PNG/JPEG/WebP de hasta 5 MB. JSON (`{media_id}`): asigna una imagen ya subida a la biblioteca de medios.",
         "operationId": "upload_sponsor_logo_api_v1_events__event_id__sponsors__sponsor_id__logo_put",
         "parameters": [
           {
@@ -5624,7 +6187,6 @@
           }
         ],
         "requestBody": {
-          "required": true,
           "content": {
             "multipart/form-data": {
               "schema": {
@@ -5640,6 +6202,388 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SponsorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me/media": {
+      "post": {
+        "tags": [
+          "biblioteca de medios"
+        ],
+        "summary": "Subir una imagen a la biblioteca",
+        "operationId": "subir_api_v1_organizations_me_media_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_subir_api_v1_organizations_me_media_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "biblioteca de medios"
+        ],
+        "summary": "Listar la biblioteca de medios",
+        "operationId": "listar_api_v1_organizations_me_media_get",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "name": "folder_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Folder Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Elementos por página",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Elementos por página"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Elementos omitidos",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Elementos omitidos"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_MediaResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me/media/{media_id}": {
+      "delete": {
+        "tags": [
+          "biblioteca de medios"
+        ],
+        "summary": "Enviar una imagen a la papelera",
+        "operationId": "borrar_api_v1_organizations_me_media__media_id__delete",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Media Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "biblioteca de medios"
+        ],
+        "summary": "Editar alt/carpeta",
+        "operationId": "actualizar_api_v1_organizations_me_media__media_id__patch",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Media Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me/media/{media_id}/restore": {
+      "post": {
+        "tags": [
+          "biblioteca de medios"
+        ],
+        "summary": "Restaurar de la papelera",
+        "operationId": "restaurar_api_v1_organizations_me_media__media_id__restore_post",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Media Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me/media/{media_id}/crop": {
+      "patch": {
+        "tags": [
+          "biblioteca de medios"
+        ],
+        "summary": "Recortar (crea una imagen nueva)",
+        "operationId": "recortar_api_v1_organizations_me_media__media_id__crop_patch",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Media Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaCropRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me/media-folders": {
+      "get": {
+        "tags": [
+          "biblioteca de medios"
+        ],
+        "summary": "Listar carpetas",
+        "operationId": "listar_carpetas_api_v1_organizations_me_media_folders_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MediaFolderResponse"
+                  },
+                  "type": "array",
+                  "title": "Response Listar Carpetas Api V1 Organizations Me Media Folders Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "biblioteca de medios"
+        ],
+        "summary": "Crear una carpeta",
+        "operationId": "crear_carpeta_api_v1_organizations_me_media_folders_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaFolderCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaFolderResponse"
                 }
               }
             }
@@ -7891,6 +8835,169 @@
         "title": "ActividadDeOrganizacionOut",
         "description": "Qué hace una organización, sin ningún importe.\n\nLas cuatro marcas de tiempo responden a preguntas distintas y por eso van\nseparadas, no fundidas en un «última actividad»: una cuenta que crea eventos\npero no recibe inscripciones está rota, y una que recibe inscripciones sin\naccesos nuevos puede estar abandonada.\n\n`evento_mas_reciente` es `updated_at` («última vez que se tocó un evento») y\n`ultimo_evento_creado` es `created_at` («último dado de alta»): editar un\nevento existente es trabajar, y con una sola marca se leería como parada."
       },
+      "AnalyticsPublicResponse": {
+        "properties": {
+          "ga4_measurement_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ga4 Measurement Id"
+          },
+          "meta_pixel_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta Pixel Id"
+          },
+          "cloudflare_analytics_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cloudflare Analytics Token"
+          },
+          "gtm_container_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gtm Container Id"
+          }
+        },
+        "type": "object",
+        "title": "AnalyticsPublicResponse",
+        "description": "Identificadores de analítica configurados, sin autenticar.\n\nMismo nivel de exposición que el HTML público que cargaría los scripts:\nlos tres valores son semi-públicos por diseño de cada proveedor\n(`PlatformAnalyticsSettings`). `null` = proveedor sin configurar: el\nbanner no carga su script."
+      },
+      "AnalyticsSettingsResponse": {
+        "properties": {
+          "ga4_measurement_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ga4 Measurement Id"
+          },
+          "meta_pixel_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta Pixel Id"
+          },
+          "cloudflare_analytics_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cloudflare Analytics Token"
+          },
+          "gtm_container_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gtm Container Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ga4_measurement_id",
+          "meta_pixel_id",
+          "cloudflare_analytics_token",
+          "gtm_container_id"
+        ],
+        "title": "AnalyticsSettingsResponse",
+        "description": "Los identificadores semi-públicos de los proveedores de analítica.\n\nNinguno es un secreto (viajan en el HTML público por diseño de cada\nproveedor) — ver `PlatformAnalyticsSettings`."
+      },
+      "AnalyticsSettingsUpdate": {
+        "properties": {
+          "ga4_measurement_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ga4 Measurement Id"
+          },
+          "meta_pixel_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta Pixel Id"
+          },
+          "cloudflare_analytics_token": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cloudflare Analytics Token"
+          },
+          "gtm_container_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gtm Container Id"
+          }
+        },
+        "type": "object",
+        "title": "AnalyticsSettingsUpdate",
+        "description": "Reemplazo completo de los identificadores: un `PUT` envía los tres\nvalores (cada uno puede ser `null` para dejar el proveedor sin usar)."
+      },
       "AuditLogEntry": {
         "properties": {
           "id": {
@@ -7963,79 +9070,147 @@
         "title": "AuditLogEntry",
         "description": "Una fila de `audit_log`, tal y como la ve el superadmin."
       },
+      "Body_subir_api_v1_organizations_me_media_post": {
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "fichero": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fichero"
+          }
+        },
+        "type": "object",
+        "title": "Body_subir_api_v1_organizations_me_media_post"
+      },
       "Body_upload_cover_api_v1_events__event_id__cover_put": {
         "properties": {
           "fichero": {
-            "type": "string",
-            "contentMediaType": "application/octet-stream",
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fichero",
             "description": "Imagen de portada"
           }
         },
         "type": "object",
-        "required": [
-          "fichero"
-        ],
         "title": "Body_upload_cover_api_v1_events__event_id__cover_put"
       },
       "Body_upload_logo_api_v1_organizations_me_branding_logo_put": {
         "properties": {
           "fichero": {
-            "type": "string",
-            "contentMediaType": "application/octet-stream",
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fichero",
             "description": "Imagen del logotipo"
           }
         },
         "type": "object",
-        "required": [
-          "fichero"
-        ],
         "title": "Body_upload_logo_api_v1_organizations_me_branding_logo_put"
       },
       "Body_upload_platform_favicon_api_v1_admin_identity_favicon_put": {
         "properties": {
           "fichero": {
-            "type": "string",
-            "contentMediaType": "application/octet-stream",
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fichero",
             "description": "Imagen del favicon"
           }
         },
         "type": "object",
-        "required": [
-          "fichero"
-        ],
         "title": "Body_upload_platform_favicon_api_v1_admin_identity_favicon_put"
       },
       "Body_upload_platform_logo_api_v1_admin_identity_logo_put": {
         "properties": {
           "fichero": {
-            "type": "string",
-            "contentMediaType": "application/octet-stream",
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fichero",
             "description": "Imagen del logotipo"
           }
         },
         "type": "object",
-        "required": [
-          "fichero"
-        ],
         "title": "Body_upload_platform_logo_api_v1_admin_identity_logo_put"
+      },
+      "Body_upload_platform_media_api_v1_admin_platform_media_post": {
+        "properties": {
+          "fichero": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fichero",
+            "description": "Imagen"
+          }
+        },
+        "type": "object",
+        "title": "Body_upload_platform_media_api_v1_admin_platform_media_post"
       },
       "Body_upload_sponsor_logo_api_v1_events__event_id__sponsors__sponsor_id__logo_put": {
         "properties": {
           "fichero": {
-            "type": "string",
-            "contentMediaType": "application/octet-stream",
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fichero",
             "description": "Logotipo del patrocinador"
           }
         },
         "type": "object",
-        "required": [
-          "fichero"
-        ],
         "title": "Body_upload_sponsor_logo_api_v1_events__event_id__sponsors__sponsor_id__logo_put"
       },
       "BrandingAdminResponse": {
@@ -8435,6 +9610,38 @@
         "title": "CancelRegistrationResponse",
         "description": "Resultado de cancelar una inscripción por autocancelación."
       },
+      "CeldaDeConsentimientos": {
+        "properties": {
+          "semana": {
+            "type": "string",
+            "format": "date",
+            "title": "Semana"
+          },
+          "categoria": {
+            "type": "string",
+            "title": "Categoria"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "semana",
+          "categoria",
+          "total"
+        ],
+        "title": "CeldaDeConsentimientos",
+        "description": "Una celda del agregado semanal: semana (lunes), categoría y total.\n\n`total: null` significa «celda suprimida por debajo del umbral», no cero —\nel cero real sí se muestra (cero visits no identifica a nadie)."
+      },
       "ChangeEmailConfirmRequest": {
         "properties": {
           "token": {
@@ -8829,6 +10036,23 @@
         "title": "ConfirmWaitlistPromotionResponse",
         "description": "Resultado de confirmar una promoción de lista de espera."
       },
+      "ConsentimientosStatsResponse": {
+        "properties": {
+          "celdas": {
+            "items": {
+              "$ref": "#/components/schemas/CeldaDeConsentimientos"
+            },
+            "type": "array",
+            "title": "Celdas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "celdas"
+        ],
+        "title": "ConsentimientosStatsResponse",
+        "description": "Agregado semanal de consentimientos por categoría. Nunca incluye un\nidentificador de visita ni una fila individual: solo celdas semana×categoría."
+      },
       "ContingencyLineOut": {
         "properties": {
           "budget_line_id": {
@@ -8925,6 +10149,17 @@
             "type": "boolean",
             "title": "Is Superadmin"
           },
+          "platform_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform Role"
+          },
           "organization_id": {
             "type": "string",
             "title": "Organization Id"
@@ -8955,6 +10190,7 @@
           "first_name",
           "last_name",
           "is_superadmin",
+          "platform_role",
           "organization_id",
           "roles",
           "permissions",
@@ -9944,6 +11180,18 @@
               }
             ],
             "title": "Theme Template Id"
+          },
+          "theme_overrides": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Theme Overrides"
           }
         },
         "type": "object",
@@ -9975,7 +11223,8 @@
           "budget_approved_at",
           "contingency_fund_cents",
           "accounting_currency",
-          "theme_template_id"
+          "theme_template_id",
+          "theme_overrides"
         ],
         "title": "EventResponse",
         "description": "Evento tal y como lo ve el panel de administración."
@@ -10656,6 +11905,18 @@
               }
             ],
             "title": "Theme Template Id"
+          },
+          "theme_overrides": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Theme Overrides"
           }
         },
         "type": "object",
@@ -11191,6 +12452,71 @@
         ],
         "title": "ForgotPasswordRequest",
         "description": "Datos para pedir la recuperación de una contraseña olvidada."
+      },
+      "Ga4StatsResponse": {
+        "properties": {
+          "estado": {
+            "type": "string",
+            "enum": [
+              "datos",
+              "no_configurado",
+              "credencial_invalida",
+              "cuota_agotada",
+              "error_proveedor"
+            ],
+            "title": "Estado"
+          },
+          "detalle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detalle"
+          },
+          "usuarios_activos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usuarios Activos"
+          },
+          "sesiones": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sesiones"
+          },
+          "vistas_pagina": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vistas Pagina"
+          }
+        },
+        "type": "object",
+        "required": [
+          "estado"
+        ],
+        "title": "Ga4StatsResponse",
+        "description": "Estadísticas de GA4 de los últimos `dias` días.\n\n`estado` es siempre explícito: el panel debe poder renderizarse sin\nestadísticas (credencial ausente, JSON de la cuenta de servicio\ncorrupto, cuota agotada o la API de Google caída) — nunca un 500 ni un\nerror genérico. Los cuatro estados sin datos llevan `detalle` fijo,\nconstruido en el código: **nunca** interpola el mensaje de la excepción\nde Google, que puede contener fragmentos de la credencial de entrada\n(hallazgo red-team #2). Con `estado == \"datos\"` las tres métricas van\ninformadas; en el resto son `null`."
       },
       "GenericMessageResponse": {
         "properties": {
@@ -11812,6 +13138,210 @@
         "title": "LoginResponse",
         "description": "Respuesta del login."
       },
+      "MediaCropRequest": {
+        "properties": {
+          "x": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "X"
+          },
+          "y": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Y"
+          },
+          "width": {
+            "type": "number",
+            "maximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Width"
+          },
+          "height": {
+            "type": "number",
+            "maximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Height"
+          }
+        },
+        "type": "object",
+        "required": [
+          "x",
+          "y",
+          "width",
+          "height"
+        ],
+        "title": "MediaCropRequest",
+        "description": "Rectángulo de recorte normalizado (0-1 respecto al tamaño actual)."
+      },
+      "MediaFolderCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "slug",
+          "kind"
+        ],
+        "title": "MediaFolderCreate"
+      },
+      "MediaFolderResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "slug"
+        ],
+        "title": "MediaFolderResponse"
+      },
+      "MediaResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "mime_type": {
+            "type": "string",
+            "title": "Mime Type"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "alt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alt"
+          },
+          "folder_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
+          },
+          "uploaded_by_user_id": {
+            "type": "string",
+            "title": "Uploaded By User Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "url",
+          "filename",
+          "mime_type",
+          "size",
+          "uploaded_by_user_id",
+          "created_at"
+        ],
+        "title": "MediaResponse"
+      },
+      "MediaUpdateRequest": {
+        "properties": {
+          "alt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alt"
+          },
+          "folder_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
+          }
+        },
+        "type": "object",
+        "title": "MediaUpdateRequest"
+      },
       "MemberCreate": {
         "properties": {
           "email": {
@@ -12191,16 +13721,28 @@
           "name": {
             "type": "string",
             "title": "Name"
+          },
+          "role_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Name"
           }
         },
         "type": "object",
         "required": [
           "organization_id",
           "slug",
-          "name"
+          "name",
+          "role_name"
         ],
         "title": "OrganizationMembershipResponse",
-        "description": "Una organización a la que pertenece la persona, para el selector del panel.\n\nSin dominio por organización (fase 6 del plan «organización sin\ndominio»): ya no lleva `host`, campo que solo devolvía `NULL` desde que\n`organization_domains` se retiró."
+        "description": "Una organización a la que pertenece la persona, para el selector del panel.\n\nSin dominio por organización (fase 6 del plan «organización sin\ndominio»): ya no lleva `host`, campo que solo devolvía `NULL` desde que\n`organization_domains` se retiró.\n\n`role_name` puede ser `None`: `app_user_organizations` usa `LEFT JOIN\nroles` (plan «selector de espacio de trabajo»), así que un fallo de\nresolución del rol no hace desaparecer la organización de la lista."
       },
       "OrganizationResponse": {
         "properties": {
@@ -12403,6 +13945,37 @@
           "offset"
         ],
         "title": "Page[EventResponse]"
+      },
+      "Page_MediaResponse_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MediaResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[MediaResponse]"
       },
       "Page_MemberResponse_": {
         "properties": {
@@ -13067,6 +14640,25 @@
         "type": "object",
         "title": "PlatformLegalPagesUpdate",
         "description": "Actualización parcial de las páginas legales de plataforma.\n\nUn campo ausente no se toca; presente con `null` restaura la plantilla\npor defecto."
+      },
+      "PlatformMediaFolderCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "slug"
+        ],
+        "title": "PlatformMediaFolderCreate",
+        "description": "Igual que `MediaFolderCreate` pero sin `kind`: la biblioteca de\nplataforma tiene un único contexto (la identidad de la instalación)."
       },
       "PlatformRoleUpdate": {
         "properties": {
@@ -16931,6 +18523,14 @@
             },
             "type": "object",
             "title": "Tokens"
+          },
+          "is_default": {
+            "type": "boolean",
+            "title": "Is Default"
+          },
+          "default_mode": {
+            "type": "string",
+            "title": "Default Mode"
           }
         },
         "type": "object",
@@ -16938,10 +18538,12 @@
           "id",
           "key",
           "name",
-          "tokens"
+          "tokens",
+          "is_default",
+          "default_mode"
         ],
         "title": "ThemeTemplateCatalogItem",
-        "description": "Una plantilla tal y como la ve el catálogo del panel de la organización."
+        "description": "Una plantilla tal y como la ve el catálogo del panel de la organización.\n\n`is_default`/`default_mode` se añaden en la fase 1 del plan «diseño del\nevento»: el panel de organizador necesita resolver en cliente la cadena\nevento→organización→catálogo (sabiendo cuál es la plantilla por\ndefecto) y pintar cada miniatura en el modo correcto — antes solo los\nexponía `ThemeTemplateResponse` de superadministración."
       },
       "ThemeTemplateCreate": {
         "properties": {
@@ -17744,6 +19346,17 @@
           "is_superadmin": {
             "type": "boolean",
             "title": "Is Superadmin"
+          },
+          "platform_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform Role"
           }
         },
         "type": "object",
@@ -17752,7 +19365,8 @@
           "email",
           "first_name",
           "last_name",
-          "is_superadmin"
+          "is_superadmin",
+          "platform_role"
         ],
         "title": "UserSummary",
         "description": "Datos mínimos del usuario autenticado."

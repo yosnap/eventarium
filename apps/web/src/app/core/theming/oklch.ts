@@ -30,10 +30,15 @@ export function hexDeOklch(valor: string): string | null {
 }
 
 /**
- * `#rrggbb` → `oklch(L% C H)`. Con `alfa`, el resultado lleva `/ alfa`
- * (`oklch(L% C H / 0.1)`) para conservar la transparencia del token original.
+ * `#rrggbb` → `{L, C, H}` SIN redondear (L 0-1, H en grados 0-360).
+ *
+ * Extraída de `oklchDeHex` para que quien necesite los componentes
+ * numéricos (la derivación de paleta de acento del plan «diseño del
+ * evento») no tenga que reparsear una cadena ya redondeada a 1-3
+ * decimales, que introduciría una divergencia de precisión frente al
+ * mismo cálculo en Python (`accent_palette.py::hex_a_oklch`).
  */
-export function oklchDeHex(hex: string, alfa: string | null = null): string | null {
+export function componentesOklchDeHex(hex: string): { L: number; C: number; H: number } | null {
   const rgb = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
   if (!rgb) {
     return null;
@@ -56,7 +61,19 @@ export function oklchDeHex(hex: string, alfa: string | null = null): string | nu
   if (H < 0) {
     H += 360;
   }
+  return { L, C, H };
+}
 
+/**
+ * `#rrggbb` → `oklch(L% C H)`. Con `alfa`, el resultado lleva `/ alfa`
+ * (`oklch(L% C H / 0.1)`) para conservar la transparencia del token original.
+ */
+export function oklchDeHex(hex: string, alfa: string | null = null): string | null {
+  const componentes = componentesOklchDeHex(hex);
+  if (!componentes) {
+    return null;
+  }
+  const { L, C, H } = componentes;
   const conAlfa = alfa ? ` / ${alfa}` : '';
   return `oklch(${(L * 100).toFixed(1)}% ${C.toFixed(3)} ${H.toFixed(2)}${conAlfa})`;
 }

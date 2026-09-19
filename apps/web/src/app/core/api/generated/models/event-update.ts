@@ -22,6 +22,9 @@ export interface EventUpdate {
   starts_at?: (string | null);
   status?: ('draft' | 'published' | 'archived' | null);
   summary?: (string | null);
+  theme_overrides?: ({
+[key: string]: any;
+} | null);
   theme_template_id?: (string | null);
   timezone?: (string | null);
   title?: (string | null);

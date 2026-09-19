@@ -6,7 +6,15 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    ForeignKeyConstraint,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -38,6 +46,17 @@ class OrganizationBranding(Base, TimestampMixin):
     """Identidad visual de la organización."""
 
     __tablename__ = "organization_branding"
+    __table_args__ = (
+        # FK compuesta contra `(media.id, media.organization_id)` — nunca
+        # simple: la integridad referencial de Postgres no pasa por RLS, así
+        # que una FK simple permitiría apuntar a un `media` de otra
+        # organización (biblioteca de medios, plan `260918-1944`).
+        ForeignKeyConstraint(
+            ["logo_media_id", "organization_id"],
+            ["media.id", "media.organization_id"],
+            name="fk_organization_branding_logo_media_id_organization_id",
+        ),
+    )
 
     organization_id: Mapped[uuid.UUID] = mapped_column(
         PgUUID(as_uuid=True),
@@ -46,6 +65,12 @@ class OrganizationBranding(Base, TimestampMixin):
     )
     logo_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     favicon_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Nulo para logos subidos antes de la biblioteca de medios (sin
+    # backfill, a propósito): esas imágenes siguen su ciclo de vida de
+    # siempre (reemplazar borra el objeto anterior). No nulo = el logo está
+    # gestionado por la biblioteca; reemplazarlo NO borra el objeto, porque
+    # puede estar reutilizado en otro sitio.
+    logo_media_id: Mapped[uuid.UUID | None] = mapped_column(PgUUID(as_uuid=True), nullable=True)
     # `NULL` = la plantilla marcada `is_default` en `theme_templates`. Sin
     # backfill (0014_plantillas_de_tema): las organizaciones existentes se
     # quedan en `NULL` y por tanto ven «Oscuro» sin tocar una fila.

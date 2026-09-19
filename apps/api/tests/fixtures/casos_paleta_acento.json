@@ -1,0 +1,139 @@
+{
+  "descripcion": "Casos conocidos compartidos Python/TypeScript para la derivacion de paleta de acento (plan diseno-evento-plantilla, fase 3). Un matiz cada 30 grados con croma alto (fuerza el clamp a CROMA_MAXIMA) mas 3 colores acromaticos que deben rechazarse por debajo de UMBRAL_CROMA_MINIMO. h_esperado usa tolerancia_h porque la conversion hex->OKLCH->hex tiene redondeo de punto flotante inherente; on_accent es exacto (#ffffff o #000000).",
+  "matices": [
+    {
+      "hex": "#ff0000",
+      "h_esperado": 29.2339,
+      "tolerancia_h": 0.1,
+      "on_accent": {
+        "dark": "#000000",
+        "light": "#ffffff"
+      },
+      "on_accent_hi_valido": true
+    },
+    {
+      "hex": "#ff8000",
+      "h_esperado": 52.9847,
+      "tolerancia_h": 0.1,
+      "on_accent": {
+        "dark": "#000000",
+        "light": "#ffffff"
+      },
+      "on_accent_hi_valido": true
+    },
+    {
+      "hex": "#ffff00",
+      "h_esperado": 109.7692,
+      "tolerancia_h": 0.1,
+      "on_accent": {
+        "dark": "#000000",
+        "light": "#ffffff"
+      },
+      "on_accent_hi_valido": true
+    },
+    {
+      "hex": "#80ff00",
+      "h_esperado": 135.8924,
+      "tolerancia_h": 0.1,
+      "on_accent": {
+        "dark": "#000000",
+        "light": "#ffffff"
+      },
+      "on_accent_hi_valido": true
+    },
+    {
+      "hex": "#00ff00",
+      "h_esperado": 142.4953,
+      "tolerancia_h": 0.1,
+      "on_accent": {
+        "dark": "#000000",
+        "light": "#ffffff"
+      },
+      "on_accent_hi_valido": true
+    },
+    {
+      "hex": "#00ff80",
+      "h_esperado": 151.1848,
+      "tolerancia_h": 0.1,
+      "on_accent": {
+        "dark": "#000000",
+        "light": "#ffffff"
+      },
+      "on_accent_hi_valido": true
+    },
+    {
+      "hex": "#00ffff",
+      "h_esperado": 194.7689,
+      "tolerancia_h": 0.1,
+      "on_accent": {
+        "dark": "#000000",
+        "light": "#ffffff"
+      },
+      "on_accent_hi_valido": true
+    },
+    {
+      "hex": "#0080ff",
+      "h_esperado": 256.099,
+      "tolerancia_h": 0.1,
+      "on_accent": {
+        "dark": "#000000",
+        "light": "#ffffff"
+      },
+      "on_accent_hi_valido": true
+    },
+    {
+      "hex": "#0000ff",
+      "h_esperado": 264.052,
+      "tolerancia_h": 0.1,
+      "on_accent": {
+        "dark": "#000000",
+        "light": "#ffffff"
+      },
+      "on_accent_hi_valido": true
+    },
+    {
+      "hex": "#8000ff",
+      "h_esperado": 293.9376,
+      "tolerancia_h": 0.1,
+      "on_accent": {
+        "dark": "#000000",
+        "light": "#ffffff"
+      },
+      "on_accent_hi_valido": true
+    },
+    {
+      "hex": "#ff00ff",
+      "h_esperado": 328.3634,
+      "tolerancia_h": 0.1,
+      "on_accent": {
+        "dark": "#000000",
+        "light": "#ffffff"
+      },
+      "on_accent_hi_valido": true
+    },
+    {
+      "hex": "#ff0080",
+      "h_esperado": 2.4708,
+      "tolerancia_h": 0.1,
+      "on_accent": {
+        "dark": "#000000",
+        "light": "#ffffff"
+      },
+      "on_accent_hi_valido": true
+    }
+  ],
+  "acromaticos": [
+    {
+      "hex": "#ffffff",
+      "debe_rechazarse": true
+    },
+    {
+      "hex": "#000000",
+      "debe_rechazarse": true
+    },
+    {
+      "hex": "#808080",
+      "debe_rechazarse": true
+    }
+  ]
+}

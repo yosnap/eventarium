@@ -3,7 +3,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
 import { ApiError } from '../../../core/api/error.interceptor';
-import { AuthService } from '../../../core/auth/auth.service';
+import { AuthService, esPersonalDePlataforma } from '../../../core/auth/auth.service';
 import { AuthFrame } from '../../../layouts/public/auth-frame';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
@@ -95,10 +95,33 @@ export class LoginPage {
     this.enviando.set(true);
     try {
       await this.auth.login(this.email().trim(), this.password());
-      // `/admin` es la plataforma (solo superadmin): un organizador que entra
-      // sin `redirigir` aterrizaría en un panel que no le corresponde. El
-      // destino por defecto es su escritorio.
-      const destino = this.ruta.snapshot.queryParamMap.get('redirigir') ?? '/dashboard';
+      // Un `redirigir` explícito (enlace profundo, invitación, aviso por
+      // correo) siempre gana: la lógica de espacio de trabajo de abajo solo
+      // decide un destino por defecto cuando nadie pidió uno concreto —
+      // si no, un organizador con 2+ espacios perdía su destino real y
+      // aterrizaba en el selector (hallazgo de red-team).
+      const redirigirExplicito = this.ruta.snapshot.queryParamMap.get('redirigir');
+      let destino = redirigirExplicito ?? '/dashboard';
+      if (!redirigirExplicito) {
+        try {
+          const organizaciones = await this.auth.listMyOrganizations();
+          const esPlataforma = esPersonalDePlataforma(this.auth.currentUser());
+          if (organizaciones.length === 0 && esPlataforma) {
+            // Su único espacio real es la plataforma: no tiene sentido mandarlo
+            // a un escritorio de organización que no existe.
+            destino = '/admin';
+          } else if (organizaciones.length + (esPlataforma ? 1 : 0) > 1) {
+            // 2+ espacios de trabajo: elegir cuál usar antes de entrar.
+            destino = '/espacio-de-trabajo';
+          }
+          // 1 organización y sin rol de plataforma: se queda en '/dashboard'.
+        } catch {
+          // Fallo al contar espacios tras un login ya válido (sesión creada,
+          // cookie de refresco emitida): no es motivo para abortar el login,
+          // mismo criterio que `admin-shell.ts::cargarOrganizaciones`, que ya
+          // trata esta misma llamada como no crítica.
+        }
+      }
       await this.router.navigateByUrl(destino);
     } catch (error) {
       this.error.set(

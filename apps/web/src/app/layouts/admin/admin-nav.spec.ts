@@ -12,7 +12,7 @@ import { AdminNav, enlacesDeEvento } from './admin-nav';
 
 /** Solo lo que `AdminNav` lee de `AuthService`: quien monta el panel de
  * plataforma en un test es superadmin por defecto (mismo supuesto que ya
- * garantiza el guard real del panel, `superadminGuard`) — así los enlaces
+ * garantiza el guard real del panel, `personalPlataformaGuard`) — así los enlaces
  * `soloSuperadmin` siguen apareciendo salvo que un test concreto diga lo
  * contrario. */
 function configurar(esSuperadmin = true) {
@@ -136,6 +136,7 @@ describe('AdminNav — panel de plataforma', () => {
     expect(enlaces).toContain('/admin/plantillas');
     expect(enlaces).toContain('/admin/identidad');
     expect(enlaces).toContain('/admin/legales');
+    expect(enlaces).toContain('/admin/analitica-externa');
     expect(enlaces).toContain('/admin/suplantar');
   });
 
@@ -187,5 +188,12 @@ describe('AdminNav — panel de plataforma', () => {
     expect(enlaces).not.toContain('/admin/estilo');
     expect(enlaces).toContain('/admin/usuarios');
     expect(enlaces).toContain('/admin/suplantar');
+  });
+
+  it('la analítica externa es visible también para soporte', async () => {
+    // Fase 3 del plan de cookies: la pantalla es de lectura para todo el
+    // personal de plataforma — sin `soloSuperadmin` en su entrada de nav.
+    const raiz = await montar(true, false);
+    expect(enlacesDe(raiz)).toContain('/admin/analitica-externa');
   });
 });

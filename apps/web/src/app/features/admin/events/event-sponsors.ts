@@ -16,13 +16,11 @@ import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
+import { MediaElegida, MediaPicker } from '../../../shared/ui/media-picker';
 import { Textarea } from '../../../shared/ui/textarea';
 import { PageHeader } from '../../../shared/ui/page-header';
 import { capitalizarClaveDeTraduccion } from '../../../shared/text/capitalizar-clave-de-traduccion';
-import {
-  IMAGEN_MIMES_PERMITIDOS,
-  IMAGEN_TAMANO_MAXIMO,
-} from '../../../shared/uploads/image-upload-constraints';
+import { LOGO_ACEPTADOS } from '../../../shared/uploads/image-upload-constraints';
 
 type ContributionType = 'monetaria' | 'en_especie';
 
@@ -73,7 +71,7 @@ function vacio(): {
 @Component({
   selector: 'app-event-sponsors',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input, Textarea, PageHeader],
+  imports: [TranslocoDirective, Alert, Button, Card, Input, MediaPicker, Textarea, PageHeader],
   template: `
     <ng-container *transloco="let t">
       <app-page-header [rotulo]="t('admin.events.sponsors.titulo')">
@@ -99,13 +97,6 @@ function vacio(): {
             @for (patrocinador of patrocinadores(); track patrocinador.id) {
               <li>
                 <div class="fila">
-                  @if (patrocinador.logo_url) {
-                    <img
-                      class="logo"
-                      [src]="patrocinador.logo_url"
-                      [alt]="t('admin.events.sponsors.logoDe', { nombre: patrocinador.name })"
-                    />
-                  }
                   <div>
                     <strong>{{ patrocinador.name }}</strong>
                     <span class="detalle">
@@ -115,16 +106,16 @@ function vacio(): {
                       }}
                     </span>
                   </div>
+                  <app-media-picker
+                    #logoPicker
+                    class="logo-picker"
+                    [etiqueta]="t('admin.events.sponsors.logoDe', { nombre: patrocinador.name })"
+                    [aceptados]="LOGO_ACEPTADOS"
+                    kind="sponsors"
+                    [url]="patrocinador.logo_url"
+                    (mediaElegido)="asignarLogo(patrocinador.id, $event, logoPicker)"
+                  />
                   <div class="acciones">
-                    <label class="etiqueta-fichero" [for]="'logo-' + patrocinador.id">
-                      {{ t('admin.events.sponsors.subirLogo') }}
-                    </label>
-                    <input
-                      [id]="'logo-' + patrocinador.id"
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      (change)="alSeleccionarLogo($event, patrocinador.id)"
-                    />
                     <app-button variant="secundario" type="button" (pulsado)="editar(patrocinador)">
                       {{ t('admin.events.sponsors.editar') }}
                     </app-button>
@@ -240,15 +231,13 @@ function vacio(): {
       gap: var(--space-md);
       flex-wrap: wrap;
     }
-    .logo {
-      height: 2.5rem;
-      width: auto;
-      border-radius: var(--radius-sm);
-    }
     .detalle {
       display: block;
       color: var(--muted);
       font-size: 0.875rem;
+    }
+    .logo-picker {
+      min-width: 12rem;
     }
     .acciones {
       display: flex;
@@ -256,10 +245,6 @@ function vacio(): {
       gap: var(--space-sm);
       margin-left: auto;
       flex-wrap: wrap;
-    }
-    .etiqueta-fichero {
-      font-size: 0.8125rem;
-      font-weight: 500;
     }
     .formulario {
       display: grid;
@@ -285,6 +270,7 @@ function vacio(): {
 })
 export class EventSponsors implements OnInit {
   readonly eventId = input.required<string>();
+  protected readonly LOGO_ACEPTADOS = LOGO_ACEPTADOS;
 
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
@@ -457,34 +443,27 @@ export class EventSponsors implements OnInit {
     }
   }
 
-  protected alSeleccionarLogo(evento: Event, sponsorId: string): void {
+  /** El fichero/URL/biblioteca ya se resolvió a un `media_id` dentro de
+   * `MediaPicker` (Fase 3 del plan de biblioteca de medios): aquí solo queda
+   * asignarlo al patrocinador de ESA fila — `sponsorId` y `picker` los
+   * aporta la plantilla (variable de referencia dentro del `@for`), el
+   * picker no conoce ninguno de los dos por sí mismo. Si la asignación
+   * falla, `picker.revertir()` deshace la previsualización optimista. */
+  protected async asignarLogo(
+    sponsorId: string,
+    media: MediaElegida,
+    picker: MediaPicker,
+  ): Promise<void> {
     this.error.set(null);
-    const fichero = (evento.target as HTMLInputElement).files?.[0] ?? null;
-    if (!fichero) {
-      return;
-    }
-    if (!IMAGEN_MIMES_PERMITIDOS.has(fichero.type)) {
-      this.error.set(this.transloco.translate('admin.events.sponsors.logoNoValido'));
-      (evento.target as HTMLInputElement).value = '';
-      return;
-    }
-    if (fichero.size > IMAGEN_TAMANO_MAXIMO) {
-      this.error.set(this.transloco.translate('admin.events.sponsors.logoDemasiadoGrande'));
-      (evento.target as HTMLInputElement).value = '';
-      return;
-    }
-    void this.subirLogo(sponsorId, fichero);
-  }
-
-  private async subirLogo(sponsorId: string, fichero: File): Promise<void> {
-    const datos = new FormData();
-    datos.append('fichero', fichero);
     try {
       await firstValueFrom(
-        this.http.put(this.api.url(`/events/${this.eventId()}/sponsors/${sponsorId}/logo`), datos),
+        this.http.put(this.api.url(`/events/${this.eventId()}/sponsors/${sponsorId}/logo`), {
+          media_id: media.id,
+        }),
       );
       await this.cargar();
     } catch (error) {
+      picker.revertir();
       this.error.set(
         error instanceof ApiError
           ? error.message
