@@ -434,8 +434,12 @@ export class MediaFields {
   protected readonly recortandoEnCurso = signal(false);
   protected readonly borrandoId = signal<string | null>(null);
 
-  protected readonly totalPaginas = computed(() => Math.max(1, Math.ceil(this.bibliotecaTotal() / LIMITE)));
-  protected readonly paginaActual = computed(() => Math.floor(this.bibliotecaOffset() / LIMITE) + 1);
+  protected readonly totalPaginas = computed(() =>
+    Math.max(1, Math.ceil(this.bibliotecaTotal() / LIMITE)),
+  );
+  protected readonly paginaActual = computed(
+    () => Math.floor(this.bibliotecaOffset() / LIMITE) + 1,
+  );
 
   protected readonly pestanasDisponibles = computed(() =>
     (
@@ -663,7 +667,9 @@ export class MediaFields {
       const usados = error.problem?.['used_by'];
       if (Array.isArray(usados) && usados.length > 0) {
         const nombres = usados
-          .map((u: Record<string, unknown>) => (typeof u['nombre'] === 'string' ? u['nombre'] : u['tipo']))
+          .map((u: Record<string, unknown>) =>
+            typeof u['nombre'] === 'string' ? u['nombre'] : u['tipo'],
+          )
           .join(', ');
         return this.transloco.translate('ui.media.enUso', { recursos: nombres });
       }

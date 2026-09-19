@@ -17,7 +17,15 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
 @Component({
   selector: 'app-public-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, TranslocoDirective, CookieBanner, ThemeToggle, BrandMark, Button],
+  imports: [
+    RouterOutlet,
+    RouterLink,
+    TranslocoDirective,
+    CookieBanner,
+    ThemeToggle,
+    BrandMark,
+    Button,
+  ],
   template: `
     <ng-container *transloco="let t">
       <a class="skip-link" href="#contenido">{{ t('comun.saltarAlContenido') }}</a>

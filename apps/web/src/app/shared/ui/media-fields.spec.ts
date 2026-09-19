@@ -150,12 +150,14 @@ describe('MediaFields', () => {
     tabs.find((t) => t.textContent?.includes('Biblioteca'))!.click();
     await avanzar(fixture);
     http.expectOne((r) => r.url === CARPETAS_URL).flush([]);
-    http.expectOne((r) => r.url === MEDIA_URL).flush({
-      items: [{ id: 'a', url: 'https://cdn.test/a.png', filename: 'a.png', alt: null }],
-      total: 1,
-      limit: 12,
-      offset: 0,
-    });
+    http
+      .expectOne((r) => r.url === MEDIA_URL)
+      .flush({
+        items: [{ id: 'a', url: 'https://cdn.test/a.png', filename: 'a.png', alt: null }],
+        total: 1,
+        limit: 12,
+        offset: 0,
+      });
     await avanzar(fixture);
 
     let emitido: MediaElegida | undefined;
@@ -173,12 +175,14 @@ describe('MediaFields', () => {
     tabs.find((t) => t.textContent?.includes('Biblioteca'))!.click();
     await avanzar(fixture);
     http.expectOne((r) => r.url === CARPETAS_URL).flush([]);
-    http.expectOne((r) => r.url === MEDIA_URL).flush({
-      items: [{ id: 'a', url: 'https://cdn.test/a.png', filename: 'a.png', alt: null }],
-      total: 1,
-      limit: 12,
-      offset: 0,
-    });
+    http
+      .expectOne((r) => r.url === MEDIA_URL)
+      .flush({
+        items: [{ id: 'a', url: 'https://cdn.test/a.png', filename: 'a.png', alt: null }],
+        total: 1,
+        limit: 12,
+        offset: 0,
+      });
     await avanzar(fixture);
 
     const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true);
@@ -189,10 +193,12 @@ describe('MediaFields', () => {
     await avanzar(fixture);
 
     expect(confirmar).toHaveBeenCalledOnce();
-    http.expectOne((r) => r.method === 'DELETE').flush(
-      { detail: 'En uso.', used_by: [{ tipo: 'evento', id: 'e1', nombre: 'IA Week 2026' }] },
-      { status: 409, statusText: 'Conflict' },
-    );
+    http
+      .expectOne((r) => r.method === 'DELETE')
+      .flush(
+        { detail: 'En uso.', used_by: [{ tipo: 'evento', id: 'e1', nombre: 'IA Week 2026' }] },
+        { status: 409, statusText: 'Conflict' },
+      );
     await avanzar(fixture);
 
     expect(raiz.textContent).toContain('IA Week 2026');
@@ -205,12 +211,14 @@ describe('MediaFields', () => {
     tabs.find((t) => t.textContent?.includes('Biblioteca'))!.click();
     await avanzar(fixture);
     http.expectOne((r) => r.url === CARPETAS_URL).flush([]);
-    http.expectOne((r) => r.url === MEDIA_URL).flush({
-      items: [{ id: 'a', url: 'https://cdn.test/a.png', filename: 'a.png', alt: null }],
-      total: 1,
-      limit: 12,
-      offset: 0,
-    });
+    http
+      .expectOne((r) => r.url === MEDIA_URL)
+      .flush({
+        items: [{ id: 'a', url: 'https://cdn.test/a.png', filename: 'a.png', alt: null }],
+        total: 1,
+        limit: 12,
+        offset: 0,
+      });
     await avanzar(fixture);
 
     vi.spyOn(window, 'confirm').mockReturnValue(false);

@@ -175,7 +175,12 @@ function precioEnEuros(cents: number): string {
                             <app-radio-group
                               [nombre]="'pregunta-' + pregunta.id"
                               [etiqueta]="etiquetaConObligatoria(pregunta)"
-                              [opciones]="(pregunta.options ?? []).map((opcion) => ({ valor: opcion, etiqueta: opcion }))"
+                              [opciones]="
+                                (pregunta.options ?? []).map((opcion) => ({
+                                  valor: opcion,
+                                  etiqueta: opcion,
+                                }))
+                              "
                               [valor]="valorTexto(pregunta.id)"
                               (valorChange)="fijarTexto(pregunta.id, $event)"
                             />
@@ -209,10 +214,17 @@ function precioEnEuros(cents: number): string {
                       <app-radio-group
                         nombre="tipo-entrada"
                         [etiqueta]="t('inscripcion.tipoEntrada.titulo')"
-                        [opciones]="ticketTypes().map((tipo) => ({
-                          valor: tipo.id,
-                          etiqueta: tipo.name + ' — ' + precioTipo(tipo) + ' ' + tipo.currency.toUpperCase(),
-                        }))"
+                        [opciones]="
+                          ticketTypes().map((tipo) => ({
+                            valor: tipo.id,
+                            etiqueta:
+                              tipo.name +
+                              ' — ' +
+                              precioTipo(tipo) +
+                              ' ' +
+                              tipo.currency.toUpperCase(),
+                          }))
+                        "
                         [valor]="ticketTypeId() ?? ''"
                         (valorChange)="seleccionarTipo($event)"
                       />

@@ -23,7 +23,12 @@ import { Button } from '../../shared/ui/button';
           <p>
             {{ t('impersonacion.aviso', { nombre: sesion.nombre }) }}
           </p>
-          <app-button variant="terciario" [compacto]="true" [loading]="saliendo()" (pulsado)="salir()">
+          <app-button
+            variant="terciario"
+            [compacto]="true"
+            [loading]="saliendo()"
+            (pulsado)="salir()"
+          >
             {{ t('impersonacion.salir') }}
           </app-button>
         </div>

@@ -288,13 +288,11 @@ describe('CookieBanner', () => {
     await avanzar(fixture);
     // Consentimiento previo con analítica: el constructor activa sus
     // scripts, que consultan los identificadores públicos una vez.
-    http
-      .expectOne('/api/v1/tenant/analytics')
-      .flush({
-        ga4_measurement_id: 'G-TEST123',
-        meta_pixel_id: null,
-        cloudflare_analytics_token: null,
-      });
+    http.expectOne('/api/v1/tenant/analytics').flush({
+      ga4_measurement_id: 'G-TEST123',
+      meta_pixel_id: null,
+      cloudflare_analytics_token: null,
+    });
     await avanzar(fixture);
     expect(document.getElementById('ga4-analytics-script')).not.toBeNull();
 

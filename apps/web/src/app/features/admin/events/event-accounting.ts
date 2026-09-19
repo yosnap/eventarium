@@ -168,7 +168,9 @@ interface KpiVisible {
 
         <app-panel class="bloque">
           <div cabecera>
-            <span class="rotulo-seccion">{{ t('admin.events.accounting.altaPartida.titulo') }}</span>
+            <span class="rotulo-seccion">{{
+              t('admin.events.accounting.altaPartida.titulo')
+            }}</span>
           </div>
           <form (submit)="crearPartida($event)" novalidate class="panel-cuerpo formulario">
             <div class="campo">
@@ -386,9 +388,10 @@ export class EventAccounting implements OnInit {
                 consumido: euros(r.consumido_contingencia_cents),
               })
             : null,
-        tono: r.disponible_contingencia_cents !== null && r.disponible_contingencia_cents <= 0
-          ? 'warn'
-          : null,
+        tono:
+          r.disponible_contingencia_cents !== null && r.disponible_contingencia_cents <= 0
+            ? 'warn'
+            : null,
       },
     ];
   });

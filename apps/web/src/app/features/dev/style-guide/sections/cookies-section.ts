@@ -27,21 +27,31 @@ import { Toggle } from '../../../../shared/ui/toggle';
 
         <app-card>
           <p class="nota">{{ t('admin.catalogoEstilo.cookies.notaBanner') }}</p>
-          <div class="cookies-muestra" role="group" [attr.aria-label]="t('admin.catalogoEstilo.cookies.bannerEtiqueta')">
+          <div
+            class="cookies-muestra"
+            role="group"
+            [attr.aria-label]="t('admin.catalogoEstilo.cookies.bannerEtiqueta')"
+          >
             <p class="cookies-t">
               <strong>{{ t('admin.catalogoEstilo.cookies.bannerTitulo') }}</strong>
               {{ t('admin.catalogoEstilo.cookies.bannerTexto') }}
             </p>
             <div class="cookies-acciones">
-              <button type="button" disabled>{{ t('admin.catalogoEstilo.cookies.soloNecesarias') }}</button>
-              <button type="button" disabled>{{ t('admin.catalogoEstilo.cookies.aceptarTodas') }}</button>
+              <button type="button" disabled>
+                {{ t('admin.catalogoEstilo.cookies.soloNecesarias') }}
+              </button>
+              <button type="button" disabled>
+                {{ t('admin.catalogoEstilo.cookies.aceptarTodas') }}
+              </button>
               <button type="button" disabled>{{ t('admin.catalogoEstilo.cookies.elegir') }}</button>
             </div>
           </div>
         </app-card>
 
         <app-card>
-          <span class="rotulo-seccion">{{ t('admin.catalogoEstilo.cookies.categoriaRotulo') }}</span>
+          <span class="rotulo-seccion">{{
+            t('admin.catalogoEstilo.cookies.categoriaRotulo')
+          }}</span>
           <app-toggle
             [label]="t('admin.catalogoEstilo.cookies.medicion')"
             [estado]="t('admin.catalogoEstilo.cookies.si')"

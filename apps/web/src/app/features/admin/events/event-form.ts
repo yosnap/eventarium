@@ -62,7 +62,8 @@ const VENTANA_DE_PAGO_POR_DEFECTO = 30;
     Input,
     AddressMap,
     EventDetails,
-    PageHeader],
+    PageHeader,
+  ],
   template: `
     <ng-container *transloco="let t">
       <app-page-header [rotulo]="t('admin.events.formulario.rotulo')">

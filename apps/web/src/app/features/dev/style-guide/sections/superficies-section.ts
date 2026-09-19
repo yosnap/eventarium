@@ -29,9 +29,13 @@ import { Panel } from '../../../../shared/ui/panel';
             <p>{{ t('admin.catalogoEstilo.superficies.tarjetaDescripcion') }}</p>
           </app-card>
           <div class="panel-demo">
-            <span class="rotulo-seccion">{{ t('admin.catalogoEstilo.superficies.panelRotulo') }}</span>
+            <span class="rotulo-seccion">{{
+              t('admin.catalogoEstilo.superficies.panelRotulo')
+            }}</span>
             <app-panel>
-              <p class="panel-demo__texto">{{ t('admin.catalogoEstilo.superficies.panelDescripcion') }}</p>
+              <p class="panel-demo__texto">
+                {{ t('admin.catalogoEstilo.superficies.panelDescripcion') }}
+              </p>
             </app-panel>
           </div>
         </div>

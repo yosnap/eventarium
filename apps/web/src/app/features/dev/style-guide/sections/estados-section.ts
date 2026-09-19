@@ -27,16 +27,28 @@ import { Button } from '../../../../shared/ui/button';
         </div>
         <div class="estados">
           <div class="estado">
-            <span class="rotulo-seccion etiqueta">{{ t('admin.catalogoEstilo.estados.reposo') }}</span>
-            <app-button variant="primario">{{ t('admin.catalogoEstilo.estados.accion') }}</app-button>
+            <span class="rotulo-seccion etiqueta">{{
+              t('admin.catalogoEstilo.estados.reposo')
+            }}</span>
+            <app-button variant="primario">{{
+              t('admin.catalogoEstilo.estados.accion')
+            }}</app-button>
           </div>
           <div class="estado forzar-hover">
-            <span class="rotulo-seccion etiqueta">{{ t('admin.catalogoEstilo.estados.hover') }}</span>
-            <app-button variant="primario">{{ t('admin.catalogoEstilo.estados.accion') }}</app-button>
+            <span class="rotulo-seccion etiqueta">{{
+              t('admin.catalogoEstilo.estados.hover')
+            }}</span>
+            <app-button variant="primario">{{
+              t('admin.catalogoEstilo.estados.accion')
+            }}</app-button>
           </div>
           <div class="estado forzar-foco">
-            <span class="rotulo-seccion etiqueta">{{ t('admin.catalogoEstilo.estados.foco') }}</span>
-            <app-button variant="primario">{{ t('admin.catalogoEstilo.estados.accion') }}</app-button>
+            <span class="rotulo-seccion etiqueta">{{
+              t('admin.catalogoEstilo.estados.foco')
+            }}</span>
+            <app-button variant="primario">{{
+              t('admin.catalogoEstilo.estados.accion')
+            }}</app-button>
           </div>
           <div class="estado">
             <span class="rotulo-seccion etiqueta">{{

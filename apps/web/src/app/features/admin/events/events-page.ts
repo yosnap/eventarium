@@ -31,16 +31,7 @@ interface Page<T> {
 @Component({
   selector: 'app-events-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    TranslocoDirective,
-    RouterLink,
-    DatePipe,
-    Alert,
-    Button,
-    Chip,
-    DataTable,
-    PageHeader,
-  ],
+  imports: [TranslocoDirective, RouterLink, DatePipe, Alert, Button, Chip, DataTable, PageHeader],
   template: `
     <ng-container *transloco="let t">
       <app-page-header [rotulo]="t('admin.events.rotulo')">

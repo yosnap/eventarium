@@ -139,9 +139,10 @@ interface KpiVisible {
                   </td>
                   @if (conInscripciones()) {
                     <td class="numerica">
-                      {{ evento.confirmadas }}@if (evento.aforo !== null) {<span>
-                        / {{ evento.aforo }}</span
-                      >}
+                      {{ evento.confirmadas }}
+                      @if (evento.aforo !== null) {
+                        <span> / {{ evento.aforo }}</span>
+                      }
                     </td>
                     <td class="numerica">{{ evento.por_aprobar }}</td>
                   }
@@ -212,7 +213,9 @@ interface KpiVisible {
                 }}</a>
               </p>
             } @else {
-              <app-chip tone="apagado">{{ t('admin.escritorioPagina.stripeSinConectar') }}</app-chip>
+              <app-chip tone="apagado">{{
+                t('admin.escritorioPagina.stripeSinConectar')
+              }}</app-chip>
               <p class="nota">
                 <a routerLink="/dashboard/stripe">{{
                   t('admin.escritorioPagina.conectarStripe')
@@ -382,7 +385,10 @@ export class DashboardPage implements OnInit {
       });
     }
     if (m.dinero) {
-      const totalCents = Object.values(m.dinero.por_moneda).reduce((suma, valor) => suma + valor, 0);
+      const totalCents = Object.values(m.dinero.por_moneda).reduce(
+        (suma, valor) => suma + valor,
+        0,
+      );
       lista.push({
         rotulo: t('admin.escritorioPagina.kpis.ingresosTotales'),
         valor: this.formatearCents(totalCents),
@@ -407,7 +413,11 @@ export class DashboardPage implements OnInit {
     const lista: Pendiente[] = [];
     const porAprobar = m.cifras?.por_aprobar ?? 0;
     if (porAprobar > 0) {
-      lista.push({ clave: 'solicitudesPorAprobar', cantidad: porAprobar, enlace: '/dashboard/events' });
+      lista.push({
+        clave: 'solicitudesPorAprobar',
+        cantidad: porAprobar,
+        enlace: '/dashboard/events',
+      });
     }
     if (m.eventos_en_borrador > 0) {
       lista.push({

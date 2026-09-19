@@ -34,7 +34,17 @@ type CampoBase = 'email' | 'firstName' | 'lastName' | 'roleId';
 @Component({
   selector: 'app-member-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, DynamicField, ErrorSummary, Input, PageHeader],
+  imports: [
+    TranslocoDirective,
+    RouterLink,
+    Alert,
+    Button,
+    Card,
+    DynamicField,
+    ErrorSummary,
+    Input,
+    PageHeader,
+  ],
   template: `
     <ng-container *transloco="let t">
       <app-page-header [rotulo]="t('admin.members.formulario.rotulo')">

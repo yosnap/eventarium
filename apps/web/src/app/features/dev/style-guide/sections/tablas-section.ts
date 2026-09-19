@@ -20,11 +20,16 @@ import { DataTable, type DataTableColumn } from '../../../../shared/ui/data-tabl
           <h2 id="tablas-h2">{{ t('admin.catalogoEstilo.tablas.titulo') }}</h2>
           <span class="rotulo-seccion">{{ t('admin.catalogoEstilo.tablas.uso') }}</span>
         </div>
-        <app-data-table [caption]="t('admin.catalogoEstilo.tablas.caption')" [columnas]="columnas(t)">
+        <app-data-table
+          [caption]="t('admin.catalogoEstilo.tablas.caption')"
+          [columnas]="columnas(t)"
+        >
           <tr>
             <td>{{ t('admin.catalogoEstilo.tablas.persona1') }}</td>
             <td class="numerica muted">{{ t('admin.catalogoEstilo.tablas.solicitada1') }}</td>
-            <td><app-chip tone="espera">{{ t('admin.catalogoEstilo.tablas.pendiente') }}</app-chip></td>
+            <td>
+              <app-chip tone="espera">{{ t('admin.catalogoEstilo.tablas.pendiente') }}</app-chip>
+            </td>
             <td class="acciones">
               <app-button variant="secundario" [compacto]="true">{{
                 t('admin.catalogoEstilo.tablas.aprobar')
@@ -34,7 +39,9 @@ import { DataTable, type DataTableColumn } from '../../../../shared/ui/data-tabl
           <tr>
             <td>{{ t('admin.catalogoEstilo.tablas.persona2') }}</td>
             <td class="numerica muted">{{ t('admin.catalogoEstilo.tablas.solicitada2') }}</td>
-            <td><app-chip tone="ok">{{ t('admin.catalogoEstilo.tablas.confirmada') }}</app-chip></td>
+            <td>
+              <app-chip tone="ok">{{ t('admin.catalogoEstilo.tablas.confirmada') }}</app-chip>
+            </td>
             <td class="acciones">
               <app-button variant="terciario" [compacto]="true">{{
                 t('admin.catalogoEstilo.tablas.verFicha')

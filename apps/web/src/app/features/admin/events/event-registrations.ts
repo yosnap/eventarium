@@ -299,7 +299,9 @@ interface FilaEmbudo {
       </app-panel>
 
       <app-dialog #dialogoRechazo (cerrado)="alCerrarDialogoRechazo()">
-        <span class="rotulo-seccion">{{ t('admin.events.registrations.dialogoRechazo.rotulo') }}</span>
+        <span class="rotulo-seccion">{{
+          t('admin.events.registrations.dialogoRechazo.rotulo')
+        }}</span>
         @if (personaARechazar(); as persona) {
           <h3>{{ persona.full_name }}</h3>
         }

@@ -51,7 +51,9 @@ const CLAVE_POR_ESTADO: Record<string, string> = {
                   <div class="ticket">
                     <div class="ticket__top">
                       <span class="rotulo-seccion">{{ t('miEntrada.titulo') }}</span>
-                      <p class="ticket__nombre">{{ t('miEntrada.saludo', { nombre: nombre() }) }}</p>
+                      <p class="ticket__nombre">
+                        {{ t('miEntrada.saludo', { nombre: nombre() }) }}
+                      </p>
                     </div>
                     <div class="marco-qr">
                       <img [src]="qrUrl()" [alt]="t('miEntrada.qrAlt')" width="220" height="220" />

@@ -237,7 +237,8 @@ describe('EventCheckIn', () => {
     expect(fila!.querySelector('.icono')?.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it('busca inscripciones confirmadas y ofrece marcar el check-in manual', async () => {    const fixture = await crearComponente();
+  it('busca inscripciones confirmadas y ofrece marcar el check-in manual', async () => {
+    const fixture = await crearComponente();
     silenciarCargaInicial(http);
     await avanzar(fixture);
 

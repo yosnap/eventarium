@@ -42,7 +42,17 @@ interface DiaDeAgenda {
 @Component({
   selector: 'app-event-agenda',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, DatePipe, Alert, Button, Card, EventRoster, SessionForm, SessionParticipants, PageHeader],
+  imports: [
+    TranslocoDirective,
+    DatePipe,
+    Alert,
+    Button,
+    Card,
+    EventRoster,
+    SessionForm,
+    SessionParticipants,
+    PageHeader,
+  ],
   template: `
     <ng-container *transloco="let t">
       <app-page-header [rotulo]="t('admin.events.agenda.titulo')">

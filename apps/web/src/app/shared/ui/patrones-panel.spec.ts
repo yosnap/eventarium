@@ -41,10 +41,7 @@ class AnfitrionCabecera {}
     <app-panel>
       <div cabecera><span class="rotulo-seccion">Solicitudes</span></div>
       <div class="panel-cuerpo">
-        <app-table-toolbar
-          [(busqueda)]="busqueda"
-          placeholderBusqueda="Buscar por nombre o correo"
-        >
+        <app-table-toolbar [(busqueda)]="busqueda" placeholderBusqueda="Buscar por nombre o correo">
           <app-segmented-filter
             [opciones]="[
               { valor: 'todas', etiqueta: 'Todas' },

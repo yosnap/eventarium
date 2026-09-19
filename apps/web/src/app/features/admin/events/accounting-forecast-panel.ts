@@ -38,15 +38,21 @@ import { euros, eurosConSigno } from './accounting-types';
 
           <div class="caja">
             <div class="caja-item">
-              <span class="rotulo-seccion">{{ t('admin.events.accounting.prevision.cobrado') }}</span>
+              <span class="rotulo-seccion">{{
+                t('admin.events.accounting.prevision.cobrado')
+              }}</span>
               <div class="caja-valor">{{ euros(cobradoCents()) }} €</div>
             </div>
             <div class="caja-item">
-              <span class="rotulo-seccion">{{ t('admin.events.accounting.prevision.pagado') }}</span>
+              <span class="rotulo-seccion">{{
+                t('admin.events.accounting.prevision.pagado')
+              }}</span>
               <div class="caja-valor">{{ euros(pagadoCents()) }} €</div>
             </div>
             <div class="caja-item">
-              <span class="rotulo-seccion">{{ t('admin.events.accounting.prevision.cajaHoy') }}</span>
+              <span class="rotulo-seccion">{{
+                t('admin.events.accounting.prevision.cajaHoy')
+              }}</span>
               <div class="caja-valor" [class.negativo]="cajaHoyCents() < 0">
                 {{ eurosConSigno(cajaHoyCents()) }}
               </div>

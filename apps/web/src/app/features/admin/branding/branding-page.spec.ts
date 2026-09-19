@@ -223,7 +223,9 @@ describe('BrandingPage', () => {
     // El `media_id` ya asignado no queda pendiente para un segundo guardado.
     formulario.dispatchEvent(new Event('submit'));
     await avanzar(fixture);
-    http.expectOne(BRANDING_URL).flush({ ...BRANDING_VALIDO, logo_url: 'https://cdn.test/nuevo.webp' });
+    http
+      .expectOne(BRANDING_URL)
+      .flush({ ...BRANDING_VALIDO, logo_url: 'https://cdn.test/nuevo.webp' });
     await avanzar(fixture);
   });
 

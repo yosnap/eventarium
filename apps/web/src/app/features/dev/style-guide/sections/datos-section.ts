@@ -24,7 +24,9 @@ import { Card } from '../../../../shared/ui/card';
         </div>
         <div class="cuadricula">
           <app-card>
-            <span class="rotulo-seccion">{{ t('admin.catalogoEstilo.datos.indicadorRotulo') }}</span>
+            <span class="rotulo-seccion">{{
+              t('admin.catalogoEstilo.datos.indicadorRotulo')
+            }}</span>
             <div class="indicador">{{ t('admin.catalogoEstilo.datos.indicadorValor') }}</div>
             <p class="pie">{{ t('admin.catalogoEstilo.datos.indicadorDescripcion') }}</p>
           </app-card>

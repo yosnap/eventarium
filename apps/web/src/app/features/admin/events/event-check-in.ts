@@ -132,7 +132,9 @@ const VEREDICTO_POR_RESULTADO: Record<ResultadoUiEstado, EstadoVeredicto> = {
         @if (resultados().length > 0) {
           <div class="verdict" [attr.data-state]="estadoVeredicto(resultados()[0])" role="status">
             <span class="rotulo-seccion">{{ t('admin.events.checkIn.ultimoEscaneo') }}</span>
-            <p class="verdict__titulo">{{ t('admin.events.checkIn.resultado.' + resultados()[0].result) }}</p>
+            <p class="verdict__titulo">
+              {{ t('admin.events.checkIn.resultado.' + resultados()[0].result) }}
+            </p>
             @if (resultados()[0].fullName || resultados()[0].email) {
               <p class="verdict__persona">
                 {{ resultados()[0].fullName }} ({{ resultados()[0].email }})
@@ -144,7 +146,9 @@ const VEREDICTO_POR_RESULTADO: Record<ResultadoUiEstado, EstadoVeredicto> = {
             ) {
               <p class="verdict__detalle">
                 {{
-                  t('admin.events.checkIn.usadaEl', { fecha: resultados()[0].usedAt | date: 'short' })
+                  t('admin.events.checkIn.usadaEl', {
+                    fecha: resultados()[0].usedAt | date: 'short',
+                  })
                 }}
                 @if (resultados()[0].usedByEventMemberId; as miembro) {
                   {{ t('admin.events.checkIn.porMiembro', { id: miembro }) }}
@@ -157,7 +161,9 @@ const VEREDICTO_POR_RESULTADO: Record<ResultadoUiEstado, EstadoVeredicto> = {
         <div class="barra-estado">
           <span class="conexion" [class.sin-cobertura]="!enLinea()">
             <span class="punto" aria-hidden="true"></span>
-            {{ enLinea() ? t('admin.events.checkIn.enLinea') : t('admin.events.checkIn.sinCobertura') }}
+            {{
+              enLinea() ? t('admin.events.checkIn.enLinea') : t('admin.events.checkIn.sinCobertura')
+            }}
           </span>
           @if (pendientesEnCola() > 0) {
             <span role="status">
@@ -174,27 +180,31 @@ const VEREDICTO_POR_RESULTADO: Record<ResultadoUiEstado, EstadoVeredicto> = {
           <ul class="resultados" aria-live="polite">
             @for (item of resultados(); track item.clientScanId; let i = $index) {
               @if (i > 0) {
-              <li [class]="'estado-' + item.result">
-                <span class="icono" aria-hidden="true">{{ icono(item.result) }}</span>
-                <span class="texto">
-                  <strong>{{ t('admin.events.checkIn.resultado.' + item.result) }}</strong>
-                  @if (item.fullName || item.email) {
-                    <span> — {{ item.fullName }} ({{ item.email }})</span>
-                  }
-                  @if ((item.result === 'duplicate' || item.result === 'revoked') && item.usedAt) {
-                    <span class="detalle">
-                      {{
-                        t('admin.events.checkIn.usadaEl', {
-                          fecha: item.usedAt | date: 'short',
-                        })
-                      }}
-                      @if (item.usedByEventMemberId) {
-                        {{ t('admin.events.checkIn.porMiembro', { id: item.usedByEventMemberId }) }}
-                      }
-                    </span>
-                  }
-                </span>
-              </li>
+                <li [class]="'estado-' + item.result">
+                  <span class="icono" aria-hidden="true">{{ icono(item.result) }}</span>
+                  <span class="texto">
+                    <strong>{{ t('admin.events.checkIn.resultado.' + item.result) }}</strong>
+                    @if (item.fullName || item.email) {
+                      <span> — {{ item.fullName }} ({{ item.email }})</span>
+                    }
+                    @if (
+                      (item.result === 'duplicate' || item.result === 'revoked') && item.usedAt
+                    ) {
+                      <span class="detalle">
+                        {{
+                          t('admin.events.checkIn.usadaEl', {
+                            fecha: item.usedAt | date: 'short',
+                          })
+                        }}
+                        @if (item.usedByEventMemberId) {
+                          {{
+                            t('admin.events.checkIn.porMiembro', { id: item.usedByEventMemberId })
+                          }}
+                        }
+                      </span>
+                    }
+                  </span>
+                </li>
               }
             }
           </ul>
@@ -590,7 +600,8 @@ export class EventCheckIn implements OnInit, OnDestroy {
    */
   private instalarManifiestoDinamico(): void {
     const estilo = getComputedStyle(document.documentElement);
-    const fondo = estilo.getPropertyValue('--bg').trim() || estilo.getPropertyValue('--surface').trim();
+    const fondo =
+      estilo.getPropertyValue('--bg').trim() || estilo.getPropertyValue('--surface').trim();
     const colorDeFondo = fondo || 'black';
     const manifiesto = {
       name: 'IA Week — Check-in',

@@ -29,7 +29,6 @@ function pagina() {
   };
 }
 
-
 const METRICS_URL = '/api/v1/admin/metrics';
 
 /** Resuelve la carga del escritorio, que la pantalla pide al construirse. */
@@ -232,18 +231,20 @@ describe('SuperadminPage — escritorio de la plataforma', () => {
     for (const peticion of http.match((p) => p.url.startsWith(AUDIT_LOG_URL))) {
       peticion.flush({ items: [], total: 0, limit: 50, offset: 0 });
     }
-    http.expectOne((p) => p.url === METRICS_URL).flush({
-      salud,
-      cifras: {
-        organizaciones_activas: 1,
-        organizaciones_totales: 2,
-        eventos_totales: 5,
-        eventos_publicados: 3,
-        usuarios: 9,
-        miembros: 12,
-      },
-      organizaciones,
-    });
+    http
+      .expectOne((p) => p.url === METRICS_URL)
+      .flush({
+        salud,
+        cifras: {
+          organizaciones_activas: 1,
+          organizaciones_totales: 2,
+          eventos_totales: 5,
+          eventos_publicados: 3,
+          usuarios: 9,
+          miembros: 12,
+        },
+        organizaciones,
+      });
     await avanzar(fixture);
     return fixture;
   }

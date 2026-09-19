@@ -2,7 +2,9 @@ import { Branding, PlatformBranding } from '../app/core/theming/branding.model';
 import { PlantillaDeTema } from '../app/core/theming/theme-template.model';
 
 /** Plantilla de tema de ejemplo para los tests: valores mínimos, no los reales de `tokens.css`. */
-export function plantillaDeTemaDePrueba(sobrescribir: Partial<PlantillaDeTema> = {}): PlantillaDeTema {
+export function plantillaDeTemaDePrueba(
+  sobrescribir: Partial<PlantillaDeTema> = {},
+): PlantillaDeTema {
   return {
     id: '01920000-0000-7000-8000-0000000000f1',
     key: 'oscuro',

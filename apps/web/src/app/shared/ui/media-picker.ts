@@ -139,5 +139,4 @@ export class MediaPicker {
       this.anterior = null;
     }
   }
-
 }

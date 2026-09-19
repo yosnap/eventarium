@@ -125,9 +125,7 @@ describe('PlatformIdentityPage', () => {
       pickerFalso,
     );
     await avanzar(fixture);
-    http
-      .expectOne(`${IDENTIDAD_URL}/logo`)
-      .flush('error', { status: 500, statusText: 'Error' });
+    http.expectOne(`${IDENTIDAD_URL}/logo`).flush('error', { status: 500, statusText: 'Error' });
     await asignacion;
 
     expect(pickerFalso.revertir).toHaveBeenCalledOnce();

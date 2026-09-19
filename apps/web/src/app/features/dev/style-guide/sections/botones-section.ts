@@ -20,14 +20,18 @@ import { Button } from '../../../../shared/ui/button';
             t('admin.catalogoEstilo.botones.muestra')
           }}</span>
           <div class="fila">
-            <app-button variant="primario">{{ t('admin.catalogoEstilo.botones.primario') }}</app-button>
+            <app-button variant="primario">{{
+              t('admin.catalogoEstilo.botones.primario')
+            }}</app-button>
             <app-button variant="secundario">{{
               t('admin.catalogoEstilo.botones.secundario')
             }}</app-button>
             <app-button variant="terciario">{{
               t('admin.catalogoEstilo.botones.terciario')
             }}</app-button>
-            <app-button variant="peligro">{{ t('admin.catalogoEstilo.botones.peligro') }}</app-button>
+            <app-button variant="peligro">{{
+              t('admin.catalogoEstilo.botones.peligro')
+            }}</app-button>
             <app-button variant="secundario" [compacto]="true">{{
               t('admin.catalogoEstilo.botones.compacto')
             }}</app-button>

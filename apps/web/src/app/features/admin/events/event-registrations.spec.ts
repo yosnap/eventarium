@@ -107,9 +107,7 @@ describe('EventRegistrations', () => {
     flushCargaInicial(http);
     await avanzar(fixture);
 
-    const contenedor = fixture.nativeElement.querySelector(
-      'app-data-table',
-    ) as HTMLElement | null;
+    const contenedor = fixture.nativeElement.querySelector('app-data-table') as HTMLElement | null;
     expect(contenedor).not.toBeNull();
     const tabla = contenedor!.querySelector('table') as HTMLTableElement;
     expect(tabla.querySelector('caption')?.textContent?.trim()).toBeTruthy();

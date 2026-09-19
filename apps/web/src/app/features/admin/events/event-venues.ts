@@ -97,7 +97,9 @@ function vacio(): {
         <form (submit)="guardar($event)" novalidate class="formulario">
           <h3>
             {{
-              editandoId() ? t('admin.events.venues.editarSede') : t('admin.events.venues.anadirSede')
+              editandoId()
+                ? t('admin.events.venues.editarSede')
+                : t('admin.events.venues.anadirSede')
             }}
           </h3>
 

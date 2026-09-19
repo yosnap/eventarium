@@ -371,9 +371,11 @@ export class AddressMap {
       if (secuencia !== this.secuenciaBusqueda) {
         return;
       }
-      const sugerencias = resultados.map(
-        (r): Sugerencia => ({ displayName: r.display_name, lat: Number(r.lat), lon: Number(r.lon) }),
-      );
+      const sugerencias = resultados.map((r): Sugerencia => ({
+        displayName: r.display_name,
+        lat: Number(r.lat),
+        lon: Number(r.lon),
+      }));
       this.sugerencias.set(sugerencias);
       this.abierto.set(sugerencias.length > 0);
       this.indiceActivo.set(sugerencias.length > 0 ? 0 : -1);

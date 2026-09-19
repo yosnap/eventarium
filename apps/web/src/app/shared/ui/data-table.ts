@@ -31,15 +31,12 @@ export interface DataTableColumn {
   imports: [Panel],
   template: `
     <app-panel>
-      <div
-        class="ranura-scroll"
-        tabindex="0"
-        role="region"
-        [attr.aria-label]="etiquetaEfectiva()"
-      >
+      <div class="ranura-scroll" tabindex="0" role="region" [attr.aria-label]="etiquetaEfectiva()">
         <table>
           <caption>
-            {{ caption() }}
+            {{
+              caption()
+            }}
           </caption>
           <thead>
             <tr>

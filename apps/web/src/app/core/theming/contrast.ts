@@ -35,8 +35,7 @@ export function parseHexColor(color: string): [number, number, number] | null {
   ];
 }
 
-const PATRON_OKLCH =
-  /^oklch\(\s*([\d.]+)%\s+([\d.]+)\s+([\d.]+)\s*(?:\/\s*([\d.]+%?))?\s*\)$/i;
+const PATRON_OKLCH = /^oklch\(\s*([\d.]+)%\s+([\d.]+)\s+([\d.]+)\s*(?:\/\s*([\d.]+%?))?\s*\)$/i;
 
 function linealASrgb(valor: number): number {
   const acotado = Math.max(0, Math.min(1, valor));

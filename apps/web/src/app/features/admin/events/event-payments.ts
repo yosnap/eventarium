@@ -128,8 +128,12 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
                     </span>
                   }
                 </td>
-                <td class="numerica">{{ euros(pago.amount_cents) }} {{ pago.currency.toUpperCase() }}</td>
-                <td class="numerica">{{ euros(pago.refunded_cents) }} {{ pago.currency.toUpperCase() }}</td>
+                <td class="numerica">
+                  {{ euros(pago.amount_cents) }} {{ pago.currency.toUpperCase() }}
+                </td>
+                <td class="numerica">
+                  {{ euros(pago.refunded_cents) }} {{ pago.currency.toUpperCase() }}
+                </td>
                 <td>
                   @if (pendiente(pago) > 0) {
                     <app-button variant="secundario" type="button" (pulsado)="abrirDialogo(pago)">

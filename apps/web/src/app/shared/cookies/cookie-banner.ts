@@ -80,7 +80,9 @@ import { Toggle } from '../ui/toggle';
             />
             <app-toggle
               [label]="t('cookies.banner.analiticas')"
-              [estado]="analiticas() ? t('cookies.ventana.estadoSi') : t('cookies.ventana.estadoNo')"
+              [estado]="
+                analiticas() ? t('cookies.ventana.estadoSi') : t('cookies.ventana.estadoNo')
+              "
               [hint]="t('cookies.ventana.analiticasDetalle')"
               [(checked)]="analiticas"
             />

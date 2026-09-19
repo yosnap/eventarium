@@ -15,7 +15,11 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   template: `
     <div class="kpi">
       <span class="rotulo-seccion">{{ rotulo() }}</span>
-      <div class="valor" [class.tono-warn]="tono() === 'warn'" [class.tono-accent]="tono() === 'accent'">
+      <div
+        class="valor"
+        [class.tono-warn]="tono() === 'warn'"
+        [class.tono-accent]="tono() === 'accent'"
+      >
         {{ valor() }}
       </div>
       @if (descriptor(); as texto) {

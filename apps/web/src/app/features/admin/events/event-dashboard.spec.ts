@@ -158,10 +158,7 @@ describe('EventDashboard', () => {
 
   it('un aforo nulo se explica como «sin aforo», no como cero plazas', async () => {
     configurarYGuardarHttp();
-    const fixture = await montar(
-      http,
-      metricas({ ocupacion: { reservadas: 7, aforo: null } }),
-    );
+    const fixture = await montar(http, metricas({ ocupacion: { reservadas: 7, aforo: null } }));
     const raiz = fixture.nativeElement as HTMLElement;
 
     expect(raiz.textContent).toContain('7');

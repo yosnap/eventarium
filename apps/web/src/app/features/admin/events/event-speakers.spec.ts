@@ -41,9 +41,7 @@ function vista() {
         first_name: 'Ana',
         last_name: 'García',
         titular: 'Plataformas de datos',
-        sesiones: [
-          { id: 's1', titulo: 'Poner un modelo en producción', starts_at: null },
-        ],
+        sesiones: [{ id: 's1', titulo: 'Poner un modelo en producción', starts_at: null }],
         completitud: {
           porcentaje: 100,
           rellenas: 6,
@@ -174,9 +172,7 @@ describe('EventSpeakers', () => {
     flushCarga(http);
     await avanzar(fixture);
 
-    const entrada = fixture.nativeElement.querySelector(
-      'input[type="search"]',
-    ) as HTMLInputElement;
+    const entrada = fixture.nativeElement.querySelector('input[type="search"]') as HTMLInputElement;
     entrada.value = 'Ana';
     entrada.dispatchEvent(new Event('input'));
     await avanzar(fixture);
@@ -202,8 +198,7 @@ describe('EventSpeakers', () => {
     botones[0].click();
 
     const peticion = http.expectOne(
-      (p) =>
-        p.url === `${BASE}/speakers/om2/pedir-bio` && p.method === 'POST',
+      (p) => p.url === `${BASE}/speakers/om2/pedir-bio` && p.method === 'POST',
     );
     peticion.flush(null, { status: 204, statusText: 'No Content' });
     await avanzar(fixture);

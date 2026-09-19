@@ -46,15 +46,12 @@ describe('MediaCropEditor', () => {
     await avanzar(fixture);
     const raiz = fixture.nativeElement as HTMLElement;
     const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
-    lienzo.getBoundingClientRect = () =>
-      ({ left: 0, top: 0, width: 200, height: 100 }) as DOMRect;
+    lienzo.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 100 }) as DOMRect;
 
     let emitido: RectanguloDeRecorte | undefined;
     fixture.componentInstance.confirmado.subscribe((valor) => (emitido = valor));
 
-    lienzo.dispatchEvent(
-      new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }),
-    );
+    lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
     lienzo.dispatchEvent(punteroEn(120, 60));
     await avanzar(fixture);
 

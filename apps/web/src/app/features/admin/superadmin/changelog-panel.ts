@@ -1,11 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  inject,
-  input,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
 import { Button } from '../../../shared/ui/button';
@@ -70,7 +63,10 @@ const VERSIONES_POR_PAGINA = 6;
                       }}</app-chip>
                       <ul class="items">
                         @for (item of seccion.items; track item.titulo) {
-                          <li><strong>{{ item.titulo }}</strong>: {{ item.descripcion }}</li>
+                          <li>
+                            <strong>{{ item.titulo }}</strong
+                            >: {{ item.descripcion }}
+                          </li>
                         }
                       </ul>
                     </div>
@@ -92,9 +88,7 @@ const VERSIONES_POR_PAGINA = 6;
               {{ t('admin.members.anterior') }}
             </app-button>
             <span>
-              {{
-                t('admin.members.paginaDe', { actual: pagina() + 1, total: totalPaginas() })
-              }}
+              {{ t('admin.members.paginaDe', { actual: pagina() + 1, total: totalPaginas() }) }}
             </span>
             <app-button
               variant="secundario"
