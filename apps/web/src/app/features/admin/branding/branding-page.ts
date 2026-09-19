@@ -1,165 +1,127 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
-import { checkBrandingContrast } from '../../../core/theming/contrast';
 import { ThemingService } from '../../../core/theming/theming.service';
-import { TEMPLATE_REGISTRY } from '../../../core/theming/template-registry';
+import { PlantillaDeTema } from '../../../core/theming/theme-template.model';
 import { Alert } from '../../../shared/ui/alert';
+import { PageHeader } from '../../../shared/ui/page-header';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
-import { Input } from '../../../shared/ui/input';
 import { Textarea } from '../../../shared/ui/textarea';
+import { ThemeTemplatePreview } from '../superadmin/theme-template-preview';
+import { MediaPicker } from '../../../shared/ui/media-picker';
+import { LOGO_ACEPTADOS } from '../../../shared/uploads/image-upload-constraints';
 
 interface SocialLink {
   kind: string;
   url: string;
 }
 
+/** Igual que en `organization-page.ts`: solo se usan los campos que hacen falta aquí. */
+interface Organizacion {
+  readonly name: string;
+}
+
+/** Contrato de `GET`/`PUT /organizations/me/branding` tras la sesión 3 de validación
+ * del plan: sin `colors` ni `fonts` (las columnas se retiran en `0015`). Sin
+ * `template_key` tampoco (fase 6 del plan de organización sin dominio: sin
+ * portada por organización, la plantilla de portada dejó de existir). */
 interface Branding {
-  readonly template_key: string;
-  readonly colors: Readonly<Record<string, string>>;
-  readonly fonts: Readonly<Record<string, string>>;
+  readonly theme_template_id: string | null;
   readonly social_links: readonly SocialLink[];
   readonly organizer_blurb: string | null;
   readonly logo_url: string | null;
 }
 
-// Mismas claves que `DEFAULT_COLORS`/`DEFAULT_FONTS` en `app/modules/tenant/schemas.py`:
-// son las que `apply-tokens.ts` traduce a variables CSS y las que comprueba `contrast.ts`.
-// Si el branding guardado no trae alguna, se rellena con este valor neutro para que el
-// selector de color no empiece en negro.
-const CAMPOS_DE_COLOR: readonly { clave: string; porDefecto: string }[] = [
-  { clave: 'primary', porDefecto: '#1d4ed8' },
-  { clave: 'primary-contrast', porDefecto: '#ffffff' },
-  { clave: 'secondary', porDefecto: '#0f766e' },
-  { clave: 'surface', porDefecto: '#ffffff' },
-  { clave: 'surface-muted', porDefecto: '#f1f5f9' },
-  { clave: 'text', porDefecto: '#0f172a' },
-  { clave: 'text-muted', porDefecto: '#475569' },
-  { clave: 'border', porDefecto: '#cbd5e1' },
-  { clave: 'danger', porDefecto: '#b91c1c' },
-  { clave: 'success', porDefecto: '#15803d' },
-];
-const CAMPOS_DE_FUENTE: readonly string[] = ['sans', 'heading'];
-
-const CLAVES_DE_PLANTILLA = Array.from(TEMPLATE_REGISTRY.keys());
-
-const LOGO_MIMES_PERMITIDOS = new Set(['image/png', 'image/jpeg', 'image/webp']);
-// Coincide con `max_image_bytes` en `app/core/config.py`: si diverge, el peor caso es
-// un rechazo tardío en el servidor con el mismo mensaje, no un fallo de seguridad.
-const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
-
-const HEX_VALIDO = /^#[0-9a-f]{6}$/i;
-
 /**
- * Identidad visual editable: colores, tipografías, plantilla, redes sociales y logo.
+ * Identidad visual editable: logotipo, plantilla de tema, redes sociales y
+ * resumen del organizador.
+ *
+ * Ya no hay ningún campo de color ni de tipografía: la organización elige una
+ * plantilla completa del catálogo de la plataforma (sesión 2 de validación del plan),
+ * no un acento propio. El nombre de la organización solo se muestra aquí, con enlace a
+ * `/dashboard/organization`: lo edita esa pantalla, no esta (una sola fuente de
+ * escritura por dato).
  *
  * El estado en edición vive aparte de `ThemingService` (que representa lo ya
- * publicado): así la vista previa del propio panel no cambia mientras se edita, y solo
- * se sincroniza con lo publicado al guardar con éxito.
+ * publicado): así la vista previa del panel no cambia mientras se edita, y solo se
+ * sincroniza con lo publicado al guardar con éxito.
  */
 @Component({
   selector: 'app-branding-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input, Textarea],
+  imports: [
+    TranslocoDirective,
+    RouterLink,
+    Alert,
+    Button,
+    Card,
+    PageHeader,
+    Textarea,
+    MediaPicker,
+    ThemeTemplatePreview,
+  ],
   template: `
     <ng-container *transloco="let t">
-      <h1>{{ t('admin.branding.titulo') }}</h1>
-      <p>{{ t('admin.branding.descripcion') }}</p>
+      <app-page-header [rotulo]="t('admin.branding.rotulo')">
+        {{ t('admin.branding.titulo') }}
+        <app-button
+          acciones
+          type="submit"
+          [form]="'form-branding'"
+          [disabled]="cargando() || !!errorDeCarga()"
+          [loading]="guardando()"
+        >
+          {{ guardando() ? t('admin.branding.guardando') : t('comun.guardar') }}
+        </app-button>
+      </app-page-header>
+      <p class="descripcion">{{ t('admin.branding.descripcion') }}</p>
 
       @if (cargando()) {
         <p>{{ t('comun.cargando') }}</p>
+      } @else if (errorDeCarga(); as mensaje) {
+        <app-alert tone="error" [title]="t('admin.branding.error')">{{ mensaje }}</app-alert>
       } @else {
-        @for (aviso of avisosDeContraste(); track aviso.primero + aviso.segundo) {
-          <app-alert tone="error">
-            {{
-              t('admin.branding.contrasteInsuficiente', {
-                primero: aviso.primero,
-                segundo: aviso.segundo,
-                ratio: aviso.ratio,
-              })
-            }}
-          </app-alert>
-        }
-
-        <form (submit)="guardar($event)" novalidate>
+        <form id="form-branding" (submit)="guardar($event)" novalidate>
           <div class="tarjetas">
-            <app-card [heading]="t('admin.branding.plantilla')">
-              <label for="plantilla">{{ t('admin.branding.plantilla') }}</label>
-              <select id="plantilla" (change)="alCambiarPlantilla($event)">
-                @for (clave of claves; track clave) {
-                  <option [value]="clave" [selected]="clave === templateKey()">{{ clave }}</option>
-                }
-              </select>
-            </app-card>
-
             <app-card [heading]="t('admin.branding.logotipo')">
-              @if (previaLogo(); as url) {
-                <img [src]="url" [alt]="t('admin.branding.logotipo')" height="64" />
-              } @else {
-                <p>{{ t('admin.branding.sinLogotipo') }}</p>
-              }
-              <label class="etiqueta-fichero" for="logo">{{ t('admin.branding.subirLogo') }}</label>
-              <input
-                id="logo"
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                (change)="alSeleccionarLogo($event)"
+              <p class="nombre-organizacion">
+                {{ nombreOrganizacion() }}
+                <a routerLink="/dashboard/organization">{{ t('admin.branding.editarNombre') }}</a>
+              </p>
+              <app-media-picker
+                [etiqueta]="t('admin.branding.logotipo')"
+                [aceptados]="LOGO_ACEPTADOS"
+                kind="branding"
+                [(url)]="previaLogo"
+                [(mediaId)]="logoMediaIdPendiente"
               />
-              @if (errorLogo(); as mensaje) {
-                <p class="error">{{ mensaje }}</p>
-              }
-            </app-card>
-
-            <app-card [heading]="t('admin.branding.colores')">
-              <div class="colores">
-                @for (campo of camposDeColor; track campo.clave) {
-                  <div class="color-fila">
-                    <input
-                      type="color"
-                      class="muestra-editable"
-                      [value]="valorColorParaSelector(campo.clave)"
-                      (input)="alCambiarColor(campo.clave, colorDelEvento($event))"
-                      [attr.aria-label]="t('admin.branding.colorClaves.' + campo.clave)"
-                    />
-                    <app-input
-                      [label]="t('admin.branding.colorClaves.' + campo.clave)"
-                      [value]="colors()[campo.clave]"
-                      (valueChange)="alCambiarColor(campo.clave, $event)"
-                    />
-                  </div>
-                }
-              </div>
-            </app-card>
-
-            <app-card [heading]="t('admin.branding.tipografias')">
-              @for (clave of camposDeFuente; track clave) {
-                <app-input
-                  [label]="t('admin.branding.fuenteClaves.' + clave)"
-                  [value]="fonts()[clave]"
-                  (valueChange)="alCambiarFuente(clave, $event)"
-                />
-              }
             </app-card>
 
             <app-card [heading]="t('admin.branding.redesSociales')">
               @for (enlace of socialLinks(); track $index) {
                 <div class="red-fila">
-                  <app-input
-                    [label]="t('admin.branding.tipoDeRed')"
-                    [value]="enlace.kind"
-                    (valueChange)="alCambiarRed($index, 'kind', $event)"
-                  />
-                  <app-input
-                    [label]="t('admin.branding.urlDeRed')"
-                    type="url"
-                    [value]="enlace.url"
-                    (valueChange)="alCambiarRed($index, 'url', $event)"
-                  />
+                  <label
+                    >{{ t('admin.branding.tipoDeRed') }}
+                    <input
+                      type="text"
+                      [value]="enlace.kind"
+                      (input)="alCambiarRed($index, 'kind', inputDelEvento($event))"
+                    />
+                  </label>
+                  <label
+                    >{{ t('admin.branding.urlDeRed') }}
+                    <input
+                      type="url"
+                      [value]="enlace.url"
+                      (input)="alCambiarRed($index, 'url', inputDelEvento($event))"
+                    />
+                  </label>
                   <app-button variant="secundario" type="button" (pulsado)="quitarRed($index)">
                     {{ t('admin.branding.quitarRed') }}
                   </app-button>
@@ -178,23 +140,53 @@ const HEX_VALIDO = /^#[0-9a-f]{6}$/i;
             </app-card>
           </div>
 
+          <div class="plantillas" [attr.aria-label]="t('admin.branding.plantillaDeTema')">
+            @for (plantilla of plantillasDeTema(); track plantilla.id) {
+              <button
+                type="button"
+                class="plantilla-tarjeta"
+                [class.plantilla-activa]="plantilla.id === themeTemplateId()"
+                [attr.aria-pressed]="plantilla.id === themeTemplateId()"
+                (click)="themeTemplateId.set(plantilla.id)"
+              >
+                <span class="plantilla-minis">
+                  <span class="plantilla-mini-marco">
+                    <app-theme-template-preview
+                      class="plantilla-miniatura"
+                      [tokens]="plantilla.tokens"
+                      modo="dark"
+                    />
+                  </span>
+                  <span class="plantilla-mini-marco">
+                    <app-theme-template-preview
+                      class="plantilla-miniatura"
+                      [tokens]="plantilla.tokens"
+                      modo="light"
+                    />
+                  </span>
+                </span>
+                <span class="plantilla-nombre">{{ plantilla.name }}</span>
+              </button>
+            }
+            @if (plantillasDeTema().length === 0) {
+              <p>{{ t('admin.branding.sinPlantillasDeTema') }}</p>
+            }
+          </div>
+
           @if (guardado()) {
             <app-alert tone="exito">{{ t('admin.branding.guardado') }}</app-alert>
           }
           @if (error(); as mensaje) {
             <app-alert tone="error" [title]="t('admin.branding.error')">{{ mensaje }}</app-alert>
           }
-
-          <app-button type="submit" [loading]="guardando()">
-            {{ guardando() ? t('admin.branding.guardando') : t('comun.guardar') }}
-          </app-button>
         </form>
       }
     </ng-container>
   `,
   styles: `
-    h1 {
-      margin-top: 0;
+    .descripcion {
+      margin: 0 0 var(--sp-5);
+      color: var(--muted);
     }
     form {
       display: grid;
@@ -206,40 +198,29 @@ const HEX_VALIDO = /^#[0-9a-f]{6}$/i;
       gap: var(--space-md);
       grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
     }
-    select {
-      display: block;
-      width: 100%;
-      margin-top: var(--space-xs);
-      padding: 0.625rem 0.75rem;
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-md);
-      background-color: var(--color-surface);
-      color: var(--color-text);
-      font: inherit;
-      min-height: 2.75rem;
-    }
-    .colores {
-      display: grid;
+    .nombre-organizacion {
+      display: flex;
+      align-items: center;
       gap: var(--space-sm);
+      font-weight: 600;
     }
-    .color-fila,
     .red-fila {
       display: flex;
       align-items: center;
       gap: var(--space-sm);
+      margin-bottom: var(--space-sm);
     }
-    .color-fila app-input,
-    .red-fila app-input {
+    .red-fila label {
       flex: 1;
+      display: grid;
+      gap: var(--space-xs);
+      font-size: 0.875rem;
     }
-    .muestra-editable {
-      width: 2.75rem;
-      height: 2.75rem;
-      padding: 0;
-      border: 1px solid var(--color-border);
+    .red-fila input {
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      background: none;
-      cursor: pointer;
+      font: inherit;
     }
     .etiqueta-fichero {
       display: block;
@@ -251,43 +232,101 @@ const HEX_VALIDO = /^#[0-9a-f]{6}$/i;
     }
     .error {
       margin: var(--space-xs) 0 0;
-      color: var(--color-danger);
+      color: var(--danger);
       font-size: 0.875rem;
     }
     img {
       display: block;
       margin-bottom: var(--space-sm);
     }
+    .plantillas {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+      gap: var(--sp-4);
+    }
+    .plantilla-tarjeta {
+      display: grid;
+      gap: var(--space-xs);
+      padding: var(--sp-3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: none;
+      cursor: pointer;
+      font: inherit;
+      color: var(--fg);
+      text-align: left;
+    }
+    .plantilla-tarjeta:hover {
+      border-color: var(--border-strong);
+    }
+    /* La elegida se marca por borde, no solo por color (WCAG 1.4.1). */
+    .plantilla-activa {
+      border-color: var(--accent);
+      border-width: 2px;
+      padding: calc(var(--sp-3) - 1px);
+    }
+    .plantilla-minis {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-xs);
+    }
+    /* ThemeTemplatePreview está pensado para su tamaño real (título, chip y
+       botón con su tipografía normal, min-height:10rem) — a la anchura de un
+       hueco de esta rejilla (mitad de una tarjeta de ~15rem) el texto se corta.
+       En vez de reescribir el componente para un tamaño "mini" que no existe,
+       se renderiza a un ancho de referencia (--ancho-referencia) y se
+       reescala visualmente al hueco real: el marco fija el tamaño final y
+       recorta lo que sobre, la miniatura se pinta más grande y se encoge con
+       transform, así el texto interno nunca se ve obligado a envolver ni
+       desbordar. */
+    .plantilla-mini-marco {
+      --ancho-referencia: 13rem;
+      --factor-escala: 0.62;
+      overflow: hidden;
+      border-radius: var(--radius-md);
+      aspect-ratio: 7 / 5;
+    }
+    .plantilla-miniatura {
+      display: block;
+      width: var(--ancho-referencia);
+      transform: scale(var(--factor-escala));
+      transform-origin: top left;
+      pointer-events: none;
+    }
+    .plantilla-nombre {
+      font-weight: 500;
+    }
   `,
 })
 export class BrandingPage {
+  protected readonly LOGO_ACEPTADOS = LOGO_ACEPTADOS;
+
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
   private readonly theming = inject(ThemingService);
 
-  protected readonly claves = CLAVES_DE_PLANTILLA;
-  protected readonly camposDeColor = CAMPOS_DE_COLOR;
-  protected readonly camposDeFuente = CAMPOS_DE_FUENTE;
+  protected readonly modos: readonly ('dark' | 'light')[] = ['dark', 'light'];
 
   protected readonly cargando = signal(true);
   protected readonly guardando = signal(false);
   protected readonly guardado = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly errorLogo = signal<string | null>(null);
+  protected readonly errorDeCarga = signal<string | null>(null);
 
-  protected readonly templateKey = signal(CLAVES_DE_PLANTILLA[0] ?? 'classic');
-  protected readonly colors = signal<Record<string, string>>({});
-  protected readonly fonts = signal<Record<string, string>>({});
+  protected readonly themeTemplateId = signal<string | null>(null);
+  protected readonly plantillasDeTema = signal<PlantillaDeTema[]>([]);
   protected readonly socialLinks = signal<SocialLink[]>([]);
   protected readonly organizerBlurb = signal('');
-  protected readonly logoUrlGuardado = signal<string | null>(null);
+  protected readonly nombreOrganizacion = signal('');
 
-  private logoPendiente: File | null = null;
-  private readonly previaLogoLocal = signal<string | null>(null);
-  protected readonly previaLogo = computed(() => this.previaLogoLocal() ?? this.logoUrlGuardado());
-
-  protected readonly avisosDeContraste = computed(() => checkBrandingContrast(this.colors()));
+  /** Previsualización del logo — doble enlace con `MediaPicker`: lo inicializa
+   * `aplicarRespuesta` con lo ya guardado, y el propio picker lo actualiza al
+   * elegir uno nuevo o al pulsar "Quitar" (`url.set(null)`). */
+  protected readonly previaLogo = signal<string | null>(null);
+  /** `null` = nada pendiente que asignar (ni un cambio ni un "Quitar" reales
+   * hasta que se guarde); no nulo = el `media_id` a asignar en `guardar()`. */
+  protected readonly logoMediaIdPendiente = signal<string | null>(null);
 
   constructor() {
     void this.cargar();
@@ -295,53 +334,43 @@ export class BrandingPage {
 
   private async cargar(): Promise<void> {
     try {
-      const branding = await firstValueFrom(
-        this.http.get<Branding>(this.api.url('/organizations/me/branding')),
-      );
+      const [organizacion, branding, plantillas] = await Promise.all([
+        firstValueFrom(this.http.get<Organizacion>(this.api.url('/organizations/me'))),
+        firstValueFrom(this.http.get<Branding>(this.api.url('/organizations/me/branding'))),
+        firstValueFrom(
+          this.http.get<PlantillaDeTema[]>(this.api.url('/organizations/me/theme-templates')),
+        ),
+      ]);
+      this.nombreOrganizacion.set(organizacion.name);
+      this.plantillasDeTema.set(plantillas);
       this.aplicarRespuesta(branding);
+    } catch (error) {
+      // `errorDeCarga` sustituye al formulario entero en la plantilla: si cualquiera
+      // de los tres GET falla, el formulario no debe quedar enviable con valores por
+      // defecto que sobrescribirían el branding real al guardar.
+      this.errorDeCarga.set(
+        error instanceof ApiError
+          ? error.message
+          : this.transloco.translate('admin.branding.error'),
+      );
     } finally {
       this.cargando.set(false);
     }
   }
 
   private aplicarRespuesta(branding: Branding): void {
-    this.templateKey.set(branding.template_key || CLAVES_DE_PLANTILLA[0] || 'classic');
-    const colores: Record<string, string> = {};
-    for (const campo of CAMPOS_DE_COLOR) {
-      colores[campo.clave] = branding.colors[campo.clave] ?? campo.porDefecto;
-    }
-    this.colors.set(colores);
-    const fuentes: Record<string, string> = {};
-    for (const clave of CAMPOS_DE_FUENTE) {
-      fuentes[clave] = branding.fonts[clave] ?? '';
-    }
-    this.fonts.set(fuentes);
+    this.themeTemplateId.set(branding.theme_template_id);
     this.socialLinks.set(branding.social_links.map((enlace) => ({ ...enlace })));
     this.organizerBlurb.set(branding.organizer_blurb ?? '');
-    this.logoUrlGuardado.set(branding.logo_url);
-  }
-
-  protected alCambiarPlantilla(evento: Event): void {
-    this.templateKey.set((evento.target as HTMLSelectElement).value);
+    this.previaLogo.set(branding.logo_url);
   }
 
   protected colorDelEvento(evento: Event): string {
     return (evento.target as HTMLInputElement).value;
   }
 
-  /** El selector nativo de color exige `#rrggbb` exacto; un valor a medio escribir se
-   * sustituye por un neutro para no romper el control mientras la persona escribe. */
-  protected valorColorParaSelector(clave: string): string {
-    const valor = this.colors()[clave];
-    return HEX_VALIDO.test(valor) ? valor : '#000000';
-  }
-
-  protected alCambiarColor(clave: string, valor: string): void {
-    this.colors.update((actuales) => ({ ...actuales, [clave]: valor }));
-  }
-
-  protected alCambiarFuente(clave: string, valor: string): void {
-    this.fonts.update((actuales) => ({ ...actuales, [clave]: valor }));
+  protected inputDelEvento(evento: Event): string {
+    return (evento.target as HTMLInputElement).value;
   }
 
   protected alCambiarRed(indice: number, campo: 'kind' | 'url', valor: string): void {
@@ -358,26 +387,6 @@ export class BrandingPage {
     this.socialLinks.update((actuales) => actuales.filter((_, i) => i !== indice));
   }
 
-  protected alSeleccionarLogo(evento: Event): void {
-    this.errorLogo.set(null);
-    const fichero = (evento.target as HTMLInputElement).files?.[0] ?? null;
-    if (!fichero) {
-      return;
-    }
-    if (!LOGO_MIMES_PERMITIDOS.has(fichero.type)) {
-      this.errorLogo.set(this.transloco.translate('admin.branding.logoNoValido'));
-      (evento.target as HTMLInputElement).value = '';
-      return;
-    }
-    if (fichero.size > LOGO_TAMANO_MAXIMO) {
-      this.errorLogo.set(this.transloco.translate('admin.branding.logoDemasiadoGrande'));
-      (evento.target as HTMLInputElement).value = '';
-      return;
-    }
-    this.logoPendiente = fichero;
-    this.previaLogoLocal.set(URL.createObjectURL(fichero));
-  }
-
   protected async guardar(evento: Event): Promise<void> {
     evento.preventDefault();
     this.guardado.set(false);
@@ -387,9 +396,7 @@ export class BrandingPage {
     try {
       let respuesta = await firstValueFrom(
         this.http.put<Branding>(this.api.url('/organizations/me/branding'), {
-          template_key: this.templateKey(),
-          colors: this.colors(),
-          fonts: this.fonts(),
+          theme_template_id: this.themeTemplateId(),
           // Una fila añadida y no rellenada no cuenta como enlace: el backend exige
           // `kind`/`url` no vacíos, y descartarla aquí evita un 422 confuso por un
           // campo que la persona nunca llegó a completar.
@@ -400,14 +407,14 @@ export class BrandingPage {
         }),
       );
 
-      if (this.logoPendiente) {
-        const datos = new FormData();
-        datos.append('fichero', this.logoPendiente);
+      const mediaId = this.logoMediaIdPendiente();
+      if (mediaId) {
         respuesta = await firstValueFrom(
-          this.http.put<Branding>(this.api.url('/organizations/me/branding/logo'), datos),
+          this.http.put<Branding>(this.api.url('/organizations/me/branding/logo'), {
+            media_id: mediaId,
+          }),
         );
-        this.logoPendiente = null;
-        this.previaLogoLocal.set(null);
+        this.logoMediaIdPendiente.set(null);
       }
 
       this.aplicarRespuesta(respuesta);

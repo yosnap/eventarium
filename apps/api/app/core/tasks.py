@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import text
 from taskiq import TaskiqEvents, TaskiqState
 from taskiq.schedule_sources import LabelScheduleSource
 from taskiq.scheduler.scheduler import TaskiqScheduler
@@ -17,8 +16,29 @@ from taskiq_redis import RedisAsyncResultBackend, RedisStreamBroker
 
 from app.core.cleanup import sweep_unverified_accounts
 from app.core.config import get_settings
-from app.core.database import maintenance_session
-from app.core.email import get_email_provider
+from app.core.email import EmailAttachment, get_email_provider
+from app.core.tenant import base_url_de_organizacion
+
+# Registro de todas las tablas en `Base.metadata` antes de que cualquier tarea
+# haga un `commit`, mismo motivo y mismo patrón que `alembic/env.py`: este
+# módulo se ejecuta como punto de entrada propio (`taskiq worker
+# app.core.tasks:broker`), así que ningún router de `app.main` llega a
+# importarse nunca en el proceso del worker. Sin esto, la primera tarea que
+# haga `flush`/`commit` sobre una fila con una FK hacia una tabla cuyo modelo
+# no se haya importado todavía en *este* proceso falla con
+# `NoReferencedTableError`/`PendingRollbackError` («could not find table
+# 'users'»): SQLAlchemy resuelve las FK declaradas por nombre de tabla contra
+# `Base.metadata`, que solo se rellena importando la clase del modelo.
+from app.modules.events import models as _event_models  # noqa: F401
+from app.modules.legal import models as _legal_models  # noqa: F401
+from app.modules.organizations import models as _organization_models  # noqa: F401
+from app.modules.payments import models as _payment_models  # noqa: F401
+from app.modules.registrations import models as _registration_models  # noqa: F401
+from app.modules.roles import models as _role_models  # noqa: F401
+from app.modules.sponsors import models as _sponsor_models  # noqa: F401
+from app.modules.tickets import models as _ticket_models  # noqa: F401
+from app.modules.tickets.service import generar_imagen_qr
+from app.modules.users import models as _user_models  # noqa: F401
 
 _settings = get_settings()
 
@@ -63,10 +83,44 @@ async def send_verification_email(to_email: str, token: str) -> None:
     )
 
 
-@broker.task(schedule=[{"cron": "0 * * * *"}])
+@broker.task()
 async def sweep_unverified_accounts_task() -> None:
-    """Cada hora: aviso a los 5 días, borrado a los 7 (`core/cleanup.py`)."""
+    """Aviso a los 5 días, borrado a los 7 (`core/cleanup.py`).
+
+    Sin `schedule`: el barrido automático horario se desactivó a petición
+    expresa (borraba cuentas de desarrollo sin aviso visible). La tarea sigue
+    aquí por si se quiere volver a programar o invocar a mano más adelante,
+    pero no se dispara sola."""
     await sweep_unverified_accounts()
+
+
+@broker.task(retry_on_error=True, max_retries=5)
+async def send_invitation_email(
+    to_email: str, token: str, organization_id: str, organization_name: str, role_name: str
+) -> None:
+    """Envía el enlace de invitación de equipo (fase 2 del plan de invitaciones).
+
+    El asunto y el cuerpo dicen «te han invitado», nunca «recupera tu
+    contraseña»: el mecanismo es el mismo que `send_password_reset_email`
+    (Redis + huella + TTL) pero el mensaje no puede serlo, o la persona
+    invitada cree que le han hackeado la cuenta (hallazgo S-1 del red-team).
+    El enlace va a la ruta propia `/invitacion`, nunca a
+    `/recuperar-contrasena/nueva`.
+    """
+    base = await base_url_de_organizacion(uuid.UUID(organization_id))
+    enlace = f"{base}/invitacion?token={token}"
+    await get_email_provider().send(
+        to=to_email,
+        subject=f"Te han invitado a «{organization_name}»",
+        body=(
+            "Hola,\n\n"
+            f"Te han invitado a unirte a «{organization_name}» con el rol «{role_name}».\n"
+            "Para aceptar la invitación y crear tu contraseña, entra aquí:\n"
+            f"{enlace}\n\n"
+            "El enlace caduca en 7 días. Si no esperabas esta invitación, puedes "
+            "ignorar este mensaje."
+        ),
+    )
 
 
 @broker.task(retry_on_error=True, max_retries=5)
@@ -105,6 +159,35 @@ async def send_email_change_warning(to_email: str, new_email: str) -> None:
 
 
 @broker.task(retry_on_error=True, max_retries=5)
+async def send_impersonation_notice(
+    to_email: str, *, reason: str, minutos: int, organizacion: str
+) -> None:
+    """Avisa a la persona de que el equipo de la plataforma ha entrado a su cuenta.
+
+    Sin enlace y sin token: es un aviso, no una acción que la persona tenga que
+    hacer. Va al suplantado y no al administrador porque suplantar da acceso a
+    datos personales de alguien que, sin este correo, no tendría forma de
+    enterarse (el registro de auditoría está restringido al personal de
+    plataforma).
+    """
+    await get_email_provider().send(
+        to=to_email,
+        subject="El equipo de la plataforma ha accedido a tu cuenta",
+        body=(
+            "Hola,\n\n"
+            f"El equipo de soporte ha accedido a tu cuenta de {organizacion} durante "
+            f"unos {minutos} minutos para revisar una incidencia. El motivo indicado "
+            f"es: «{reason}».\n\n"
+            "El acceso es de solo lectura: durante ese tiempo no se ha modificado "
+            "nada de tu cuenta ni de tus eventos. Queda registrado quién lo hizo y "
+            "cuándo.\n\n"
+            "Si no esperabas este acceso, responde a este correo para que lo "
+            "revisemos."
+        ),
+    )
+
+
+@broker.task(retry_on_error=True, max_retries=5)
 async def send_email_change_confirmation(to_email: str, token: str) -> None:
     """Envía el enlace de confirmación al correo **nuevo**."""
     settings = get_settings()
@@ -119,32 +202,6 @@ async def send_email_change_confirmation(to_email: str, token: str) -> None:
             "El enlace caduca en 24 horas. Si no has sido tú, ignora este mensaje."
         ),
     )
-
-
-async def _base_url_de_organizacion(organization_id: uuid.UUID) -> str:
-    """URL pública de la organización, por su dominio primario.
-
-    A diferencia de los correos de cuenta (transversales a toda la instalación,
-    de ahí `settings.web_base_url`), un correo de inscripción llega a alguien
-    sin sesión ni contexto de organización: el enlace tiene que apuntar al
-    dominio propio de esa organización — la instalación resuelve el tenant por
-    `Host`, así que un enlace al dominio equivocado no encontraría la
-    inscripción al volver. Usa `maintenance_session` porque una tarea de fondo
-    no tiene una petición HTTP de la que resolver la organización.
-    """
-    settings = get_settings()
-    async with maintenance_session() as session:
-        host = await session.scalar(
-            text(
-                "SELECT host FROM organization_domains "
-                "WHERE organization_id = :id ORDER BY is_primary DESC LIMIT 1"
-            ),
-            {"id": organization_id},
-        )
-    if not host:
-        return settings.web_base_url
-    esquema = "https" if settings.app_env == "production" else "http"
-    return f"{esquema}://{host}"
 
 
 @broker.task(schedule=[{"cron": "*/15 * * * *"}])
@@ -167,7 +224,7 @@ async def send_registration_verification_email(
     to_email: str, token: str, organization_id: str
 ) -> None:
     """Envía el enlace de verificación de una inscripción a un evento."""
-    base = await _base_url_de_organizacion(uuid.UUID(organization_id))
+    base = await base_url_de_organizacion(uuid.UUID(organization_id))
     enlace = f"{base}/verificar-inscripcion?token={token}"
     await get_email_provider().send(
         to=to_email,
@@ -194,16 +251,44 @@ def _cuerpo_con_cancelacion(intro: str, enlace_cancelacion: str) -> str:
 
 @broker.task(retry_on_error=True, max_retries=5)
 async def send_registration_confirmed_email(
-    to_email: str, organization_id: str, cancel_token: str
+    to_email: str, organization_id: str, cancel_token: str, qr_token: str | None = None
 ) -> None:
-    """Confirmación de inscripción (alta directa, verificación o aprobación)."""
-    base = await _base_url_de_organizacion(uuid.UUID(organization_id))
+    """Confirmación de inscripción (alta directa, verificación o aprobación),
+    con la entrada QR incrustada (fase 4 del PRD, fase 4 de trabajo).
+
+    `qr_token` es el JWT ya firmado de la entrada (`tickets.service.generar_token_qr`),
+    generado en `_enviar_email_por_estado` — la imagen PNG se genera aquí, en
+    el worker, no en el camino de la petición HTTP que confirma la inscripción.
+
+    Opcional con valor por defecto (no un cuarto argumento obligatorio): un
+    despliegue con reinicio escalonado podría dejar un mensaje ya encolado
+    por un productor con la firma antigua (de tres argumentos) esperando a
+    ser procesado por un worker ya actualizado — con un valor por defecto ese
+    mensaje se entrega igual, sin el QR incrustado, en vez de fallar.
+    """
+    base = await base_url_de_organizacion(uuid.UUID(organization_id))
     enlace_cancelacion = f"{base}/cancelar-inscripcion?token={cancel_token}"
+    enlace_mi_entrada = f"{base}/mi-entrada?token={cancel_token}"
     await get_email_provider().send(
         to=to_email,
         subject="Tu inscripción está confirmada",
         body=_cuerpo_con_cancelacion(
-            "Tu inscripción ha quedado confirmada. ¡Te esperamos!", enlace_cancelacion
+            "Tu inscripción ha quedado confirmada. ¡Te esperamos! Adjuntamos tu "
+            "entrada con el código QR: muéstrala en la puerta el día del evento.\n\n"
+            f"Si pierdes este correo, puedes volver a verla aquí:\n{enlace_mi_entrada}",
+            enlace_cancelacion,
+        ),
+        attachments=(
+            [
+                EmailAttachment(
+                    filename="entrada.png",
+                    content=generar_imagen_qr(qr_token),
+                    maintype="image",
+                    subtype="png",
+                )
+            ]
+            if qr_token is not None
+            else []
         ),
     )
 
@@ -213,7 +298,7 @@ async def send_registration_waitlisted_email(
     to_email: str, organization_id: str, cancel_token: str
 ) -> None:
     """Entrada en lista de espera (alta directa, verificación o aprobación)."""
-    base = await _base_url_de_organizacion(uuid.UUID(organization_id))
+    base = await base_url_de_organizacion(uuid.UUID(organization_id))
     enlace_cancelacion = f"{base}/cancelar-inscripcion?token={cancel_token}"
     await get_email_provider().send(
         to=to_email,
@@ -227,31 +312,180 @@ async def send_registration_waitlisted_email(
 
 
 @broker.task(retry_on_error=True, max_retries=5)
-async def send_registration_rejected_email(to_email: str, organization_id: str) -> None:
-    """Rechazo de una inscripción `pending_approval` por el organizador."""
+async def send_registration_rejected_email(
+    to_email: str, organization_id: str, reason: str | None = None
+) -> None:
+    """Rechazo de una inscripción `pending_approval` por el organizador.
+
+    `reason` es el mensaje que el organizador escribe en el diálogo de
+    rechazo; no se guarda en ninguna tabla (solo viaja aquí), así que un
+    reenvío posterior del mismo rechazo (alta duplicada sobre una
+    inscripción ya `rejected`) no puede reconstruirlo. Parámetro opcional al
+    final: la tarea puede tener mensajes en cola con la firma antigua
+    (2 posicionales) — un worker desplegado antes que la API que ya encola
+    3 fallaría con `TypeError`, así que en un despliegue continuo los
+    workers se actualizan primero.
+
+    Nota de retención: el `reason` no llega a Postgres, pero `broker`
+    (`RedisStreamBroker`) no fija `maxlen` — un mensaje ya `XACK`eado no se
+    borra del stream de Redis por sí solo. Acota la retención del dato en la
+    base de datos de negocio, no en la infraestructura de mensajería
+    compartida por todas las tareas del sistema (ajustar eso es una decisión
+    de infraestructura aparte, no específica de este correo).
+    """
+    cuerpo = (
+        "Hola,\n\n"
+        "El organizador del evento no ha aprobado tu inscripción. Si crees que "
+        "es un error, contacta directamente con la organización."
+    )
+    motivo = reason.strip() if reason else None
+    if motivo:
+        cuerpo += f"\n\nMensaje del organizador:\n{motivo}"
     await get_email_provider().send(
         to=to_email,
         subject="Tu inscripción no ha sido aprobada",
-        body=(
-            "Hola,\n\n"
-            "El organizador del evento no ha aprobado tu inscripción. Si crees que "
-            "es un error, contacta directamente con la organización."
-        ),
+        body=cuerpo,
     )
 
 
 @broker.task(retry_on_error=True, max_retries=5)
-async def send_registration_cancelled_email(to_email: str, organization_id: str) -> None:
-    """Cancelación de una inscripción, por el organizador o por autocancelación."""
+async def send_registration_cancelled_email(
+    to_email: str, organization_id: str, reembolso: str | None = None
+) -> None:
+    """Cancelación de una inscripción, por el organizador o por autocancelación.
+
+    `reembolso` (fase 6 del PRD, fase 5 de trabajo) distingue
+    los dos casos de una cancelación con pago: `"en_curso"` (política
+    cumplida, se ha creado la intención de reembolso) o `"sin_reembolso"`
+    (había importe pendiente pero la política de plazo lo descarta). `None`
+    para un evento gratuito o un pago que nunca llegó a cobrarse — mismo
+    correo que antes de esta fase.
+    """
+    cuerpo = (
+        "Hola,\n\n"
+        "Tu inscripción a este evento ha quedado cancelada. Si no has sido tú, "
+        "contacta con la organización del evento."
+    )
+    if reembolso == "en_curso":
+        cuerpo += (
+            "\n\nEstamos tramitando el reembolso de tu pago; lo recibirás en los "
+            "próximos días en el mismo medio de pago."
+        )
+    elif reembolso == "sin_reembolso":
+        cuerpo += (
+            "\n\nTu pago no se reembolsa automáticamente por la política de plazo de "
+            "cancelación de este evento. Contacta con la organización si crees que "
+            "debería reembolsarse."
+        )
     await get_email_provider().send(
         to=to_email,
         subject="Tu inscripción ha sido cancelada",
-        body=(
-            "Hola,\n\n"
-            "Tu inscripción a este evento ha quedado cancelada. Si no has sido tú, "
-            "contacta con la organización del evento."
+        body=cuerpo,
+    )
+
+
+@broker.task(retry_on_error=True, max_retries=5)
+async def send_registration_payment_link_email(
+    to_email: str, organization_id: str, checkout_url: str, cancel_token: str, expira_el: str
+) -> None:
+    """Enlace de pago de los caminos 2, 3 y 4 (fase 6 del PRD, fase 4 de
+    trabajo): verificación de email, aprobación manual y promoción de lista
+    de espera de un evento de pago. Encolado por
+    `dispatch_pending_payment_links_task`, nunca dentro de la petición que
+    verificó/aprobó/promovió: sería una llamada de red a
+    Stripe bajo bloqueos de fila."""
+    base = await base_url_de_organizacion(uuid.UUID(organization_id))
+    enlace_cancelacion = f"{base}/cancelar-inscripcion?token={cancel_token}"
+    await get_email_provider().send(
+        to=to_email,
+        subject="Completa el pago de tu entrada",
+        body=_cuerpo_con_cancelacion(
+            "Tu plaza está reservada. Complétala pagando tu entrada antes de "
+            f"{expira_el} desde este enlace:\n{checkout_url}",
+            enlace_cancelacion,
         ),
     )
+
+
+@broker.task(schedule=[{"cron": "* * * * *"}])
+async def dispatch_pending_payment_links_task() -> None:
+    """Cada minuto: crea la Checkout Session de los caminos 2, 3 y 4 y encola
+    su correo (`app/modules/payments/checkout_service.py`)."""
+    from app.modules.payments.checkout_service import dispatch_pending_payment_links
+
+    await dispatch_pending_payment_links()
+
+
+@broker.task(schedule=[{"cron": "*/5 * * * *"}])
+async def expire_pending_payments_task() -> None:
+    """Cada 5 minutos: hermana de `expire_waitlist_promotions_task`. Antes de
+    expirar una compra caducada, consulta el estado real en Stripe — un
+    webhook perdido no debe cancelar una compra que sí se pagó."""
+    from app.modules.payments.checkout_service import expirar_pagos_pendientes
+
+    await expirar_pagos_pendientes()
+
+
+@broker.task(retry_on_error=True, max_retries=5)
+async def process_stripe_webhook_task(event_id: str) -> None:
+    """Efecto de dominio de un webhook de Stripe ya registrado como
+    `received` (`app/modules/payments/webhooks.py`). Relee el payload de la
+    base de datos por `event_id`, nunca del argumento serializado en la cola
+    (decisión #9 del plan de la fase 6)."""
+    from app.modules.payments.webhooks import procesar_evento
+
+    await procesar_evento(event_id)
+
+
+@broker.task(schedule=[{"cron": "*/10 * * * *"}])
+async def sweep_stuck_webhook_events_task() -> None:
+    """Cada 10 minutos: reencola los eventos `received` atascados entre la
+    cola y el worker, y los `failed` con reintentos disponibles: sin esto, un
+    evento perdido deja dinero cobrado sin inscripción confirmada, para
+    siempre."""
+    from app.core.database import maintenance_session
+    from app.modules.payments import repository as payments_repository
+
+    async with maintenance_session() as session:
+        pendientes = await payments_repository.eventos_para_reencolar(session)
+    for event_id in pendientes:
+        await process_stripe_webhook_task.kiq(event_id)
+
+
+@broker.task(schedule=[{"cron": "0 3 * * *"}])
+async def purge_stripe_webhook_events_task() -> None:
+    """Diaria: purga `stripe_webhook_events` más antiguos que
+    `stripe_webhook_retention_days`."""
+    from app.core.database import maintenance_session
+    from app.modules.payments import repository as payments_repository
+
+    async with maintenance_session() as session:
+        await payments_repository.purgar_eventos_antiguos(
+            session, dias=get_settings().stripe_webhook_retention_days
+        )
+
+
+@broker.task(schedule=[{"cron": "*/2 * * * *"}])
+async def process_refunds_task() -> None:
+    """Cada 2 minutos, y encolada al vuelo tras cada cancelación con
+    reembolso automático (`registrations/service.py::_cancelar_inscripcion`):
+    ejecuta contra Stripe las intenciones `pending` del outbox
+    `event_payment_refunds` (fase 6 del PRD, fase 5 de trabajo). El mismo
+    camino ejecuta tanto el reembolso automático como el manual del panel."""
+    from app.modules.payments.refunds_service import procesar_reembolsos_pendientes
+
+    await procesar_reembolsos_pendientes()
+
+
+@broker.task(schedule=[{"cron": "*/10 * * * *"}])
+async def sweep_stuck_refunds_task() -> None:
+    """Cada 10 minutos: hermana de `sweep_stuck_webhook_events_task`. Retoma
+    un reembolso cuya llamada a Stripe pudo tener éxito pero cuya escritura
+    posterior falló: sin esto, la fila queda `submitted` para siempre y nadie
+    se entera de si el dinero salió o no."""
+    from app.modules.payments.refunds_service import reencolar_reembolsos_atascados
+
+    await reencolar_reembolsos_atascados()
 
 
 @broker.task(retry_on_error=True, max_retries=5)
@@ -264,7 +498,7 @@ async def send_waitlist_promotion_email(
 ) -> None:
     """Promoción desde la lista de espera: hay que confirmar antes de `expira_el`
     (ya formateado en texto legible) o la plaza pasa a la siguiente persona."""
-    base = await _base_url_de_organizacion(uuid.UUID(organization_id))
+    base = await base_url_de_organizacion(uuid.UUID(organization_id))
     enlace_confirmar = f"{base}/confirmar-promocion?token={confirm_token}"
     enlace_cancelacion = f"{base}/cancelar-inscripcion?token={cancel_token}"
     await get_email_provider().send(
@@ -277,5 +511,32 @@ async def send_waitlist_promotion_email(
             "Si no confirmas a tiempo, pasaremos a la siguiente persona en la lista "
             "de espera.\n\n"
             f"Si ya no quieres asistir, cancela tu inscripción aquí:\n{enlace_cancelacion}"
+        ),
+    )
+
+
+@broker.task(retry_on_error=True, max_retries=5)
+async def send_speaker_bio_request_email(
+    to_email: str, organization_id: str, event_name: str
+) -> None:
+    """Aviso al ponente de que el organizador necesita su ficha completa.
+
+    El destino es su cuenta (`/dashboard/account`), donde rellena su perfil
+    de ponente; no hay un formulario por evento ni un token de un solo uso.
+    La persona destinataria ya tiene cuenta en la organización: el mensaje
+    no crea credenciales ni enlaces de acceso, solo recuerda la tarea.
+    """
+    base = await base_url_de_organizacion(uuid.UUID(organization_id))
+    enlace = f"{base}/dashboard/account"
+    await get_email_provider().send(
+        to=to_email,
+        subject=f"Falta tu ficha para «{event_name}»",
+        body=(
+            "Hola,\n\n"
+            f"Para publicar el programa de «{event_name}» falta completar tu ficha "
+            "de ponente (biografía, titular y demás datos de perfil).\n\n"
+            "Puedes completarla desde tu cuenta:\n"
+            f"{enlace}\n\n"
+            "Si tienes cualquier duda, responde directamente a la organización."
         ),
     )

@@ -28,7 +28,7 @@ export const authGuard: CanActivateFn = async (_ruta, estado) => {
     return true;
   }
 
-  return router.createUrlTree(['/admin/login'], {
+  return router.createUrlTree(['/acceder'], {
     queryParams: { redirigir: estado.url },
   });
 };

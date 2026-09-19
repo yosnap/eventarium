@@ -11,7 +11,7 @@ import { PageRegistrationListItem } from '../../models/page-registration-list-it
 
 export interface ListRegistrationsApiV1EventsEventIdRegistrationsGet$Params {
   event_id: string;
-  status?: ('pending_verification' | 'pending_approval' | 'confirmed' | 'rejected' | 'cancelled' | 'waitlisted' | null);
+  status?: ('pending_verification' | 'pending_approval' | 'pending_payment' | 'confirmed' | 'rejected' | 'cancelled' | 'waitlisted' | null);
 
 /**
  * Elementos por página

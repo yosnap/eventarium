@@ -175,4 +175,4 @@ async def test_el_owner_si_puede_asignar_el_rol_owner(
         },
     )
     assert respuesta.status_code == 201
-    assert respuesta.json()["role_key"] == "owner"
+    assert respuesta.json()["roles"][0]["role_key"] == "owner"

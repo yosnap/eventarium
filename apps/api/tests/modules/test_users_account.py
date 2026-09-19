@@ -10,13 +10,14 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import text
 
-from app.core.database import SessionApp, set_organization_context
+from app.core.database import SessionApp, SessionMaintenance, set_organization_context
 from app.core.tasks import send_email_change_confirmation, send_email_change_warning
 from app.modules.auth import service as auth_service
 from app.modules.auth.router import COOKIE_NOMBRE
 from app.modules.auth.verification import PROPOSITO_CAMBIO_CORREO, generate_token
+from app.modules.organizations.models import OrganizationMember
 from app.shared.errors import ConflictError
-from tests.conftest import OrganizacionDePrueba, crear_organizacion, iniciar_sesion
+from tests.conftest import OrganizacionDePrueba, crear_organizacion, crear_rol, iniciar_sesion
 
 ME = "/api/v1/users/me"
 CHANGE_EMAIL = "/api/v1/users/me/change-email"
@@ -56,6 +57,27 @@ async def test_patch_me_actualiza_nombre_y_locale(
     cuerpo = respuesta.json()
     assert cuerpo["first_name"] == "Nuevo"
     assert cuerpo["last_name"] == "Nombre"
+
+
+async def test_patch_me_activa_y_desactiva_la_preferencia_de_notificaciones(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+    inicial = await cliente.get(ME, headers=cabeceras)
+    assert inicial.status_code == 200
+    assert inicial.json()["notify_similar_events"] is False
+
+    activar = await cliente.patch(ME, headers=cabeceras, json={"notify_similar_events": True})
+    assert activar.status_code == 200
+    assert activar.json()["notify_similar_events"] is True
+
+    relectura = await cliente.get(ME, headers=cabeceras)
+    assert relectura.json()["notify_similar_events"] is True
+
+    desactivar = await cliente.patch(ME, headers=cabeceras, json={"notify_similar_events": False})
+    assert desactivar.status_code == 200
+    assert desactivar.json()["notify_similar_events"] is False
 
 
 async def test_change_email_exige_la_contrasena_actual(
@@ -116,28 +138,22 @@ async def test_change_email_confirmar_aplica_el_cambio_y_revoca_las_sesiones(
     login = await cliente.post(
         LOGIN,
         json={"email": organizacion.owner_email, "password": organizacion.owner_password},
-        headers={"Host": organizacion.host},
     )
     refresh_previo = login.cookies[COOKIE_NOMBRE]
 
     token = await generate_token(
         PROPOSITO_CAMBIO_CORREO, f"{organizacion.owner_id}:nuevo@example.com"
     )
-    confirmacion = await cliente.post(
-        CHANGE_EMAIL_CONFIRM, json={"token": token}, headers={"Host": organizacion.host}
-    )
+    confirmacion = await cliente.post(CHANGE_EMAIL_CONFIRM, json={"token": token})
     assert confirmacion.status_code == 200
 
     login_con_el_nuevo = await cliente.post(
         LOGIN,
         json={"email": "nuevo@example.com", "password": organizacion.owner_password},
-        headers={"Host": organizacion.host},
     )
     assert login_con_el_nuevo.status_code == 200
 
-    revocado = await cliente.post(
-        REFRESH, headers={"Host": organizacion.host}, cookies={COOKIE_NOMBRE: refresh_previo}
-    )
+    revocado = await cliente.post(REFRESH, cookies={COOKIE_NOMBRE: refresh_previo})
     assert revocado.status_code == 401
 
 
@@ -193,7 +209,6 @@ async def test_change_password_revoca_las_demas_sesiones_pero_conserva_la_actual
     otro_login = await cliente.post(
         LOGIN,
         json={"email": organizacion.owner_email, "password": organizacion.owner_password},
-        headers={"Host": organizacion.host},
     )
     refresh_de_otra_sesion = otro_login.cookies[COOKIE_NOMBRE]
 
@@ -201,11 +216,9 @@ async def test_change_password_revoca_las_demas_sesiones_pero_conserva_la_actual
     login_actual = await cliente.post(
         LOGIN,
         json={"email": organizacion.owner_email, "password": organizacion.owner_password},
-        headers={"Host": organizacion.host},
     )
     refresh_actual = login_actual.cookies[COOKIE_NOMBRE]
     cabeceras_actuales = {
-        "Host": organizacion.host,
         "Authorization": f"Bearer {login_actual.json()['access_token']}",
     }
 
@@ -219,14 +232,11 @@ async def test_change_password_revoca_las_demas_sesiones_pero_conserva_la_actual
     )
     assert cambio.status_code == 200
 
-    sesion_actual = await cliente.post(
-        REFRESH, headers={"Host": organizacion.host}, cookies={COOKIE_NOMBRE: refresh_actual}
-    )
+    sesion_actual = await cliente.post(REFRESH, cookies={COOKIE_NOMBRE: refresh_actual})
     assert sesion_actual.status_code == 200, "la sesión que hizo el cambio debe seguir viva"
 
     otra_sesion = await cliente.post(
         REFRESH,
-        headers={"Host": organizacion.host},
         cookies={COOKIE_NOMBRE: refresh_de_otra_sesion},
     )
     assert otra_sesion.status_code == 401, "las demás sesiones deben quedar revocadas"
@@ -266,9 +276,7 @@ async def test_social_links_crud(cliente: AsyncClient, organizacion: Organizacio
 async def test_get_organizations_lista_solo_las_propias(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    segunda = await crear_organizacion(
-        "segunda-org", "segunda.test", owner_password=organizacion.owner_password
-    )
+    segunda = await crear_organizacion("segunda-org", owner_password=organizacion.owner_password)
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
 
     respuesta = await cliente.get(ORGANIZATIONS, headers=cabeceras)
@@ -276,6 +284,44 @@ async def test_get_organizations_lista_solo_las_propias(
     slugs = {fila["slug"] for fila in respuesta.json()}
     assert slugs == {organizacion.slug}
     assert segunda.slug not in slugs
+
+
+async def test_get_organizations_incluye_el_nombre_del_rol(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+    respuesta = await cliente.get(ORGANIZATIONS, headers=cabeceras)
+    assert respuesta.status_code == 200
+    fila = next(f for f in respuesta.json() if f["slug"] == organizacion.slug)
+    assert fila["role_name"] == "Propietario"
+
+
+async def test_get_organizations_agrega_varios_roles_de_la_misma_organizacion(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """La unique constraint de `organization_members` es
+    `(organization_id, user_id, role_id)`, no `(organization_id, user_id)`: una
+    persona puede tener más de un rol en la misma organización. La respuesta
+    agrega los nombres en una sola cadena en vez de duplicar la fila."""
+    segundo_rol_id = await crear_rol(organizacion, key="editor-extra", permisos=[], nombre="Editor")
+    async with SessionMaintenance() as session:
+        session.add(
+            OrganizationMember(
+                organization_id=organizacion.id,
+                user_id=organizacion.owner_id,
+                role_id=segundo_rol_id,
+                profile_data={},
+            )
+        )
+        await session.commit()
+
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    respuesta = await cliente.get(ORGANIZATIONS, headers=cabeceras)
+    assert respuesta.status_code == 200
+    filas = [f for f in respuesta.json() if f["slug"] == organizacion.slug]
+    assert len(filas) == 1, "no debe duplicar la organización por tener 2 roles"
+    assert filas[0]["role_name"] == "Editor, Propietario"
 
 
 async def test_app_user_organizations_no_devuelve_organizaciones_ajenas(

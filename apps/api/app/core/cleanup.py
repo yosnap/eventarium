@@ -10,6 +10,16 @@ Usa `maintenance_session`, no una petición HTTP: no hay `Request` del que resol
 organización, y de hecho el barrido es intencionadamente transversal a todas. Mismo
 patrón que ya usan `app/cli.py` y `app/seed/demo.py` para tareas administrativas fuera
 del ciclo de petición.
+
+Fase 5 del plan de invitaciones detectó que este barrido también alcanzaba a las
+cuentas creadas por `create_invitation` para un correo sin cuenta previa: esas
+cuentas nacen con `email_verified_at IS NULL` igual que un registro abandonado, y
+`TTL_INVITACION` (7 días) coincide con el plazo de borrado, así que quien tardaba
+5 días en aceptar recibía el aviso de «tu cuenta se va a eliminar» sin tener
+ninguna verificación de correo pendiente, y quien tardaba 7 podía perder la cuenta
+antes de aceptar. Ambas consultas excluyen ahora a cualquier correo con una
+invitación `pendiente` todavía no caducada: en cuanto esa invitación caduca, la
+cuenta vuelve a ser candidata al barrido con normalidad.
 """
 
 from __future__ import annotations
@@ -33,7 +43,13 @@ async def sweep_unverified_accounts() -> None:
                     "SELECT id, email FROM users "
                     "WHERE email_verified_at IS NULL "
                     "  AND verification_warning_sent_at IS NULL "
-                    "  AND created_at <= now() - interval '5 days'"
+                    "  AND created_at <= now() - interval '5 days' "
+                    "  AND NOT EXISTS ("
+                    "    SELECT 1 FROM organization_invitations oi "
+                    "    WHERE oi.email = users.email "
+                    "      AND oi.estado = 'pendiente' "
+                    "      AND oi.expires_at > now()"
+                    "  )"
                 )
             )
         ).all()
@@ -67,6 +83,12 @@ async def sweep_unverified_accounts() -> None:
                 text(
                     "DELETE FROM users "
                     "WHERE email_verified_at IS NULL AND created_at <= now() - interval '7 days' "
+                    "  AND NOT EXISTS ("
+                    "    SELECT 1 FROM organization_invitations oi "
+                    "    WHERE oi.email = users.email "
+                    "      AND oi.estado = 'pendiente' "
+                    "      AND oi.expires_at > now()"
+                    "  ) "
                     "RETURNING email"
                 )
             )

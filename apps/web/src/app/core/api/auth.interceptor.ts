@@ -25,17 +25,26 @@ export const authInterceptor: HttpInterceptorFn = (peticion, siguiente) => {
       ? peticion.clone({ setHeaders: { Authorization: `Bearer ${token}` }, withCredentials: true })
       : peticion.clone({ withCredentials: true });
 
-  return siguiente(conToken(auth.accessToken())).pipe(
+  return siguiente(conToken(auth.tokenEfectivo())).pipe(
     catchError((error: unknown) => {
       if (!(error instanceof HttpErrorResponse) || error.status !== 401) {
         return throwError(() => error);
       }
+
+      // Durante una suplantación no se refresca: el refresh reemite el token
+      // del usuario suplantado **sin** la marca de impersonación, así que la
+      // suplantación «caducaría» a una sesión normal del suplantado sin que el
+      // administrador lo note. Se deja fallar y se sale explícitamente.
+      if (auth.suplantando() !== null) {
+        return throwError(() => error);
+      }
+
       return from(auth.refresh()).pipe(
         switchMap((renovado) => {
           if (!renovado) {
             return throwError(() => error);
           }
-          return siguiente(conToken(auth.accessToken()));
+          return siguiente(conToken(auth.tokenEfectivo()));
         }),
       );
     }),

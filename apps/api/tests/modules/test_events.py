@@ -62,13 +62,26 @@ async def test_crear_editar_y_publicar_un_evento(
     assert publicado.json()["status"] == "published"
 
 
-async def test_el_slug_es_unico_por_organizacion(
+async def test_el_slug_es_unico_dentro_de_la_misma_organizacion(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     await _crear_evento(cliente, cabeceras)
 
     repetido = await cliente.post(EVENTS, headers=cabeceras, json=_payload_evento())
+    assert repetido.status_code == 409
+
+
+async def test_el_slug_es_unico_entre_organizaciones_distintas(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    otra_organizacion: OrganizacionDePrueba,
+) -> None:
+    _, cabeceras_a = await iniciar_sesion(cliente, organizacion)
+    _, cabeceras_b = await iniciar_sesion(cliente, otra_organizacion)
+    await _crear_evento(cliente, cabeceras_a)
+
+    repetido = await cliente.post(EVENTS, headers=cabeceras_b, json=_payload_evento())
     assert repetido.status_code == 409
 
 

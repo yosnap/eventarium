@@ -6,13 +6,9 @@ from httpx import AsyncClient
 from sqlalchemy import func, select
 
 from app.core.database import SessionMaintenance
-from app.modules.organizations.models import (
-    Organization,
-    OrganizationDomain,
-    OrganizationMember,
-)
+from app.modules.organizations.models import Organization, OrganizationMember
 from app.modules.roles.models import Role
-from app.seed.demo import DEMO_HOST, DEMO_SLUG, seed_demo
+from app.seed.demo import DEMO_NAME, DEMO_SLUG, seed_demo
 
 
 async def _contar(modelo: type) -> int:
@@ -29,10 +25,7 @@ async def test_sembrar_dos_veces_no_duplica_nada() -> None:
     assert primero.created is True
     assert primero.owner_password, "la primera siembra debe generar una contraseña"
 
-    conteos = {
-        modelo: await _contar(modelo)
-        for modelo in (Organization, OrganizationDomain, Role, OrganizationMember)
-    }
+    conteos = {modelo: await _contar(modelo) for modelo in (Organization, Role, OrganizationMember)}
 
     async with SessionMaintenance() as session:
         segundo = await seed_demo(session)
@@ -53,20 +46,26 @@ async def test_el_owner_sembrado_puede_iniciar_sesion(cliente: AsyncClient) -> N
     respuesta = await cliente.post(
         "/api/v1/auth/login",
         json={"email": resultado.owner_email, "password": resultado.owner_password},
-        headers={"Host": DEMO_HOST},
     )
     assert respuesta.status_code == 200
     assert respuesta.json()["user"]["email"] == resultado.owner_email
 
 
-async def test_el_branding_de_demostracion_responde_en_su_host(cliente: AsyncClient) -> None:
+async def test_la_organizacion_de_demostracion_queda_sembrada_con_su_slug() -> None:
+    """Sin dominio por organización (fase 6 del plan «organización sin
+    dominio»), la siembra ya no se verifica resolviendo por host: se
+    comprueba directamente que la organización queda creada con su slug y
+    nombre esperados, sin duplicarse en una segunda siembra."""
     async with SessionMaintenance() as session:
         await seed_demo(session)
         await session.commit()
 
-    respuesta = await cliente.get("/api/v1/tenant/branding", headers={"Host": DEMO_HOST})
-    assert respuesta.status_code == 200
-    assert respuesta.json()["organization_slug"] == DEMO_SLUG
+    async with SessionMaintenance() as session:
+        organizacion = await session.scalar(
+            select(Organization).where(Organization.slug == DEMO_SLUG)
+        )
+    assert organizacion is not None
+    assert organizacion.name == DEMO_NAME
 
 
 async def test_reset_password_regenera_la_contrasena() -> None:

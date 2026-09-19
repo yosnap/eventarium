@@ -7,6 +7,8 @@ import {
 import express from 'express';
 import { join } from 'node:path';
 
+import { pintarTemaEnHtml } from './server-theme';
+
 const browserDistFolder = join(import.meta.dirname, '../browser');
 
 const app = express();
@@ -66,7 +68,30 @@ app.use(
 app.use((req, res, next) => {
   angularApp
     .handle(req)
-    .then((response) => (response ? writeResponseToNodeResponse(response, res) : next()))
+    .then(async (response) => {
+      if (!response) {
+        next();
+        return;
+      }
+      const esHtml = (response.headers.get('content-type') ?? '').includes('text/html');
+      if (!esHtml) {
+        await writeResponseToNodeResponse(response, res);
+        return;
+      }
+      const html = pintarTemaEnHtml(await response.text(), req.headers.cookie);
+      // `pintarTemaEnHtml` puede alargar el cuerpo (inserta `data-theme="..."` en
+      // `<html>`), así que reutilizar `Content-Length` de la respuesta original deja
+      // el HTML servido truncado al tamaño incorrecto y anterior. Se quita la
+      // cabecera para que el servidor HTTP la recalcule sobre el cuerpo final; no se
+      // recalcula a mano para no duplicar la lógica de longitud en bytes (UTF-8) que
+      // ya hace esa capa.
+      const cabeceras = new Headers(response.headers);
+      cabeceras.delete('content-length');
+      await writeResponseToNodeResponse(
+        new Response(html, { status: response.status, headers: cabeceras }),
+        res,
+      );
+    })
     .catch(next);
 });
 

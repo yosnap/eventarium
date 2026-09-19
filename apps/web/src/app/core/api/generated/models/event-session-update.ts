@@ -16,6 +16,7 @@ export interface EventSessionUpdate {
   sort_order?: (number | null);
   starts_at?: (string | null);
   title?: (string | null);
+  venue_id?: (string | null);
   video_platform?: ('youtube' | 'vimeo' | 'twitch' | 'other' | null);
   video_url?: (string | null);
 }

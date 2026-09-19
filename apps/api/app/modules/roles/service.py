@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import uuid
+from typing import NamedTuple
 
+from fastapi import BackgroundTasks
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import registrar_auditoria
+from app.core.database import maintenance_session
 from app.core.permissions import Permission
 from app.modules.roles.authorization import ensure_can_grant, ensure_can_manage_role
 from app.modules.roles.models import Role, RolePermission, RoleProfileField
@@ -129,14 +133,58 @@ def _añadir_campos(
         )
 
 
+class _AuditoriaPermisosPendiente(NamedTuple):
+    role_key: str
+    permissions_before: list[str]
+    permissions_after: list[str]
+
+
+async def _registrar_cambio_de_permisos(
+    *,
+    actor_user_id: uuid.UUID,
+    organization_id: uuid.UUID,
+    role_id: uuid.UUID,
+    role_key: str,
+    permissions_before: list[str],
+    permissions_after: list[str],
+) -> None:
+    """Escribe en `audit_log` el cambio de permisos de un rol.
+
+    Se ejecuta como `BackgroundTask` (Starlette la corre tras enviar la
+    respuesta, y por tanto tras el `commit` real de la transacción principal
+    que ocurre al salir de la dependencia `get_db` — mismo patrón que el
+    borrado de objetos huérfanos en `events/router.py:upload_cover`). Si la
+    petición fallase más tarde (p. ej. `profile_fields` inválidos) y la
+    transacción principal revirtiera el cambio de permisos, esta función
+    nunca llegaría a encolarse: la auditoría no puede sobrevivir a un
+    rollback del cambio que describe.
+    """
+    async with maintenance_session() as auditoria:
+        await registrar_auditoria(
+            auditoria,
+            actor_user_id=actor_user_id,
+            organization_id=organization_id,
+            action="role.permissions_changed",
+            entity_type="role",
+            entity_id=str(role_id),
+            detail={
+                "role_key": role_key,
+                "permissions_before": permissions_before,
+                "permissions_after": permissions_after,
+            },
+        )
+
+
 async def update_role(
     session: AsyncSession,
     *,
     organization_id: uuid.UUID,
     role_id: uuid.UUID,
+    actor_user_id: uuid.UUID,
     actor_role_keys: set[str],
     actor_permissions: set[Permission],
     datos: RoleUpdate,
+    background_tasks: BackgroundTasks,
 ) -> Role:
     """Actualiza un rol respetando los campos bloqueados de las plantillas."""
     rol = await get_role(session, organization_id, role_id)
@@ -149,7 +197,9 @@ async def update_role(
     if datos.description is not None:
         rol.description = datos.description
 
+    auditoria_permisos_pendiente: _AuditoriaPermisosPendiente | None = None
     if datos.permissions is not None:
+        permisos_anteriores = sorted(p.permission for p in rol.permissions)
         permisos = set(datos.permissions)
         ensure_can_grant(actor_permissions, permisos)
         for actual in list(rol.permissions):
@@ -161,6 +211,15 @@ async def update_role(
                     role_id=rol.id, permission=permiso.value, organization_id=organization_id
                 )
             )
+        # No se escribe la auditoría aquí: se difiere hasta el final de la
+        # función (ver `_registrar_cambio_de_permisos`) para no persistirla si
+        # una validación posterior en esta misma petición (p. ej.
+        # `profile_fields`) aborta la transacción.
+        auditoria_permisos_pendiente = _AuditoriaPermisosPendiente(
+            role_key=rol.key,
+            permissions_before=permisos_anteriores,
+            permissions_after=sorted(p.value for p in permisos),
+        )
 
     if datos.profile_fields is not None:
         bloqueados = {c.key: c for c in rol.profile_fields if c.is_locked}
@@ -191,6 +250,18 @@ async def update_role(
 
     await session.flush()
     await session.refresh(rol)
+
+    if auditoria_permisos_pendiente is not None:
+        background_tasks.add_task(
+            _registrar_cambio_de_permisos,
+            actor_user_id=actor_user_id,
+            organization_id=organization_id,
+            role_id=rol.id,
+            role_key=auditoria_permisos_pendiente.role_key,
+            permissions_before=auditoria_permisos_pendiente.permissions_before,
+            permissions_after=auditoria_permisos_pendiente.permissions_after,
+        )
+
     return rol
 
 

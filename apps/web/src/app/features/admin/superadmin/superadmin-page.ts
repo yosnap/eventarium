@@ -1,0 +1,672 @@
+import { HttpClient } from '@angular/common/http';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
+import { firstValueFrom } from 'rxjs';
+
+import { version as VERSION_WEB } from '../../../../../package.json';
+import { ApiService } from '../../../core/api/api.service';
+import { ApiError } from '../../../core/api/error.interceptor';
+import { Alert } from '../../../shared/ui/alert';
+import { Button } from '../../../shared/ui/button';
+import { Card } from '../../../shared/ui/card';
+import { Chip, ChipTone } from '../../../shared/ui/chip';
+import { DataTable, DataTableColumn } from '../../../shared/ui/data-table';
+import { Input } from '../../../shared/ui/input';
+import { KpiCard } from '../../../shared/ui/kpi-card';
+import { PageHeader } from '../../../shared/ui/page-header';
+import { Panel } from '../../../shared/ui/panel';
+import { ChangelogPanel } from './changelog-panel';
+import { CHANGELOG } from './changelog.data';
+import { MetricasDePlataforma } from './platform-metrics.types';
+
+/** Un KPI ya resuelto (etiqueta y valor traducidos/formateados), listo para pintar. */
+interface KpiVisible {
+  readonly rotulo: string;
+  readonly valor: string;
+  readonly descriptor: string | null;
+  readonly tono: 'warn' | 'accent' | null;
+}
+
+interface AuditLogEntry {
+  readonly id: string;
+  readonly actor_user_id: string | null;
+  readonly organization_id: string | null;
+  readonly action: string;
+  readonly entity_type: string;
+  readonly entity_id: string | null;
+  readonly detail: Record<string, unknown>;
+  readonly created_at: string;
+}
+
+interface Page<T> {
+  readonly items: readonly T[];
+  readonly total: number;
+}
+
+const AUDIT_LOG_URL = '/admin/audit-log';
+
+/**
+ * Superadministración de la instalación (fase 5 del PRD): auditoría
+ * filtrable, exportación RGPD de un evento y borrado de un inscrito bajo
+ * solicitud. Ninguna de las tres acciones acepta un permiso de rol de
+ * organización como alternativa a ser superadmin — el backend ya lo exige,
+ * esta pantalla solo es visible en el menú para quien lo es
+ * (`AuthService.currentUser().is_superadmin`).
+ */
+@Component({
+  selector: 'app-superadmin-page',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [
+    TranslocoDirective,
+    Alert,
+    Button,
+    Card,
+    ChangelogPanel,
+    Chip,
+    DataTable,
+    Input,
+    KpiCard,
+    PageHeader,
+    Panel,
+  ],
+  template: `
+    <ng-container *transloco="let t">
+      <app-page-header [rotulo]="t('admin.superadmin.rotulo')">
+        {{ t('admin.superadmin.cabeceraInicio') }}
+        <span class="mark">{{ t('admin.superadmin.cabeceraMarca') }}</span>
+      </app-page-header>
+
+      @if (metricas(); as m) {
+        <div class="kpis">
+          @for (kpi of kpis(); track kpi.rotulo) {
+            <app-kpi-card
+              [rotulo]="kpi.rotulo"
+              [valor]="kpi.valor"
+              [descriptor]="kpi.descriptor"
+              [tono]="kpi.tono"
+            />
+          }
+        </div>
+
+        <app-panel class="bloque">
+          <div cabecera>
+            <span class="rotulo-seccion">{{ t('admin.plataforma.actividad.titulo') }}</span>
+          </div>
+          <p class="nota">{{ t('admin.plataforma.actividad.ayuda') }}</p>
+          <app-data-table
+            [columnas]="columnasDeActividad()"
+            [caption]="t('admin.plataforma.actividad.titulo')"
+          >
+            @for (org of m.organizaciones; track org.id) {
+              <tr>
+                <td>{{ org.name }}</td>
+                <td class="numerica">{{ org.eventos }}</td>
+                <td class="numerica">{{ org.inscripciones }}</td>
+                <td>{{ fecha(org.evento_mas_reciente) }}</td>
+                <td>{{ fecha(org.ultimo_evento_creado) }}</td>
+                <td>{{ fecha(org.ultima_inscripcion) }}</td>
+                <td>{{ fecha(org.ultimo_acceso) }}</td>
+                <td>
+                  @if (!org.is_active) {
+                    <app-chip tone="apagado">{{
+                      t('admin.plataforma.actividad.inactiva')
+                    }}</app-chip>
+                  } @else if (org.tiene_stripe_pendiente_con_eventos_de_pago) {
+                    <app-chip tone="espera">{{ t('admin.plataforma.actividad.noCobra') }}</app-chip>
+                  } @else if (org.publicados_sin_inscripciones) {
+                    <app-chip tone="espera">{{
+                      t('admin.plataforma.actividad.sinInscripciones')
+                    }}</app-chip>
+                  } @else {
+                    <app-chip tone="ok">{{ t('admin.plataforma.actividad.activa') }}</app-chip>
+                  }
+                </td>
+              </tr>
+            }
+          </app-data-table>
+        </app-panel>
+      } @else if (errorMetricas()) {
+        <app-alert tone="error">{{ t('admin.plataforma.error') }}</app-alert>
+      }
+
+      <h2>{{ t('admin.plataforma.herramientas') }}</h2>
+      <p>{{ t('admin.superadmin.descripcion') }}</p>
+
+      <app-card [heading]="t('admin.superadmin.auditoria.titulo')">
+        <form (submit)="filtrar($event)" novalidate class="filtros">
+          <app-input
+            fieldId="auditoria-organizacion"
+            [label]="t('admin.superadmin.auditoria.organizacion')"
+            [(value)]="filtroOrganizacion"
+          />
+          <app-input
+            fieldId="auditoria-accion"
+            [label]="t('admin.superadmin.auditoria.accion')"
+            [(value)]="filtroAccion"
+          />
+          <div class="campo-fecha">
+            <label for="auditoria-desde">{{ t('admin.superadmin.auditoria.desde') }}</label>
+            <input
+              id="auditoria-desde"
+              type="datetime-local"
+              [value]="filtroDesde()"
+              (change)="filtroDesde.set(alValorDe($event))"
+            />
+          </div>
+          <div class="campo-fecha">
+            <label for="auditoria-hasta">{{ t('admin.superadmin.auditoria.hasta') }}</label>
+            <input
+              id="auditoria-hasta"
+              type="datetime-local"
+              [value]="filtroHasta()"
+              (change)="filtroHasta.set(alValorDe($event))"
+            />
+          </div>
+          <app-button type="submit" [loading]="cargandoAuditoria()">
+            {{ t('admin.superadmin.auditoria.filtrar') }}
+          </app-button>
+        </form>
+
+        @if (errorAuditoria(); as mensaje) {
+          <app-alert tone="error">{{ mensaje }}</app-alert>
+        }
+
+        @if (!cargandoAuditoria() && entradas().length === 0) {
+          <p>{{ t('admin.superadmin.auditoria.sinResultados') }}</p>
+        } @else {
+          <app-data-table
+            [columnas]="columnasDeAuditoria()"
+            [caption]="t('admin.superadmin.auditoria.titulo')"
+          >
+            @for (entrada of entradas(); track entrada.id) {
+              <tr>
+                <td>{{ fechaHora(entrada.created_at) }}</td>
+                <td>{{ entrada.action }}</td>
+                <td>{{ nombreDeOrganizacion(entrada.organization_id) }}</td>
+                <td>{{ resumenEntidad(entrada.entity_type, entrada.entity_id) }}</td>
+                <td>
+                  <code>{{ resumenDetalle(entrada.detail) }}</code>
+                </td>
+              </tr>
+            }
+          </app-data-table>
+        }
+      </app-card>
+
+      <app-card [heading]="t('admin.superadmin.exportar.titulo')">
+        <p>{{ t('admin.superadmin.exportar.descripcion') }}</p>
+        <form (submit)="exportar($event)" novalidate class="formulario">
+          <app-input
+            fieldId="export-event-id"
+            [label]="t('admin.superadmin.exportar.eventId')"
+            [required]="true"
+            [(value)]="exportEventId"
+          />
+          <app-input
+            fieldId="export-password"
+            type="password"
+            [label]="t('admin.superadmin.exportar.password')"
+            [required]="true"
+            [(value)]="exportPassword"
+          />
+          @if (errorExportar(); as mensaje) {
+            <app-alert tone="error">{{ mensaje }}</app-alert>
+          }
+          @if (exportOk()) {
+            <app-alert tone="exito">{{ t('admin.superadmin.exportar.correcto') }}</app-alert>
+          }
+          <app-button type="submit" [loading]="exportando()">
+            {{ t('admin.superadmin.exportar.boton') }}
+          </app-button>
+        </form>
+      </app-card>
+
+      <app-card [heading]="t('admin.superadmin.borrar.titulo')">
+        <p>{{ t('admin.superadmin.borrar.descripcion') }}</p>
+        <form (submit)="borrar($event)" novalidate class="formulario">
+          <app-input
+            fieldId="borrar-event-id"
+            [label]="t('admin.superadmin.borrar.eventId')"
+            [required]="true"
+            [(value)]="borrarEventId"
+          />
+          <app-input
+            fieldId="borrar-email"
+            type="email"
+            [label]="t('admin.superadmin.borrar.email')"
+            [required]="true"
+            [(value)]="borrarEmail"
+          />
+          <app-input
+            fieldId="borrar-password"
+            type="password"
+            [label]="t('admin.superadmin.borrar.password')"
+            [required]="true"
+            [(value)]="borrarPassword"
+          />
+          @if (errorBorrar(); as mensaje) {
+            <app-alert tone="error">{{ mensaje }}</app-alert>
+          }
+          @if (borrarOk()) {
+            <app-alert tone="exito">{{ t('admin.superadmin.borrar.correcto') }}</app-alert>
+          }
+          <app-button type="submit" variant="peligro" [loading]="borrando()">
+            {{ t('admin.superadmin.borrar.boton') }}
+          </app-button>
+        </form>
+      </app-card>
+
+      @if (metricas(); as m) {
+        <app-card [heading]="t('admin.plataforma.salud.titulo')">
+          <div class="version-instalacion">
+            <span class="rotulo-seccion">{{ t('admin.plataforma.salud.version') }}</span>
+            <span class="version-valor">v{{ versionWeb }}</span>
+          </div>
+          <ul class="estados">
+            <li>
+              <span>{{ t('admin.plataforma.salud.database') }}</span>
+              <app-chip [tone]="tonoDeSalud(m.salud.database)">{{
+                t('admin.plataforma.salud.' + m.salud.database)
+              }}</app-chip>
+            </li>
+            <li>
+              <span>{{ t('admin.plataforma.salud.storage') }}</span>
+              <app-chip [tone]="tonoDeSalud(m.salud.storage)">{{
+                t('admin.plataforma.salud.' + m.salud.storage)
+              }}</app-chip>
+            </li>
+            <li>
+              <span>{{ t('admin.plataforma.salud.redis') }}</span>
+              <app-chip [tone]="tonoDeSalud(m.salud.redis)">{{
+                t('admin.plataforma.salud.' + m.salud.redis)
+              }}</app-chip>
+            </li>
+          </ul>
+          <dl class="lista">
+            <div>
+              <dt>{{ t('admin.plataforma.salud.stack') }}</dt>
+              <dd>{{ t('admin.plataforma.salud.stackValor') }}</dd>
+            </div>
+          </dl>
+        </app-card>
+      }
+
+      <app-changelog-panel class="bloque" [versiones]="changelog" />
+    </ng-container>
+  `,
+  styles: `
+    h1 {
+      margin-top: 0;
+    }
+    .filtros {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: end;
+      gap: var(--space-md);
+      margin-bottom: var(--space-md);
+    }
+    .campo-fecha {
+      display: grid;
+      gap: var(--space-xs);
+    }
+    .campo-fecha input {
+      padding: 0.625rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background-color: var(--surface);
+      color: var(--fg);
+      font: inherit;
+      min-height: 2.75rem;
+    }
+    .formulario {
+      display: grid;
+      gap: var(--space-md);
+      max-width: 34rem;
+    }
+    app-card {
+      display: block;
+      margin-bottom: var(--space-lg);
+    }
+    .bloque {
+      display: block;
+      margin-bottom: var(--sp-6);
+    }
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(11.25rem, 1fr));
+      gap: var(--sp-4);
+      margin-bottom: var(--sp-6);
+    }
+    .estados {
+      display: grid;
+      gap: var(--space-sm);
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .estados li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-md);
+    }
+    .version-instalacion {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: var(--space-md);
+      padding-bottom: var(--space-md);
+      border-bottom: 1px solid var(--border);
+    }
+    .version-valor {
+      font-family: var(--font-mono);
+      font-size: var(--fs-metric);
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+    .nota {
+      margin: 0;
+      padding: var(--sp-4) var(--sp-5) 0;
+      color: var(--muted);
+      font-size: 0.875rem;
+    }
+  `,
+})
+export class SuperadminPage {
+  private readonly http = inject(HttpClient);
+  private readonly api = inject(ApiService);
+  private readonly transloco = inject(TranslocoService);
+
+  protected readonly changelog = CHANGELOG;
+
+  /** Versión del paquete web, que es la que marca el release del producto. */
+  protected readonly versionWeb = VERSION_WEB;
+
+  /**
+   * Los KPI de cabecera de la instalación: los mismos cuatro totales que antes
+   * vivían en una lista de definición, ahora en `app-kpi-card`. Ninguno es
+   * dinero — la frontera la sostiene `MetricasDePlataforma`, que no tiene
+   * ningún campo monetario por contrato.
+   */
+  protected readonly kpis = computed<readonly KpiVisible[]>(() => {
+    const m = this.metricas();
+    if (!m) {
+      return [];
+    }
+    const t = (clave: string): string => this.transloco.translate(clave);
+    return [
+      {
+        rotulo: t('admin.plataforma.cifras.organizaciones'),
+        valor: `${m.cifras.organizaciones_activas} / ${m.cifras.organizaciones_totales}`,
+        descriptor: null,
+        tono: null,
+      },
+      {
+        rotulo: t('admin.plataforma.cifras.eventos'),
+        valor: String(m.cifras.eventos_totales),
+        descriptor: null,
+        tono: null,
+      },
+      {
+        rotulo: t('admin.plataforma.cifras.publicados'),
+        valor: String(m.cifras.eventos_publicados),
+        descriptor: null,
+        tono: null,
+      },
+      {
+        rotulo: t('admin.plataforma.cifras.usuarios'),
+        valor: String(m.cifras.usuarios),
+        descriptor: null,
+        tono: null,
+      },
+    ];
+  });
+
+  /** Las columnas de la tabla de actividad, con la etiqueta ya traducida. */
+  protected readonly columnasDeActividad = computed<DataTableColumn[]>(() => {
+    const t = (clave: string): string => this.transloco.translate(clave);
+    return [
+      { key: 'organizacion', label: t('admin.plataforma.actividad.columnaOrganizacion') },
+      { key: 'eventos', label: t('admin.plataforma.actividad.columnaEventos'), numerica: true },
+      {
+        key: 'inscripciones',
+        label: t('admin.plataforma.actividad.columnaInscripciones'),
+        numerica: true,
+      },
+      { key: 'tocado', label: t('admin.plataforma.actividad.columnaEventoTocado') },
+      { key: 'creado', label: t('admin.plataforma.actividad.columnaEventoCreado') },
+      { key: 'inscripcion', label: t('admin.plataforma.actividad.columnaInscripcion') },
+      { key: 'acceso', label: t('admin.plataforma.actividad.columnaAcceso') },
+      { key: 'estado', label: t('admin.plataforma.actividad.columnaEstado') },
+    ];
+  });
+
+  /** Las columnas de la tabla de auditoría, con la etiqueta ya traducida. */
+  protected readonly columnasDeAuditoria = computed<DataTableColumn[]>(() => {
+    const t = (clave: string): string => this.transloco.translate(clave);
+    return [
+      { key: 'fecha', label: t('admin.superadmin.auditoria.columnaFecha') },
+      { key: 'accion', label: t('admin.superadmin.auditoria.columnaAccion') },
+      { key: 'organizacion', label: t('admin.superadmin.auditoria.columnaOrganizacion') },
+      { key: 'entidad', label: t('admin.superadmin.auditoria.columnaEntidad') },
+      { key: 'detalle', label: t('admin.superadmin.auditoria.columnaDetalle') },
+    ];
+  });
+
+  protected readonly filtroOrganizacion = signal('');
+  protected readonly filtroAccion = signal('');
+  protected readonly filtroDesde = signal('');
+  protected readonly filtroHasta = signal('');
+  protected readonly cargandoAuditoria = signal(false);
+  protected readonly errorAuditoria = signal<string | null>(null);
+  protected readonly entradas = signal<AuditLogEntry[]>([]);
+
+  protected readonly exportEventId = signal('');
+  protected readonly exportPassword = signal('');
+  protected readonly exportando = signal(false);
+  protected readonly exportOk = signal(false);
+  protected readonly errorExportar = signal<string | null>(null);
+
+  protected readonly borrarEventId = signal('');
+  protected readonly borrarEmail = signal('');
+  protected readonly borrarPassword = signal('');
+  protected readonly borrando = signal(false);
+  protected readonly borrarOk = signal(false);
+  protected readonly errorBorrar = signal<string | null>(null);
+
+  protected readonly metricas = signal<MetricasDePlataforma | null>(null);
+  protected readonly errorMetricas = signal(false);
+
+  constructor() {
+    void this.cargarMetricas();
+    void this.cargarAuditoria();
+  }
+
+  private async cargarMetricas(): Promise<void> {
+    try {
+      const datos = await firstValueFrom(
+        this.http.get<MetricasDePlataforma>(this.api.url('/admin/metrics')),
+      );
+      this.metricas.set(datos);
+    } catch {
+      // El escritorio es informativo: si sus cifras no llegan, las
+      // herramientas de abajo siguen siendo utilizables.
+      this.errorMetricas.set(true);
+    }
+  }
+
+  /** Un fallo de dependencia se marca en rojo; el resto, en verde. */
+  protected tonoDeSalud(estado: string): ChipTone {
+    return estado === 'ok' ? 'ok' : 'espera';
+  }
+
+  /** Una marca que no consta se dice como tal, no se deja en blanco. */
+  protected fecha(valor: string | null): string {
+    if (!valor) {
+      return '—';
+    }
+    return new Intl.DateTimeFormat('es-ES', { dateStyle: 'short' }).format(new Date(valor));
+  }
+
+  /** Fecha y hora local de una entrada de auditoría: el ISO crudo con nanosegundos
+   * y zona UTC no se lee de un vistazo, y es el dato que se mira primero. */
+  protected fechaHora(iso: string): string {
+    return new Intl.DateTimeFormat('es-ES', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    }).format(new Date(iso));
+  }
+
+  /**
+   * El nombre de la organización, no su UUID: la auditoría se lee para saber
+   * **quién** hizo qué, y nadie conoce un identificador de memoria. El mapa sale
+   * de las métricas de plataforma ya cargadas; una organización ausente (borrada
+   * después del hecho) se dice con el identificador acortado, no con un silencio.
+   */
+  protected readonly organizacionesPorId = computed(() => {
+    const mapa = new Map<string, string>();
+    for (const org of this.metricas()?.organizaciones ?? []) {
+      mapa.set(org.id, org.name);
+    }
+    return mapa;
+  });
+
+  protected nombreDeOrganizacion(id: string | null): string {
+    if (!id) {
+      return '—';
+    }
+    return this.organizacionesPorId().get(id) ?? id.slice(0, 8) + '…';
+  }
+
+  /** «user · 0a08dd9-…»: el tipo de entidad en claro, el identificador acortado
+   * (los UUID completos parten las filas de la tabla y no aportan nada legible). */
+  protected resumenEntidad(tipo: string, id: string | null): string {
+    if (!id) {
+      return tipo;
+    }
+    return `${tipo} · ${id.slice(0, 8)}…`;
+  }
+
+  protected alValorDe(evento: Event): string {
+    return (evento.target as HTMLInputElement).value;
+  }
+
+  /** El detalle como pares «clave: valor» sin llaves ni comillas: sigue siendo
+   * exactamente lo que registró el backend (los importes siguen como
+   * [redactado]), pero sin la sintaxis JSON por delante. */
+  protected resumenDetalle(detalle: Record<string, unknown>): string {
+    return Object.entries(detalle)
+      .map(([clave, valor]) => {
+        const texto =
+          typeof valor === 'object' && valor !== null ? JSON.stringify(valor) : String(valor);
+        return `${clave}: ${texto}`;
+      })
+      .join(', ');
+  }
+
+  protected filtrar(evento: Event): void {
+    evento.preventDefault();
+    void this.cargarAuditoria();
+  }
+
+  private async cargarAuditoria(): Promise<void> {
+    this.cargandoAuditoria.set(true);
+    this.errorAuditoria.set(null);
+    try {
+      const params: Record<string, string> = { limit: '50', offset: '0' };
+      if (this.filtroOrganizacion().trim()) {
+        params['organization_id'] = this.filtroOrganizacion().trim();
+      }
+      if (this.filtroAccion().trim()) {
+        params['action'] = this.filtroAccion().trim();
+      }
+      if (this.filtroDesde()) {
+        params['date_from'] = new Date(this.filtroDesde()).toISOString();
+      }
+      if (this.filtroHasta()) {
+        params['date_to'] = new Date(this.filtroHasta()).toISOString();
+      }
+      const pagina = await firstValueFrom(
+        this.http.get<Page<AuditLogEntry>>(this.api.url(AUDIT_LOG_URL), { params }),
+      );
+      this.entradas.set([...pagina.items]);
+    } catch (error) {
+      this.errorAuditoria.set(
+        error instanceof ApiError
+          ? error.message
+          : this.transloco.translate('admin.superadmin.auditoria.error'),
+      );
+    } finally {
+      this.cargandoAuditoria.set(false);
+    }
+  }
+
+  protected async exportar(evento: Event): Promise<void> {
+    evento.preventDefault();
+    this.errorExportar.set(null);
+    this.exportOk.set(false);
+    this.exportando.set(true);
+    try {
+      const blob = await firstValueFrom(
+        this.http.post(
+          this.api.url(`/admin/events/${this.exportEventId().trim()}/rgpd-export`),
+          { password: this.exportPassword() },
+          { responseType: 'blob' },
+        ),
+      );
+      const url = URL.createObjectURL(blob as Blob);
+      const enlace = document.createElement('a');
+      enlace.href = url;
+      enlace.download = `${this.exportEventId().trim()}-rgpd.zip`;
+      enlace.click();
+      URL.revokeObjectURL(url);
+      this.exportPassword.set('');
+      this.exportOk.set(true);
+    } catch (error) {
+      this.errorExportar.set(
+        error instanceof ApiError
+          ? error.message
+          : this.transloco.translate('admin.superadmin.exportar.error'),
+      );
+    } finally {
+      this.exportando.set(false);
+    }
+  }
+
+  protected async borrar(evento: Event): Promise<void> {
+    evento.preventDefault();
+    if (typeof window !== 'undefined') {
+      const confirmado = window.confirm(
+        this.transloco.translate('admin.superadmin.borrar.confirmar'),
+      );
+      if (!confirmado) {
+        return;
+      }
+    }
+    this.errorBorrar.set(null);
+    this.borrarOk.set(false);
+    this.borrando.set(true);
+    try {
+      await firstValueFrom(
+        this.http.request('DELETE', this.api.url('/admin/registrations/by-email'), {
+          body: {
+            event_id: this.borrarEventId().trim(),
+            email: this.borrarEmail().trim(),
+            password: this.borrarPassword(),
+          },
+        }),
+      );
+      this.borrarPassword.set('');
+      this.borrarOk.set(true);
+      await this.cargarAuditoria();
+    } catch (error) {
+      this.errorBorrar.set(
+        error instanceof ApiError
+          ? error.message
+          : this.transloco.translate('admin.superadmin.borrar.error'),
+      );
+    } finally {
+      this.borrando.set(false);
+    }
+  }
+}

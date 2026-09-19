@@ -3,8 +3,10 @@ import { ActivatedRoute } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 
 import { RegistrationsService } from '../../../core/registrations/registrations.service';
+import { AuthFrame } from '../../../layouts/public/auth-frame';
 import { Alert } from '../../../shared/ui/alert';
 import { Card } from '../../../shared/ui/card';
+import { Reveal } from '../../../shared/ui/reveal.directive';
 
 type Estado = 'comprobando' | 'exito' | 'error';
 
@@ -16,41 +18,36 @@ type Estado = 'comprobando' | 'exito' | 'error';
 @Component({
   selector: 'app-cancel-registration-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Card],
+  imports: [TranslocoDirective, AuthFrame, Alert, Card, Reveal],
   template: `
     <ng-container *transloco="let t">
-      <main id="contenido" class="pagina">
-        <app-card [heading]="t('cancelarInscripcion.titulo')">
-          <div aria-live="assertive">
-            @switch (estado()) {
-              @case ('comprobando') {
-                <app-alert tone="info">{{ t('cancelarInscripcion.comprobando') }}</app-alert>
+      <app-auth-frame [titulo]="t('cancelarInscripcion.titulo')">
+        <div class="envoltura" appReveal>
+          <app-card [heading]="t('cancelarInscripcion.titulo')">
+            <div aria-live="assertive">
+              @switch (estado()) {
+                @case ('comprobando') {
+                  <app-alert tone="info">{{ t('cancelarInscripcion.comprobando') }}</app-alert>
+                }
+                @case ('exito') {
+                  <app-alert tone="exito" [title]="t('cancelarInscripcion.exitoTitulo')">
+                    {{ mensaje() }}
+                  </app-alert>
+                }
+                @case ('error') {
+                  <app-alert tone="error" [title]="t('cancelarInscripcion.errorTitulo')">
+                    {{ t('cancelarInscripcion.errorDetalle') }}
+                  </app-alert>
+                }
               }
-              @case ('exito') {
-                <app-alert tone="exito" [title]="t('cancelarInscripcion.exitoTitulo')">
-                  {{ mensaje() }}
-                </app-alert>
-              }
-              @case ('error') {
-                <app-alert tone="error" [title]="t('cancelarInscripcion.errorTitulo')">
-                  {{ t('cancelarInscripcion.errorDetalle') }}
-                </app-alert>
-              }
-            }
-          </div>
-        </app-card>
-      </main>
+            </div>
+          </app-card>
+        </div>
+      </app-auth-frame>
     </ng-container>
   `,
   styles: `
-    .pagina {
-      display: grid;
-      place-items: center;
-      min-height: 100vh;
-      padding: var(--space-lg);
-      background-color: var(--color-surface-muted);
-    }
-    app-card {
+    .envoltura {
       width: min(26rem, 100%);
     }
   `,

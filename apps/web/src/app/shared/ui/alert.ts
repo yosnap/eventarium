@@ -21,21 +21,22 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
     div {
       padding: var(--space-md);
       border-radius: var(--radius-md);
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
+      background-color: var(--surface);
+      color: var(--fg);
       display: grid;
       gap: var(--space-xs);
     }
     .error {
-      border-color: var(--color-danger);
-      color: var(--color-danger);
+      border-color: var(--danger);
+      background-color: var(--danger-dim);
     }
     .exito {
-      border-color: var(--color-success);
-      color: var(--color-success);
+      border-color: var(--accent);
+      background-color: var(--accent-dim);
     }
     .info {
-      background-color: var(--color-surface-muted);
-      color: var(--color-text);
+      background-color: var(--surface-2);
     }
   `,
 })

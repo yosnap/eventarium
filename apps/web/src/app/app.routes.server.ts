@@ -26,8 +26,16 @@ const PAGINAS_DE_TOKEN_DE_UN_SOLO_USO = [
 ];
 
 export const serverRoutes: ServerRoute[] = [
+  // Los dos paneles (organización y plataforma) y el acceso son solo cliente:
+  // necesitan la cookie de sesión, que el servidor no debe manejar. Si se
+  // olvidara cualquiera de estos, `authGuard` denegaría en SSR y el panel no
+  // cargaría.
+  { path: 'acceder', renderMode: RenderMode.Client },
+  { path: 'espacio-de-trabajo', renderMode: RenderMode.Client },
   { path: 'admin', renderMode: RenderMode.Client },
   { path: 'admin/**', renderMode: RenderMode.Client },
+  { path: 'dashboard', renderMode: RenderMode.Client },
+  { path: 'dashboard/**', renderMode: RenderMode.Client },
   ...PAGINAS_DE_TOKEN_DE_UN_SOLO_USO.map((path): ServerRoute => ({
     path,
     renderMode: RenderMode.Client,

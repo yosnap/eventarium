@@ -37,6 +37,12 @@ interface RespuestaVerificacion {
   readonly status: string;
 }
 
+export interface MyTicketInfo {
+  readonly status: string;
+  readonly full_name: string;
+  readonly has_qr: boolean;
+}
+
 /**
  * Formulario público de inscripción a un evento (fase 3 del PRD).
  *
@@ -93,5 +99,23 @@ export class RegistrationsService {
     return firstValueFrom(
       this.http.post<RespuestaGenerica>(this.api.url('/public/registrations/cancel'), { token }),
     );
+  }
+
+  /**
+   * `/mi-entrada` (fase 4 del PRD): reutiliza el token de autocancelación
+   * (`GET`, nunca lo consume) para volver a mostrar el QR si la persona
+   * perdió el correo.
+   */
+  async getMyTicket(token: string): Promise<MyTicketInfo> {
+    return firstValueFrom(
+      this.http.get<MyTicketInfo>(this.api.url('/public/registrations/my-ticket'), {
+        params: { token },
+      }),
+    );
+  }
+
+  /** URL de la imagen PNG del QR — se usa directamente como `src` de un `<img>`. */
+  myTicketQrUrl(token: string): string {
+    return this.api.url(`/public/registrations/my-ticket/qr?token=${encodeURIComponent(token)}`);
   }
 }

@@ -6,7 +6,7 @@ contra el login y no necesita estructuras de datos adicionales.
 
 La identificación del cliente usa la IP real solo cuando la petición llega por un
 proxy de confianza; si no, cualquiera podría rotar `X-Forwarded-For` y saltarse el
-límite. Se combina con el host para que el límite por organización sea independiente.
+límite.
 
 Fail-closed: si Redis no responde no se puede contar, así que se rechaza con 503 en
 lugar de dejar pasar la petición sin control.
@@ -20,12 +20,11 @@ from typing import Any
 from fastapi import Depends, Request
 
 from app.core.redis_client import require_redis
-from app.core.tenant import extract_host, is_trusted_proxy
+from app.core.tenant import is_trusted_proxy
 from app.shared.errors import DomainError
 
 # Límites iniciales (peticiones por minuto).
 LOGIN_POR_IP = 5
-LOGIN_POR_HOST = 20
 REFRESH_POR_IP = 30
 PUBLICO_POR_IP = 120
 # El registro es de un solo uso por persona: algo más permisivo que el login.
@@ -43,6 +42,9 @@ CHECK_SLUG_POR_IP = 30
 # Mismo riesgo de *email bombing* que el reenvío de verificación: reutilizable y
 # encola correo, con Turnstile obligatorio delante.
 FORGOT_PASSWORD_POR_IP = 3
+# «Pedir bio» a un ponente es una acción manual de panel que encola correo:
+# un bucle de cliente sobre ella sería la vía más directa a email bombing.
+PEDIR_BIO_POR_IP = 5
 # El token tiene 256 bits de entropía, pero el endpoint necesita su propio tope, igual
 # que verify-email.
 RESET_PASSWORD_POR_IP = 20
@@ -57,6 +59,52 @@ VERIFICACION_INSCRIPCION_POR_IP = 20
 CONFIRMACION_PROMOCION_POR_IP = 20
 # Autocancelación: mismo razonamiento que confirm-waitlist-promotion.
 CANCELACION_INSCRIPCION_POR_IP = 20
+# Invitación de equipo (fase 2 del plan de invitaciones): mismo razonamiento
+# que verify-email/reset-password, un tope propio para el GET (consulta el
+# estado) y otro para el POST (consume el token).
+INVITACION_CONSULTA_POR_IP = 30
+INVITACION_ACEPTAR_POR_IP = 20
+# `/mi-entrada` (fase 4 del PRD): a diferencia de verify/cancel, es un enlace
+# pensado para volver a visitarlo varias veces, no de un solo uso — mismo
+# tope que el resto de endpoints públicos con token de sobra entropía.
+MI_ENTRADA_POR_IP = 20
+# Páginas legales (fase 5 del PRD): lectura pública sin token, mismo tope que
+# el resto de contenido público de solo lectura.
+LEGAL_PAGES_POR_IP = PUBLICO_POR_IP
+# Identificadores públicos de analítica (fase 1 del plan de cookies):
+# mismo nivel de exposición que el propio HTML que los cargaría.
+ANALITICA_POR_IP = PUBLICO_POR_IP
+# El banner de cookies llama a este endpoint como mucho una vez por decisión
+# real (aceptar/rechazar/personalizar); más permisivo que el registro porque
+# no encola correo ni consume ningún recurso escaso, pero sigue necesitando
+# su propio tope por ser público y sin Turnstile delante.
+COOKIE_CONSENT_POR_IP = 30
+# Superadministración (fase 5 del PRD): `admin/router.py` era el único módulo
+# de la API sin ningún límite de peticiones — un token de superadmin robado
+# sin tope permitiría iterar la exportación RGPD sobre todos los eventos de
+# todas las organizaciones sin fricción.
+AUDIT_LOG_POR_IP = 30
+RGPD_EXPORT_POR_IP = 10
+RGPD_DELETE_POR_IP = 10
+# Impersonación: abre acceso a la cuenta y los datos de otra persona, así que
+# lleva tope propio y bajo — una sesión de administrador robada no debe poder
+# suplantar en masa. Va junto a los de RGPD, que son la operación más parecida
+# en sensibilidad.
+IMPERSONATION_POR_IP = 5
+# Sincronización manual de Stripe (fase 6 del PRD): es la única ruta del
+# panel que provoca una llamada de red a Stripe por petición, así que lleva
+# un tope propio distinto del resto de escrituras de pagos.
+STRIPE_SYNC_POR_IP = 20
+# Presupuesto público de compra (fase 6 del PRD, fase 3 de trabajo): sin
+# Turnstile ni cuenta detrás, es el candidato más fácil a enumerar códigos de
+# descuento por fuerza bruta — mismo tope que `check-slug`, otro endpoint de
+# solo lectura sin más protección que este límite y Turnstile.
+CHECKOUT_QUOTE_POR_IP = 30
+# Cambio de organización activa (fase 1 del plan de organización sin
+# dominio): emite un token nuevo tras comprobar pertenencia, mismo orden de
+# magnitud que el propio login — no hay ningún motivo legítimo para cambiar
+# de organización muchas veces por minuto.
+SWITCH_ORGANIZATION_POR_IP = 20
 
 VENTANA_SEGUNDOS = 60
 
@@ -78,10 +126,6 @@ def client_ip(request: Request) -> str:
 
 def identify_by_ip(request: Request) -> str:
     return f"ip:{client_ip(request)}"
-
-
-def identify_by_host(request: Request) -> str:
-    return f"host:{extract_host(request)}"
 
 
 async def _consumir(clave: str, veces: int, segundos: int) -> None:
@@ -117,8 +161,3 @@ def _limite(
 def limit_per_ip(nombre: str, veces: int, segundos: int = VENTANA_SEGUNDOS) -> Any:
     """Límite por IP de origen."""
     return Depends(_limite(nombre, identify_by_ip, veces, segundos))
-
-
-def limit_per_host(nombre: str, veces: int, segundos: int = VENTANA_SEGUNDOS) -> Any:
-    """Límite por host, es decir por organización."""
-    return Depends(_limite(nombre, identify_by_host, veces, segundos))

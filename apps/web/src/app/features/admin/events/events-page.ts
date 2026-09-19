@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
@@ -9,7 +9,9 @@ import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
-import { Card } from '../../../shared/ui/card';
+import { Chip, ChipTone } from '../../../shared/ui/chip';
+import { DataTable, DataTableColumn } from '../../../shared/ui/data-table';
+import { PageHeader } from '../../../shared/ui/page-header';
 
 type EventStatus = 'draft' | 'published' | 'archived';
 
@@ -29,18 +31,18 @@ interface Page<T> {
 @Component({
   selector: 'app-events-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, DatePipe, Alert, Button, Card],
+  imports: [TranslocoDirective, RouterLink, DatePipe, Alert, Button, Chip, DataTable, PageHeader],
   template: `
     <ng-container *transloco="let t">
-      <div class="cabecera">
-        <div>
-          <h1>{{ t('admin.events.titulo') }}</h1>
-          <p>{{ t('admin.events.descripcion') }}</p>
+      <app-page-header [rotulo]="t('admin.events.rotulo')">
+        {{ t('admin.events.cabeceraInicio') }}
+        <span class="mark">{{ t('admin.events.cabeceraMarca') }}</span>
+        <div acciones>
+          <a routerLink="nuevo">
+            <app-button type="button">{{ t('admin.events.crearEvento') }}</app-button>
+          </a>
         </div>
-        <a routerLink="nuevo">
-          <app-button type="button">{{ t('admin.events.crearEvento') }}</app-button>
-        </a>
-      </div>
+      </app-page-header>
 
       <div class="filtro">
         <label for="filtro-estado">{{ t('admin.events.filtrarPorEstado') }}</label>
@@ -61,44 +63,25 @@ interface Page<T> {
       } @else if (eventos().length === 0) {
         <p>{{ t('admin.events.sinEventos') }}</p>
       } @else {
-        <app-card>
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">{{ t('admin.events.columnaTitulo') }}</th>
-                <th scope="col">{{ t('admin.events.columnaEstado') }}</th>
-                <th scope="col">{{ t('admin.events.columnaFecha') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (evento of eventos(); track evento.id) {
-                <tr>
-                  <td>
-                    <a [routerLink]="[evento.id]">{{ evento.title }}</a>
-                  </td>
-                  <td>
-                    <code>{{ t('admin.events.estado' + estadoClave(evento.status)) }}</code>
-                  </td>
-                  <td>{{ evento.starts_at | date: 'short' }}</td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </app-card>
+        <app-data-table [columnas]="columnasDeEventos()" [caption]="t('admin.events.titulo')">
+          @for (evento of eventos(); track evento.id) {
+            <tr>
+              <td>
+                <a [routerLink]="[evento.id]">{{ evento.title }}</a>
+              </td>
+              <td>
+                <app-chip [tone]="tonoDeEstado(evento.status)">{{
+                  t('admin.events.estado' + estadoClave(evento.status))
+                }}</app-chip>
+              </td>
+              <td>{{ evento.starts_at | date: 'short' }}</td>
+            </tr>
+          }
+        </app-data-table>
       }
     </ng-container>
   `,
   styles: `
-    .cabecera {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: var(--space-md);
-      flex-wrap: wrap;
-    }
-    h1 {
-      margin: 0;
-    }
     .filtro {
       display: flex;
       align-items: center;
@@ -106,22 +89,8 @@ interface Page<T> {
       margin: var(--space-md) 0;
     }
     .filtro select {
-      padding: 0.5rem 0.75rem;
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-md);
-      background-color: var(--color-surface);
-      color: var(--color-text);
-      font: inherit;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    th,
-    td {
-      text-align: left;
-      padding: var(--space-sm) var(--space-md);
-      border-bottom: 1px solid var(--color-border);
+      /* La pintura del control la da la regla compartida de styles.css. */
+      min-height: 2.5rem;
     }
   `,
 })
@@ -135,12 +104,34 @@ export class EventsPage {
   protected readonly estado = signal<EventStatus | ''>('');
   protected readonly error = signal<string | null>(null);
 
+  /** Las columnas de la tabla de eventos, con la etiqueta ya traducida. */
+  protected readonly columnasDeEventos = computed<DataTableColumn[]>(() => {
+    const t = (clave: string): string => this.transloco.translate(clave);
+    return [
+      { key: 'titulo', label: t('admin.events.columnaTitulo') },
+      { key: 'estado', label: t('admin.events.columnaEstado') },
+      { key: 'fecha', label: t('admin.events.columnaFecha') },
+    ];
+  });
+
   constructor() {
     void this.cargar();
   }
 
   protected estadoClave(estado: EventStatus): string {
     return estado.charAt(0).toUpperCase() + estado.slice(1);
+  }
+
+  /** El estado de un evento se lee por su texto: el color solo lo refuerza. */
+  protected tonoDeEstado(estado: EventStatus): ChipTone {
+    switch (estado) {
+      case 'published':
+        return 'ok';
+      case 'draft':
+        return 'espera';
+      case 'archived':
+        return 'neutro';
+    }
   }
 
   private async cargar(): Promise<void> {

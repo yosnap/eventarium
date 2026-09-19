@@ -7,6 +7,8 @@ a Internet); en producción, cualquier SMTP genérico tras la misma interfaz.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from dataclasses import dataclass
 from email.message import EmailMessage
 from typing import Protocol
 
@@ -15,20 +17,41 @@ import aiosmtplib
 from app.core.config import get_settings
 
 
+@dataclass(frozen=True, slots=True)
+class EmailAttachment:
+    """Un adjunto binario (fase 4 del PRD: el QR de la entrada en PNG)."""
+
+    filename: str
+    content: bytes
+    maintype: str
+    subtype: str
+
+
 class EmailProvider(Protocol):
-    async def send(self, *, to: str, subject: str, body: str) -> None: ...  # noqa: D102
+    async def send(  # noqa: D102
+        self, *, to: str, subject: str, body: str, attachments: Sequence[EmailAttachment] = ()
+    ) -> None: ...
 
 
 class SmtpEmailProvider:
     """Proveedor SMTP genérico, válido tanto para Mailpit como para un servidor real."""
 
-    async def send(self, *, to: str, subject: str, body: str) -> None:
+    async def send(
+        self, *, to: str, subject: str, body: str, attachments: Sequence[EmailAttachment] = ()
+    ) -> None:
         settings = get_settings()
         mensaje = EmailMessage()
         mensaje["From"] = settings.smtp_from
         mensaje["To"] = to
         mensaje["Subject"] = subject
         mensaje.set_content(body)
+        for adjunto in attachments:
+            mensaje.add_attachment(
+                adjunto.content,
+                maintype=adjunto.maintype,
+                subtype=adjunto.subtype,
+                filename=adjunto.filename,
+            )
 
         await aiosmtplib.send(
             mensaje,

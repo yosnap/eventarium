@@ -4,11 +4,13 @@ import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
 import { ApiError } from '../../../core/api/error.interceptor';
 import { AuthService } from '../../../core/auth/auth.service';
+import { AuthFrame } from '../../../layouts/public/auth-frame';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
 import { PasswordStrength, isPasswordValid } from '../../../shared/ui/password-strength';
+import { Reveal } from '../../../shared/ui/reveal.directive';
 import { TurnstileWidget } from '../../../shared/ui/turnstile-widget';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -34,83 +36,80 @@ type Campo = 'email' | 'password' | 'confirmPassword';
   imports: [
     TranslocoDirective,
     RouterLink,
+    AuthFrame,
     Alert,
     Button,
     Card,
     Input,
     PasswordStrength,
+    Reveal,
     TurnstileWidget,
   ],
   template: `
     <ng-container *transloco="let t">
-      <main id="contenido" class="pagina">
-        <app-card [heading]="t('registro.titulo')">
-          @if (enviado()) {
-            <app-alert tone="exito" [title]="t('registro.exitoTitulo')">
-              {{ t('registro.exitoDetalle') }}
-            </app-alert>
-          } @else {
-            <form (submit)="enviar($event)" novalidate>
-              <app-input
-                [label]="t('registro.email')"
-                type="email"
-                autocomplete="email"
-                [required]="true"
-                [error]="errores().email"
-                [(value)]="email"
-                (blurred)="validar('email')"
-              />
-              <app-input
-                [label]="t('registro.password')"
-                type="password"
-                autocomplete="new-password"
-                [required]="true"
-                [error]="errores().password"
-                [hint]="t('registro.passwordAyuda')"
-                [(value)]="password"
-                (blurred)="validar('password')"
-              />
-              <app-password-strength [password]="password()" />
+      <app-auth-frame [titulo]="t('registro.titulo')">
+        <div class="envoltura" appReveal>
+          <app-card [heading]="t('registro.titulo')">
+            @if (enviado()) {
+              <app-alert tone="exito" [title]="t('registro.exitoTitulo')">
+                {{ t('registro.exitoDetalle') }}
+              </app-alert>
+            } @else {
+              <form (submit)="enviar($event)" novalidate>
+                <app-input
+                  [label]="t('registro.email')"
+                  type="email"
+                  autocomplete="email"
+                  [required]="true"
+                  [error]="errores().email"
+                  [(value)]="email"
+                  (blurred)="validar('email')"
+                />
+                <app-input
+                  [label]="t('registro.password')"
+                  type="password"
+                  autocomplete="new-password"
+                  [required]="true"
+                  [error]="errores().password"
+                  [hint]="t('registro.passwordAyuda')"
+                  [(value)]="password"
+                  (blurred)="validar('password')"
+                />
+                <app-password-strength [password]="password()" />
 
-              <app-input
-                [label]="t('registro.confirmarPassword')"
-                type="password"
-                autocomplete="new-password"
-                [required]="true"
-                [error]="errores().confirmPassword"
-                [hint]="t('registro.confirmarPasswordAyuda')"
-                [(value)]="confirmPassword"
-                (blurred)="validar('confirmPassword')"
-              />
+                <app-input
+                  [label]="t('registro.confirmarPassword')"
+                  type="password"
+                  autocomplete="new-password"
+                  [required]="true"
+                  [error]="errores().confirmPassword"
+                  [hint]="t('registro.confirmarPasswordAyuda')"
+                  [(value)]="confirmPassword"
+                  (blurred)="validar('confirmPassword')"
+                />
 
-              <app-turnstile-widget (resuelto)="turnstileToken.set($event)" />
+                <app-turnstile-widget (resuelto)="turnstileToken.set($event)" />
 
-              @if (error(); as mensaje) {
-                <app-alert tone="error" [title]="t('registro.error')">{{ mensaje }}</app-alert>
-              }
+                @if (error(); as mensaje) {
+                  <app-alert tone="error" [title]="t('registro.error')">{{ mensaje }}</app-alert>
+                }
 
-              <app-button type="submit" [loading]="enviando()">
-                {{ enviando() ? t('registro.creando') : t('registro.crearCuenta') }}
-              </app-button>
-            </form>
-          }
+                <app-button type="submit" [loading]="enviando()">
+                  {{ enviando() ? t('registro.creando') : t('registro.crearCuenta') }}
+                </app-button>
+              </form>
+            }
 
-          <p>
-            <a routerLink="/admin/login">{{ t('registro.yaTengoCuenta') }}</a>
-          </p>
-        </app-card>
-      </main>
+            <p>
+              <a routerLink="/acceder">{{ t('registro.yaTengoCuenta') }}</a>
+            </p>
+          </app-card>
+        </div>
+      </app-auth-frame>
     </ng-container>
   `,
   styles: `
-    .pagina {
-      display: grid;
-      place-items: center;
-      min-height: 100vh;
-      padding: var(--space-lg);
-      background-color: var(--color-surface-muted);
-    }
-    app-card {
+    .envoltura {
       width: min(28rem, 100%);
     }
     form {

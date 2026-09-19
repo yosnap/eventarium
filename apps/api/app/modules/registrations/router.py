@@ -27,6 +27,7 @@ from app.modules.registrations.schemas import (
     RegistrationQuestionCreate,
     RegistrationQuestionResponse,
     RegistrationQuestionUpdate,
+    RegistrationRejectRequest,
     RegistrationStats,
     RegistrationStatus,
 )
@@ -207,12 +208,14 @@ async def reject_registration(
     evento: Annotated[Event, Depends(_obtener_evento_o_404)],
     session: DbDep,
     registration_id: str,
+    datos: RegistrationRejectRequest | None = None,
 ) -> RegistrationListItem:
     inscripcion = await service.reject_registration(
         session,
         organization_id=evento.organization_id,
         event_id=evento.id,
         registration_id=uuid.UUID(registration_id),
+        reason=datos.reason if datos else None,
     )
     return _registration_list_item(inscripcion)
 

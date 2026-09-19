@@ -16,14 +16,17 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -41,9 +44,27 @@ class Event(Base, TimestampMixin):
 
     __tablename__ = "events"
     __table_args__ = (
-        UniqueConstraint("organization_id", "slug", name="uq_events_organization_id_slug"),
+        # Sin dominio por organización, el slug es la única forma de resolver
+        # un evento en una URL pública: tiene que ser único en toda la
+        # instalación, no solo dentro de su organización.
+        UniqueConstraint("slug", name="uq_events_slug"),
         # Objetivo de las FK compuestas de las tablas hijas (event_sessions, event_members).
         UniqueConstraint("id", "organization_id", name="uq_events_id_organization_id"),
+        # Stripe admite un `expires_at` de Checkout Session entre 30 minutos y
+        # 24h desde la creación de la sesión; la fase 4 de trabajo de pagos
+        # añade siempre 60s de margen técnico, así que 1439 es el máximo que
+        # no se pasa de las 24h.
+        CheckConstraint(
+            "payment_checkout_window_minutes BETWEEN 30 AND 1439",
+            name="ck_events_payment_checkout_window_minutes_rango",
+        ),
+        # Biblioteca de medios (plan `260918-1944`): FK compuesta, mismo
+        # motivo que las demás de este fichero.
+        ForeignKeyConstraint(
+            ["cover_media_id", "organization_id"],
+            ["media.id", "media.organization_id"],
+            name="fk_events_cover_media_id_organization_id",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=new_uuid7)
@@ -58,6 +79,11 @@ class Event(Base, TimestampMixin):
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     cover_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Nulo para portadas subidas antes de la biblioteca de medios (sin
+    # backfill): siguen su ciclo de vida de siempre. No nulo = gestionada
+    # por la biblioteca, reemplazarla no borra el objeto (puede reutilizarse
+    # en otro sitio).
+    cover_media_id: Mapped[uuid.UUID | None] = mapped_column(PgUUID(as_uuid=True), nullable=True)
     # draft | published | archived
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
     # public | hidden | private
@@ -69,16 +95,80 @@ class Event(Base, TimestampMixin):
     location_mode: Mapped[str] = mapped_column(String(20), nullable=False)
     location_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     location_address: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(120), nullable=True)
     online_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     capacity: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # free | approval | paid
     registration_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="free")
+    # Fecha a partir de la que se admiten inscripciones; `null` significa que ya
+    # están abiertas (comportamiento previo a este campo, sigue siendo el
+    # valor por defecto). Antes de esta fecha el listado y la ficha públicos
+    # muestran el evento como «próximamente» en vez de «abierto», pero
+    # `Event.status`/`visibility` siguen mandando sobre si se lista o no —
+    # este campo no oculta el evento, solo cambia el rótulo de disponibilidad.
+    registration_opens_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     email_verification_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Ventana que tiene un comprador para pagar antes de que su
+    # `pending_payment` caduque y libere la plaza (fase 6 del PRD). Por
+    # evento, no por instalación: el aforo (`capacity`) y la fila que retiene
+    # la plaza (`event_registrations.payment_expires_at`) son ambos de nivel
+    # evento — ver decisión de validación, sesión 1, del plan de la fase 6.
+    payment_checkout_window_minutes: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=30
+    )
+    # Geocodificación de `location_address` con Nominatim (mismo mecanismo que
+    # `EventVenue`, ver ahí la justificación completa). `null` mientras no haya
+    # dirección, `location_mode` sea `online`, o la geocodificación haya
+    # fallado — nunca bloquea guardar el evento.
+    latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    geocoded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Contabilidad por evento (PRD fase 7). Las tres siguientes son de solo
+    # lectura en `EventResponse` y **nunca** viajan por `EventUpdate`
+    # (plan.md Decisión #6): solo el servicio de `accounting`, con
+    # `accounting:write`, las escribe — `PATCH /events/{id}` solo exige
+    # `EVENTS_WRITE`, bastante más común, y no debe poder anular una
+    # aprobación de presupuesto sin pasar por `aprobar_presupuesto`/
+    # `reabrir_presupuesto` ni dejar auditoría.
+    contingency_fund_percent: Mapped[Decimal] = mapped_column(
+        Numeric(5, 2), nullable=False, default=Decimal("5.00")
+    )
+    budget_approved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    contingency_fund_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Moneda única del libro contable del evento (plan.md Decisión #15):
+    # formato de Stripe, ISO 4217 en minúsculas, igual que
+    # `EventTicketType.currency`.
+    accounting_currency: Mapped[str] = mapped_column(String(3), nullable=False, default="eur")
+
+    #: Plantilla visual del evento, del catálogo que cura la plataforma. `NULL`
+    #: significa **heredar** la de la organización, no «sin tema»: cada evento
+    #: puede verse distinto (una semana técnica y una gala benéfica no son lo
+    #: mismo), pero un organizador que no elija nada conserva lo que ya tenía.
+    theme_template_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("theme_templates.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    #: Ajustes de color/fuente sobre la plantilla resuelta. Objeto plano
+    #: opcional `{accent?, font-display?, font-body?}` — NUNCA la forma
+    #: `{dark:{...}, light:{...}}` de una plantilla completa. Los 8 valores
+    #: finales del acento (accent/accent-hi/accent-dim/on-accent × modo) se
+    #: derivan al resolver el tema (`theme_templates/accent_palette.py`), no
+    #: se guardan resueltos aquí.
+    theme_overrides: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
     sessions: Mapped[list[EventSession]] = relationship(
         back_populates="event", cascade="all, delete-orphan", lazy="selectin"
     )
     members: Mapped[list[EventMember]] = relationship(
+        back_populates="event", cascade="all, delete-orphan", lazy="selectin"
+    )
+    venues: Mapped[list[EventVenue]] = relationship(
         back_populates="event", cascade="all, delete-orphan", lazy="selectin"
     )
 
@@ -94,12 +184,29 @@ class EventSession(Base, TimestampMixin):
             name="fk_event_sessions_event_id_organization_id",
             ondelete="CASCADE",
         ),
+        # Sin `ondelete=CASCADE`: borrar una sede con sesiones que la referencian
+        # se bloquea explícitamente en `service.delete_venue` con un 409 legible
+        # (ver justificación ahí). `ondelete=SET NULL` es la red de seguridad de
+        # base de datos para el único camino que se salta esa comprobación de
+        # servicio: borrar la sede directamente en base de datos (rol de
+        # mantenimiento, migraciones) — la sesión queda sin sede en vez de que la
+        # fila entera desaparezca o la operación quede bloqueada a ese nivel.
+        ForeignKeyConstraint(
+            ["venue_id", "organization_id"],
+            ["event_venues.id", "event_venues.organization_id"],
+            name="fk_event_sessions_venue_id_organization_id",
+            ondelete="SET NULL",
+        ),
         UniqueConstraint("id", "organization_id", name="uq_event_sessions_id_organization_id"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=new_uuid7)
     event_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False, index=True)
     organization_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
+    # Sede (nivel superior) donde ocurre la sesión; `room` (más abajo) es la sala
+    # o espacio concreto dentro de esa sede, texto libre sin relación con `venue`.
+    # `null`: eventos de una sola sede no necesitan asignar una sede a cada sesión.
+    venue_id: Mapped[uuid.UUID | None] = mapped_column(PgUUID(as_uuid=True), nullable=True)
     # talk | break | service | other
     session_type: Mapped[str] = mapped_column(String(20), nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -120,6 +227,47 @@ class EventSession(Base, TimestampMixin):
         lazy="selectin",
         overlaps="participations,event_member",
     )
+
+
+class EventVenue(Base, TimestampMixin):
+    """Sede de un evento multisede: nombre, dirección real y aforo propios.
+
+    Nivel superior a `EventSession.room` (texto libre, la sala dentro de la
+    sede) — p. ej. la sede «Las Naves» puede tener las salas «Sala Principal»
+    y «Sala 2», ambas como `room` de sesiones con el mismo `venue_id`. También
+    se usa para geocodificar la ubicación simple de un evento de una sola sede
+    (`Event.location_address`), mismo mecanismo, distinta fila destino.
+
+    `latitude`/`longitude`/`geocoded_at` cachean el resultado de geocodificar
+    `address` con Nominatim (`geocoding.geocode_address`): el servicio solo
+    vuelve a llamar a Nominatim cuando `address` cambia respecto al valor
+    guardado, nunca en cada lectura.
+    """
+
+    __tablename__ = "event_venues"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["event_id", "organization_id"],
+            ["events.id", "events.organization_id"],
+            name="fk_event_venues_event_id_organization_id",
+            ondelete="CASCADE",
+        ),
+        # Objetivo de la FK compuesta de `event_sessions.venue_id`.
+        UniqueConstraint("id", "organization_id", name="uq_event_venues_id_organization_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=new_uuid7)
+    event_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False, index=True)
+    organization_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    address: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    capacity: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    geocoded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    event: Mapped[Event] = relationship(back_populates="venues")
 
 
 class EventMember(Base, TimestampMixin):
@@ -238,11 +386,9 @@ class SpeakerPublicProfile(Base, TimestampMixin):
         UniqueConstraint(
             "organization_id", "user_id", name="uq_speaker_public_profiles_organization_id_user_id"
         ),
-        UniqueConstraint(
-            "organization_id",
-            "public_slug",
-            name="uq_speaker_public_profiles_organization_id_public_slug",
-        ),
+        # Igual que `events.slug`: sin dominio por organización, único en toda
+        # la instalación.
+        UniqueConstraint("public_slug", name="uq_speaker_public_profiles_public_slug"),
         # Compuesta contra `(id, organization_id)` de `organization_members`: la
         # membresía de origen de la biografía debe pertenecer a esta misma
         # organización, no a una ajena (la integridad referencial no pasa por RLS).

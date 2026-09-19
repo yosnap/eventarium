@@ -7,6 +7,7 @@
  */
 export interface EventCreate {
   capacity?: (number | null);
+  city?: (string | null);
   description?: (string | null);
   email_verification_required?: boolean;
   ends_at: string;
@@ -14,7 +15,9 @@ export interface EventCreate {
   location_mode: 'in_person' | 'online' | 'hybrid';
   location_name?: (string | null);
   online_url?: (string | null);
+  payment_checkout_window_minutes?: number;
   registration_mode?: 'free' | 'approval' | 'paid';
+  registration_opens_at?: (string | null);
   slug: string;
   starts_at: string;
   status?: 'draft' | 'published' | 'archived';

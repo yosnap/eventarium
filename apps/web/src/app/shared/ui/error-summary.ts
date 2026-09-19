@@ -34,9 +34,10 @@ export interface ResumenDeError {
   styles: `
     .resumen {
       padding: var(--space-md);
-      border: 1px solid var(--color-danger);
+      border: 1px solid var(--danger);
       border-radius: var(--radius-md);
-      color: var(--color-danger);
+      background-color: var(--danger-dim);
+      color: var(--fg);
     }
     .resumen p {
       margin: 0 0 var(--space-xs);

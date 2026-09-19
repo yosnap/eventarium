@@ -1,128 +1,196 @@
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
-import { TranslocoDirective } from '@jsverse/transloco';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
-import { Alert } from '../../../shared/ui/alert';
-import { Button } from '../../../shared/ui/button';
-import { Card } from '../../../shared/ui/card';
-import { Input } from '../../../shared/ui/input';
-import { PasswordStrength } from '../../../shared/ui/password-strength';
-import { Textarea } from '../../../shared/ui/textarea';
+import { SegmentedFilter } from '../../../shared/ui/segmented-filter';
+import { BotonesSection } from './sections/botones-section';
+import { CamposSection } from './sections/campos-section';
+import { ChipsSection } from './sections/chips-section';
+import { ColorSection } from './sections/color-section';
+import { DatosSection } from './sections/datos-section';
+import { EstadosSection } from './sections/estados-section';
+import { FondoSection } from './sections/fondo-section';
+import { SelectSection } from './sections/select-section';
+import { SuperficiesSection } from './sections/superficies-section';
+import { CookiesSection } from './sections/cookies-section';
+import { PatronesPanelSection } from './sections/patrones-panel-section';
+import { TablasSection } from './sections/tablas-section';
+import { TemasSection } from './sections/temas-section';
+import { TipografiaSection } from './sections/tipografia-section';
+
+/** Identificador de categoría del catálogo; cada una corresponde a una sección. */
+export type Categoria =
+  | 'color'
+  | 'tipografia'
+  | 'botones'
+  | 'estados'
+  | 'chips'
+  | 'campos'
+  | 'select'
+  | 'superficies'
+  | 'datos'
+  | 'tablas'
+  | 'patrones-panel'
+  | 'fondo'
+  | 'temas'
+  | 'cookies';
 
 /**
- * Catálogo interno de `shared/ui`, para verlos y probarlos juntos mientras se
- * diseñan. No es una pantalla de producto: vive dentro de `admin/estilo` (autenticado)
- * y no necesita entrar en el checklist de accesibilidad de `docs/accesibilidad.md` (esa
- * cobertura ya la tienen los componentes en sus propios tests).
+ * Réplica del prototipo real `sistema-componentes.html`: el catálogo interno de
+ * `shared/ui`, sección por sección y en el mismo orden — pero en **pestañas
+ * horizontales** por categoría (patrón del catálogo de Bloom Marbella), no en una
+ * página larga con índice ancla: los enlaces ancla no llevaban a ningún sitio (las
+ * secciones nunca tuvieron `id`) y una página de esta longitud era inabarcable.
+ * Cada pestaña muestra su única sección; el resto no se monta.
  *
- * Sin `<main>` propio a propósito: `AdminShell` ya pone el suyo alrededor de
- * `<router-outlet>`, y dos landmarks `main` en la misma página confundirían a un
- * lector de pantalla.
+ * Cada sección vive en su propio componente bajo `./sections/` para mantener este
+ * fichero corto y cada pieza enfocada en un único bloque del prototipo.
+ *
+ * Réplica completa a propósito, aunque alguna sección (p. ej. Color, Tipografía,
+ * Estados, Fondo, Temas) no tenga hoy un consumidor real fuera de esta página: así lo
+ * pidió el propietario del producto, sustituyendo la decisión de descarte de una fase
+ * anterior para el resto de la aplicación — esa decisión no aplica a este catálogo.
+ *
+ * No es una pantalla de producto: vive dentro de `admin/estilo` (autenticado). Sí entra
+ * en la suite de axe (`style-guide-page.spec.ts`): reúne todos los componentes a la
+ * vez, así que es donde antes se detecta una regresión de contraste.
+ *
+ * Sin conmutador de tema propio: reutiliza el de `AdminShell`. Sin `<main>` propio: ese
+ * landmark ya lo pone `AdminShell` alrededor de `<router-outlet>`.
  */
 @Component({
   selector: 'app-style-guide-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input, PasswordStrength, Textarea],
+  imports: [
+    TranslocoDirective,
+    SegmentedFilter,
+    ColorSection,
+    TipografiaSection,
+    BotonesSection,
+    EstadosSection,
+    ChipsSection,
+    CamposSection,
+    SelectSection,
+    SuperficiesSection,
+    DatosSection,
+    TablasSection,
+    PatronesPanelSection,
+    FondoSection,
+    CookiesSection,
+    TemasSection,
+  ],
   template: `
     <ng-container *transloco="let t">
-      <div class="pagina">
-        <h1>Catálogo de componentes</h1>
-        <p>Uso interno: no forma parte del producto.</p>
-
-        <section>
-          <h2>Botones</h2>
-          <div class="fila">
-            <app-button variant="primario">Primario</app-button>
-            <app-button variant="secundario">Secundario</app-button>
-            <app-button variant="peligro">Peligro</app-button>
-            <app-button [loading]="true">Cargando</app-button>
-            <app-button [disabled]="true">Desactivado</app-button>
-          </div>
-        </section>
-
-        <section>
-          <h2>Alertas</h2>
-          <div class="columna">
-            <app-alert tone="info" title="Información">Mensaje informativo.</app-alert>
-            <app-alert tone="exito" title="Éxito">La operación se completó.</app-alert>
-            <app-alert tone="error" title="Error">Algo ha ido mal.</app-alert>
-          </div>
-        </section>
-
-        <section>
-          <h2>Tarjetas</h2>
-          <app-card heading="Título de la tarjeta">
-            <p>Contenido de ejemplo dentro de la tarjeta.</p>
-          </app-card>
-        </section>
-
-        <section>
-          <h2>Campos de formulario</h2>
-          <div class="columna campos">
-            <app-input label="Nombre" [(value)]="texto" hint="Texto de ayuda de ejemplo." />
-            <app-input label="Correo electrónico" type="email" [(value)]="correo" />
-            <app-input
-              label="Con error"
-              [(value)]="conError"
-              error="Este campo tiene un error de ejemplo."
-            />
-            <app-input
-              label="Contraseña"
-              type="password"
-              autocomplete="new-password"
-              [(value)]="password"
-              hint="Mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial."
-            />
-            <app-password-strength [password]="password()" />
-            <app-textarea
-              label="Descripción"
-              [(value)]="descripcion"
-              hint="Campo de varias líneas."
-            />
-          </div>
-        </section>
+      <div class="cabecera-pagina">
+        <span class="rotulo-seccion">{{ t('admin.catalogoEstilo.titulo') }}</span>
+        <h1>{{ t('admin.catalogoEstilo.encabezado') }}</h1>
+        <p class="introduccion">{{ t('admin.catalogoEstilo.introduccion') }}</p>
       </div>
+
+      <app-segmented-filter
+        class="pestanas"
+        [opciones]="pestanas()"
+        [valor]="categoria()"
+        [etiqueta]="t('admin.catalogoEstilo.indice')"
+        (cambio)="categoria.set($event)"
+      />
+
+      @switch (categoria()) {
+        @case ('color') {
+          <app-style-guide-color-section />
+        }
+        @case ('tipografia') {
+          <app-style-guide-tipografia-section />
+        }
+        @case ('botones') {
+          <app-style-guide-botones-section />
+        }
+        @case ('estados') {
+          <app-style-guide-estados-section />
+        }
+        @case ('chips') {
+          <app-style-guide-chips-section />
+        }
+        @case ('campos') {
+          <app-style-guide-campos-section />
+        }
+        @case ('select') {
+          <app-style-guide-select-section />
+        }
+        @case ('superficies') {
+          <app-style-guide-superficies-section />
+        }
+        @case ('datos') {
+          <app-style-guide-datos-section />
+        }
+        @case ('tablas') {
+          <app-style-guide-tablas-section />
+        }
+        @case ('patrones-panel') {
+          <app-style-guide-patrones-panel-section />
+        }
+        @case ('fondo') {
+          <app-style-guide-fondo-section />
+        }
+        @case ('temas') {
+          <app-style-guide-temas-section />
+        }
+        @case ('cookies') {
+          <app-style-guide-cookies-section />
+        }
+      }
     </ng-container>
   `,
   styles: `
-    .pagina {
-      max-width: 40rem;
-      margin: 0 auto;
-      padding: var(--space-xl) var(--space-lg);
-      display: grid;
-      gap: var(--space-xl);
+    .cabecera-pagina {
+      margin-bottom: var(--space-lg);
     }
     h1 {
-      margin: 0;
+      margin: 12px 0 0;
+      max-width: 20ch;
     }
-    section {
-      display: grid;
-      gap: var(--space-md);
+    .introduccion {
+      max-width: 62ch;
+      margin-top: var(--space-md);
+      color: var(--muted);
     }
-    h2 {
-      margin: 0;
-      font-size: 1.125rem;
-      border-bottom: 1px solid var(--color-border);
-      padding-bottom: var(--space-xs);
-    }
-    .fila {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--space-sm);
-      align-items: center;
-    }
-    .columna {
-      display: grid;
-      gap: var(--space-md);
-    }
-    .campos {
-      max-width: 24rem;
+    .pestanas {
+      display: block;
+      margin-bottom: var(--space-lg);
     }
   `,
 })
 export class StyleGuidePage {
-  protected readonly texto = signal('');
-  protected readonly correo = signal('');
-  protected readonly conError = signal('valor con error');
-  protected readonly password = signal('');
-  protected readonly descripcion = signal('');
+  private readonly transloco = inject(TranslocoService);
+
+  /** La pestaña activa; el orden de `CATEGORIAS` es el del prototipo. */
+  protected readonly categoria = signal<Categoria>('color');
+
+  protected readonly pestanas = computed<readonly { valor: Categoria; etiqueta: string }[]>(() =>
+    CATEGORIAS.map((valor) => ({
+      valor,
+      etiqueta: this.transloco.translate('admin.catalogoEstilo.' + claveDe(valor) + '.titulo'),
+    })),
+  );
+}
+
+/** Orden de las pestañas, el mismo que tenían las secciones (y el del prototipo). */
+export const CATEGORIAS: readonly Categoria[] = [
+  'color',
+  'tipografia',
+  'botones',
+  'estados',
+  'chips',
+  'campos',
+  'select',
+  'superficies',
+  'datos',
+  'tablas',
+  'patrones-panel',
+  'fondo',
+  'temas',
+  'cookies',
+];
+
+function claveDe(categoria: Categoria): string {
+  return categoria === 'patrones-panel' ? 'patronesPanel' : categoria;
 }

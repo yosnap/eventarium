@@ -22,31 +22,40 @@ from app.modules.events.models import (
     EventMember,
     EventSession,
     EventSessionParticipant,
+    EventVenue,
     SpeakerPublicProfile,
 )
 from app.modules.organizations.repository import unsafe_select_all
 from tests.conftest import OrganizacionDePrueba
 
-TABLAS_CON_ORGANIZACION = (Event, EventSession, EventMember, EventSessionParticipant)
+TABLAS_CON_ORGANIZACION = (Event, EventSession, EventMember, EventSessionParticipant, EventVenue)
 
 AHORA = datetime.now(UTC)
 
 
 class DatosDePrueba:
-    """IDs de un evento, sesión, miembro y participante ya creados para una org."""
+    """IDs de un evento, sesión, sede, miembro y participante ya creados para una org."""
 
-    __slots__ = ("event_id", "session_id", "event_member_id", "organization_member_id")
+    __slots__ = (
+        "event_id",
+        "session_id",
+        "venue_id",
+        "event_member_id",
+        "organization_member_id",
+    )
 
     def __init__(
         self,
         *,
         event_id: uuid.UUID,
         session_id: uuid.UUID,
+        venue_id: uuid.UUID,
         event_member_id: uuid.UUID,
         organization_member_id: uuid.UUID,
     ):
         self.event_id = event_id
         self.session_id = session_id
+        self.venue_id = venue_id
         self.event_member_id = event_member_id
         self.organization_member_id = organization_member_id
 
@@ -76,9 +85,18 @@ async def _crear_datos_de_prueba(organizacion: OrganizacionDePrueba) -> DatosDeP
         session.add(evento)
         await session.flush()
 
+        sede = EventVenue(
+            event_id=evento.id,
+            organization_id=organizacion.id,
+            name="Sede de prueba",
+        )
+        session.add(sede)
+        await session.flush()
+
         sesion = EventSession(
             event_id=evento.id,
             organization_id=organizacion.id,
+            venue_id=sede.id,
             session_type="talk",
             title="Charla de prueba",
             starts_at=AHORA,
@@ -115,6 +133,7 @@ async def _crear_datos_de_prueba(organizacion: OrganizacionDePrueba) -> DatosDeP
         return DatosDePrueba(
             event_id=evento.id,
             session_id=sesion.id,
+            venue_id=sede.id,
             event_member_id=miembro_evento.id,
             organization_member_id=miembro_id,
         )
@@ -180,6 +199,32 @@ async def test_no_se_puede_crear_una_sesion_de_un_evento_ajeno(
             text("SELECT count(*) FROM event_sessions WHERE title = 'Sesión intrusa'")
         )
     assert encontrada == 0
+
+
+async def test_no_se_puede_asignar_una_sesion_a_una_sede_ajena(
+    organizacion: OrganizacionDePrueba, otra_organizacion: OrganizacionDePrueba
+) -> None:
+    """La FK compuesta rechaza una sesión cuyo `venue_id` es de otra organización,
+    aunque el `event_id` sí sea propio."""
+    datos_propios = await _crear_datos_de_prueba(organizacion)
+    datos_ajenos = await _crear_datos_de_prueba(otra_organizacion)
+
+    with pytest.raises(DBAPIError):
+        async with SessionApp() as session:
+            async with session.begin():
+                await set_organization_context(session, organizacion.id)
+                session.add(
+                    EventSession(
+                        event_id=datos_propios.event_id,
+                        organization_id=organizacion.id,
+                        venue_id=datos_ajenos.venue_id,
+                        session_type="talk",
+                        title="Sesión con sede intrusa",
+                        starts_at=AHORA,
+                        ends_at=AHORA + timedelta(hours=1),
+                    )
+                )
+                await session.flush()
 
 
 async def test_no_se_puede_asignar_un_miembro_ajeno_al_roster(

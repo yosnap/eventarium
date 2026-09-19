@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from datetime import datetime
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+from app.core.security import password_meets_complexity
 
 SLUG_PATTERN = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
 
-# Subdominios que no puede reclamar el autoservicio: colisionarían con la propia
+# Identificadores que no puede reclamar el autoservicio: colisionarían con la propia
 # instalación o con nombres que alguien podría dar por hecho que están reservados al
 # operador. Se aplica igual en `check-slug` que en la creación: la comprobación previa
 # no puede prometer disponibilidad que la creación real luego rechace.
@@ -43,7 +46,8 @@ class OrganizationResponse(BaseModel):
     legal_name: str | None = None
     description: str | None = None
     website: str | None = None
-    contact_email: EmailStr | None = None
+    # str, no EmailStr: misma razón que MemberResponse.email.
+    contact_email: str | None = None
     is_active: bool
 
 
@@ -67,9 +71,10 @@ class SocialLinkInput(BaseModel):
 class BrandingUpdate(BaseModel):
     """Identidad visual editable desde el panel."""
 
-    template_key: Annotated[str, Field(min_length=1, max_length=40)] = "classic"
-    colors: dict[str, str] = Field(default_factory=dict)
-    fonts: dict[str, str] = Field(default_factory=dict)
+    # `None` = la plantilla de tema por defecto de la plataforma. Un id que
+    # no exista en el catálogo es un 422 (comprobado en el router: aquí solo
+    # se valida la forma del dato, no su existencia).
+    theme_template_id: str | None = None
     social_links: list[SocialLinkInput] = Field(default_factory=list)
     organizer_blurb: str | None = None
 
@@ -77,25 +82,45 @@ class BrandingUpdate(BaseModel):
 class BrandingAdminResponse(BaseModel):
     """Branding tal y como lo ve el panel de administración."""
 
-    template_key: str
-    colors: dict[str, Any]
-    fonts: dict[str, Any]
+    theme_template_id: str | None = None
     social_links: list[dict[str, Any]]
     organizer_blurb: str | None = None
     logo_url: str | None = None
     favicon_url: str | None = None
 
 
-class MemberResponse(BaseModel):
-    """Miembro de la organización."""
+class MemberRoleOut(BaseModel):
+    """Un rol concreto de una persona, con la fila de membresía que lo sostiene.
+
+    `id` es el `organization_member_id` de **esa** fila — hace falta tal cual
+    para quitar justo ese rol (`DELETE /me/members/{id}`) o para referenciarlo
+    desde otro sitio que necesite una membresía concreta, no la persona
+    (el roster de un evento, `event_members.organization_member_id`)."""
 
     id: str
-    user_id: str
-    email: EmailStr
-    first_name: str | None
-    last_name: str | None
     role_id: str
     role_key: str
+    role_name: str
+
+
+class MemberResponse(BaseModel):
+    """Una persona de la organización, con **todos** sus roles.
+
+    Fase 4 del plan de invitaciones: antes esto era una fila por rol
+    (`role_id`/`role_key` sueltos), así que la misma persona con dos roles
+    aparecía dos veces sin nada que dijera que eran la misma. `profile_data`
+    es el de la membresía con más campos rellenos (empate → la más antigua):
+    es el que más sirve para mostrar de un vistazo, y evita fragmentar sus
+    datos como advierte `SpeakerPublicProfile` (`events/models.py`)."""
+
+    user_id: str
+    # str, no EmailStr: un email de dominio reservado (p. ej. example.test)
+    # ya guardado reventaría la lectura completa de miembros al validar de
+    # nuevo al serializar. El formato se valida en la entrada, no aquí.
+    email: str
+    first_name: str | None
+    last_name: str | None
+    roles: list[MemberRoleOut]
     profile_data: dict[str, Any]
 
 
@@ -109,12 +134,105 @@ class MemberCreate(BaseModel):
     profile_data: dict[str, Any] = Field(default_factory=dict)
 
 
+class InvitationCreate(BaseModel):
+    """Alta de una invitación de equipo: solo email y rol.
+
+    Sin `first_name`/`last_name` — quien invita por correo no sabe cómo se
+    llama la persona; lo completa ella al aceptar (fase 2)."""
+
+    email: EmailStr
+    role_id: str
+
+
+class InvitationResponse(BaseModel):
+    """Invitación tal y como la ve el organizador, con el estado calculado."""
+
+    id: str
+    # str, no EmailStr: misma razón que MemberResponse.email — lo validado
+    # en la entrada no se revalida al leer.
+    email: str
+    role_id: str
+    role_key: str
+    event_id: str | None
+    # pendiente | aceptada | revocada | caducada (calculado, ver
+    # `invitations_service.estado_efectivo`).
+    estado: str
+    expires_at: datetime
+    created_at: datetime
+
+
+class InvitationCreateResponse(BaseModel):
+    """Resultado de `POST /organizations/me/invitations`.
+
+    `status="added"` cuando el correo ya tenía cuenta (regla A.2: se añade
+    directamente, sin token); `status="invited"` cuando se ha creado la
+    invitación. Nunca lleva el token: eso solo viaja al correo (fase 2)."""
+
+    status: Literal["added", "invited"]
+    member: MemberResponse | None = None
+    invitation: InvitationResponse | None = None
+
+
+class InvitationPublicResponse(BaseModel):
+    """`GET /public/invitations/{token}`: lo mínimo para pintar la pantalla.
+
+    Nunca la lista de miembros ni ningún otro dato de negocio (requisito de
+    seguridad del PRD) — solo lo que hace falta para decir «te han invitado a
+    X con el rol Y»."""
+
+    organization_name: str
+    role_name: str
+    # `True` en el caso anómalo: la fase 1 no emite token si el correo ya
+    # tenía cuenta al invitar, pero pudo ganar una contraseña después por
+    # otra vía (p. ej. una recuperación). La pantalla lo dice y ofrece entrar
+    # en vez de mostrar el formulario de nombre y contraseña.
+    account_has_password: bool
+
+
+class InvitationTokenErrorResponse(BaseModel):
+    """Token inválido, caducado, revocado o ya aceptado: un mensaje por caso."""
+
+    state: Literal["invalida", "caducada", "revocada", "aceptada"]
+    message: str
+
+
+class InvitationAcceptRequest(BaseModel):
+    """Datos que completa la persona invitada al aceptar."""
+
+    first_name: Annotated[str, Field(min_length=1, max_length=100)]
+    last_name: Annotated[str, Field(min_length=1, max_length=100)]
+    password: str = Field(
+        min_length=8,
+        max_length=256,
+        description=(
+            "Contraseña: mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial"
+        ),
+    )
+
+    @field_validator("password")
+    @classmethod
+    def _validar_complejidad(cls, valor: str) -> str:
+        if not password_meets_complexity(valor):
+            raise ValueError(
+                "La contraseña debe tener mínimo 8 caracteres, una mayúscula, una "
+                "minúscula, un número y un carácter especial."
+            )
+        return valor
+
+
+class InvitationAcceptResponse(BaseModel):
+    """Confirmación de alta. Sin `host`: la petición ya llegó al dominio
+    correcto (el enlace del correo apunta al propio de la organización), así
+    que no hace falta redirigir a ningún otro sitio."""
+
+    organization_slug: str
+
+
 class OrganizationCreate(BaseModel):
     """Alta de organización (solo superadmin)."""
 
     slug: Annotated[str, Field(min_length=2, max_length=60, pattern=SLUG_PATTERN)]
     name: Annotated[str, Field(min_length=1, max_length=160)]
-    host: Annotated[str, Field(min_length=3, max_length=255)]
     legal_name: Annotated[str, Field(max_length=200)] | None = None
     contact_email: EmailStr | None = None
 
@@ -130,36 +248,24 @@ class SelfServiceOrganizationCreate(BaseModel):
 
 
 class SelfServiceOrganizationResponse(BaseModel):
-    """Organización recién creada.
+    """Organización recién creada, con una sesión completa ya activa en ella.
 
-    Sin token de sesión: el subdominio nuevo es un origen distinto de donde se ha
-    llamado a este endpoint (normalmente el dominio principal de la instalación), así
-    que ninguna cookie ni token en memoria viajaría con la persona hasta allí. El
-    cliente redirige a `host` y la persona entra con su correo y contraseña, esta vez
-    con éxito porque ya pertenece a una organización.
+    Sin dominio por organización (fase 4 del plan de organización sin
+    dominio), no hay ningún host al que redirigir: quien crea la
+    organización puede venir de verificar su correo, sin ninguna sesión
+    normal todavía (sin cookie de refresco), así que este endpoint emite la
+    suya propia — mismo mecanismo que `/auth/login`, con la organización
+    recién creada ya activa. El cliente no necesita llamar aparte a
+    `switch-organization`.
     """
 
     id: str
     slug: str
-    host: str
+    access_token: str
+    expires_in: int
 
 
 class CheckSlugResponse(BaseModel):
     """Disponibilidad de un identificador de organización."""
 
     available: bool
-
-
-class DomainCreate(BaseModel):
-    """Alta de dominio (solo superadmin)."""
-
-    host: Annotated[str, Field(min_length=3, max_length=255)]
-    is_primary: bool = False
-
-
-class DomainResponse(BaseModel):
-    """Dominio asociado a una organización."""
-
-    id: str
-    host: str
-    is_primary: bool

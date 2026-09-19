@@ -42,7 +42,59 @@ async def test_un_asistente_no_puede_modificar_la_organizacion(
     assert respuesta.status_code == 403
 
 
-async def test_actualizar_el_branding_y_verlo_en_el_endpoint_publico(
+async def test_actualizar_el_branding_y_verlo_al_releerlo(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """Fase 6 (cierre) del plan de organización sin dominio: `GET
+    /tenant/branding` ya no lleva ningún bloque `organization` (retirado con
+    `organization_domains`) — la única fuente de lectura del branding propio
+    es esta misma familia de endpoints autenticados."""
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+    respuesta = await cliente.put(
+        BRANDING,
+        headers=cabeceras,
+        json={
+            "social_links": [{"kind": "linkedin", "url": "https://linkedin.com/company/x"}],
+            "organizer_blurb": "Comunidad de IA en Valencia",
+        },
+    )
+    assert respuesta.status_code == 200
+
+    releido = await cliente.get(BRANDING, headers=cabeceras)
+    cuerpo = releido.json()
+    assert cuerpo["social_links"][0]["kind"] == "linkedin"
+
+
+async def test_actualizar_el_branding_con_una_plantilla_de_tema(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+    catalogo = await cliente.get("/api/v1/organizations/me/theme-templates", headers=cabeceras)
+    assert catalogo.status_code == 200
+    # `0038` fusionó las plantillas `oscuro`/`claro` en una única con dos modos.
+    por_defecto = next(p for p in catalogo.json() if p["key"] == "por-defecto")
+
+    respuesta = await cliente.put(
+        BRANDING,
+        headers=cabeceras,
+        json={
+            "theme_template_id": por_defecto["id"],
+            "social_links": [],
+            "organizer_blurb": "Comunidad de IA en Valencia",
+        },
+    )
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["theme_template_id"] == por_defecto["id"]
+    # El resto de campos vivos del branding se conserva.
+    assert respuesta.json()["organizer_blurb"] == "Comunidad de IA en Valencia"
+
+    releido = await cliente.get(BRANDING, headers=cabeceras)
+    assert releido.json()["theme_template_id"] == por_defecto["id"]
+
+
+async def test_actualizar_el_branding_con_una_plantilla_de_tema_inexistente(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
@@ -51,22 +103,11 @@ async def test_actualizar_el_branding_y_verlo_en_el_endpoint_publico(
         BRANDING,
         headers=cabeceras,
         json={
-            "template_key": "minimal",
-            "colors": {"primary": "#123456"},
-            "fonts": {"sans": "Inter, sans-serif"},
-            "social_links": [{"kind": "linkedin", "url": "https://linkedin.com/company/x"}],
-            "organizer_blurb": "Comunidad de IA en Valencia",
+            "theme_template_id": "00000000-0000-0000-0000-000000000000",
+            "social_links": [],
         },
     )
-    assert respuesta.status_code == 200
-
-    publico = await cliente.get("/api/v1/tenant/branding", headers={"Host": organizacion.host})
-    cuerpo = publico.json()
-    assert cuerpo["template_key"] == "minimal"
-    assert cuerpo["colors"]["primary"] == "#123456"
-    # Los colores no definidos siguen viniendo de la paleta por defecto.
-    assert cuerpo["colors"]["surface"]
-    assert cuerpo["social_links"][0]["kind"] == "linkedin"
+    assert respuesta.status_code == 422
 
 
 async def test_subir_el_logotipo_devuelve_una_url_publica(
@@ -83,8 +124,8 @@ async def test_subir_el_logotipo_devuelve_una_url_publica(
     url = respuesta.json()["logo_url"]
     assert url and f"orgs/{organizacion.id}/branding/logo/" in url
 
-    publico = await cliente.get("/api/v1/tenant/branding", headers={"Host": organizacion.host})
-    assert publico.json()["logo_url"] == url
+    releido = await cliente.get(BRANDING, headers=cabeceras)
+    assert releido.json()["logo_url"] == url
 
 
 async def test_no_se_puede_subir_un_svg_como_logotipo(

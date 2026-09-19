@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, model, output } from '@angular/core';
 
 import { Input } from './input';
+import { Select, type SelectOption } from './select';
 import { Textarea } from './textarea';
 import { ProfileField } from './dynamic-field.model';
 
@@ -14,7 +15,7 @@ import { ProfileField } from './dynamic-field.model';
 @Component({
   selector: 'app-dynamic-field',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Input, Textarea],
+  imports: [Input, Select, Textarea],
   template: `
     @switch (field().field_type) {
       @case ('textarea') {
@@ -28,26 +29,16 @@ import { ProfileField } from './dynamic-field.model';
         />
       }
       @case ('select') {
-        <div class="campo-select">
-          <label [for]="idCampo()">{{ field().label }}</label>
-          <select
-            [id]="idCampo()"
-            [attr.aria-describedby]="error() ? idError() : null"
-            [attr.aria-invalid]="error() ? 'true' : null"
-            (change)="alCambiarSeleccion($event)"
-            (blur)="blurred.emit()"
-          >
-            <option value="" disabled [selected]="!valorTexto()">
-              {{ placeholderSeleccion() }}
-            </option>
-            @for (opcion of opciones(); track opcion) {
-              <option [value]="opcion" [selected]="opcion === valorTexto()">{{ opcion }}</option>
-            }
-          </select>
-          @if (error()) {
-            <p [id]="idError()" class="error">{{ error() }}</p>
-          }
-        </div>
+        <app-select
+          [fieldId]="idCampo()"
+          [label]="field().label"
+          [placeholder]="placeholderSeleccion()"
+          [options]="opcionesSelect()"
+          [error]="error()"
+          [value]="valorTexto()"
+          (valueChange)="value.set($event)"
+          (blurred)="blurred.emit()"
+        />
       }
       @case ('boolean') {
         <div class="campo-boolean">
@@ -80,21 +71,9 @@ import { ProfileField } from './dynamic-field.model';
     }
   `,
   styles: `
-    .campo-select,
     .campo-boolean {
       display: grid;
       gap: var(--space-xs);
-    }
-    .campo-select select {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 0.625rem 0.75rem;
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-md);
-      background-color: var(--color-surface);
-      color: var(--color-text);
-      font: inherit;
-      min-height: 2.75rem;
     }
     .campo-boolean label {
       display: flex;
@@ -110,7 +89,7 @@ import { ProfileField } from './dynamic-field.model';
     }
     .error {
       margin: 0;
-      color: var(--color-danger);
+      color: var(--danger);
       font-size: 0.875rem;
     }
   `,
@@ -130,6 +109,9 @@ export class DynamicField {
   protected readonly idError = computed(() => `${this.idCampo()}-error`);
 
   protected readonly opciones = computed(() => this.field().options?.choices ?? []);
+  protected readonly opcionesSelect = computed<readonly SelectOption[]>(() =>
+    this.opciones().map((opcion) => ({ value: opcion, label: opcion })),
+  );
 
   protected readonly tipoDeInput = computed(() => {
     switch (this.field().field_type) {
@@ -155,10 +137,6 @@ export class DynamicField {
 
   protected placeholderSeleccion(): string {
     return this.field().label;
-  }
-
-  protected alCambiarSeleccion(evento: Event): void {
-    this.value.set((evento.target as HTMLSelectElement).value);
   }
 
   protected alCambiarCasilla(evento: Event): void {

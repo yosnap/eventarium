@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
 
+import { Reveal } from '../../shared/ui/reveal.directive';
+
 /**
  * Pantalla que se muestra cuando no se ha podido cargar el branding.
  *
@@ -10,10 +12,10 @@ import { TranslocoDirective } from '@jsverse/transloco';
 @Component({
   selector: 'app-site-unavailable',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective],
+  imports: [TranslocoDirective, Reveal],
   template: `
     <ng-container *transloco="let t">
-      <main id="contenido" role="main" tabindex="-1">
+      <main id="contenido" role="main" tabindex="-1" appReveal>
         <h1>{{ t('errores.sitioNoDisponible') }}</h1>
         <p>{{ t('errores.sitioNoDisponibleDetalle') }}</p>
       </main>

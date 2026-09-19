@@ -74,12 +74,25 @@ def _validar_valor(spec: FieldSpec, valor: Any) -> Any:
     raise ValidationDomainError(f"Tipo de campo no soportado: {tipo}.")
 
 
-def validate_profile_data(campos: list[FieldSpec], datos: dict[str, Any] | None) -> dict[str, Any]:
+def validate_profile_data(
+    campos: list[FieldSpec],
+    datos: dict[str, Any] | None,
+    *,
+    enforce_required: bool = True,
+) -> dict[str, Any]:
     """Valida y normaliza `profile_data`.
 
     Las claves desconocidas se rechazan en lugar de ignorarse: un dato que no
     corresponde a ningún campo suele ser un error del cliente, y aceptarlo dejaría
     basura en el JSONB que nadie volvería a mirar.
+
+    `enforce_required=False` (fase 3 del plan de invitaciones): quien llega
+    por invitación no rellena su ficha en el momento del alta — ni quien
+    invita la conoce (una biografía de ponente, p. ej.), ni se le pide al
+    aceptar. Los campos obligatorios del rol (`speaker.bio`) se completan
+    después; exigirlos aquí haría imposible aceptar una invitación a un rol
+    con algún campo obligatorio. El alta manual (`admin/members`) seguirá
+    exigiéndolos: no cambia su llamada.
     """
     entrada = dict(datos or {})
     por_clave = {campo.key: campo for campo in campos}
@@ -94,7 +107,7 @@ def validate_profile_data(campos: list[FieldSpec], datos: dict[str, Any] | None)
     resultado: dict[str, Any] = {}
     for clave, campo in por_clave.items():
         if clave not in entrada or entrada[clave] in (None, ""):
-            if campo.is_required:
+            if campo.is_required and enforce_required:
                 raise ValidationDomainError(f"«{campo.label}» es obligatorio.")
             continue
         resultado[clave] = _validar_valor(campo, entrada[clave])

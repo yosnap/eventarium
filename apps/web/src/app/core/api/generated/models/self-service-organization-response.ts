@@ -3,16 +3,19 @@
 
 
 /**
- * Organización recién creada.
+ * Organización recién creada, con una sesión completa ya activa en ella.
  *
- * Sin token de sesión: el subdominio nuevo es un origen distinto de donde se ha
- * llamado a este endpoint (normalmente el dominio principal de la instalación), así
- * que ninguna cookie ni token en memoria viajaría con la persona hasta allí. El
- * cliente redirige a `host` y la persona entra con su correo y contraseña, esta vez
- * con éxito porque ya pertenece a una organización.
+ * Sin dominio por organización (fase 4 del plan de organización sin
+ * dominio), no hay ningún host al que redirigir: quien crea la
+ * organización puede venir de verificar su correo, sin ninguna sesión
+ * normal todavía (sin cookie de refresco), así que este endpoint emite la
+ * suya propia — mismo mecanismo que `/auth/login`, con la organización
+ * recién creada ya activa. El cliente no necesita llamar aparte a
+ * `switch-organization`.
  */
 export interface SelfServiceOrganizationResponse {
-  host: string;
+  access_token: string;
+  expires_in: number;
   id: string;
   slug: string;
 }

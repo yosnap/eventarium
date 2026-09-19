@@ -94,7 +94,7 @@ async def test_activar_sobre_un_rol_sin_campos_publicables_falla_con_422(
     assert respuesta.status_code == 422
 
 
-async def test_el_slug_es_unico_por_organizacion(
+async def test_el_slug_es_unico_dentro_de_la_misma_organizacion(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
     ponente_a = await crear_miembro(
@@ -123,6 +123,45 @@ async def test_el_slug_es_unico_por_organizacion(
         headers=cabeceras_b,
         json={
             "public_slug": "mismo-slug",
+            "source_organization_member_id": str(ponente_b.member_id),
+        },
+    )
+    assert repetido.status_code == 409
+
+
+async def test_el_slug_es_unico_entre_organizaciones_distintas(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    otra_organizacion: OrganizacionDePrueba,
+) -> None:
+    ponente_a = await crear_miembro(organizacion, "speaker")
+    ponente_b = await crear_miembro(otra_organizacion, "speaker")
+    _, cabeceras_a = await iniciar_sesion_con(
+        cliente, organizacion, ponente_a.email, ponente_a.password
+    )
+    _, cabeceras_b = await iniciar_sesion_con(
+        cliente, otra_organizacion, ponente_b.email, ponente_b.password
+    )
+
+    await cliente.patch(
+        PUBLIC_PROFILE,
+        headers=cabeceras_a,
+        json={
+            "public_slug": "slug-global",
+            "source_organization_member_id": str(ponente_a.member_id),
+        },
+    )
+
+    disponibilidad = await cliente.get(
+        CHECK_SLUG, headers=cabeceras_b, params={"slug": "slug-global"}
+    )
+    assert disponibilidad.json()["available"] is False
+
+    repetido = await cliente.patch(
+        PUBLIC_PROFILE,
+        headers=cabeceras_b,
+        json={
+            "public_slug": "slug-global",
             "source_organization_member_id": str(ponente_b.member_id),
         },
     )

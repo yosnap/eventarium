@@ -4,8 +4,9 @@ import { TransferState, makeStateKey } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../api/api.service';
-import { Branding } from './branding.model';
-import { applyTokens } from './apply-tokens';
+import { Branding, PlatformBranding } from './branding.model';
+import { ThemeModeService } from './theme-mode.service';
+import { applyTokensDePlataforma } from './apply-tokens';
 
 /** El branding resuelto en SSR viaja al navegador para no repetir la petición. */
 const CLAVE_BRANDING = makeStateKey<Branding>('branding');
@@ -16,21 +17,30 @@ export class ThemingService {
   private readonly api = inject(ApiService);
   private readonly documento = inject(DOCUMENT);
   private readonly transferState = inject(TransferState);
+  private readonly modo = inject(ThemeModeService);
 
   private readonly estado = signal<Branding | null>(null);
   private readonly errorEstado = signal<string | null>(null);
 
   readonly branding = this.estado.asReadonly();
   readonly error = this.errorEstado.asReadonly();
-  readonly templateKey = computed(() => this.estado()?.template_key ?? 'classic');
-  readonly organizationName = computed(() => this.estado()?.organization_name ?? '');
 
   /**
-   * Carga el branding de la organización del host actual.
+   * Identidad de la plataforma (Eventarium): la única que existe sin dominio
+   * por organización (fase 6 del plan de organización sin dominio). La marca
+   * de un evento concreto viaja en el detalle público de ese evento.
+   */
+  readonly plataforma = computed<PlatformBranding | null>(() => this.estado()?.platform ?? null);
+
+  /** Nombre que muestra el chrome: siempre el de la plataforma. */
+  readonly nombreDeMarca = computed(() => this.plataforma()?.name ?? '');
+
+  /**
+   * Carga la identidad pública de la instalación.
    *
-   * Si la API falla no se pinta el tema por defecto como si fuera el de la
-   * organización: eso mostraría una marca equivocada. Se deja el error a la vista y la
-   * aplicación enseña una pantalla de «sitio no disponible».
+   * Si la API falla no se pinta el tema por defecto como si fuera el real: eso
+   * mostraría una marca equivocada. Se deja el error a la vista y la aplicación
+   * enseña una pantalla de «sitio no disponible».
    */
   async load(): Promise<void> {
     const transferido = this.transferState.get(CLAVE_BRANDING, null);
@@ -61,10 +71,21 @@ export class ThemingService {
   private aplicar(branding: Branding): void {
     this.estado.set(branding);
     this.errorEstado.set(null);
-    applyTokens(branding, this.documento);
-    this.documento.title = branding.organization_name;
-    if (branding.favicon_url) {
-      this.fijarFavicon(branding.favicon_url);
+
+    // El chrome es de plataforma; la plantilla propia de un evento se aplica a
+    // su página (ver `applyTokensDeEvento`), no al documento entero.
+    applyTokensDePlataforma(branding.platform, this.documento);
+
+    // El modo de apertura lo declara la plantilla resuelta; el conmutador
+    // decide después (su servicio ignora esto si el visitante ya eligió).
+    const modoDePlantilla = branding.platform.theme?.default_mode;
+    if (modoDePlantilla === 'dark' || modoDePlantilla === 'light') {
+      this.modo.establecerModoPorDefecto(modoDePlantilla === 'dark' ? 'oscuro' : 'claro');
+    }
+
+    this.documento.title = branding.platform.name;
+    if (branding.platform.favicon_url) {
+      this.fijarFavicon(branding.platform.favicon_url);
     }
   }
 

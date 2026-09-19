@@ -1,58 +1,121 @@
 @import './styles/tokens.css';
+@import './styles/typography.css';
+@import './styles/font-faces.css';
 @import 'tailwindcss';
 
 /*
- * Se declaran los tokens como colores y fuentes de Tailwind. Así `bg-primary` o
- * `font-heading` responden al branding cargado en runtime.
+ * Tokens expuestos a Tailwind. Los nombres `--color-*` son los que Tailwind
+ * espera para generar `bg-primary`, `text-text` y demás; apuntan directamente a
+ * los tokens del sistema.
+ *
+ * No se redeclaran `--font-*` ni `--radius-*`: el sistema ya usa esos mismos
+ * nombres en `:root` (`typography.css`, `tokens.css`), así que un
+ * `--font-mono: var(--font-mono)` aquí sería una autorreferencia —no un alias—
+ * y el valor quedaría sin resolver. Ningún template usa esas utilidades de
+ * Tailwind; el diseño va por las clases propias de cada componente.
  */
 @theme inline {
-  --color-primary: var(--color-primary);
-  --color-primary-contrast: var(--color-primary-contrast);
-  --color-secondary: var(--color-secondary);
-  --color-surface: var(--color-surface);
-  --color-surface-muted: var(--color-surface-muted);
-  --color-text: var(--color-text);
-  --color-text-muted: var(--color-text-muted);
-  --color-border: var(--color-border);
-  --color-danger: var(--color-danger);
-  --color-success: var(--color-success);
-
-  --font-sans: var(--font-sans);
-  --font-heading: var(--font-heading);
-
-  --radius-sm: var(--radius-sm);
-  --radius-md: var(--radius-md);
-  --radius-lg: var(--radius-lg);
+  --color-primary: var(--accent);
+  --color-primary-contrast: var(--on-accent);
+  --color-secondary: var(--accent-hi);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-2);
+  --color-text: var(--fg);
+  --color-text-muted: var(--muted);
+  --color-border: var(--border);
+  --color-danger: var(--danger);
+  --color-success: var(--accent);
 }
 
+/*
+ * El esquema de color nativo (barras de scroll, `<select>`, calendarios) sigue al
+ * tema: oscuro por defecto, claro cuando `data-theme="light"` está en `<html>`. Fijarlo
+ * a `light` a mano (como antes) dejaría esos controles claros sobre un fondo oscuro.
+ */
 html {
+  color-scheme: dark;
+}
+
+[data-theme='light'] {
   color-scheme: light;
 }
 
 body {
   margin: 0;
-  background-color: var(--color-surface);
-  color: var(--color-text);
-  font-family: var(--font-sans);
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
   line-height: 1.5;
 }
 
+/*
+ * Jerarquía real de la referencia (eventarium.css:116-120): h1/h2 llevan la
+ * tipografía de titular en mayúsculas y la escala fluida; h3 es DM Sans 500,
+ * no Bebas Neue — se usa para títulos de tarjeta y subtítulos, no para
+ * gritar. Antes de esta corrección los tres compartían `--font-display` sin
+ * ningún `font-size` propio, así que caían en los tamaños por defecto del
+ * navegador, desconectados de la escala fluida (`--fs-h1`/`--fs-h2`/`--fs-h3`).
+ */
 h1,
-h2,
-h3,
-h4 {
-  font-family: var(--font-heading);
-  line-height: 1.2;
+h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  line-height: 1.02;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+h1 {
+  font-size: var(--fs-h1);
+}
+h2 {
+  font-size: var(--fs-h2);
+}
+h3 {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--fs-h3);
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
 }
 
 /* Foco siempre visible: requisito WCAG 2.4.7. */
 :focus-visible {
-  outline: 3px solid var(--color-primary);
+  outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
 
 /* Respeta a quien ha pedido menos animación en su sistema (WCAG 2.3.3). */
+/*
+ * Revelado sutil al entrar en pantalla, sobre `[data-reveal]`/`reveal.js` de
+ * la referencia (`eventarium.css:281-294`). Dos salvaguardas, no una:
+ * - `.js-activo` solo lo añade `Reveal` (`shared/ui/reveal.directive.ts`)
+ *   cuando confirma que el JS arrancó — sin esa clase, `[appReveal]` no
+ *   tiene ninguna regla que lo oculte, así que el HTML servido por SSR (o
+ *   cualquier caso en que el bootstrap fallara) se queda visible tal cual.
+ * - `prefers-reduced-motion` anula la ocultación por completo más abajo, no
+ *   solo acorta la transición.
+ */
+.js-activo [appReveal] {
+  opacity: 0;
+  transform: translateY(14px);
+}
+.js-activo [appReveal].es-visible {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.55s cubic-bezier(0.2, 0.6, 0.2, 1),
+    transform 0.55s cubic-bezier(0.2, 0.6, 0.2, 1);
+  transition-delay: calc(var(--i, 0) * 70ms);
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .js-activo [appReveal] {
+    opacity: 1;
+    transform: none;
+  }
   *,
   *::before,
   *::after {
@@ -70,11 +133,154 @@ h4 {
   top: 0;
   z-index: 100;
   padding: var(--space-sm) var(--space-md);
-  background-color: var(--color-primary);
-  color: var(--color-primary-contrast);
+  background-color: var(--accent);
+  color: var(--on-accent);
   border-radius: 0 0 var(--radius-md) 0;
 }
 
 .skip-link:focus {
   left: 0;
+}
+
+/*
+ * Desplegable nativo con los tokens del sistema. No se construye ningún combobox
+ * custom (fase 2): el `<select>` nativo ya resuelve teclado, `aria-activedescendant`
+ * y posicionamiento sin ninguna línea propia. `color-scheme` (arriba) es lo que
+ * arregla el pintado de las opciones nativas en tema oscuro; esta regla solo pinta el
+ * control cerrado.
+ */
+select {
+  box-sizing: border-box;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background-color: var(--surface-2);
+  color: var(--fg);
+  font: inherit;
+  min-height: 2.75rem;
+}
+
+/* :focus-visible, no :focus a secas: solo refuerza el anillo global (arriba) en foco
+   por teclado, sin anularlo con `outline: none` en foco por ratón. */
+select:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/*
+ * Retícula de fondo: geometría y fórmula copiadas literalmente del prototipo de
+ * referencia (`eventarium.css`, celda 30px, línea de 1px, sobre `--grid-line` y
+ * `--grid-fade` dedicados, no sobre `--border`). Capa fija con `z-index:-1`, así que
+ * nunca se interpone entre el texto y su fondo, y se disuelve antes de la mitad del
+ * alto de ventana: acompaña la entrada de la página y desaparece en cuanto empieza la
+ * zona de lectura y datos — textura de papel, no una cuadrícula dibujada.
+ */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0 / 100% var(--grid-size),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid-size) 100%;
+  mask-image: linear-gradient(
+    180deg,
+    #000 0,
+    rgba(0, 0, 0, 0.55) calc(var(--grid-fade) * 0.6),
+    transparent var(--grid-fade)
+  );
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    #000 0,
+    rgba(0, 0, 0, 0.55) calc(var(--grid-fade) * 0.6),
+    transparent var(--grid-fade)
+  );
+}
+
+/* Contenedor de ancho máximo de la referencia (`.wrap`). Nombre específico
+ * (`.ancho-maximo`, no `.contenedor`) para no colisionar por nombre con clases
+ * de componentes: Angular View Encapsulation solo aísla los estilos DE un
+ * componente hacia fuera, nunca protege a un componente de una clase global
+ * que coincida por nombre (ver app-data-table, que ya sufrió esta colisión). */
+.ancho-maximo {
+  width: min(100% - 40px, var(--max));
+  margin-inline: auto;
+}
+
+/* Rótulo de sección: mono, mayúsculas, con tracking amplio. Regla de tipografía de
+ * tres líneas; el encabezado semántico (`<h2>`) sigue siendo responsabilidad de la
+ * pantalla que use esta clase. */
+.rotulo-seccion {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* Subrayado de acento estático, sin animación de entrada. */
+.mark {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.2em;
+}
+
+/* Oculta visualmente sin quitarlo del árbol de accesibilidad: patrón estándar
+ * (ancho/alto de 1px + recorte, no `display:none`/`visibility:hidden`, que sí
+ * lo sacarían del árbol). Global porque varias pantallas lo necesitan para
+ * etiquetas de formulario/tabla que deben existir para lectores de pantalla
+ * sin ocupar espacio visual. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Marcador de `app-address-map`/`app-venue-map` (`shared/ui/leaflet-icons.ts`):
+ * Leaflet inyecta este `div` fuera del árbol de Angular (dentro de su propio
+ * `<div class="mapa">`), así que necesita CSS global, no el `styles:` con
+ * ámbito de componente del componente que lo pinta. */
+.marcador-punto {
+  display: grid;
+  place-items: center;
+}
+.marcador-punto span {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--on-accent);
+  box-shadow: var(--shadow-md);
+}
+
+/* ── Utilidades del panel ───────────────────────────────────────────────────
+ * Patrones compartidos por las pantallas de administración (fase 0 del plan
+ * 260915-0052). Clases globales porque viven en contenido proyectado, donde
+ * los estilos encapsulados de los componentes no llegan. */
+
+/* Cuerpo con padding de panel (.panel__body, eventarium.css:189): para
+ * contenido no tabular dentro de un app-panel con cabecera. Las tablas no lo
+ * necesitan — gestionan su propio padding de celda, como la referencia. */
+.panel-cuerpo {
+  padding: var(--sp-5);
+}
+
+/* Celda de persona apilada (.who, panel-organizador.html:35-36): nombre
+ * encima, detalle (email) debajo en muted. */
+.persona-apilada {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.persona-apilada small {
+  color: var(--muted);
+  font-size: var(--fs-sm);
 }

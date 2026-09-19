@@ -131,9 +131,20 @@ describe('RegistrationQuestions', () => {
     ) as HTMLInputElement;
     etiqueta.value = 'Elige una opción';
     etiqueta.dispatchEvent(new Event('input'));
-    const tipo = fixture.nativeElement.querySelector('#pregunta-tipo-nueva') as HTMLSelectElement;
-    tipo.value = 'single_choice';
-    tipo.dispatchEvent(new Event('change'));
+    // `#pregunta-tipo-nueva` es ahora el botón de `app-select` (el nativo oculto
+    // solo refleja el valor, no dispara `change`): un ArrowDown abre la lista y
+    // resalta el valor vigente («Texto corto», primera opción), el segundo
+    // avanza a «Opción única», y Enter la confirma — mismo patrón que
+    // `select.spec.ts`.
+    const tipo = fixture.nativeElement.querySelector('#pregunta-tipo-nueva') as HTMLButtonElement;
+    const pulsar = (tecla: string): void => {
+      tipo.dispatchEvent(new KeyboardEvent('keydown', { key: tecla, bubbles: true }));
+    };
+    pulsar('ArrowDown');
+    await avanzar(fixture);
+    pulsar('ArrowDown');
+    await avanzar(fixture);
+    pulsar('Enter');
     await avanzar(fixture);
 
     (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(

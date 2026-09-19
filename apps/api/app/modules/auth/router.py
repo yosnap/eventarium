@@ -7,23 +7,22 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request, Response, status
 
 from app.core.config import get_settings
-from app.core.deps import DbDep, get_current_organization
+from app.core.deps import SessionDep, get_token_claims
 from app.core.ratelimit import (
     FORGOT_PASSWORD_POR_IP,
-    LOGIN_POR_HOST,
     LOGIN_POR_IP,
     REENVIO_VERIFICACION_POR_IP,
     REFRESH_POR_IP,
     REGISTRO_POR_IP,
     RESET_PASSWORD_POR_IP,
+    SWITCH_ORGANIZATION_POR_IP,
     VERIFICACION_CORREO_POR_IP,
-    limit_per_host,
     limit_per_ip,
 )
-from app.core.security import create_access_token
-from app.core.tenant import ResolvedOrganization
+from app.core.security import AccessTokenClaims, create_access_token
 from app.core.turnstile import require_turnstile
 from app.modules.auth import service
+from app.modules.auth.cookies import COOKIE_NOMBRE, borrar_cookie_refresh, fijar_cookie_refresh
 from app.modules.auth.schemas import (
     ForgotPasswordRequest,
     GenericMessageResponse,
@@ -32,45 +31,14 @@ from app.modules.auth.schemas import (
     RegisterRequest,
     ResendVerificationRequest,
     ResetPasswordRequest,
+    SwitchOrganizationRequest,
     TokenResponse,
     UserSummary,
     VerifyEmailResponse,
 )
-from app.shared.errors import AuthenticationError
+from app.shared.errors import AuthenticationError, PermissionDeniedError
 
 router = APIRouter(prefix="/auth", tags=["autenticación"])
-
-# La cookie se limita a la ruta de auth: ningún otro endpoint necesita verla.
-COOKIE_NOMBRE = "ia_week_refresh"
-COOKIE_PATH = "/api/v1/auth"
-
-
-def _fijar_cookie(response: Response, refresh_token: str) -> None:
-    settings = get_settings()
-    response.set_cookie(
-        key=COOKIE_NOMBRE,
-        value=refresh_token,
-        max_age=settings.refresh_token_ttl_days * 24 * 3600,
-        path=COOKIE_PATH,
-        # Sin `Domain`: web y API comparten host tras Caddy, así que la cookie ya es
-        # first-party. Añadir `Domain` solo ampliaría su alcance a subdominios.
-        domain=settings.cookie_domain or None,
-        secure=settings.cookie_secure,
-        httponly=True,
-        samesite="lax",
-    )
-
-
-def _borrar_cookie(response: Response) -> None:
-    settings = get_settings()
-    response.delete_cookie(
-        key=COOKIE_NOMBRE,
-        path=COOKIE_PATH,
-        domain=settings.cookie_domain or None,
-        secure=settings.cookie_secure,
-        httponly=True,
-        samesite="lax",
-    )
 
 
 @router.post(
@@ -78,25 +46,14 @@ def _borrar_cookie(response: Response) -> None:
     summary="Iniciar sesión",
     description="Devuelve un access token y fija la cookie de refresco.",
     response_model=LoginResponse,
-    dependencies=[
-        limit_per_ip("login", LOGIN_POR_IP),
-        limit_per_host("login", LOGIN_POR_HOST),
-    ],
+    dependencies=[limit_per_ip("login", LOGIN_POR_IP)],
 )
-async def login(
-    datos: LoginRequest,
-    response: Response,
-    session: DbDep,
-    organizacion: Annotated[ResolvedOrganization, Depends(get_current_organization)],
-) -> LoginResponse:
-    usuario = await service.authenticate(
-        session,
-        email=str(datos.email),
-        password=datos.password,
-        organization_id=organizacion.id,
+async def login(datos: LoginRequest, response: Response, session: SessionDep) -> LoginResponse:
+    usuario, organization_id = await service.authenticate(
+        session, email=str(datos.email), password=datos.password
     )
-    tokens = await service.issue_tokens(usuario, organizacion.id)
-    _fijar_cookie(response, tokens.refresh_token)
+    tokens = await service.issue_tokens(usuario, organization_id)
+    fijar_cookie_refresh(response, tokens.refresh_token)
     return LoginResponse(
         access_token=tokens.access_token,
         expires_in=tokens.expires_in,
@@ -106,6 +63,7 @@ async def login(
             first_name=usuario.first_name,
             last_name=usuario.last_name,
             is_superadmin=usuario.is_superadmin,
+            platform_role=usuario.platform_role,
         ),
     )
 
@@ -117,12 +75,43 @@ async def login(
     response_model=TokenResponse,
     dependencies=[limit_per_ip("refresh", REFRESH_POR_IP)],
 )
-async def refresh(request: Request, response: Response, session: DbDep) -> TokenResponse:
+async def refresh(request: Request, response: Response, session: SessionDep) -> TokenResponse:
     cookie = request.cookies.get(COOKIE_NOMBRE)
     if not cookie:
         raise AuthenticationError("No hay sesión que renovar.")
     tokens, _ = await service.rotate_refresh_token(session, cookie)
-    _fijar_cookie(response, tokens.refresh_token)
+    fijar_cookie_refresh(response, tokens.refresh_token)
+    return TokenResponse(access_token=tokens.access_token, expires_in=tokens.expires_in)
+
+
+@router.post(
+    "/switch-organization",
+    summary="Cambiar la organización activa",
+    description=(
+        "Emite un access token nuevo para otra organización a la que se "
+        "pertenece, sin volver a introducir credenciales."
+    ),
+    response_model=TokenResponse,
+    dependencies=[limit_per_ip("switch-organization", SWITCH_ORGANIZATION_POR_IP)],
+)
+async def switch_organization(
+    datos: SwitchOrganizationRequest,
+    request: Request,
+    response: Response,
+    claims: Annotated[AccessTokenClaims, Depends(get_token_claims)],
+    session: SessionDep,
+) -> TokenResponse:
+    if claims.impersonated_by is not None:
+        raise PermissionDeniedError("Una sesión de suplantación no puede cambiar de organización.")
+
+    cookie = request.cookies.get(COOKIE_NOMBRE)
+    if not cookie:
+        raise AuthenticationError("No hay sesión que renovar.")
+
+    tokens, _ = await service.switch_organization(
+        session, refresh_token=cookie, target_organization_id=datos.organization_id
+    )
+    fijar_cookie_refresh(response, tokens.refresh_token)
     return TokenResponse(access_token=tokens.access_token, expires_in=tokens.expires_in)
 
 
@@ -138,7 +127,7 @@ async def refresh(request: Request, response: Response, session: DbDep) -> Token
     dependencies=[limit_per_ip("registro", REGISTRO_POR_IP)],
 )
 async def register(
-    datos: RegisterRequest, request: Request, session: DbDep
+    datos: RegisterRequest, request: Request, session: SessionDep
 ) -> GenericMessageResponse:
     await require_turnstile(request, datos.turnstile_token)
     await service.register_user(session, email=str(datos.email), password=datos.password)
@@ -154,7 +143,7 @@ async def register(
     response_model=VerifyEmailResponse,
     dependencies=[limit_per_ip("verificar-correo", VERIFICACION_CORREO_POR_IP)],
 )
-async def verify_email(token: str, session: DbDep) -> VerifyEmailResponse:
+async def verify_email(token: str, session: SessionDep) -> VerifyEmailResponse:
     settings = get_settings()
     user_id = await service.verify_email(session, token=token)
     return VerifyEmailResponse(
@@ -176,7 +165,7 @@ async def verify_email(token: str, session: DbDep) -> VerifyEmailResponse:
     dependencies=[limit_per_ip("reenvio-verificacion", REENVIO_VERIFICACION_POR_IP)],
 )
 async def resend_verification(
-    datos: ResendVerificationRequest, request: Request, session: DbDep
+    datos: ResendVerificationRequest, request: Request, session: SessionDep
 ) -> GenericMessageResponse:
     await require_turnstile(request, datos.turnstile_token)
     await service.resend_verification(session, email=str(datos.email))
@@ -196,7 +185,7 @@ async def resend_verification(
     dependencies=[limit_per_ip("forgot-password", FORGOT_PASSWORD_POR_IP)],
 )
 async def forgot_password(
-    datos: ForgotPasswordRequest, request: Request, session: DbDep
+    datos: ForgotPasswordRequest, request: Request, session: SessionDep
 ) -> GenericMessageResponse:
     await require_turnstile(request, datos.turnstile_token)
     await service.forgot_password(session, email=str(datos.email))
@@ -215,7 +204,9 @@ async def forgot_password(
     response_model=GenericMessageResponse,
     dependencies=[limit_per_ip("reset-password", RESET_PASSWORD_POR_IP)],
 )
-async def reset_password(datos: ResetPasswordRequest, session: DbDep) -> GenericMessageResponse:
+async def reset_password(
+    datos: ResetPasswordRequest, session: SessionDep
+) -> GenericMessageResponse:
     await service.reset_password(session, token=datos.token, new_password=datos.new_password)
     return GenericMessageResponse(message="Contraseña actualizada correctamente.")
 
@@ -231,5 +222,5 @@ async def logout(request: Request, response: Response) -> Response:
     if cookie:
         await service.revoke_refresh_token(cookie)
     salida = Response(status_code=status.HTTP_204_NO_CONTENT)
-    _borrar_cookie(salida)
+    borrar_cookie_refresh(salida)
     return salida
