@@ -4,6 +4,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   type OnInit,
+  computed,
   inject,
   input,
   signal,
@@ -18,6 +19,7 @@ import { Button } from '../../../shared/ui/button';
 import { Checkbox } from '../../../shared/ui/checkbox';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
+import { Select, type SelectOption } from '../../../shared/ui/select';
 import {
   type RegistrationQuestionResponse,
   type RegistrationQuestionType,
@@ -47,7 +49,7 @@ function vacio(): {
 @Component({
   selector: 'app-registration-questions',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, NgTemplateOutlet, Alert, Button, Card, Checkbox, Input],
+  imports: [TranslocoDirective, NgTemplateOutlet, Alert, Button, Card, Checkbox, Input, Select],
   template: `
     <ng-container *transloco="let t">
       <app-card [heading]="t('admin.events.registrationQuestions.titulo')">
@@ -146,22 +148,12 @@ function vacio(): {
             }}
           </h3>
 
-          <div class="campo-select">
-            <label [for]="'pregunta-tipo-' + (idEnEdicion ?? 'nueva')">
-              {{ t('admin.events.registrationQuestions.tipo') }}
-            </label>
-            <select
-              [id]="'pregunta-tipo-' + (idEnEdicion ?? 'nueva')"
-              [value]="tipo()"
-              (change)="alCambiarTipo($event)"
-            >
-              @for (opcion of tiposDisponibles; track opcion) {
-                <option [value]="opcion">
-                  {{ t('admin.events.registrationQuestions.tipo' + tipoClave(opcion)) }}
-                </option>
-              }
-            </select>
-          </div>
+          <app-select
+            [fieldId]="'pregunta-tipo-' + (idEnEdicion ?? 'nueva')"
+            [label]="t('admin.events.registrationQuestions.tipo')"
+            [options]="opcionesDeTipo()"
+            [(value)]="tipo"
+          />
 
           <app-input
             [fieldId]="'pregunta-etiqueta-' + (idEnEdicion ?? 'nueva')"
@@ -267,12 +259,10 @@ function vacio(): {
       padding-top: var(--space-lg);
       border-top: 1px solid var(--border);
     }
-    .campo-select,
     .campo-materiales {
       display: grid;
-      gap: var(--space-xs);
+      gap: var(--space-sm);
     }
-    .campo-select select,
     textarea {
       width: 100%;
       box-sizing: border-box;
@@ -316,10 +306,21 @@ export class RegistrationQuestions implements OnInit {
   protected readonly borrarError = signal<string | null>(null);
 
   private readonly valoresIniciales = vacio();
-  protected readonly tipo = signal(this.valoresIniciales.type);
+  // `string`, no `RegistrationQuestionType`: mismo motivo que en `session-form.ts`
+  // (el `[(value)]` de `app-select` exige `WritableSignal<string>`).
+  protected readonly tipo = signal<string>(this.valoresIniciales.type);
   protected readonly etiqueta = signal(this.valoresIniciales.label);
   protected readonly obligatoria = signal(this.valoresIniciales.required);
   protected readonly opciones = signal(this.valoresIniciales.opciones);
+
+  protected readonly opcionesDeTipo = computed<SelectOption[]>(() =>
+    this.tiposDisponibles.map((opcion) => ({
+      value: opcion,
+      label: this.transloco.translate(
+        'admin.events.registrationQuestions.tipo' + this.tipoClave(opcion),
+      ),
+    })),
+  );
 
   ngOnInit(): void {
     void this.cargar();
@@ -350,10 +351,6 @@ export class RegistrationQuestions implements OnInit {
       .split('_')
       .map((parte) => parte.charAt(0).toUpperCase() + parte.slice(1))
       .join('');
-  }
-
-  protected alCambiarTipo(evento: Event): void {
-    this.tipo.set((evento.target as HTMLSelectElement).value as RegistrationQuestionType);
   }
 
   protected alCambiarObligatoria(marcada: boolean): void {
@@ -409,7 +406,7 @@ export class RegistrationQuestions implements OnInit {
     }
 
     const payload = {
-      type: this.tipo(),
+      type: this.tipo() as RegistrationQuestionType,
       label: this.etiqueta().trim(),
       required: this.obligatoria(),
       sort_order: idEnEdicion

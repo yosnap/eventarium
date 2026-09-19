@@ -185,7 +185,10 @@ export function enlacesDeEvento(eventId: string, aceptaPagos: boolean): readonly
                 </a>
               </li>
               <li>
-                <a [routerLink]="['/dashboard/events', datosEvento.id, 'editar']">
+                <a
+                  [routerLink]="['/dashboard/events', datosEvento.id, 'editar']"
+                  routerLinkActive="activo"
+                >
                   {{ t('admin.nav.editarEvento') }}
                 </a>
               </li>
@@ -256,7 +259,6 @@ export function enlacesDeEvento(eventId: string, aceptaPagos: boolean): readonly
     a.activo {
       background-color: var(--surface-hi);
       color: var(--fg);
-      box-shadow: inset 2px 0 0 var(--accent);
     }
   `,
 })

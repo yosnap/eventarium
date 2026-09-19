@@ -40,10 +40,13 @@ function flushRoster(http: HttpTestingController): void {
     .flush({ items: [], total: 0, limit: 200, offset: 0 });
 }
 
-/** Las sedes del evento también se piden en paralelo a la agenda, para el
- * selector de sede del formulario de sesión. */
+/** Las sedes del evento se piden dos veces en paralelo a la agenda: una desde
+ * `app-event-venues` (su propio listado) y otra desde el selector de sede del
+ * formulario de sesión, cada una por su cuenta. */
 function flushVenues(http: HttpTestingController): void {
-  http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/venues').flush([]);
+  for (const peticion of http.match((p) => p.url === '/api/v1/events/e1/venues')) {
+    peticion.flush([]);
+  }
 }
 
 describe('EventAgenda', () => {

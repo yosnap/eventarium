@@ -55,111 +55,115 @@ function vacio(): {
           <app-alert tone="error">{{ mensaje }}</app-alert>
         }
 
-        @if (cargando()) {
-          <p>{{ t('comun.cargando') }}</p>
-        } @else if (sedes().length === 0) {
-          <p>{{ t('admin.events.venues.sinSedes') }}</p>
-        } @else {
-          <ul class="lista">
-            @for (sede of sedes(); track sede.id) {
-              <li>
-                <div class="fila">
-                  <div>
-                    <strong>{{ sede.name }}</strong>
-                    <span class="detalle">
-                      @if (sede.address) {
-                        {{ sede.address }} ·
-                      }
-                      @if (sede.capacity) {
-                        {{ t('admin.events.venues.aforo') }}: {{ sede.capacity }} ·
-                      }
-                      @if (sede.latitude !== null && sede.longitude !== null) {
-                        {{ t('admin.events.venues.geocodificada') }}
-                      } @else {
-                        {{ t('admin.events.venues.sinGeocodificar') }}
-                      }
-                    </span>
-                  </div>
-                  <div class="acciones">
-                    <app-button variant="secundario" type="button" (pulsado)="editar(sede)">
-                      {{ t('admin.events.venues.editar') }}
-                    </app-button>
-                    <app-button variant="peligro" type="button" (pulsado)="borrar(sede.id)">
-                      {{ t('admin.events.venues.eliminar') }}
-                    </app-button>
-                  </div>
-                </div>
-              </li>
+        <div class="contenido">
+          <div>
+            @if (cargando()) {
+              <p>{{ t('comun.cargando') }}</p>
+            } @else if (sedes().length === 0) {
+              <p>{{ t('admin.events.venues.sinSedes') }}</p>
+            } @else {
+              <ul class="lista">
+                @for (sede of sedes(); track sede.id) {
+                  <li>
+                    <div class="fila">
+                      <div>
+                        <strong>{{ sede.name }}</strong>
+                        <span class="detalle">
+                          @if (sede.address) {
+                            {{ sede.address }} ·
+                          }
+                          @if (sede.capacity) {
+                            {{ t('admin.events.venues.aforo') }}: {{ sede.capacity }} ·
+                          }
+                          @if (sede.latitude !== null && sede.longitude !== null) {
+                            {{ t('admin.events.venues.geocodificada') }}
+                          } @else {
+                            {{ t('admin.events.venues.sinGeocodificar') }}
+                          }
+                        </span>
+                      </div>
+                      <div class="acciones">
+                        <app-button variant="secundario" type="button" (pulsado)="editar(sede)">
+                          {{ t('admin.events.venues.editar') }}
+                        </app-button>
+                        <app-button variant="peligro" type="button" (pulsado)="borrar(sede.id)">
+                          {{ t('admin.events.venues.eliminar') }}
+                        </app-button>
+                      </div>
+                    </div>
+                  </li>
+                }
+              </ul>
             }
-          </ul>
-        }
-
-        <form (submit)="guardar($event)" novalidate class="formulario">
-          <h3>
-            {{
-              editandoId()
-                ? t('admin.events.venues.editarSede')
-                : t('admin.events.venues.anadirSede')
-            }}
-          </h3>
-
-          <app-input
-            fieldId="sede-nombre"
-            [label]="t('admin.events.venues.nombre')"
-            [required]="true"
-            [(value)]="nombre"
-          />
-
-          <app-address-map
-            fieldId="sede-direccion"
-            [label]="t('admin.events.venues.direccion')"
-            [(value)]="direccion"
-            [initialLatitude]="latitudInicial()"
-            [initialLongitude]="longitudInicial()"
-          />
-
-          <div class="campo-numero">
-            <label for="sede-aforo">{{ t('admin.events.venues.aforo') }}</label>
-            <input
-              id="sede-aforo"
-              type="number"
-              inputmode="numeric"
-              min="1"
-              [value]="aforo()"
-              (input)="aforo.set(alNumero($event))"
-            />
           </div>
 
-          <div class="campo-numero">
-            <label for="sede-orden">{{ t('admin.events.venues.orden') }}</label>
-            <input
-              id="sede-orden"
-              type="number"
-              inputmode="numeric"
-              [value]="orden()"
-              (input)="orden.set(alNumero($event))"
-            />
-          </div>
-
-          @if (formError(); as mensaje) {
-            <app-alert tone="error">{{ mensaje }}</app-alert>
-          }
-
-          <div class="acciones-finales">
-            @if (editandoId()) {
-              <app-button variant="secundario" type="button" (pulsado)="cancelarEdicion()">
-                {{ t('admin.roles.cancelar') }}
-              </app-button>
-            }
-            <app-button type="submit" [loading]="guardando()">
+          <form (submit)="guardar($event)" novalidate class="formulario">
+            <h3>
               {{
                 editandoId()
-                  ? t('admin.events.venues.guardarCambios')
+                  ? t('admin.events.venues.editarSede')
                   : t('admin.events.venues.anadirSede')
               }}
-            </app-button>
-          </div>
-        </form>
+            </h3>
+
+            <app-input
+              fieldId="sede-nombre"
+              [label]="t('admin.events.venues.nombre')"
+              [required]="true"
+              [(value)]="nombre"
+            />
+
+            <app-address-map
+              fieldId="sede-direccion"
+              [label]="t('admin.events.venues.direccion')"
+              [(value)]="direccion"
+              [initialLatitude]="latitudInicial()"
+              [initialLongitude]="longitudInicial()"
+            />
+
+            <div class="campo-numero">
+              <label for="sede-aforo">{{ t('admin.events.venues.aforo') }}</label>
+              <input
+                id="sede-aforo"
+                type="number"
+                inputmode="numeric"
+                min="1"
+                [value]="aforo()"
+                (input)="aforo.set(alNumero($event))"
+              />
+            </div>
+
+            <div class="campo-numero">
+              <label for="sede-orden">{{ t('admin.events.venues.orden') }}</label>
+              <input
+                id="sede-orden"
+                type="number"
+                inputmode="numeric"
+                [value]="orden()"
+                (input)="orden.set(alNumero($event))"
+              />
+            </div>
+
+            @if (formError(); as mensaje) {
+              <app-alert tone="error">{{ mensaje }}</app-alert>
+            }
+
+            <div class="acciones-finales">
+              @if (editandoId()) {
+                <app-button variant="secundario" type="button" (pulsado)="cancelarEdicion()">
+                  {{ t('admin.roles.cancelar') }}
+                </app-button>
+              }
+              <app-button type="submit" [loading]="guardando()">
+                {{
+                  editandoId()
+                    ? t('admin.events.venues.guardarCambios')
+                    : t('admin.events.venues.anadirSede')
+                }}
+              </app-button>
+            </div>
+          </form>
+        </div>
       </app-card>
     </ng-container>
   `,
@@ -167,23 +171,35 @@ function vacio(): {
     h3 {
       margin: var(--sp-4) 0 0;
     }
+    /* Antes, lista y formulario apilados a todo el ancho de la tarjeta —
+     * había sitio de sobra para verlos uno junto al otro. */
+    .contenido {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+      gap: var(--sp-6);
+      align-items: start;
+    }
+    /* Antes, una lista a una sola columna a todo el ancho de la tarjeta: con
+     * varias sedes se volvía un muro de filas idénticas. Ahora, tarjetas en
+     * rejilla — cada sede con su propio borde, tantas columnas como quepan. */
     .lista {
       list-style: none;
       margin: 0;
       padding: 0;
       display: grid;
-      gap: var(--sp-3);
+      grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+      gap: var(--sp-4);
     }
     .lista li {
-      border-bottom: 1px solid var(--border);
-      padding-bottom: var(--sp-3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: var(--sp-4);
     }
     .fila {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: var(--sp-4);
-      flex-wrap: wrap;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--sp-3);
     }
     .detalle {
       display: block;
@@ -199,14 +215,10 @@ function vacio(): {
     .formulario {
       display: grid;
       gap: var(--sp-4);
-      margin-top: var(--sp-5);
-      padding-top: var(--sp-5);
-      border-top: 1px solid var(--border);
-      max-width: 34rem;
     }
     .campo-numero {
       display: grid;
-      gap: var(--sp-1);
+      gap: var(--sp-2);
     }
     .campo-numero input {
       width: 100%;

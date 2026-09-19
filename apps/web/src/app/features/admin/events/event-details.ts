@@ -7,7 +7,6 @@ import {
   input,
   signal,
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
@@ -21,26 +20,22 @@ import {
   IMAGEN_MIMES_PERMITIDOS,
   IMAGEN_TAMANO_MAXIMO,
 } from '../../../shared/uploads/image-upload-constraints';
-import { EventAgenda } from './event-agenda';
-import { EventDiscountCodes } from './event-discount-codes';
-import { EventRegistrations } from './event-registrations';
-import { EventSponsors } from './event-sponsors';
-import { EventTicketTypes } from './event-ticket-types';
-import { EventVenues } from './event-venues';
 
 type EventStatus = 'draft' | 'published' | 'archived';
-type RegistrationMode = 'free' | 'approval' | 'paid';
 
 interface EventoResumen {
   readonly cover_url: string | null;
   readonly status: EventStatus;
-  readonly registration_mode: RegistrationMode;
 }
 
 /**
- * Gestión de un evento ya creado: portada, estado (publicar/archivar) y todas sus
- * secciones (agenda, patrocinadores, entradas, descuentos, inscripciones), más las
- * salidas a check-in y a pagos.
+ * Solo lo que es del evento en sí, no de sus secciones: portada y estado
+ * (publicar/archivar). Agenda, sedes, ponentes, patrocinadores, entradas,
+ * descuentos, inscripciones y check-in ya tienen su propia ruta y su propia
+ * entrada en `enlacesDeEvento()` (`admin-nav.ts`) — antes vivían también aquí,
+ * duplicadas dentro de «Editar datos», lo que hacía de esa pantalla un cajón
+ * de sastre con todo el evento a la vez, en vez del formulario de datos que
+ * su nombre promete.
  *
  * `event-form.ts` delega aquí en cuanto hay un `eventId` — este componente carga sus
  * propios datos a partir de él, igual que ya hace cada sección con la suya, en vez de
@@ -49,101 +44,82 @@ interface EventoResumen {
 @Component({
   selector: 'app-event-details',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    TranslocoDirective,
-    RouterLink,
-    Alert,
-    Button,
-    Card,
-    EventAgenda,
-    EventDiscountCodes,
-    EventRegistrations,
-    EventSponsors,
-    EventTicketTypes,
-    EventVenues,
-  ],
+  imports: [TranslocoDirective, Alert, Button, Card],
   template: `
     <ng-container *transloco="let t">
       @if (cargando()) {
         <p>{{ t('comun.cargando') }}</p>
       } @else {
-        <app-card [heading]="t('admin.events.formulario.portada')">
-          @if (portadaUrl(); as url) {
-            <img [src]="url" [alt]="t('admin.events.formulario.portada')" height="120" />
-          } @else {
-            <p>{{ t('admin.events.formulario.sinPortada') }}</p>
-          }
-          <label class="etiqueta-fichero" for="portada">{{
-            t('admin.events.formulario.subirPortada')
-          }}</label>
-          <input
-            id="portada"
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            (change)="alSeleccionarPortada($event)"
-          />
-          @if (errorPortada(); as mensaje) {
-            <app-alert tone="error">{{ mensaje }}</app-alert>
-          }
-        </app-card>
-
-        <app-card [heading]="t('admin.events.formulario.estadoActual')">
-          <p>
-            {{ t('admin.events.estado' + capitaliza(estadoActual())) }}
-          </p>
-          <div class="acciones-estado">
-            @if (estadoActual() === 'draft') {
-              <app-button
-                type="button"
-                variant="secundario"
-                [loading]="cambiandoEstado()"
-                (pulsado)="cambiarEstado('published')"
-              >
-                {{ t('admin.events.formulario.publicar') }}
-              </app-button>
+        <div class="fila-superior">
+          <app-card [heading]="t('admin.events.formulario.portada')">
+            @if (portadaUrl(); as url) {
+              <img [src]="url" [alt]="t('admin.events.formulario.portada')" height="120" />
+            } @else {
+              <p>{{ t('admin.events.formulario.sinPortada') }}</p>
             }
-            @if (estadoActual() !== 'archived') {
-              <app-button
-                type="button"
-                variant="peligro"
-                [loading]="cambiandoEstado()"
-                (pulsado)="cambiarEstado('archived')"
-              >
-                {{ t('admin.events.formulario.archivar') }}
-              </app-button>
+            <!-- TODO(media-picker): sustituir por app-media-picker en cuanto la
+                 rama feat/cookies-analitica-externa (donde vive ese componente)
+                 se fusione en develop — hoy no está disponible en esta rama. -->
+            <label class="etiqueta-fichero" for="portada">{{
+              t('admin.events.formulario.subirPortada')
+            }}</label>
+            <input
+              id="portada"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              (change)="alSeleccionarPortada($event)"
+            />
+            @if (errorPortada(); as mensaje) {
+              <app-alert tone="error">{{ mensaje }}</app-alert>
             }
-          </div>
-          @if (errorEstado(); as mensaje) {
-            <app-alert tone="error">{{ mensaje }}</app-alert>
-          }
-        </app-card>
+          </app-card>
 
-        <app-event-venues [eventId]="eventId()" />
-        <app-event-agenda [eventId]="eventId()" />
-        <app-event-sponsors [eventId]="eventId()" />
-        @if (registrationMode() === 'paid') {
-          <app-alert tone="info">
-            {{ t('admin.events.pagos.avisoConectarStripe') }}
-            <a routerLink="/dashboard/stripe">{{ t('admin.events.pagos.irAConectarStripe') }}</a>
-          </app-alert>
-          <app-event-ticket-types [eventId]="eventId()" />
-          <app-event-discount-codes [eventId]="eventId()" />
-          <a [routerLink]="['/dashboard/events', eventId(), 'payments']">
-            <app-button variant="secundario" type="button">
-              {{ t('admin.events.payments.enlaceDesdeEvento') }}
-            </app-button>
-          </a>
-        }
-        <app-event-registrations [eventId]="eventId()" />
-        <a [routerLink]="['/dashboard/events', eventId(), 'check-in']">
-          <app-button variant="secundario" type="button">
-            {{ t('admin.events.checkIn.enlaceDesdeEvento') }}
-          </app-button>
-        </a>
+          <app-card [heading]="t('admin.events.formulario.estadoActual')">
+            <p>
+              {{ t('admin.events.estado' + capitaliza(estadoActual())) }}
+            </p>
+            <div class="acciones-estado">
+              @if (estadoActual() === 'draft') {
+                <app-button
+                  type="button"
+                  variant="secundario"
+                  [loading]="cambiandoEstado()"
+                  (pulsado)="cambiarEstado('published')"
+                >
+                  {{ t('admin.events.formulario.publicar') }}
+                </app-button>
+              }
+              @if (estadoActual() !== 'archived') {
+                <app-button
+                  type="button"
+                  variant="peligro"
+                  [loading]="cambiandoEstado()"
+                  (pulsado)="cambiarEstado('archived')"
+                >
+                  {{ t('admin.events.formulario.archivar') }}
+                </app-button>
+              }
+            </div>
+            @if (errorEstado(); as mensaje) {
+              <app-alert tone="error">{{ mensaje }}</app-alert>
+            }
+          </app-card>
+        </div>
       }
     </ng-container>
   `,
   styles: `
+    :host {
+      display: block;
+    }
+    /* Portada y estado caben de sobra una junto a la otra: antes iban
+     * apiladas a todo el ancho de la página sin motivo. */
+    .fila-superior {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+      gap: var(--space-lg);
+      align-items: start;
+    }
     .etiqueta-fichero {
       display: block;
       margin-top: var(--space-sm);
@@ -169,7 +145,6 @@ export class EventDetails implements OnInit {
   protected readonly errorPortada = signal<string | null>(null);
 
   protected readonly estadoActual = signal<EventStatus>('draft');
-  protected readonly registrationMode = signal<RegistrationMode>('free');
   protected readonly portadaUrl = signal<string | null>(null);
 
   ngOnInit(): void {
@@ -187,7 +162,6 @@ export class EventDetails implements OnInit {
         this.http.get<EventoResumen>(this.api.url(`/events/${this.eventId()}`)),
       );
       this.estadoActual.set(evento.status);
-      this.registrationMode.set(evento.registration_mode);
       this.portadaUrl.set(evento.cover_url);
     } catch (error) {
       this.errorEstado.set(

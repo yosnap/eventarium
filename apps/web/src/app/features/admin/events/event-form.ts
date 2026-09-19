@@ -13,6 +13,7 @@ import { ErrorSummary, ResumenDeError } from '../../../shared/ui/error-summary';
 import { Input } from '../../../shared/ui/input';
 import { AddressMap } from '../../../shared/ui/address-map';
 import { PageHeader } from '../../../shared/ui/page-header';
+import { Select, type SelectOption } from '../../../shared/ui/select';
 import { isoAValorLocal } from './datetime-local';
 import { EventDetails } from './event-details';
 
@@ -31,6 +32,7 @@ interface EventoBase {
   readonly location_address: string | null;
   readonly latitude: number | null;
   readonly longitude: number | null;
+  readonly timezone: string;
   readonly payment_checkout_window_minutes: number;
 }
 
@@ -43,6 +45,32 @@ type CampoBase = 'slug' | 'title' | 'startsAt' | 'endsAt' | 'paymentWindow';
 const VENTANA_DE_PAGO_MIN = 30;
 const VENTANA_DE_PAGO_MAX = 1439;
 const VENTANA_DE_PAGO_POR_DEFECTO = 30;
+
+// Mismo valor por defecto que `EventCreate.timezone` en el backend
+// (`apps/api/app/modules/events/schemas.py`): un evento nuevo abre ya con
+// zona horaria, sin que quien lo crea tenga que pensar en ello.
+const ZONA_HORARIA_POR_DEFECTO = 'Europe/Madrid';
+
+/** Lista de IANA cuando `Intl.supportedValuesOf` no está disponible (Safari
+ * &lt;17): unas pocas zonas de referencia en vez de vaciar el selector. */
+const ZONAS_HORARIAS_DE_RESERVA: readonly string[] = [
+  'Europe/Madrid',
+  'Europe/London',
+  'Europe/Paris',
+  'America/New_York',
+  'America/Mexico_City',
+  'America/Bogota',
+  'America/Buenos_Aires',
+  'UTC',
+];
+
+function zonasHorariasDisponibles(): readonly string[] {
+  try {
+    return Intl.supportedValuesOf('timeZone');
+  } catch {
+    return ZONAS_HORARIAS_DE_RESERVA;
+  }
+}
 
 /**
  * Alta y edición de los datos base de un evento (título, slug, fechas, modalidad,
@@ -63,6 +91,7 @@ const VENTANA_DE_PAGO_POR_DEFECTO = 30;
     AddressMap,
     EventDetails,
     PageHeader,
+    Select,
   ],
   template: `
     <ng-container *transloco="let t">
@@ -81,97 +110,108 @@ const VENTANA_DE_PAGO_POR_DEFECTO = 30;
           <app-error-summary [errores]="resumenDeErrores()" [titulo]="t('comun.corrigeErrores')" />
 
           <app-card>
-            <app-input
-              fieldId="evento-titulo"
-              [label]="t('admin.events.formulario.titulo')"
-              [required]="true"
-              [error]="errores().title"
-              [(value)]="title"
-              (blurred)="validar('title')"
-            />
-            <app-input
-              fieldId="evento-slug"
-              [label]="t('admin.events.formulario.slug')"
-              [required]="true"
-              [error]="errores().slug"
-              [(value)]="slug"
-              (blurred)="validar('slug')"
-            />
-            <app-input
-              fieldId="evento-inicio"
-              type="datetime-local"
-              [label]="t('admin.events.formulario.inicio')"
-              [required]="true"
-              [error]="errores().startsAt"
-              [(value)]="startsAt"
-              (blurred)="validar('startsAt')"
-            />
-            <app-input
-              fieldId="evento-fin"
-              type="datetime-local"
-              [label]="t('admin.events.formulario.fin')"
-              [required]="true"
-              [error]="errores().endsAt"
-              [(value)]="endsAt"
-              (blurred)="validar('endsAt')"
-            />
-
-            <div class="campo-select">
-              <label for="evento-modalidad">{{ t('admin.events.formulario.modalidad') }}</label>
-              <select
-                id="evento-modalidad"
-                [value]="locationMode()"
-                (change)="alCambiarModalidad($event)"
-              >
-                <option value="in_person">{{ t('admin.events.formulario.presencial') }}</option>
-                <option value="online">{{ t('admin.events.formulario.online') }}</option>
-                <option value="hybrid">{{ t('admin.events.formulario.hibrido') }}</option>
-              </select>
-            </div>
-
-            @if (locationMode() !== 'online') {
-              <app-address-map
-                fieldId="evento-direccion"
-                [label]="t('admin.events.formulario.direccion')"
-                [(value)]="locationAddress"
-                [initialLatitude]="latitud()"
-                [initialLongitude]="longitud()"
+            <div class="rejilla">
+              <app-input
+                class="campo-ancho"
+                fieldId="evento-titulo"
+                [label]="t('admin.events.formulario.titulo')"
+                [required]="true"
+                [error]="errores().title"
+                [(value)]="title"
+                (blurred)="validar('title')"
               />
-            }
-
-            <app-input
-              fieldId="evento-ciudad"
-              [label]="t('admin.events.formulario.ciudad')"
-              [(value)]="city"
-            />
-
-            <div class="campo-numero">
-              <label for="evento-ventana-pago">{{
-                t('admin.events.formulario.ventanaDePago')
-              }}</label>
-              <input
-                id="evento-ventana-pago"
-                type="number"
-                inputmode="numeric"
-                [min]="ventanaDePagoMin"
-                [max]="ventanaDePagoMax"
-                [value]="paymentWindow()"
-                [attr.aria-invalid]="errores().paymentWindow ? 'true' : null"
-                [attr.aria-describedby]="
-                  errores().paymentWindow
-                    ? 'evento-ventana-pago-error'
-                    : 'evento-ventana-pago-ayuda'
-                "
-                (input)="alCambiarVentanaDePago($event)"
-                (blur)="validar('paymentWindow')"
+              <app-input
+                class="campo-ancho"
+                fieldId="evento-slug"
+                [label]="t('admin.events.formulario.slug')"
+                [required]="true"
+                [error]="errores().slug"
+                [(value)]="slug"
+                (blurred)="validar('slug')"
               />
-              @if (errores().paymentWindow; as mensaje) {
-                <p id="evento-ventana-pago-error" class="error-campo">{{ mensaje }}</p>
-              } @else {
-                <p id="evento-ventana-pago-ayuda" class="ayuda-campo">
-                  {{ t('admin.events.formulario.ventanaDePagoAyuda') }}
-                </p>
+
+              <app-input
+                fieldId="evento-inicio"
+                type="datetime-local"
+                [label]="t('admin.events.formulario.inicio')"
+                [required]="true"
+                [error]="errores().startsAt"
+                [(value)]="startsAt"
+                (blurred)="validar('startsAt')"
+              />
+              <app-input
+                fieldId="evento-fin"
+                type="datetime-local"
+                [label]="t('admin.events.formulario.fin')"
+                [required]="true"
+                [error]="errores().endsAt"
+                [(value)]="endsAt"
+                (blurred)="validar('endsAt')"
+              />
+              <app-select
+                fieldId="evento-zona-horaria"
+                [label]="t('admin.events.formulario.zonaHoraria')"
+                [options]="opcionesDeZonaHoraria()"
+                [(value)]="timezone"
+              />
+
+              <div class="campo-select">
+                <label for="evento-modalidad">{{ t('admin.events.formulario.modalidad') }}</label>
+                <select
+                  id="evento-modalidad"
+                  [value]="locationMode()"
+                  (change)="alCambiarModalidad($event)"
+                >
+                  <option value="in_person">{{ t('admin.events.formulario.presencial') }}</option>
+                  <option value="online">{{ t('admin.events.formulario.online') }}</option>
+                  <option value="hybrid">{{ t('admin.events.formulario.hibrido') }}</option>
+                </select>
+              </div>
+              <app-input
+                fieldId="evento-ciudad"
+                [label]="t('admin.events.formulario.ciudad')"
+                [(value)]="city"
+              />
+
+              @if (locationMode() !== 'online') {
+                <app-address-map
+                  class="campo-ancho"
+                  fieldId="evento-direccion"
+                  [label]="t('admin.events.formulario.direccion')"
+                  [(value)]="locationAddress"
+                  [initialLatitude]="latitud()"
+                  [initialLongitude]="longitud()"
+                />
               }
+
+              <div class="campo-numero">
+                <label for="evento-ventana-pago">{{
+                  t('admin.events.formulario.ventanaDePago')
+                }}</label>
+                <input
+                  id="evento-ventana-pago"
+                  type="number"
+                  inputmode="numeric"
+                  [min]="ventanaDePagoMin"
+                  [max]="ventanaDePagoMax"
+                  [value]="paymentWindow()"
+                  [attr.aria-invalid]="errores().paymentWindow ? 'true' : null"
+                  [attr.aria-describedby]="
+                    errores().paymentWindow
+                      ? 'evento-ventana-pago-error'
+                      : 'evento-ventana-pago-ayuda'
+                  "
+                  (input)="alCambiarVentanaDePago($event)"
+                  (blur)="validar('paymentWindow')"
+                />
+                @if (errores().paymentWindow; as mensaje) {
+                  <p id="evento-ventana-pago-error" class="error-campo">{{ mensaje }}</p>
+                } @else {
+                  <p id="evento-ventana-pago-ayuda" class="ayuda-campo">
+                    {{ t('admin.events.formulario.ventanaDePagoAyuda') }}
+                  </p>
+                }
+              </div>
             </div>
           </app-card>
 
@@ -205,16 +245,42 @@ const VENTANA_DE_PAGO_POR_DEFECTO = 30;
     </ng-container>
   `,
   styles: `
+    /* \`ng-container\` no genera elemento: cabecera, formulario y
+     * \`app-event-details\` son hijos directos de este host. Y un componente
+     * sin \`display\` propio es \`inline\` por defecto, donde un margen
+     * vertical no hace nada — hay que forzar \`display: block\` en cada hijo
+     * antes de que \`margin-top\` pueda separarlos. */
+    :host {
+      display: block;
+    }
+    :host > * {
+      display: block;
+    }
+    :host > * + * {
+      margin-top: var(--space-lg);
+    }
     form {
       display: grid;
       gap: var(--space-lg);
-      margin-top: var(--space-md);
-      max-width: 34rem;
+      max-width: 52rem;
+    }
+    /* Campos cortos (fechas, zona horaria, modalidad, ciudad, ventana de
+     * pago) en dos columnas cuando hay sitio; título, slug y dirección
+     * ocupan la rejilla entera con \`.campo-ancho\`, en vez de la única
+     * columna a todo el ancho que tenía el formulario antes. */
+    .rejilla {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+      gap: var(--space-lg) var(--space-md);
+      align-items: start;
+    }
+    .campo-ancho {
+      grid-column: 1 / -1;
     }
     .campo-select,
     .campo-numero {
       display: grid;
-      gap: var(--space-xs);
+      gap: var(--space-sm);
     }
     .campo-select select,
     .campo-numero input {
@@ -270,9 +336,14 @@ export class EventForm {
   protected readonly locationAddress = signal('');
   protected readonly latitud = signal<number | null>(null);
   protected readonly longitud = signal<number | null>(null);
+  protected readonly timezone = signal(ZONA_HORARIA_POR_DEFECTO);
   protected readonly paymentWindow = signal(VENTANA_DE_PAGO_POR_DEFECTO);
   protected readonly ventanaDePagoMin = VENTANA_DE_PAGO_MIN;
   protected readonly ventanaDePagoMax = VENTANA_DE_PAGO_MAX;
+
+  protected readonly opcionesDeZonaHoraria = computed<SelectOption[]>(() =>
+    zonasHorariasDisponibles().map((zona) => ({ value: zona, label: zona })),
+  );
 
   protected readonly errores = signal<Record<CampoBase, string | null>>({
     slug: null,
@@ -318,6 +389,7 @@ export class EventForm {
       this.locationAddress.set(evento.location_address ?? '');
       this.latitud.set(evento.latitude);
       this.longitud.set(evento.longitude);
+      this.timezone.set(evento.timezone);
       this.paymentWindow.set(evento.payment_checkout_window_minutes);
     } catch (error) {
       this.error.set(
@@ -408,6 +480,7 @@ export class EventForm {
       city: this.city().trim() || null,
       location_address:
         this.locationMode() !== 'online' ? this.locationAddress().trim() || null : null,
+      timezone: this.timezone(),
       payment_checkout_window_minutes: this.paymentWindow(),
     };
 
