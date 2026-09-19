@@ -218,7 +218,16 @@ export class Input {
   protected readonly tipoEfectivo = computed(() =>
     this.esPassword() && this.mostrar() ? 'text' : this.type(),
   );
-  protected readonly flotando = computed(() => this.enFoco() || this.value().length > 0);
+  /** `date`/`datetime-local` pintan su propio placeholder nativo (`dd/mm/aaaa,
+   * --:--`) aunque estén vacíos, a diferencia de un `text`: la etiqueta tiene
+   * que estar siempre arriba en estos dos tipos o se solapa con ese placeholder,
+   * sin foco ni valor de por medio. */
+  private readonly tienePlaceholderNativo = computed(
+    () => this.type() === 'date' || this.type() === 'datetime-local',
+  );
+  protected readonly flotando = computed(
+    () => this.enFoco() || this.value().length > 0 || this.tienePlaceholderNativo(),
+  );
   protected readonly descripcionId = computed(() => {
     if (this.error()) return this.idError();
     if (this.hint()) return this.idAyuda();

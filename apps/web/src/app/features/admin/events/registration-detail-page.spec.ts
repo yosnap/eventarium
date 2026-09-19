@@ -53,7 +53,7 @@ function configurar(): void {
       {
         provide: ActivatedRoute,
         useValue: {
-          snapshot: { paramMap: convertToParamMap({ id: 'e1', registrationId: 'r1' }) },
+          snapshot: { paramMap: convertToParamMap({ eventId: 'e1', registrationId: 'r1' }) },
         },
       },
     ],

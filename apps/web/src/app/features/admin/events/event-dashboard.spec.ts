@@ -93,7 +93,7 @@ async function montar(
   cuerpo: EventoMetricas = metricas(),
 ): Promise<ComponentFixture<EventDashboard>> {
   const fixture = TestBed.createComponent(EventDashboard);
-  fixture.componentRef.setInput('id', 'e1');
+  fixture.componentRef.setInput('eventId', 'e1');
   await avanzar(fixture);
 
   http.expectOne((p) => p.url === '/api/v1/events/e1/metrics').flush(cuerpo);
@@ -213,7 +213,7 @@ describe('EventDashboard', () => {
   it('si las métricas fallan, el error se avisa y las secciones siguen', async () => {
     configurarYGuardarHttp();
     const fixture = TestBed.createComponent(EventDashboard);
-    fixture.componentRef.setInput('id', 'e1');
+    fixture.componentRef.setInput('eventId', 'e1');
     await avanzar(fixture);
 
     http

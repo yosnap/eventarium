@@ -161,7 +161,7 @@ describe('ExpenseForm', () => {
     ]);
 
     const opciones = Array.from(
-      fixture.nativeElement.querySelectorAll('#gasto-partida option'),
+      fixture.nativeElement.querySelectorAll('#gasto-partida-nativo option'),
     ).map((o) => (o as HTMLOptionElement).textContent?.trim());
     expect(opciones).toContain('Catering');
     expect(opciones).toContain('Sonido');

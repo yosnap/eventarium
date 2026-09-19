@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   type OnInit,
+  computed,
   inject,
   input,
   signal,
@@ -16,6 +17,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
+import { Select, type SelectOption } from '../../../shared/ui/select';
 import { MediaElegida, MediaPicker } from '../../../shared/ui/media-picker';
 import { Textarea } from '../../../shared/ui/textarea';
 import { PageHeader } from '../../../shared/ui/page-header';
@@ -71,7 +73,17 @@ function vacio(): {
 @Component({
   selector: 'app-event-sponsors',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input, MediaPicker, Textarea, PageHeader],
+  imports: [
+    TranslocoDirective,
+    Alert,
+    Button,
+    Card,
+    Input,
+    MediaPicker,
+    Select,
+    Textarea,
+    PageHeader,
+  ],
   template: `
     <ng-container *transloco="let t">
       <app-page-header [rotulo]="t('admin.events.sponsors.titulo')">
@@ -138,15 +150,13 @@ function vacio(): {
             }}
           </h3>
 
-          <div class="campo-select">
-            <label for="patrocinador-nivel">{{ t('admin.events.sponsors.nivel') }}</label>
-            <select id="patrocinador-nivel" [value]="tierId()" (change)="alCambiarNivel($event)">
-              <option value="">{{ t('admin.events.sponsors.elegirNivel') }}</option>
-              @for (nivel of nivelesDisponibles(); track nivel.id) {
-                <option [value]="nivel.id">{{ nivel.name }}</option>
-              }
-            </select>
-          </div>
+          <app-select
+            fieldId="patrocinador-nivel"
+            [label]="t('admin.events.sponsors.nivel')"
+            [placeholder]="t('admin.events.sponsors.elegirNivel')"
+            [options]="opcionesDeNivel()"
+            [(value)]="tierId"
+          />
 
           <app-input
             fieldId="patrocinador-nombre"
@@ -161,17 +171,13 @@ function vacio(): {
             [(value)]="website"
           />
 
-          <div class="campo-select">
-            <label for="patrocinador-tipo">{{ t('admin.events.sponsors.tipoAportacion') }}</label>
-            <select
-              id="patrocinador-tipo"
-              [value]="tipoAportacion()"
-              (change)="alCambiarTipo($event)"
-            >
-              <option value="monetaria">{{ t('admin.events.sponsors.tipoMonetaria') }}</option>
-              <option value="en_especie">{{ t('admin.events.sponsors.tipoEnEspecie') }}</option>
-            </select>
-          </div>
+          <app-select
+            fieldId="patrocinador-tipo"
+            [label]="t('admin.events.sponsors.tipoAportacion')"
+            [options]="opcionesDeTipoAportacion()"
+            [value]="tipoAportacion()"
+            (valueChange)="alCambiarTipo($event)"
+          />
 
           @if (tipoAportacion() === 'monetaria') {
             <app-input
@@ -254,14 +260,6 @@ function vacio(): {
       border-top: 1px solid var(--border);
       max-width: 34rem;
     }
-    .campo-select {
-      display: grid;
-      gap: var(--space-xs);
-    }
-    .campo-select select {
-      /* La pintura del control la da la regla compartida de styles.css. */
-      width: 100%;
-    }
     .acciones-finales {
       display: flex;
       gap: var(--space-md);
@@ -288,9 +286,24 @@ export class EventSponsors implements OnInit {
   protected readonly tierId = signal(this.valoresIniciales.tierId);
   protected readonly nombre = signal(this.valoresIniciales.name);
   protected readonly website = signal(this.valoresIniciales.website);
-  protected readonly tipoAportacion = signal(this.valoresIniciales.contributionType);
+  // `string`, no `ContributionType`: el `[(value)]` de `app-select` exige
+  // `WritableSignal<string>`; el tipo estrecho se afirma de nuevo al construir
+  // el payload.
+  protected readonly tipoAportacion = signal<string>(this.valoresIniciales.contributionType);
   protected readonly importe = signal(this.valoresIniciales.contributionAmount);
   protected readonly descripcion = signal(this.valoresIniciales.contributionDescription);
+
+  protected readonly opcionesDeNivel = computed<SelectOption[]>(() =>
+    this.nivelesDisponibles().map((nivel) => ({ value: nivel.id, label: nivel.name })),
+  );
+
+  protected readonly opcionesDeTipoAportacion = computed<SelectOption[]>(() => [
+    { value: 'monetaria', label: this.transloco.translate('admin.events.sponsors.tipoMonetaria') },
+    {
+      value: 'en_especie',
+      label: this.transloco.translate('admin.events.sponsors.tipoEnEspecie'),
+    },
+  ]);
 
   ngOnInit(): void {
     void this.cargarNiveles();
@@ -337,12 +350,8 @@ export class EventSponsors implements OnInit {
     }
   }
 
-  protected alCambiarNivel(evento: Event): void {
-    this.tierId.set((evento.target as HTMLSelectElement).value);
-  }
-
-  protected alCambiarTipo(evento: Event): void {
-    this.tipoAportacion.set((evento.target as HTMLSelectElement).value as ContributionType);
+  protected alCambiarTipo(valor: string): void {
+    this.tipoAportacion.set(valor);
     // El backend rechaza tener los dos campos a la vez: al cambiar de tipo se
     // limpia el que ya no aplica en vez de arrastrarlo oculto en el formulario.
     this.importe.set('');
@@ -393,7 +402,7 @@ export class EventSponsors implements OnInit {
       tier_id: this.tierId(),
       name: this.nombre().trim(),
       website: this.website().trim() || null,
-      contribution_type: this.tipoAportacion(),
+      contribution_type: this.tipoAportacion() as ContributionType,
       contribution_amount: this.tipoAportacion() === 'monetaria' ? this.importe().trim() : null,
       contribution_description:
         this.tipoAportacion() === 'en_especie' ? this.descripcion().trim() : null,

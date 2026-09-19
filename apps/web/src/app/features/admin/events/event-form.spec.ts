@@ -18,6 +18,7 @@ function eventoDetalle(overrides: Record<string, unknown> = {}) {
     starts_at: '2026-10-01T09:00:00Z',
     ends_at: '2026-10-02T18:00:00Z',
     location_mode: 'in_person',
+    timezone: 'Europe/Madrid',
     payment_checkout_window_minutes: 45,
     ...overrides,
   };
@@ -43,58 +44,23 @@ function configurar(id: string | null) {
       provideRouter([]),
       {
         provide: ActivatedRoute,
-        useValue: { snapshot: { paramMap: convertToParamMap(id ? { id } : {}) } },
+        useValue: { snapshot: { paramMap: convertToParamMap(id ? { eventId: id } : {}) } },
       },
     ],
   });
 }
 
 /** `EventDetails` (delegado desde `EventForm` en modo edición) pide sus propios
- * datos: se vacían aquí para no dejar peticiones pendientes en `http.verify()`. Las
- * secciones (agenda, patrocinadores…) solo se crean —y solo entonces piden lo
- * suyo— una vez que la petición de `EventDetails` se resuelve, así que hace falta
- * una vuelta de `avanzar` entre medias. */
-async function flushEventDetailsYSusSecciones(
+ * datos —solo portada y estado, ya no arrastra ninguna sección del evento—: se
+ * vacía aquí para no dejar la petición pendiente en `http.verify()`. */
+async function flushEventDetails(
   http: HttpTestingController,
   fixture: ComponentFixture<unknown>,
 ): Promise<void> {
   http
     .expectOne((peticion) => peticion.url === '/api/v1/events/e1' && peticion.method === 'GET')
-    .flush({ cover_url: null, status: 'draft', registration_mode: 'free' });
+    .flush({ cover_url: null, status: 'draft' });
   await avanzar(fixture);
-  // `EventVenues` y `EventAgenda` (para su selector de sede) piden las sedes cada
-  // uno por su cuenta: hay dos peticiones idénticas en vuelo a la vez.
-  for (const peticion of http.match((p) => p.url === '/api/v1/events/e1/venues')) {
-    peticion.flush([]);
-  }
-  http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/sessions').flush([]);
-  http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/members').flush([]);
-  http
-    .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/members')
-    .flush({ items: [], total: 0, limit: 200, offset: 0 });
-  http
-    .expectOne((peticion) => peticion.url === '/api/v1/organizations/me/sponsor-tiers')
-    .flush({ items: [], total: 0, limit: 100, offset: 0 });
-  http.expectOne((peticion) => peticion.url === '/api/v1/events/e1/sponsors').flush([]);
-  http
-    .expectOne((peticion) => peticion.url === '/api/v1/events/e1/registrations')
-    .flush({ items: [], total: 0, limit: 20, offset: 0 });
-  http
-    .expectOne((peticion) => peticion.url === '/api/v1/events/e1/registrations/stats')
-    .flush({
-      initiated: 0,
-      verified: 0,
-      pending_approval: 0,
-      confirmed: 0,
-      rejected: 0,
-      cancelled: 0,
-      waitlisted: 0,
-      verified_conversion_rate: null,
-      confirmed_conversion_rate: null,
-    });
-  http
-    .expectOne((peticion) => peticion.url === '/api/v1/events/e1/registration-questions')
-    .flush([]);
 }
 
 describe('EventForm', () => {
@@ -154,9 +120,13 @@ describe('EventForm', () => {
     expect(
       (fixture.nativeElement.querySelector('#evento-ventana-pago') as HTMLInputElement).value,
     ).toBe('45');
+    expect(
+      (fixture.nativeElement.querySelector('#evento-zona-horaria-nativo') as HTMLSelectElement)
+        .value,
+    ).toBe('Europe/Madrid');
     expect(fixture.nativeElement.querySelector('app-event-details')).not.toBeNull();
 
-    await flushEventDetailsYSusSecciones(http, fixture);
+    await flushEventDetails(http, fixture);
 
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });

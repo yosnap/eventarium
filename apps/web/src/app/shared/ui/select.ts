@@ -137,7 +137,7 @@ const PAUSA_BUSQUEDA_MS = 500;
   styles: `
     .campo {
       display: grid;
-      gap: var(--space-xs);
+      gap: var(--space-sm);
     }
     .rotulo {
       display: block;

@@ -90,16 +90,12 @@ function vacio(): {
           }}
         </h3>
 
-        <div class="campo-select">
-          <label for="sesion-tipo">{{ t('admin.events.agenda.tipo') }}</label>
-          <select id="sesion-tipo" [value]="tipo()" (change)="alCambiarTipo($event)">
-            @for (opcion of tiposDisponibles; track opcion) {
-              <option [value]="opcion">
-                {{ t('admin.events.agenda.tipo' + capitaliza(opcion)) }}
-              </option>
-            }
-          </select>
-        </div>
+        <app-select
+          fieldId="sesion-tipo"
+          [label]="t('admin.events.agenda.tipo')"
+          [options]="opcionesDeTipo()"
+          [(value)]="tipo"
+        />
 
         <app-input
           fieldId="sesion-titulo"
@@ -132,20 +128,12 @@ function vacio(): {
           />
         }
 
-        <div class="campo-select">
-          <label for="sesion-video">{{ t('admin.events.agenda.plataformaVideo') }}</label>
-          <select
-            id="sesion-video"
-            [value]="videoPlatform()"
-            (change)="alCambiarVideoPlatform($event)"
-          >
-            <option value="">{{ t('admin.events.agenda.sinVideo') }}</option>
-            <option value="youtube">YouTube</option>
-            <option value="vimeo">Vimeo</option>
-            <option value="twitch">Twitch</option>
-            <option value="other">{{ t('admin.events.agenda.otraPlataforma') }}</option>
-          </select>
-        </div>
+        <app-select
+          fieldId="sesion-video"
+          [label]="t('admin.events.agenda.plataformaVideo')"
+          [options]="opcionesDeVideoPlatform()"
+          [(value)]="videoPlatform"
+        />
         @if (videoPlatform()) {
           <app-input
             fieldId="sesion-video-url"
@@ -198,12 +186,10 @@ function vacio(): {
     h3 {
       margin: 0;
     }
-    .campo-select,
     .campo-materiales {
       display: grid;
-      gap: var(--space-xs);
+      gap: var(--space-sm);
     }
-    .campo-select select,
     textarea {
       width: 100%;
       box-sizing: border-box;
@@ -243,12 +229,15 @@ export class SessionForm implements OnInit {
   protected readonly sedes = signal<EventVenueOption[]>([]);
 
   private readonly valoresIniciales = vacio();
-  protected readonly tipo = signal(this.valoresIniciales.session_type);
+  // Tipado como `string`, no `SessionType`/`VideoPlatform`: `app-select` exige
+  // un `WritableSignal<string>` para el `[(value)]` bidireccional. El tipo
+  // estrecho solo importa al construir el payload, donde se afirma de nuevo.
+  protected readonly tipo = signal<string>(this.valoresIniciales.session_type);
   protected readonly titulo = signal(this.valoresIniciales.title);
   protected readonly inicio = signal(this.valoresIniciales.starts_at);
   protected readonly fin = signal(this.valoresIniciales.ends_at);
   protected readonly sala = signal(this.valoresIniciales.room);
-  protected readonly videoPlatform = signal(this.valoresIniciales.video_platform);
+  protected readonly videoPlatform = signal<string>(this.valoresIniciales.video_platform);
   protected readonly videoUrl = signal(this.valoresIniciales.video_url);
   protected readonly materiales = signal(this.valoresIniciales.materiales);
   protected readonly venueId = signal('');
@@ -256,6 +245,21 @@ export class SessionForm implements OnInit {
   protected readonly opcionesDeSede = computed<SelectOption[]>(() => [
     { value: '', label: this.transloco.translate('admin.events.agenda.sinSedeEspecifica') },
     ...this.sedes().map((sede) => ({ value: sede.id, label: sede.name })),
+  ]);
+
+  protected readonly opcionesDeTipo = computed<SelectOption[]>(() =>
+    this.tiposDisponibles.map((opcion) => ({
+      value: opcion,
+      label: this.transloco.translate('admin.events.agenda.tipo' + this.capitaliza(opcion)),
+    })),
+  );
+
+  protected readonly opcionesDeVideoPlatform = computed<SelectOption[]>(() => [
+    { value: '', label: this.transloco.translate('admin.events.agenda.sinVideo') },
+    { value: 'youtube', label: 'YouTube' },
+    { value: 'vimeo', label: 'Vimeo' },
+    { value: 'twitch', label: 'Twitch' },
+    { value: 'other', label: this.transloco.translate('admin.events.agenda.otraPlataforma') },
   ]);
 
   constructor() {
@@ -303,14 +307,6 @@ export class SessionForm implements OnInit {
     return capitalizarClaveDeTraduccion(valor);
   }
 
-  protected alCambiarTipo(evento: Event): void {
-    this.tipo.set((evento.target as HTMLSelectElement).value as SessionType);
-  }
-
-  protected alCambiarVideoPlatform(evento: Event): void {
-    this.videoPlatform.set((evento.target as HTMLSelectElement).value as VideoPlatform);
-  }
-
   protected alTextarea(evento: Event): string {
     return (evento.target as HTMLTextAreaElement).value;
   }
@@ -325,7 +321,7 @@ export class SessionForm implements OnInit {
     }
 
     const payload = {
-      session_type: this.tipo(),
+      session_type: this.tipo() as SessionType,
       title: this.titulo().trim(),
       starts_at: new Date(this.inicio()).toISOString(),
       ends_at: new Date(this.fin()).toISOString(),

@@ -28,7 +28,18 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
     </div>
   `,
   styles: `
+    /* Sin esto, el host (sin \`display\` propio) sí se estira al alto de la fila
+     * de la grid que lo contiene, pero el borde/fondo vive en \`.kpi\` por
+     * dentro, que solo mide su contenido — así que dos tarjetas con distinto
+     * número de líneas de descriptor se ven con alturas distintas pese a que
+     * la grid ya las había igualado por debajo. */
+    :host {
+      display: block;
+      height: 100%;
+    }
     .kpi {
+      box-sizing: border-box;
+      height: 100%;
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
       background-color: var(--surface);

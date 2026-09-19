@@ -19,6 +19,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
+import { Select, type SelectOption } from '../../../shared/ui/select';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -71,7 +72,7 @@ interface Page<T> {
 @Component({
   selector: 'app-event-roster',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input],
+  imports: [TranslocoDirective, Alert, Button, Card, Input, Select],
   template: `
     <ng-container *transloco="let t">
       <app-card [heading]="t('admin.events.roster.titulo')">
@@ -97,19 +98,14 @@ interface Page<T> {
           </ul>
         }
         <div class="anadir-roster">
-          <label for="roster-anadir" class="sr-only">
-            {{ t('admin.events.roster.elegirPersona') }}
-          </label>
-          <select
-            id="roster-anadir"
-            [value]="miembroAAnadir()"
-            (change)="alCambiarMiembroAAnadir($event)"
-          >
-            <option value="">{{ t('admin.events.roster.elegirPersona') }}</option>
-            @for (miembro of miembrosDisponibles(); track miembro.id) {
-              <option [value]="miembro.id">{{ nombreDe(miembro) }} ({{ miembro.role_key }})</option>
-            }
-          </select>
+          <app-select
+            fieldId="roster-anadir"
+            [label]="t('admin.events.roster.elegirPersona')"
+            [etiquetaOculta]="true"
+            [placeholder]="t('admin.events.roster.elegirPersona')"
+            [options]="opcionesDeMiembro()"
+            [(value)]="miembroAAnadir"
+          />
           <app-button
             type="button"
             [disabled]="!miembroAAnadir()"
@@ -220,13 +216,16 @@ export class EventRoster implements OnInit {
     return this.organizationMembers().filter((m) => !yaEnRoster.has(m.id));
   });
 
+  protected readonly opcionesDeMiembro = computed<SelectOption[]>(() =>
+    this.miembrosDisponibles().map((miembro) => ({
+      value: miembro.id,
+      label: `${this.nombreDe(miembro)} (${miembro.role_key})`,
+    })),
+  );
+
   ngOnInit(): void {
     void this.cargarRoster();
     void this.cargarMiembrosDeLaOrganizacion();
-  }
-
-  protected alCambiarMiembroAAnadir(evento: Event): void {
-    this.miembroAAnadir.set((evento.target as HTMLSelectElement).value);
   }
 
   protected async anadir(): Promise<void> {

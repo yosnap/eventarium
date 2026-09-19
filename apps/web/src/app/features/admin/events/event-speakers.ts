@@ -26,6 +26,7 @@ import { PageHeader } from '../../../shared/ui/page-header';
 import { Panel } from '../../../shared/ui/panel';
 import { SegmentedFilter } from '../../../shared/ui/segmented-filter';
 import { TableToolbar } from '../../../shared/ui/table-toolbar';
+import { EventRoster } from './event-roster';
 import {
   type EventSpeakersView,
   type SpeakerHistoryItem,
@@ -55,6 +56,7 @@ const SEGMENTOS = ['todas', 'incompletas', 'repiten', 'sin-sesion'] as const;
     Chip,
     DataTable,
     Dialog,
+    EventRoster,
     KpiCard,
     PageHeader,
     Panel,
@@ -82,11 +84,9 @@ const SEGMENTOS = ['todas', 'incompletas', 'repiten', 'sin-sesion'] as const;
           }
         }
         <div acciones>
-          <a routerLink="/dashboard/events/{{ eventId() }}/agenda">
-            <app-button variant="primario" type="button">
-              {{ t('admin.events.speakers.invitarPonente') }}
-            </app-button>
-          </a>
+          <app-button variant="primario" type="button" (pulsado)="abrirInvitar()">
+            {{ t('admin.events.speakers.invitarPonente') }}
+          </app-button>
         </div>
       </app-page-header>
 
@@ -259,6 +259,13 @@ const SEGMENTOS = ['todas', 'incompletas', 'repiten', 'sin-sesion'] as const;
           </app-button>
         </div>
       </app-dialog>
+
+      <app-dialog #dialogoInvitar (cerrado)="invitarAbierto.set(false)">
+        <span class="rotulo-seccion">{{ t('admin.events.speakers.invitarPonente') }}</span>
+        @if (invitarAbierto()) {
+          <app-event-roster [eventId]="eventId()" (cambio)="alCambiarRoster()" />
+        }
+      </app-dialog>
     </ng-container>
   `,
   styles: `
@@ -375,7 +382,11 @@ export class EventSpeakers implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
-  private readonly dialogoHistorialRef = viewChild.required(Dialog);
+  // Por nombre de referencia de plantilla, no por tipo: hay dos `app-dialog` en
+  // la plantilla, y `viewChild.required(Dialog)` sin localizador resolvería a
+  // uno cualquiera de los dos de forma ambigua.
+  private readonly dialogoHistorialRef = viewChild.required<Dialog>('dialogoHistorial');
+  private readonly dialogoInvitarRef = viewChild.required<Dialog>('dialogoInvitar');
 
   protected readonly monograma = monograma;
 
@@ -522,6 +533,25 @@ export class EventSpeakers implements OnInit {
     return fila.completitud.faltantes
       .map((clave) => t(`admin.events.speakers.campos.${clave}`))
       .join(', ');
+  }
+
+  /** Controla si \`app-event-roster\` está montado dentro del diálogo: solo
+   * mientras el diálogo está abierto, para no lanzar sus peticiones
+   * (\`/members\`, \`/organizations/me/members\`) en cada carga de esta
+   * pantalla si nadie llega a invitar a nadie. */
+  protected readonly invitarAbierto = signal(false);
+
+  protected abrirInvitar(): void {
+    this.invitarAbierto.set(true);
+    this.dialogoInvitarRef().abrir();
+  }
+
+  /** Se emite cuando el roster cambia dentro del diálogo de invitación (alta,
+   * invitación o baja): la persona invitada puede pasar a tener sesiones
+   * asignadas, así que la tabla de ponentes se recarga. El diálogo se deja
+   * abierto — puede seguir invitando a más gente sin reabrirlo. */
+  protected alCambiarRoster(): void {
+    void this.cargar();
   }
 
   private async cargar(): Promise<void> {

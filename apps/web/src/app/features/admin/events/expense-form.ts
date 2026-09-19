@@ -1,5 +1,13 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
@@ -8,6 +16,7 @@ import { ApiError } from '../../../core/api/error.interceptor';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
+import { Select, type SelectOption } from '../../../shared/ui/select';
 
 /** Una partida del presupuesto, para el desplegable de imputación. */
 export interface PartidaParaGasto {
@@ -31,7 +40,7 @@ export interface PartidaParaGasto {
 @Component({
   selector: 'app-expense-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card],
+  imports: [TranslocoDirective, Alert, Button, Card, Select],
   template: `
     <ng-container *transloco="let t">
       <app-card [heading]="t('admin.events.accounting.altaGasto.titulo')">
@@ -47,21 +56,13 @@ export interface PartidaParaGasto {
               (input)="proveedor.set(alTexto($event))"
             />
           </div>
-          <div class="campo">
-            <label for="gasto-partida">{{
-              t('admin.events.accounting.partidas.columnaPartida')
-            }}</label>
-            <select
-              id="gasto-partida"
-              [value]="partidaId()"
-              (change)="partidaId.set(alTexto($event))"
-            >
-              <option value="">{{ t('admin.events.accounting.altaGasto.sinPartida') }}</option>
-              @for (linea of partidas(); track linea.id) {
-                <option [value]="linea.id">{{ linea.name }}</option>
-              }
-            </select>
-          </div>
+          <app-select
+            fieldId="gasto-partida"
+            [label]="t('admin.events.accounting.partidas.columnaPartida')"
+            [placeholder]="t('admin.events.accounting.altaGasto.sinPartida')"
+            [options]="opcionesDePartida()"
+            [(value)]="partidaId"
+          />
           <div class="campo">
             <label for="gasto-fecha">{{
               t('admin.events.accounting.movimientos.columnaFecha')
@@ -116,15 +117,29 @@ export interface PartidaParaGasto {
     }
     .campo {
       display: grid;
-      gap: var(--space-xs);
+      gap: var(--space-sm);
     }
     label {
       font-weight: 600;
     }
-    input,
-    select {
-      /* La pintura del control la da la regla compartida de styles.css. */
-      min-height: 2.5rem;
+    /* A diferencia de \`select\`, no hay ninguna regla global para \`input\` en
+     * \`styles.css\` — sin esto, los cuatro campos de este formulario no
+     * llevaban ni borde ni fondo: no es que faltaran, es que eran
+     * invisibles sobre el tema oscuro. */
+    input {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 0.625rem 0.75rem;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      background-color: var(--surface-2);
+      color: var(--fg);
+      font: inherit;
+      min-height: 2.75rem;
+    }
+    input:focus-visible {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
     }
   `,
 })
@@ -147,6 +162,10 @@ export class ExpenseForm {
   protected readonly base = signal('');
   protected readonly iva = signal('');
   protected readonly creando = signal(false);
+
+  protected readonly opcionesDePartida = computed<SelectOption[]>(() =>
+    this.partidas().map((partida) => ({ value: partida.id, label: partida.name })),
+  );
   protected readonly error = signal<string | null>(null);
 
   protected alTexto(evento: Event): string {

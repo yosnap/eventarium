@@ -8,7 +8,6 @@ import { TranslocoTestingModule } from '@jsverse/transloco';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdminShell } from './admin/admin-shell';
-import { EventScope } from './admin/event-scope';
 import { PanelScope } from './admin/panel-scope';
 import { PublicShell } from './public/public-shell';
 import { AuthService } from '../core/auth/auth.service';
@@ -25,11 +24,6 @@ import { themingDePrueba } from '../../testing/theming.fixture';
 describe('shells', () => {
   const theming = themingDePrueba();
   const branding = theming.estado;
-  const eventId = signal<string | null>(null);
-  const falloCarga = signal(false);
-  const nombreEvento = signal<string | null>(null);
-  const cargandoEvento = signal(false);
-  const registrationMode = signal<'free' | 'approval' | 'paid' | null>(null);
   /** URL que ve el shell: decide por ella en qué panel está (`/admin` o `/dashboard`). */
   const url = signal('/dashboard');
 
@@ -52,11 +46,6 @@ describe('shells', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    eventId.set(null);
-    falloCarga.set(false);
-    nombreEvento.set(null);
-    cargandoEvento.set(false);
-    registrationMode.set(null);
     url.set('/dashboard');
 
     TestBed.configureTestingModule({
@@ -91,16 +80,6 @@ describe('shells', () => {
         {
           provide: AuthService,
           useValue: configurarAuth(false),
-        },
-        {
-          provide: EventScope,
-          useValue: {
-            eventId,
-            falloCarga,
-            nombreEvento,
-            cargando: cargandoEvento,
-            registrationMode,
-          },
         },
       ],
     });
@@ -175,14 +154,15 @@ describe('shells', () => {
   });
 
   describe('navegación del panel de administración', () => {
-    it('el panel de organización agrupa sus enlaces en las regiones de organización y evento', async () => {
+    it('el panel de organización agrupa sus enlaces en la región de organización', async () => {
       url.set('/dashboard');
       const fixture = TestBed.createComponent(AdminShell);
       await fixture.whenStable();
       const raiz = fixture.nativeElement as HTMLElement;
 
-      // Organización y, cuando hay evento activo, Evento. Nunca Plataforma: ese
-      // panel es otro árbol de ruta.
+      // Solo Organización: las secciones de un evento viven en sus propias
+      // pestañas (`EventShell`), no aquí. Nunca Plataforma: ese panel es otro
+      // árbol de ruta.
       const navs = Array.from(raiz.querySelectorAll('nav[aria-labelledby]'));
       expect(navs.length).toBe(1);
       for (const nav of navs) {
@@ -285,53 +265,6 @@ describe('shells', () => {
 
       expect(logout).toHaveBeenCalled();
       expect(navegar).toHaveBeenCalledWith(['/acceder']);
-    });
-
-    it('el grupo de evento no existe fuera del ámbito de un evento', async () => {
-      eventId.set(null);
-      const fixture = TestBed.createComponent(AdminShell);
-      await fixture.whenStable();
-      const raiz = fixture.nativeElement as HTMLElement;
-
-      expect(raiz.querySelector('#admin-nav-evento-titulo')).toBeNull();
-    });
-
-    it('el grupo de evento aparece con el nombre del evento activo', async () => {
-      eventId.set('e1');
-      nombreEvento.set('IA Week in Cascais 2026');
-      const fixture = TestBed.createComponent(AdminShell);
-      await fixture.whenStable();
-      const raiz = fixture.nativeElement as HTMLElement;
-
-      const encabezado = raiz.querySelector('#admin-nav-evento-titulo');
-      expect(encabezado?.textContent?.trim()).toBe('IA Week in Cascais 2026');
-      const volver = Array.from(raiz.querySelectorAll('a')).find((a) =>
-        a.textContent?.includes('Volver a eventos'),
-      );
-      expect(volver).toBeTruthy();
-    });
-
-    it('mientras el nombre del evento carga, el encabezado muestra un texto de carga', async () => {
-      eventId.set('e1');
-      cargandoEvento.set(true);
-      nombreEvento.set(null);
-      const fixture = TestBed.createComponent(AdminShell);
-      await fixture.whenStable();
-      const raiz = fixture.nativeElement as HTMLElement;
-
-      const encabezado = raiz.querySelector('#admin-nav-evento-titulo');
-      expect(encabezado?.textContent?.trim()).toBe('Cargando evento…');
-    });
-
-    it('si la carga del evento falla, la navegación conserva el grupo de organización', async () => {
-      eventId.set('e1');
-      falloCarga.set(true);
-      const fixture = TestBed.createComponent(AdminShell);
-      await fixture.whenStable();
-      const raiz = fixture.nativeElement as HTMLElement;
-
-      expect(raiz.querySelector('#admin-nav-evento-titulo')).toBeNull();
-      expect(raiz.querySelectorAll('nav[aria-labelledby]').length).toBe(1);
     });
 
     it('la cabecera del panel de organización muestra su nombre, no el de la instalación', async () => {

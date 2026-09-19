@@ -236,7 +236,7 @@ export class RegistrationDetailPage {
   protected readonly accionError = signal<string | null>(null);
 
   constructor() {
-    const eventId = this.route.snapshot.paramMap.get('id') ?? '';
+    const eventId = this.route.snapshot.paramMap.get('eventId') ?? '';
     const registrationId = this.route.snapshot.paramMap.get('registrationId') ?? '';
     this.eventId.set(eventId);
     this.registrationId.set(registrationId);

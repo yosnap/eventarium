@@ -21,6 +21,7 @@ import { Card } from '../../../shared/ui/card';
 import { PageHeader } from '../../../shared/ui/page-header';
 import { isoAValorLocal } from './datetime-local';
 import { EventRoster, type RosterMember } from './event-roster';
+import { EventVenues } from './event-venues';
 import { SessionForm, type EventSession } from './session-form';
 import { SessionParticipants } from './session-participants';
 
@@ -49,6 +50,7 @@ interface DiaDeAgenda {
     Button,
     Card,
     EventRoster,
+    EventVenues,
     SessionForm,
     SessionParticipants,
     PageHeader,
@@ -60,77 +62,109 @@ interface DiaDeAgenda {
         <span class="mark">{{ t('admin.events.agenda.cabeceraMarca') }}</span>
       </app-page-header>
 
-      <app-event-roster [eventId]="eventId()" (cambio)="alCambiarRoster($event)" />
+      <app-event-venues [eventId]="eventId()" />
 
-      <app-card [heading]="t('admin.events.agenda.titulo')">
-        @if (error(); as mensaje) {
-          <app-alert tone="error">{{ mensaje }}</app-alert>
-        }
+      <div class="fila-superior">
+        <app-event-roster [eventId]="eventId()" (cambio)="alCambiarRoster($event)" />
 
-        @if (cargando()) {
-          <p>{{ t('comun.cargando') }}</p>
-        } @else if (dias().length === 0) {
-          <p>{{ t('admin.events.agenda.sinSesiones') }}</p>
-        } @else {
-          @for (dia of dias(); track dia.fecha) {
-            <h3>{{ dia.fecha + 'T00:00:00' | date: 'fullDate' }}</h3>
-            <ul class="sesiones">
-              @for (sesion of dia.sesiones; track sesion.id) {
-                <li>
-                  <div class="fila">
-                    <div>
-                      <strong>{{ sesion.title }}</strong>
-                      <span class="detalle">
-                        {{ sesion.starts_at | date: 'shortTime' }} –
-                        {{ sesion.ends_at | date: 'shortTime' }}
-                        @if (sesion.room) {
-                          · {{ sesion.room }}
-                        }
-                      </span>
-                    </div>
-                    <div class="acciones">
-                      <app-button variant="secundario" type="button" (pulsado)="editar(sesion)">
-                        {{ t('admin.events.agenda.editar') }}
-                      </app-button>
-                      <app-button
-                        variant="secundario"
-                        type="button"
-                        (pulsado)="alternarParticipantes(sesion)"
-                      >
-                        {{ t('admin.events.agenda.participantes.gestionar') }}
-                      </app-button>
-                      <app-button variant="peligro" type="button" (pulsado)="borrar(sesion.id)">
-                        {{ t('admin.events.agenda.eliminar') }}
-                      </app-button>
-                    </div>
-                  </div>
-
-                  @if (editandoParticipantesId() === sesion.id) {
-                    <app-session-participants
-                      [eventId]="eventId()"
-                      [sessionId]="sesion.id"
-                      [updatedAt]="sesion.updated_at"
-                      [roster]="roster()"
-                      (guardado)="alGuardarParticipantes()"
-                    />
-                  }
-                </li>
-              }
-            </ul>
+        <app-card [heading]="t('admin.events.agenda.titulo')">
+          @if (error(); as mensaje) {
+            <app-alert tone="error">{{ mensaje }}</app-alert>
           }
-        }
 
-        <app-session-form
-          #formulario
-          [eventId]="eventId()"
-          [sesion]="sesionEnEdicion()"
-          (guardada)="alGuardarSesion()"
-          (cancelada)="sesionEnEdicion.set(null)"
-        />
-      </app-card>
+          @if (cargando()) {
+            <p>{{ t('comun.cargando') }}</p>
+          } @else if (dias().length === 0) {
+            <p>{{ t('admin.events.agenda.sinSesiones') }}</p>
+          } @else {
+            @for (dia of dias(); track dia.fecha) {
+              <h3>{{ dia.fecha + 'T00:00:00' | date: 'fullDate' }}</h3>
+              <ul class="sesiones">
+                @for (sesion of dia.sesiones; track sesion.id) {
+                  <li>
+                    <div class="fila">
+                      <div>
+                        <strong>{{ sesion.title }}</strong>
+                        <span class="detalle">
+                          {{ sesion.starts_at | date: 'shortTime' }} –
+                          {{ sesion.ends_at | date: 'shortTime' }}
+                          @if (sesion.room) {
+                            · {{ sesion.room }}
+                          }
+                        </span>
+                      </div>
+                      <div class="acciones">
+                        <app-button variant="secundario" type="button" (pulsado)="editar(sesion)">
+                          {{ t('admin.events.agenda.editar') }}
+                        </app-button>
+                        <app-button
+                          variant="secundario"
+                          type="button"
+                          (pulsado)="alternarParticipantes(sesion)"
+                        >
+                          {{ t('admin.events.agenda.participantes.gestionar') }}
+                        </app-button>
+                        <app-button variant="peligro" type="button" (pulsado)="borrar(sesion.id)">
+                          {{ t('admin.events.agenda.eliminar') }}
+                        </app-button>
+                      </div>
+                    </div>
+
+                    @if (editandoParticipantesId() === sesion.id) {
+                      <app-session-participants
+                        [eventId]="eventId()"
+                        [sessionId]="sesion.id"
+                        [updatedAt]="sesion.updated_at"
+                        [roster]="roster()"
+                        (guardado)="alGuardarParticipantes()"
+                      />
+                    }
+                  </li>
+                }
+              </ul>
+            }
+          }
+
+          <app-session-form
+            #formulario
+            [eventId]="eventId()"
+            [sesion]="sesionEnEdicion()"
+            (guardada)="alGuardarSesion()"
+            (cancelada)="sesionEnEdicion.set(null)"
+          />
+        </app-card>
+      </div>
     </ng-container>
   `,
   styles: `
+    /* \`ng-container\` no genera elemento: cabecera, la fila de sedes+roster y
+     * la tarjeta de sesiones son hijos directos de este host. Un componente
+     * sin \`display\` propio es \`inline\` por defecto, donde un margen
+     * vertical no hace nada — hay que forzar \`display: block\` en cada hijo
+     * antes de que \`margin-top\` pueda separarlos. */
+    :host {
+      display: block;
+    }
+    :host > * {
+      display: block;
+    }
+    :host > * + * {
+      margin-top: var(--space-lg);
+    }
+    /* Participantes como columna angosta junto a la agenda, no a todo el
+     * ancho: es una lista de personas, no necesita el ancho de una tarjeta
+     * con fechas y formulario de sesión completo. */
+    .fila-superior {
+      display: grid;
+      grid-template-columns: minmax(16rem, 22rem) 1fr;
+      gap: var(--space-lg);
+      align-items: start;
+    }
+    @media (max-width: 56rem) {
+      .fila-superior {
+        grid-template-columns: 1fr;
+      }
+    }
     h3 {
       margin: var(--space-md) 0 var(--space-xs);
     }
