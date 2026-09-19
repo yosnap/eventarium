@@ -44,7 +44,7 @@ function configurar(id: string | null) {
       provideRouter([]),
       {
         provide: ActivatedRoute,
-        useValue: { snapshot: { paramMap: convertToParamMap(id ? { id } : {}) } },
+        useValue: { snapshot: { paramMap: convertToParamMap(id ? { eventId: id } : {}) } },
       },
     ],
   });

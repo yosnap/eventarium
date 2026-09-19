@@ -3,7 +3,12 @@ import 'fake-indexeddb/auto';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
-import { provideRouter, withComponentInputBinding, Router } from '@angular/router';
+import {
+  provideRouter,
+  withComponentInputBinding,
+  withRouterConfig,
+  Router,
+} from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
@@ -38,7 +43,11 @@ function configurar(usuario: { is_superadmin: boolean } | null) {
     ],
     providers: [
       provideZonelessChangeDetection(),
-      provideRouter(routes, withComponentInputBinding()),
+      provideRouter(
+        routes,
+        withComponentInputBinding(),
+        withRouterConfig({ paramsInheritanceStrategy: 'always' }),
+      ),
       provideHttpClient(),
       provideHttpClientTesting(),
       {

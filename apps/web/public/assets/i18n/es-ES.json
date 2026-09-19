@@ -432,7 +432,10 @@
       "abrirNavegacion": "Abrir navegación",
       "cerrarNavegacion": "Cerrar navegación",
       "resumenEvento": "Resumen",
-      "editarEvento": "Editar datos"
+      "editarEvento": "Editar datos",
+      "editandoEvento": "Editando: {{nombre}}",
+      "pestanasDeEvento": "Secciones del evento",
+      "volverAEventosAria": "Volver a la lista de eventos"
     },
     "escritorio": "Escritorio",
     "identidadVisual": "Identidad visual",

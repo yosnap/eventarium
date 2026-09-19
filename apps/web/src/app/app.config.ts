@@ -10,7 +10,12 @@ import { registerLocaleData } from '@angular/common';
 import localeEs from '@angular/common/locales/es';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
-import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from '@angular/router';
+import {
+  provideRouter,
+  withComponentInputBinding,
+  withInMemoryScrolling,
+  withRouterConfig,
+} from '@angular/router';
 import { provideServiceWorker } from '@angular/service-worker';
 import { provideTransloco } from '@jsverse/transloco';
 
@@ -40,6 +45,10 @@ export const appConfig: ApplicationConfig = {
       routes,
       withComponentInputBinding(),
       withInMemoryScrolling({ anchorScrolling: 'enabled', scrollPositionRestoration: 'enabled' }),
+      // Sin esto, un hijo de `events/:eventId` (p. ej. `agenda`) no ve el
+      // `eventId` del padre: por defecto el router solo hereda parámetros de
+      // rutas con `path: ''`, no de cualquier ruta con hijos (`EventShell`).
+      withRouterConfig({ paramsInheritanceStrategy: 'always' }),
     ),
     provideClientHydration(withEventReplay()),
     // `withFetch` es necesario para que las peticiones funcionen igual en SSR.

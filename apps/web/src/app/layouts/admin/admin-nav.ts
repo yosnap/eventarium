@@ -14,14 +14,6 @@ export interface AdminNavLink {
   readonly soloSuperadmin?: boolean;
 }
 
-/** Datos que necesita el grupo contextual de evento para pintarse. */
-export interface AdminNavEvento {
-  readonly id: string;
-  readonly nombre: string | null;
-  readonly cargando: boolean;
-  readonly aceptaPagos: boolean;
-}
-
 export const ORGANIZATION_NAV_LINKS: readonly AdminNavLink[] = [
   { path: ['/dashboard'], labelKey: 'admin.escritorio', exact: true },
   { path: ['/dashboard/organization'], labelKey: 'admin.organizacion.titulo' },
@@ -68,9 +60,10 @@ export const PLATFORM_NAV_LINKS: readonly AdminNavLink[] = [
 ];
 
 /**
- * Enlaces del grupo contextual de evento, sin el enlace de detalles ni el de salida
- * (los pinta la plantilla aparte, porque no son «una entrada más» sino la entrada y la
- * salida del ámbito).
+ * Enlaces de las pestañas de un evento (`EventShell`), sin Resumen ni Editar
+ * datos ni el enlace de vuelta a la lista — esos los pinta `EventShell`
+ * aparte, porque no son «una pestaña más» sino la entrada y la salida del
+ * ámbito.
  *
  * Las secciones de pago solo aparecen si `aceptaPagos`, con el mismo criterio que ya
  * aplicaba `event-form.ts` antes de esta fase: `registrationMode() === 'paid'`.
@@ -177,43 +170,6 @@ export function enlacesDeEvento(eventId: string, aceptaPagos: boolean): readonly
             }
           </ul>
         </nav>
-
-        @if (evento(); as datosEvento) {
-          <h2 id="admin-nav-evento-titulo" class="grupo-titulo">
-            {{ datosEvento.nombre ?? t('admin.nav.eventoCargando') }}
-          </h2>
-          <nav [attr.aria-labelledby]="'admin-nav-evento-titulo'">
-            <ul>
-              <li>
-                <a
-                  [routerLink]="['/dashboard/events', datosEvento.id]"
-                  routerLinkActive="activo"
-                  [routerLinkActiveOptions]="{ exact: true }"
-                >
-                  {{ t('admin.nav.resumenEvento') }}
-                </a>
-              </li>
-              <li>
-                <a
-                  [routerLink]="['/dashboard/events', datosEvento.id, 'editar']"
-                  routerLinkActive="activo"
-                >
-                  {{ t('admin.nav.editarEvento') }}
-                </a>
-              </li>
-              @for (enlace of enlacesEvento(); track enlace.path.join('/')) {
-                <li>
-                  <a [routerLink]="enlace.path" routerLinkActive="activo">
-                    {{ t(enlace.labelKey) }}
-                  </a>
-                </li>
-              }
-              <li>
-                <a routerLink="/dashboard/events">{{ t('admin.nav.volverAEventos') }}</a>
-              </li>
-            </ul>
-          </nav>
-        }
       }
     </ng-container>
   `,
@@ -276,9 +232,6 @@ export class AdminNav {
 
   /** `true` cuando el panel pintado es el de la plataforma (`/admin`). */
   readonly plataforma = input<boolean>(false);
-  /** `null` cuando no hay evento activo o cuando su carga ha fallado: en ambos casos
-   * el grupo desaparece y la navegación vuelve a los grupos estables. */
-  readonly evento = input<AdminNavEvento | null>(null);
 
   protected readonly ORGANIZATION_NAV_LINKS = ORGANIZATION_NAV_LINKS;
 
@@ -289,10 +242,5 @@ export class AdminNav {
   protected readonly enlacesDePlataforma = computed(() => {
     const esSuperadmin = this.auth.currentUser()?.is_superadmin ?? false;
     return PLATFORM_NAV_LINKS.filter((enlace) => !enlace.soloSuperadmin || esSuperadmin);
-  });
-
-  protected readonly enlacesEvento = computed(() => {
-    const datosEvento = this.evento();
-    return datosEvento ? enlacesDeEvento(datosEvento.id, datosEvento.aceptaPagos) : [];
   });
 }

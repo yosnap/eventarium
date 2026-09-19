@@ -95,36 +95,6 @@ describe('AdminNav — panel de organización', () => {
     expect(enlacesDe(raiz)).not.toContain('/admin/estilo');
     expect(enlacesDe(raiz)).not.toContain('/dashboard/estilo');
   });
-
-  it('sin evento activo: no pinta el grupo de evento', async () => {
-    configurar();
-    const fixture = TestBed.createComponent(AdminNav);
-    fixture.componentRef.setInput('plataforma', false);
-    fixture.componentRef.setInput('evento', null);
-    await fixture.whenStable();
-    const raiz = fixture.nativeElement as HTMLElement;
-
-    expect(raiz.querySelector('#admin-nav-evento-titulo')).toBeNull();
-  });
-
-  it('con evento activo: pinta su nombre y la salida a eventos', async () => {
-    configurar();
-    const fixture = TestBed.createComponent(AdminNav);
-    fixture.componentRef.setInput('plataforma', false);
-    fixture.componentRef.setInput('evento', {
-      id: 'e1',
-      nombre: 'IA Week',
-      cargando: false,
-      aceptaPagos: false,
-    });
-    await fixture.whenStable();
-    const raiz = fixture.nativeElement as HTMLElement;
-
-    expect(raiz.querySelector('#admin-nav-evento-titulo')?.textContent?.trim()).toBe('IA Week');
-    const enlaces = enlacesDe(raiz);
-    expect(enlaces).toContain('/dashboard/events');
-    expect(enlaces).toContain('/dashboard/events/e1');
-  });
 });
 
 describe('AdminNav — panel de plataforma', () => {
@@ -146,24 +116,6 @@ describe('AdminNav — panel de plataforma', () => {
 
     expect(enlaces).not.toContain('/dashboard');
     expect(enlaces).not.toContain('/dashboard/events');
-  });
-
-  it('no pinta el grupo de evento aunque haya uno activo', async () => {
-    // En el panel de plataforma no se navega entre eventos de una organización.
-    configurar();
-    const fixture = TestBed.createComponent(AdminNav);
-    fixture.componentRef.setInput('plataforma', true);
-    fixture.componentRef.setInput('evento', {
-      id: 'e1',
-      nombre: 'IA Week',
-      cargando: false,
-      aceptaPagos: false,
-    });
-    await fixture.whenStable();
-    const raiz = fixture.nativeElement as HTMLElement;
-
-    expect(raiz.querySelector('#admin-nav-evento-titulo')).toBeNull();
-    expect(raiz.querySelector('#admin-nav-organizacion-titulo')).toBeNull();
   });
 
   it('el catálogo de componentes cuelga de plataforma', async () => {

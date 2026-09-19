@@ -16,7 +16,6 @@ import { BrandMark } from '../../shared/ui/brand-mark';
 import { ThemeToggle } from '../../shared/ui/theme-toggle';
 import { AccountMenu } from './account-menu';
 import { AdminNav } from './admin-nav';
-import { EventScope } from './event-scope';
 import { PanelScope } from './panel-scope';
 
 /**
@@ -76,7 +75,7 @@ import { PanelScope } from './panel-scope';
           [attr.aria-label]="t('admin.navegacion')"
           (keydown.escape)="cerrarNavegacion()"
         >
-          <app-admin-nav [plataforma]="esPanelPlataforma()" [evento]="grupoEvento()" />
+          <app-admin-nav [plataforma]="esPanelPlataforma()" />
         </nav>
 
         <main id="contenido-admin" tabindex="-1">
@@ -164,7 +163,6 @@ import { PanelScope } from './panel-scope';
 export class AdminShell {
   protected readonly auth = inject(AuthService);
   private readonly router = inject(Router);
-  private readonly eventScope = inject(EventScope);
   private readonly panelScope = inject(PanelScope);
 
   /** En qué panel está el shell (`/admin` plataforma, `/dashboard` organización). */
@@ -189,21 +187,6 @@ export class AdminShell {
     const id = this.auth.currentUser()?.organization_id;
     const encontrada = id ? this.organizaciones().find((o) => o.organization_id === id) : null;
     return encontrada?.name ?? '';
-  });
-
-  /** `null` sin evento activo o con fallo de carga: en ambos casos la navegación
-   * conserva solo los dos grupos estables. */
-  protected readonly grupoEvento = computed(() => {
-    const id = this.eventScope.eventId();
-    if (!id || this.eventScope.falloCarga()) {
-      return null;
-    }
-    return {
-      id,
-      nombre: this.eventScope.nombreEvento(),
-      cargando: this.eventScope.cargando(),
-      aceptaPagos: this.eventScope.registrationMode() === 'paid',
-    };
   });
 
   protected readonly navegacionAbierta = signal(false);

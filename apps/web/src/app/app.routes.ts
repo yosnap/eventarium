@@ -213,76 +213,91 @@ export const routes: Routes = [
         loadComponent: () => import('./features/admin/events/event-form').then((m) => m.EventForm),
       },
       {
-        path: 'events/:id',
-        loadComponent: () =>
-          import('./features/admin/events/event-dashboard').then((m) => m.EventDashboard),
-      },
-      {
-        // El formulario vive en una ruta hermana, no en la raíz: a quien entra a
-        // un evento le interesa cómo va (el escritorio), no los campos.
-        path: 'events/:id/editar',
-        loadComponent: () => import('./features/admin/events/event-form').then((m) => m.EventForm),
-      },
-      {
-        path: 'events/:id/registrations/:registrationId',
-        loadComponent: () =>
-          import('./features/admin/events/registration-detail-page').then(
-            (m) => m.RegistrationDetailPage,
-          ),
-      },
-      {
-        path: 'events/:eventId/check-in',
-        loadComponent: () =>
-          import('./features/admin/events/event-check-in').then((m) => m.EventCheckIn),
-      },
-      {
-        path: 'events/:eventId/payments',
-        loadComponent: () =>
-          import('./features/admin/events/event-payments').then((m) => m.EventPayments),
-      },
-      {
-        path: 'events/:eventId/contabilidad',
-        loadComponent: () =>
-          import('./features/admin/events/event-accounting').then((m) => m.EventAccounting),
-      },
-      {
-        // Rutas hermanas de fase 3: solo adiciones, con el parámetro `eventId` (no
-        // `id`, que usa la ruta de detalle de arriba) porque `withComponentInputBinding()`
-        // vincula por nombre exacto y estos 5 componentes ya declaran
-        // `readonly eventId = input.required<string>()`.
-        path: 'events/:eventId/agenda',
-        loadComponent: () =>
-          import('./features/admin/events/event-agenda').then((m) => m.EventAgenda),
-      },
-      {
-        path: 'events/:eventId/diseno',
-        loadComponent: () =>
-          import('./features/admin/events/event-design').then((m) => m.EventDesign),
-      },
-      {
-        path: 'events/:eventId/entradas',
-        loadComponent: () =>
-          import('./features/admin/events/event-ticket-types').then((m) => m.EventTicketTypes),
-      },
-      {
-        path: 'events/:eventId/descuentos',
-        loadComponent: () =>
-          import('./features/admin/events/event-discount-codes').then((m) => m.EventDiscountCodes),
-      },
-      {
-        path: 'events/:eventId/patrocinadores',
-        loadComponent: () =>
-          import('./features/admin/events/event-sponsors').then((m) => m.EventSponsors),
-      },
-      {
-        path: 'events/:eventId/ponentes',
-        loadComponent: () =>
-          import('./features/admin/events/event-speakers').then((m) => m.EventSpeakers),
-      },
-      {
-        path: 'events/:eventId/inscripciones',
-        loadComponent: () =>
-          import('./features/admin/events/event-registrations').then((m) => m.EventRegistrations),
+        // Envuelve todas las pantallas de un evento con la flecha de vuelta, el
+        // título y las pestañas horizontales (`EventShell`). El parámetro se
+        // llama `eventId` en todo el árbol — no `id`— porque la mayoría de estas
+        // pantallas ya declaraban `readonly eventId = input.required<string>()`
+        // desde antes de anidarlas aquí; `withRouterConfig` con
+        // `paramsInheritanceStrategy: 'always'` (`app.config.ts`) es lo que hace
+        // que ese único parámetro del padre llegue a cada hijo sin que cada ruta
+        // tenga que repetirlo.
+        path: 'events/:eventId',
+        loadComponent: () => import('./layouts/admin/event-shell').then((m) => m.EventShell),
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./features/admin/events/event-dashboard').then((m) => m.EventDashboard),
+          },
+          {
+            // El formulario vive en una ruta hermana, no en la raíz: a quien entra a
+            // un evento le interesa cómo va (el escritorio), no los campos.
+            path: 'editar',
+            loadComponent: () =>
+              import('./features/admin/events/event-form').then((m) => m.EventForm),
+          },
+          {
+            path: 'registrations/:registrationId',
+            loadComponent: () =>
+              import('./features/admin/events/registration-detail-page').then(
+                (m) => m.RegistrationDetailPage,
+              ),
+          },
+          {
+            path: 'check-in',
+            loadComponent: () =>
+              import('./features/admin/events/event-check-in').then((m) => m.EventCheckIn),
+          },
+          {
+            path: 'payments',
+            loadComponent: () =>
+              import('./features/admin/events/event-payments').then((m) => m.EventPayments),
+          },
+          {
+            path: 'contabilidad',
+            loadComponent: () =>
+              import('./features/admin/events/event-accounting').then((m) => m.EventAccounting),
+          },
+          {
+            path: 'agenda',
+            loadComponent: () =>
+              import('./features/admin/events/event-agenda').then((m) => m.EventAgenda),
+          },
+          {
+            path: 'diseno',
+            loadComponent: () =>
+              import('./features/admin/events/event-design').then((m) => m.EventDesign),
+          },
+          {
+            path: 'entradas',
+            loadComponent: () =>
+              import('./features/admin/events/event-ticket-types').then((m) => m.EventTicketTypes),
+          },
+          {
+            path: 'descuentos',
+            loadComponent: () =>
+              import('./features/admin/events/event-discount-codes').then(
+                (m) => m.EventDiscountCodes,
+              ),
+          },
+          {
+            path: 'patrocinadores',
+            loadComponent: () =>
+              import('./features/admin/events/event-sponsors').then((m) => m.EventSponsors),
+          },
+          {
+            path: 'ponentes',
+            loadComponent: () =>
+              import('./features/admin/events/event-speakers').then((m) => m.EventSpeakers),
+          },
+          {
+            path: 'inscripciones',
+            loadComponent: () =>
+              import('./features/admin/events/event-registrations').then(
+                (m) => m.EventRegistrations,
+              ),
+          },
+        ],
       },
       {
         path: 'sponsor-tiers',

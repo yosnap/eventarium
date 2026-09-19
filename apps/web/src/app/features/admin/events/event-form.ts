@@ -367,7 +367,7 @@ export class EventForm {
   });
 
   constructor() {
-    const id = this.route.snapshot.paramMap.get('id');
+    const id = this.route.snapshot.paramMap.get('eventId');
     if (id && id !== 'nuevo') {
       this.eventId.set(id);
       void this.cargar(id);
