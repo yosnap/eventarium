@@ -136,6 +136,16 @@ class Settings(BaseSettings):
     ga4_service_account_json: str = ""
     ga4_property_id: str = ""
 
+    # Pasarela de IA (plan `260911-0325`): clave simétrica con la que se
+    # cifran en reposo las claves de proveedor de los dos niveles (plataforma
+    # y organización). Vacía por defecto, como los secretos de Stripe: una
+    # instalación que no usa IA arranca igual y solo falla al intentar
+    # guardar una clave, con un error de dominio explícito. Si tiene valor,
+    # se valida como clave Fernet **al arrancar** — no en el primer `PUT`.
+    # Rotarla exige re-cifrar todas las filas: ver
+    # `python -m app.cli rotate-ai-encryption-key`.
+    ai_settings_encryption_key: str = ""
+
     @field_validator("jwt_secret", "ticket_qr_secret")
     @classmethod
     def _validar_secreto(cls, valor: str) -> str:
@@ -152,6 +162,32 @@ class Settings(BaseSettings):
         pueden validarse incondicionalmente."""
         if valor and len(valor) < 32:
             raise ValueError("El secreto debe tener al menos 32 caracteres")
+        return valor
+
+    @field_validator("ai_settings_encryption_key")
+    @classmethod
+    def _validar_clave_de_cifrado_de_ia(cls, valor: str) -> str:
+        """Un formato inválido falla **al arrancar**, no en el primer `PUT`.
+
+        Mismo criterio que `jwt_secret`, con la diferencia de que esta es
+        opcional: sin valor no hay nada que validar (la instalación
+        simplemente no puede guardar claves de IA). `Fernet` se importa
+        aquí dentro para no cargar `cryptography` en cada importación de la
+        configuración, que la usa todo el proyecto.
+        """
+        if not valor:
+            return valor
+        from cryptography.fernet import Fernet
+
+        try:
+            Fernet(valor.encode("utf-8"))
+        except (ValueError, TypeError) as error:
+            raise ValueError(
+                "AI_SETTINGS_ENCRYPTION_KEY debe ser una clave Fernet válida "
+                "(32 bytes en base64 url-safe; genérala con "
+                '`python -c "from cryptography.fernet import Fernet; '
+                'print(Fernet.generate_key().decode())"`).'
+            ) from error
         return valor
 
     @field_validator("s3_public_base_url", "web_base_url")

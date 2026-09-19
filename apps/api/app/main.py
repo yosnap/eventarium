@@ -14,12 +14,14 @@ from app.core.deps import bloquear_escritura_si_impersona
 from app.core.redis_client import close_redis
 from app.core.storage import get_storage
 from app.modules.accounting.router import router as accounting_router
+from app.modules.admin.ai_router import router as admin_ai_router
 from app.modules.admin.analytics_router import router as admin_analytics_router
 from app.modules.admin.ga4_client import close_ga4
 from app.modules.admin.impersonation_router import router as admin_impersonation_router
 from app.modules.admin.platform_router import router as admin_platform_router
 from app.modules.admin.router import router as admin_router
 from app.modules.admin.users_router import router as admin_users_router
+from app.modules.ai_gateway.router import router as ai_gateway_router
 from app.modules.auth.router import router as auth_router
 from app.modules.events.public_router import router as events_public_router
 from app.modules.events.router import router as events_router
@@ -120,6 +122,7 @@ def create_app() -> FastAPI:
     api.include_router(admin_router)
     api.include_router(admin_users_router)
     api.include_router(admin_analytics_router)
+    api.include_router(admin_ai_router)
     api.include_router(admin_platform_router)
     api.include_router(admin_impersonation_router)
     api.include_router(events_router)
@@ -142,6 +145,7 @@ def create_app() -> FastAPI:
     api.include_router(legal_public_router)
     api.include_router(cookie_consent_router)
     api.include_router(accounting_router)
+    api.include_router(ai_gateway_router)
     app.include_router(api)
 
     return app

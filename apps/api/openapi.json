@@ -2582,6 +2582,240 @@
         }
       }
     },
+    "/api/v1/admin/ai-settings": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Configuración de IA por defecto de la plataforma",
+        "description": "Proveedor, modelo, dirección efectiva y techo de gasto de la instalación. **Nunca** devuelve la clave, ni siquiera a quien la guardó: solo `has_key`, la pista de sus últimos caracteres y la fecha.",
+        "operationId": "get_platform_ai_settings_api_v1_admin_ai_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformAiSettingsOut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Configurar la IA por defecto de la plataforma",
+        "description": "Guarda proveedor, modelo, clave (write-only) y techo de gasto. La clave se cifra en reposo con `AI_SETTINGS_ENCRYPTION_KEY`; sin esa variable, la operación falla con un error de dominio explícito.\n\nBajar el techo por debajo de límites de organización ya fijados **no** se bloquea: el límite efectivo de cada organización es el menor de los dos, así que el techo manda igualmente.",
+        "operationId": "update_platform_ai_settings_api_v1_admin_ai_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformAiSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformAiSettingsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/services": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Interruptores globales de servicios",
+        "operationId": "list_platform_services_api_v1_admin_services_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ServiceOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Platform Services Api V1 Admin Services Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Activar o desactivar servicios para toda la instalación",
+        "description": "Un servicio apagado aquí queda apagado para **todas** las organizaciones; ninguna puede reactivarlo. Una clave de servicio fuera del catálogo se rechaza con 422.",
+        "operationId": "update_platform_services_api_v1_admin_services_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformServicesUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ServiceOut"
+                  },
+                  "type": "array",
+                  "title": "Response Update Platform Services Api V1 Admin Services Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/organizations/{organization_id}/services": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Estado de los servicios de una organización",
+        "operationId": "get_organization_services_api_v1_admin_organizations__organization_id__services_get",
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrganizationServiceOut"
+                  },
+                  "title": "Response Get Organization Services Api V1 Admin Organizations  Organization Id  Services Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Forzar a apagado (o volver a heredar) un servicio de una organización",
+        "description": "El override es binario y solo puede **desactivar**: `enabled=false` apaga el servicio para esa organización y `enabled=true` borra el override para volver a heredar el estado global — nunca enciende por encima de una decisión global de apagado. Lo escribe solo el admin: el organizador no tiene ningún endpoint de servicios.",
+        "operationId": "update_organization_services_api_v1_admin_organizations__organization_id__services_put",
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganizationServicesUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrganizationServiceOut"
+                  },
+                  "title": "Response Update Organization Services Api V1 Admin Organizations  Organization Id  Services Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/identity": {
       "get": {
         "tags": [
@@ -8516,6 +8750,81 @@
           }
         }
       }
+    },
+    "/api/v1/organizations/me/ai-settings": {
+      "get": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Configuración de IA de la organización (propia o heredada)",
+        "description": "Devuelve la configuración que usa de verdad esta organización: la suya si la ha guardado, o la heredada de la plataforma. **Nunca** devuelve la clave: solo `has_key`, la pista de sus últimos caracteres y la fecha. La pista solo aparece cuando la clave es propia — la de plataforma es compartida por toda la instalación y sus últimos caracteres no se enseñan a ningún tenant.",
+        "operationId": "get_my_ai_settings_api_v1_organizations_me_ai_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationAiSettingsOut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Sobrescribir la configuración de IA de la organización",
+        "description": "Guarda la configuración propia (proveedor, modelo, clave y, en un proveedor personalizado, su dirección) y el límite de gasto propio, que no puede superar el techo de la plataforma (422). La configuración se guarda **entera**: enviar proveedor o dirección exige enviar también la clave, y enviar la clave exige proveedor y modelo.",
+        "operationId": "update_my_ai_settings_api_v1_organizations_me_ai_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganizationAiSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationAiSettingsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Volver a heredar la configuración de IA de la plataforma",
+        "description": "Borra la configuración propia, incluida su clave cifrada. A partir de ese momento la organización vuelve a usar la de la plataforma; si la plataforma no tiene ninguna, queda «sin configuración».",
+        "operationId": "delete_my_ai_settings_api_v1_organizations_me_ai_settings_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -13660,6 +13969,227 @@
         "title": "OcupacionOut",
         "description": "Cuánto del aforo está tomado.\n\n`reservadas` es lo que el propio sistema considera ocupado —no solo las\nconfirmadas: también las promociones de lista de espera y los pagos dentro\nde su ventana—, porque es el número con el que decide si cabe una persona\nmás. Pintar solo las confirmadas daría un aforo que no coincide con el que\nla aplicación aplica."
       },
+      "OrganizationAiSettingsOut": {
+        "properties": {
+          "origen": {
+            "type": "string",
+            "enum": [
+              "propia",
+              "heredada",
+              "sin_configuracion"
+            ],
+            "title": "Origen"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "default_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Model"
+          },
+          "api_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Base"
+          },
+          "api_base_editable": {
+            "type": "boolean",
+            "title": "Api Base Editable"
+          },
+          "has_key": {
+            "type": "boolean",
+            "title": "Has Key"
+          },
+          "api_key_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key Hint"
+          },
+          "monthly_limit_usd": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Limit Usd"
+          },
+          "monthly_ceiling_usd": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Ceiling Usd"
+          },
+          "limite_efectivo_usd": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limite Efectivo Usd"
+          },
+          "servicio_ia_activo": {
+            "type": "boolean",
+            "title": "Servicio Ia Activo"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "origen",
+          "provider",
+          "default_model",
+          "api_base",
+          "api_base_editable",
+          "has_key",
+          "api_key_hint",
+          "monthly_limit_usd",
+          "monthly_ceiling_usd",
+          "limite_efectivo_usd",
+          "servicio_ia_activo",
+          "updated_at"
+        ],
+        "title": "OrganizationAiSettingsOut",
+        "description": "Configuración efectiva que ve el organizador.\n\n`api_key_hint` es `null` cuando la configuración es **heredada** (V-11):\nla clave de plataforma es compartida por toda la instalación y enseñar\nsus últimos caracteres a cada tenant sería una fuga entre organizaciones."
+      },
+      "OrganizationAiSettingsUpdate": {
+        "properties": {
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "nan_builders",
+                  "openrouter",
+                  "cheaper_inference",
+                  "anthropic",
+                  "openai",
+                  "gemini",
+                  "custom"
+                ],
+                "maxLength": 40,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "default_model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Model"
+          },
+          "api_base": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Base"
+          },
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 400,
+                "minLength": 8,
+                "format": "password",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key"
+          },
+          "monthly_limit_usd": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 99999999.999999,
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d{0,6}0*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Limit Usd"
+          }
+        },
+        "type": "object",
+        "title": "OrganizationAiSettingsUpdate",
+        "description": "`PUT /organizations/me/ai-settings`.\n\nMismas reglas de coherencia que el nivel plataforma, más la del techo:\n`monthly_limit_usd` no puede superar el `monthly_ceiling_usd` vigente."
+      },
       "OrganizationCreate": {
         "properties": {
           "slug": {
@@ -13816,6 +14346,59 @@
         ],
         "title": "OrganizationResponse",
         "description": "Datos de la organización actual."
+      },
+      "OrganizationServiceOut": {
+        "properties": {
+          "service_key": {
+            "type": "string",
+            "title": "Service Key"
+          },
+          "etiqueta": {
+            "type": "string",
+            "title": "Etiqueta"
+          },
+          "global_enabled": {
+            "type": "boolean",
+            "title": "Global Enabled"
+          },
+          "overridden_off": {
+            "type": "boolean",
+            "title": "Overridden Off"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "service_key",
+          "etiqueta",
+          "global_enabled",
+          "overridden_off",
+          "enabled"
+        ],
+        "title": "OrganizationServiceOut",
+        "description": "Estado de un servicio para una organización concreta."
+      },
+      "OrganizationServicesUpdate": {
+        "properties": {
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceToggle"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Services"
+          }
+        },
+        "type": "object",
+        "required": [
+          "services"
+        ],
+        "title": "OrganizationServicesUpdate",
+        "description": "`PUT /admin/organizations/{id}/services`.\n\n`enabled=false` fuerza el servicio a apagado para esa organización;\n`enabled=true` **no** lo enciende por encima de la decisión global: borra\nel override y vuelve a heredar (V-7)."
       },
       "OrganizationUpdate": {
         "properties": {
@@ -14365,6 +14948,186 @@
         "title": "PiezaOut",
         "description": "Una de las piezas del evento, con su estado y cuánto tiene."
       },
+      "PlatformAiSettingsOut": {
+        "properties": {
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "default_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Model"
+          },
+          "api_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Base"
+          },
+          "api_base_editable": {
+            "type": "boolean",
+            "title": "Api Base Editable"
+          },
+          "has_key": {
+            "type": "boolean",
+            "title": "Has Key"
+          },
+          "api_key_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key Hint"
+          },
+          "monthly_ceiling_usd": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Ceiling Usd"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "default_model",
+          "api_base",
+          "api_base_editable",
+          "has_key",
+          "api_key_hint",
+          "monthly_ceiling_usd",
+          "updated_at"
+        ],
+        "title": "PlatformAiSettingsOut",
+        "description": "Estado de la configuración de plataforma. Nunca lleva la clave."
+      },
+      "PlatformAiSettingsUpdate": {
+        "properties": {
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "nan_builders",
+                  "openrouter",
+                  "cheaper_inference",
+                  "anthropic",
+                  "openai",
+                  "gemini",
+                  "custom"
+                ],
+                "maxLength": 40,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "default_model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Model"
+          },
+          "api_base": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Base"
+          },
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 400,
+                "minLength": 8,
+                "format": "password",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key"
+          },
+          "monthly_ceiling_usd": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 99999999.999999,
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d{0,6}0*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Ceiling Usd"
+          }
+        },
+        "type": "object",
+        "title": "PlatformAiSettingsUpdate",
+        "description": "`PUT /admin/ai-settings`. Parcial: solo se toca lo enviado.\n\nCoherencia (la aplica el servicio, no el esquema, para poder dar el\n`code` exacto): enviar `provider` o `api_base` exige `api_key`, y enviar\n`api_key` exige `provider` y `default_model`."
+      },
       "PlatformBrandingBlock": {
         "properties": {
           "name": {
@@ -14681,6 +15444,25 @@
         ],
         "title": "PlatformRoleUpdate",
         "description": "Cuerpo de `PUT /admin/users/{id}/platform-role`.\n\nNunca acepta `\"superadmin\"`: ese poder sigue siendo exclusivamente\n`is_superadmin`, fuera de este endpoint a propósito."
+      },
+      "PlatformServicesUpdate": {
+        "properties": {
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceToggle"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Services"
+          }
+        },
+        "type": "object",
+        "required": [
+          "services"
+        ],
+        "title": "PlatformServicesUpdate",
+        "description": "`PUT /admin/services`: cambia uno o varios interruptores globales."
       },
       "PlatformUserActionResult": {
         "properties": {
@@ -17497,6 +18279,58 @@
         ],
         "title": "SelfServiceOrganizationResponse",
         "description": "Organización recién creada, con una sesión completa ya activa en ella.\n\nSin dominio por organización (fase 4 del plan de organización sin\ndominio), no hay ningún host al que redirigir: quien crea la\norganización puede venir de verificar su correo, sin ninguna sesión\nnormal todavía (sin cookie de refresco), así que este endpoint emite la\nsuya propia — mismo mecanismo que `/auth/login`, con la organización\nrecién creada ya activa. El cliente no necesita llamar aparte a\n`switch-organization`."
+      },
+      "ServiceOut": {
+        "properties": {
+          "service_key": {
+            "type": "string",
+            "title": "Service Key"
+          },
+          "etiqueta": {
+            "type": "string",
+            "title": "Etiqueta"
+          },
+          "descripcion": {
+            "type": "string",
+            "title": "Descripcion"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "service_key",
+          "etiqueta",
+          "descripcion",
+          "enabled"
+        ],
+        "title": "ServiceOut",
+        "description": "Un interruptor global con su descripción del catálogo."
+      },
+      "ServiceToggle": {
+        "properties": {
+          "service_key": {
+            "type": "string",
+            "enum": [
+              "ai"
+            ],
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Service Key"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "service_key",
+          "enabled"
+        ],
+        "title": "ServiceToggle"
       },
       "SessionParticipantEntry": {
         "properties": {

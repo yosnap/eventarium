@@ -46,6 +46,13 @@ dependencies = [
     # imágenes. Mitigado con límite de dimensiones antes de decodificar
     # completo (ver `app/modules/media/processing.py`).
     "pillow>=12.3,<13.0",
+    # Cifrado en reposo de las claves de proveedor de IA (plan
+    # `260911-0325`, fase 1): `cryptography.fernet`. Rango cerrado a la
+    # major actual — Fernet es estable, pero la librería rota APIs de
+    # criptografía de bajo nivel entre majors. Se fija a la major que ya
+    # estaba resuelta como dependencia transitiva (50.x): declararla más
+    # abajo habría **degradado** la versión que el resto del árbol usa.
+    "cryptography>=50.0,<51.0",
 ]
 
 [dependency-groups]

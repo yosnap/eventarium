@@ -188,5 +188,64 @@ def purge_orphaned_media(
     typer.echo(f"Total purgado: {total}")
 
 
+async def recifrar_claves_de_ia(*, clave_antigua: str, clave_nueva: str) -> int:
+    """Re-cifra todas las claves de proveedor de IA con una clave nueva.
+
+    En una función de módulo (no anidada en el comando Typer) para poder
+    probarla directamente sin `asyncio.run`, igual que
+    `purgar_medios_huerfanos`.
+
+    Usa el rol de mantenimiento porque toca las dos tablas a la vez: la de
+    plataforma (que `app_user` no puede escribir) y las de todas las
+    organizaciones (protegidas por RLS).
+    """
+    from app.modules.ai_gateway.crypto import cifrar_clave, descifrar_clave
+    from app.modules.ai_gateway.models import OrganizationAiSettings, PlatformAiSettings
+
+    total = 0
+    async with maintenance_session() as session:
+        plataforma = await session.scalar(select(PlatformAiSettings))
+        if plataforma is not None and plataforma.api_key_encrypted:
+            en_claro = descifrar_clave(plataforma.api_key_encrypted, clave_de_cifrado=clave_antigua)
+            plataforma.api_key_encrypted = cifrar_clave(en_claro, clave_de_cifrado=clave_nueva)
+            total += 1
+
+        filas = (await session.execute(select(OrganizationAiSettings))).scalars().all()
+        for fila in filas:
+            en_claro = descifrar_clave(fila.api_key_encrypted, clave_de_cifrado=clave_antigua)
+            fila.api_key_encrypted = cifrar_clave(en_claro, clave_de_cifrado=clave_nueva)
+            total += 1
+    return total
+
+
+@app.command("rotate-ai-encryption-key")
+def rotate_ai_encryption_key(
+    clave_antigua: str = typer.Option(..., "--old-key", help="AI_SETTINGS_ENCRYPTION_KEY actual."),
+    clave_nueva: str = typer.Option(..., "--new-key", help="Clave Fernet nueva."),
+) -> None:
+    """Rota `AI_SETTINGS_ENCRYPTION_KEY` re-cifrando las filas existentes.
+
+    Procedimiento (parada corta, el único que hay: la clave es de
+    aplicación, no por organización — riesgo aceptado y documentado en el
+    PRD):
+
+    1. genera la clave nueva:
+       `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`;
+    2. **para la API y el worker** (mientras corre este comando, una llamada
+       en vuelo podría leer una fila ya re-cifrada con la clave antigua);
+    3. ejecuta este comando con la clave antigua y la nueva;
+    4. cambia `AI_SETTINGS_ENCRYPTION_KEY` en el entorno por la nueva;
+    5. vuelve a arrancar. Si alguna fila no se pudiera descifrar, el comando
+       falla **antes** de escribir nada (todo ocurre en una transacción).
+    """
+    total = asyncio.run(recifrar_claves_de_ia(clave_antigua=clave_antigua, clave_nueva=clave_nueva))
+    typer.echo(f"Claves re-cifradas: {total}")
+    typer.secho(
+        "Cambia ahora AI_SETTINGS_ENCRYPTION_KEY por la clave nueva antes de arrancar.",
+        fg=typer.colors.YELLOW,
+        bold=True,
+    )
+
+
 if __name__ == "__main__":
     app()

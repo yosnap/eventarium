@@ -325,6 +325,40 @@ async def require_superadmin(
     )
 
 
+async def require_org_owner(usuario: CurrentUserDep, session: DbDep) -> CurrentUser:
+    """Propietario (`owner`) de la organización activa de la sesión.
+
+    Gate **por rol**, no por `Permission` del enum, y el motivo está ya
+    documentado en `roles/authorization.py`: `OWNER` hereda automáticamente
+    cualquier permiso nuevo del enum, así que un permiso pensado para ser
+    exclusivo de `owner` no puede vivir ahí (mismo razonamiento aplicado a
+    `AUDIT_READ`/`Superadmin` en `core/permissions.py`).
+
+    Usa `DbDep` (RLS ya fijado), nunca `get_maintenance_db`: esa dependencia
+    está confinada a `modules/admin` por un test estático, y aquí no hace
+    ninguna falta — la membresía se consulta dentro del contexto de la propia
+    organización.
+
+    Recoge **todas** las membresías de la persona en esa organización
+    (`user_role_keys` devuelve el conjunto completo, no la primera): quien
+    tiene varios roles y uno de ellos es `owner` pasa el gate.
+    """
+    from app.modules.organizations.repository import user_role_keys
+    from app.modules.roles.system_roles import OWNER_KEY
+
+    claves = await user_role_keys(session, usuario.organization_id, usuario.id)
+    if OWNER_KEY not in claves:
+        raise PermissionDeniedError(
+            "Esta operación es exclusiva del propietario de la organización.",
+            extra={"required_role": OWNER_KEY},
+        )
+    return usuario
+
+
+#: Propietario de la organización activa. Ver `require_org_owner`.
+OrgOwnerDep = Annotated[CurrentUser, Depends(require_org_owner)]
+
+
 async def require_platform_staff(
     claims: Annotated[AccessTokenClaims, Depends(get_token_claims)],
     session: Annotated[AsyncSession, Depends(get_maintenance_db)],
