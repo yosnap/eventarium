@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import set_organization_context
+from app.core.storage import get_storage
 from app.modules.events import repository
 from app.modules.events import schemas as events_schemas
 from app.modules.events.geocoding import geocode_address
@@ -28,6 +29,7 @@ from app.modules.events.models import (
     EventSessionParticipant,
     EventVenue,
 )
+from app.modules.media.models import Media
 from app.modules.organizations import repository as organizations_repository
 from app.modules.payments import repository as payments_repository
 from app.modules.payments import service as payments_service
@@ -622,9 +624,26 @@ async def resolve_public_event_by_slug(session: AsyncSession, slug: str) -> Even
     return evento
 
 
+async def _resolver_cover_url(session: AsyncSession, evento: Event) -> str | None:
+    """Misma lógica que `events/public_router.py::_cover_url`, pero
+    invocada DENTRO del bucle por organización de
+    `list_public_events_across_organizations` — llamarla después de que el
+    bucle termine resolvería `Media` con el contexto RLS de la ÚLTIMA
+    organización iterada, y la portada de cualquier otro evento con
+    `cover_media_id` saldría `None` en silencio (`Media` tiene `FORCE ROW
+    LEVEL SECURITY`, hallazgo de code-review)."""
+    almacen = get_storage()
+    if evento.cover_media_id is not None:
+        media = await session.get(Media, evento.cover_media_id)
+        return almacen.public_url(media.object_key) if media else None
+    if evento.cover_object_key:
+        return almacen.public_url(evento.cover_object_key)
+    return None
+
+
 async def list_public_events_across_organizations(
     session: AsyncSession,
-) -> list[tuple[Event, int, payments_service.PrecioPublico | None]]:
+) -> list[tuple[Event, int, payments_service.PrecioPublico | None, str | None]]:
     """Eventos publicados de **toda la instalación**, sin organización activa.
 
     Fase 6 del plan de organización sin dominio: `GET /public/events` (el
@@ -653,7 +672,7 @@ async def list_public_events_across_organizations(
         )
     ).all()
 
-    resultado: list[tuple[Event, int, payments_service.PrecioPublico | None]] = []
+    resultado: list[tuple[Event, int, payments_service.PrecioPublico | None, str | None]] = []
     for (organization_id,) in organizaciones:
         await set_organization_context(session, organization_id)
         filas = (
@@ -666,7 +685,8 @@ async def list_public_events_across_organizations(
             session, organization_id=organization_id, event_ids=ids_de_pago
         )
         for evento, reservadas in filas:
-            resultado.append((evento, reservadas, precios.get(evento.id)))
+            cover_url = await _resolver_cover_url(session, evento)
+            resultado.append((evento, reservadas, precios.get(evento.id), cover_url))
 
     resultado.sort(key=lambda item: item[0].starts_at)
     return resultado

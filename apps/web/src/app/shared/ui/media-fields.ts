@@ -1,5 +1,14 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
@@ -194,6 +203,7 @@ function baseDeCarpetas(kind: MediaKind): string {
                       <button
                         type="button"
                         class="accion-texto accion-peligro"
+                        [disabled]="borrandoId() === item.id"
                         (click)="enviarAPapelera(item)"
                       >
                         {{ t('ui.media.papelera') }}
@@ -383,6 +393,13 @@ export class MediaFields {
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
 
+  constructor() {
+    // Sin esto, cerrar el diálogo (o navegar) justo tras teclear en el
+    // buscador deja el `setTimeout` vivo, y su callback dispara un `GET`
+    // contra un componente ya destruido (hallazgo de code-review).
+    inject(DestroyRef).onDestroy(() => this.limpiarTemporizadorDeBusqueda());
+  }
+
   /** Tipos aceptados por el selector de fichero (igual que `accept`). */
   readonly aceptados = input.required<string>();
   /** A qué campo pertenece la imagen — resuelve el permiso requerido y el
@@ -415,6 +432,7 @@ export class MediaFields {
 
   protected readonly recortando = signal<MediaItem | null>(null);
   protected readonly recortandoEnCurso = signal(false);
+  protected readonly borrandoId = signal<string | null>(null);
 
   protected readonly totalPaginas = computed(() => Math.max(1, Math.ceil(this.bibliotecaTotal() / LIMITE)));
   protected readonly paginaActual = computed(() => Math.floor(this.bibliotecaOffset() / LIMITE) + 1);
@@ -438,6 +456,14 @@ export class MediaFields {
     this.error.set(null);
     this.recortando.set(null);
     this.bibliotecaCargada = false;
+    this.limpiarTemporizadorDeBusqueda();
+  }
+
+  private limpiarTemporizadorDeBusqueda(): void {
+    if (this.temporizadorBusqueda) {
+      clearTimeout(this.temporizadorBusqueda);
+      this.temporizadorBusqueda = null;
+    }
   }
 
   protected cambiarPestana(valor: 'subir' | 'url' | 'biblioteca'): void {
@@ -560,9 +586,7 @@ export class MediaFields {
 
   protected alBuscar(valor: string): void {
     this.buscar.set(valor);
-    if (this.temporizadorBusqueda) {
-      clearTimeout(this.temporizadorBusqueda);
-    }
+    this.limpiarTemporizadorDeBusqueda();
     this.temporizadorBusqueda = setTimeout(() => {
       this.bibliotecaOffset.set(0);
       void this.cargarBiblioteca();
@@ -612,6 +636,15 @@ export class MediaFields {
   }
 
   protected async enviarAPapelera(item: MediaItem): Promise<void> {
+    // Confirmación + bloqueo de doble clic — la clave de confirmación
+    // existía en el catálogo de traducciones desde el principio pero nunca
+    // se cableó, y sin un estado "en curso" un doble clic dispara dos
+    // `DELETE` (hallazgo de code-review).
+    const confirmacion = this.transloco.translate('ui.media.papeleraConfirmacion');
+    if (this.borrandoId() || !window.confirm(confirmacion)) {
+      return;
+    }
+    this.borrandoId.set(item.id);
     this.error.set(null);
     try {
       await firstValueFrom(
@@ -620,6 +653,8 @@ export class MediaFields {
       await this.cargarBiblioteca();
     } catch (error) {
       this.error.set(this.mensajeDePapeleraEnUso(error));
+    } finally {
+      this.borrandoId.set(null);
     }
   }
 

@@ -68,6 +68,26 @@ def _requerir_permiso_del_kind(kind: str, permisos: set[Permission]) -> Permissi
     return permiso
 
 
+def _requerir_propiedad_o_permiso(
+    fila: Media, *, user_id: uuid.UUID, permisos: set[Permission]
+) -> None:
+    """Quien sube un medio, o quien tiene el permiso de escritura de SU
+    `kind`, puede gestionarlo (borrar/restaurar/recortar/editar metadatos).
+
+    Antes solo `borrar()` comprobaba esto — `restaurar()`, `recortar()` y
+    `actualizar_metadatos()` no comprobaban ni permiso ni propiedad, así que
+    cualquier miembro autenticado de la organización (sin importar su rol)
+    podía sacar de la papelera, recortar o editar el `alt`/carpeta de
+    CUALQUIER medio ajeno — incluido uno de un `kind` que ni siquiera podría
+    listar (hallazgo de code-review)."""
+    permiso = KIND_A_PERMISO.get(fila.kind)
+    puede_gestionar = fila.uploaded_by_user_id == user_id or (
+        permiso is not None and permiso in permisos
+    )
+    if not puede_gestionar:
+        raise PermissionDeniedError("No tienes permiso para gestionar este medio.")
+
+
 async def _crear_fila(
     session: AsyncSession,
     *,
@@ -253,16 +273,26 @@ async def _referencias_activas(session: AsyncSession, media_id: uuid.UUID) -> li
     if branding is not None:
         referencias.append({"tipo": "branding", "id": str(branding.organization_id)})
 
-    evento = (
-        await session.execute(select(Event).where(Event.cover_media_id == media_id))
-    ).scalar_one_or_none()
-    if evento is not None:
+    # Eventos y patrocinadores, a diferencia de `OrganizationBranding` (una
+    # fila por organización), pueden ser varios reutilizando el MISMO
+    # `media_id` — justo el caso de uso de una biblioteca "reutilizable".
+    # `scalar_one_or_none()` lanzaría `MultipleResultsFound` con dos
+    # coincidencias (500 en vez de 409, hallazgo de code-review): hace falta
+    # `.scalars().all()` y listar todas, no solo la primera.
+    eventos = (
+        (await session.execute(select(Event).where(Event.cover_media_id == media_id)))
+        .scalars()
+        .all()
+    )
+    for evento in eventos:
         referencias.append({"tipo": "evento", "id": str(evento.id), "nombre": evento.title})
 
-    patrocinador = (
-        await session.execute(select(Sponsor).where(Sponsor.logo_media_id == media_id))
-    ).scalar_one_or_none()
-    if patrocinador is not None:
+    patrocinadores = (
+        (await session.execute(select(Sponsor).where(Sponsor.logo_media_id == media_id)))
+        .scalars()
+        .all()
+    )
+    for patrocinador in patrocinadores:
         referencias.append(
             {"tipo": "patrocinador", "id": str(patrocinador.id), "nombre": patrocinador.name}
         )
@@ -281,12 +311,7 @@ async def borrar(
     fila = await session.get(Media, media_id)
     if fila is None or fila.organization_id != organization_id or fila.deleted_at is not None:
         raise NotFoundError("Ese medio no existe.")
-    permiso = KIND_A_PERMISO.get(fila.kind)
-    puede_borrar = fila.uploaded_by_user_id == user_id or (
-        permiso is not None and permiso in permisos
-    )
-    if not puede_borrar:
-        raise PermissionDeniedError("No tienes permiso para borrar este medio.")
+    _requerir_propiedad_o_permiso(fila, user_id=user_id, permisos=permisos)
 
     referencias = await _referencias_activas(session, media_id)
     if referencias:
@@ -299,11 +324,17 @@ async def borrar(
 
 
 async def restaurar(
-    session: AsyncSession, *, media_id: uuid.UUID, organization_id: uuid.UUID
+    session: AsyncSession,
+    *,
+    media_id: uuid.UUID,
+    organization_id: uuid.UUID,
+    user_id: uuid.UUID,
+    permisos: set[Permission],
 ) -> Media:
     fila = await session.get(Media, media_id)
     if fila is None or fila.organization_id != organization_id:
         raise NotFoundError("Ese medio no existe.")
+    _requerir_propiedad_o_permiso(fila, user_id=user_id, permisos=permisos)
     fila.deleted_at = None
     await session.flush()
     return fila
@@ -315,6 +346,7 @@ async def recortar(
     media_id: uuid.UUID,
     organization_id: uuid.UUID,
     uploaded_by_user_id: uuid.UUID,
+    permisos: set[Permission],
     x: float,
     y: float,
     width: float,
@@ -330,6 +362,7 @@ async def recortar(
         or original.deleted_at is not None
     ):
         raise NotFoundError("Ese medio no existe.")
+    _requerir_propiedad_o_permiso(original, user_id=uploaded_by_user_id, permisos=permisos)
 
     contenido, _mime = await get_storage().get_object(original.object_key)
     with Image.open(io.BytesIO(contenido)) as imagen:
@@ -371,14 +404,25 @@ async def actualizar_metadatos(
     *,
     media_id: uuid.UUID,
     organization_id: uuid.UUID,
+    user_id: uuid.UUID,
+    permisos: set[Permission],
     alt: str | None,
     folder_id: uuid.UUID | None,
+    alt_incluido: bool,
+    folder_id_incluido: bool,
 ) -> Media:
+    """`alt_incluido`/`folder_id_incluido` distinguen "no venía en la
+    petición" de "venía como `null`" — es un PATCH, no un PUT: enviar solo
+    `folder_id` no debe borrar el `alt` ya guardado (hallazgo de
+    code-review; antes se asignaban los dos incondicionalmente)."""
     fila = await session.get(Media, media_id)
     if fila is None or fila.organization_id != organization_id:
         raise NotFoundError("Ese medio no existe.")
-    fila.alt = alt
-    fila.folder_id = folder_id
+    _requerir_propiedad_o_permiso(fila, user_id=user_id, permisos=permisos)
+    if alt_incluido:
+        fila.alt = alt
+    if folder_id_incluido:
+        fila.folder_id = folder_id
     await session.flush()
     return fila
 

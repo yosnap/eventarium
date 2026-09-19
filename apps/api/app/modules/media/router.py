@@ -135,9 +135,15 @@ async def borrar(
 @router.post(
     "/{media_id}/restore", summary="Restaurar de la papelera", response_model=MediaResponse
 )
-async def restaurar(media_id: str, usuario: CurrentUserDep, session: DbDep) -> MediaResponse:
+async def restaurar(
+    media_id: str, usuario: CurrentUserDep, session: DbDep, permisos: PermissionsDep
+) -> MediaResponse:
     fila = await service.restaurar(
-        session, media_id=uuid.UUID(media_id), organization_id=usuario.organization_id
+        session,
+        media_id=uuid.UUID(media_id),
+        organization_id=usuario.organization_id,
+        user_id=usuario.id,
+        permisos=permisos,
     )
     return _media_response(fila)
 
@@ -146,13 +152,18 @@ async def restaurar(media_id: str, usuario: CurrentUserDep, session: DbDep) -> M
     "/{media_id}/crop", summary="Recortar (crea una imagen nueva)", response_model=MediaResponse
 )
 async def recortar(
-    media_id: str, cuerpo: MediaCropRequest, usuario: CurrentUserDep, session: DbDep
+    media_id: str,
+    cuerpo: MediaCropRequest,
+    usuario: CurrentUserDep,
+    session: DbDep,
+    permisos: PermissionsDep,
 ) -> MediaResponse:
     fila = await service.recortar(
         session,
         media_id=uuid.UUID(media_id),
         organization_id=usuario.organization_id,
         uploaded_by_user_id=usuario.id,
+        permisos=permisos,
         x=cuerpo.x,
         y=cuerpo.y,
         width=cuerpo.width,
@@ -163,14 +174,23 @@ async def recortar(
 
 @router.patch("/{media_id}", summary="Editar alt/carpeta", response_model=MediaResponse)
 async def actualizar(
-    media_id: str, cuerpo: MediaUpdateRequest, usuario: CurrentUserDep, session: DbDep
+    media_id: str,
+    cuerpo: MediaUpdateRequest,
+    usuario: CurrentUserDep,
+    session: DbDep,
+    permisos: PermissionsDep,
 ) -> MediaResponse:
+    campos_enviados = cuerpo.model_fields_set
     fila = await service.actualizar_metadatos(
         session,
         media_id=uuid.UUID(media_id),
         organization_id=usuario.organization_id,
+        user_id=usuario.id,
+        permisos=permisos,
         alt=cuerpo.alt,
         folder_id=uuid.UUID(cuerpo.folder_id) if cuerpo.folder_id else None,
+        alt_incluido="alt" in campos_enviados,
+        folder_id_incluido="folder_id" in campos_enviados,
     )
     return _media_response(fila)
 

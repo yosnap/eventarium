@@ -72,19 +72,26 @@ export interface RectanguloDeRecorte {
       font-size: var(--fs-sm);
     }
     .lienzo {
+      /* Ajustado al tamaño real de la imagen pintada (\`inline-block\` +
+         \`max-width\`/\`max-height\` sin \`width\` fijo en el \`<img>\`) — no
+         "contain" dentro de una caja más grande: si el contenedor pudiera
+         quedar más ancho o alto que la imagen, arrastrar sobre el hueco
+         sobrante normalizaría un rectángulo que no corresponde a ningún
+         píxel real (hallazgo de code-review: el recorte guardado no
+         coincidía con lo seleccionado). */
       position: relative;
-      max-height: 20rem;
-      overflow: hidden;
+      display: inline-block;
+      max-width: 100%;
       border-radius: var(--radius-md);
+      overflow: hidden;
       touch-action: none;
       cursor: crosshair;
       user-select: none;
     }
     .lienzo img {
       display: block;
-      width: 100%;
+      max-width: 100%;
       max-height: 20rem;
-      object-fit: contain;
       pointer-events: none;
     }
     .seleccion {

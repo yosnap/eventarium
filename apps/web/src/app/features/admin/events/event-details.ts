@@ -68,11 +68,12 @@ interface EventoResumen {
       } @else {
         <app-card [heading]="t('admin.events.formulario.portada')">
           <app-media-picker
+            #portadaPicker
             [etiqueta]="t('admin.events.formulario.portada')"
             [aceptados]="PORTADA_ACEPTADOS"
             kind="events"
             [url]="portadaUrl()"
-            (mediaElegido)="asignarPortada($event)"
+            (mediaElegido)="asignarPortada($event, portadaPicker)"
           />
           @if (errorPortada(); as mensaje) {
             <app-alert tone="error">{{ mensaje }}</app-alert>
@@ -211,8 +212,10 @@ export class EventDetails implements OnInit {
 
   /** El fichero/URL/biblioteca ya se resolvió a un `media_id` dentro de
    * `MediaPicker` (Fase 3 del plan de biblioteca de medios): aquí solo queda
-   * asignarlo como portada. */
-  protected async asignarPortada(media: MediaElegida): Promise<void> {
+   * asignarlo como portada. Si la asignación falla, `picker.revertir()`
+   * deshace la previsualización optimista — si no, se quedaría mostrando
+   * la imagen nueva como si estuviera guardada (hallazgo de code-review). */
+  protected async asignarPortada(media: MediaElegida, picker: MediaPicker): Promise<void> {
     this.errorPortada.set(null);
     try {
       const actualizado = await firstValueFrom(
@@ -222,6 +225,7 @@ export class EventDetails implements OnInit {
       );
       this.portadaUrl.set(actualizado.cover_url);
     } catch (error) {
+      picker.revertir();
       this.errorPortada.set(
         error instanceof ApiError
           ? error.message

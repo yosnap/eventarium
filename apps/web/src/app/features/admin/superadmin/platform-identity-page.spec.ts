@@ -4,10 +4,11 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import es from '../../../../../public/assets/i18n/es-ES.json';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../../testing/axe';
+import { MediaPicker } from '../../../shared/ui/media-picker';
 import { PlatformIdentityPage } from './platform-identity-page';
 
 const IDENTIDAD_URL = '/api/v1/admin/identity';
@@ -96,10 +97,12 @@ describe('PlatformIdentityPage', () => {
 
   it('asigna el media_id elegido en el picker y actualiza la URL', async () => {
     const fixture = await crearYCargar();
+    const pickerFalso = { revertir: vi.fn() } as unknown as MediaPicker;
 
     const asignacion = fixture.componentInstance.asignarImagen(
       { id: 'media-1', url: 'https://cdn.test/logo.png' },
       'logo',
+      pickerFalso,
     );
     await avanzar(fixture);
     const peticion = http.expectOne(`${IDENTIDAD_URL}/logo`);
@@ -109,5 +112,24 @@ describe('PlatformIdentityPage', () => {
     await asignacion;
 
     expect(fixture.componentInstance.logoUrl()).toBe('https://cdn.test/logo.png');
+    expect(pickerFalso.revertir).not.toHaveBeenCalled();
+  });
+
+  it('si la asignación falla, revierte la previsualización optimista del picker', async () => {
+    const fixture = await crearYCargar();
+    const pickerFalso = { revertir: vi.fn() } as unknown as MediaPicker;
+
+    const asignacion = fixture.componentInstance.asignarImagen(
+      { id: 'media-1', url: 'https://cdn.test/logo.png' },
+      'logo',
+      pickerFalso,
+    );
+    await avanzar(fixture);
+    http
+      .expectOne(`${IDENTIDAD_URL}/logo`)
+      .flush('error', { status: 500, statusText: 'Error' });
+    await asignacion;
+
+    expect(pickerFalso.revertir).toHaveBeenCalledOnce();
   });
 });

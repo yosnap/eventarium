@@ -250,7 +250,7 @@ async def list_public_events(session: SessionDep) -> list[PublicEventSummary]:
             slug=evento.slug,
             title=evento.title,
             summary=evento.summary,
-            cover_url=await _cover_url(session, evento),
+            cover_url=cover_url,
             timezone=evento.timezone,
             starts_at=evento.starts_at,
             ends_at=evento.ends_at,
@@ -265,7 +265,7 @@ async def list_public_events(session: SessionDep) -> list[PublicEventSummary]:
             price_currency=precio.tipo.currency if precio else None,
             price_multiple=precio.varios_precios if precio else False,
         )
-        for evento, reservadas, precio in filas
+        for evento, reservadas, precio, cover_url in filas
     ]
 
 

@@ -252,12 +252,19 @@ async def actualizar_metadatos(
     media_id: uuid.UUID,
     alt: str | None,
     folder_id: uuid.UUID | None,
+    alt_incluido: bool,
+    folder_id_incluido: bool,
 ) -> PlatformMedia:
+    """`alt_incluido`/`folder_id_incluido`: ver el mismo parámetro en
+    `service.actualizar_metadatos` — es un PATCH, no debe borrar el campo
+    que no venía en la petición."""
     fila = await session.get(PlatformMedia, media_id)
     if fila is None:
         raise NotFoundError("Ese medio no existe.")
-    fila.alt = alt
-    fila.folder_id = folder_id
+    if alt_incluido:
+        fila.alt = alt
+    if folder_id_incluido:
+        fila.folder_id = folder_id
     await session.flush()
     return fila
 

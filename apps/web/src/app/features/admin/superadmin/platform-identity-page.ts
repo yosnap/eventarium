@@ -79,20 +79,22 @@ const CLAVE_IDENTIDAD = '/admin/identity';
       <app-card [heading]="t('admin.plataforma.identidad.imagenes')">
         <div class="imagenes">
           <app-media-picker
+            #logoPicker
             class="imagen"
             [etiqueta]="t('admin.plataforma.identidad.logotipo')"
             [aceptados]="LOGO_ACEPTADOS"
             kind="platform"
             [url]="logoUrl()"
-            (mediaElegido)="asignarImagen($event, 'logo')"
+            (mediaElegido)="asignarImagen($event, 'logo', logoPicker)"
           />
           <app-media-picker
+            #faviconPicker
             class="imagen"
             [etiqueta]="t('admin.plataforma.identidad.favicon')"
             [aceptados]="LOGO_ACEPTADOS"
             kind="platform"
             [url]="faviconUrl()"
-            (mediaElegido)="asignarImagen($event, 'favicon')"
+            (mediaElegido)="asignarImagen($event, 'favicon', faviconPicker)"
           />
         </div>
       </app-card>
@@ -221,8 +223,13 @@ export class PlatformIdentityPage {
 
   /** El fichero/URL/biblioteca ya se resolvió a un `media_id` dentro de
    * `MediaPicker` (Fase 3 del plan de biblioteca de medios): aquí solo queda
-   * asignarlo al campo correspondiente de la identidad de plataforma. */
-  async asignarImagen(media: MediaElegida, tipo: 'logo' | 'favicon'): Promise<void> {
+   * asignarlo al campo correspondiente de la identidad de plataforma. Si
+   * falla, `picker.revertir()` deshace la previsualización optimista. */
+  async asignarImagen(
+    media: MediaElegida,
+    tipo: 'logo' | 'favicon',
+    picker: MediaPicker,
+  ): Promise<void> {
     this.guardado.set(false);
     this.error.set(null);
     try {
@@ -236,6 +243,7 @@ export class PlatformIdentityPage {
       this.aplicar(identidad);
       this.guardado.set(true);
     } catch (fallo) {
+      picker.revertir();
       this.error.set(this.mensajeDeError(fallo, 'admin.plataforma.identidad.errorSubida'));
     }
   }

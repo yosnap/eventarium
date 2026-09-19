@@ -372,11 +372,14 @@ async def crop_platform_media(
 async def update_platform_media(
     media_id: str, cuerpo: MediaUpdateRequest, superadmin: Superadmin, session: MaintenanceDb
 ) -> MediaResponse:
+    campos_enviados = cuerpo.model_fields_set
     fila = await platform_media_service.actualizar_metadatos(
         session,
         media_id=uuid.UUID(media_id),
         alt=cuerpo.alt,
         folder_id=uuid.UUID(cuerpo.folder_id) if cuerpo.folder_id else None,
+        alt_incluido="alt" in campos_enviados,
+        folder_id_incluido="folder_id" in campos_enviados,
     )
     return _platform_media_response(fila)
 

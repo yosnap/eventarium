@@ -13,14 +13,18 @@ export type { MediaElegida, MediaKind };
  * Sin imagen todavía, muestra el dropzone/pestañas (`MediaFields`) directo
  * en la página: abrir un modal para el primer paso sería fricción de más
  * cuando no hay nada que el modal tenga que tapar. Con imagen ya elegida,
- * pasa a previsualización + Cambiar/Quitar, y "Cambiar" sí abre el modal
- * (`MediaDialog`) — ahí sí hace falta, para no ocupar el espacio del campo
- * con el dropzone entero solo por sustituir una imagen que ya se ve bien.
+ * pasa a previsualización + "Cambiar", que sí abre el modal (`MediaDialog`)
+ * — ahí sí hace falta, para no ocupar el espacio del campo con el dropzone
+ * entero solo por sustituir una imagen que ya se ve bien.
  *
- * "Quitar" es puramente local (limpia `url`/`mediaId`): nunca llama a
- * `DELETE .../media/{id}` — enviar una imagen a la papelera es una acción
- * explícita nueva, dentro del modal de biblioteca (`MediaFields`), no algo
- * que "Quitar" haga de forma implícita (hallazgo de red-team 11).
+ * Sin "Quitar" a propósito: ninguno de los 4 endpoints de asignación
+ * (logo de organización, identidad de plataforma, portada de evento, logo
+ * de patrocinador) admite desasignar (no hay contrato `{media_id: null}`),
+ * así que un botón "Quitar" que solo limpiara el campo local sería
+ * engañoso — la imagen seguiría asignada de verdad en el servidor y
+ * reaparecería al recargar o al guardar (hallazgo de code-review). Enviar
+ * una imagen a la papelera SIGUE siendo una acción real, pero vive dentro
+ * del modal de biblioteca (`MediaFields`), no aquí.
  */
 @Component({
   selector: 'app-media-picker',
@@ -35,9 +39,6 @@ export type { MediaElegida, MediaKind };
           <div class="acciones">
             <app-button variant="secundario" type="button" (pulsado)="abrir()">
               {{ t('ui.media.cambiar') }}
-            </app-button>
-            <app-button variant="terciario" type="button" (pulsado)="quitar()">
-              {{ t('ui.media.quitar') }}
             </app-button>
           </div>
         </div>
@@ -114,19 +115,29 @@ export class MediaPicker {
   readonly mediaElegido = output<MediaElegida>();
 
   private readonly dialogo = viewChild.required(MediaDialog);
+  private anterior: { url: string | null; mediaId: string | null } | null = null;
 
   protected abrir(): void {
     this.dialogo().abrir();
   }
 
   protected alElegirMedia(media: MediaElegida): void {
+    this.anterior = { url: this.url(), mediaId: this.mediaId() };
     this.url.set(media.url);
     this.mediaId.set(media.id);
     this.mediaElegido.emit(media);
   }
 
-  protected quitar(): void {
-    this.url.set(null);
-    this.mediaId.set(null);
+  /** Para quien asigna de inmediato (sin guardado diferido): si la
+   * petición de asignación falla, la previsualización no debe seguir
+   * mostrando la imagen nueva como si estuviera guardada — el consumidor
+   * llama a esto desde su propio `catch` (hallazgo de code-review). */
+  revertir(): void {
+    if (this.anterior) {
+      this.url.set(this.anterior.url);
+      this.mediaId.set(this.anterior.mediaId);
+      this.anterior = null;
+    }
   }
+
 }

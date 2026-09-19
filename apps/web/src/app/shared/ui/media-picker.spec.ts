@@ -44,27 +44,14 @@ describe('MediaPicker', () => {
     http.verify();
   });
 
-  it('con imagen ya elegida, muestra "Cambiar" y "Quitar"', async () => {
+  it('con imagen ya elegida, muestra "Cambiar" pero no "Quitar"', async () => {
     await avanzar(fixture);
     const raiz = fixture.nativeElement as HTMLElement;
     expect(raiz.textContent).toContain('Cambiar');
-    expect(raiz.textContent).toContain('Quitar');
-  });
-
-  it('"Quitar" limpia la url y el media_id, sin llamar a ningún endpoint', async () => {
-    await avanzar(fixture);
-    const raiz = fixture.nativeElement as HTMLElement;
-    const botonQuitar = Array.from(raiz.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('Quitar'),
-    ) as HTMLButtonElement;
-    botonQuitar.click();
-    await avanzar(fixture);
-
-    expect(fixture.componentInstance.url()).toBeNull();
-    expect(fixture.componentInstance.mediaId()).toBeNull();
-    // Ninguna petición HTTP pendiente: `http.verify()` en `afterEach` ya lo
-    // comprueba, pero el punto del test es justo que no la haya (hallazgo de
-    // red-team 11 — "Quitar" nunca llama a `DELETE`).
+    // Sin "Quitar": ningún endpoint de asignación admite un `media_id: null`
+    // que lo justifique — un botón así sería puramente cosmético y la
+    // imagen reaparecería al recargar (hallazgo de code-review).
+    expect(raiz.textContent).not.toContain('Quitar');
   });
 
   it('elegir un medio (vía MediaFields) actualiza url/mediaId y lo emite', async () => {
@@ -89,5 +76,29 @@ describe('MediaPicker', () => {
     expect(fixture.componentInstance.url()).toBe('https://cdn.test/logo.webp');
     expect(fixture.componentInstance.mediaId()).toBe('media-1');
     expect(emitido).toEqual({ id: 'media-1', url: 'https://cdn.test/logo.webp' });
+  });
+
+  it('revertir() deshace la última elección — para cuando el consumidor no logra asignarla', async () => {
+    await avanzar(fixture);
+
+    const raiz = fixture.nativeElement as HTMLElement;
+    (raiz.querySelector('button') as HTMLButtonElement).click(); // "Cambiar" abre el diálogo
+    await avanzar(fixture);
+    const campoFichero = raiz.querySelector('input[type="file"]') as HTMLInputElement;
+    const fichero = new File([new Uint8Array([1])], 'nuevo.png', { type: 'image/png' });
+    Object.defineProperty(campoFichero, 'files', { value: [fichero] });
+    campoFichero.dispatchEvent(new Event('change'));
+    await avanzar(fixture);
+
+    http
+      .expectOne('/api/v1/organizations/me/media')
+      .flush({ id: 'media-nuevo', url: 'https://cdn.test/nuevo.webp' });
+    await avanzar(fixture);
+    expect(fixture.componentInstance.url()).toBe('https://cdn.test/nuevo.webp');
+
+    // El consumidor llama a esto si la asignación real (su propio PUT) falla.
+    fixture.componentInstance.revertir();
+    expect(fixture.componentInstance.url()).toBe('https://ejemplo.test/logo.png');
+    expect(fixture.componentInstance.mediaId()).toBeNull();
   });
 });

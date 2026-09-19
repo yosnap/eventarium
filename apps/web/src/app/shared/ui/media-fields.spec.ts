@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@jsverse/transloco';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import es from '../../../../public/assets/i18n/es-ES.json';
 import { errorInterceptor } from '../../core/api/error.interceptor';
@@ -45,6 +45,7 @@ describe('MediaFields', () => {
 
   afterEach(() => {
     http.verify();
+    vi.restoreAllMocks();
   });
 
   it('con permitirUrl por defecto, muestra las 3 pestañas', async () => {
@@ -180,12 +181,14 @@ describe('MediaFields', () => {
     });
     await avanzar(fixture);
 
+    const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const botonPapelera = Array.from(raiz.querySelectorAll('button')).find((b) =>
       b.textContent?.includes('papelera'),
     ) as HTMLButtonElement;
     botonPapelera.click();
     await avanzar(fixture);
 
+    expect(confirmar).toHaveBeenCalledOnce();
     http.expectOne((r) => r.method === 'DELETE').flush(
       { detail: 'En uso.', used_by: [{ tipo: 'evento', id: 'e1', nombre: 'IA Week 2026' }] },
       { status: 409, statusText: 'Conflict' },
@@ -193,5 +196,30 @@ describe('MediaFields', () => {
     await avanzar(fixture);
 
     expect(raiz.textContent).toContain('IA Week 2026');
+  });
+
+  it('cancelar la confirmación de la papelera no dispara ningún DELETE', async () => {
+    await avanzar(fixture);
+    const raiz = fixture.nativeElement as HTMLElement;
+    const tabs = Array.from(raiz.querySelectorAll('[role="tab"]')) as HTMLButtonElement[];
+    tabs.find((t) => t.textContent?.includes('Biblioteca'))!.click();
+    await avanzar(fixture);
+    http.expectOne((r) => r.url === CARPETAS_URL).flush([]);
+    http.expectOne((r) => r.url === MEDIA_URL).flush({
+      items: [{ id: 'a', url: 'https://cdn.test/a.png', filename: 'a.png', alt: null }],
+      total: 1,
+      limit: 12,
+      offset: 0,
+    });
+    await avanzar(fixture);
+
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const botonPapelera = Array.from(raiz.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('papelera'),
+    ) as HTMLButtonElement;
+    botonPapelera.click();
+    await avanzar(fixture);
+
+    http.expectNone((r) => r.method === 'DELETE');
   });
 });

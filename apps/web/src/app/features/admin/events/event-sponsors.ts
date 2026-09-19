@@ -107,12 +107,13 @@ function vacio(): {
                     </span>
                   </div>
                   <app-media-picker
+                    #logoPicker
                     class="logo-picker"
                     [etiqueta]="t('admin.events.sponsors.logoDe', { nombre: patrocinador.name })"
                     [aceptados]="LOGO_ACEPTADOS"
                     kind="sponsors"
                     [url]="patrocinador.logo_url"
-                    (mediaElegido)="asignarLogo(patrocinador.id, $event)"
+                    (mediaElegido)="asignarLogo(patrocinador.id, $event, logoPicker)"
                   />
                   <div class="acciones">
                     <app-button variant="secundario" type="button" (pulsado)="editar(patrocinador)">
@@ -444,9 +445,15 @@ export class EventSponsors implements OnInit {
 
   /** El fichero/URL/biblioteca ya se resolvió a un `media_id` dentro de
    * `MediaPicker` (Fase 3 del plan de biblioteca de medios): aquí solo queda
-   * asignarlo al patrocinador de ESA fila — `sponsorId` lo aporta la
-   * plantilla, el picker no lo conoce. */
-  protected async asignarLogo(sponsorId: string, media: MediaElegida): Promise<void> {
+   * asignarlo al patrocinador de ESA fila — `sponsorId` y `picker` los
+   * aporta la plantilla (variable de referencia dentro del `@for`), el
+   * picker no conoce ninguno de los dos por sí mismo. Si la asignación
+   * falla, `picker.revertir()` deshace la previsualización optimista. */
+  protected async asignarLogo(
+    sponsorId: string,
+    media: MediaElegida,
+    picker: MediaPicker,
+  ): Promise<void> {
     this.error.set(null);
     try {
       await firstValueFrom(
@@ -456,6 +463,7 @@ export class EventSponsors implements OnInit {
       );
       await this.cargar();
     } catch (error) {
+      picker.revertir();
       this.error.set(
         error instanceof ApiError
           ? error.message
