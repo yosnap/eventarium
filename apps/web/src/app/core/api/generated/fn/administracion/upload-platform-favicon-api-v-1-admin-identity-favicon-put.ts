@@ -11,10 +11,10 @@ import { BodyUploadPlatformFaviconApiV1AdminIdentityFaviconPut } from '../../mod
 import { PlatformBrandingResponse } from '../../models/platform-branding-response';
 
 export interface UploadPlatformFaviconApiV1AdminIdentityFaviconPut$Params {
-      body: BodyUploadPlatformFaviconApiV1AdminIdentityFaviconPut
+      body?: BodyUploadPlatformFaviconApiV1AdminIdentityFaviconPut
 }
 
-export function uploadPlatformFaviconApiV1AdminIdentityFaviconPut(http: HttpClient, rootUrl: string, params: UploadPlatformFaviconApiV1AdminIdentityFaviconPut$Params, context?: HttpContext): Observable<StrictHttpResponse<PlatformBrandingResponse>> {
+export function uploadPlatformFaviconApiV1AdminIdentityFaviconPut(http: HttpClient, rootUrl: string, params?: UploadPlatformFaviconApiV1AdminIdentityFaviconPut$Params, context?: HttpContext): Observable<StrictHttpResponse<PlatformBrandingResponse>> {
   const rb = new RequestBuilder(rootUrl, uploadPlatformFaviconApiV1AdminIdentityFaviconPut.PATH, 'put');
   if (params) {
     rb.body(params.body, 'multipart/form-data');

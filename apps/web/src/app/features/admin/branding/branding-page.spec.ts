@@ -1,4 +1,4 @@
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
@@ -7,6 +7,7 @@ import { TranslocoTestingModule } from '@jsverse/transloco';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BrandingPage } from './branding-page';
+import { errorInterceptor } from '../../../core/api/error.interceptor';
 import { ThemingService } from '../../../core/theming/theming.service';
 import { plantillaDeTemaDePrueba } from '../../../../testing/branding.fixture';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../../testing/axe';
@@ -15,6 +16,7 @@ import es from '../../../../../public/assets/i18n/es-ES.json';
 const ORGANIZACION_URL = '/api/v1/organizations/me';
 const BRANDING_URL = '/api/v1/organizations/me/branding';
 const CATALOGO_URL = '/api/v1/organizations/me/theme-templates';
+const MEDIA_URL = '/api/v1/organizations/me/media';
 
 const ORGANIZACION_VALIDA = { name: 'Organización de prueba' };
 
@@ -55,7 +57,7 @@ describe('BrandingPage', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideRouter([]),
-        provideHttpClient(),
+        provideHttpClient(withInterceptors([errorInterceptor])),
         provideHttpClientTesting(),
         { provide: ThemingService, useValue: { load: themingLoad } },
       ],
@@ -151,7 +153,10 @@ describe('BrandingPage', () => {
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
-  it('rechaza en el cliente un logotipo con un tipo no permitido', async () => {
+  it('un logotipo rechazado por el servidor no queda pendiente de asignar', async () => {
+    // La validación del tipo real (por bytes, no por extensión) vive en el
+    // servidor (`validate_upload`) desde que `MediaFields` sube directo a la
+    // biblioteca — ya no hay una comprobación duplicada en el cliente.
     const fixture = await crearYCargar();
 
     const campoFichero = fixture.nativeElement.querySelector(
@@ -162,14 +167,64 @@ describe('BrandingPage', () => {
     campoFichero.dispatchEvent(new Event('change'));
     await avanzar(fixture);
 
-    expect(fixture.nativeElement.textContent).toContain('PNG, JPEG o WebP');
+    const subida = http.expectOne(MEDIA_URL);
+    expect(subida.request.method).toBe('POST');
+    subida.flush(
+      { title: 'Datos no válidos', detail: 'Tipo de fichero no admitido.' },
+      { status: 422, statusText: 'Unprocessable Entity' },
+    );
+    await avanzar(fixture);
+
+    expect(fixture.nativeElement.textContent).toContain('Tipo de fichero no admitido.');
 
     (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
       new Event('submit'),
     );
     await avanzar(fixture);
-    // Solo el PUT de datos de branding, nunca el de subida del logo rechazado.
+    // Solo el PUT de datos de branding, nunca el de asignación del logo rechazado.
     http.expectOne(BRANDING_URL).flush(BRANDING_VALIDO);
+  });
+
+  it('elegir un logotipo nuevo lo sube a la biblioteca y lo asigna al guardar', async () => {
+    const fixture = await crearYCargar();
+
+    const campoFichero = fixture.nativeElement.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+    const fichero = new File([new Uint8Array([1])], 'logo.png', { type: 'image/png' });
+    Object.defineProperty(campoFichero, 'files', { value: [fichero] });
+    campoFichero.dispatchEvent(new Event('change'));
+    await avanzar(fixture);
+
+    const subida = http.expectOne(MEDIA_URL);
+    expect(subida.request.method).toBe('POST');
+    expect(subida.request.body instanceof FormData).toBe(true);
+    subida.flush({ id: 'media-nuevo', url: 'https://cdn.test/nuevo.webp' });
+    await avanzar(fixture);
+
+    const previsualizacion = fixture.nativeElement.querySelector(
+      '.previsualizacion',
+    ) as HTMLImageElement;
+    expect(previsualizacion.src).toBe('https://cdn.test/nuevo.webp');
+
+    const formulario = fixture.nativeElement.querySelector('form') as HTMLFormElement;
+    formulario.dispatchEvent(new Event('submit'));
+    await avanzar(fixture);
+    http.expectOne(BRANDING_URL).flush(BRANDING_VALIDO);
+    await avanzar(fixture);
+
+    const asignacion = http.expectOne(`${BRANDING_URL}/logo`);
+    expect(asignacion.request.method).toBe('PUT');
+    expect(asignacion.request.body).toEqual({ media_id: 'media-nuevo' });
+    asignacion.flush({ ...BRANDING_VALIDO, logo_url: 'https://cdn.test/nuevo.webp' });
+    await avanzar(fixture);
+    await avanzar(fixture);
+
+    // El `media_id` ya asignado no queda pendiente para un segundo guardado.
+    formulario.dispatchEvent(new Event('submit'));
+    await avanzar(fixture);
+    http.expectOne(BRANDING_URL).flush({ ...BRANDING_VALIDO, logo_url: 'https://cdn.test/nuevo.webp' });
+    await avanzar(fixture);
   });
 
   it('si falla la carga inicial, no deja un formulario enviable que pueda sobrescribir el branding', async () => {

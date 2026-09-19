@@ -12,7 +12,8 @@ import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
 import { Select, SelectOption } from '../../../shared/ui/select';
 import { PageHeader } from '../../../shared/ui/page-header';
-import { MediaPicker } from '../../../shared/ui/media-picker';
+import { MediaElegida, MediaPicker } from '../../../shared/ui/media-picker';
+import { LOGO_ACEPTADOS } from '../../../shared/uploads/image-upload-constraints';
 
 /** Identidad de la plataforma tal y como la devuelve `GET /admin/identity`. */
 interface IdentidadDePlataforma {
@@ -80,20 +81,18 @@ const CLAVE_IDENTIDAD = '/admin/identity';
           <app-media-picker
             class="imagen"
             [etiqueta]="t('admin.plataforma.identidad.logotipo')"
-            aceptados="image/png,image/jpeg,image/webp"
+            [aceptados]="LOGO_ACEPTADOS"
+            kind="platform"
             [url]="logoUrl()"
-            [permitirUrl]="false"
-            [permitirQuitar]="false"
-            (ficheroElegido)="subirImagenDirecta($event, 'logo')"
+            (mediaElegido)="asignarImagen($event, 'logo')"
           />
           <app-media-picker
             class="imagen"
             [etiqueta]="t('admin.plataforma.identidad.favicon')"
-            aceptados="image/png,image/jpeg,image/webp"
+            [aceptados]="LOGO_ACEPTADOS"
+            kind="platform"
             [url]="faviconUrl()"
-            [permitirUrl]="false"
-            [permitirQuitar]="false"
-            (ficheroElegido)="subirImagenDirecta($event, 'favicon')"
+            (mediaElegido)="asignarImagen($event, 'favicon')"
           />
         </div>
       </app-card>
@@ -143,6 +142,8 @@ const CLAVE_IDENTIDAD = '/admin/identity';
   `,
 })
 export class PlatformIdentityPage {
+  protected readonly LOGO_ACEPTADOS = LOGO_ACEPTADOS;
+
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
@@ -218,20 +219,19 @@ export class PlatformIdentityPage {
     }
   }
 
-  async subirImagenDirecta(fichero: File, tipo: 'logo' | 'favicon'): Promise<void> {
-    await this.subirImagen(fichero, tipo);
-  }
-
-  private async subirImagen(fichero: File, tipo: 'logo' | 'favicon'): Promise<void> {
+  /** El fichero/URL/biblioteca ya se resolvió a un `media_id` dentro de
+   * `MediaPicker` (Fase 3 del plan de biblioteca de medios): aquí solo queda
+   * asignarlo al campo correspondiente de la identidad de plataforma. */
+  async asignarImagen(media: MediaElegida, tipo: 'logo' | 'favicon'): Promise<void> {
     this.guardado.set(false);
     this.error.set(null);
-    const datos = new FormData();
-    datos.append('fichero', fichero);
     try {
       const identidad = await firstValueFrom(
-        this.http.put<IdentidadDePlataforma>(this.api.url(`${CLAVE_IDENTIDAD}/${tipo}`), datos, {
-          headers: this.api.serverForwardHeaders(),
-        }),
+        this.http.put<IdentidadDePlataforma>(
+          this.api.url(`${CLAVE_IDENTIDAD}/${tipo}`),
+          { media_id: media.id },
+          { headers: this.api.serverForwardHeaders() },
+        ),
       );
       this.aplicar(identidad);
       this.guardado.set(true);

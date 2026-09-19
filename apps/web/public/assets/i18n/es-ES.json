@@ -1997,9 +1997,24 @@
       "oPulsaParaElegir": "o pulsa para elegir un fichero",
       "urlEtiqueta": "Dirección de la imagen",
       "usarUrl": "Usar esta URL",
+      "subiendoUrl": "Descargando y procesando…",
       "bibliotecaVacia": "Todavía no hay imágenes guardadas.",
+      "sinResultados": "Ninguna imagen coincide con la búsqueda.",
+      "buscarEtiqueta": "Buscar por nombre",
+      "carpetaEtiqueta": "Carpeta",
+      "todasLasCarpetas": "Todas las carpetas",
+      "anterior": "Anterior",
+      "siguiente": "Siguiente",
+      "paginaDe": "Página {{actual}} de {{total}}",
       "cambiar": "Cambiar",
-      "quitar": "Quitar"
+      "quitar": "Quitar",
+      "papelera": "Enviar a la papelera",
+      "papeleraConfirmacion": "¿Enviar esta imagen a la papelera?",
+      "enUso": "En uso por: {{recursos}} — no se puede borrar.",
+      "recortar": "Recortar",
+      "confirmarRecorte": "Confirmar recorte",
+      "usarRecorte": "Usar esta versión",
+      "arrastraParaRecortar": "Arrastra sobre la imagen para elegir el recorte."
     }
   }
 }

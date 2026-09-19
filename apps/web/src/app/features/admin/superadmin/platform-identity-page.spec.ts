@@ -94,20 +94,19 @@ describe('PlatformIdentityPage', () => {
     expect(opciones[0].value).toBe('');
   });
 
-  it('sube el logotipo como multipart y actualiza la URL', async () => {
+  it('asigna el media_id elegido en el picker y actualiza la URL', async () => {
     const fixture = await crearYCargar();
 
-    const entrada = document.createElement('input');
-    entrada.type = 'file';
-    const fichero = new File([new Uint8Array([1])], 'logo.png', { type: 'image/png' });
-    Object.defineProperty(entrada, 'files', { value: [fichero] });
-
-    const subida = fixture.componentInstance.subirImagenDirecta(fichero, 'logo');
+    const asignacion = fixture.componentInstance.asignarImagen(
+      { id: 'media-1', url: 'https://cdn.test/logo.png' },
+      'logo',
+    );
     await avanzar(fixture);
     const peticion = http.expectOne(`${IDENTIDAD_URL}/logo`);
     expect(peticion.request.method).toBe('PUT');
+    expect(peticion.request.body).toEqual({ media_id: 'media-1' });
     peticion.flush({ ...IDENTIDAD, logo_url: 'https://cdn.test/logo.png' });
-    await subida;
+    await asignacion;
 
     expect(fixture.componentInstance.logoUrl()).toBe('https://cdn.test/logo.png');
   });

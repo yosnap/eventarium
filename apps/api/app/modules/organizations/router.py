@@ -5,13 +5,15 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi import APIRouter, Depends, File, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import CurrentUserDep, DbDep, PermissionsDep, require_permission
 from app.core.permissions import Permission
 from app.core.storage import build_object_key, get_storage, validate_upload
 from app.core.tasks import send_invitation_email
+from app.modules.media import service as media_service
+from app.modules.media.models import Media
 from app.modules.organizations import (
     invitations_service,
     members_service,
@@ -43,15 +45,24 @@ from app.shared.pagination import Page, PageParams, page_params
 router = APIRouter(prefix="/organizations", tags=["organizaciones"])
 
 
-def _branding_response(branding: OrganizationBranding | None) -> BrandingAdminResponse:
-    almacen = get_storage()
+async def _branding_response(
+    session: AsyncSession, branding: OrganizationBranding | None
+) -> BrandingAdminResponse:
     if branding is None:
         return BrandingAdminResponse(social_links=[])
+    almacen = get_storage()
+    if branding.logo_media_id is not None:
+        media = await session.get(Media, branding.logo_media_id)
+        logo_url = almacen.public_url(media.object_key) if media else None
+    elif branding.logo_object_key:
+        logo_url = almacen.public_url(branding.logo_object_key)
+    else:
+        logo_url = None
     return BrandingAdminResponse(
         theme_template_id=str(branding.theme_template_id) if branding.theme_template_id else None,
         social_links=branding.social_links,
         organizer_blurb=branding.organizer_blurb,
-        logo_url=almacen.public_url(branding.logo_object_key) if branding.logo_object_key else None,
+        logo_url=logo_url,
         favicon_url=almacen.public_url(branding.favicon_object_key)
         if branding.favicon_object_key
         else None,
@@ -125,7 +136,8 @@ async def update_me(
     dependencies=[require_permission(Permission.ORGANIZATIONS_READ)],
 )
 async def get_branding(usuario: CurrentUserDep, session: DbDep) -> BrandingAdminResponse:
-    return _branding_response(await repository.get_branding(session, usuario.organization_id))
+    branding = await repository.get_branding(session, usuario.organization_id)
+    return await _branding_response(session, branding)
 
 
 @router.put(
@@ -160,7 +172,7 @@ async def update_branding(
     branding.social_links = [enlace.model_dump() for enlace in datos.social_links]
     branding.organizer_blurb = datos.organizer_blurb
     await session.flush()
-    return _branding_response(branding)
+    return await _branding_response(session, branding)
 
 
 @router.get(
@@ -192,34 +204,69 @@ async def list_theme_templates_catalog(
 
 @router.put(
     "/me/branding/logo",
-    summary="Subir el logotipo",
-    description="Acepta PNG, JPEG o WebP de hasta 5 MB. El tipo se comprueba por contenido.",
+    summary="Subir o asignar el logotipo",
+    description=(
+        "Multipart (`fichero`): sube una imagen nueva, PNG/JPEG/WebP de hasta "
+        "5 MB. JSON (`{media_id}`): asigna una imagen ya subida a la "
+        "biblioteca de medios."
+    ),
     response_model=BrandingAdminResponse,
     dependencies=[require_permission(Permission.BRANDING_WRITE)],
 )
 async def upload_logo(
+    request: Request,
     usuario: CurrentUserDep,
     session: DbDep,
-    fichero: Annotated[UploadFile, File(description="Imagen del logotipo")],
+    permisos: PermissionsDep,
+    fichero: Annotated[UploadFile | None, File(description="Imagen del logotipo")] = None,
 ) -> BrandingAdminResponse:
-    contenido = await fichero.read()
-    mime, extension = validate_upload(contenido)
-
-    almacen = get_storage()
-    clave = build_object_key(usuario.organization_id, "branding/logo", extension)
-    await almacen.put_object(clave, contenido, mime)
-
     branding = await repository.get_branding(session, usuario.organization_id)
     if branding is None:
         branding = OrganizationBranding(organization_id=usuario.organization_id)
         session.add(branding)
-    anterior = branding.logo_object_key
-    branding.logo_object_key = clave
+
+    anterior_media_id = branding.logo_media_id
+    anterior_object_key = branding.logo_object_key
+    almacen = get_storage()
+
+    if request.headers.get("content-type", "").startswith("application/json"):
+        cuerpo = await request.json()
+        media_id = cuerpo.get("media_id")
+        if not media_id:
+            raise ValidationDomainError("Falta «media_id».")
+        media = await media_service.obtener_visible(
+            session,
+            media_id=uuid.UUID(media_id),
+            organization_id=usuario.organization_id,
+            kind="branding",
+            user_id=usuario.id,
+            permisos=permisos,
+        )
+        branding.logo_media_id = media.id
+        branding.logo_object_key = None
+    else:
+        if fichero is None:
+            raise ValidationDomainError("Falta el fichero.")
+        contenido = await fichero.read()
+        mime, extension = validate_upload(contenido)
+        clave = build_object_key(usuario.organization_id, "branding/logo", extension)
+        await almacen.put_object(clave, contenido, mime)
+        branding.logo_media_id = None
+        branding.logo_object_key = clave
+
     await session.flush()
 
-    if anterior and anterior != clave:
-        await almacen.delete_object(anterior)
-    return _branding_response(branding)
+    # Regla de reemplazo (biblioteca de medios, plan `260918-1944`): si la
+    # imagen anterior ya estaba gestionada por la biblioteca (`*_media_id`
+    # no nulo), su ciclo de vida ya no es cosa de este endpoint. Solo se
+    # borra el objeto legado cuando NUNCA pasó por la biblioteca.
+    if (
+        anterior_media_id is None
+        and anterior_object_key
+        and anterior_object_key != branding.logo_object_key
+    ):
+        await almacen.delete_object(anterior_object_key)
+    return await _branding_response(session, branding)
 
 
 def _member_response_from_rows(

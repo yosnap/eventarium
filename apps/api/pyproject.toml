@@ -38,6 +38,14 @@ dependencies = [
     # `google.analytics.data_v1beta`); sigue en beta en Google, no es un
     # rango holgado sin motivo.
     "google-analytics-data>=0.19,<1.0",
+    # Biblioteca de medios (plan `260918-1944`): conversión a WebP y
+    # redimensionado de imágenes subidas por usuarios. El proyecto evitó
+    # Pillow deliberadamente para el QR de entradas (ver `segno` arriba),
+    # pero ese caso era generar un PNG desde una cadena propia, no procesar
+    # ficheros de usuario — aquí no hay alternativa razonable sin decodificar
+    # imágenes. Mitigado con límite de dimensiones antes de decodificar
+    # completo (ver `app/modules/media/processing.py`).
+    "pillow>=12.3,<13.0",
 ]
 
 [dependency-groups]

@@ -59,6 +59,16 @@ class PlatformBranding(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     logo_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     favicon_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Nulos para logos/favicons subidos antes de la biblioteca de medios de
+    # plataforma (sin backfill): siguen su ciclo de vida de siempre. FK
+    # simple (no compuesta): `platform_media` no tiene `organization_id`
+    # con el que componer — es de instalación, no de un tenant.
+    logo_media_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("platform_media.id"), nullable=True
+    )
+    favicon_media_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("platform_media.id"), nullable=True
+    )
     # Plantilla del chrome de plataforma (fase 2). `NULL` = la marcada
     # `is_default` del catálogo `theme_templates`, misma convención que
     # `OrganizationBranding.theme_template_id`.

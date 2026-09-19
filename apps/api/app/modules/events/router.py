@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, Request, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,6 +38,8 @@ from app.modules.events.schemas import (
     SpeakerRowOut,
     SpeakerSessionOut,
 )
+from app.modules.media import service as media_service
+from app.modules.media.models import Media
 from app.modules.organizations import invitations_service
 from app.modules.organizations import repository as organizations_repository
 from app.modules.organizations.invitations_models import OrganizationInvitation
@@ -50,21 +52,28 @@ from app.modules.organizations.schemas import (
 from app.modules.roles.models import Role
 from app.modules.roles.system_roles import SPEAKER_KEY
 from app.modules.users.models import User
-from app.shared.errors import NotFoundError
+from app.shared.errors import NotFoundError, ValidationDomainError
 from app.shared.pagination import Page, PageParams, page_params
 
 router = APIRouter(prefix="/events", tags=["eventos"])
 
 
-def _event_response(evento: Event) -> EventResponse:
+async def _event_response(session: AsyncSession, evento: Event) -> EventResponse:
     almacen = get_storage()
+    if evento.cover_media_id is not None:
+        media = await session.get(Media, evento.cover_media_id)
+        cover_url = almacen.public_url(media.object_key) if media else None
+    elif evento.cover_object_key:
+        cover_url = almacen.public_url(evento.cover_object_key)
+    else:
+        cover_url = None
     return EventResponse(
         id=str(evento.id),
         slug=evento.slug,
         title=evento.title,
         summary=evento.summary,
         description=evento.description,
-        cover_url=almacen.public_url(evento.cover_object_key) if evento.cover_object_key else None,
+        cover_url=cover_url,
         status=evento.status,  # type: ignore[arg-type]
         visibility=evento.visibility,  # type: ignore[arg-type]
         timezone=evento.timezone,
@@ -174,7 +183,7 @@ async def list_events(
         await session.execute(consulta.limit(paginacion.limit).offset(paginacion.offset))
     ).scalars()
     return Page[EventResponse](
-        items=[_event_response(evento) for evento in filas],
+        items=[await _event_response(session, evento) for evento in filas],
         total=total,
         limit=paginacion.limit,
         offset=paginacion.offset,
@@ -194,7 +203,7 @@ async def create_event(
     evento = await service.create_event(
         session, organization_id=usuario.organization_id, datos=datos.model_dump()
     )
-    return _event_response(evento)
+    return await _event_response(session, evento)
 
 
 @router.get(
@@ -203,8 +212,10 @@ async def create_event(
     response_model=EventResponse,
     dependencies=[require_permission(Permission.EVENTS_READ)],
 )
-async def get_event(evento: Annotated[Event, Depends(_obtener_evento_o_404)]) -> EventResponse:
-    return _event_response(evento)
+async def get_event(
+    evento: Annotated[Event, Depends(_obtener_evento_o_404)], session: DbDep
+) -> EventResponse:
+    return await _event_response(session, evento)
 
 
 @router.patch(
@@ -222,31 +233,58 @@ async def update_event(
         event_id=uuid.UUID(event_id),
         datos=datos.model_dump(exclude_unset=True),
     )
-    return _event_response(evento)
+    return await _event_response(session, evento)
 
 
 @router.put(
     "/{event_id}/cover",
-    summary="Subir la portada del evento",
-    description="Acepta PNG, JPEG o WebP de hasta 5 MB. El tipo se comprueba por contenido.",
+    summary="Subir o asignar la portada del evento",
+    description=(
+        "Multipart (`fichero`): sube una imagen nueva, PNG/JPEG/WebP de hasta "
+        "5 MB. JSON (`{media_id}`): asigna una imagen ya subida a la "
+        "biblioteca de medios."
+    ),
     response_model=EventResponse,
     dependencies=[require_permission(Permission.EVENTS_WRITE)],
 )
 async def upload_cover(
+    request: Request,
     evento: Annotated[Event, Depends(_obtener_evento_o_404)],
+    usuario: CurrentUserDep,
     session: DbDep,
+    permisos: PermissionsDep,
     background_tasks: BackgroundTasks,
-    fichero: Annotated[UploadFile, File(description="Imagen de portada")],
+    fichero: Annotated[UploadFile | None, File(description="Imagen de portada")] = None,
 ) -> EventResponse:
-    contenido = await fichero.read()
-    mime, extension = validate_upload(contenido)
-
+    anterior_media_id = evento.cover_media_id
+    anterior_object_key = evento.cover_object_key
     almacen = get_storage()
-    clave = build_object_key(evento.organization_id, f"events/{evento.id}/cover", extension)
-    await almacen.put_object(clave, contenido, mime)
 
-    anterior = evento.cover_object_key
-    evento.cover_object_key = clave
+    if request.headers.get("content-type", "").startswith("application/json"):
+        cuerpo = await request.json()
+        media_id = cuerpo.get("media_id")
+        if not media_id:
+            raise ValidationDomainError("Falta «media_id».")
+        media = await media_service.obtener_visible(
+            session,
+            media_id=uuid.UUID(media_id),
+            organization_id=usuario.organization_id,
+            kind="events",
+            user_id=usuario.id,
+            permisos=permisos,
+        )
+        evento.cover_media_id = media.id
+        evento.cover_object_key = None
+    else:
+        if fichero is None:
+            raise ValidationDomainError("Falta el fichero.")
+        contenido = await fichero.read()
+        mime, extension = validate_upload(contenido)
+        clave = build_object_key(evento.organization_id, f"events/{evento.id}/cover", extension)
+        await almacen.put_object(clave, contenido, mime)
+        evento.cover_media_id = None
+        evento.cover_object_key = clave
+
     await session.flush()
 
     # El objeto anterior se borra en un `BackgroundTask`, que Starlette ejecuta
@@ -259,10 +297,18 @@ async def upload_cover(
     # un objeto ya inexistente ante cualquier fallo posterior en la misma
     # transacción — más grave aquí, porque esta portada alimenta `og:image` en
     # una página pública indexada.
-    if anterior and anterior != clave:
-        background_tasks.add_task(almacen.delete_object, anterior)
+    #
+    # Regla de reemplazo (biblioteca de medios, plan `260918-1944`): si la
+    # portada anterior ya estaba gestionada por la biblioteca, su ciclo de
+    # vida ya no es cosa de este endpoint — solo se borra el objeto legado.
+    if (
+        anterior_media_id is None
+        and anterior_object_key
+        and anterior_object_key != evento.cover_object_key
+    ):
+        background_tasks.add_task(almacen.delete_object, anterior_object_key)
 
-    return _event_response(evento)
+    return await _event_response(session, evento)
 
 
 @router.get(

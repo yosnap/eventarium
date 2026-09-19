@@ -26,6 +26,7 @@ from app.core.database import Base
 from app.modules.accounting import models as accounting_models  # noqa: F401
 from app.modules.events import models as event_models  # noqa: F401
 from app.modules.legal import models as legal_models  # noqa: F401
+from app.modules.media import models as media_models  # noqa: F401
 from app.modules.organizations import models as organization_models  # noqa: F401
 from app.modules.payments import models as payment_models  # noqa: F401
 from app.modules.platform import models as platform_models  # noqa: F401

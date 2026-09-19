@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.storage import get_storage
+from app.modules.media.models import PlatformMedia
 from app.modules.platform import repository
 from app.modules.platform.models import PLATFORM_LEGAL_PAGE_KINDS, PlatformBranding
 from app.modules.platform.schemas import (
@@ -53,12 +54,28 @@ async def branding_publico(session: AsyncSession) -> PlatformBrandingResponse:
 
     tema = await repository.get_platform_theme(session, branding.theme_template_id)
 
+    logo_url: str | None
+    if branding.logo_media_id is not None:
+        media = await session.get(PlatformMedia, branding.logo_media_id)
+        logo_url = almacen.public_url(media.object_key) if media else None
+    elif branding.logo_object_key:
+        logo_url = almacen.public_url(branding.logo_object_key)
+    else:
+        logo_url = None
+
+    favicon_url: str | None
+    if branding.favicon_media_id is not None:
+        media = await session.get(PlatformMedia, branding.favicon_media_id)
+        favicon_url = almacen.public_url(media.object_key) if media else None
+    else:
+        favicon_url = (
+            almacen.public_url(branding.favicon_object_key) if branding.favicon_object_key else None
+        )
+
     return PlatformBrandingResponse(
         name=branding.name,
-        logo_url=almacen.public_url(branding.logo_object_key) if branding.logo_object_key else None,
-        favicon_url=(
-            almacen.public_url(branding.favicon_object_key) if branding.favicon_object_key else None
-        ),
+        logo_url=logo_url,
+        favicon_url=favicon_url,
         social_links=list(branding.social_links or []),
         theme_template_id=str(branding.theme_template_id) if branding.theme_template_id else None,
         theme=(

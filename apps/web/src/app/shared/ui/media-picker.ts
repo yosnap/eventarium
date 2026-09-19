@@ -3,7 +3,9 @@ import { TranslocoDirective } from '@jsverse/transloco';
 
 import { Button } from './button';
 import { MediaDialog } from './media-dialog';
-import { MediaFields } from './media-fields';
+import { MediaElegida, MediaFields, MediaKind } from './media-fields';
+
+export type { MediaElegida, MediaKind };
 
 /**
  * Campo de selección de imagen.
@@ -15,8 +17,10 @@ import { MediaFields } from './media-fields';
  * (`MediaDialog`) — ahí sí hace falta, para no ocupar el espacio del campo
  * con el dropzone entero solo por sustituir una imagen que ya se ve bien.
  *
- * Referencia: el media picker de Coetools — valor plano por URL, preview
- * dentro del campo, y la gestión del fichero fuera del componente.
+ * "Quitar" es puramente local (limpia `url`/`mediaId`): nunca llama a
+ * `DELETE .../media/{id}` — enviar una imagen a la papelera es una acción
+ * explícita nueva, dentro del modal de biblioteca (`MediaFields`), no algo
+ * que "Quitar" haga de forma implícita (hallazgo de red-team 11).
  */
 @Component({
   selector: 'app-media-picker',
@@ -32,21 +36,18 @@ import { MediaFields } from './media-fields';
             <app-button variant="secundario" type="button" (pulsado)="abrir()">
               {{ t('ui.media.cambiar') }}
             </app-button>
-            @if (permitirQuitar()) {
-              <app-button variant="terciario" type="button" (pulsado)="quitar()">
-                {{ t('ui.media.quitar') }}
-              </app-button>
-            }
+            <app-button variant="terciario" type="button" (pulsado)="quitar()">
+              {{ t('ui.media.quitar') }}
+            </app-button>
           </div>
         </div>
       } @else {
         <app-media-fields
           [aceptados]="aceptados()"
-          [biblioteca]="biblioteca()"
-          [tituloBiblioteca]="etiqueta()"
+          [kind]="kind()"
+          [etiqueta]="etiqueta()"
           [permitirUrl]="permitirUrl()"
-          (ficheroElegido)="ficheroElegido.emit($event)"
-          (urlElegida)="url.set($event)"
+          (mediaElegido)="alElegirMedia($event)"
         />
       }
 
@@ -54,10 +55,9 @@ import { MediaFields } from './media-fields';
         #dialogo
         [titulo]="etiqueta()"
         [aceptados]="aceptados()"
-        [biblioteca]="biblioteca()"
+        [kind]="kind()"
         [permitirUrl]="permitirUrl()"
-        (ficheroElegido)="ficheroElegido.emit($event)"
-        (urlElegida)="url.set($event)"
+        (mediaElegido)="alElegirMedia($event)"
       />
     </ng-container>
   `,
@@ -95,22 +95,23 @@ export class MediaPicker {
   readonly etiqueta = input.required<string>();
   /** Tipos aceptados por el selector de fichero. */
   readonly aceptados = input.required<string>();
-  /** Imágenes existentes para la pestaña Biblioteca (opcional). */
-  readonly biblioteca = input<readonly { url: string; etiqueta: string }[]>([]);
-  /** Si el consumidor puede persistir una URL elegida (ver `MediaFields`). */
+  readonly kind = input.required<MediaKind>();
+  /** Si el consumidor puede elegir/subir por URL (ver `MediaFields`). */
   readonly permitirUrl = input(true);
-  /** Si hay una acción real de "Quitar" detrás (borrado en el servidor). Por
-   * defecto `true`; ningún consumidor actual la implementa todavía — sin
-   * esto, "Quitar" solo limpiaba la previsualización local sin borrar nada
-   * en el servidor, y la imagen volvía a aparecer al recargar (hallazgo de
-   * red-team). */
-  readonly permitirQuitar = input(true);
 
-  /** La URL actual de la imagen, en doble enlace. */
+  /** La URL de la imagen a previsualizar, en doble enlace — el consumidor la
+   * inicializa con lo que ya tenga guardado (p. ej. `branding.logo_url`). */
   readonly url = model<string | null>(null);
+  /** El `id` del medio recién elegido, en doble enlace — `null` mientras no
+   * se haya elegido nada nuevo (no significa "sin imagen": `url()` puede
+   * seguir mostrando la ya guardada). El consumidor lo lee al guardar para
+   * llamar a su propio endpoint de asignación con `{media_id}`. */
+  readonly mediaId = model<string | null>(null);
 
-  /** El `File` elegido en la pestaña Subir (lo sube quien usa el campo). */
-  readonly ficheroElegido = output<File>();
+  /** Igual información que los dos `model` de arriba, como evento — para
+   * quien prefiera reaccionar a la elección (p. ej. subir de inmediato)
+   * en vez de leer los signals tras el hecho. */
+  readonly mediaElegido = output<MediaElegida>();
 
   private readonly dialogo = viewChild.required(MediaDialog);
 
@@ -118,7 +119,14 @@ export class MediaPicker {
     this.dialogo().abrir();
   }
 
+  protected alElegirMedia(media: MediaElegida): void {
+    this.url.set(media.url);
+    this.mediaId.set(media.id);
+    this.mediaElegido.emit(media);
+  }
+
   protected quitar(): void {
     this.url.set(null);
+    this.mediaId.set(null);
   }
 }

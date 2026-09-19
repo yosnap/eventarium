@@ -15,13 +15,16 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Request, UploadFile, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import CurrentUserDep, DbDep, require_permission
+from app.core.deps import CurrentUserDep, DbDep, PermissionsDep, require_permission
 from app.core.permissions import Permission
 from app.core.storage import build_object_key, get_storage, validate_upload
 from app.modules.events import repository as events_repository
 from app.modules.events.models import Event
+from app.modules.media import service as media_service
+from app.modules.media.models import Media
 from app.modules.sponsors import repository, service
 from app.modules.sponsors.models import Sponsor, SponsorTier
 from app.modules.sponsors.schemas import (
@@ -32,7 +35,7 @@ from app.modules.sponsors.schemas import (
     SponsorTierUpdate,
     SponsorUpdate,
 )
-from app.shared.errors import NotFoundError
+from app.shared.errors import NotFoundError, ValidationDomainError
 from app.shared.pagination import Page, PageParams, page_params
 
 router_tiers = APIRouter(prefix="/organizations/me/sponsor-tiers", tags=["patrocinio"])
@@ -49,15 +52,20 @@ def _tier_response(nivel: SponsorTier) -> SponsorTierResponse:
     )
 
 
-def _sponsor_response(patrocinador: Sponsor) -> SponsorResponse:
+async def _sponsor_response(session: AsyncSession, patrocinador: Sponsor) -> SponsorResponse:
     almacen = get_storage()
+    if patrocinador.logo_media_id is not None:
+        media = await session.get(Media, patrocinador.logo_media_id)
+        logo_url = almacen.public_url(media.object_key) if media else None
+    elif patrocinador.logo_object_key:
+        logo_url = almacen.public_url(patrocinador.logo_object_key)
+    else:
+        logo_url = None
     return SponsorResponse(
         id=str(patrocinador.id),
         tier_id=str(patrocinador.tier_id),
         name=patrocinador.name,
-        logo_url=almacen.public_url(patrocinador.logo_object_key)
-        if patrocinador.logo_object_key
-        else None,
+        logo_url=logo_url,
         website=patrocinador.website,
         contribution_type=patrocinador.contribution_type,  # type: ignore[arg-type]
         contribution_amount=patrocinador.contribution_amount,
@@ -160,7 +168,7 @@ async def list_sponsors(
 ) -> list[SponsorResponse]:
     consulta = repository.sponsors_query(evento.organization_id, evento.id)
     filas = (await session.execute(consulta)).scalars()
-    return [_sponsor_response(patrocinador) for patrocinador in filas]
+    return [await _sponsor_response(session, patrocinador) for patrocinador in filas]
 
 
 @router_sponsors.post(
@@ -180,7 +188,7 @@ async def create_sponsor(
     patrocinador = await service.create_sponsor(
         session, organization_id=evento.organization_id, event_id=evento.id, datos=valores
     )
-    return _sponsor_response(patrocinador)
+    return await _sponsor_response(session, patrocinador)
 
 
 @router_sponsors.patch(
@@ -205,7 +213,7 @@ async def update_sponsor(
         sponsor_id=uuid.UUID(sponsor_id),
         datos=valores,
     )
-    return _sponsor_response(patrocinador)
+    return await _sponsor_response(session, patrocinador)
 
 
 @router_sponsors.delete(
@@ -236,17 +244,24 @@ async def delete_sponsor(
 
 @router_sponsors.put(
     "/{sponsor_id}/logo",
-    summary="Subir el logotipo de un patrocinador",
-    description="Acepta PNG, JPEG o WebP de hasta 5 MB. El tipo se comprueba por contenido.",
+    summary="Subir o asignar el logotipo de un patrocinador",
+    description=(
+        "Multipart (`fichero`): sube una imagen nueva, PNG/JPEG/WebP de hasta "
+        "5 MB. JSON (`{media_id}`): asigna una imagen ya subida a la "
+        "biblioteca de medios."
+    ),
     response_model=SponsorResponse,
     dependencies=[require_permission(Permission.SPONSORS_WRITE)],
 )
 async def upload_sponsor_logo(
+    request: Request,
     evento: Annotated[Event, Depends(_obtener_evento_o_404)],
+    usuario: CurrentUserDep,
     session: DbDep,
+    permisos: PermissionsDep,
     background_tasks: BackgroundTasks,
     sponsor_id: str,
-    fichero: Annotated[UploadFile, File(description="Logotipo del patrocinador")],
+    fichero: Annotated[UploadFile | None, File(description="Logotipo del patrocinador")] = None,
 ) -> SponsorResponse:
     patrocinador = await repository.get_sponsor(
         session, evento.organization_id, evento.id, uuid.UUID(sponsor_id)
@@ -254,20 +269,49 @@ async def upload_sponsor_logo(
     if patrocinador is None:
         raise NotFoundError("Ese patrocinador no existe.")
 
-    contenido = await fichero.read()
-    mime, extension = validate_upload(contenido)
-
+    anterior_media_id = patrocinador.logo_media_id
+    anterior_object_key = patrocinador.logo_object_key
     almacen = get_storage()
-    # Misma forma que el seed y que la portada de evento: {entidad}/{id}/{propósito}.
-    # El id del patrocinador ya es único, así que el id del evento sobraba en la ruta.
-    clave = build_object_key(evento.organization_id, f"sponsors/{patrocinador.id}/logo", extension)
-    await almacen.put_object(clave, contenido, mime)
 
-    anterior = patrocinador.logo_object_key
-    patrocinador.logo_object_key = clave
+    if request.headers.get("content-type", "").startswith("application/json"):
+        cuerpo = await request.json()
+        media_id = cuerpo.get("media_id")
+        if not media_id:
+            raise ValidationDomainError("Falta «media_id».")
+        media = await media_service.obtener_visible(
+            session,
+            media_id=uuid.UUID(media_id),
+            organization_id=evento.organization_id,
+            kind="sponsors",
+            user_id=usuario.id,
+            permisos=permisos,
+        )
+        patrocinador.logo_media_id = media.id
+        patrocinador.logo_object_key = None
+    else:
+        if fichero is None:
+            raise ValidationDomainError("Falta el fichero.")
+        contenido = await fichero.read()
+        mime, extension = validate_upload(contenido)
+        # Misma forma que el seed y que la portada de evento: {entidad}/{id}/{propósito}.
+        # El id del patrocinador ya es único, así que el id del evento sobraba en la ruta.
+        clave = build_object_key(
+            evento.organization_id, f"sponsors/{patrocinador.id}/logo", extension
+        )
+        await almacen.put_object(clave, contenido, mime)
+        patrocinador.logo_media_id = None
+        patrocinador.logo_object_key = clave
+
     await session.flush()
 
-    if anterior and anterior != clave:
-        background_tasks.add_task(almacen.delete_object, anterior)
+    # Regla de reemplazo (biblioteca de medios, plan `260918-1944`): si el
+    # logo anterior ya estaba gestionado por la biblioteca, su ciclo de vida
+    # ya no es cosa de este endpoint — solo se borra el objeto legado.
+    if (
+        anterior_media_id is None
+        and anterior_object_key
+        and anterior_object_key != patrocinador.logo_object_key
+    ):
+        background_tasks.add_task(almacen.delete_object, anterior_object_key)
 
-    return _sponsor_response(patrocinador)
+    return await _sponsor_response(session, patrocinador)

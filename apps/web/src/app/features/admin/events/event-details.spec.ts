@@ -199,4 +199,42 @@ describe('EventDetails', () => {
 
     expect(raiz.textContent).toContain('Publicado');
   });
+
+  it('elegir una portada nueva la sube a la biblioteca y la asigna al momento', async () => {
+    configurar();
+    http = TestBed.inject(HttpTestingController);
+    const fixture = await crearComponente();
+    flushCargaBase(http);
+    await avanzar(fixture);
+    flushSeccionesLibresDePago(http);
+    await avanzar(fixture);
+
+    const raiz = fixture.nativeElement as HTMLElement;
+    const campoFichero = raiz.querySelector(
+      'app-media-picker > app-media-fields input[type="file"]',
+    ) as HTMLInputElement;
+    const fichero = new File([new Uint8Array([1])], 'portada.png', { type: 'image/png' });
+    Object.defineProperty(campoFichero, 'files', { value: [fichero] });
+    campoFichero.dispatchEvent(new Event('change'));
+    await avanzar(fixture);
+
+    const subida = http.expectOne('/api/v1/organizations/me/media');
+    expect((subida.request.body as FormData).get('kind')).toBe('events');
+    subida.flush({ id: 'media-portada', url: 'https://cdn.test/portada.webp' });
+    await avanzar(fixture);
+
+    const asignacion = http.expectOne(
+      (p) => p.url === '/api/v1/events/e1/cover' && p.method === 'PUT',
+    );
+    expect(asignacion.request.body).toEqual({ media_id: 'media-portada' });
+    asignacion.flush({
+      cover_url: 'https://cdn.test/portada.webp',
+      status: 'draft',
+      registration_mode: 'free',
+    });
+    await avanzar(fixture);
+
+    const previsualizacion = raiz.querySelector('.previsualizacion') as HTMLImageElement;
+    expect(previsualizacion.src).toBe('https://cdn.test/portada.webp');
+  });
 });

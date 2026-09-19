@@ -12,7 +12,7 @@ import { EventResponse } from '../../models/event-response';
 
 export interface UploadCoverApiV1EventsEventIdCoverPut$Params {
   event_id: string;
-      body: BodyUploadCoverApiV1EventsEventIdCoverPut
+      body?: BodyUploadCoverApiV1EventsEventIdCoverPut
 }
 
 export function uploadCoverApiV1EventsEventIdCoverPut(http: HttpClient, rootUrl: string, params: UploadCoverApiV1EventsEventIdCoverPut$Params, context?: HttpContext): Observable<StrictHttpResponse<EventResponse>> {

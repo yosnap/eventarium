@@ -80,6 +80,13 @@ class Sponsor(Base, TimestampMixin):
             name="fk_sponsors_tier_id_organization_id",
         ),
         UniqueConstraint("id", "organization_id", name="uq_sponsors_id_organization_id"),
+        # Biblioteca de medios (plan `260918-1944`): FK compuesta, mismo
+        # motivo que las de arriba.
+        ForeignKeyConstraint(
+            ["logo_media_id", "organization_id"],
+            ["media.id", "media.organization_id"],
+            name="fk_sponsors_logo_media_id_organization_id",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=new_uuid7)
@@ -90,6 +97,10 @@ class Sponsor(Base, TimestampMixin):
     )
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     logo_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Nulo para logos subidos antes de la biblioteca de medios (sin
+    # backfill): siguen su ciclo de vida de siempre. No nulo = gestionado
+    # por la biblioteca, reemplazarlo no borra el objeto.
+    logo_media_id: Mapped[uuid.UUID | None] = mapped_column(PgUUID(as_uuid=True), nullable=True)
     website: Mapped[str | None] = mapped_column(String(300), nullable=True)
     # monetaria | en_especie
     contribution_type: Mapped[str] = mapped_column(String(20), nullable=False)

@@ -1,17 +1,12 @@
 import { ChangeDetectionStrategy, Component, input, output, viewChild } from '@angular/core';
 
 import { Dialog } from './dialog';
-import { MediaFields } from './media-fields';
+import { MediaElegida, MediaFields, MediaKind } from './media-fields';
 
 /**
  * `MediaFields` envuelto en `Dialog`, para el caso "cambiar" de
  * `MediaPicker`: ya hay una imagen elegida, así que el dropzone/pestañas no
  * ocupan el espacio del campo, se muestran en un modal aparte.
- *
- * Dos salidas excluyentes según la pestaña activa dentro de `MediaFields`:
- * - `ficheroElegido`: un `File` — quien llama lo sube con su propio endpoint
- *   (la subida es de cada pantalla: logo de identidad, cover de evento…).
- * - `urlElegida`: la URL escrita o elegida de la biblioteca.
  */
 @Component({
   selector: 'app-media-dialog',
@@ -23,11 +18,10 @@ import { MediaFields } from './media-fields';
       <app-media-fields
         #campos
         [aceptados]="aceptados()"
-        [biblioteca]="biblioteca()"
-        [tituloBiblioteca]="titulo()"
+        [kind]="kind()"
+        [etiqueta]="titulo()"
         [permitirUrl]="permitirUrl()"
-        (ficheroElegido)="alElegirFichero($event)"
-        (urlElegida)="alElegirUrl($event)"
+        (mediaElegido)="alElegirMedia($event)"
       />
     </app-dialog>
   `,
@@ -41,15 +35,12 @@ export class MediaDialog {
   readonly titulo = input.required<string>();
   /** Tipos aceptados por el selector de fichero (igual que `accept`). */
   readonly aceptados = input.required<string>();
-  /** Imágenes existentes para la pestaña Biblioteca (opcional). */
-  readonly biblioteca = input<readonly { url: string; etiqueta: string }[]>([]);
-  /** Si el consumidor puede persistir una URL elegida (ver `MediaFields`). */
+  readonly kind = input.required<MediaKind>();
+  /** Si el consumidor puede elegir/subir por URL (ver `MediaFields`). */
   readonly permitirUrl = input(true);
 
-  /** El `File` elegido en la pestaña Subir. */
-  readonly ficheroElegido = output<File>();
-  /** La URL escrita o elegida de la biblioteca. */
-  readonly urlElegida = output<string>();
+  /** El medio elegido, por cualquiera de las 3 vías (ver `MediaFields`). */
+  readonly mediaElegido = output<MediaElegida>();
   readonly cerrado = output<void>();
 
   private readonly dialogo = viewChild.required(Dialog);
@@ -60,13 +51,8 @@ export class MediaDialog {
     this.dialogo().abrir();
   }
 
-  protected alElegirFichero(fichero: File): void {
-    this.ficheroElegido.emit(fichero);
-    this.dialogo().cerrar();
-  }
-
-  protected alElegirUrl(url: string): void {
-    this.urlElegida.emit(url);
+  protected alElegirMedia(media: MediaElegida): void {
+    this.mediaElegido.emit(media);
     this.dialogo().cerrar();
   }
 }

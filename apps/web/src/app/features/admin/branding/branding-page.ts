@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
@@ -15,6 +15,7 @@ import { Card } from '../../../shared/ui/card';
 import { Textarea } from '../../../shared/ui/textarea';
 import { ThemeTemplatePreview } from '../superadmin/theme-template-preview';
 import { MediaPicker } from '../../../shared/ui/media-picker';
+import { LOGO_ACEPTADOS } from '../../../shared/uploads/image-upload-constraints';
 
 interface SocialLink {
   kind: string;
@@ -36,11 +37,6 @@ interface Branding {
   readonly organizer_blurb: string | null;
   readonly logo_url: string | null;
 }
-
-const LOGO_MIMES_PERMITIDOS = new Set(['image/png', 'image/jpeg', 'image/webp']);
-// Coincide con `max_image_bytes` en `app/core/config.py`: si diverge, el peor caso es
-// un rechazo tardío en el servidor con el mismo mensaje, no un fallo de seguridad.
-const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
 
 /**
  * Identidad visual editable: logotipo, plantilla de tema, redes sociales y
@@ -100,15 +96,11 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
               </p>
               <app-media-picker
                 [etiqueta]="t('admin.branding.logotipo')"
-                aceptados="image/png,image/jpeg,image/webp"
-                [url]="previaLogo()"
-                [permitirUrl]="false"
-                [permitirQuitar]="false"
-                (ficheroElegido)="alSeleccionarLogo($event)"
+                [aceptados]="LOGO_ACEPTADOS"
+                kind="branding"
+                [(url)]="previaLogo"
+                [(mediaId)]="logoMediaIdPendiente"
               />
-              @if (errorLogo(); as mensaje) {
-                <p class="error">{{ mensaje }}</p>
-              }
             </app-card>
 
             <app-card [heading]="t('admin.branding.redesSociales')">
@@ -307,6 +299,8 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
   `,
 })
 export class BrandingPage {
+  protected readonly LOGO_ACEPTADOS = LOGO_ACEPTADOS;
+
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
@@ -318,19 +312,21 @@ export class BrandingPage {
   protected readonly guardando = signal(false);
   protected readonly guardado = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly errorLogo = signal<string | null>(null);
   protected readonly errorDeCarga = signal<string | null>(null);
 
   protected readonly themeTemplateId = signal<string | null>(null);
   protected readonly plantillasDeTema = signal<PlantillaDeTema[]>([]);
   protected readonly socialLinks = signal<SocialLink[]>([]);
   protected readonly organizerBlurb = signal('');
-  protected readonly logoUrlGuardado = signal<string | null>(null);
   protected readonly nombreOrganizacion = signal('');
 
-  private logoPendiente: File | null = null;
-  private readonly previaLogoLocal = signal<string | null>(null);
-  protected readonly previaLogo = computed(() => this.previaLogoLocal() ?? this.logoUrlGuardado());
+  /** Previsualización del logo — doble enlace con `MediaPicker`: lo inicializa
+   * `aplicarRespuesta` con lo ya guardado, y el propio picker lo actualiza al
+   * elegir uno nuevo o al pulsar "Quitar" (`url.set(null)`). */
+  protected readonly previaLogo = signal<string | null>(null);
+  /** `null` = nada pendiente que asignar (ni un cambio ni un "Quitar" reales
+   * hasta que se guarde); no nulo = el `media_id` a asignar en `guardar()`. */
+  protected readonly logoMediaIdPendiente = signal<string | null>(null);
 
   constructor() {
     void this.cargar();
@@ -366,7 +362,7 @@ export class BrandingPage {
     this.themeTemplateId.set(branding.theme_template_id);
     this.socialLinks.set(branding.social_links.map((enlace) => ({ ...enlace })));
     this.organizerBlurb.set(branding.organizer_blurb ?? '');
-    this.logoUrlGuardado.set(branding.logo_url);
+    this.previaLogo.set(branding.logo_url);
   }
 
   protected colorDelEvento(evento: Event): string {
@@ -391,20 +387,6 @@ export class BrandingPage {
     this.socialLinks.update((actuales) => actuales.filter((_, i) => i !== indice));
   }
 
-  protected alSeleccionarLogo(fichero: File): void {
-    this.errorLogo.set(null);
-    if (!LOGO_MIMES_PERMITIDOS.has(fichero.type)) {
-      this.errorLogo.set(this.transloco.translate('admin.branding.logoNoValido'));
-      return;
-    }
-    if (fichero.size > LOGO_TAMANO_MAXIMO) {
-      this.errorLogo.set(this.transloco.translate('admin.branding.logoDemasiadoGrande'));
-      return;
-    }
-    this.logoPendiente = fichero;
-    this.previaLogoLocal.set(URL.createObjectURL(fichero));
-  }
-
   protected async guardar(evento: Event): Promise<void> {
     evento.preventDefault();
     this.guardado.set(false);
@@ -425,14 +407,14 @@ export class BrandingPage {
         }),
       );
 
-      if (this.logoPendiente) {
-        const datos = new FormData();
-        datos.append('fichero', this.logoPendiente);
+      const mediaId = this.logoMediaIdPendiente();
+      if (mediaId) {
         respuesta = await firstValueFrom(
-          this.http.put<Branding>(this.api.url('/organizations/me/branding/logo'), datos),
+          this.http.put<Branding>(this.api.url('/organizations/me/branding/logo'), {
+            media_id: mediaId,
+          }),
         );
-        this.logoPendiente = null;
-        this.previaLogoLocal.set(null);
+        this.logoMediaIdPendiente.set(null);
       }
 
       this.aplicarRespuesta(respuesta);

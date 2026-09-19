@@ -33,6 +33,16 @@ function patrocinadores() {
       contribution_amount: '500.00',
       contribution_description: null,
     },
+    {
+      id: 's2',
+      tier_id: 't1',
+      name: 'Beta SL',
+      logo_url: null,
+      website: null,
+      contribution_type: 'en_especie',
+      contribution_amount: null,
+      contribution_description: 'Catering',
+    },
   ];
 }
 
@@ -79,6 +89,46 @@ describe('EventSponsors', () => {
     expect(texto).toContain('Acme Corp');
     expect(texto).toContain('Oro');
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('asigna el logo elegido al sponsor_id de SU fila, no al de otra', async () => {
+    const fixture = TestBed.createComponent(EventSponsors);
+    fixture.componentRef.setInput('eventId', 'e1');
+    fixture.detectChanges();
+    await avanzar(fixture);
+    http.expectOne((p) => p.url === TIERS_URL).flush(niveles());
+    http.expectOne((p) => p.url === SPONSORS_URL).flush(patrocinadores());
+    await avanzar(fixture);
+
+    const raiz = fixture.nativeElement as HTMLElement;
+    // Cada `MediaPicker` también monta un `MediaDialog` con su propia
+    // `MediaFields` (para "Cambiar"), así que hay 2 inputs de fichero por
+    // fila — el segundo selector filtra solo el dropzone visible (hijo
+    // directo del picker, no el que vive dentro del diálogo cerrado).
+    const camposFichero = Array.from(
+      raiz.querySelectorAll('app-media-picker > app-media-fields input[type="file"]'),
+    ) as HTMLInputElement[];
+    expect(camposFichero.length).toBe(2);
+
+    const campoDeBeta = camposFichero[1];
+    const fichero = new File([new Uint8Array([1])], 'logo.png', { type: 'image/png' });
+    Object.defineProperty(campoDeBeta, 'files', { value: [fichero] });
+    campoDeBeta.dispatchEvent(new Event('change'));
+    await avanzar(fixture);
+
+    const subida = http.expectOne('/api/v1/organizations/me/media');
+    subida.flush({ id: 'media-beta', url: 'https://cdn.test/beta.webp' });
+    await avanzar(fixture);
+
+    const asignacion = http.expectOne(
+      (p) => p.url === '/api/v1/events/e1/sponsors/s2/logo' && p.method === 'PUT',
+    );
+    expect(asignacion.request.body).toEqual({ media_id: 'media-beta' });
+    asignacion.flush({});
+    await avanzar(fixture);
+
+    http.expectOne((p) => p.url === SPONSORS_URL).flush(patrocinadores());
+    await avanzar(fixture);
   });
 
   it('exige nivel y nombre antes de dar de alta un patrocinador', async () => {
