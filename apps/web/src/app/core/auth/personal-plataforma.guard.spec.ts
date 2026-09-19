@@ -86,6 +86,7 @@ describe('personalPlataformaGuard', () => {
     configurar(false);
     const resultado = await ejecutar();
     expect((resultado as UrlTree).toString()).toBe(router.createUrlTree(['/acceder']).toString());
+    expect(auth.loadCurrentUser).not.toHaveBeenCalled();
   });
 
   it('si recargar el usuario falla tras renovar la sesión, redirige a /acceder', async () => {
