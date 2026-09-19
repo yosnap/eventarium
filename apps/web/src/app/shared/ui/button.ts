@@ -29,6 +29,15 @@ export type ButtonVariant = 'primario' | 'secundario' | 'terciario' | 'peligro';
     </button>
   `,
   styles: `
+    /* Sin esto, el host es \`inline\` por defecto (como cualquier elemento
+     * desconocido del navegador): dos \`app-button\` en la misma fila —sobre
+     * todo cuando uno va envuelto en \`<a>\`, también \`inline\` sin estilo
+     * propio— quedan con espacios verticales distintos por las métricas de
+     * línea del \`inline\`, no por ningún margen. \`inline-flex\` en el host
+     * hace que se comporte como su \`<button>\` interno. */
+    :host {
+      display: inline-flex;
+    }
     button {
       display: inline-flex;
       align-items: center;

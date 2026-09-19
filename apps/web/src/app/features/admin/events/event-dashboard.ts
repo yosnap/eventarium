@@ -170,14 +170,24 @@ interface Escalon {
     </ng-container>
   `,
   styles: `
+    /* \`ng-container\` no genera elemento: cabecera, cifras, embudo, checklist
+     * y \`app-event-details\` son hijos directos de este host. Un componente
+     * sin \`display\` propio es \`inline\` por defecto, donde un margen
+     * vertical no hace nada — hay que forzar \`display: block\` en cada hijo
+     * antes de que \`margin-top\` pueda separarlos. */
     :host {
       display: block;
+    }
+    :host > * {
+      display: block;
+    }
+    :host > * + * {
+      margin-top: var(--space-lg);
     }
     .cifras {
       display: grid;
       gap: var(--space-md);
       grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-      margin-bottom: var(--space-lg);
     }
     .lista {
       display: grid;
