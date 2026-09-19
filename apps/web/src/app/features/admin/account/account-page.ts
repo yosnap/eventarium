@@ -36,7 +36,6 @@ const TIPOS_DE_ENLACE = ['twitter', 'linkedin', 'instagram', 'web'] as const;
         <span class="mark">{{ t('admin.cuenta.cabeceraMarca') }}</span>
       </app-page-header>
 
-
       <app-card [heading]="t('admin.cuenta.perfil.titulo')">
         <form (submit)="guardarPerfil($event)" novalidate>
           <app-input

@@ -108,9 +108,7 @@ describe('EventPayments', () => {
     http.expectOne((p) => p.url === PAYMENTS_URL && p.method === 'GET').flush(pagos());
     await avanzar(fixture);
 
-    const contenedor = fixture.nativeElement.querySelector(
-      'app-data-table',
-    ) as HTMLElement | null;
+    const contenedor = fixture.nativeElement.querySelector('app-data-table') as HTMLElement | null;
     expect(contenedor).not.toBeNull();
     const tabla = contenedor!.querySelector('table') as HTMLTableElement;
     expect(tabla.querySelector('caption')?.textContent?.trim()).toBeTruthy();

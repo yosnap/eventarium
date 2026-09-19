@@ -64,7 +64,11 @@ function metricas(overrides: Partial<MetricasDeOrganizacion> = {}): MetricasDeOr
       lista_de_espera: 5,
     },
     estructura: { miembros: 3, roles: 4, patrocinadores: 2 },
-    dinero: { por_moneda: { eur: 450000 }, presupuesto_por_moneda: { eur: 0 }, ejecutado_por_moneda: { eur: 0 } },
+    dinero: {
+      por_moneda: { eur: 450000 },
+      presupuesto_por_moneda: { eur: 0 },
+      ejecutado_por_moneda: { eur: 0 },
+    },
     stripe: {
       conectada: true,
       charges_enabled: true,

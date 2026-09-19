@@ -14,7 +14,11 @@ const VENUES_URL = '/api/v1/events/e1/venues';
 // El componente usa `app-address-map`, que carga leaflet de forma perezosa: se
 // mockea igual que en `address-map.spec.ts` para no depender de la librería real.
 vi.mock('leaflet', () => ({
-  map: vi.fn(() => ({ setView: vi.fn().mockReturnThis(), invalidateSize: vi.fn(), remove: vi.fn() })),
+  map: vi.fn(() => ({
+    setView: vi.fn().mockReturnThis(),
+    invalidateSize: vi.fn(),
+    remove: vi.fn(),
+  })),
   tileLayer: vi.fn(() => ({ addTo: vi.fn() })),
   marker: vi.fn(() => ({ addTo: vi.fn(() => ({ setLatLng: vi.fn() })), setLatLng: vi.fn() })),
 }));

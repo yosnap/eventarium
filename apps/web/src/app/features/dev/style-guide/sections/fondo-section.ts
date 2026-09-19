@@ -25,7 +25,11 @@ import { TranslocoDirective } from '@jsverse/transloco';
           <h2 id="fondo-h2">{{ t('admin.catalogoEstilo.fondo.titulo') }}</h2>
           <span class="rotulo-seccion">{{ t('admin.catalogoEstilo.fondo.uso') }}</span>
         </div>
-        <div class="reticula-demo" role="img" [attr.aria-label]="t('admin.catalogoEstilo.fondo.retriculaEtiqueta')"></div>
+        <div
+          class="reticula-demo"
+          role="img"
+          [attr.aria-label]="t('admin.catalogoEstilo.fondo.retriculaEtiqueta')"
+        ></div>
         <p class="nota">{{ t('admin.catalogoEstilo.fondo.retriculaNota') }}</p>
         <div class="demo">
           <p>

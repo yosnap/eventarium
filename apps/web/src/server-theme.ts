@@ -45,5 +45,9 @@ export function pintarTemaEnHtml(html: string, cabeceraCookie: string | undefine
   const atributosActuales = coincidencia[1];
   const atributosSinTemaPrevio = atributosActuales.replace(/\s*data-theme="[^"]*"/, '');
   const etiquetaNueva = `<html${atributosSinTemaPrevio} data-theme="${atributo}">`;
-  return html.slice(0, coincidencia.index) + etiquetaNueva + html.slice(coincidencia.index + coincidencia[0].length);
+  return (
+    html.slice(0, coincidencia.index) +
+    etiquetaNueva +
+    html.slice(coincidencia.index + coincidencia[0].length)
+  );
 }

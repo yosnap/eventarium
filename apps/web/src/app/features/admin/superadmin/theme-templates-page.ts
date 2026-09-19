@@ -92,7 +92,11 @@ function errorDeContrasteDelServidor(error: unknown): readonly AvisoDeContraste[
     return null;
   }
   const errores = error.problem?.['errors'];
-  if (!Array.isArray(errores) || errores.length === 0 || !errores.every(esAvisoDeContrasteDelServidor)) {
+  if (
+    !Array.isArray(errores) ||
+    errores.length === 0 ||
+    !errores.every(esAvisoDeContrasteDelServidor)
+  ) {
     return null;
   }
   return errores;
@@ -153,10 +157,7 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
           } @else {
             <div class="catalogo">
               @for (plantilla of plantillas(); track plantilla.id) {
-                <div
-                  class="tarjeta"
-                  [class.tarjeta-activa]="formulario().id === plantilla.id"
-                >
+                <div class="tarjeta" [class.tarjeta-activa]="formulario().id === plantilla.id">
                   <button
                     type="button"
                     class="tarjeta-editar"
@@ -219,22 +220,14 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
 
             <div class="previsualizacion">
               <div class="preview-modo">
-                <span class="rotulo-seccion">{{
-                  t('admin.superadmin.plantillas.modo.dark')
-                }}</span>
-                <app-theme-template-preview
-                  [tokens]="tokensEnVivo()"
-                  modo="dark"
-                />
+                <span class="rotulo-seccion">{{ t('admin.superadmin.plantillas.modo.dark') }}</span>
+                <app-theme-template-preview [tokens]="tokensEnVivo()" modo="dark" />
               </div>
               <div class="preview-modo">
                 <span class="rotulo-seccion">{{
                   t('admin.superadmin.plantillas.modo.light')
                 }}</span>
-                <app-theme-template-preview
-                  [tokens]="tokensEnVivo()"
-                  modo="light"
-                />
+                <app-theme-template-preview [tokens]="tokensEnVivo()" modo="light" />
               </div>
             </div>
 
@@ -281,7 +274,11 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
               (valorChange)="cambiarModoPorDefecto($event)"
             />
 
-            <div class="tokens" role="table" [attr.aria-label]="t('admin.superadmin.plantillas.tokensTabla')">
+            <div
+              class="tokens"
+              role="table"
+              [attr.aria-label]="t('admin.superadmin.plantillas.tokensTabla')"
+            >
               <div class="token-cabecera" role="row">
                 <span role="columnheader">{{ t('admin.superadmin.plantillas.token') }}</span>
                 <span role="columnheader">{{ t('admin.superadmin.plantillas.modo.dark') }}</span>
@@ -296,9 +293,13 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
                         <input
                           type="color"
                           class="selector"
-                          [value]="hexParaSelector(formulario().tokens[modo][token] ?? '') ?? '#808080'"
+                          [value]="
+                            hexParaSelector(formulario().tokens[modo][token] ?? '') ?? '#808080'
+                          "
                           (input)="elegirColor(modo, token, $event)"
-                          [attr.aria-label]="t('admin.superadmin.plantillas.selectorDe', { token: token })"
+                          [attr.aria-label]="
+                            t('admin.superadmin.plantillas.selectorDe', { token: token })
+                          "
                         />
                         <app-input
                           [fieldId]="'token-' + modo + '-' + token"
@@ -471,16 +472,16 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
     }
     @media (max-width: 48rem) {
       .tipografia {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--sp-4);
-    }
-    @media (max-width: 48rem) {
-      .tipografia {
-        grid-template-columns: 1fr;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--sp-4);
       }
-    }
-    .previsualizacion {
+      @media (max-width: 48rem) {
+        .tipografia {
+          grid-template-columns: 1fr;
+        }
+      }
+      .previsualizacion {
         grid-template-columns: 1fr;
       }
     }
@@ -585,11 +586,12 @@ export class ThemeTemplatesPage {
 
   /** Las familias seleccionables de cada token tipográfico, ya traducidas. */
   protected readonly familiasDisplay = computed<readonly { valor: string; etiqueta: string }[]>(
-    () => FAMILIAS_POR_TOKEN['font-display'].map((familia) => ({ valor: familia, etiqueta: familia })),
+    () =>
+      FAMILIAS_POR_TOKEN['font-display'].map((familia) => ({ valor: familia, etiqueta: familia })),
   );
 
-  protected readonly familiasBody = computed<readonly { valor: string; etiqueta: string }[]>(
-    () => FAMILIAS_POR_TOKEN['font-body'].map((familia) => ({ valor: familia, etiqueta: familia })),
+  protected readonly familiasBody = computed<readonly { valor: string; etiqueta: string }[]>(() =>
+    FAMILIAS_POR_TOKEN['font-body'].map((familia) => ({ valor: familia, etiqueta: familia })),
   );
 
   /** La familia elegida de un token tipográfico (vive en ambos modos igual). */
@@ -657,8 +659,14 @@ export class ThemeTemplatesPage {
 
   protected readonly modosSelector = computed<readonly { valor: ModoDeTema; etiqueta: string }[]>(
     () => [
-      { valor: 'light', etiqueta: this.transloco.translate('admin.superadmin.plantillas.modo.light') },
-      { valor: 'dark', etiqueta: this.transloco.translate('admin.superadmin.plantillas.modo.dark') },
+      {
+        valor: 'light',
+        etiqueta: this.transloco.translate('admin.superadmin.plantillas.modo.light'),
+      },
+      {
+        valor: 'dark',
+        etiqueta: this.transloco.translate('admin.superadmin.plantillas.modo.dark'),
+      },
     ],
   );
 

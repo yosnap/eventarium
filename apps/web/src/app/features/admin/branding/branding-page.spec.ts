@@ -18,7 +18,11 @@ const CATALOGO_URL = '/api/v1/organizations/me/theme-templates';
 
 const ORGANIZACION_VALIDA = { name: 'Organización de prueba' };
 
-const PLANTILLA_OSCURA = plantillaDeTemaDePrueba({ id: 'tema-oscuro', key: 'oscuro', name: 'Oscuro' });
+const PLANTILLA_OSCURA = plantillaDeTemaDePrueba({
+  id: 'tema-oscuro',
+  key: 'oscuro',
+  name: 'Oscuro',
+});
 const PLANTILLA_CLARA = plantillaDeTemaDePrueba({ id: 'tema-claro', key: 'claro', name: 'Claro' });
 const CATALOGO = [PLANTILLA_OSCURA, PLANTILLA_CLARA];
 
@@ -81,8 +85,7 @@ describe('BrandingPage', () => {
     const radios = fixture.nativeElement.querySelectorAll('input[type="radio"]');
     expect(radios.length).toBe(2);
     const marcado = Array.from(radios).find((r) => (r as HTMLInputElement).checked) as
-      | HTMLInputElement
-      | undefined;
+      HTMLInputElement | undefined;
     expect(marcado?.value).toBe(PLANTILLA_OSCURA.id);
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });

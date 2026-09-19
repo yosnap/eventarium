@@ -68,7 +68,9 @@ import { Button } from '../../../../shared/ui/button';
 
         <app-panel>
           <div cabecera>
-            <span class="rotulo-seccion">{{ t('admin.catalogoEstilo.patronesPanel.panelRotulo') }}</span>
+            <span class="rotulo-seccion">{{
+              t('admin.catalogoEstilo.patronesPanel.panelRotulo')
+            }}</span>
           </div>
           <div class="panel-cuerpo">
             <app-table-toolbar
@@ -135,15 +137,18 @@ export class PatronesPanelSection {
   protected readonly busqueda = signal('');
   protected readonly filtroActivo = signal<'todas' | 'pendientes'>('todas');
 
-  protected readonly filtros = signal<readonly { valor: 'todas' | 'pendientes'; etiqueta: string }[]>(
-    [],
-  );
+  protected readonly filtros = signal<
+    readonly { valor: 'todas' | 'pendientes'; etiqueta: string }[]
+  >([]);
 
   constructor() {
     // Las etiquetas van por transloco: se montan aquí para no ensuciar el template.
     const transloco = inject(TranslocoService);
     this.filtros.set([
-      { valor: 'todas', etiqueta: transloco.translate('admin.catalogoEstilo.patronesPanel.filtroTodas') },
+      {
+        valor: 'todas',
+        etiqueta: transloco.translate('admin.catalogoEstilo.patronesPanel.filtroTodas'),
+      },
       {
         valor: 'pendientes',
         etiqueta: transloco.translate('admin.catalogoEstilo.patronesPanel.filtroPendientes'),

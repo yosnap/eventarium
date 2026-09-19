@@ -212,9 +212,7 @@ import { monograma } from '../../shared/text/monograma';
 export class OrgSelector {
   private static contador = 0;
 
-  readonly organizaciones = input.required<
-    readonly { organization_id: string; name: string }[]
-  >();
+  readonly organizaciones = input.required<readonly { organization_id: string; name: string }[]>();
   readonly activaId = input<string | null>(null);
   readonly cambiando = input(false);
 
@@ -228,8 +226,8 @@ export class OrgSelector {
   private readonly menu = viewChild.required<ElementRef<HTMLUListElement>>('menu');
   private readonly anfitrion = viewChild.required<ElementRef<HTMLDivElement>>('anfitrion');
 
-  protected readonly activa = computed(() =>
-    this.organizaciones().find((o) => o.organization_id === this.activaId()) ?? null,
+  protected readonly activa = computed(
+    () => this.organizaciones().find((o) => o.organization_id === this.activaId()) ?? null,
   );
 
   protected idOpcion(indice: number): string {

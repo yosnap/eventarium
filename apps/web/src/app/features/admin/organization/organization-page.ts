@@ -43,7 +43,6 @@ type Campo = 'name' | 'contactEmail';
         <span class="mark">{{ t('admin.organizacion.cabeceraMarca') }}</span>
       </app-page-header>
 
-
       @if (cargando()) {
         <p>{{ t('comun.cargando') }}</p>
       } @else {

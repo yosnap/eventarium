@@ -134,35 +134,38 @@ describe('applyTokens (dos alcances)', () => {
     expect(document.getElementById('tema-evento')).toBeNull();
   });
 
-  it(
-    'cascada: la plantilla del evento solo afecta dentro de su ámbito',
-    () => {
-      // Documento jsdom aislado del global de la suite (evita interferencia de
-      // otro fichero que también mute el `document` compartido).
-      const dom = new JSDOM('<!doctype html><html><head></head><body><div id="ambito"></div></body></html>');
-      const { document: doc, getComputedStyle: computado } = dom.window;
+  it('cascada: la plantilla del evento solo afecta dentro de su ámbito', () => {
+    // Documento jsdom aislado del global de la suite (evita interferencia de
+    // otro fichero que también mute el `document` compartido).
+    const dom = new JSDOM(
+      '<!doctype html><html><head></head><body><div id="ambito"></div></body></html>',
+    );
+    const { document: doc, getComputedStyle: computado } = dom.window;
 
-      // La plataforma pinta el documento; el evento, solo su contenedor.
-      applyTokensDePlataforma(
-        { theme: plantillaDeTemaDePrueba({ tokens: { dark: { bg: '#111111' }, light: { bg: '#eeeeee' } } }) },
-        doc,
-      );
-      applyTokensDeEvento(
-        {
-          theme: plantillaDeTemaDePrueba({
-            tokens: { dark: { bg: '#080808' }, light: { bg: '#f5f5f5' } },
-          }),
-        },
-        doc,
-      );
+    // La plataforma pinta el documento; el evento, solo su contenedor.
+    applyTokensDePlataforma(
+      {
+        theme: plantillaDeTemaDePrueba({
+          tokens: { dark: { bg: '#111111' }, light: { bg: '#eeeeee' } },
+        }),
+      },
+      doc,
+    );
+    applyTokensDeEvento(
+      {
+        theme: plantillaDeTemaDePrueba({
+          tokens: { dark: { bg: '#080808' }, light: { bg: '#f5f5f5' } },
+        }),
+      },
+      doc,
+    );
 
-      const ambito = doc.getElementById('ambito')!;
-      ambito.setAttribute('data-ambito', 'evento');
+    const ambito = doc.getElementById('ambito')!;
+    ambito.setAttribute('data-ambito', 'evento');
 
-      // Dentro del ámbito manda la plantilla del evento…
-      expect(computado(ambito).getPropertyValue('--bg').trim()).toBe('#080808');
-      // …y fuera (el chrome) sigue mandando la de plataforma.
-      expect(computado(doc.documentElement).getPropertyValue('--bg').trim()).toBe('#111111');
-    },
-  );
+    // Dentro del ámbito manda la plantilla del evento…
+    expect(computado(ambito).getPropertyValue('--bg').trim()).toBe('#080808');
+    // …y fuera (el chrome) sigue mandando la de plataforma.
+    expect(computado(doc.documentElement).getPropertyValue('--bg').trim()).toBe('#111111');
+  });
 });

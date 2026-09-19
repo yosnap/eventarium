@@ -80,7 +80,9 @@ interface LineaConsumo {
         @if (fundCents() !== null) {
           <div pie>
             <span>{{ t('admin.events.accounting.contingencia.disponibleAhora') }}</span>
-            <strong>{{ disponibleCents() !== null ? euros(disponibleCents()!) + ' €' : '—' }}</strong>
+            <strong>{{
+              disponibleCents() !== null ? euros(disponibleCents()!) + ' €' : '—'
+            }}</strong>
           </div>
         }
       </app-panel>

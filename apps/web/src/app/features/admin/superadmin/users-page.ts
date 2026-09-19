@@ -89,7 +89,9 @@ const LIMITE = 20;
                 }}
               </td>
               <td>{{ usuario.platform_role ?? t('admin.plataforma.usuarios.sinRol') }}</td>
-              <td>{{ usuario.organization_names || t('admin.plataforma.usuarios.sinOrganizaciones') }}</td>
+              <td>
+                {{ usuario.organization_names || t('admin.plataforma.usuarios.sinOrganizaciones') }}
+              </td>
             </tr>
           }
         </app-data-table>
@@ -144,11 +146,7 @@ const LIMITE = 20;
             <dd>{{ usuario.registrations_count }}</dd>
             <dt>{{ t('admin.plataforma.usuarios.preferenciaNotificaciones') }}</dt>
             <dd>
-              {{
-                usuario.notify_similar_events
-                  ? t('comun.si')
-                  : t('comun.no')
-              }}
+              {{ usuario.notify_similar_events ? t('comun.si') : t('comun.no') }}
             </dd>
           </dl>
 

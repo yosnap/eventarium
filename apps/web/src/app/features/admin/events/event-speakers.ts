@@ -130,10 +130,7 @@ const SEGMENTOS = ['todas', 'incompletas', 'repiten', 'sin-sesion'] as const;
               {{ t('admin.events.speakers.sinCoincidencias') }}
             </p>
           } @else {
-            <app-data-table
-              [columnas]="columnas()"
-              [caption]="t('admin.events.speakers.rotulo')"
-            >
+            <app-data-table [columnas]="columnas()" [caption]="t('admin.events.speakers.rotulo')">
               @for (fila of itemsFiltrados(); track fila.organization_member_id) {
                 <tr>
                   <td>
@@ -149,14 +146,14 @@ const SEGMENTOS = ['todas', 'incompletas', 'repiten', 'sin-sesion'] as const;
                   </td>
                   <td>
                     @if (fila.sesiones.length === 0) {
-                      <app-chip tone="espera">{{
-                        t('admin.events.speakers.sinAsignar')
-                      }}</app-chip>
+                      <app-chip tone="espera">{{ t('admin.events.speakers.sinAsignar') }}</app-chip>
                     } @else {
                       {{ fila.sesiones[0].titulo }}
                       @if (fila.sesiones.length > 1) {
                         <small class="mas">
-                          {{ t('admin.events.speakers.masSesiones', { n: fila.sesiones.length - 1 }) }}
+                          {{
+                            t('admin.events.speakers.masSesiones', { n: fila.sesiones.length - 1 })
+                          }}
                         </small>
                       }
                     }
@@ -196,10 +193,7 @@ const SEGMENTOS = ['todas', 'incompletas', 'repiten', 'sin-sesion'] as const;
                       </app-button>
                     }
                     @if (fila.sesiones.length === 0) {
-                      <a
-                        class="enlace"
-                        routerLink="/dashboard/events/{{ eventId() }}/agenda"
-                      >
+                      <a class="enlace" routerLink="/dashboard/events/{{ eventId() }}/agenda">
                         {{ t('admin.events.speakers.asignarSesion') }}
                       </a>
                     }
@@ -400,7 +394,8 @@ export class EventSpeakers implements OnInit {
 
   /** Cuántas fichas tienen la bio sin rellenar: la cifra de la cabecera. */
   protected readonly faltanBio = computed(
-    () => this.vista()?.items.filter((fila) => fila.completitud.faltantes.includes('bio')).length ?? 0,
+    () =>
+      this.vista()?.items.filter((fila) => fila.completitud.faltantes.includes('bio')).length ?? 0,
   );
 
   /** El perfil público es por persona; para el pie basta con uno. */
@@ -491,18 +486,16 @@ export class EventSpeakers implements OnInit {
       repiten: (fila) => fila.ediciones > 1,
       'sin-sesion': (fila) => fila.sesiones.length === 0,
     };
-    return v.items
-      .filter(pasaSegmento[segmento])
-      .filter((fila) => {
-        if (!consulta) {
-          return true;
-        }
-        return (
-          nombreCompleto(fila).toLowerCase().includes(consulta) ||
-          fila.email.toLowerCase().includes(consulta) ||
-          (fila.titular?.toLowerCase().includes(consulta) ?? false)
-        );
-      });
+    return v.items.filter(pasaSegmento[segmento]).filter((fila) => {
+      if (!consulta) {
+        return true;
+      }
+      return (
+        nombreCompleto(fila).toLowerCase().includes(consulta) ||
+        fila.email.toLowerCase().includes(consulta) ||
+        (fila.titular?.toLowerCase().includes(consulta) ?? false)
+      );
+    });
   });
 
   ngOnInit(): void {
@@ -556,7 +549,9 @@ export class EventSpeakers implements OnInit {
     try {
       await firstValueFrom(
         this.http.post(
-          this.api.url(`/events/${this.eventId()}/speakers/${fila.organization_member_id}/pedir-bio`),
+          this.api.url(
+            `/events/${this.eventId()}/speakers/${fila.organization_member_id}/pedir-bio`,
+          ),
           {},
         ),
       );
@@ -598,5 +593,7 @@ export class EventSpeakers implements OnInit {
 }
 
 function nombreCompleto(fila: SpeakerRow): string {
-  return [fila.first_name, fila.last_name].filter((parte) => !!parte?.trim()).join(' ') || fila.email;
+  return (
+    [fila.first_name, fila.last_name].filter((parte) => !!parte?.trim()).join(' ') || fila.email
+  );
 }

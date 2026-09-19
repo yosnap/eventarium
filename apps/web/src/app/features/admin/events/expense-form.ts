@@ -1,12 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  inject,
-  input,
-  output,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
@@ -189,9 +182,7 @@ export class ExpenseForm {
       return;
     }
     if (baseCents === null || baseCents < 0) {
-      this.error.set(
-        this.transloco.translate('admin.events.accounting.altaGasto.importeInvalido'),
-      );
+      this.error.set(this.transloco.translate('admin.events.accounting.altaGasto.importeInvalido'));
       return;
     }
 

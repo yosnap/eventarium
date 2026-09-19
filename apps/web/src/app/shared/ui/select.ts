@@ -525,7 +525,8 @@ export class Select {
 
     const opciones = this.opcionesEfectivas();
     const indice = opciones.findIndex(
-      (opcion) => !opcion.deshabilitada && opcion.label.toLowerCase().startsWith(this.bufferBusqueda),
+      (opcion) =>
+        !opcion.deshabilitada && opcion.label.toLowerCase().startsWith(this.bufferBusqueda),
     );
     if (indice < 0) return;
     if (!this.abierto()) {

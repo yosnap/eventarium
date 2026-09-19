@@ -262,7 +262,12 @@ describe('componentes compartidos', () => {
       selector: 'app-anfitrion-boton-variante',
       imports: [Button],
       template: `
-        <app-button [variant]="variant" [bloque]="bloque" [compacto]="compacto" [disabled]="disabled">
+        <app-button
+          [variant]="variant"
+          [bloque]="bloque"
+          [compacto]="compacto"
+          [disabled]="disabled"
+        >
           Guardar cambios
         </app-button>
       `,

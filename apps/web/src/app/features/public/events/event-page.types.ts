@@ -61,7 +61,6 @@ export interface PublicVenue {
   readonly longitude: number | null;
 }
 
-
 export interface PublicEventDetail {
   /** Plantilla propia del evento; `null` es que hereda la de su organización. */
   readonly theme?: PlantillaDeTema | null;

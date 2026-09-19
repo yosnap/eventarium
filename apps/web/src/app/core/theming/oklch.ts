@@ -26,12 +26,7 @@ export function hexDeOklch(valor: string): string | null {
   if (!rgb) {
     return null;
   }
-  return (
-    '#' +
-    rgb
-      .map((canal) => canal.toString(16).padStart(2, '0'))
-      .join('')
-  );
+  return '#' + rgb.map((canal) => canal.toString(16).padStart(2, '0')).join('');
 }
 
 /**

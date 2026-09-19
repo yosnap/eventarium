@@ -29,7 +29,16 @@ import { PanelScope } from './panel-scope';
 @Component({
   selector: 'app-admin-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, TranslocoDirective, Button, ThemeToggle, AdminNav, BrandMark, OrgSelector],
+  imports: [
+    RouterOutlet,
+    RouterLink,
+    TranslocoDirective,
+    Button,
+    ThemeToggle,
+    AdminNav,
+    BrandMark,
+    OrgSelector,
+  ],
   template: `
     <ng-container *transloco="let t">
       <a class="skip-link" href="#contenido-admin">{{ t('comun.saltarAlContenido') }}</a>

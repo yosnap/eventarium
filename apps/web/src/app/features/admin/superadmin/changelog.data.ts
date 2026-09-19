@@ -303,7 +303,8 @@ export const CHANGELOG: readonly ChangelogVersion[] = [
               'Aviso legal, política de privacidad y política de cookies editables desde el panel, con un banner de cookies que registra la decisión de cada visitante y permite gestionarla más adelante.',
           },
           {
-            titulo: 'Panel de superadministración con auditoría, RGPD y validación de copias de seguridad',
+            titulo:
+              'Panel de superadministración con auditoría, RGPD y validación de copias de seguridad',
             descripcion:
               'Nace el panel de plataforma: registro diferido de auditoría, exportación RGPD de los datos de inscripción de un evento, borrado de un inscrito bajo solicitud, y un script de restauración de copias de seguridad que valida de verdad la integridad de lo restaurado.',
           },

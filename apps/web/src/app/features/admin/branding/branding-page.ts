@@ -180,7 +180,6 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
           @if (error(); as mensaje) {
             <app-alert tone="error" [title]="t('admin.branding.error')">{{ mensaje }}</app-alert>
           }
-
         </form>
       }
     </ng-container>

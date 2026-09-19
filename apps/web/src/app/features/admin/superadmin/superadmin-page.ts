@@ -112,9 +112,7 @@ const AUDIT_LOG_URL = '/admin/audit-log';
                       t('admin.plataforma.actividad.inactiva')
                     }}</app-chip>
                   } @else if (org.tiene_stripe_pendiente_con_eventos_de_pago) {
-                    <app-chip tone="espera">{{
-                      t('admin.plataforma.actividad.noCobra')
-                    }}</app-chip>
+                    <app-chip tone="espera">{{ t('admin.plataforma.actividad.noCobra') }}</app-chip>
                   } @else if (org.publicados_sin_inscripciones) {
                     <app-chip tone="espera">{{
                       t('admin.plataforma.actividad.sinInscripciones')
@@ -455,7 +453,6 @@ export class SuperadminPage {
     ];
   });
 
-
   protected readonly filtroOrganizacion = signal('');
   protected readonly filtroAccion = signal('');
   protected readonly filtroDesde = signal('');
@@ -560,7 +557,8 @@ export class SuperadminPage {
   protected resumenDetalle(detalle: Record<string, unknown>): string {
     return Object.entries(detalle)
       .map(([clave, valor]) => {
-        const texto = typeof valor === 'object' && valor !== null ? JSON.stringify(valor) : String(valor);
+        const texto =
+          typeof valor === 'object' && valor !== null ? JSON.stringify(valor) : String(valor);
         return `${clave}: ${texto}`;
       })
       .join(', ');

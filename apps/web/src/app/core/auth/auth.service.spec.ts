@@ -23,7 +23,11 @@ describe('AuthService: impersonación', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideZonelessChangeDetection(), provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideZonelessChangeDetection(),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
     });
     servicio = TestBed.inject(AuthService);
     http = TestBed.inject(HttpTestingController);
@@ -115,7 +119,11 @@ describe('AuthService: organización sin dominio', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideZonelessChangeDetection(), provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideZonelessChangeDetection(),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
     });
     servicio = TestBed.inject(AuthService);
     http = TestBed.inject(HttpTestingController);

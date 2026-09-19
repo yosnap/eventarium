@@ -67,9 +67,7 @@ describe('ThemeTemplatesPage', () => {
     await avanzar(fixture);
 
     // Deja los campos oscuros de fg/bg casi iguales: el par crítico deja de cumplir AA.
-    const campoFg = fixture.nativeElement.querySelector(
-      '#token-dark-fg',
-    ) as HTMLInputElement;
+    const campoFg = fixture.nativeElement.querySelector('#token-dark-fg') as HTMLInputElement;
     campoFg.value = '#050505';
     campoFg.dispatchEvent(new Event('input'));
     await avanzar(fixture);
@@ -119,7 +117,8 @@ describe('ThemeTemplatesPage', () => {
     const peticion = http.expectOne(`${CATALOGO_URL}/${PLANTILLA.id}`);
     peticion.flush(
       {
-        detail: 'La plantilla no supera el contraste mínimo AA (4,5:1) en alguno de sus pares críticos.',
+        detail:
+          'La plantilla no supera el contraste mínimo AA (4,5:1) en alguno de sus pares críticos.',
         errors: [{ primero: 'fg', segundo: 'bg', modo: 'dark', ratio: 1.23 }],
       },
       { status: 422, statusText: 'Unprocessable Entity' },
@@ -149,9 +148,7 @@ describe('ThemeTemplatesPage', () => {
     campoNombre.dispatchEvent(new Event('input'));
     await avanzar(fixture);
 
-    const campoClave = fixture.nativeElement.querySelector(
-      '#plantilla-clave',
-    ) as HTMLInputElement;
+    const campoClave = fixture.nativeElement.querySelector('#plantilla-clave') as HTMLInputElement;
     expect(campoClave.value).toBe('claro-vibrante');
 
     // Solo hacen falta los tokens que entran en los pares críticos: el resto se queda
@@ -193,9 +190,7 @@ describe('ThemeTemplatesPage', () => {
     botones.find((boton) => boton.textContent?.includes('Nueva plantilla'))?.click();
     await avanzar(fixture);
 
-    const campoClave = fixture.nativeElement.querySelector(
-      '#plantilla-clave',
-    ) as HTMLInputElement;
+    const campoClave = fixture.nativeElement.querySelector('#plantilla-clave') as HTMLInputElement;
     campoClave.value = 'Clave Con Espacios';
     campoClave.dispatchEvent(new Event('input'));
     await avanzar(fixture);

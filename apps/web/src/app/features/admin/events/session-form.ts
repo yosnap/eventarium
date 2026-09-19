@@ -121,11 +121,7 @@ function vacio(): {
           [required]="true"
           [(value)]="fin"
         />
-        <app-input
-          fieldId="sesion-sala"
-          [label]="t('admin.events.agenda.sala')"
-          [(value)]="sala"
-        />
+        <app-input fieldId="sesion-sala" [label]="t('admin.events.agenda.sala')" [(value)]="sala" />
 
         @if (sedes().length > 0) {
           <app-select

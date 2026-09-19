@@ -76,12 +76,14 @@ describe('UsersPage', () => {
     await avanzar(fixture);
 
     http.expectOne(ORGS_URL).flush([{ id: 'org-1', name: 'Acme', slug: 'acme', is_active: true }]);
-    http.expectOne((r) => r.url === LISTA_URL).flush({
-      items: [USUARIO_RESUMEN],
-      total: 1,
-      limit: 20,
-      offset: 0,
-    });
+    http
+      .expectOne((r) => r.url === LISTA_URL)
+      .flush({
+        items: [USUARIO_RESUMEN],
+        total: 1,
+        limit: 20,
+        offset: 0,
+      });
     await avanzar(fixture);
 
     const raiz = fixture.nativeElement as HTMLElement;
@@ -96,10 +98,9 @@ describe('UsersPage', () => {
     await avanzar(fixture);
 
     http.expectOne(ORGS_URL).flush([]);
-    http.expectOne((r) => r.url === LISTA_URL).flush(
-      { detail: 'fallo' },
-      { status: 500, statusText: 'Error' },
-    );
+    http
+      .expectOne((r) => r.url === LISTA_URL)
+      .flush({ detail: 'fallo' }, { status: 500, statusText: 'Error' });
     await avanzar(fixture);
 
     const raiz = fixture.nativeElement as HTMLElement;
@@ -112,12 +113,14 @@ describe('UsersPage', () => {
     const fixture = TestBed.createComponent(UsersPage);
     await avanzar(fixture);
     http.expectOne(ORGS_URL).flush([]);
-    http.expectOne((r) => r.url === LISTA_URL).flush({
-      items: [USUARIO_RESUMEN],
-      total: 1,
-      limit: 20,
-      offset: 0,
-    });
+    http
+      .expectOne((r) => r.url === LISTA_URL)
+      .flush({
+        items: [USUARIO_RESUMEN],
+        total: 1,
+        limit: 20,
+        offset: 0,
+      });
     await avanzar(fixture);
 
     const raiz = fixture.nativeElement as HTMLElement;
@@ -137,12 +140,14 @@ describe('UsersPage', () => {
     const fixture = TestBed.createComponent(UsersPage);
     await avanzar(fixture);
     http.expectOne(ORGS_URL).flush([]);
-    http.expectOne((r) => r.url === LISTA_URL).flush({
-      items: [USUARIO_RESUMEN],
-      total: 1,
-      limit: 20,
-      offset: 0,
-    });
+    http
+      .expectOne((r) => r.url === LISTA_URL)
+      .flush({
+        items: [USUARIO_RESUMEN],
+        total: 1,
+        limit: 20,
+        offset: 0,
+      });
     await avanzar(fixture);
 
     const raiz = fixture.nativeElement as HTMLElement;
@@ -160,12 +165,14 @@ describe('UsersPage', () => {
     const fixture = TestBed.createComponent(UsersPage);
     await avanzar(fixture);
     http.expectOne(ORGS_URL).flush([]);
-    http.expectOne((r) => r.url === LISTA_URL).flush({
-      items: [USUARIO_RESUMEN],
-      total: 1,
-      limit: 20,
-      offset: 0,
-    });
+    http
+      .expectOne((r) => r.url === LISTA_URL)
+      .flush({
+        items: [USUARIO_RESUMEN],
+        total: 1,
+        limit: 20,
+        offset: 0,
+      });
     await avanzar(fixture);
 
     const raiz = fixture.nativeElement as HTMLElement;
@@ -189,12 +196,14 @@ describe('UsersPage', () => {
     http.expectOne((r) => r.url === `${LISTA_URL}/u1/deactivate`).flush({});
     await avanzar(fixture);
 
-    http.expectOne((r) => r.url === `${LISTA_URL}/u1`).flush({
-      ...USUARIO_DETALLE,
-      is_active: false,
-      first_name: null,
-      last_name: null,
-    });
+    http
+      .expectOne((r) => r.url === `${LISTA_URL}/u1`)
+      .flush({
+        ...USUARIO_DETALLE,
+        is_active: false,
+        first_name: null,
+        last_name: null,
+      });
     await avanzar(fixture);
     http.expectOne((r) => r.url === LISTA_URL).flush({ items: [], total: 0, limit: 20, offset: 0 });
     await avanzar(fixture);

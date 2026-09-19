@@ -72,11 +72,7 @@ describe('OrgSelector', () => {
 
     let emitida: string | null = null;
     fixture.componentInstance.cambiar.subscribe((id) => (emitida = id));
-    (
-      fixture.nativeElement.querySelector(
-        'button[role="option"]',
-      ) as HTMLButtonElement
-    ).click();
+    (fixture.nativeElement.querySelector('button[role="option"]') as HTMLButtonElement).click();
     expect(emitida).toBe('org-2');
   });
 

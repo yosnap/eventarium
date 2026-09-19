@@ -87,7 +87,9 @@ describe('AddressMap', () => {
     const fetchEspia = vi
       .spyOn(globalThis, 'fetch')
       .mockResolvedValue(
-        respuestaNominatim([{ display_name: 'Calle Mayor 1, Valencia', lat: '39.47', lon: '-0.376' }]),
+        respuestaNominatim([
+          { display_name: 'Calle Mayor 1, Valencia', lat: '39.47', lon: '-0.376' },
+        ]),
       );
     fixture.detectChanges();
     await avanzar(fixture);
@@ -101,9 +103,11 @@ describe('AddressMap', () => {
     await esperarDebounce(fixture);
 
     expect(fetchEspia).toHaveBeenCalledTimes(1);
-    expect((fetchEspia.mock.calls[0][0] as string).startsWith('https://nominatim.openstreetmap.org/search')).toBe(
-      true,
-    );
+    expect(
+      (fetchEspia.mock.calls[0][0] as string).startsWith(
+        'https://nominatim.openstreetmap.org/search',
+      ),
+    ).toBe(true);
     const opciones = fixture.nativeElement.querySelectorAll('[role="option"]');
     expect(opciones.length).toBe(1);
     expect(campo.getAttribute('aria-expanded')).toBe('true');
@@ -112,7 +116,9 @@ describe('AddressMap', () => {
 
   it('al elegir una sugerencia, rellena el campo y muestra el mapa', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      respuestaNominatim([{ display_name: 'Calle Mayor 1, Valencia', lat: '39.47', lon: '-0.376' }]),
+      respuestaNominatim([
+        { display_name: 'Calle Mayor 1, Valencia', lat: '39.47', lon: '-0.376' },
+      ]),
     );
     fixture.detectChanges();
     await avanzar(fixture);

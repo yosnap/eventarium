@@ -76,9 +76,7 @@ describe('superadminGuard', () => {
     auth.loadCurrentUser = vi.fn();
     configurar(false);
     const resultado = await ejecutar();
-    expect((resultado as UrlTree).toString()).toBe(
-      router.createUrlTree(['/acceder']).toString(),
-    );
+    expect((resultado as UrlTree).toString()).toBe(router.createUrlTree(['/acceder']).toString());
     expect(auth.loadCurrentUser).not.toHaveBeenCalled();
   });
 
@@ -88,8 +86,6 @@ describe('superadminGuard', () => {
     auth.loadCurrentUser = vi.fn().mockRejectedValue(new Error('sin sesión'));
     configurar(false);
     const resultado = await ejecutar();
-    expect((resultado as UrlTree).toString()).toBe(
-      router.createUrlTree(['/acceder']).toString(),
-    );
+    expect((resultado as UrlTree).toString()).toBe(router.createUrlTree(['/acceder']).toString());
   });
 });

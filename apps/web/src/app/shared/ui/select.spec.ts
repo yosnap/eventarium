@@ -57,7 +57,9 @@ describe('Select', () => {
   }
 
   function pulsar(tecla: string): void {
-    boton.dispatchEvent(new KeyboardEvent('keydown', { key: tecla, bubbles: true, cancelable: true }));
+    boton.dispatchEvent(
+      new KeyboardEvent('keydown', { key: tecla, bubbles: true, cancelable: true }),
+    );
   }
 
   afterEach(() => {
@@ -173,7 +175,11 @@ describe('Select', () => {
     pulsar('Á');
     await fixture.whenStable();
     const activaA = boton.getAttribute('aria-activedescendant');
-    expect(opciones().find((li) => li.id === activaA)?.textContent?.trim()).toBe('Ávila');
+    expect(
+      opciones()
+        .find((li) => li.id === activaA)
+        ?.textContent?.trim(),
+    ).toBe('Ávila');
 
     // Se remonta para partir de un buffer de búsqueda limpio (el buffer de la letra
     // anterior solo caduca tras PAUSA_BUSQUEDA_MS de inactividad real).
@@ -186,7 +192,11 @@ describe('Select', () => {
     pulsar('Ñ');
     await fixture.whenStable();
     const activaB = boton.getAttribute('aria-activedescendant');
-    expect(opciones().find((li) => li.id === activaB)?.textContent?.trim()).toBe('Ñora');
+    expect(
+      opciones()
+        .find((li) => li.id === activaB)
+        ?.textContent?.trim(),
+    ).toBe('Ñora');
   });
 
   it('ArrowDown abre la lista y, con la lista abierta, mueve la opción activa', async () => {
@@ -264,8 +274,7 @@ describe('Select', () => {
 
   it('se abre hacia arriba cuando no cabe hacia abajo', async () => {
     const rectOriginal = boton.getBoundingClientRect.bind(boton);
-    boton.getBoundingClientRect = () =>
-      ({ ...rectOriginal(), bottom: 700, top: 650 }) as DOMRect;
+    boton.getBoundingClientRect = () => ({ ...rectOriginal(), bottom: 700, top: 650 }) as DOMRect;
     const alturaOriginal = window.innerHeight;
     Object.defineProperty(window, 'innerHeight', { value: 720, configurable: true });
 

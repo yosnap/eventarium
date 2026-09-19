@@ -94,9 +94,7 @@ interface Escalon {
 
           <app-card [heading]="t('admin.events.metricas.ocupacion')">
             @if (m.ocupacion.aforo !== null) {
-              <p class="destacado">
-                {{ m.ocupacion.reservadas }} / {{ m.ocupacion.aforo }}
-              </p>
+              <p class="destacado">{{ m.ocupacion.reservadas }} / {{ m.ocupacion.aforo }}</p>
               <p class="nota">{{ t('admin.events.metricas.reservadasAyuda') }}</p>
             } @else {
               <p class="destacado">{{ m.ocupacion.reservadas }}</p>
@@ -370,8 +368,9 @@ export class EventDashboard implements OnInit {
   }
 
   protected formatearCents(cents: number, moneda: string): string {
-    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: moneda.toUpperCase() }).format(
-      cents / 100,
-    );
+    return new Intl.NumberFormat('es-ES', {
+      style: 'currency',
+      currency: moneda.toUpperCase(),
+    }).format(cents / 100);
   }
 }

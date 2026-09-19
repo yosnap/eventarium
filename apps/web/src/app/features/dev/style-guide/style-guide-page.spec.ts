@@ -40,9 +40,9 @@ describe('StyleGuidePage', () => {
   for (const categoria of CATEGORIAS) {
     it(`la pestaña ${categoria} no viola accesibilidad`, async () => {
       const fixture = await montar();
-      (fixture.componentInstance as unknown as { categoria: { set(v: string): void } }).categoria.set(
-        categoria,
-      );
+      (
+        fixture.componentInstance as unknown as { categoria: { set(v: string): void } }
+      ).categoria.set(categoria);
       await fixture.whenStable();
       await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
     });

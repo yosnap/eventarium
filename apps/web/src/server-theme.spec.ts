@@ -11,10 +11,9 @@ describe('pintarTemaEnHtml (server.ts)', () => {
     expect(resultado).toContain('<html lang="es-ES" data-theme="light">');
   });
 
-  it('sin cookie, devuelve el oscuro por defecto: no toca el HTML', () => {
+  it('sin cookie, resuelve el claro por defecto: pinta data-theme="light"', () => {
     const resultado = pintarTemaEnHtml(HTML_BASE, undefined);
-    expect(resultado).toBe(HTML_BASE);
-    expect(resultado).not.toContain('data-theme');
+    expect(resultado).toContain('<html lang="es-ES" data-theme="light">');
   });
 
   it('con eventarium.tema=oscuro explícito, tampoco toca el HTML', () => {

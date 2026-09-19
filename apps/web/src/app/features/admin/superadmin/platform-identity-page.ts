@@ -84,7 +84,11 @@ const CLAVE_IDENTIDAD = '/admin/identity';
               <p class="vacio">{{ t('admin.plataforma.identidad.sinLogotipo') }}</p>
             }
             <label class="subir">
-              <input type="file" accept="image/png,image/jpeg,image/webp" (change)="subirLogo($event)" />
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                (change)="subirLogo($event)"
+              />
               {{ t('admin.plataforma.identidad.subirLogotipo') }}
             </label>
           </div>
@@ -97,7 +101,11 @@ const CLAVE_IDENTIDAD = '/admin/identity';
               <p class="vacio">{{ t('admin.plataforma.identidad.sinFavicon') }}</p>
             }
             <label class="subir">
-              <input type="file" accept="image/png,image/jpeg,image/webp" (change)="subirFavicon($event)" />
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                (change)="subirFavicon($event)"
+              />
               {{ t('admin.plataforma.identidad.subirFavicon') }}
             </label>
           </div>
@@ -165,7 +173,10 @@ export class PlatformIdentityPage {
   readonly plantillas = signal<readonly PlantillaDeTema[]>([]);
 
   readonly opcionesDePlantilla = computed<readonly SelectOption[]>(() => [
-    { value: '', label: this.transloco.translate('admin.plataforma.identidad.plantillaPorDefecto') },
+    {
+      value: '',
+      label: this.transloco.translate('admin.plataforma.identidad.plantillaPorDefecto'),
+    },
     ...this.plantillas().map((p) => ({ value: p.id, label: p.name })),
   ]);
 
@@ -243,11 +254,9 @@ export class PlatformIdentityPage {
     datos.append('fichero', fichero);
     try {
       const identidad = await firstValueFrom(
-        this.http.put<IdentidadDePlataforma>(
-          this.api.url(`${CLAVE_IDENTIDAD}/${tipo}`),
-          datos,
-          { headers: this.api.serverForwardHeaders() },
-        ),
+        this.http.put<IdentidadDePlataforma>(this.api.url(`${CLAVE_IDENTIDAD}/${tipo}`), datos, {
+          headers: this.api.serverForwardHeaders(),
+        }),
       );
       this.aplicar(identidad);
       this.guardado.set(true);

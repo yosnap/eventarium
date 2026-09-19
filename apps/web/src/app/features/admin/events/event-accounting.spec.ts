@@ -281,8 +281,18 @@ describe('EventAccounting', () => {
           consumido_contingencia_cents: 30_000,
           disponible_contingencia_cents: -25_000,
           por_partida: [
-            { budget_line_id: 'bl1', ejecutado_cents: 60_000, budgeted_cents: 100_000, exceso_cents: 0 },
-            { budget_line_id: null, ejecutado_cents: 50_000, budgeted_cents: 20_000, exceso_cents: 30_000 },
+            {
+              budget_line_id: 'bl1',
+              ejecutado_cents: 60_000,
+              budgeted_cents: 100_000,
+              exceso_cents: 0,
+            },
+            {
+              budget_line_id: null,
+              ejecutado_cents: 50_000,
+              budgeted_cents: 20_000,
+              exceso_cents: 30_000,
+            },
           ],
         }),
       );

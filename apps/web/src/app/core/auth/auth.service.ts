@@ -279,9 +279,12 @@ export class AuthService {
   }
 
   /** Nombre y locale. El correo tiene su propio flujo (`changeEmail`). */
-  async updateMe(
-    datos: { firstName?: string; lastName?: string; locale?: string; notifySimilarEvents?: boolean },
-  ): Promise<void> {
+  async updateMe(datos: {
+    firstName?: string;
+    lastName?: string;
+    locale?: string;
+    notifySimilarEvents?: boolean;
+  }): Promise<void> {
     const respuesta = await firstValueFrom(
       this.http.patch<UsuarioAutenticado>(this.api.url('/users/me'), {
         ...(datos.firstName !== undefined ? { first_name: datos.firstName } : {}),

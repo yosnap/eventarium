@@ -42,7 +42,9 @@ import { TranslocoDirective } from '@jsverse/transloco';
             <span class="rotulo-seccion">{{ t('admin.catalogoEstilo.tipografia.metricUso') }}</span>
           </div>
           <div class="escala__item">
-            <span class="rotulo-seccion">{{ t('admin.catalogoEstilo.tipografia.labelMuestra') }}</span>
+            <span class="rotulo-seccion">{{
+              t('admin.catalogoEstilo.tipografia.labelMuestra')
+            }}</span>
             <span class="rotulo-seccion">{{ t('admin.catalogoEstilo.tipografia.labelUso') }}</span>
           </div>
         </div>
