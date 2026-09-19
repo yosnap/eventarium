@@ -58,6 +58,13 @@ class Event(Base, TimestampMixin):
             "payment_checkout_window_minutes BETWEEN 30 AND 1439",
             name="ck_events_payment_checkout_window_minutes_rango",
         ),
+        # Biblioteca de medios (plan `260918-1944`): FK compuesta, mismo
+        # motivo que las demás de este fichero.
+        ForeignKeyConstraint(
+            ["cover_media_id", "organization_id"],
+            ["media.id", "media.organization_id"],
+            name="fk_events_cover_media_id_organization_id",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=new_uuid7)
@@ -72,6 +79,11 @@ class Event(Base, TimestampMixin):
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     cover_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Nulo para portadas subidas antes de la biblioteca de medios (sin
+    # backfill): siguen su ciclo de vida de siempre. No nulo = gestionada
+    # por la biblioteca, reemplazarla no borra el objeto (puede reutilizarse
+    # en otro sitio).
+    cover_media_id: Mapped[uuid.UUID | None] = mapped_column(PgUUID(as_uuid=True), nullable=True)
     # draft | published | archived
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
     # public | hidden | private
@@ -141,6 +153,14 @@ class Event(Base, TimestampMixin):
         ForeignKey("theme_templates.id", ondelete="SET NULL"),
         nullable=True,
     )
+
+    #: Ajustes de color/fuente sobre la plantilla resuelta. Objeto plano
+    #: opcional `{accent?, font-display?, font-body?}` — NUNCA la forma
+    #: `{dark:{...}, light:{...}}` de una plantilla completa. Los 8 valores
+    #: finales del acento (accent/accent-hi/accent-dim/on-accent × modo) se
+    #: derivan al resolver el tema (`theme_templates/accent_palette.py`), no
+    #: se guardan resueltos aquí.
+    theme_overrides: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
     sessions: Mapped[list[EventSession]] = relationship(
         back_populates="event", cascade="all, delete-orphan", lazy="selectin"

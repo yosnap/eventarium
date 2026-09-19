@@ -2,13 +2,21 @@ import { Routes } from '@angular/router';
 
 import { authGuard } from './core/auth/auth.guard';
 import { guestGuard } from './core/auth/guest.guard';
-import { superadminGuard } from './core/auth/superadmin.guard';
+import { personalPlataformaGuard } from './core/auth/personal-plataforma.guard';
 
 export const routes: Routes = [
   {
     path: 'acceder',
     loadComponent: () => import('./features/admin/login/login-page').then((m) => m.LoginPage),
     canActivate: [guestGuard],
+  },
+  {
+    path: 'espacio-de-trabajo',
+    loadComponent: () =>
+      import('./features/admin/workspace-selector/workspace-selector-page').then(
+        (m) => m.WorkspaceSelectorPage,
+      ),
+    canActivate: [authGuard],
   },
   {
     path: 'registro',
@@ -247,6 +255,11 @@ export const routes: Routes = [
           import('./features/admin/events/event-agenda').then((m) => m.EventAgenda),
       },
       {
+        path: 'events/:eventId/diseno',
+        loadComponent: () =>
+          import('./features/admin/events/event-design').then((m) => m.EventDesign),
+      },
+      {
         path: 'events/:eventId/entradas',
         loadComponent: () =>
           import('./features/admin/events/event-ticket-types').then((m) => m.EventTicketTypes),
@@ -295,7 +308,7 @@ export const routes: Routes = [
     // nombre siempre quiso decir.
     path: 'admin',
     loadComponent: () => import('./layouts/admin/admin-shell').then((m) => m.AdminShell),
-    canActivate: [superadminGuard],
+    canActivate: [personalPlataformaGuard],
     children: [
       {
         path: '',
@@ -322,6 +335,13 @@ export const routes: Routes = [
           import('./features/admin/superadmin/platform-legal-page').then(
             (m) => m.PlatformLegalPage,
           ),
+      },
+      {
+        // Fase 3 del plan de cookies: pantalla de analítica externa, de
+        // lectura también para `soporte` (la escritura es solo superadmin).
+        path: 'analitica-externa',
+        loadComponent: () =>
+          import('./features/admin/superadmin/analytics-page').then((m) => m.AnalyticsPage),
       },
       {
         path: 'suplantar',

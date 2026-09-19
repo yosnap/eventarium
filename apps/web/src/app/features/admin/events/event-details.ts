@@ -15,11 +15,9 @@ import { ApiError } from '../../../core/api/error.interceptor';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
+import { MediaElegida, MediaPicker } from '../../../shared/ui/media-picker';
 import { capitalizarClaveDeTraduccion } from '../../../shared/text/capitalizar-clave-de-traduccion';
-import {
-  IMAGEN_MIMES_PERMITIDOS,
-  IMAGEN_TAMANO_MAXIMO,
-} from '../../../shared/uploads/image-upload-constraints';
+import { PORTADA_ACEPTADOS } from '../../../shared/uploads/image-upload-constraints';
 
 type EventStatus = 'draft' | 'published' | 'archived';
 
@@ -44,7 +42,7 @@ interface EventoResumen {
 @Component({
   selector: 'app-event-details',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card],
+  imports: [TranslocoDirective, Alert, Button, Card, MediaPicker],
   template: `
     <ng-container *transloco="let t">
       @if (cargando()) {
@@ -52,22 +50,13 @@ interface EventoResumen {
       } @else {
         <div class="fila-superior">
           <app-card [heading]="t('admin.events.formulario.portada')">
-            @if (portadaUrl(); as url) {
-              <img [src]="url" [alt]="t('admin.events.formulario.portada')" height="120" />
-            } @else {
-              <p>{{ t('admin.events.formulario.sinPortada') }}</p>
-            }
-            <!-- TODO(media-picker): sustituir por app-media-picker en cuanto la
-                 rama feat/cookies-analitica-externa (donde vive ese componente)
-                 se fusione en develop — hoy no está disponible en esta rama. -->
-            <label class="etiqueta-fichero" for="portada">{{
-              t('admin.events.formulario.subirPortada')
-            }}</label>
-            <input
-              id="portada"
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              (change)="alSeleccionarPortada($event)"
+            <app-media-picker
+              #portadaPicker
+              [etiqueta]="t('admin.events.formulario.portada')"
+              [aceptados]="PORTADA_ACEPTADOS"
+              kind="events"
+              [url]="portadaUrl()"
+              (mediaElegido)="asignarPortada($event, portadaPicker)"
             />
             @if (errorPortada(); as mensaje) {
               <app-alert tone="error">{{ mensaje }}</app-alert>
@@ -120,11 +109,6 @@ interface EventoResumen {
       gap: var(--space-lg);
       align-items: start;
     }
-    .etiqueta-fichero {
-      display: block;
-      margin-top: var(--space-sm);
-      font-weight: 500;
-    }
     .acciones-estado {
       display: flex;
       gap: var(--space-md);
@@ -134,6 +118,7 @@ interface EventoResumen {
 })
 export class EventDetails implements OnInit {
   readonly eventId = input.required<string>();
+  protected readonly PORTADA_ACEPTADOS = PORTADA_ACEPTADOS;
 
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
@@ -195,36 +180,22 @@ export class EventDetails implements OnInit {
     }
   }
 
-  protected alSeleccionarPortada(evento: Event): void {
+  /** El fichero/URL/biblioteca ya se resolvió a un `media_id` dentro de
+   * `MediaPicker` (Fase 3 del plan de biblioteca de medios): aquí solo queda
+   * asignarlo como portada. Si la asignación falla, `picker.revertir()`
+   * deshace la previsualización optimista — si no, se quedaría mostrando
+   * la imagen nueva como si estuviera guardada (hallazgo de code-review). */
+  protected async asignarPortada(media: MediaElegida, picker: MediaPicker): Promise<void> {
     this.errorPortada.set(null);
-    const fichero = (evento.target as HTMLInputElement).files?.[0] ?? null;
-    if (!fichero) {
-      return;
-    }
-    if (!IMAGEN_MIMES_PERMITIDOS.has(fichero.type)) {
-      this.errorPortada.set(this.transloco.translate('admin.events.formulario.portadaNoValida'));
-      (evento.target as HTMLInputElement).value = '';
-      return;
-    }
-    if (fichero.size > IMAGEN_TAMANO_MAXIMO) {
-      this.errorPortada.set(
-        this.transloco.translate('admin.events.formulario.portadaDemasiadoGrande'),
-      );
-      (evento.target as HTMLInputElement).value = '';
-      return;
-    }
-    void this.subirPortada(fichero);
-  }
-
-  private async subirPortada(fichero: File): Promise<void> {
-    const datos = new FormData();
-    datos.append('fichero', fichero);
     try {
       const actualizado = await firstValueFrom(
-        this.http.put<EventoResumen>(this.api.url(`/events/${this.eventId()}/cover`), datos),
+        this.http.put<EventoResumen>(this.api.url(`/events/${this.eventId()}/cover`), {
+          media_id: media.id,
+        }),
       );
       this.portadaUrl.set(actualizado.cover_url);
     } catch (error) {
+      picker.revertir();
       this.errorPortada.set(
         error instanceof ApiError
           ? error.message

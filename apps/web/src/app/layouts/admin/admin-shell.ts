@@ -8,37 +8,26 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { Router, RouterLink, RouterOutlet } from '@angular/router';
-import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
+import { Router, RouterOutlet } from '@angular/router';
+import { TranslocoDirective } from '@jsverse/transloco';
 
-import { AuthService, OrganizacionDeLaPersona, displayName } from '../../core/auth/auth.service';
-import { ApiError } from '../../core/api/error.interceptor';
+import { AuthService, OrganizacionDeLaPersona } from '../../core/auth/auth.service';
 import { BrandMark } from '../../shared/ui/brand-mark';
-import { Button } from '../../shared/ui/button';
 import { ThemeToggle } from '../../shared/ui/theme-toggle';
+import { AccountMenu } from './account-menu';
 import { AdminNav } from './admin-nav';
-import { OrgSelector } from './org-selector';
 import { EventScope } from './event-scope';
 import { PanelScope } from './panel-scope';
 
 /**
- * Estructura del panel de administración: cabecera con marca, selector de
- * organizaciones, cuenta y sesión; navegación agrupada por ámbito
- * (`AdminNav`), colapsable en pantallas estrechas con gestión de foco.
+ * Estructura del panel de administración: cabecera con marca, menú de
+ * cuenta, y navegación agrupada por ámbito (`AdminNav`), colapsable en
+ * pantallas estrechas con gestión de foco.
  */
 @Component({
   selector: 'app-admin-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    RouterOutlet,
-    RouterLink,
-    TranslocoDirective,
-    Button,
-    ThemeToggle,
-    AdminNav,
-    BrandMark,
-    OrgSelector,
-  ],
+  imports: [RouterOutlet, TranslocoDirective, ThemeToggle, AdminNav, BrandMark, AccountMenu],
   template: `
     <ng-container *transloco="let t">
       <a class="skip-link" href="#contenido-admin">{{ t('comun.saltarAlContenido') }}</a>
@@ -55,28 +44,11 @@ import { PanelScope } from './panel-scope';
           </p>
           <div class="sesion">
             <app-theme-toggle />
-            @if (!esPanelPlataforma()) {
-              <app-org-selector
-                [organizaciones]="organizaciones()"
-                [activaId]="auth.currentUser()?.organization_id ?? null"
-                [cambiando]="cambiandoOrganizacion()"
-                (cambiar)="cambiarOrganizacion($event)"
-              />
-            }
-            @if (errorCambioOrganizacion(); as mensaje) {
-              <p role="alert" class="error-organizacion">{{ mensaje }}</p>
-            }
-            @if (cambioDePanel(); as destino) {
-              <a [routerLink]="destino.ruta" class="cambio-panel">{{ t(destino.etiqueta) }}</a>
-            }
-            @if (auth.currentUser(); as usuario) {
-              <a routerLink="/dashboard/account">{{
-                t('admin.sesionDe', { nombre: nombreDe(usuario) })
-              }}</a>
-            }
-            <app-button variant="secundario" (pulsado)="cerrarSesion()">
-              {{ t('admin.cerrarSesion') }}
-            </app-button>
+            <app-account-menu
+              [email]="auth.currentUser()?.email ?? ''"
+              [nuevaOrganizacion]="!esPanelPlataforma()"
+              (cerrarSesion)="cerrarSesion()"
+            />
           </div>
         </div>
       </header>
@@ -158,16 +130,6 @@ import { PanelScope } from './panel-scope';
       align-items: center;
       gap: var(--space-md);
     }
-    .error-organizacion {
-      color: var(--danger);
-      font-size: var(--fs-sm);
-      margin: 0;
-    }
-    .cambio-panel {
-      font-size: var(--fs-sm);
-      color: var(--accent);
-      white-space: nowrap;
-    }
     .cuerpo {
       display: grid;
       grid-template-columns: minmax(12rem, 16rem) 1fr;
@@ -201,9 +163,7 @@ import { PanelScope } from './panel-scope';
 })
 export class AdminShell {
   protected readonly auth = inject(AuthService);
-  protected readonly nombreDe = displayName;
   private readonly router = inject(Router);
-  private readonly transloco = inject(TranslocoService);
   private readonly eventScope = inject(EventScope);
   private readonly panelScope = inject(PanelScope);
 
@@ -245,39 +205,6 @@ export class AdminShell {
       aceptaPagos: this.eventScope.registrationMode() === 'paid',
     };
   });
-
-  /**
-   * El único puente visible entre los dos árboles de ruta, para quien tiene
-   * las dos condiciones a la vez (superadmin que además organiza). Antes de
-   * esto, cruzar de un panel al otro exigía escribir la URL a mano —
-   * `admin-nav.ts` nunca ofrece los enlaces del panel contrario a propósito
-   * (evita mandar a un árbol del que el guard te rebota), así que hacía falta
-   * este puente en la cabecera, que sí ve los dos paneles.
-   *
-   * En `/admin`, solo aparece si la persona pertenece a alguna organización
-   * (no todo superadmin organiza): sin eso, «Ir a mi organización» llevaría a
-   * un escritorio sin datos que mostrar.
-   */
-  protected readonly cambioDePanel = computed(() => {
-    const usuario = this.auth.currentUser();
-    if (!usuario?.is_superadmin) {
-      return null;
-    }
-    if (this.esPanelPlataforma()) {
-      return this.organizaciones().length > 0
-        ? { ruta: '/dashboard', etiqueta: 'admin.irAMiOrganizacion' }
-        : null;
-    }
-    return { ruta: '/admin', etiqueta: 'admin.irAPlataforma' };
-  });
-
-  /** Deshabilita el selector mientras se cambia de organización, para no
-   * disparar dos cambios simultáneos con un doble clic. */
-  protected readonly cambiandoOrganizacion = signal(false);
-  /** Mensaje visible si `switchOrganization` falla — antes se tragaba el
-   * error en silencio y el botón simplemente se rehabilitaba sin explicar
-   * nada. */
-  protected readonly errorCambioOrganizacion = signal<string | null>(null);
 
   protected readonly navegacionAbierta = signal(false);
   private readonly panelNavegacion = viewChild<ElementRef<HTMLElement>>('panelNavegacion');
@@ -329,38 +256,5 @@ export class AdminShell {
   protected async cerrarSesion(): Promise<void> {
     await this.auth.logout();
     await this.router.navigate(['/acceder']);
-  }
-
-  /**
-   * Cambia la organización activa y recarga la página entera.
-   *
-   * No se intenta sincronizar en memoria todo lo que depende de la
-   * organización (menú, evento activo, listas cacheadas): una recarga
-   * completa es más simple y más fiable que invalidar cada estado uno a uno
-   * (predicción 3 de `predict.md`, plan de organización sin dominio).
-   */
-  protected async cambiarOrganizacion(organizationId: string): Promise<void> {
-    if (this.cambiandoOrganizacion()) {
-      return;
-    }
-    this.cambiandoOrganizacion.set(true);
-    this.errorCambioOrganizacion.set(null);
-    try {
-      await this.auth.switchOrganization(organizationId);
-      window.location.href = '/dashboard';
-    } catch (error) {
-      this.cambiandoOrganizacion.set(false);
-      if (error instanceof ApiError && error.status === 401) {
-        // La cookie de refresco ya no vale (sesión caducada o revocada en
-        // otro sitio): no tiene sentido seguir en el panel, a `/acceder`.
-        await this.router.navigate(['/acceder']);
-        return;
-      }
-      this.errorCambioOrganizacion.set(
-        error instanceof ApiError
-          ? error.message
-          : this.transloco.translate('admin.selectorOrganizacion.error'),
-      );
-    }
   }
 }

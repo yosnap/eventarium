@@ -14,19 +14,20 @@ export interface TokensDeTema {
   readonly light: TokensDePlantilla;
 }
 
-/** Fila del catálogo (`GET /organizations/me/theme-templates`, `admin/theme-templates`). */
+/** Fila del catálogo (`GET /organizations/me/theme-templates`, `admin/theme-templates`).
+ *
+ * `is_default`/`default_mode` opcionales por compatibilidad con consumidores
+ * antiguos del tipo, pero desde la fase 1 del plan «diseño del evento» los
+ * expone también `ThemeTemplateCatalogItem` (antes solo `ThemeTemplateResponse`
+ * de superadministración) — la pantalla de Diseño del evento los necesita
+ * para resolver en cliente la cadena evento→organización→catálogo. */
 export interface PlantillaDeTema {
   readonly id: string;
   readonly key: string;
   readonly name: string;
   readonly tokens: TokensDeTema;
-  /** Ausente en el catálogo público (`ThemeTemplateCatalogItem`); presente en la
-   * respuesta de superadministración (`ThemeTemplateResponse`), que sí gestiona cuál
-   * es la plantilla por defecto. */
   readonly is_default?: boolean;
-  /** El modo con el que abre quien no ha elegido todavía ('dark' | 'light').
-   * Presente en la superadministración y en la plantilla resuelta de
-   * `/tenant/branding`; ausente en el catálogo público. */
+  /** El modo con el que abre quien no ha elegido todavía ('dark' | 'light'). */
   readonly default_mode?: string;
 }
 

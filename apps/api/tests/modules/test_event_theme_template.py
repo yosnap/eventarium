@@ -17,9 +17,10 @@ import uuid
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.core.database import SessionMaintenance
+from app.modules.events.models import Event
 from app.modules.theme_templates.models import ThemeTemplate
 from tests.conftest import OrganizacionDePrueba, iniciar_sesion
 
@@ -249,3 +250,207 @@ class TestTemaEnLaFichaPublica:
 
         assert ficha.json()["theme"]["id"] == str(otra.id)
         assert ficha.json()["theme"]["id"] != id_heredado
+
+
+class TestPersonalizacionPorEvento:
+    """`theme_overrides`: ajustes de color/fuente sobre la plantilla resuelta.
+
+    Semántica DISTINTA de `theme_template_id` a propósito: aquí `null`
+    explícito SÍ borra (no hace falta una cadena vacía), porque es un objeto,
+    no un identificador que se confundiría con "sin cambios" al llegar vacío.
+    """
+
+    async def test_clave_desconocida_se_rechaza(
+        self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
+    ) -> None:
+        _, cabeceras = await iniciar_sesion(cliente, organizacion)
+        evento = await _crear_evento(cliente, cabeceras, "overrides-clave-desconocida")
+
+        respuesta = await cliente.patch(
+            f"{EVENTS}/{evento['id']}",
+            headers=cabeceras,
+            json={"theme_overrides": {"bg": "#000000"}},
+        )
+        assert respuesta.status_code == 422, respuesta.text
+
+    async def test_fuente_con_tipo_no_textual_se_rechaza_con_422(
+        self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
+    ) -> None:
+        """Sin el `isinstance` explícito, esto revienta con 500 en vez de 422
+        (hallazgo del red-team de este plan)."""
+        _, cabeceras = await iniciar_sesion(cliente, organizacion)
+        evento = await _crear_evento(cliente, cabeceras, "overrides-fuente-no-string")
+
+        respuesta = await cliente.patch(
+            f"{EVENTS}/{evento['id']}",
+            headers=cabeceras,
+            json={"theme_overrides": {"font-display": 123}},
+        )
+        assert respuesta.status_code == 422, respuesta.text
+
+    async def test_fuente_fuera_de_lista_blanca_se_rechaza(
+        self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
+    ) -> None:
+        _, cabeceras = await iniciar_sesion(cliente, organizacion)
+        evento = await _crear_evento(cliente, cabeceras, "overrides-fuente-no-permitida")
+
+        respuesta = await cliente.patch(
+            f"{EVENTS}/{evento['id']}",
+            headers=cabeceras,
+            json={"theme_overrides": {"font-body": "Comic Sans"}},
+        )
+        assert respuesta.status_code == 422, respuesta.text
+
+    async def test_color_acromatico_se_rechaza(
+        self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
+    ) -> None:
+        """El color elegido se perdería sin aviso (croma 0, matiz indefinido)."""
+        _, cabeceras = await iniciar_sesion(cliente, organizacion)
+        evento = await _crear_evento(cliente, cabeceras, "overrides-color-gris")
+
+        respuesta = await cliente.patch(
+            f"{EVENTS}/{evento['id']}",
+            headers=cabeceras,
+            json={"theme_overrides": {"accent": "#808080"}},
+        )
+        assert respuesta.status_code == 422, respuesta.text
+
+    async def test_guardar_y_leer_overrides_round_trip(
+        self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
+    ) -> None:
+        """Cubre el hallazgo del red-team: `EventResponse` se construye a mano
+        en `_event_response` — sin ese campo ahí, esto se quedaría en `null`."""
+        _, cabeceras = await iniciar_sesion(cliente, organizacion)
+        evento = await _crear_evento(cliente, cabeceras, "overrides-round-trip")
+
+        overrides = {"accent": "#22c55e", "font-display": "Oswald", "font-body": "Inter"}
+        actualizado = await cliente.patch(
+            f"{EVENTS}/{evento['id']}", headers=cabeceras, json={"theme_overrides": overrides}
+        )
+        assert actualizado.status_code == 200, actualizado.text
+        assert actualizado.json()["theme_overrides"] == overrides
+
+        leido = await cliente.get(f"{EVENTS}/{evento['id']}", headers=cabeceras)
+        assert leido.status_code == 200, leido.text
+        assert leido.json()["theme_overrides"] == overrides
+
+    async def test_ausente_no_cambia_nada(
+        self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
+    ) -> None:
+        _, cabeceras = await iniciar_sesion(cliente, organizacion)
+        evento = await _crear_evento(cliente, cabeceras, "overrides-ausente")
+        overrides = {"accent": "#3b82f6"}
+        await cliente.patch(
+            f"{EVENTS}/{evento['id']}", headers=cabeceras, json={"theme_overrides": overrides}
+        )
+
+        sin_tocar_overrides = await cliente.patch(
+            f"{EVENTS}/{evento['id']}", headers=cabeceras, json={"title": "Otro título"}
+        )
+        assert sin_tocar_overrides.status_code == 200, sin_tocar_overrides.text
+        assert sin_tocar_overrides.json()["theme_overrides"] == overrides
+
+    async def test_null_explicito_borra_los_overrides(
+        self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
+    ) -> None:
+        """Semántica DISTINTA de `theme_template_id`: aquí `null` sí borra
+        (no hace falta cadena vacía) — hallazgo del red-team, documentado en
+        el docstring de `EventUpdate.theme_overrides`."""
+        _, cabeceras = await iniciar_sesion(cliente, organizacion)
+        evento = await _crear_evento(cliente, cabeceras, "overrides-null-borra")
+        await cliente.patch(
+            f"{EVENTS}/{evento['id']}",
+            headers=cabeceras,
+            json={"theme_overrides": {"accent": "#3b82f6"}},
+        )
+
+        borrado = await cliente.patch(
+            f"{EVENTS}/{evento['id']}", headers=cabeceras, json={"theme_overrides": None}
+        )
+        assert borrado.status_code == 200, borrado.text
+        assert borrado.json()["theme_overrides"] is None
+
+    async def test_volver_a_plantilla_pura_con_los_dos_campos_a_la_vez(
+        self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
+    ) -> None:
+        """Perfil (e) del predict: plantilla propia + cadena vacía, overrides +
+        null, en el mismo PATCH."""
+        plantillas = await _plantillas()
+        _, cabeceras = await iniciar_sesion(cliente, organizacion)
+        evento = await _crear_evento(cliente, cabeceras, "overrides-vuelve-a-pura")
+        await cliente.patch(
+            f"{EVENTS}/{evento['id']}",
+            headers=cabeceras,
+            json={
+                "theme_template_id": str(plantillas[0].id),
+                "theme_overrides": {"accent": "#3b82f6"},
+            },
+        )
+
+        vuelto = await cliente.patch(
+            f"{EVENTS}/{evento['id']}",
+            headers=cabeceras,
+            json={"theme_template_id": "", "theme_overrides": None},
+        )
+        assert vuelto.status_code == 200, vuelto.text
+        assert vuelto.json()["theme_template_id"] is None
+        assert vuelto.json()["theme_overrides"] is None
+
+    async def test_accent_corrupto_en_bd_degrada_sin_500(
+        self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
+    ) -> None:
+        """Un dato corrupto que se saltó el validador (migración de datos,
+        restauración de backup) no debe tumbar la ficha pública."""
+        _, cabeceras = await iniciar_sesion(cliente, organizacion)
+        evento = await _crear_evento(cliente, cabeceras, "overrides-corrupto")
+        await cliente.patch(
+            f"{EVENTS}/{evento['id']}",
+            headers=cabeceras,
+            json={"status": "published", "visibility": "public"},
+        )
+
+        async with SessionMaintenance() as session:
+            await session.execute(
+                update(Event)
+                .where(Event.id == uuid.UUID(evento["id"]))
+                .values(theme_overrides={"accent": "no-es-un-color-valido"})
+            )
+            await session.commit()
+
+        ficha = await cliente.get(f"/api/v1/public/events/{evento['slug']}")
+        assert ficha.status_code == 200, ficha.text
+        assert ficha.json()["theme"] is not None
+
+    async def test_patch_de_theme_desde_otra_organizacion_se_rechaza(
+        self,
+        cliente: AsyncClient,
+        organizacion: OrganizacionDePrueba,
+        otra_organizacion: OrganizacionDePrueba,
+    ) -> None:
+        """`theme_template_id`/`theme_overrides` son campos de `EventUpdate`
+        como cualquier otro: el aislamiento por organización ya lo garantiza
+        `service.update_event` (busca el evento por `organization_id` del
+        usuario autenticado, no del payload) — este test lo deja explícito
+        para estos dos campos en concreto."""
+        _, cabeceras_propietaria = await iniciar_sesion(cliente, organizacion)
+        _, cabeceras_intrusa = await iniciar_sesion(cliente, otra_organizacion)
+        evento = await _crear_evento(cliente, cabeceras_propietaria, "theme-ajeno")
+
+        plantillas = await _plantillas()
+        intento_plantilla = await cliente.patch(
+            f"{EVENTS}/{evento['id']}",
+            headers=cabeceras_intrusa,
+            json={"theme_template_id": str(plantillas[0].id)},
+        )
+        assert intento_plantilla.status_code == 404
+
+        intento_overrides = await cliente.patch(
+            f"{EVENTS}/{evento['id']}",
+            headers=cabeceras_intrusa,
+            json={"theme_overrides": {"accent": "#3b82f6"}},
+        )
+        assert intento_overrides.status_code == 404
+
+        sin_tocar = await cliente.get(f"{EVENTS}/{evento['id']}", headers=cabeceras_propietaria)
+        assert sin_tocar.json()["theme_template_id"] is None
+        assert sin_tocar.json()["theme_overrides"] is None

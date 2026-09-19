@@ -15,5 +15,6 @@ export interface CurrentUserResponse {
   notify_similar_events: boolean;
   organization_id: string;
   permissions: Array<Permission>;
+  platform_role: (string | null);
   roles: Array<string>;
 }

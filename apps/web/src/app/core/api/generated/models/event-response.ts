@@ -30,6 +30,9 @@ export interface EventResponse {
   starts_at: string;
   status: 'draft' | 'published' | 'archived';
   summary: (string | null);
+  theme_overrides: ({
+[key: string]: any;
+} | null);
   theme_template_id: (string | null);
   timezone: string;
   title: string;

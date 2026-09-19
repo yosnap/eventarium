@@ -12,6 +12,8 @@ import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
 import { Select, SelectOption } from '../../../shared/ui/select';
 import { PageHeader } from '../../../shared/ui/page-header';
+import { MediaElegida, MediaPicker } from '../../../shared/ui/media-picker';
+import { LOGO_ACEPTADOS } from '../../../shared/uploads/image-upload-constraints';
 
 /** Identidad de la plataforma tal y como la devuelve `GET /admin/identity`. */
 interface IdentidadDePlataforma {
@@ -33,7 +35,7 @@ const CLAVE_IDENTIDAD = '/admin/identity';
 @Component({
   selector: 'app-platform-identity-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input, Select, PageHeader],
+  imports: [TranslocoDirective, Alert, Button, Card, Input, Select, PageHeader, MediaPicker],
   template: `
     <ng-container *transloco="let t">
       <app-page-header [rotulo]="t('admin.plataforma.identidad.rotulo')">
@@ -76,39 +78,24 @@ const CLAVE_IDENTIDAD = '/admin/identity';
 
       <app-card [heading]="t('admin.plataforma.identidad.imagenes')">
         <div class="imagenes">
-          <div class="imagen">
-            <p class="etiqueta">{{ t('admin.plataforma.identidad.logotipo') }}</p>
-            @if (logoUrl(); as url) {
-              <img [src]="url" [alt]="t('admin.plataforma.identidad.logotipo')" height="48" />
-            } @else {
-              <p class="vacio">{{ t('admin.plataforma.identidad.sinLogotipo') }}</p>
-            }
-            <label class="subir">
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                (change)="subirLogo($event)"
-              />
-              {{ t('admin.plataforma.identidad.subirLogotipo') }}
-            </label>
-          </div>
-
-          <div class="imagen">
-            <p class="etiqueta">{{ t('admin.plataforma.identidad.favicon') }}</p>
-            @if (faviconUrl(); as url) {
-              <img [src]="url" [alt]="t('admin.plataforma.identidad.favicon')" height="24" />
-            } @else {
-              <p class="vacio">{{ t('admin.plataforma.identidad.sinFavicon') }}</p>
-            }
-            <label class="subir">
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                (change)="subirFavicon($event)"
-              />
-              {{ t('admin.plataforma.identidad.subirFavicon') }}
-            </label>
-          </div>
+          <app-media-picker
+            #logoPicker
+            class="imagen"
+            [etiqueta]="t('admin.plataforma.identidad.logotipo')"
+            [aceptados]="LOGO_ACEPTADOS"
+            kind="platform"
+            [url]="logoUrl()"
+            (mediaElegido)="asignarImagen($event, 'logo', logoPicker)"
+          />
+          <app-media-picker
+            #faviconPicker
+            class="imagen"
+            [etiqueta]="t('admin.plataforma.identidad.favicon')"
+            [aceptados]="LOGO_ACEPTADOS"
+            kind="platform"
+            [url]="faviconUrl()"
+            (mediaElegido)="asignarImagen($event, 'favicon', faviconPicker)"
+          />
         </div>
       </app-card>
     </ng-container>
@@ -157,6 +144,8 @@ const CLAVE_IDENTIDAD = '/admin/identity';
   `,
 })
 export class PlatformIdentityPage {
+  protected readonly LOGO_ACEPTADOS = LOGO_ACEPTADOS;
+
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
@@ -232,35 +221,29 @@ export class PlatformIdentityPage {
     }
   }
 
-  async subirLogo(evento: Event): Promise<void> {
-    await this.subirImagen(evento, 'logo');
-  }
-
-  async subirFavicon(evento: Event): Promise<void> {
-    await this.subirImagen(evento, 'favicon');
-  }
-
-  private async subirImagen(evento: Event, tipo: 'logo' | 'favicon'): Promise<void> {
-    const entrada = evento.target as HTMLInputElement;
-    const fichero = entrada.files?.[0];
-    entrada.value = '';
-    if (!fichero) {
-      return;
-    }
-
+  /** El fichero/URL/biblioteca ya se resolvió a un `media_id` dentro de
+   * `MediaPicker` (Fase 3 del plan de biblioteca de medios): aquí solo queda
+   * asignarlo al campo correspondiente de la identidad de plataforma. Si
+   * falla, `picker.revertir()` deshace la previsualización optimista. */
+  async asignarImagen(
+    media: MediaElegida,
+    tipo: 'logo' | 'favicon',
+    picker: MediaPicker,
+  ): Promise<void> {
     this.guardado.set(false);
     this.error.set(null);
-    const datos = new FormData();
-    datos.append('fichero', fichero);
     try {
       const identidad = await firstValueFrom(
-        this.http.put<IdentidadDePlataforma>(this.api.url(`${CLAVE_IDENTIDAD}/${tipo}`), datos, {
-          headers: this.api.serverForwardHeaders(),
-        }),
+        this.http.put<IdentidadDePlataforma>(
+          this.api.url(`${CLAVE_IDENTIDAD}/${tipo}`),
+          { media_id: media.id },
+          { headers: this.api.serverForwardHeaders() },
+        ),
       );
       this.aplicar(identidad);
       this.guardado.set(true);
     } catch (fallo) {
+      picker.revertir();
       this.error.set(this.mensajeDeError(fallo, 'admin.plataforma.identidad.errorSubida'));
     }
   }

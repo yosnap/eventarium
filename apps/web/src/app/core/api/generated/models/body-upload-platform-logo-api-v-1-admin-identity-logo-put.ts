@@ -6,5 +6,5 @@ export interface BodyUploadPlatformLogoApiV1AdminIdentityLogoPut {
   /**
    * Imagen del logotipo
    */
-  fichero: string;
+  fichero?: (string | null);
 }

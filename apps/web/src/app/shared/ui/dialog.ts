@@ -35,6 +35,12 @@ import { ChangeDetectionStrategy, Component, ElementRef, output, viewChild } fro
   `,
   styles: `
     dialog {
+      /* El preflight de Tailwind resetea margin:0 en todos los elementos,
+         incluido dialog — sin restaurarlo, un dialog abierto con showModal()
+         pierde el margin:auto de su hoja de estilos nativa
+         (dialog:modal { position: fixed; inset: 0; margin: auto }) y queda
+         pegado a la esquina superior izquierda en vez de centrado. */
+      margin: auto;
       border: 1px solid var(--border-strong);
       border-radius: var(--radius-md);
       background-color: var(--surface);
@@ -79,7 +85,11 @@ export class Dialog {
   }
 
   cerrar(): void {
-    this.elemento().nativeElement.close();
+    // jsdom no implementa el cierre del `<dialog>` nativo: el estado interno se
+    // procesa igual y el DOM de prueba no depende de ese método.
+    if (typeof this.elemento().nativeElement.close === 'function') {
+      this.elemento().nativeElement.close();
+    }
     this.procesarCierre();
   }
 

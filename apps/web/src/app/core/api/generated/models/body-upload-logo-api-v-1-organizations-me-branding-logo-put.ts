@@ -6,5 +6,5 @@ export interface BodyUploadLogoApiV1OrganizationsMeBrandingLogoPut {
   /**
    * Imagen del logotipo
    */
-  fichero: string;
+  fichero?: (string | null);
 }

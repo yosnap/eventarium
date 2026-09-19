@@ -4,7 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CookieBanner } from './cookie-banner';
 import { CookieConsentService } from '../../core/cookies/cookie-consent.service';
@@ -30,8 +30,12 @@ describe('CookieBanner', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    delete (window as unknown as { __dummyAnalyticsHits?: number }).__dummyAnalyticsHits;
-    document.getElementById('dummy-analytics-script')?.remove();
+    for (const id of ['ga4-analytics-script', 'meta-pixel-script', 'cloudflare-analytics-script']) {
+      document.getElementById(id)?.remove();
+    }
+    delete (window as unknown as { dataLayer?: unknown[] }).dataLayer;
+    delete (window as unknown as { fbq?: unknown; _fbq?: unknown }).fbq;
+    delete (window as unknown as { fbq?: unknown; _fbq?: unknown })._fbq;
 
     TestBed.configureTestingModule({
       imports: [
@@ -54,13 +58,13 @@ describe('CookieBanner', () => {
     http.verify();
   });
 
-  it('aparece en la primera visita y bloquea el script de ejemplo no esencial', async () => {
+  it('aparece en la primera visita y bloquea los scripts de analítica no esenciales', async () => {
     const fixture = TestBed.createComponent(CookieBanner);
     await avanzar(fixture);
 
     const raiz = fixture.nativeElement as HTMLElement;
     expect(raiz.querySelector('[role="region"]')).not.toBeNull();
-    expect(document.getElementById('dummy-analytics-script')).toBeNull();
+    expect(document.getElementById('ga4-analytics-script')).toBeNull();
     await esperarSinViolacionesDeAccesibilidad(raiz);
   });
 
@@ -79,7 +83,7 @@ describe('CookieBanner', () => {
     expect(new Set(clases.filter((c) => c.includes('secundario'))).size).toBe(1);
   });
 
-  it('"solo las necesarias" no activa el script de ejemplo y registra el consentimiento', async () => {
+  it('"solo las necesarias" no activa ningún script de analítica y registra el consentimiento', async () => {
     const fixture = TestBed.createComponent(CookieBanner);
     await avanzar(fixture);
 
@@ -95,14 +99,16 @@ describe('CookieBanner', () => {
     peticion.flush(null, { status: 204, statusText: 'No Content' });
     await avanzar(fixture);
 
-    expect(document.getElementById('dummy-analytics-script')).toBeNull();
+    expect(document.getElementById('ga4-analytics-script')).toBeNull();
+    expect(document.getElementById('meta-pixel-script')).toBeNull();
+    expect(document.getElementById('cloudflare-analytics-script')).toBeNull();
     expect((fixture.nativeElement as HTMLElement).querySelector('[role="region"]')).toBeNull();
     expect(JSON.parse(localStorage.getItem('cookie-consent') ?? '{}').categories).toEqual([
       'necessary',
     ]);
   });
 
-  it('aceptar todas activa el script de ejemplo no esencial', async () => {
+  it('aceptar todas activa los scripts reales de los tres proveedores configurados', async () => {
     const fixture = TestBed.createComponent(CookieBanner);
     await avanzar(fixture);
 
@@ -116,9 +122,23 @@ describe('CookieBanner', () => {
       new Set(['necessary', 'analytics', 'marketing']),
     );
     peticion.flush(null, { status: 204, statusText: 'No Content' });
+
+    // El servicio de scripts consulta los identificadores públicos una vez
+    // para los tres proveedores.
+    const identificadores = http.expectOne('/api/v1/tenant/analytics');
+    identificadores.flush({
+      ga4_measurement_id: 'G-TEST123',
+      meta_pixel_id: '1234567890',
+      cloudflare_analytics_token: 'tok-publico',
+    });
     await avanzar(fixture);
 
-    expect(document.getElementById('dummy-analytics-script')).not.toBeNull();
+    const ga4 = document.getElementById('ga4-analytics-script') as HTMLScriptElement | null;
+    expect(ga4).not.toBeNull();
+    expect(ga4?.src).toContain('googletagmanager.com/gtag/js?id=G-TEST123');
+    expect(document.getElementById('meta-pixel-script')).not.toBeNull();
+    const nube = document.getElementById('cloudflare-analytics-script') as HTMLScriptElement | null;
+    expect(nube?.getAttribute('data-cf-beacon')).toContain('tok-publico');
   });
 
   it('"Elegir" abre la ventana de personalización y solo activa las categorías marcadas', async () => {
@@ -152,6 +172,13 @@ describe('CookieBanner', () => {
     const peticion = http.expectOne('/api/v1/public/cookie-consent');
     expect(new Set(peticion.request.body.categories)).toEqual(new Set(['necessary', 'analytics']));
     peticion.flush(null, { status: 204, statusText: 'No Content' });
+    // Sin identificadores configurados: la categoría se consentiría, pero no
+    // hay script que inyectar (nunca un script roto a `undefined`).
+    http.expectOne('/api/v1/tenant/analytics').flush({
+      ga4_measurement_id: null,
+      meta_pixel_id: null,
+      cloudflare_analytics_token: null,
+    });
     await avanzar(fixture);
 
     expect(dialogo.hasAttribute('open')).toBe(false);
@@ -176,6 +203,13 @@ describe('CookieBanner', () => {
     http
       .expectOne('/api/v1/public/cookie-consent')
       .flush(null, { status: 204, statusText: 'No Content' });
+    await avanzar(fixture);
+
+    http.expectOne('/api/v1/tenant/analytics').flush({
+      ga4_measurement_id: null,
+      meta_pixel_id: null,
+      cloudflare_analytics_token: null,
+    });
     await avanzar(fixture);
 
     const guardado = JSON.parse(localStorage.getItem('cookie-consent') ?? '{}');
@@ -227,6 +261,11 @@ describe('CookieBanner', () => {
       new Set(['necessary', 'analytics', 'marketing']),
     );
     peticion.flush(null, { status: 204, statusText: 'No Content' });
+    http.expectOne('/api/v1/tenant/analytics').flush({
+      ga4_measurement_id: null,
+      meta_pixel_id: null,
+      cloudflare_analytics_token: null,
+    });
     await avanzar(fixture);
 
     expect(dialogo.hasAttribute('open')).toBe(false);
@@ -234,6 +273,68 @@ describe('CookieBanner', () => {
     expect(new Set(persistido.categories)).toEqual(
       new Set(['necessary', 'analytics', 'marketing']),
     );
+  });
+
+  it('retirar una categoría ya consentida recarga la página en vez de dejar los scripts corriendo', async () => {
+    localStorage.setItem(
+      'cookie-consent',
+      JSON.stringify({
+        categories: ['necessary', 'analytics', 'marketing'],
+        version: 1,
+        created_at: 'x',
+      }),
+    );
+    const fixture = TestBed.createComponent(CookieBanner);
+    await avanzar(fixture);
+    // Consentimiento previo con analítica: el constructor activa sus
+    // scripts, que consultan los identificadores públicos una vez.
+    http.expectOne('/api/v1/tenant/analytics').flush({
+      ga4_measurement_id: 'G-TEST123',
+      meta_pixel_id: null,
+      cloudflare_analytics_token: null,
+    });
+    await avanzar(fixture);
+    expect(document.getElementById('ga4-analytics-script')).not.toBeNull();
+
+    const recargar = vi.fn();
+    const ubicacionOriginal = Object.getOwnPropertyDescriptor(window, 'location')!;
+    Object.defineProperty(window, 'location', {
+      value: { ...window.location, reload: recargar },
+      writable: true,
+      configurable: true,
+    });
+
+    try {
+      const consentimiento = TestBed.inject(CookieConsentService);
+      consentimiento.abrirGestionDeCookies();
+      await avanzar(fixture);
+
+      const raiz = fixture.nativeElement as HTMLElement;
+      const dialogo = raiz.querySelector('dialog') as HTMLDialogElement;
+      const interruptores = Array.from(
+        dialogo.querySelectorAll('button[role="switch"]:not([disabled])'),
+      ) as HTMLButtonElement[];
+      // Desactiva medición (interruptores[0]), que ya estaba consentida.
+      interruptores[0].dispatchEvent(new Event('click'));
+      await avanzar(fixture);
+
+      const guardar = Array.from(dialogo.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('Guardar mi elección'),
+      );
+      guardar?.dispatchEvent(new Event('click'));
+      await avanzar(fixture);
+
+      const peticion = http.expectOne('/api/v1/public/cookie-consent');
+      peticion.flush(null, { status: 204, statusText: 'No Content' });
+      await avanzar(fixture);
+
+      // No debe volver a consultar `/tenant/analytics`: retirar una
+      // categoría no reactiva scripts, recarga la página.
+      http.expectNone('/api/v1/tenant/analytics');
+      expect(recargar).toHaveBeenCalledOnce();
+    } finally {
+      Object.defineProperty(window, 'location', ubicacionOriginal);
+    }
   });
 
   it('"Cancelar" tras reabrir "Preferencias de cookies" cierra sin cambiar la decisión guardada', async () => {
@@ -269,8 +370,9 @@ describe('CookieBanner', () => {
     // importarlo, referenciarlo ni condicionar su carga bajo ningún concepto,
     // para que rechazar cookies nunca pueda bloquear el formulario público de
     // inscripción. Se comprueba aquí en el mismo módulo que decide qué
-    // scripts activar (`activarScriptsDeLasCategorias`): el único script que
-    // se activa o no según la categoría es el de ejemplo (`dummy-analytics`).
+    // scripts activar (`activarScriptsDeLasCategorias`): los únicos scripts
+    // condicionados a categorías son los de analítica externa (GA4, Meta
+    // Pixel, Cloudflare) del `ScriptsDeAnaliticaService`.
     const modulo = await import('../../core/cookies/cookie-consent.service');
     const fuente = modulo.CookieConsentService.toString();
     expect(fuente.toLowerCase()).not.toContain('turnstile');
@@ -288,7 +390,7 @@ describe('CookieBanner', () => {
     });
 
     // Turnstile no depende de ningún estado que `CookieConsentService` toque
-    // (ni `localStorage`, ni el DOM que gestiona `DummyAnalyticsService`).
-    expect(document.getElementById('dummy-analytics-script')).toBeNull();
+    // (ni `localStorage`, ni el DOM que gestiona `ScriptsDeAnaliticaService`).
+    expect(document.getElementById('ga4-analytics-script')).toBeNull();
   });
 });

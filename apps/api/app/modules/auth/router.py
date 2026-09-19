@@ -63,6 +63,7 @@ async def login(datos: LoginRequest, response: Response, session: SessionDep) ->
             first_name=usuario.first_name,
             last_name=usuario.last_name,
             is_superadmin=usuario.is_superadmin,
+            platform_role=usuario.platform_role,
         ),
     )
 

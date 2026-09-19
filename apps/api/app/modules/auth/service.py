@@ -76,6 +76,9 @@ class AuthenticatedUser:
     first_name: str | None
     last_name: str | None
     is_superadmin: bool
+    # Solo lo consume el login (UserSummary): el refresh y el cambio de
+    # organización no devuelven usuario al cliente.
+    platform_role: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,7 +117,7 @@ async def authenticate(
         await session.execute(
             text(
                 "SELECT id, email, first_name, last_name, password_hash, is_active, "
-                "is_superadmin FROM app_find_user_for_login(:email)"
+                "is_superadmin, platform_role FROM app_find_user_for_login(:email)"
             ),
             {"email": email},
         )
@@ -129,7 +132,12 @@ async def authenticate(
         raise credenciales_invalidas
 
     usuario = AuthenticatedUser(
-        id=fila[0], email=fila[1], first_name=fila[2], last_name=fila[3], is_superadmin=fila[6]
+        id=fila[0],
+        email=fila[1],
+        first_name=fila[2],
+        last_name=fila[3],
+        is_superadmin=fila[6],
+        platform_role=fila[7],
     )
 
     # `app_user_organizations` exige `app.user_id` ya fijado a quien pregunta

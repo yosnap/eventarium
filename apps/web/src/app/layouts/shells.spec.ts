@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { computed, provideZonelessChangeDetection, signal } from '@angular/core';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -232,18 +232,7 @@ describe('shells', () => {
       expect(enlace).toBeFalsy();
     });
 
-    it('con más de una organización, el selector ofrece cambiar a cada una sin salir de la sesión', async () => {
-      const switchOrganization = vi.fn().mockResolvedValue(undefined);
-      TestBed.overrideProvider(AuthService, {
-        useValue: {
-          ...configurarAuth(false),
-          listMyOrganizations: vi.fn().mockResolvedValue([
-            { organization_id: 'o1', slug: 'acme', name: 'Acme', host: null },
-            { organization_id: 'o2', slug: 'otra', name: 'Otra organización', host: null },
-          ]),
-          switchOrganization,
-        },
-      });
+    it('el menú de cuenta muestra el email y ofrece "Cambiar de espacio de trabajo"', async () => {
       url.set('/dashboard');
       const fixture = TestBed.createComponent(AdminShell);
       await fixture.whenStable();
@@ -253,36 +242,49 @@ describe('shells', () => {
         b.classList.contains('disparador'),
       );
       expect(disparador).toBeTruthy();
+      expect(disparador?.textContent).toContain('persona@example.com');
       disparador?.click();
       await fixture.whenStable();
 
-      const boton = Array.from(
-        raiz.querySelectorAll('button[role="option"]') as NodeListOf<HTMLButtonElement>,
-      ).find((b) => b.textContent?.includes('Otra organización'));
-      expect(boton).toBeTruthy();
+      const enlaceCambiar = Array.from(raiz.querySelectorAll('a')).find(
+        (a) => a.getAttribute('href') === '/espacio-de-trabajo',
+      );
+      expect(enlaceCambiar).toBeTruthy();
+      expect(enlaceCambiar?.textContent).toContain('Cambiar de espacio de trabajo');
+    });
 
-      const ubicacionOriginal = Object.getOwnPropertyDescriptor(window, 'location')!;
-      const asignacionDeUrl = vi.fn();
-      Object.defineProperty(window, 'location', {
-        value: {
-          ...window.location,
-          set href(url: string) {
-            asignacionDeUrl(url);
-          },
-        },
-        writable: true,
-        configurable: true,
+    it('el menú de cuenta ofrece "Mi cuenta" y "Cerrar sesión"', async () => {
+      const logout = vi.fn().mockResolvedValue(undefined);
+      TestBed.overrideProvider(AuthService, {
+        useValue: { ...configurarAuth(false), logout },
       });
+      url.set('/dashboard');
+      const fixture = TestBed.createComponent(AdminShell);
+      await fixture.whenStable();
+      const raiz = fixture.nativeElement as HTMLElement;
+      const router = TestBed.inject(Router);
+      const navegar = vi.spyOn(router, 'navigate').mockResolvedValue(true);
 
-      try {
-        boton?.click();
-        await fixture.whenStable();
+      const disparador = Array.from(raiz.querySelectorAll('button')).find((b) =>
+        b.classList.contains('disparador'),
+      );
+      disparador?.click();
+      await fixture.whenStable();
 
-        expect(switchOrganization).toHaveBeenCalledWith('o2');
-        expect(asignacionDeUrl).toHaveBeenCalledWith('/dashboard');
-      } finally {
-        Object.defineProperty(window, 'location', ubicacionOriginal);
-      }
+      const enlaceCuenta = Array.from(raiz.querySelectorAll('a')).find(
+        (a) => a.getAttribute('href') === '/dashboard/account',
+      );
+      expect(enlaceCuenta).toBeTruthy();
+
+      const botonCerrarSesion = Array.from(
+        raiz.querySelectorAll('button[role="option"]') as NodeListOf<HTMLButtonElement>,
+      ).find((b) => b.textContent?.includes('Cerrar sesión'));
+      expect(botonCerrarSesion).toBeTruthy();
+      botonCerrarSesion?.click();
+      await fixture.whenStable();
+
+      expect(logout).toHaveBeenCalled();
+      expect(navegar).toHaveBeenCalledWith(['/acceder']);
     });
 
     it('el grupo de evento no existe fuera del ámbito de un evento', async () => {

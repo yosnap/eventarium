@@ -31,6 +31,7 @@ export const serverRoutes: ServerRoute[] = [
   // olvidara cualquiera de estos, `authGuard` denegaría en SSR y el panel no
   // cargaría.
   { path: 'acceder', renderMode: RenderMode.Client },
+  { path: 'espacio-de-trabajo', renderMode: RenderMode.Client },
   { path: 'admin', renderMode: RenderMode.Client },
   { path: 'admin/**', renderMode: RenderMode.Client },
   { path: 'dashboard', renderMode: RenderMode.Client },

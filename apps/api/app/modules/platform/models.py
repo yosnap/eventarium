@@ -59,6 +59,16 @@ class PlatformBranding(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     logo_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     favicon_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Nulos para logos/favicons subidos antes de la biblioteca de medios de
+    # plataforma (sin backfill): siguen su ciclo de vida de siempre. FK
+    # simple (no compuesta): `platform_media` no tiene `organization_id`
+    # con el que componer — es de instalación, no de un tenant.
+    logo_media_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("platform_media.id"), nullable=True
+    )
+    favicon_media_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("platform_media.id"), nullable=True
+    )
     # Plantilla del chrome de plataforma (fase 2). `NULL` = la marcada
     # `is_default` del catálogo `theme_templates`, misma convención que
     # `OrganizationBranding.theme_template_id`.
@@ -92,3 +102,31 @@ class PlatformLegalPage(Base, TimestampMixin):
     id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=new_uuid7)
     kind: Mapped[str] = mapped_column(String(40), nullable=False)
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class PlatformAnalyticsSettings(Base, TimestampMixin):
+    """Identificadores de proveedores externos de analítica: exactamente **una** fila.
+
+    Misma forma que `PlatformBranding` (PK `'default'`). Los tres campos son
+    **identificadores semi-públicos, no secretos**: el `ga4_measurement_id`
+    (`G-…`) y el `meta_pixel_id` ya viajan en el HTML de cualquier sitio que
+    los use, y el "token" de Cloudflare Web Analytics (hallazgo red-team #5)
+    se embebe en el snippet público del beacon por diseño de Cloudflare.
+    Que nadie los trate como credenciales — ni pegue ahí una real por error.
+    Las credenciales de verdad (p. ej. la cuenta de servicio de la API de
+    Datos de GA4) viven en variables de entorno, no en esta tabla.
+    """
+
+    __tablename__ = "platform_analytics_settings"
+    __table_args__ = (
+        CheckConstraint("singleton = 'default'", name="ck_platform_analytics_settings_singleton"),
+    )
+
+    singleton: Mapped[str] = mapped_column(String(20), primary_key=True, default="default")
+    ga4_measurement_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    meta_pixel_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    cloudflare_analytics_token: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Contenedor de Google Tag Manager: cuando está configurado, es el único
+    # tag que se inyecta (la medición de GA4 va dentro del contenedor, y el
+    # gtag directo se omite para no contar doble).
+    gtm_container_id: Mapped[str | None] = mapped_column(String(100), nullable=True)

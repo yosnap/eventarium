@@ -83,9 +83,14 @@ async def send_verification_email(to_email: str, token: str) -> None:
     )
 
 
-@broker.task(schedule=[{"cron": "0 * * * *"}])
+@broker.task()
 async def sweep_unverified_accounts_task() -> None:
-    """Cada hora: aviso a los 5 días, borrado a los 7 (`core/cleanup.py`)."""
+    """Aviso a los 5 días, borrado a los 7 (`core/cleanup.py`).
+
+    Sin `schedule`: el barrido automático horario se desactivó a petición
+    expresa (borraba cuentas de desarrollo sin aviso visible). La tarea sigue
+    aquí por si se quiere volver a programar o invocar a mano más adelante,
+    pero no se dispara sola."""
     await sweep_unverified_accounts()
 
 

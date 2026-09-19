@@ -6,5 +6,5 @@ export interface BodyUploadSponsorLogoApiV1EventsEventIdSponsorsSponsorIdLogoPut
   /**
    * Logotipo del patrocinador
    */
-  fichero: string;
+  fichero?: (string | null);
 }

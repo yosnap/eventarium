@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
@@ -13,6 +13,9 @@ import { PageHeader } from '../../../shared/ui/page-header';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Textarea } from '../../../shared/ui/textarea';
+import { ThemeTemplatePreview } from '../superadmin/theme-template-preview';
+import { MediaPicker } from '../../../shared/ui/media-picker';
+import { LOGO_ACEPTADOS } from '../../../shared/uploads/image-upload-constraints';
 
 interface SocialLink {
   kind: string;
@@ -35,11 +38,6 @@ interface Branding {
   readonly logo_url: string | null;
 }
 
-const LOGO_MIMES_PERMITIDOS = new Set(['image/png', 'image/jpeg', 'image/webp']);
-// Coincide con `max_image_bytes` en `app/core/config.py`: si diverge, el peor caso es
-// un rechazo tardío en el servidor con el mismo mensaje, no un fallo de seguridad.
-const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
-
 /**
  * Identidad visual editable: logotipo, plantilla de tema, redes sociales y
  * resumen del organizador.
@@ -57,7 +55,17 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
 @Component({
   selector: 'app-branding-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, PageHeader, Textarea],
+  imports: [
+    TranslocoDirective,
+    RouterLink,
+    Alert,
+    Button,
+    Card,
+    PageHeader,
+    Textarea,
+    MediaPicker,
+    ThemeTemplatePreview,
+  ],
   template: `
     <ng-container *transloco="let t">
       <app-page-header [rotulo]="t('admin.branding.rotulo')">
@@ -86,21 +94,13 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
                 {{ nombreOrganizacion() }}
                 <a routerLink="/dashboard/organization">{{ t('admin.branding.editarNombre') }}</a>
               </p>
-              @if (previaLogo(); as url) {
-                <img [src]="url" [alt]="t('admin.branding.logotipo')" height="64" />
-              } @else {
-                <p>{{ t('admin.branding.sinLogotipo') }}</p>
-              }
-              <label class="etiqueta-fichero" for="logo">{{ t('admin.branding.subirLogo') }}</label>
-              <input
-                id="logo"
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                (change)="alSeleccionarLogo($event)"
+              <app-media-picker
+                [etiqueta]="t('admin.branding.logotipo')"
+                [aceptados]="LOGO_ACEPTADOS"
+                kind="branding"
+                [(url)]="previaLogo"
+                [(mediaId)]="logoMediaIdPendiente"
               />
-              @if (errorLogo(); as mensaje) {
-                <p class="error">{{ mensaje }}</p>
-              }
             </app-card>
 
             <app-card [heading]="t('admin.branding.redesSociales')">
@@ -140,39 +140,38 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
             </app-card>
           </div>
 
-          <fieldset class="plantillas-de-tema">
-            <legend>{{ t('admin.branding.plantillaDeTema') }}</legend>
+          <div class="plantillas" [attr.aria-label]="t('admin.branding.plantillaDeTema')">
             @for (plantilla of plantillasDeTema(); track plantilla.id) {
-              <label class="opcion-plantilla">
-                <input
-                  type="radio"
-                  name="plantilla-de-tema"
-                  [value]="plantilla.id"
-                  [checked]="plantilla.id === themeTemplateId()"
-                  (change)="themeTemplateId.set(plantilla.id)"
-                />
-                <span class="muestras">
-                  @for (modo of modos; track modo) {
-                    <span
-                      class="muestra"
-                      [style.background]="plantilla.tokens[modo]['bg']"
-                      [style.color]="plantilla.tokens[modo]['fg']"
-                      [style.border-color]="plantilla.tokens[modo]['border']"
-                    >
-                      <span
-                        class="acento"
-                        [style.background]="plantilla.tokens[modo]['accent']"
-                      ></span>
-                    </span>
-                  }
+              <button
+                type="button"
+                class="plantilla-tarjeta"
+                [class.plantilla-activa]="plantilla.id === themeTemplateId()"
+                [attr.aria-pressed]="plantilla.id === themeTemplateId()"
+                (click)="themeTemplateId.set(plantilla.id)"
+              >
+                <span class="plantilla-minis">
+                  <span class="plantilla-mini-marco">
+                    <app-theme-template-preview
+                      class="plantilla-miniatura"
+                      [tokens]="plantilla.tokens"
+                      modo="dark"
+                    />
+                  </span>
+                  <span class="plantilla-mini-marco">
+                    <app-theme-template-preview
+                      class="plantilla-miniatura"
+                      [tokens]="plantilla.tokens"
+                      modo="light"
+                    />
+                  </span>
                 </span>
-                <span class="nombre-plantilla">{{ plantilla.name }}</span>
-              </label>
+                <span class="plantilla-nombre">{{ plantilla.name }}</span>
+              </button>
             }
             @if (plantillasDeTema().length === 0) {
               <p>{{ t('admin.branding.sinPlantillasDeTema') }}</p>
             }
-          </fieldset>
+          </div>
 
           @if (guardado()) {
             <app-alert tone="exito">{{ t('admin.branding.guardado') }}</app-alert>
@@ -240,42 +239,68 @@ const LOGO_TAMANO_MAXIMO = 5 * 1024 * 1024;
       display: block;
       margin-bottom: var(--space-sm);
     }
-    .plantillas-de-tema {
+    .plantillas {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+      gap: var(--sp-4);
+    }
+    .plantilla-tarjeta {
+      display: grid;
+      gap: var(--space-xs);
+      padding: var(--sp-3);
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      padding: var(--space-md);
-      display: grid;
-      gap: var(--space-sm);
-    }
-    .opcion-plantilla {
-      display: flex;
-      align-items: center;
-      gap: var(--space-sm);
+      background: none;
       cursor: pointer;
+      font: inherit;
+      color: var(--fg);
+      text-align: left;
     }
-    .muestras {
-      display: flex;
-      gap: 2px;
+    .plantilla-tarjeta:hover {
+      border-color: var(--border-strong);
     }
-    .muestra {
-      width: 2rem;
-      height: 2rem;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
+    /* La elegida se marca por borde, no solo por color (WCAG 1.4.1). */
+    .plantilla-activa {
+      border-color: var(--accent);
+      border-width: 2px;
+      padding: calc(var(--sp-3) - 1px);
+    }
+    .plantilla-minis {
       display: grid;
-      place-items: center;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-xs);
     }
-    .acento {
-      width: 0.75rem;
-      height: 0.75rem;
-      border-radius: 50%;
+    /* ThemeTemplatePreview está pensado para su tamaño real (título, chip y
+       botón con su tipografía normal, min-height:10rem) — a la anchura de un
+       hueco de esta rejilla (mitad de una tarjeta de ~15rem) el texto se corta.
+       En vez de reescribir el componente para un tamaño "mini" que no existe,
+       se renderiza a un ancho de referencia (--ancho-referencia) y se
+       reescala visualmente al hueco real: el marco fija el tamaño final y
+       recorta lo que sobre, la miniatura se pinta más grande y se encoge con
+       transform, así el texto interno nunca se ve obligado a envolver ni
+       desbordar. */
+    .plantilla-mini-marco {
+      --ancho-referencia: 13rem;
+      --factor-escala: 0.62;
+      overflow: hidden;
+      border-radius: var(--radius-md);
+      aspect-ratio: 7 / 5;
     }
-    .nombre-plantilla {
+    .plantilla-miniatura {
+      display: block;
+      width: var(--ancho-referencia);
+      transform: scale(var(--factor-escala));
+      transform-origin: top left;
+      pointer-events: none;
+    }
+    .plantilla-nombre {
       font-weight: 500;
     }
   `,
 })
 export class BrandingPage {
+  protected readonly LOGO_ACEPTADOS = LOGO_ACEPTADOS;
+
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
@@ -287,19 +312,21 @@ export class BrandingPage {
   protected readonly guardando = signal(false);
   protected readonly guardado = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly errorLogo = signal<string | null>(null);
   protected readonly errorDeCarga = signal<string | null>(null);
 
   protected readonly themeTemplateId = signal<string | null>(null);
   protected readonly plantillasDeTema = signal<PlantillaDeTema[]>([]);
   protected readonly socialLinks = signal<SocialLink[]>([]);
   protected readonly organizerBlurb = signal('');
-  protected readonly logoUrlGuardado = signal<string | null>(null);
   protected readonly nombreOrganizacion = signal('');
 
-  private logoPendiente: File | null = null;
-  private readonly previaLogoLocal = signal<string | null>(null);
-  protected readonly previaLogo = computed(() => this.previaLogoLocal() ?? this.logoUrlGuardado());
+  /** Previsualización del logo — doble enlace con `MediaPicker`: lo inicializa
+   * `aplicarRespuesta` con lo ya guardado, y el propio picker lo actualiza al
+   * elegir uno nuevo o al pulsar "Quitar" (`url.set(null)`). */
+  protected readonly previaLogo = signal<string | null>(null);
+  /** `null` = nada pendiente que asignar (ni un cambio ni un "Quitar" reales
+   * hasta que se guarde); no nulo = el `media_id` a asignar en `guardar()`. */
+  protected readonly logoMediaIdPendiente = signal<string | null>(null);
 
   constructor() {
     void this.cargar();
@@ -335,7 +362,7 @@ export class BrandingPage {
     this.themeTemplateId.set(branding.theme_template_id);
     this.socialLinks.set(branding.social_links.map((enlace) => ({ ...enlace })));
     this.organizerBlurb.set(branding.organizer_blurb ?? '');
-    this.logoUrlGuardado.set(branding.logo_url);
+    this.previaLogo.set(branding.logo_url);
   }
 
   protected colorDelEvento(evento: Event): string {
@@ -360,26 +387,6 @@ export class BrandingPage {
     this.socialLinks.update((actuales) => actuales.filter((_, i) => i !== indice));
   }
 
-  protected alSeleccionarLogo(evento: Event): void {
-    this.errorLogo.set(null);
-    const fichero = (evento.target as HTMLInputElement).files?.[0] ?? null;
-    if (!fichero) {
-      return;
-    }
-    if (!LOGO_MIMES_PERMITIDOS.has(fichero.type)) {
-      this.errorLogo.set(this.transloco.translate('admin.branding.logoNoValido'));
-      (evento.target as HTMLInputElement).value = '';
-      return;
-    }
-    if (fichero.size > LOGO_TAMANO_MAXIMO) {
-      this.errorLogo.set(this.transloco.translate('admin.branding.logoDemasiadoGrande'));
-      (evento.target as HTMLInputElement).value = '';
-      return;
-    }
-    this.logoPendiente = fichero;
-    this.previaLogoLocal.set(URL.createObjectURL(fichero));
-  }
-
   protected async guardar(evento: Event): Promise<void> {
     evento.preventDefault();
     this.guardado.set(false);
@@ -400,14 +407,14 @@ export class BrandingPage {
         }),
       );
 
-      if (this.logoPendiente) {
-        const datos = new FormData();
-        datos.append('fichero', this.logoPendiente);
+      const mediaId = this.logoMediaIdPendiente();
+      if (mediaId) {
         respuesta = await firstValueFrom(
-          this.http.put<Branding>(this.api.url('/organizations/me/branding/logo'), datos),
+          this.http.put<Branding>(this.api.url('/organizations/me/branding/logo'), {
+            media_id: mediaId,
+          }),
         );
-        this.logoPendiente = null;
-        this.previaLogoLocal.set(null);
+        this.logoMediaIdPendiente.set(null);
       }
 
       this.aplicarRespuesta(respuesta);

@@ -15,6 +15,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.modules.theme_templates.accent_palette import UMBRAL_CROMA_MINIMO, hex_a_oklch
+
 MODOS_DE_PLANTILLA: tuple[str, str] = ("dark", "light")
 
 TOKENS_DE_PLANTILLA: frozenset[str] = frozenset(
@@ -148,6 +150,48 @@ def validar_tokens_de_plantilla(tokens: dict[str, Any]) -> dict[str, dict[str, s
     return tokens
 
 
+#: Claves admitidas en `Event.theme_overrides` — objeto plano, NUNCA la
+#: forma `{dark:{...}, light:{...}}` de una plantilla completa (fase 1 del
+#: plan «diseño del evento»).
+CLAVES_DE_OVERRIDE: frozenset[str] = frozenset({"accent", "font-display", "font-body"})
+_HEX_6_SOLO_RE = re.compile(r"^#[0-9a-f]{6}$", re.IGNORECASE)
+
+
+def validar_theme_overrides(overrides: dict[str, Any] | None) -> dict[str, str] | None:
+    """Valida `Event.theme_overrides`: como mucho `accent`/`font-display`/
+    `font-body`, todas opcionales. A diferencia de `validar_tokens_de_plantilla`,
+    aquí NO se exigen los dos modos ni las 21 claves — es una personalización
+    parcial sobre la plantilla ya resuelta, no una plantilla completa."""
+    if overrides is None:
+        return None
+
+    desconocidas = set(overrides.keys()) - CLAVES_DE_OVERRIDE
+    if desconocidas:
+        raise ValueError(f"Claves de personalización desconocidas: {sorted(desconocidas)}.")
+
+    if "accent" in overrides:
+        valor = overrides["accent"]
+        if not isinstance(valor, str) or not _HEX_6_SOLO_RE.match(valor.strip()):
+            raise ValueError(f"«accent» debe ser un color hex de 6 dígitos, y llegó «{valor!r}».")
+        _, croma, _ = hex_a_oklch(valor.strip())
+        if croma < UMBRAL_CROMA_MINIMO:
+            raise ValueError(
+                "El color de acento necesita algo de saturación — el blanco, el "
+                "negro y los grises no sirven como acento."
+            )
+
+    for token, familias in (("font-display", FAMILIAS_DISPLAY), ("font-body", FAMILIAS_BODY)):
+        if token in overrides:
+            valor = overrides[token]
+            if not isinstance(valor, str) or valor.strip() not in familias:
+                raise ValueError(
+                    f"«{token}» declara «{valor!r}», que no es una familia autoalojada. "
+                    f"Admitidas: {sorted(familias)}."
+                )
+
+    return overrides
+
+
 class ThemeTemplateCreate(BaseModel):
     """Alta de una plantilla de tema."""
 
@@ -192,12 +236,20 @@ class ThemeTemplateResponse(BaseModel):
 
 
 class ThemeTemplateCatalogItem(BaseModel):
-    """Una plantilla tal y como la ve el catálogo del panel de la organización."""
+    """Una plantilla tal y como la ve el catálogo del panel de la organización.
+
+    `is_default`/`default_mode` se añaden en la fase 1 del plan «diseño del
+    evento»: el panel de organizador necesita resolver en cliente la cadena
+    evento→organización→catálogo (sabiendo cuál es la plantilla por
+    defecto) y pintar cada miniatura en el modo correcto — antes solo los
+    exponía `ThemeTemplateResponse` de superadministración."""
 
     id: str
     key: str
     name: str
     tokens: dict[str, dict[str, str]]
+    is_default: bool
+    default_mode: str
 
 
 class ContrasteInsuficienteDetalle(BaseModel):

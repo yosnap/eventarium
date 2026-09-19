@@ -31,11 +31,13 @@ import { TranslocoService } from '@jsverse/transloco';
           [id]="idCampo()"
           [type]="tipoEfectivo()"
           [value]="value()"
+          [disabled]="disabled()"
           [attr.autocomplete]="autocomplete()"
           [attr.required]="required() ? '' : null"
           [attr.aria-invalid]="error() ? 'true' : null"
           [attr.aria-describedby]="descripcionId()"
           [class.con-boton]="esPassword()"
+          [class.solo-lectura]="disabled()"
           (input)="alEscribir($event)"
           (focus)="enFoco.set(true)"
           (blur)="enFoco.set(false); blurred.emit()"
@@ -109,6 +111,10 @@ import { TranslocoService } from '@jsverse/transloco';
     }
     input.con-boton {
       padding-right: 2.75rem;
+    }
+    input.solo-lectura {
+      opacity: 0.65;
+      cursor: not-allowed;
     }
     label {
       position: absolute;
@@ -184,6 +190,9 @@ export class Input {
   readonly type = input<'text' | 'email' | 'password' | 'url' | 'date' | 'datetime-local'>('text');
   readonly autocomplete = input<string | null>(null);
   readonly required = input(false);
+  /** Campo de solo lectura (p. ej. `soporte` consulta la configuración de
+   * plataforma pero no puede guardarla): disabled nativo + estilo tenue. */
+  readonly disabled = input(false);
   readonly error = input<string | null>(null);
   /** Texto de ayuda bajo el campo, oculto mientras haya un error que mostrar. */
   readonly hint = input<string | null>(null);
