@@ -18,6 +18,7 @@ Dos reglas que no se negocian en estos esquemas:
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Literal
@@ -173,6 +174,61 @@ class OrganizationServiceOut(BaseModel):
     overridden_off: bool
     #: `global_enabled AND NOT overridden_off`.
     enabled: bool
+
+
+class AiUsageRecordOut(BaseModel):
+    """Una llamada del histórico, tal y como la pinta el panel."""
+
+    id: uuid.UUID
+    use_case: str
+    provider: str
+    model: str
+    status: str
+    input_tokens: int | None
+    output_tokens: int | None
+    #: Importe en **USD**, no en céntimos.
+    cost_usd: Decimal
+    #: `false` si el importe es una estimación: ese gasto no es auditable.
+    cost_auditable: bool
+    error_code: str | None
+    latency_ms: int | None
+    created_at: datetime
+
+
+class AiUsageErrorOut(BaseModel):
+    """Un `error_code` reciente y cuántas veces salió.
+
+    Es la única pista de diagnóstico del panel: no hay vista de detalle de
+    las llamadas (no-objetivo del PRD).
+    """
+
+    error_code: str
+    veces: int
+    ultima_vez: datetime
+
+
+class AiUsageOut(BaseModel):
+    """`GET /organizations/me/ai-usage`: gasto del periodo y actividad."""
+
+    #: `'YYYY-MM'` en UTC, el periodo sobre el que aplica el límite.
+    periodo: str
+    llamadas: int
+    llamadas_fallidas: int
+    #: Suma en USD de las llamadas liquidadas **y** de las reservas en vuelo.
+    #: Las fallidas no suman: el proveedor no las cobra.
+    gasto_usd: Decimal
+    #: `false` si alguna llamada del periodo lleva un importe solo estimado
+    #: (proveedor fuera del mapa de precios): el total es orientativo.
+    gasto_auditable: bool
+    input_tokens: int
+    output_tokens: int
+    #: El menor entre el límite propio y el techo de plataforma; `null` = sin
+    #: límite.
+    limite_efectivo_usd: Decimal | None
+    #: `false` si el admin apagó el servicio `ai` para esta organización.
+    servicio_ia_activo: bool
+    ultimos: list[AiUsageRecordOut]
+    ultimos_errores: list[AiUsageErrorOut]
 
 
 class OrganizationServicesUpdate(BaseModel):

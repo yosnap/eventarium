@@ -488,6 +488,35 @@ async def sweep_stuck_refunds_task() -> None:
     await reencolar_reembolsos_atascados()
 
 
+@broker.task(schedule=[{"cron": "*/10 * * * *"}])
+async def sweep_stuck_ai_reservations_task() -> None:
+    """Cada 10 minutos: cierra las reservas de gasto de IA que nadie liquidó.
+
+    Una llamada a un proveedor aparta su coste estimado (`reservado`) antes
+    de salir a la red y lo liquida al volver. Si el proceso muere en medio,
+    la fila se queda apartando gasto para siempre y el límite del periodo se
+    va estrechando sin que nadie sepa por qué. El barrido la marca `fallido`
+    con `reserva_abandonada`: el gasto se cuenta como potencialmente
+    consumido —nunca se ignora— y queda dicho que nadie confirmó qué pasó."""
+    from app.modules.ai_gateway.client import cerrar_reservas_abandonadas
+
+    await cerrar_reservas_abandonadas(minutos=get_settings().ai_reservation_stuck_minutes)
+
+
+@broker.task(schedule=[{"cron": "30 3 * * *"}])
+async def purge_ai_usage_records_task() -> None:
+    """Diaria: purga `ai_usage_records` más antiguos que
+    `ai_usage_retention_days`. Nunca borra una reserva sin cerrar: eso lo
+    resuelve el barrido, y borrarla aquí escondería el gasto."""
+    from app.core.database import maintenance_session
+    from app.modules.ai_gateway import repository as ai_repository
+
+    async with maintenance_session() as session:
+        await ai_repository.purgar_usos_antiguos(
+            session, dias=get_settings().ai_usage_retention_days
+        )
+
+
 @broker.task(retry_on_error=True, max_retries=5)
 async def send_waitlist_promotion_email(
     to_email: str,

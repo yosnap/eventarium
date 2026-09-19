@@ -53,6 +53,19 @@ dependencies = [
     # estaba resuelta como dependencia transitiva (50.x): declararla más
     # abajo habría **degradado** la versión que el resto del árbol usa.
     "cryptography>=50.0,<51.0",
+    # Cliente único de generación de la pasarela de IA (plan `260911-0325`,
+    # fase 2). Se usa **solo** `litellm.acompletion` y su mapa de precios:
+    # ni el proxy, ni el router, ni los callbacks.
+    #
+    # Tope en `<1.98` a propósito, no por pereza de rango: desde 1.98 LiteLLM
+    # declara `boto3>=1.43.1` como dependencia **base** (antes solo la traía
+    # el extra `proxy`, que no usamos), y `aioboto3` —el cliente S3 de la
+    # biblioteca de medios y de contabilidad— arrastra `aiobotocore==2.25.1`,
+    # que fija `botocore<1.40.62`. Las dos restricciones son incompatibles y
+    # no hay ninguna versión de `aioboto3` publicada que admita la serie
+    # 1.43 de botocore, así que subir LiteLLM aquí rompería la subida de
+    # ficheros. Al soltarse ese pin en `aioboto3`, se puede ampliar el tope.
+    "litellm>=1.95,<1.98",
 ]
 
 [dependency-groups]

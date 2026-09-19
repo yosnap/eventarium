@@ -8825,6 +8825,28 @@
           }
         }
       }
+    },
+    "/api/v1/organizations/me/ai-usage": {
+      "get": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Gasto y actividad de IA de la organización en el periodo actual",
+        "description": "Resumen del mes en curso (llamadas, tokens y gasto en USD frente al límite efectivo), las últimas llamadas y los últimos códigos de error. El gasto suma las llamadas liquidadas y las reservas en vuelo, nunca las fallidas. `gasto_auditable` es `false` cuando alguna llamada del periodo lleva un importe solo estimado, porque su modelo no está en el mapa de precios del proveedor: ese total es orientativo.",
+        "operationId": "get_my_ai_usage_api_v1_organizations_me_ai_usage_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiUsageOut"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -9143,6 +9165,210 @@
         ],
         "title": "ActividadDeOrganizacionOut",
         "description": "Qué hace una organización, sin ningún importe.\n\nLas cuatro marcas de tiempo responden a preguntas distintas y por eso van\nseparadas, no fundidas en un «última actividad»: una cuenta que crea eventos\npero no recibe inscripciones está rota, y una que recibe inscripciones sin\naccesos nuevos puede estar abandonada.\n\n`evento_mas_reciente` es `updated_at` («última vez que se tocó un evento») y\n`ultimo_evento_creado` es `created_at` («último dado de alta»): editar un\nevento existente es trabajar, y con una sola marca se leería como parada."
+      },
+      "AiUsageErrorOut": {
+        "properties": {
+          "error_code": {
+            "type": "string",
+            "title": "Error Code"
+          },
+          "veces": {
+            "type": "integer",
+            "title": "Veces"
+          },
+          "ultima_vez": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ultima Vez"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error_code",
+          "veces",
+          "ultima_vez"
+        ],
+        "title": "AiUsageErrorOut",
+        "description": "Un `error_code` reciente y cuántas veces salió.\n\nEs la única pista de diagnóstico del panel: no hay vista de detalle de\nlas llamadas (no-objetivo del PRD)."
+      },
+      "AiUsageOut": {
+        "properties": {
+          "periodo": {
+            "type": "string",
+            "title": "Periodo"
+          },
+          "llamadas": {
+            "type": "integer",
+            "title": "Llamadas"
+          },
+          "llamadas_fallidas": {
+            "type": "integer",
+            "title": "Llamadas Fallidas"
+          },
+          "gasto_usd": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Gasto Usd"
+          },
+          "gasto_auditable": {
+            "type": "boolean",
+            "title": "Gasto Auditable"
+          },
+          "input_tokens": {
+            "type": "integer",
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "type": "integer",
+            "title": "Output Tokens"
+          },
+          "limite_efectivo_usd": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limite Efectivo Usd"
+          },
+          "servicio_ia_activo": {
+            "type": "boolean",
+            "title": "Servicio Ia Activo"
+          },
+          "ultimos": {
+            "items": {
+              "$ref": "#/components/schemas/AiUsageRecordOut"
+            },
+            "type": "array",
+            "title": "Ultimos"
+          },
+          "ultimos_errores": {
+            "items": {
+              "$ref": "#/components/schemas/AiUsageErrorOut"
+            },
+            "type": "array",
+            "title": "Ultimos Errores"
+          }
+        },
+        "type": "object",
+        "required": [
+          "periodo",
+          "llamadas",
+          "llamadas_fallidas",
+          "gasto_usd",
+          "gasto_auditable",
+          "input_tokens",
+          "output_tokens",
+          "limite_efectivo_usd",
+          "servicio_ia_activo",
+          "ultimos",
+          "ultimos_errores"
+        ],
+        "title": "AiUsageOut",
+        "description": "`GET /organizations/me/ai-usage`: gasto del periodo y actividad."
+      },
+      "AiUsageRecordOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "use_case": {
+            "type": "string",
+            "title": "Use Case"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens"
+          },
+          "cost_usd": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cost Usd"
+          },
+          "cost_auditable": {
+            "type": "boolean",
+            "title": "Cost Auditable"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "use_case",
+          "provider",
+          "model",
+          "status",
+          "input_tokens",
+          "output_tokens",
+          "cost_usd",
+          "cost_auditable",
+          "error_code",
+          "latency_ms",
+          "created_at"
+        ],
+        "title": "AiUsageRecordOut",
+        "description": "Una llamada del histórico, tal y como la pinta el panel."
       },
       "AnalyticsPublicResponse": {
         "properties": {

@@ -26,6 +26,7 @@ from app.core.database import maintenance_session
 from app.core.deps import DbDep, OrgOwnerDep
 from app.modules.ai_gateway import service
 from app.modules.ai_gateway.schemas import (
+    AiUsageOut,
     OrganizationAiSettingsOut,
     OrganizationAiSettingsUpdate,
 )
@@ -79,6 +80,23 @@ async def _auditar(
 )
 async def get_my_ai_settings(usuario: OrgOwnerDep, session: DbDep) -> OrganizationAiSettingsOut:
     return await service.vista_de_organizacion(session, usuario.organization_id)
+
+
+@router.get(
+    "/me/ai-usage",
+    summary="Gasto y actividad de IA de la organización en el periodo actual",
+    description=(
+        "Resumen del mes en curso (llamadas, tokens y gasto en USD frente al "
+        "límite efectivo), las últimas llamadas y los últimos códigos de error. "
+        "El gasto suma las llamadas liquidadas y las reservas en vuelo, nunca las "
+        "fallidas. `gasto_auditable` es `false` cuando alguna llamada del periodo "
+        "lleva un importe solo estimado, porque su modelo no está en el mapa de "
+        "precios del proveedor: ese total es orientativo."
+    ),
+    response_model=AiUsageOut,
+)
+async def get_my_ai_usage(usuario: OrgOwnerDep, session: DbDep) -> AiUsageOut:
+    return await service.vista_de_uso(session, usuario.organization_id)
 
 
 @router.put(

@@ -146,6 +146,18 @@ class Settings(BaseSettings):
     # `python -m app.cli rotate-ai-encryption-key`.
     ai_settings_encryption_key: str = ""
 
+    # Retención de `ai_usage_records` (fase 2 de la pasarela de IA). El
+    # histórico de uso sirve para el panel de gasto del periodo y para
+    # auditar una factura reciente, no para guardar actividad indefinidamente:
+    # mismo criterio (y mismo valor) que `stripe_webhook_retention_days`.
+    ai_usage_retention_days: int = 90
+    # Cuánto puede llevar una reserva sin liquidar antes de que el barrido la
+    # dé por abandonada. Tiene que ser holgadamente mayor que el timeout de
+    # una llamada (`client.TIMEOUT_POR_DEFECTO_S`, 120 s): cerrar una reserva
+    # que todavía está en vuelo marcaría como fallida una llamada que va a
+    # completarse, y la liquidación posterior ya no la recuperaría.
+    ai_reservation_stuck_minutes: int = 30
+
     @field_validator("jwt_secret", "ticket_qr_secret")
     @classmethod
     def _validar_secreto(cls, valor: str) -> str:

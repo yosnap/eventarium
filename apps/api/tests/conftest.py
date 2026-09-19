@@ -133,6 +133,10 @@ TABLAS = (
     "organization_services",
     "platform_ai_settings",
     "platform_services",
+    # Fase 2: uso y mutex de periodo. Cascadean desde `organizations`, pero
+    # se listan por el mismo criterio que el resto.
+    "ai_usage_records",
+    "ai_usage_periods",
 )
 
 

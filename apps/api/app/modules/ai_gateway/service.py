@@ -39,6 +39,9 @@ from app.modules.ai_gateway.errores import (
 )
 from app.modules.ai_gateway.models import OrganizationAiSettings, PlatformAiSettings
 from app.modules.ai_gateway.schemas import (
+    AiUsageErrorOut,
+    AiUsageOut,
+    AiUsageRecordOut,
     OrganizationAiSettingsOut,
     OrganizationAiSettingsUpdate,
     OrganizationServiceOut,
@@ -229,6 +232,58 @@ async def vista_de_organizacion(
         limite_efectivo_usd=config.limite_efectivo_usd,
         servicio_ia_activo=activo,
         updated_at=config.updated_at,
+    )
+
+
+async def vista_de_uso(
+    session: AsyncSession, organization_id: uuid.UUID, *, ultimos: int = 20, errores_: int = 10
+) -> AiUsageOut:
+    """Gasto del periodo, últimas llamadas y últimos `error_code`.
+
+    El límite que se devuelve sale de `resolver_config_efectiva`, igual que
+    el del `GET` de configuración y el que aplica `completar`: si el panel
+    enseñara un límite calculado aparte, podría contradecir al que de verdad
+    corta las llamadas.
+    """
+    config = await resolver_config_efectiva(session, organization_id)
+    periodo = repository.periodo_actual()
+    resumen = await repository.resumen_del_periodo(session, organization_id, periodo)
+    filas = await repository.ultimos_usos(session, organization_id, limite=ultimos)
+    fallos = await repository.ultimos_errores(session, organization_id, limite=errores_)
+    activo = await servicio_activo(session, organization_id, servicios.SERVICIO_IA)
+    return AiUsageOut(
+        periodo=periodo,
+        llamadas=resumen.llamadas,
+        llamadas_fallidas=resumen.llamadas_fallidas,
+        gasto_usd=resumen.gasto_usd,
+        gasto_auditable=resumen.gasto_auditable,
+        input_tokens=resumen.input_tokens,
+        output_tokens=resumen.output_tokens,
+        limite_efectivo_usd=config.limite_efectivo_usd,
+        servicio_ia_activo=activo,
+        ultimos=[
+            AiUsageRecordOut(
+                id=fila.id,
+                use_case=fila.use_case,
+                provider=fila.provider,
+                model=fila.model,
+                status=fila.status,
+                input_tokens=fila.input_tokens,
+                output_tokens=fila.output_tokens,
+                cost_usd=fila.cost_usd,
+                cost_auditable=fila.cost_auditable,
+                error_code=fila.error_code,
+                latency_ms=fila.latency_ms,
+                created_at=fila.created_at,
+            )
+            for fila in filas
+        ],
+        ultimos_errores=[
+            AiUsageErrorOut(
+                error_code=fallo.error_code, veces=fallo.veces, ultima_vez=fallo.ultima_vez
+            )
+            for fallo in fallos
+        ],
     )
 
 
