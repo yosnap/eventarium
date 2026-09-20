@@ -733,6 +733,8 @@ async def test_un_importe_por_encima_del_techo_exige_segunda_confirmacion(
         json=_confirmacion(base_cents=alto, vat_cents=None, total_cents=alto),
     )
     assert sin_marca.status_code == 422, sin_marca.text
+    # El cliente distingue este rechazo por el `code`, no por el texto.
+    assert sin_marca.json()["code"] == "importe_sobre_techo"
 
     con_marca = await cliente.post(
         f"{BASE}/expense-drafts/{draft_id}/confirm",
@@ -1038,9 +1040,7 @@ async def test_un_corte_por_limite_de_gasto_no_deja_facturas_irrecuperables(
     # El organizador amplía el límite y reintenta a mano.
     await configurar_plataforma(techo_usd=Decimal("50"))
     for draft_id in borradores:
-        reintento = await cliente.post(
-            f"{BASE}/expense-drafts/{draft_id}/retry", headers=cabeceras
-        )
+        reintento = await cliente.post(f"{BASE}/expense-drafts/{draft_id}/retry", headers=cabeceras)
         assert reintento.status_code == 200, reintento.text
         await drafts_service.extraer_campos(draft_id, organizacion.id)
 
