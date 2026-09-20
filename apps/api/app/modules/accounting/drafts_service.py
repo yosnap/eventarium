@@ -517,9 +517,13 @@ def validar_importes(
         )
     techo = get_settings().accounting_expense_confirmation_ceiling_cents
     if total_cents > techo and not confirmar_importe_alto:
+        # `code` estable en el `problem+json`: el cliente pide la segunda
+        # confirmación por este identificador, no por el texto del mensaje,
+        # que puede reescribirse sin romper a nadie.
         raise ValidationDomainError(
             "El importe supera el techo de confirmación automática: vuelve a enviarlo "
-            "con «confirmar_importe_alto» si es correcto."
+            "con «confirmar_importe_alto» si es correcto.",
+            extra={"code": "importe_sobre_techo"},
         )
 
 

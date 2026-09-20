@@ -1503,8 +1503,96 @@
           "proveedorRequerido": "Escribe el nombre del proveedor.",
           "fechaRequerida": "Indica la fecha del gasto.",
           "importeInvalido": "Indica un importe base válido, mayor o igual que 0.",
-          "creado": "Gasto anotado.",
-          "ocrDeshabilitado": "Añadir un gasto leyendo una factura o ticket (OCR) todavía no está disponible en esta instalación. Da de alta el gasto a mano con el formulario de arriba."
+          "creado": "Gasto anotado."
+        },
+        "justificantes": {
+          "titulo": "Alta por justificante",
+          "explicacion": "Sube la factura o el ticket y revisa lo que hemos leído antes de dar de alta el gasto. Los importes los confirmas tú: lo que lee el modelo es solo una propuesta.",
+          "subida": {
+            "etiqueta": "Justificante (imagen o PDF)",
+            "ayuda": "PNG, JPEG, WebP o PDF, hasta 10 MB.",
+            "subiendo": "Subiendo el justificante…",
+            "subido": "Justificante subido. Estamos leyéndolo.",
+            "tipoNoPermitido": "Ese tipo de fichero no vale: sube una imagen PNG, JPEG o WebP, o un PDF.",
+            "demasiadoGrande": "El fichero supera los 10 MB."
+          },
+          "bandeja": {
+            "cargando": "Cargando los justificantes…",
+            "vacia": "Todavía no hay ningún justificante pendiente.",
+            "errorCarga": "No hemos podido cargar los justificantes.",
+            "actualizar": "Actualizar",
+            "extrayendo": "Leyendo ({{n}})",
+            "extrayendoAvisoUno": "Estamos leyendo un justificante. La pantalla se actualiza sola.",
+            "extrayendoAviso": "Estamos leyendo {{n}} justificantes. La pantalla se actualiza sola.",
+            "pendientes": "Pendientes de revisión ({{n}})",
+            "listoAvisoUno": "Hay un justificante listo para revisar.",
+            "listoAviso": "Hay {{n}} justificantes listos para revisar.",
+            "fallidos": "Extracción fallida ({{n}})",
+            "falloAvisoUno": "La extracción de un justificante ha fallado.",
+            "falloAviso": "La extracción de {{n}} justificantes ha fallado.",
+            "motor": "Leído con {{motor}}",
+            "motorPendiente": "Todavía sin leer",
+            "subidoEl": "Subido el {{fecha}}",
+            "reintentarTodos": "Reintentar todos",
+            "reintentando": "Reintentando la extracción.",
+            "leyendoEsteJustificante": "Leyendo este justificante…"
+          },
+          "errores": {
+            "limite_superado": "Presupuesto de IA agotado, amplía el límite.",
+            "sin_configuracion": "No hay ninguna configuración de IA para esta organización, así que no se ha podido leer el justificante.",
+            "servicio_desactivado": "El servicio de IA está desactivado, así que no se ha podido leer el justificante.",
+            "credencial_ilegible": "La clave de IA guardada no se puede usar. Vuelve a guardarla en la configuración de IA.",
+            "proveedor_error": "El proveedor de IA ha fallado al leer este justificante. Se reintentará solo; si insiste, da el gasto de alta a mano.",
+            "modelo_sin_vision": "El modelo configurado no sabe leer imágenes. Elige uno con visión en la configuración de IA.",
+            "clave_rechazada": "El proveedor de IA ha rechazado la clave. Revísala en la configuración de IA.",
+            "payload_invalido": "Este documento no se ha podido leer. Da el gasto de alta a mano desde el justificante.",
+            "reserva_abandonada": "La lectura se quedó a medias. Da el gasto de alta a mano desde el justificante.",
+            "generico": "No hemos podido leer este justificante. Da el gasto de alta a mano.",
+            "reintentar": "Reintentar",
+            "irAConfiguracionDeIa": "Ir a la configuración de IA"
+          },
+          "revision": {
+            "titulo": "Revisa lo que hemos leído",
+            "previsualizacion": "Justificante subido",
+            "cargandoPrevisualizacion": "Cargando la previsualización…",
+            "sinPrevisualizacion": "No hemos podido cargar la previsualización del justificante.",
+            "descargarOriginal": "Descargar el original",
+            "proveedor": "Proveedor",
+            "fecha": "Fecha",
+            "base": "Base imponible (€)",
+            "iva": "IVA (€)",
+            "total": "Total (€)",
+            "exento": "Exento de IVA",
+            "partida": "Partida",
+            "sinPartida": "Sin partida",
+            "confianzaAlta": "Confianza alta",
+            "confianzaMedia": "Confianza media",
+            "confianzaBaja": "Confianza baja",
+            "noExtraido": "No extraído, rellénalo",
+            "confirmar": "Confirmar y dar de alta el gasto",
+            "descartar": "Descartar",
+            "confirmado": "Gasto dado de alta desde el justificante.",
+            "descartado": "Justificante descartado y fichero borrado.",
+            "proveedorRequerido": "Escribe el nombre del proveedor.",
+            "fechaRequerida": "Indica la fecha del gasto.",
+            "baseInvalida": "Indica un importe base válido, mayor o igual que 0.",
+            "ivaInvalido": "Indica un IVA válido, mayor o igual que 0, o marca «Exento de IVA».",
+            "totalInvalido": "Indica un total válido, mayor o igual que 0.",
+            "totalNoCuadra": "El total tiene que ser la base más el IVA ({{esperado}} €).",
+            "importeAlto": {
+              "titulo": "Es un importe alto",
+              "texto": "Vas a dar de alta un gasto de",
+              "aviso": "Compruébalo contra el justificante antes de seguir: nadie más va a revisarlo.",
+              "confirmar": "Sí, dar de alta este gasto",
+              "cancelar": "Cancelar"
+            },
+            "descarte": {
+              "titulo": "¿Descartar el justificante?",
+              "texto": "Se borrará el fichero del almacén de inmediato. No se puede deshacer ni recuperar.",
+              "confirmar": "Sí, descartar y borrar el fichero",
+              "cancelar": "Cancelar"
+            }
+          }
         }
       },
       "venues": {

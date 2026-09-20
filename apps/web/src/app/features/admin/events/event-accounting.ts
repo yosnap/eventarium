@@ -32,6 +32,7 @@ import {
   euros,
 } from './accounting-types';
 import { ExpenseForm } from './expense-form';
+import { ReceiptDraftsPanel } from './receipt-drafts-panel';
 
 interface KpiVisible {
   readonly rotulo: string;
@@ -49,9 +50,10 @@ interface KpiVisible {
  * propios componentes: reunirlos aquí habría dejado el fichero por encima
  * de las 1000 líneas.
  *
- * El bloque «Añadir gasto por documento» (OCR) queda deshabilitado con un
- * aviso: esa función no está implementada todavía y esta pantalla no
- * depende de ella para funcionar.
+ * El alta por justificante (subida, espera de la extracción y revisión) vive
+ * en `receipt-drafts-panel`, hermano del alta manual y nunca dentro de ella:
+ * quien ya sabe los datos no pasa por el OCR, y quien tiene el papel delante
+ * no teclea.
  */
 @Component({
   selector: 'app-event-accounting',
@@ -69,6 +71,7 @@ interface KpiVisible {
     AccountingForecastPanel,
     AccountingMovementsPanel,
     ExpenseForm,
+    ReceiptDraftsPanel,
   ],
   template: `
     <ng-container *transloco="let t">
@@ -212,9 +215,12 @@ interface KpiVisible {
           (creado)="alCrearGasto($event)"
         />
 
-        <app-alert tone="info">
-          {{ t('admin.events.accounting.altaGasto.ocrDeshabilitado') }}
-        </app-alert>
+        <app-receipt-drafts-panel
+          class="bloque"
+          [eventId]="eventId()"
+          [partidas]="lineasParaGasto()"
+          (gastoCreado)="alCrearGasto($event)"
+        />
       }
     </ng-container>
   `,
