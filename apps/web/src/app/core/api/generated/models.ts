@@ -14,6 +14,7 @@ export type { AnalyticsSettingsUpdate } from './models/analytics-settings-update
 export type { AuditLogEntry } from './models/audit-log-entry';
 export type { BodySubirApiV1OrganizationsMeMediaPost } from './models/body-subir-api-v-1-organizations-me-media-post';
 export type { BodyUploadCoverApiV1EventsEventIdCoverPut } from './models/body-upload-cover-api-v-1-events-event-id-cover-put';
+export type { BodyUploadExpenseDraftApiV1AccountingEventsEventIdExpenseDraftsPost } from './models/body-upload-expense-draft-api-v-1-accounting-events-event-id-expense-drafts-post';
 export type { BodyUploadLogoApiV1OrganizationsMeBrandingLogoPut } from './models/body-upload-logo-api-v-1-organizations-me-branding-logo-put';
 export type { BodyUploadPlatformFaviconApiV1AdminIdentityFaviconPut } from './models/body-upload-platform-favicon-api-v-1-admin-identity-favicon-put';
 export type { BodyUploadPlatformLogoApiV1AdminIdentityLogoPut } from './models/body-upload-platform-logo-api-v-1-admin-identity-logo-put';
@@ -74,6 +75,9 @@ export type { EventVenueCreate } from './models/event-venue-create';
 export type { EventVenueResponse } from './models/event-venue-response';
 export type { EventVenueUpdate } from './models/event-venue-update';
 export type { ExpenseCreate } from './models/expense-create';
+export type { ExpenseDraftConfirm } from './models/expense-draft-confirm';
+export type { ExpenseDraftFieldsOut } from './models/expense-draft-fields-out';
+export type { ExpenseDraftOut } from './models/expense-draft-out';
 export type { ExpenseOut } from './models/expense-out';
 export type { ExpenseUpdate } from './models/expense-update';
 export type { ForgotPasswordRequest } from './models/forgot-password-request';

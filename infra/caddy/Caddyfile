@@ -46,6 +46,23 @@
 		}
 	}
 
+	# Justificantes de gasto: NUNCA se sirven por esta ruta pública. Son facturas y
+	# tickets con datos fiscales y personales, y el único camino a ellos es
+	# `GET /api/v1/accounting/receipts/{clave}`, que exige sesión con
+	# `accounting:read`, comprueba que la organización de la clave es la de la sesión y
+	# responde con `Content-Disposition: attachment`.
+	#
+	# La identidad anónima de SeaweedFS concede `Read` sobre todo el bucket y su
+	# formato de permisos solo admite prefijos literales, así que no puede excluir
+	# `orgs/{uuid}/accounting-receipts/` (el UUID varía por organización). Esta regla
+	# es la que cierra el hueco: el puerto S3 no se publica en producción, así que
+	# esta es la única entrada anónima al bucket. Va ANTES del `handle /media/*`:
+	# Caddy evalúa los `handle` en orden y el primero que coincide gana.
+	@justificantes path_regexp ^/media/orgs/[^/]+/accounting-receipts/
+	handle @justificantes {
+		respond "Forbidden" 403
+	}
+
 	# El bucket se llama «media», así que la ruta coincide con la clave path-style del
 	# objeto en S3. Los objetos son inmutables (la clave lleva un UUID), de ahí la caché
 	# larga.

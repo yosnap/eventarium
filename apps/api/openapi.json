@@ -8773,6 +8773,259 @@
         }
       }
     },
+    "/api/v1/accounting/events/{event_id}/expense-drafts": {
+      "post": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Subir un justificante y encolar su extracción",
+        "description": "Acepta imagen o PDF, validado por sus bytes reales y por `max_document_bytes`. La extracción **nunca** es síncrona: el borrador nace en `pending_extraction` y un worker lo completa. Un documento no soportado o demasiado grande se rechaza con 422 sin crear borrador ni consumir la pasarela de IA.",
+        "operationId": "upload_expense_draft_api_v1_accounting_events__event_id__expense_drafts_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_expense_draft_api_v1_accounting_events__event_id__expense_drafts_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseDraftOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Listar los borradores de gasto de un evento",
+        "description": "`estado` filtra por uno de los estados del borrador. Sin filtro devuelve todos, que es lo que necesita la pantalla de revisión para distinguir «presupuesto de IA agotado» de «extracción fallida».",
+        "operationId": "list_expense_drafts_api_v1_accounting_events__event_id__expense_drafts_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "estado",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Estado"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExpenseDraftOut"
+                  },
+                  "title": "Response List Expense Drafts Api V1 Accounting Events  Event Id  Expense Drafts Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/expense-drafts/{draft_id}/confirm": {
+      "post": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Confirmar un borrador y dar de alta el gasto",
+        "description": "Único camino de alta de un gasto por OCR, y siempre con una persona detrás: el modelo nunca autoconfirma. Bloquea la fila del borrador y revalida importes y pertenencia de la partida. 409 si el borrador ya no está pendiente de revisión o ya se confirmó.",
+        "operationId": "confirm_expense_draft_api_v1_accounting_expense_drafts__draft_id__confirm_post",
+        "parameters": [
+          {
+            "name": "draft_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Draft Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpenseDraftConfirm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/expense-drafts/{draft_id}/discard": {
+      "post": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Descartar un borrador",
+        "description": "Borra el justificante (y su página rasterizada) del almacén de inmediato, sin papelera: es un documento con datos fiscales que ya nadie va a usar.",
+        "operationId": "discard_expense_draft_api_v1_accounting_expense_drafts__draft_id__discard_post",
+        "parameters": [
+          {
+            "name": "draft_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Draft Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseDraftOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/expense-drafts/{draft_id}/retry": {
+      "post": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Reintentar la extracción de un borrador",
+        "description": "Solo para `error_code=limite_superado`, tras ampliar el límite de gasto de IA: 422 con cualquier otro código, porque repetir la llamada daría el mismo resultado. El barrido automático nunca reencola este estado —consumiría una reserva por pasada con el límite todavía agotado—, así que este endpoint es el único camino.",
+        "operationId": "retry_expense_draft_api_v1_accounting_expense_drafts__draft_id__retry_post",
+        "parameters": [
+          {
+            "name": "draft_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Draft Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseDraftOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/organizations/me/ai-settings": {
       "get": {
         "tags": [
@@ -9785,6 +10038,20 @@
         },
         "type": "object",
         "title": "Body_upload_cover_api_v1_events__event_id__cover_put"
+      },
+      "Body_upload_expense_draft_api_v1_accounting_events__event_id__expense_drafts_post": {
+        "properties": {
+          "fichero": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Fichero"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fichero"
+        ],
+        "title": "Body_upload_expense_draft_api_v1_accounting_events__event_id__expense_drafts_post"
       },
       "Body_upload_logo_api_v1_organizations_me_branding_logo_put": {
         "properties": {
@@ -12917,6 +13184,248 @@
         ],
         "title": "ExpenseCreate",
         "description": "Alta de un gasto manual. Sin `sponsor_id`: ese campo es exclusivo de\n`fijar_valoracion_en_especie` (plan.md Decisión #3), nunca se informa\ndesde este endpoint — ni siquiera existe en este esquema."
+      },
+      "ExpenseDraftConfirm": {
+        "properties": {
+          "budget_line_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Line Id"
+          },
+          "provider_name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Provider Name"
+          },
+          "expense_date": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expense Date"
+          },
+          "base_cents": {
+            "type": "integer",
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Base Cents"
+          },
+          "vat_cents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 2147483647.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vat Cents"
+          },
+          "total_cents": {
+            "type": "integer",
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Total Cents"
+          },
+          "confirmar_importe_alto": {
+            "type": "boolean",
+            "title": "Confirmar Importe Alto",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider_name",
+          "expense_date",
+          "base_cents",
+          "total_cents"
+        ],
+        "title": "ExpenseDraftConfirm",
+        "description": "Confirmación humana de un borrador: da de alta el gasto.\n\nLos importes son los que envía quien revisa, no los que extrajo el modelo:\nel servidor revalida `total = base + iva` y la pertenencia de la partida\nsobre **estos** valores."
+      },
+      "ExpenseDraftFieldsOut": {
+        "properties": {
+          "provider_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Name"
+          },
+          "expense_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expense Date"
+          },
+          "base_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Cents"
+          },
+          "vat_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vat Cents"
+          },
+          "total_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Cents"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          }
+        },
+        "type": "object",
+        "title": "ExpenseDraftFieldsOut",
+        "description": "Lo que el modelo leyó del justificante. Entrada **no confiable**: es una\npropuesta que una persona corrige y confirma, nunca un gasto.\n\nUn campo con confianza `baja` llega aquí en `null` a propósito (se vacía\nen el adaptador): que lo teclee quien revisa es el resultado seguro."
+      },
+      "ExpenseDraftOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending_extraction",
+              "pending_review",
+              "extraction_failed",
+              "confirmed",
+              "discarded"
+            ],
+            "title": "Status"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "ocr_provider": {
+            "type": "string",
+            "title": "Ocr Provider"
+          },
+          "receipt_object_key": {
+            "type": "string",
+            "title": "Receipt Object Key"
+          },
+          "rasterized_object_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rasterized Object Key"
+          },
+          "extracted_fields": {
+            "$ref": "#/components/schemas/ExpenseDraftFieldsOut"
+          },
+          "field_confidence": {
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "alta",
+                "media",
+                "baja"
+              ]
+            },
+            "type": "object",
+            "title": "Field Confidence"
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts"
+          },
+          "confirmed_expense_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed Expense Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "event_id",
+          "status",
+          "error_code",
+          "ocr_provider",
+          "receipt_object_key",
+          "rasterized_object_key",
+          "extracted_fields",
+          "field_confidence",
+          "attempts",
+          "confirmed_expense_id",
+          "created_at"
+        ],
+        "title": "ExpenseDraftOut"
       },
       "ExpenseOut": {
         "properties": {

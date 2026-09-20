@@ -66,6 +66,13 @@ dependencies = [
     # 1.43 de botocore, así que subir LiteLLM aquí rompería la subida de
     # ficheros. Al soltarse ese pin en `aioboto3`, se puede ampliar el tope.
     "litellm>=1.95,<1.98",
+    # Rasterización de PDF antes del OCR de justificantes (plan
+    # `260910-2216`, fase 4). `pypdfium2` y no `pdf2image`: este trae el
+    # binario de PDFium dentro de la rueda, así que la imagen Docker no gana
+    # ninguna dependencia de sistema nueva (`poppler-utils`), que era el
+    # criterio de la fase. Solo se usa para convertir páginas a mapa de bits:
+    # el adaptador de OCR nunca recibe un PDF.
+    "pypdfium2>=5.0,<6.0",
 ]
 
 [dependency-groups]
@@ -116,7 +123,7 @@ plugins = []
 exclude = ["alembic/versions/"]
 
 [[tool.mypy.overrides]]
-module = ["magic.*", "taskiq_redis.*", "aioboto3.*"]
+module = ["magic.*", "taskiq_redis.*", "aioboto3.*", "pypdfium2.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

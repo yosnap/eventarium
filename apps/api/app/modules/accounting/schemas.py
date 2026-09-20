@@ -260,3 +260,81 @@ class InKindValuationOut(BaseModel):
     sponsor_id: str
     in_kind_valuation_cents: int | None
     expense_id: str | None
+
+
+# --- Borradores de gasto extraídos por OCR (fase 4 de trabajo) --------------
+
+#: Los tres niveles cerrados de confianza. **Nunca un porcentaje**: la
+#: confianza la auto-reporta el modelo de visión, no está calibrada, y
+#: exponerla como número le daría una precisión que no tiene.
+FieldConfidence = Literal["alta", "media", "baja"]
+
+DraftStatus = Literal[
+    "pending_extraction", "pending_review", "extraction_failed", "confirmed", "discarded"
+]
+
+
+class ExpenseDraftFieldsOut(BaseModel):
+    """Lo que el modelo leyó del justificante. Entrada **no confiable**: es una
+    propuesta que una persona corrige y confirma, nunca un gasto.
+
+    Un campo con confianza `baja` llega aquí en `null` a propósito (se vacía
+    en el adaptador): que lo teclee quien revisa es el resultado seguro."""
+
+    provider_name: str | None = None
+    #: Tal y como lo leyó el modelo (se le pide `AAAA-MM-DD`), sin convertir a
+    #: fecha: un texto que no parsea no debe tumbar la respuesta de la lista.
+    expense_date: str | None = None
+    base_cents: int | None = None
+    vat_cents: int | None = None
+    total_cents: int | None = None
+    currency: str | None = None
+
+
+class ExpenseDraftOut(BaseModel):
+    id: str
+    event_id: str
+    status: DraftStatus
+    #: Motivo del último fallo, dentro de la taxonomía de la pasarela de IA.
+    #: `limite_superado` es el único que la pantalla ofrece reintentar.
+    error_code: str | None
+    #: `ai_gateway` mientras está pendiente; `"{proveedor}/{modelo}"` efectivo
+    #: en cuanto la extracción termina con éxito.
+    ocr_provider: str
+    receipt_object_key: str
+    #: Imagen que se envió al modelo (solo si hubo que rasterizar un PDF). Se
+    #: descarga por el mismo endpoint autenticado que el justificante.
+    rasterized_object_key: str | None
+    extracted_fields: ExpenseDraftFieldsOut
+    field_confidence: dict[str, FieldConfidence]
+    attempts: int
+    confirmed_expense_id: str | None
+    created_at: datetime
+
+
+class ExpenseDraftConfirm(BaseModel):
+    """Confirmación humana de un borrador: da de alta el gasto.
+
+    Los importes son los que envía quien revisa, no los que extrajo el modelo:
+    el servidor revalida `total = base + iva` y la pertenencia de la partida
+    sobre **estos** valores."""
+
+    budget_line_id: str | None = None
+    provider_name: Annotated[str, Field(min_length=1, max_length=200)]
+    expense_date: datetime
+    base_cents: Annotated[int, Field(ge=0, le=2_147_483_647)]
+    vat_cents: Annotated[int, Field(ge=0, le=2_147_483_647)] | None = None
+    total_cents: Annotated[int, Field(ge=0, le=2_147_483_647)]
+    #: Segunda confirmación explícita para un importe por encima del techo
+    #: configurado. El texto extraído de un documento nunca da de alta un
+    #: importe grande por sí solo.
+    confirmar_importe_alto: bool = False
+
+    @model_validator(mode="after")
+    def _total_coincide_con_base_mas_iva(self) -> ExpenseDraftConfirm:
+        esperado = self.base_cents + (self.vat_cents or 0)
+        if self.total_cents != esperado:
+            raise ValueError(
+                "`total_cents` debe ser `base_cents + vat_cents` (o `base_cents` si exento)."
+            )
+        return self

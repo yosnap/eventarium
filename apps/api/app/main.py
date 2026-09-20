@@ -13,6 +13,7 @@ from app.core.config import get_settings
 from app.core.deps import bloquear_escritura_si_impersona
 from app.core.redis_client import close_redis
 from app.core.storage import get_storage
+from app.modules.accounting.drafts_router import router as accounting_drafts_router
 from app.modules.accounting.router import router as accounting_router
 from app.modules.admin.ai_router import router as admin_ai_router
 from app.modules.admin.analytics_router import router as admin_analytics_router
@@ -146,6 +147,7 @@ def create_app() -> FastAPI:
     api.include_router(legal_public_router)
     api.include_router(cookie_consent_router)
     api.include_router(accounting_router)
+    api.include_router(accounting_drafts_router)
     api.include_router(ai_gateway_router)
     api.include_router(ai_catalog_router)
     app.include_router(api)

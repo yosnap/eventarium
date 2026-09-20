@@ -1,9 +1,10 @@
 """Servicios de ingresos y datos de cobro de patrocinio (fase 2 de trabajo).
 
 Toda mutación registra auditoría (plan.md Decisión #17) como `BackgroundTask`
-—Starlette la corre tras enviar la respuesta, y por tanto tras el `commit`
-real de la transacción principal que ocurre al salir de la dependencia
-`get_db`—, nunca inline dentro de la transacción de la petición: si el
+—verificado: corre tras el `commit` real de la transacción principal, porque
+`core/deps.py` declara la sesión con `scope="function"` y su salida se
+adelanta a las tareas de fondo—, nunca inline dentro de la transacción de la
+petición: si el
 `commit` fallara después de escribir la auditoría (o la propia respuesta
 fallara al serializarse), quedaría una entrada describiendo un cambio
 financiero que nunca ocurrió. Mismo patrón que
@@ -44,7 +45,7 @@ from app.shared.errors import ConflictError, NotFoundError, ValidationDomainErro
 _ORIGENES_PERMITIDOS = ("subvencion",)
 
 
-async def _auditar(
+async def auditar(
     *,
     actor_user_id: uuid.UUID,
     organization_id: uuid.UUID,
@@ -53,7 +54,8 @@ async def _auditar(
     entity_id: str,
     detail: dict[str, Any],
 ) -> None:
-    """Cuerpo de la `BackgroundTask` de auditoría: abre su propia sesión de
+    """Cuerpo de la `BackgroundTask` de auditoría de todo el módulo (también de
+    `drafts_service.py`, de ahí que sea pública y no `_auditar`): abre su propia sesión de
     mantenimiento porque `audit_log` tiene `REVOKE ALL ... FROM app_user`
     (`core/audit.py:13-20`) y ya se ejecuta fuera del ciclo de vida de la
     sesión de la petición."""
@@ -91,7 +93,7 @@ async def crear_ingreso_manual(
         raise ConflictError("No se ha podido dar de alta el ingreso.") from exc
 
     background_tasks.add_task(
-        _auditar,
+        auditar,
         actor_user_id=actor_user_id,
         organization_id=organization_id,
         action="accounting_income.created",
@@ -129,7 +131,7 @@ async def editar_ingreso_manual(
         raise ConflictError("No se han podido guardar los cambios del ingreso.") from exc
 
     background_tasks.add_task(
-        _auditar,
+        auditar,
         actor_user_id=actor_user_id,
         organization_id=organization_id,
         action="accounting_income.updated",
@@ -172,7 +174,7 @@ async def fijar_datos_de_cobro_de_patrocinador(
         ) from exc
 
     background_tasks.add_task(
-        _auditar,
+        auditar,
         actor_user_id=actor_user_id,
         organization_id=organization_id,
         action=accion,
@@ -238,7 +240,7 @@ async def aprobar_presupuesto(
     await session.flush()
 
     background_tasks.add_task(
-        _auditar,
+        auditar,
         actor_user_id=actor_user_id,
         organization_id=organization_id,
         action="accounting.budget.approved",
@@ -280,7 +282,7 @@ async def reabrir_presupuesto(
     await session.flush()
 
     background_tasks.add_task(
-        _auditar,
+        auditar,
         actor_user_id=actor_user_id,
         organization_id=organization_id,
         action="accounting.budget.reopened",
@@ -310,7 +312,7 @@ async def crear_partida_presupuesto(
         raise ConflictError("No se ha podido dar de alta la partida de presupuesto.") from exc
 
     background_tasks.add_task(
-        _auditar,
+        auditar,
         actor_user_id=actor_user_id,
         organization_id=organization_id,
         action="accounting_budget_line.created",
@@ -345,7 +347,7 @@ async def editar_partida_presupuesto(
         raise ConflictError("No se han podido guardar los cambios de la partida.") from exc
 
     background_tasks.add_task(
-        _auditar,
+        auditar,
         actor_user_id=actor_user_id,
         organization_id=organization_id,
         action="accounting_budget_line.updated",
@@ -378,7 +380,7 @@ async def borrar_partida_presupuesto(
         raise ConflictError("No se puede borrar: la partida tiene gastos enlazados.") from exc
 
     background_tasks.add_task(
-        _auditar,
+        auditar,
         actor_user_id=actor_user_id,
         organization_id=organization_id,
         action="accounting_budget_line.deleted",
@@ -522,7 +524,7 @@ async def crear_gasto(
         raise ConflictError("No se ha podido dar de alta el gasto.") from exc
 
     background_tasks.add_task(
-        _auditar,
+        auditar,
         actor_user_id=actor_user_id,
         organization_id=organization_id,
         action="accounting_expense.created",
@@ -577,7 +579,7 @@ async def editar_gasto(
         raise ConflictError("No se han podido guardar los cambios del gasto.") from exc
 
     background_tasks.add_task(
-        _auditar,
+        auditar,
         actor_user_id=actor_user_id,
         organization_id=organization_id,
         action="accounting_expense.updated",
@@ -610,7 +612,7 @@ async def borrar_gasto(
     await session.flush()
 
     background_tasks.add_task(
-        _auditar,
+        auditar,
         actor_user_id=actor_user_id,
         organization_id=organization_id,
         action="accounting_expense.deleted",
@@ -661,7 +663,7 @@ async def fijar_valoracion_en_especie(
         await session.flush()
 
         background_tasks.add_task(
-            _auditar,
+            auditar,
             actor_user_id=actor_user_id,
             organization_id=organization_id,
             action="accounting_sponsor_in_kind_valuation.cleared",
@@ -709,7 +711,7 @@ async def fijar_valoracion_en_especie(
         raise ConflictError("No se ha podido fijar la valoración en especie.") from exc
 
     background_tasks.add_task(
-        _auditar,
+        auditar,
         actor_user_id=actor_user_id,
         organization_id=organization_id,
         action=accion,

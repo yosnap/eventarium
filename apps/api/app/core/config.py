@@ -158,6 +158,32 @@ class Settings(BaseSettings):
     # completarse, y la liquidación posterior ya no la recuperaría.
     ai_reservation_stuck_minutes: int = 30
 
+    # OCR de justificantes (plan `260910-2216`, fase 4). Aquí **no** hay
+    # ninguna credencial ni dirección de motor: el proveedor lo resuelve la
+    # pasarela de IA por organización. Solo límites de operación.
+    #
+    # Páginas que se rasterizan de un PDF: el límite se aplica al convertir,
+    # no contando páginas del PDF crudo (que ya es la parte insegura). Un
+    # justificante real tiene una o dos; más allá de eso el coste de la
+    # llamada crece sin aportar nada.
+    accounting_ocr_max_pdf_pages: int = Field(default=3, gt=0)
+    # Ancho máximo, en píxeles, de cada página rasterizada. Suficiente para
+    # leer los importes de un ticket y acotado para que la imagen en base64
+    # no dispare el contexto del modelo.
+    accounting_ocr_raster_max_width: int = Field(default=1654, gt=0)
+    # Intentos de extracción antes de dejar el borrador fallido a la vista.
+    # Cuenta igual los del barrido y los manuales: un reintento manual
+    # tampoco es infinito.
+    accounting_ocr_max_attempts: int = Field(default=3, gt=0)
+    # Cuánto puede llevar un borrador en `pending_extraction` antes de que el
+    # barrido lo dé por atascado y lo reencole. Holgadamente mayor que el
+    # timeout de una llamada a la pasarela (120 s).
+    accounting_ocr_stuck_minutes: int = Field(default=15, gt=0)
+    # Techo por encima del cual confirmar un gasto exige una confirmación
+    # explícita adicional en el propio payload: el texto extraído por un
+    # modelo nunca da de alta un importe grande por sí solo.
+    accounting_expense_confirmation_ceiling_cents: int = Field(default=100_000, gt=0)
+
     @field_validator("jwt_secret", "ticket_qr_secret")
     @classmethod
     def _validar_secreto(cls, valor: str) -> str:
