@@ -33,6 +33,7 @@ from app.modules.ai_gateway.schemas import (
     OrganizationServicesUpdate,
     PlatformAiSettingsOut,
     PlatformAiSettingsUpdate,
+    PlatformAiUsageOut,
     PlatformServicesUpdate,
     ServiceOut,
 )
@@ -92,6 +93,22 @@ async def update_platform_ai_settings(
         },
     )
     return ai_service.vista_de_plataforma(fila)
+
+
+@router.get(
+    "/ai-usage",
+    summary="Gasto y actividad de IA de toda la instalación",
+    description=(
+        "Agregado del mes en curso cruzando **todas** las organizaciones "
+        "(llamadas, tokens y gasto en USD frente al techo de plataforma), las "
+        "últimas llamadas y los últimos códigos de error. `gasto_auditable` es "
+        "`false` cuando alguna llamada del periodo lleva un importe solo "
+        "estimado: ese total es orientativo."
+    ),
+    response_model=PlatformAiUsageOut,
+)
+async def get_platform_ai_usage(_: Superadmin, session: MaintenanceDb) -> PlatformAiUsageOut:
+    return await ai_service.vista_de_uso_de_plataforma(session)
 
 
 @router.get(

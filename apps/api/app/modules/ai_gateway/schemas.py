@@ -231,6 +231,117 @@ class AiUsageOut(BaseModel):
     ultimos_errores: list[AiUsageErrorOut]
 
 
+class ModeloDelCatalogoOut(BaseModel):
+    """Un modelo del catálogo cerrado, con su marca de visión."""
+
+    clave: str
+    etiqueta: str
+    #: `true` si acepta imágenes. Conservador: ver `proveedores.py`.
+    vision: bool
+
+
+class ProveedorDelCatalogoOut(BaseModel):
+    """Un proveedor del catálogo cerrado, tal y como lo pinta el desplegable.
+
+    Es la **misma** lista que valida el `PUT` (`proveedores.PROVEEDORES`),
+    serializada: sin este endpoint, el panel tendría que reescribir a mano los
+    modelos y su marca de visión, que es justo lo que el catálogo cerrado
+    existe para evitar.
+    """
+
+    clave: str
+    etiqueta: str
+    #: `true` solo en `custom`: el formulario pide `api_base` únicamente ahí.
+    api_base_editable: bool
+    #: Base URL constante del proveedor, para enseñarla como texto informativo.
+    api_base_fijo: str | None
+    #: `true` si el modelo se escribe a mano en vez de elegirse de `modelos`.
+    modelos_abiertos: bool
+    #: `false` si el proveedor está fuera del mapa de precios: el panel avisa
+    #: de que el gasto de ese proveedor no es auditable.
+    coste_auditable: bool
+    modelos: list[ModeloDelCatalogoOut]
+
+
+class ModelosDelProveedorOut(BaseModel):
+    """`GET /ai/catalog/{provider}/models`: el listado consultado en vivo.
+
+    `en_vivo=false` significa que la consulta al proveedor no salió y lo que
+    viaja es el catálogo estático de `proveedores.py`, que es la última lista
+    conocida. El panel lo avisa sin bloquear nada: la lista sigue siendo
+    utilizable, solo puede estar incompleta.
+    """
+
+    proveedor: str
+    #: `true` si los modelos los acaba de declarar el proveedor.
+    en_vivo: bool
+    #: Por qué no salió en vivo (`sin_clave`, `clave_rechazada`,
+    #: `tiempo_agotado`, `proveedor_error`, `respuesta_inesperada`).
+    #: `null` cuando `en_vivo` es `true`.
+    motivo: str | None
+    modelos: list[ModeloDelCatalogoOut]
+
+
+class PruebaDeConexionIn(BaseModel):
+    """`POST /ai/test-connection`.
+
+    La clave llega en el cuerpo **a propósito**: lo que se prueba es la que
+    acaba de escribirse en el formulario y todavía no está guardada. Es
+    `write-only` igual que en el `PUT`, así que no aparece en ningún esquema
+    de salida ni vuelve nunca al cliente.
+    """
+
+    provider: Proveedor
+    #: Solo lo admite `custom`; en el resto la dirección es constante nuestra.
+    api_base: ApiBase | None = None
+    api_key: ClaveDeApi
+
+
+class PruebaDeConexionOut(BaseModel):
+    """Resultado de la prueba. Nunca lleva la clave ni el texto del proveedor.
+
+    Los modelos que devuelve son los que el proveedor declaró con **esa**
+    credencial: el panel rellena con ellos el desplegable, que es la única
+    forma de elegir modelo antes de guardar la clave.
+    """
+
+    ok: bool
+    #: Código de dominio del fallo, `null` si fue bien. Mismo vocabulario que
+    #: `ModelosDelProveedorOut.motivo`.
+    motivo: str | None
+    modelos: list[ModeloDelCatalogoOut]
+
+
+class PlatformAiUsageRecordOut(AiUsageRecordOut):
+    """Una llamada del histórico agregado: añade de quién fue.
+
+    Solo la ve el admin: en el panel del organizador la organización siempre
+    es la suya y el campo sobraría.
+    """
+
+    organization_id: uuid.UUID
+
+
+class PlatformAiUsageOut(BaseModel):
+    """`GET /admin/ai-usage`: gasto agregado de toda la instalación.
+
+    Sin límite efectivo ni interruptor: ambos son por organización. Lo que el
+    admin compara aquí es el gasto total contra **su** techo.
+    """
+
+    periodo: str
+    llamadas: int
+    llamadas_fallidas: int
+    gasto_usd: Decimal
+    gasto_auditable: bool
+    input_tokens: int
+    output_tokens: int
+    #: Techo de gasto de la instalación; `null` = sin techo.
+    monthly_ceiling_usd: Decimal | None
+    ultimos: list[PlatformAiUsageRecordOut]
+    ultimos_errores: list[AiUsageErrorOut]
+
+
 class OrganizationServicesUpdate(BaseModel):
     """`PUT /admin/organizations/{id}/services`.
 

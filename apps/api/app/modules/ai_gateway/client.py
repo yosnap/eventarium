@@ -160,16 +160,10 @@ def modelo_de_litellm(provider: str, model: str) -> str:
     return f"{prefijo}/{model}"
 
 
-def _sanear(texto: str, clave: str) -> str:
-    """Sustituye el literal de la clave por `***`.
-
-    Se aplica a **todo** texto que venga del proveedor antes de tocar un log:
-    los mensajes de error de algunas APIs OpenAI-compatible reproducen la
-    petición recibida, cabeceras incluidas.
-    """
-    if not clave:
-        return texto
-    return texto.replace(clave, "***")
+#: Saneado de la clave en cualquier texto del proveedor. Vive en `errores.py`
+#: porque el descubrimiento de modelos necesita exactamente el mismo; aquí se
+#: mantiene el nombre con el que ya lo usa el resto del módulo.
+_sanear = errores.sanear
 
 
 def _tokens_de_entrada_estimados(messages: list[dict[str, Any]]) -> int:

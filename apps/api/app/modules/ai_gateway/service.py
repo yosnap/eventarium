@@ -24,8 +24,8 @@ from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.modules.ai_gateway import cache_modelos, repository, servicios
 from app.modules.ai_gateway import proveedores as catalogo
-from app.modules.ai_gateway import repository, servicios
 from app.modules.ai_gateway.crypto import cifrar_clave, pista_de_clave
 from app.modules.ai_gateway.errores import (
     ApiBaseNoPermitido,
@@ -42,12 +42,16 @@ from app.modules.ai_gateway.schemas import (
     AiUsageErrorOut,
     AiUsageOut,
     AiUsageRecordOut,
+    ModeloDelCatalogoOut,
     OrganizationAiSettingsOut,
     OrganizationAiSettingsUpdate,
     OrganizationServiceOut,
     OrigenDeConfig,
     PlatformAiSettingsOut,
     PlatformAiSettingsUpdate,
+    PlatformAiUsageOut,
+    PlatformAiUsageRecordOut,
+    ProveedorDelCatalogoOut,
     ServiceOut,
     ServiceToggle,
 )
@@ -287,6 +291,81 @@ async def vista_de_uso(
     )
 
 
+def catalogo_de_proveedores() -> list[ProveedorDelCatalogoOut]:
+    """El catálogo cerrado serializado, en el orden de `proveedores.py`.
+
+    Lo consumen los dos paneles para poblar sus desplegables. No lleva nada
+    sensible: claves y etiquetas de proveedores y modelos, las mismas que ya
+    publica el `enum` de `provider` en el `openapi.json`.
+    """
+    return [
+        ProveedorDelCatalogoOut(
+            clave=proveedor.clave,
+            etiqueta=proveedor.etiqueta,
+            api_base_editable=proveedor.api_base_editable,
+            api_base_fijo=proveedor.api_base_fijo,
+            modelos_abiertos=proveedor.modelos_abiertos,
+            coste_auditable=proveedor.coste_auditable,
+            modelos=[
+                ModeloDelCatalogoOut(
+                    clave=modelo.clave, etiqueta=modelo.etiqueta, vision=modelo.vision
+                )
+                for modelo in proveedor.modelos
+            ],
+        )
+        for proveedor in catalogo.PROVEEDORES.values()
+    ]
+
+
+async def vista_de_uso_de_plataforma(
+    session: AsyncSession, *, ultimos: int = 20, errores_: int = 10
+) -> PlatformAiUsageOut:
+    """Gasto agregado de **toda** la instalación en el periodo actual.
+
+    Solo la llama el router de `/admin`, con la sesión de mantenimiento: es
+    la única consulta de uso que cruza organizaciones a propósito.
+    """
+    periodo = repository.periodo_actual()
+    resumen = await repository.resumen_del_periodo(session, None, periodo)
+    filas = await repository.ultimos_usos(session, None, limite=ultimos)
+    fallos = await repository.ultimos_errores(session, None, limite=errores_)
+    plataforma = await repository.get_platform_settings(session)
+    return PlatformAiUsageOut(
+        periodo=periodo,
+        llamadas=resumen.llamadas,
+        llamadas_fallidas=resumen.llamadas_fallidas,
+        gasto_usd=resumen.gasto_usd,
+        gasto_auditable=resumen.gasto_auditable,
+        input_tokens=resumen.input_tokens,
+        output_tokens=resumen.output_tokens,
+        monthly_ceiling_usd=plataforma.monthly_ceiling_usd if plataforma else None,
+        ultimos=[
+            PlatformAiUsageRecordOut(
+                id=fila.id,
+                organization_id=fila.organization_id,
+                use_case=fila.use_case,
+                provider=fila.provider,
+                model=fila.model,
+                status=fila.status,
+                input_tokens=fila.input_tokens,
+                output_tokens=fila.output_tokens,
+                cost_usd=fila.cost_usd,
+                cost_auditable=fila.cost_auditable,
+                error_code=fila.error_code,
+                latency_ms=fila.latency_ms,
+                created_at=fila.created_at,
+            )
+            for fila in filas
+        ],
+        ultimos_errores=[
+            AiUsageErrorOut(
+                error_code=fallo.error_code, veces=fallo.veces, ultima_vez=fallo.ultima_vez
+            )
+            for fallo in fallos
+        ],
+    )
+
+
 def _proveedor_del_catalogo(clave: str) -> catalogo.Proveedor:
     proveedor = catalogo.obtener(clave)
     if proveedor is None:
@@ -393,6 +472,9 @@ async def guardar_config_de_plataforma(
         fila.monthly_ceiling_usd = datos.monthly_ceiling_usd
 
     await session.flush()
+    # La credencial de plataforma la comparten todas las organizaciones que
+    # heredan: su catálogo en vivo cacheado ya no corresponde a esta clave.
+    await cache_modelos.invalidar_ambito(None)
     return fila
 
 
@@ -462,6 +544,7 @@ async def guardar_override_de_organizacion(
         fila.monthly_limit_usd = datos.monthly_limit_usd
 
     await session.flush()
+    await cache_modelos.invalidar_ambito(organization_id)
     return fila
 
 
@@ -484,7 +567,12 @@ async def borrar_override_de_organizacion(
     session: AsyncSession, organization_id: uuid.UUID
 ) -> bool:
     """Vuelve a heredar la configuración de plataforma."""
-    return await repository.delete_organization_settings(session, organization_id)
+    borrada = await repository.delete_organization_settings(session, organization_id)
+    # A partir de ahora la organización usa la clave de plataforma: lo que
+    # tuviera cacheado bajo su propio ámbito es de una credencial que ya no
+    # existe.
+    await cache_modelos.invalidar_ambito(organization_id)
+    return borrada
 
 
 def _servicio_del_catalogo(service_key: str) -> servicios.Servicio:

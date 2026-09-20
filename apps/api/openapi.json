@@ -2644,6 +2644,28 @@
         }
       }
     },
+    "/api/v1/admin/ai-usage": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Gasto y actividad de IA de toda la instalación",
+        "description": "Agregado del mes en curso cruzando **todas** las organizaciones (llamadas, tokens y gasto en USD frente al techo de plataforma), las últimas llamadas y los últimos códigos de error. `gasto_auditable` es `false` cuando alguna llamada del periodo lleva un importe solo estimado: ese total es orientativo.",
+        "operationId": "get_platform_ai_usage_api_v1_admin_ai_usage_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformAiUsageOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/services": {
       "get": {
         "tags": [
@@ -8847,6 +8869,117 @@
           }
         }
       }
+    },
+    "/api/v1/ai/catalog": {
+      "get": {
+        "tags": [
+          "ia"
+        ],
+        "summary": "Catálogo cerrado de proveedores y modelos de IA",
+        "description": "Los proveedores válidos y, por cada uno, sus modelos con la marca de visión (`vision`), si su dirección la escribe quien configura (`api_base_editable`) y si su gasto es auditable. Es la **única** fuente del desplegable de los dos paneles: no hay una segunda lista en el cliente que pudiera quedarse desfasada.\n\nNo lleva nada sensible —claves y etiquetas del catálogo, las mismas que ya publica el `enum` de `provider`—, así que basta con estar autenticado.",
+        "operationId": "get_ai_catalog_api_v1_ai_catalog_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProveedorDelCatalogoOut"
+                  },
+                  "type": "array",
+                  "title": "Response Get Ai Catalog Api V1 Ai Catalog Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/catalog/{provider}/models": {
+      "get": {
+        "tags": [
+          "ia"
+        ],
+        "summary": "Modelos de un proveedor, consultados en vivo",
+        "description": "Pregunta al proveedor qué modelos tiene disponibles **ahora**, con la clave que ya usa esta organización (la suya si tiene configuración propia, la de la plataforma si hereda). La clave nunca viaja en la respuesta.\n\nSi la consulta no sale —no hay clave para ese proveedor, la rechaza, no responde o contesta algo ilegible— devuelve el catálogo conocido con `en_vivo: false` y el `motivo`, en vez de una lista vacía.\n\nEl resultado se cachea unos minutos por organización y proveedor, así que abrir el panel varias veces no repite la llamada saliente.\n\nSolo lo puede pedir el propietario de la organización o el personal de plataforma: gasta la credencial guardada en una llamada saliente.",
+        "operationId": "get_ai_provider_models_api_v1_ai_catalog__provider__models_get",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Provider"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelosDelProveedorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/test-connection": {
+      "post": {
+        "tags": [
+          "ia"
+        ],
+        "summary": "Probar una clave de proveedor sin guardarla",
+        "description": "Comprueba que la clave enviada sirve contra el proveedor indicado. Usa su listado de modelos, que es la llamada autenticada más barata: no consume cuota de generación ni deja rastro en el histórico de uso.\n\nLa clave viaja en el cuerpo porque lo que se prueba es la que acaba de escribirse en el formulario y todavía no está guardada. Es `writeOnly`: no se almacena, no se registra en ningún log y no vuelve en la respuesta.\n\nResponde siempre 200 con `ok`: un `false` con su `motivo` (`clave_rechazada`, `tiempo_agotado`, `proveedor_error`, `respuesta_inesperada`) es un resultado de la prueba, no un error de la petición. Sí da 422 lo que sí es entrada inválida: un proveedor fuera del catálogo o una dirección de endpoint no permitida.\n\nSolo lo puede pedir el propietario de la organización o el personal de plataforma: provoca una llamada saliente con datos escritos por quien la pide.",
+        "operationId": "post_ai_test_connection_api_v1_ai_test_connection_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PruebaDeConexionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PruebaDeConexionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -14145,6 +14278,69 @@
         "title": "MetricasDelEventoOut",
         "description": "Todo lo que el escritorio de un evento necesita, en una sola llamada.\n\nLos bloques de permiso opcional (`dinero`) son `None` cuando quien pide no\npuede verlos. Los demás van siempre: si un miembro alcanza el evento, puede\nver cómo va."
       },
+      "ModeloDelCatalogoOut": {
+        "properties": {
+          "clave": {
+            "type": "string",
+            "title": "Clave"
+          },
+          "etiqueta": {
+            "type": "string",
+            "title": "Etiqueta"
+          },
+          "vision": {
+            "type": "boolean",
+            "title": "Vision"
+          }
+        },
+        "type": "object",
+        "required": [
+          "clave",
+          "etiqueta",
+          "vision"
+        ],
+        "title": "ModeloDelCatalogoOut",
+        "description": "Un modelo del catálogo cerrado, con su marca de visión."
+      },
+      "ModelosDelProveedorOut": {
+        "properties": {
+          "proveedor": {
+            "type": "string",
+            "title": "Proveedor"
+          },
+          "en_vivo": {
+            "type": "boolean",
+            "title": "En Vivo"
+          },
+          "motivo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo"
+          },
+          "modelos": {
+            "items": {
+              "$ref": "#/components/schemas/ModeloDelCatalogoOut"
+            },
+            "type": "array",
+            "title": "Modelos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "proveedor",
+          "en_vivo",
+          "motivo",
+          "modelos"
+        ],
+        "title": "ModelosDelProveedorOut",
+        "description": "`GET /ai/catalog/{provider}/models`: el listado consultado en vivo.\n\n`en_vivo=false` significa que la consulta al proveedor no salió y lo que\nviaja es el catálogo estático de `proveedores.py`, que es la última lista\nconocida. El panel lo avisa sin bloquear nada: la lista sigue siendo\nutilizable, solo puede estar incompleta."
+      },
       "MyTicketResponse": {
         "properties": {
           "status": {
@@ -15354,6 +15550,186 @@
         "title": "PlatformAiSettingsUpdate",
         "description": "`PUT /admin/ai-settings`. Parcial: solo se toca lo enviado.\n\nCoherencia (la aplica el servicio, no el esquema, para poder dar el\n`code` exacto): enviar `provider` o `api_base` exige `api_key`, y enviar\n`api_key` exige `provider` y `default_model`."
       },
+      "PlatformAiUsageOut": {
+        "properties": {
+          "periodo": {
+            "type": "string",
+            "title": "Periodo"
+          },
+          "llamadas": {
+            "type": "integer",
+            "title": "Llamadas"
+          },
+          "llamadas_fallidas": {
+            "type": "integer",
+            "title": "Llamadas Fallidas"
+          },
+          "gasto_usd": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Gasto Usd"
+          },
+          "gasto_auditable": {
+            "type": "boolean",
+            "title": "Gasto Auditable"
+          },
+          "input_tokens": {
+            "type": "integer",
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "type": "integer",
+            "title": "Output Tokens"
+          },
+          "monthly_ceiling_usd": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Ceiling Usd"
+          },
+          "ultimos": {
+            "items": {
+              "$ref": "#/components/schemas/PlatformAiUsageRecordOut"
+            },
+            "type": "array",
+            "title": "Ultimos"
+          },
+          "ultimos_errores": {
+            "items": {
+              "$ref": "#/components/schemas/AiUsageErrorOut"
+            },
+            "type": "array",
+            "title": "Ultimos Errores"
+          }
+        },
+        "type": "object",
+        "required": [
+          "periodo",
+          "llamadas",
+          "llamadas_fallidas",
+          "gasto_usd",
+          "gasto_auditable",
+          "input_tokens",
+          "output_tokens",
+          "monthly_ceiling_usd",
+          "ultimos",
+          "ultimos_errores"
+        ],
+        "title": "PlatformAiUsageOut",
+        "description": "`GET /admin/ai-usage`: gasto agregado de toda la instalación.\n\nSin límite efectivo ni interruptor: ambos son por organización. Lo que el\nadmin compara aquí es el gasto total contra **su** techo."
+      },
+      "PlatformAiUsageRecordOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "use_case": {
+            "type": "string",
+            "title": "Use Case"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens"
+          },
+          "cost_usd": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cost Usd"
+          },
+          "cost_auditable": {
+            "type": "boolean",
+            "title": "Cost Auditable"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Organization Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "use_case",
+          "provider",
+          "model",
+          "status",
+          "input_tokens",
+          "output_tokens",
+          "cost_usd",
+          "cost_auditable",
+          "error_code",
+          "latency_ms",
+          "created_at",
+          "organization_id"
+        ],
+        "title": "PlatformAiUsageRecordOut",
+        "description": "Una llamada del histórico agregado: añade de quién fue.\n\nSolo la ve el admin: en el panel del organizador la organización siempre\nes la suya y el campo sobraría."
+      },
       "PlatformBrandingBlock": {
         "properties": {
           "name": {
@@ -16042,6 +16418,141 @@
         ],
         "title": "ProfileFieldResponse",
         "description": "Campo de perfil tal y como se devuelve."
+      },
+      "ProveedorDelCatalogoOut": {
+        "properties": {
+          "clave": {
+            "type": "string",
+            "title": "Clave"
+          },
+          "etiqueta": {
+            "type": "string",
+            "title": "Etiqueta"
+          },
+          "api_base_editable": {
+            "type": "boolean",
+            "title": "Api Base Editable"
+          },
+          "api_base_fijo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Base Fijo"
+          },
+          "modelos_abiertos": {
+            "type": "boolean",
+            "title": "Modelos Abiertos"
+          },
+          "coste_auditable": {
+            "type": "boolean",
+            "title": "Coste Auditable"
+          },
+          "modelos": {
+            "items": {
+              "$ref": "#/components/schemas/ModeloDelCatalogoOut"
+            },
+            "type": "array",
+            "title": "Modelos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "clave",
+          "etiqueta",
+          "api_base_editable",
+          "api_base_fijo",
+          "modelos_abiertos",
+          "coste_auditable",
+          "modelos"
+        ],
+        "title": "ProveedorDelCatalogoOut",
+        "description": "Un proveedor del catálogo cerrado, tal y como lo pinta el desplegable.\n\nEs la **misma** lista que valida el `PUT` (`proveedores.PROVEEDORES`),\nserializada: sin este endpoint, el panel tendría que reescribir a mano los\nmodelos y su marca de visión, que es justo lo que el catálogo cerrado\nexiste para evitar."
+      },
+      "PruebaDeConexionIn": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "nan_builders",
+              "openrouter",
+              "cheaper_inference",
+              "anthropic",
+              "openai",
+              "gemini",
+              "custom"
+            ],
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Provider"
+          },
+          "api_base": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Base"
+          },
+          "api_key": {
+            "type": "string",
+            "maxLength": 400,
+            "minLength": 8,
+            "format": "password",
+            "title": "Api Key",
+            "writeOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "api_key"
+        ],
+        "title": "PruebaDeConexionIn",
+        "description": "`POST /ai/test-connection`.\n\nLa clave llega en el cuerpo **a propósito**: lo que se prueba es la que\nacaba de escribirse en el formulario y todavía no está guardada. Es\n`write-only` igual que en el `PUT`, así que no aparece en ningún esquema\nde salida ni vuelve nunca al cliente."
+      },
+      "PruebaDeConexionOut": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "motivo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo"
+          },
+          "modelos": {
+            "items": {
+              "$ref": "#/components/schemas/ModeloDelCatalogoOut"
+            },
+            "type": "array",
+            "title": "Modelos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "motivo",
+          "modelos"
+        ],
+        "title": "PruebaDeConexionOut",
+        "description": "Resultado de la prueba. Nunca lleva la clave ni el texto del proveedor.\n\nLos modelos que devuelve son los que el proveedor declaró con **esa**\ncredencial: el panel rellena con ellos el desplegable, que es la única\nforma de elegir modelo antes de guardar la clave."
       },
       "PublicEventDetail": {
         "properties": {

@@ -141,6 +141,8 @@ export type { GetPlatformAiSettingsApiV1AdminAiSettingsGet$Params as GetPlatform
 export { getPlatformAiSettingsApiV1AdminAiSettingsGet as getPlatformAiSettingsApiV1AdminAiSettingsGet } from './fn/administracion/get-platform-ai-settings-api-v-1-admin-ai-settings-get';
 export type { UpdatePlatformAiSettingsApiV1AdminAiSettingsPut$Params as UpdatePlatformAiSettingsApiV1AdminAiSettingsPut$Params } from './fn/administracion/update-platform-ai-settings-api-v-1-admin-ai-settings-put';
 export { updatePlatformAiSettingsApiV1AdminAiSettingsPut as updatePlatformAiSettingsApiV1AdminAiSettingsPut } from './fn/administracion/update-platform-ai-settings-api-v-1-admin-ai-settings-put';
+export type { GetPlatformAiUsageApiV1AdminAiUsageGet$Params as GetPlatformAiUsageApiV1AdminAiUsageGet$Params } from './fn/administracion/get-platform-ai-usage-api-v-1-admin-ai-usage-get';
+export { getPlatformAiUsageApiV1AdminAiUsageGet as getPlatformAiUsageApiV1AdminAiUsageGet } from './fn/administracion/get-platform-ai-usage-api-v-1-admin-ai-usage-get';
 export type { ListPlatformServicesApiV1AdminServicesGet$Params as ListPlatformServicesApiV1AdminServicesGet$Params } from './fn/administracion/list-platform-services-api-v-1-admin-services-get';
 export { listPlatformServicesApiV1AdminServicesGet as listPlatformServicesApiV1AdminServicesGet } from './fn/administracion/list-platform-services-api-v-1-admin-services-get';
 export type { UpdatePlatformServicesApiV1AdminServicesPut$Params as UpdatePlatformServicesApiV1AdminServicesPut$Params } from './fn/administracion/update-platform-services-api-v-1-admin-services-put';
@@ -403,3 +405,9 @@ export type { ExportPdfApiV1AccountingEventsEventIdExportPdfGet$Params as Export
 export { exportPdfApiV1AccountingEventsEventIdExportPdfGet as exportPdfApiV1AccountingEventsEventIdExportPdfGet } from './fn/contabilidad/export-pdf-api-v-1-accounting-events-event-id-export-pdf-get';
 export type { RedownloadExportApiV1AccountingEventsEventIdExportSnapshotIdGet$Params as RedownloadExportApiV1AccountingEventsEventIdExportSnapshotIdGet$Params } from './fn/contabilidad/redownload-export-api-v-1-accounting-events-event-id-export-snapshot-id-get';
 export { redownloadExportApiV1AccountingEventsEventIdExportSnapshotIdGet as redownloadExportApiV1AccountingEventsEventIdExportSnapshotIdGet } from './fn/contabilidad/redownload-export-api-v-1-accounting-events-event-id-export-snapshot-id-get';
+export type { GetAiCatalogApiV1AiCatalogGet$Params as GetAiCatalogApiV1AiCatalogGet$Params } from './fn/ia/get-ai-catalog-api-v-1-ai-catalog-get';
+export { getAiCatalogApiV1AiCatalogGet as getAiCatalogApiV1AiCatalogGet } from './fn/ia/get-ai-catalog-api-v-1-ai-catalog-get';
+export type { GetAiProviderModelsApiV1AiCatalogProviderModelsGet$Params as GetAiProviderModelsApiV1AiCatalogProviderModelsGet$Params } from './fn/ia/get-ai-provider-models-api-v-1-ai-catalog-provider-models-get';
+export { getAiProviderModelsApiV1AiCatalogProviderModelsGet as getAiProviderModelsApiV1AiCatalogProviderModelsGet } from './fn/ia/get-ai-provider-models-api-v-1-ai-catalog-provider-models-get';
+export type { PostAiTestConnectionApiV1AiTestConnectionPost$Params as PostAiTestConnectionApiV1AiTestConnectionPost$Params } from './fn/ia/post-ai-test-connection-api-v-1-ai-test-connection-post';
+export { postAiTestConnectionApiV1AiTestConnectionPost as postAiTestConnectionApiV1AiTestConnectionPost } from './fn/ia/post-ai-test-connection-api-v-1-ai-test-connection-post';

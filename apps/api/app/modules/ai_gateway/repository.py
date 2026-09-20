@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-from sqlalchemy import delete, func, select, text, update
+from sqlalchemy import ColumnElement, delete, func, select, text, true, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.ai_gateway.errores import LIMITE_SUPERADO, LimiteDeGastoSuperado
@@ -384,8 +384,22 @@ class ResumenDeUso:
     gasto_auditable: bool
 
 
+def _de_la_organizacion(organization_id: uuid.UUID | None) -> ColumnElement[bool]:
+    """Filtro por organización, o «toda la instalación» si es `None`.
+
+    `None` lo usa **solo** el panel del admin, que consulta con la sesión de
+    mantenimiento (BYPASSRLS): es el único sitio donde el agregado debe
+    cruzar organizaciones. Con una `SessionApp`, RLS seguiría acotando la
+    consulta a la organización del contexto, así que un `None` accidental no
+    filtra datos de nadie.
+    """
+    if organization_id is None:
+        return true()
+    return AiUsageRecord.organization_id == organization_id
+
+
 async def resumen_del_periodo(
-    session: AsyncSession, organization_id: uuid.UUID, periodo: str
+    session: AsyncSession, organization_id: uuid.UUID | None, periodo: str
 ) -> ResumenDeUso:
     inicio, fin = rango_del_periodo(periodo)
     fila = (
@@ -406,7 +420,7 @@ async def resumen_del_periodo(
                     AiUsageRecord.cost_auditable.is_(False),
                 ),
             ).where(
-                AiUsageRecord.organization_id == organization_id,
+                _de_la_organizacion(organization_id),
                 AiUsageRecord.created_at >= inicio,
                 AiUsageRecord.created_at < fin,
             )
@@ -424,13 +438,13 @@ async def resumen_del_periodo(
 
 
 async def ultimos_usos(
-    session: AsyncSession, organization_id: uuid.UUID, *, limite: int
+    session: AsyncSession, organization_id: uuid.UUID | None, *, limite: int
 ) -> list[AiUsageRecord]:
     """Las últimas llamadas, sin recortar por periodo: el panel enseña lo que
     pasó hace un momento aunque el mes acabe de cambiar."""
     filas = await session.scalars(
         select(AiUsageRecord)
-        .where(AiUsageRecord.organization_id == organization_id)
+        .where(_de_la_organizacion(organization_id))
         .order_by(AiUsageRecord.created_at.desc(), AiUsageRecord.id.desc())
         .limit(limite)
     )
@@ -445,7 +459,7 @@ class ErrorDeUso:
 
 
 async def ultimos_errores(
-    session: AsyncSession, organization_id: uuid.UUID, *, limite: int
+    session: AsyncSession, organization_id: uuid.UUID | None, *, limite: int
 ) -> list[ErrorDeUso]:
     """Los `error_code` recientes agrupados: la única pista de diagnóstico que
     tiene el panel, porque no hay vista de detalle (no-objetivo del PRD)."""
@@ -456,7 +470,7 @@ async def ultimos_errores(
             func.max(AiUsageRecord.created_at),
         )
         .where(
-            AiUsageRecord.organization_id == organization_id,
+            _de_la_organizacion(organization_id),
             AiUsageRecord.error_code.is_not(None),
         )
         .group_by(AiUsageRecord.error_code)

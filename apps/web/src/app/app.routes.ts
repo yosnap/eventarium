@@ -3,6 +3,7 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
 import { guestGuard } from './core/auth/guest.guard';
 import { personalPlataformaGuard } from './core/auth/personal-plataforma.guard';
+import { superadminGuard } from './core/auth/superadmin.guard';
 
 export const routes: Routes = [
   {
@@ -310,6 +311,14 @@ export const routes: Routes = [
           import('./features/admin/organization/stripe-connection').then((m) => m.StripeConnection),
       },
       {
+        // Configuración de IA de la organización: sin guard propio a
+        // propósito. Quien no sea propietario recibe el 403 del backend y ve
+        // el aviso de solo lectura — una sola fuente de verdad de permisos.
+        path: 'ia',
+        loadComponent: () =>
+          import('./features/admin/organization/ai-settings').then((m) => m.OrganizationAiSettings),
+      },
+      {
         path: 'account',
         loadComponent: () =>
           import('./features/admin/account/account-page').then((m) => m.AccountPage),
@@ -357,6 +366,20 @@ export const routes: Routes = [
         path: 'analitica-externa',
         loadComponent: () =>
           import('./features/admin/superadmin/analytics-page').then((m) => m.AnalyticsPage),
+      },
+      {
+        // Credencial del proveedor de IA e interruptores de servicio: solo
+        // superadmin, no el rol `soporte` que sí entra al resto de `/admin`.
+        path: 'ia',
+        canActivate: [superadminGuard],
+        loadComponent: () =>
+          import('./features/admin/superadmin/ai-settings-page').then((m) => m.AiSettingsPage),
+      },
+      {
+        path: 'servicios',
+        canActivate: [superadminGuard],
+        loadComponent: () =>
+          import('./features/admin/superadmin/services-page').then((m) => m.ServicesPage),
       },
       {
         path: 'suplantar',

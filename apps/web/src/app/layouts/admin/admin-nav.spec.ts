@@ -79,6 +79,13 @@ describe('AdminNav — panel de organización', () => {
     expect(enlaces).toContain('/dashboard/roles');
   });
 
+  it('ofrece la configuración de IA de la organización a cualquier miembro', async () => {
+    // Sin `soloSuperadmin`: la ruta es de organización, y quien no sea
+    // propietario ve el aviso de solo lectura que devuelve el backend.
+    const raiz = await montar(false, false);
+    expect(enlacesDe(raiz)).toContain('/dashboard/ia');
+  });
+
   it('no ofrece ningún enlace del panel de plataforma', async () => {
     // Ofrecerlos no solo sobra: manda a quien navega a un árbol donde el guard
     // lo va a rebotar.
@@ -108,6 +115,8 @@ describe('AdminNav — panel de plataforma', () => {
     expect(enlaces).toContain('/admin/legales');
     expect(enlaces).toContain('/admin/analitica-externa');
     expect(enlaces).toContain('/admin/suplantar');
+    expect(enlaces).toContain('/admin/ia');
+    expect(enlaces).toContain('/admin/servicios');
   });
 
   it('no ofrece ningún enlace del panel de organización', async () => {
@@ -138,6 +147,10 @@ describe('AdminNav — panel de plataforma', () => {
     expect(enlaces).not.toContain('/admin/identidad');
     expect(enlaces).not.toContain('/admin/legales');
     expect(enlaces).not.toContain('/admin/estilo');
+    // La credencial del proveedor de IA y los interruptores de servicio son
+    // solo de superadmin, igual que el guard de sus rutas.
+    expect(enlaces).not.toContain('/admin/ia');
+    expect(enlaces).not.toContain('/admin/servicios');
     expect(enlaces).toContain('/admin/usuarios');
     expect(enlaces).toContain('/admin/suplantar');
   });

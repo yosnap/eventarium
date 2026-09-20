@@ -28,6 +28,20 @@ from app.shared.errors import (
 )
 
 
+def sanear(texto: str, clave: str) -> str:
+    """Sustituye el literal de la clave del proveedor por `***`.
+
+    Se aplica a **todo** texto que venga del proveedor antes de tocar un log
+    o una respuesta: los mensajes de error de varias APIs OpenAI-compatible
+    reproducen la petición recibida, cabeceras incluidas, y con ellas la
+    clave. Vive aquí, y no en el cliente de generación, porque lo necesitan
+    por igual ese cliente y el descubrimiento de modelos.
+    """
+    if not clave:
+        return texto
+    return texto.replace(clave, "***")
+
+
 class ErrorDeConfiguracionDeIa(ValidationDomainError):
     """422 con un `code` estable. Base de las reglas del `PUT`."""
 
