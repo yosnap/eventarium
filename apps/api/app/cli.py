@@ -9,13 +9,17 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import typer
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import maintenance_session
 from app.core.security import generate_password, hash_password
+from app.core.storage import get_storage
+from app.modules.media.models import Media, PlatformMedia
 from app.modules.organizations import service
 from app.modules.users.models import User
 from app.seed.demo import seed_demo
@@ -54,43 +58,16 @@ def seed(
 def create_organization(
     slug: str = typer.Argument(..., help="Identificador corto, en minúsculas."),
     name: str = typer.Argument(..., help="Nombre visible."),
-    host: str = typer.Argument(..., help="Dominio principal, por ejemplo eventos.example.com."),
     contact_email: str | None = typer.Option(None, help="Correo de contacto."),
 ) -> None:
-    """Crea una organización con su dominio, branding y roles clonados."""
+    """Crea una organización con su branding y roles clonados."""
 
     async def _ejecutar() -> None:
         async with maintenance_session() as session:
             organizacion = await service.create_organization(
-                session, slug=slug, name=name, host=host, contact_email=contact_email
+                session, slug=slug, name=name, contact_email=contact_email
             )
             typer.echo(f"Organización creada: {organizacion.slug} ({organizacion.id})")
-
-    asyncio.run(_ejecutar())
-
-
-@app.command("add-domain")
-def add_domain(
-    slug: str = typer.Argument(..., help="Identificador de la organización."),
-    host: str = typer.Argument(..., help="Dominio a añadir."),
-    primary: bool = typer.Option(False, "--primary", help="Marcarlo como dominio principal."),
-) -> None:
-    """Añade un dominio a una organización existente."""
-
-    async def _ejecutar() -> None:
-        from app.modules.organizations.models import Organization
-
-        async with maintenance_session() as session:
-            organizacion = await session.scalar(
-                select(Organization).where(Organization.slug == slug)
-            )
-            if organizacion is None:
-                typer.secho(f"No existe la organización «{slug}».", fg=typer.colors.RED)
-                raise typer.Exit(code=1)
-            dominio = await service.add_domain(
-                session, organization_id=organizacion.id, host=host, is_primary=primary
-            )
-            typer.echo(f"Dominio añadido: {dominio.host}")
 
     asyncio.run(_ejecutar())
 
@@ -141,6 +118,74 @@ def export_openapi(
     esquema = create_app().openapi()
     destino.write_text(json.dumps(esquema, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     typer.echo(f"OpenAPI exportado a {destino}")
+
+
+async def _purgar_media(session: AsyncSession, limite: datetime, etiqueta: str) -> int:
+    almacen = get_storage()
+    filas = (
+        (
+            await session.execute(
+                select(Media).where(Media.deleted_at.is_not(None), Media.deleted_at < limite)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for fila in filas:
+        typer.echo(f"Purgado ({etiqueta}): {fila.id} — {fila.filename}")
+        await almacen.delete_object(fila.object_key)
+        await session.delete(fila)
+    return len(filas)
+
+
+async def _purgar_platform_media(session: AsyncSession, limite: datetime, etiqueta: str) -> int:
+    almacen = get_storage()
+    filas = (
+        (
+            await session.execute(
+                select(PlatformMedia).where(
+                    PlatformMedia.deleted_at.is_not(None), PlatformMedia.deleted_at < limite
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for fila in filas:
+        typer.echo(f"Purgado ({etiqueta}): {fila.id} — {fila.filename}")
+        await almacen.delete_object(fila.object_key)
+        await session.delete(fila)
+    return len(filas)
+
+
+async def purgar_medios_huerfanos(older_than_days: int) -> int:
+    """Lógica de `purge-orphaned-media`, en una función de módulo (no anidada
+    en el comando Typer) para poder probarla directamente sin pasar por
+    `asyncio.run` — invocarlo desde un test ya `async def` fallaría, porque
+    ya hay un bucle de eventos en marcha."""
+    limite = datetime.now(UTC) - timedelta(days=older_than_days)
+    async with maintenance_session() as session:
+        total = await _purgar_media(session, limite, "organización")
+        total += await _purgar_platform_media(session, limite, "plataforma")
+    return total
+
+
+@app.command("purge-orphaned-media")
+def purge_orphaned_media(
+    older_than_days: int = typer.Option(
+        30, "--older-than-days", help="Solo purga filas en papelera más antiguas que N días."
+    ),
+) -> None:
+    """Borra de verdad (almacén + fila) los medios en papelera hace tiempo.
+
+    Estrictamente manual: nada en el proyecto invoca este comando solo.
+    `DELETE /organizations/me/media/{id}` y su equivalente de plataforma solo
+    marcan `deleted_at` — nunca borran el objeto real, porque quien lo envió
+    a la papelera puede querer restaurarlo. Este comando es el único punto
+    que libera el espacio de verdad, y solo cuando alguien lo ejecuta.
+    """
+    total = asyncio.run(purgar_medios_huerfanos(older_than_days))
+    typer.echo(f"Total purgado: {total}")
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import re
 import secrets
 import uuid
@@ -84,6 +85,12 @@ class AccessTokenClaims:
     # access token es lo único que permite a esos endpoints revocar «todas las
     # sesiones salvo la actual» sin depender de la cookie.
     family: str | None = None
+    #: Id del administrador que está suplantando a `user_id`, o `None` si el
+    #: token es de una sesión normal. Un token con esto puesto **no** debe
+    #: valer para los gates de plataforma, ni para escribir (`require_superadmin`
+    #: lo comprueba explícitamente: mira la fila de `users`, no este claim, así
+    #: que un `sa` heredado del suplantado no basta).
+    impersonated_by: uuid.UUID | None = None
 
 
 def create_access_token(
@@ -92,19 +99,28 @@ def create_access_token(
     *,
     is_superadmin: bool = False,
     family: str | None = None,
+    impersonated_by: uuid.UUID | None = None,
+    ttl_minutes: int | None = None,
 ) -> str:
-    """Emite un access token para un usuario en una organización concreta."""
+    """Emite un access token para un usuario en una organización concreta.
+
+    `ttl_minutes` solo lo usa la sesión de impersonación, que tiene que caducar
+    antes que una sesión normal: durante una suplantación el token da acceso a
+    los datos de otra persona, así que su ventana debe ser la más corta posible.
+    """
     settings = get_settings()
     ahora = datetime.now(UTC)
+    minutos = ttl_minutes if ttl_minutes is not None else settings.access_token_ttl_minutes
     payload = {
         "sub": str(user_id),
         "org": str(organization_id) if organization_id else None,
         "sa": is_superadmin,
         "fam": family,
+        "imp_by": str(impersonated_by) if impersonated_by else None,
         "type": "access",
         "jti": uuid.uuid4().hex,
         "iat": int(ahora.timestamp()),
-        "exp": int((ahora + timedelta(minutes=settings.access_token_ttl_minutes)).timestamp()),
+        "exp": int((ahora + timedelta(minutes=minutos)).timestamp()),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
@@ -130,6 +146,7 @@ def decode_access_token(token: str) -> AccessTokenClaims:
         raise AuthenticationError("Tipo de token incorrecto.")
 
     org = payload.get("org")
+    imp_by = payload.get("imp_by")
     try:
         return AccessTokenClaims(
             user_id=uuid.UUID(str(payload["sub"])),
@@ -137,6 +154,7 @@ def decode_access_token(token: str) -> AccessTokenClaims:
             jti=str(payload.get("jti", "")),
             is_superadmin=bool(payload.get("sa", False)),
             family=payload.get("fam") or None,
+            impersonated_by=uuid.UUID(str(imp_by)) if imp_by else None,
         )
     except (ValueError, KeyError) as exc:
         raise AuthenticationError("Token con contenido no válido.") from exc
@@ -159,3 +177,18 @@ def hash_refresh_token(token: str) -> str:
 def generate_password(longitud: int = 12) -> str:
     """Contraseña aleatoria legible, usada por el seed y el CLI."""
     return secrets.token_urlsafe(longitud)
+
+
+def hash_email_with_salt(email: str) -> str:
+    """Hash **no reversible** de un email, para `audit_log.detail` del borrado
+    RGPD de un inscrito (decisión #6 del plan de la fase 5).
+
+    Guardar el email en claro trasladaría la PII de una tabla protegida (RLS +
+    cascada de borrado) a `audit_log`, que no tiene retención propia. Un
+    `sha256` sin sal sería reversible por diccionario (los emails no tienen
+    entropía suficiente); se usa HMAC-SHA256 con `jwt_secret` como clave —ya
+    es un secreto de instalación, no expuesto en ningún export— en vez de dar
+    de alta un secreto nuevo solo para este uso puntual.
+    """
+    clave = get_settings().jwt_secret.encode("utf-8")
+    return hmac.new(clave, email.strip().lower().encode("utf-8"), hashlib.sha256).hexdigest()

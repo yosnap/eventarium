@@ -36,12 +36,34 @@ PROPOSITO_PROMOCION_LISTA_ESPERA = "waitlist_promotion_confirm"
 # cancelar (confirmación, lista de espera, promoción) — nunca una sola vez —
 # así que pueden coexistir varios tokens válidos para la misma inscripción.
 PROPOSITO_CANCELACION_INSCRIPCION = "registration_cancel"
+# Fase 1 del plan de invitaciones. Payload: el `id` de la fila en
+# `organization_invitations`. Propósito separado de
+# `PROPOSITO_RECUPERAR_CONTRASENA` a propósito (hallazgo S-1 del red-team): el
+# enlace de invitación fija contraseña igual que el de recuperación, así que
+# si compartieran propósito, un token de invitación emitido para un correo
+# ajeno sería un restablecimiento de contraseña de una cuenta existente —
+# secuestro de cuenta. TTL propio de 7 días (no `TTL_TOKEN`): una invitación
+# se acepta con menos urgencia que verificar un correo recién registrado.
+PROPOSITO_INVITACION = "invitacion"
+TTL_INVITACION = timedelta(days=7)
 
 _CLAVE = "verify:{proposito}:{huella}"
 
 
 def _huella(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def token_fingerprint(token: str) -> str:
+    """Huella pública de un token, para que un llamador la guarde y pueda
+    invalidar una generación anterior sin guardar el token en ningún sitio.
+
+    Es la misma huella que ya viaja en la clave de Redis (`_CLAVE`), expuesta
+    porque `invitations_service` (fase 1 del plan de invitaciones) necesita
+    revocar el token anterior al reenviar, y solo conserva su huella —igual
+    que `users.password_hash` no es la contraseña, esto no es el token.
+    """
+    return _huella(token)
 
 
 async def generate_token(proposito: str, payload: str, *, ttl: timedelta = TTL_TOKEN) -> str:
@@ -66,4 +88,29 @@ async def consume_token(proposito: str, token: str) -> str | None:
     redis = await require_redis()
     clave = _CLAVE.format(proposito=proposito, huella=_huella(token))
     bruto = await redis.getdel(clave)
+    return str(bruto) if bruto is not None else None
+
+
+async def revoke_by_fingerprint(proposito: str, fingerprint: str) -> None:
+    """Borra la clave de un token por su huella, sin necesitar el token.
+
+    Reenviar una invitación (`invitations_service.resend_invitation`) tiene
+    que invalidar el enlace anterior, y para entonces ya no se tiene el token
+    en claro — solo su huella, guardada en `organization_invitations.token_hash`.
+    No falla si la clave ya no existe (caducada o usada).
+    """
+    redis = await require_redis()
+    await redis.delete(_CLAVE.format(proposito=proposito, huella=fingerprint))
+
+
+async def peek_token(proposito: str, token: str) -> str | None:
+    """Como `consume_token`, pero sin borrar la clave.
+
+    `/mi-entrada` (fase 4 del PRD) reutiliza el token de autocancelación para
+    volver a mostrar el QR — mirarlo no debe invalidar el enlace de cancelar
+    que llegó en el mismo correo, así que no puede usar `GETDEL`.
+    """
+    redis = await require_redis()
+    clave = _CLAVE.format(proposito=proposito, huella=_huella(token))
+    bruto = await redis.get(clave)
     return str(bruto) if bruto is not None else None

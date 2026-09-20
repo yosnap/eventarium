@@ -6,21 +6,34 @@
  * Evento tal y como lo ve el panel de administración.
  */
 export interface EventResponse {
+  accounting_currency: string;
+  budget_approved_at: (string | null);
   capacity: (number | null);
+  city: (string | null);
+  contingency_fund_cents: (number | null);
+  contingency_fund_percent: string;
   cover_url: (string | null);
   description: (string | null);
   email_verification_required: boolean;
   ends_at: string;
   id: string;
+  latitude: (number | null);
   location_address: (string | null);
   location_mode: 'in_person' | 'online' | 'hybrid';
   location_name: (string | null);
+  longitude: (number | null);
   online_url: (string | null);
+  payment_checkout_window_minutes: number;
   registration_mode: 'free' | 'approval' | 'paid';
+  registration_opens_at: (string | null);
   slug: string;
   starts_at: string;
   status: 'draft' | 'published' | 'archived';
   summary: (string | null);
+  theme_overrides: ({
+[key: string]: any;
+} | null);
+  theme_template_id: (string | null);
   timezone: string;
   title: string;
   visibility: 'public' | 'hidden' | 'private';

@@ -4,6 +4,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   type OnInit,
+  computed,
   inject,
   input,
   signal,
@@ -15,8 +16,10 @@ import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
+import { Checkbox } from '../../../shared/ui/checkbox';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
+import { Select, type SelectOption } from '../../../shared/ui/select';
 import {
   type RegistrationQuestionResponse,
   type RegistrationQuestionType,
@@ -46,7 +49,7 @@ function vacio(): {
 @Component({
   selector: 'app-registration-questions',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, NgTemplateOutlet, Alert, Button, Card, Input],
+  imports: [TranslocoDirective, NgTemplateOutlet, Alert, Button, Card, Checkbox, Input, Select],
   template: `
     <ng-container *transloco="let t">
       <app-card [heading]="t('admin.events.registrationQuestions.titulo')">
@@ -145,22 +148,12 @@ function vacio(): {
             }}
           </h3>
 
-          <div class="campo-select">
-            <label [for]="'pregunta-tipo-' + (idEnEdicion ?? 'nueva')">
-              {{ t('admin.events.registrationQuestions.tipo') }}
-            </label>
-            <select
-              [id]="'pregunta-tipo-' + (idEnEdicion ?? 'nueva')"
-              [value]="tipo()"
-              (change)="alCambiarTipo($event)"
-            >
-              @for (opcion of tiposDisponibles; track opcion) {
-                <option [value]="opcion">
-                  {{ t('admin.events.registrationQuestions.tipo' + tipoClave(opcion)) }}
-                </option>
-              }
-            </select>
-          </div>
+          <app-select
+            [fieldId]="'pregunta-tipo-' + (idEnEdicion ?? 'nueva')"
+            [label]="t('admin.events.registrationQuestions.tipo')"
+            [options]="opcionesDeTipo()"
+            [(value)]="tipo"
+          />
 
           <app-input
             [fieldId]="'pregunta-etiqueta-' + (idEnEdicion ?? 'nueva')"
@@ -169,14 +162,11 @@ function vacio(): {
             [(value)]="etiqueta"
           />
 
-          <label class="campo-checkbox">
-            <input
-              type="checkbox"
-              [checked]="obligatoria()"
-              (change)="alCambiarObligatoria($event)"
-            />
-            {{ t('admin.events.registrationQuestions.obligatoria') }}
-          </label>
+          <app-checkbox
+            [label]="t('admin.events.registrationQuestions.obligatoria')"
+            [checked]="obligatoria()"
+            (checkedChange)="alCambiarObligatoria($event)"
+          />
 
           @if (tipo() !== 'short_text') {
             <div class="campo-materiales">
@@ -227,7 +217,7 @@ function vacio(): {
       gap: var(--space-sm);
     }
     .lista li {
-      border-bottom: 1px solid var(--color-border);
+      border-bottom: 1px solid var(--border);
       padding-bottom: var(--space-sm);
     }
     .fila {
@@ -246,7 +236,7 @@ function vacio(): {
     }
     .detalle {
       margin: var(--space-xs) 0 0;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
       font-size: 0.875rem;
     }
     .insignia {
@@ -254,8 +244,8 @@ function vacio(): {
       font-weight: 500;
       padding: 0.125rem 0.5rem;
       border-radius: var(--radius-sm);
-      background-color: var(--color-surface-muted);
-      color: var(--color-text-muted, #6b7280);
+      background-color: var(--surface-2);
+      color: var(--muted);
     }
     .acciones {
       display: flex;
@@ -267,33 +257,25 @@ function vacio(): {
       gap: var(--space-md);
       margin-top: var(--space-lg);
       padding-top: var(--space-lg);
-      border-top: 1px solid var(--color-border);
+      border-top: 1px solid var(--border);
     }
-    .campo-select,
     .campo-materiales {
       display: grid;
-      gap: var(--space-xs);
+      gap: var(--space-sm);
     }
-    .campo-select select,
     textarea {
       width: 100%;
       box-sizing: border-box;
       padding: 0.625rem 0.75rem;
-      border: 1px solid var(--color-border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      background-color: var(--color-surface);
-      color: var(--color-text);
+      background-color: var(--surface);
+      color: var(--fg);
       font: inherit;
-    }
-    .campo-checkbox {
-      display: flex;
-      align-items: center;
-      gap: var(--space-sm);
-      font-weight: 500;
     }
     .ayuda {
       margin: 0;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
       font-size: 0.8125rem;
     }
     .acciones-finales {
@@ -324,10 +306,21 @@ export class RegistrationQuestions implements OnInit {
   protected readonly borrarError = signal<string | null>(null);
 
   private readonly valoresIniciales = vacio();
-  protected readonly tipo = signal(this.valoresIniciales.type);
+  // `string`, no `RegistrationQuestionType`: mismo motivo que en `session-form.ts`
+  // (el `[(value)]` de `app-select` exige `WritableSignal<string>`).
+  protected readonly tipo = signal<string>(this.valoresIniciales.type);
   protected readonly etiqueta = signal(this.valoresIniciales.label);
   protected readonly obligatoria = signal(this.valoresIniciales.required);
   protected readonly opciones = signal(this.valoresIniciales.opciones);
+
+  protected readonly opcionesDeTipo = computed<SelectOption[]>(() =>
+    this.tiposDisponibles.map((opcion) => ({
+      value: opcion,
+      label: this.transloco.translate(
+        'admin.events.registrationQuestions.tipo' + this.tipoClave(opcion),
+      ),
+    })),
+  );
 
   ngOnInit(): void {
     void this.cargar();
@@ -360,12 +353,8 @@ export class RegistrationQuestions implements OnInit {
       .join('');
   }
 
-  protected alCambiarTipo(evento: Event): void {
-    this.tipo.set((evento.target as HTMLSelectElement).value as RegistrationQuestionType);
-  }
-
-  protected alCambiarObligatoria(evento: Event): void {
-    this.obligatoria.set((evento.target as HTMLInputElement).checked);
+  protected alCambiarObligatoria(marcada: boolean): void {
+    this.obligatoria.set(marcada);
   }
 
   protected alTextarea(evento: Event): string {
@@ -417,7 +406,7 @@ export class RegistrationQuestions implements OnInit {
     }
 
     const payload = {
-      type: this.tipo(),
+      type: this.tipo() as RegistrationQuestionType,
       label: this.etiqueta().trim(),
       required: this.obligatoria(),
       sort_order: idEnEdicion

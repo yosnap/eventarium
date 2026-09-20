@@ -1,10 +1,13 @@
 """Endpoints públicos de inscripción a eventos (fase 3 del PRD, fases 2-4 de trabajo).
 
-Mismo patrón que `events/public_router.py`: sin autenticación, contexto RLS
-fijado por host vía `OrganizationDep`/`DbDep`. El enlace de verificación apunta
-al dominio propio de la organización (`app/core/tasks.py`), así que la
-petición a `/registrations/verify` llega de vuelta con el `Host` correcto y
-resuelve la misma organización sin necesidad de pasarla en la URL.
+Mismo patrón que `events/public_router.py`: sin autenticación, sin dominio por
+organización (fase 2 del plan de organización sin dominio). La inscripción a
+un evento resuelve la organización desde el propio evento
+(`events.service.resolve_public_event_by_slug`); verificar, cancelar o
+promover una inscripción por su token resuelve la organización desde la
+propia inscripción (`app_resolve_registration_organization`, SECURITY
+DEFINER), no por host — el `id` ya viene autorizado por el propio token de un
+solo uso.
 """
 
 from __future__ import annotations
@@ -13,7 +16,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, status
 
-from app.core.deps import DbDep, OrganizationDep
+from app.core.deps import SessionDep
 from app.core.ratelimit import (
     CANCELACION_INSCRIPCION_POR_IP,
     CONFIRMACION_PROMOCION_POR_IP,
@@ -23,7 +26,7 @@ from app.core.ratelimit import (
     limit_per_ip,
 )
 from app.core.turnstile import require_turnstile
-from app.modules.events import repository as events_repository
+from app.modules.events import service as events_service
 from app.modules.events.models import Event
 from app.modules.registrations import repository, service
 from app.modules.registrations.schemas import (
@@ -37,24 +40,20 @@ from app.modules.registrations.schemas import (
     VerifyRegistrationRequest,
     VerifyRegistrationResponse,
 )
-from app.shared.errors import NotFoundError
+from app.shared.errors import ConflictError
 
 router = APIRouter(prefix="/public", tags=["público"])
 
 _MENSAJES_POR_ESTADO = {
     "confirmed": "Tu inscripción está confirmada.",
     "pending_approval": "Tu inscripción está pendiente de aprobación por parte del organizador.",
+    "pending_payment": "Tu plaza está reservada; completa el pago para confirmarla.",
     "waitlisted": "El aforo está completo; te hemos añadido a la lista de espera.",
 }
 
 
-async def _obtener_evento_para_inscripcion_o_404(
-    organizacion: OrganizationDep, session: DbDep, slug: str
-) -> Event:
-    evento = await events_repository.get_public_event_by_slug(session, organizacion.id, slug)
-    if evento is None:
-        raise NotFoundError("El evento no existe.")
-    return evento
+async def _obtener_evento_para_inscripcion_o_404(session: SessionDep, slug: str) -> Event:
+    return await events_service.resolve_public_event_by_slug(session, slug)
 
 
 @router.get(
@@ -65,7 +64,7 @@ async def _obtener_evento_para_inscripcion_o_404(
 )
 async def list_registration_questions(
     evento: Annotated[Event, Depends(_obtener_evento_para_inscripcion_o_404)],
-    session: DbDep,
+    session: SessionDep,
 ) -> list[RegistrationQuestionPublic]:
     preguntas = await repository.get_questions(session, evento.organization_id, evento.id)
     return [
@@ -97,8 +96,16 @@ async def create_registration(
     evento: Annotated[Event, Depends(_obtener_evento_para_inscripcion_o_404)],
     datos: SubmitRegistrationRequest,
     request: Request,
-    session: DbDep,
+    session: SessionDep,
 ) -> RegistrationMessageResponse:
+    if evento.registration_mode == "paid":
+        # Un evento de pago solo admite inscripción a través del embudo de
+        # compra (`POST /public/events/{slug}/checkout`), que crea la
+        # inscripción y el pago en la misma transacción: este endpoint
+        # gratuito nunca captura el tipo de entrada ni el código de
+        # descuento, así que dejarlo colar dejaría una inscripción sin pago
+        # posible (fase 6 del PRD).
+        raise ConflictError("Este evento requiere completar la compra de una entrada.")
     await require_turnstile(request, datos.turnstile_token)
     await service.submit_registration(
         session,
@@ -123,7 +130,7 @@ async def create_registration(
     dependencies=[limit_per_ip("verificar-inscripcion", VERIFICACION_INSCRIPCION_POR_IP)],
 )
 async def verify_registration(
-    datos: VerifyRegistrationRequest, session: DbDep
+    datos: VerifyRegistrationRequest, session: SessionDep
 ) -> VerifyRegistrationResponse:
     inscripcion = await service.verify_registration(session, token=datos.token)
     return VerifyRegistrationResponse(
@@ -143,7 +150,7 @@ async def verify_registration(
     dependencies=[limit_per_ip("confirmar-promocion", CONFIRMACION_PROMOCION_POR_IP)],
 )
 async def confirm_waitlist_promotion(
-    datos: ConfirmWaitlistPromotionRequest, session: DbDep
+    datos: ConfirmWaitlistPromotionRequest, session: SessionDep
 ) -> ConfirmWaitlistPromotionResponse:
     await service.confirm_waitlist_promotion(session, token=datos.token)
     return ConfirmWaitlistPromotionResponse(message="Tu plaza está confirmada.")
@@ -160,7 +167,7 @@ async def confirm_waitlist_promotion(
     dependencies=[limit_per_ip("cancelar-inscripcion", CANCELACION_INSCRIPCION_POR_IP)],
 )
 async def cancel_registration(
-    datos: CancelRegistrationRequest, session: DbDep
+    datos: CancelRegistrationRequest, session: SessionDep
 ) -> CancelRegistrationResponse:
     await service.cancel_registration_by_token(session, token=datos.token)
     return CancelRegistrationResponse(message="Tu inscripción ha sido cancelada.")

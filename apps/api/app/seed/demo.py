@@ -15,32 +15,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.security import generate_password, hash_password
 from app.modules.organizations import service
-from app.modules.organizations.models import (
-    Organization,
-    OrganizationDomain,
-    OrganizationMember,
-)
+from app.modules.organizations.models import Organization, OrganizationMember
 from app.modules.roles.models import Role
 from app.modules.roles.system_roles import OWNER_KEY
 from app.modules.users.models import User
 
 DEMO_SLUG = "iawic"
 DEMO_NAME = "IA Week Valencia"
-DEMO_HOST = "localhost"
-
-# Paleta de la organización de demostración, con contraste AA sobre fondo claro.
-DEMO_COLORS = {
-    "primary": "#6d28d9",
-    "primary-contrast": "#ffffff",
-    "secondary": "#0e7490",
-    "surface": "#ffffff",
-    "surface-muted": "#f5f3ff",
-    "text": "#1e1b4b",
-    "text-muted": "#4c1d95",
-    "border": "#ddd6fe",
-    "danger": "#b91c1c",
-    "success": "#15803d",
-}
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,20 +45,9 @@ async def seed_demo(session: AsyncSession, *, reset_password: bool = False) -> S
             session,
             slug=DEMO_SLUG,
             name=DEMO_NAME,
-            host=DEMO_HOST,
             legal_name="Asociación IA Week Valencia",
             contact_email="hola@example.com",
-            colors=dict(DEMO_COLORS),
         )
-    else:
-        # La organización existe: basta con asegurar que el dominio sigue registrado.
-        dominio = await session.scalar(
-            select(OrganizationDomain).where(OrganizationDomain.host == DEMO_HOST)
-        )
-        if dominio is None:
-            await service.add_domain(
-                session, organization_id=organizacion.id, host=DEMO_HOST, is_primary=True
-            )
 
     rol_owner = await session.scalar(
         select(Role).where(Role.organization_id == organizacion.id, Role.key == OWNER_KEY)

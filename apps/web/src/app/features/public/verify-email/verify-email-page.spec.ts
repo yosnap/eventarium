@@ -1,14 +1,19 @@
 import { Component, provideZonelessChangeDetection, output } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { VerifyEmailPage } from './verify-email-page';
 import { AuthService } from '../../../core/auth/auth.service';
+import { ThemingService } from '../../../core/theming/theming.service';
 import { TurnstileWidget } from '../../../shared/ui/turnstile-widget';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../../testing/axe';
 import es from '../../../../../public/assets/i18n/es-ES.json';
+import { themingDePrueba } from '../../../../testing/theming.fixture';
+
+/** Mismo doble mínimo que `layouts/shells.spec.ts`: sin él, `AuthFrame`
+ * inyectaría el `ThemingService` real, que necesita `HttpClient`. */
 
 @Component({ selector: 'app-turnstile-widget', template: '' })
 class TurnstileWidgetFalso {
@@ -30,8 +35,10 @@ describe('VerifyEmailPage', () => {
       ],
       providers: [
         provideZonelessChangeDetection(),
+        provideRouter([]),
         { provide: AuthService, useValue: auth },
         { provide: ActivatedRoute, useValue: ruta },
+        { provide: ThemingService, useValue: themingDePrueba() },
       ],
     })
       .overrideComponent(VerifyEmailPage, {
@@ -41,6 +48,10 @@ describe('VerifyEmailPage', () => {
       .compileComponents();
   }
 
+  afterEach(() => {
+    document.documentElement.removeAttribute('data-theme');
+  });
+
   it('sin token en la URL muestra el error y no tiene violaciones de accesibilidad', async () => {
     configurar({ verifyEmail: vi.fn() }, rutaConToken(null));
 
@@ -48,6 +59,16 @@ describe('VerifyEmailPage', () => {
     await fixture.whenStable();
 
     expect(fixture.nativeElement.querySelector('form')).not.toBeNull();
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('sin token en la URL muestra el error en tema claro sin violaciones', async () => {
+    document.documentElement.setAttribute('data-theme', 'light');
+    configurar({ verifyEmail: vi.fn() }, rutaConToken(null));
+
+    const fixture = TestBed.createComponent(VerifyEmailPage);
+    await fixture.whenStable();
+
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 

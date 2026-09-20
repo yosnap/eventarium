@@ -19,6 +19,7 @@ from app.modules.registrations.models import (
     EventRegistrationAnswer,
     EventRegistrationQuestion,
 )
+from app.modules.tickets.models import EventTicket
 
 
 async def get_questions(
@@ -89,10 +90,13 @@ async def count_reserved_registrations(
     session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID
 ) -> int:
     """`confirmed` + promociones de lista de espera todavía dentro de su
-    ventana de confirmación — ambas ocupan un hueco real de aforo, aunque la
-    persona promovida no haya confirmado todavía. Sin esto, una verificación
-    o aprobación concurrente podría colarse en el hueco ya reservado para
-    quien está en mitad de confirmar su promoción (sobreventa de aforo)."""
+    ventana de confirmación + `pending_payment` todavía dentro de su ventana
+    de pago (fase 6 del PRD, decisión #5) — las tres ocupan un hueco real de
+    aforo, aunque la persona no haya confirmado ni pagado todavía. Sin esto,
+    una verificación o aprobación concurrente podría colarse en un hueco ya
+    reservado por quien está en mitad de confirmar su promoción, o N compras
+    simultáneas podrían cobrarse todas sobre la última plaza (sobreventa de
+    aforo)."""
     total = await session.scalar(
         select(func.count())
         .select_from(EventRegistration)
@@ -105,6 +109,10 @@ async def count_reserved_registrations(
                     EventRegistration.status == "waitlisted",
                     EventRegistration.waitlist_promoted_at.is_not(None),
                     EventRegistration.waitlist_promotion_expires_at >= datetime.now(UTC),
+                ),
+                and_(
+                    EventRegistration.status == "pending_payment",
+                    EventRegistration.payment_expires_at >= datetime.now(UTC),
                 ),
             ),
         )
@@ -305,6 +313,49 @@ async def count_verified_registrations(
     return int(total or 0)
 
 
+async def count_approved_registrations(
+    session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID
+) -> int:
+    """Inscripciones que pasaron por aprobación, cualquiera que sea su estado
+    posterior.
+
+    No se puede contar por estado: aprobar mueve la fila a `confirmed` o a
+    `waitlisted`, así que `approved_at` es el único rastro de que ese paso
+    ocurrió. En un evento sin aprobación previa, nadie lo tiene.
+    """
+    total = await session.scalar(
+        select(func.count())
+        .select_from(EventRegistration)
+        .where(
+            EventRegistration.organization_id == organization_id,
+            EventRegistration.event_id == event_id,
+            EventRegistration.approved_at.is_not(None),
+        )
+    )
+    return int(total or 0)
+
+
+async def count_issued_tickets(
+    session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID
+) -> int:
+    """Entradas emitidas y **no revocadas**.
+
+    El último escalón del embudo. Se excluyen las revocadas porque una entrada
+    anulada no llegó a servir para entrar: contarla inflaría el final del embudo
+    por encima de las personas que de verdad tienen entrada.
+    """
+    total = await session.scalar(
+        select(func.count())
+        .select_from(EventTicket)
+        .where(
+            EventTicket.organization_id == organization_id,
+            EventTicket.event_id == event_id,
+            EventTicket.revoked_at.is_(None),
+        )
+    )
+    return int(total or 0)
+
+
 async def get_question(
     session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID, question_id: uuid.UUID
 ) -> EventRegistrationQuestion | None:
@@ -346,3 +397,21 @@ async def find_user_id_by_email(session: AsyncSession, email: str) -> uuid.UUID 
         )
     ).first()
     return fila[0] if fila is not None else None
+
+
+async def resolve_registration_organization(
+    session: AsyncSession, registration_id: uuid.UUID
+) -> uuid.UUID | None:
+    """Organización de una inscripción, sin ningún contexto RLS previo.
+
+    `app_resolve_registration_organization` (`SECURITY DEFINER`, alcance
+    mínimo, migración `0032`): la resuelven los flujos públicos que llegan
+    por un token de un solo uso ya verificado (verificación, cancelación,
+    promoción de lista de espera, consulta de entrada) — el `id` ya viene
+    autorizado por ese token, esta función solo fija el contexto para la
+    comprobación que ya se hizo, no añade ninguna propia.
+    """
+    resultado: uuid.UUID | None = await session.scalar(
+        text("SELECT app_resolve_registration_organization(:id)"), {"id": registration_id}
+    )
+    return resultado

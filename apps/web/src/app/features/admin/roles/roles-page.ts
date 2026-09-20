@@ -9,6 +9,7 @@ import { ApiError } from '../../../core/api/error.interceptor';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
+import { PageHeader } from '../../../shared/ui/page-header';
 
 interface RoleSummary {
   readonly id: string;
@@ -29,22 +30,24 @@ interface RoleSummary {
 @Component({
   selector: 'app-roles-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, Card],
+  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, PageHeader],
   template: `
     <ng-container *transloco="let t">
-      <div class="cabecera">
-        <div>
-          <h1>{{ t('admin.roles.titulo') }}</h1>
-          <p>{{ t('admin.roles.descripcion') }}</p>
+      <app-page-header [rotulo]="t('admin.roles.titulo')">
+        {{ t('admin.roles.cabeceraInicio') }}
+        <span class="mark">{{ t('admin.roles.cabeceraMarca') }}</span>
+        <div acciones>
+          <a routerLink="nuevo">
+            <app-button type="button">{{ t('admin.roles.crearRol') }}</app-button>
+          </a>
         </div>
-        <a routerLink="nuevo">
-          <app-button type="button">{{ t('admin.roles.crearRol') }}</app-button>
-        </a>
-      </div>
+      </app-page-header>
 
       @if (error(); as mensaje) {
         <app-alert tone="error">{{ mensaje }}</app-alert>
       }
+
+      <app-alert tone="info">{{ t('admin.roles.casoVoluntario') }}</app-alert>
 
       @if (cargando()) {
         <p>{{ t('comun.cargando') }}</p>
@@ -111,16 +114,6 @@ interface RoleSummary {
     </ng-container>
   `,
   styles: `
-    .cabecera {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: var(--space-md);
-      flex-wrap: wrap;
-    }
-    h1 {
-      margin: 0;
-    }
     .lista {
       display: grid;
       gap: var(--space-md);
@@ -143,7 +136,7 @@ interface RoleSummary {
     .clave,
     .descripcion {
       margin: var(--space-xs) 0 0;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--muted);
       font-size: 0.875rem;
     }
     .insignia {
@@ -151,12 +144,12 @@ interface RoleSummary {
       font-weight: 500;
       padding: 0.125rem 0.5rem;
       border-radius: var(--radius-sm);
-      background-color: var(--color-surface-muted);
-      color: var(--color-text-muted, #6b7280);
+      background-color: var(--surface-2);
+      color: var(--muted);
     }
     .insignia.sistema {
-      background-color: var(--color-primary);
-      color: var(--color-primary-contrast);
+      background-color: var(--accent);
+      color: var(--on-accent);
     }
     .acciones {
       display: flex;

@@ -1,11 +1,19 @@
 """Dependencias transversales de FastAPI.
 
-Cadena de una petición autenticada:
+Cadena de una petición autenticada (`DbDep`/`CurrentUserDep`):
 
-    get_session → get_current_organization → get_db → get_current_user → require_permission
+    get_session → get_db_organizacion_activa → get_current_user → require_permission
 
-`get_db` es el **único** punto donde se fija el contexto de RLS. Ningún router abre
-sesiones por su cuenta ni usa el motor de mantenimiento.
+La organización activa viene siempre del propio token (claim `org`), nunca del
+`Host`: las organizaciones no tienen dominio propio. No queda ninguna
+dependencia que resuelva por host (fase 6 del plan de organización sin
+dominio: los últimos consumidores genuinamente públicos que quedaban —
+`GET /tenant/branding`, `GET /public/events`, `POST /public/cookie-consent`
+— dejaron de necesitarlo).
+
+`get_db_organizacion_activa` es el único punto donde se fija el contexto de
+RLS a partir de una sesión autenticada. Ningún router abre sesiones por su
+cuenta ni usa el motor de mantenimiento.
 """
 
 from __future__ import annotations
@@ -21,10 +29,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import SessionApp, SessionMaintenance, set_organization_context
 from app.core.permissions import Permission
 from app.core.security import AccessTokenClaims, decode_access_token
-from app.core.tenant import ResolvedOrganization, resolve_organization
 from app.shared.errors import (
     AuthenticationError,
-    NotFoundError,
     PermissionDeniedError,
 )
 
@@ -36,31 +42,27 @@ async def get_session() -> AsyncIterator[AsyncSession]:
             yield session
 
 
-async def get_current_organization(
-    request: Request,
-    session: Annotated[AsyncSession, Depends(get_session)],
-) -> ResolvedOrganization:
-    """Organización resuelta por host. 404 si el host no está registrado."""
-    organizacion = await resolve_organization(session, request)
-    if not organizacion.is_active:
-        raise NotFoundError("La organización no está activa.")
-    request.state.organization = organizacion
-    return organizacion
+#: Sesión sin ningún contexto de RLS fijado, para lo que no necesita ninguno:
+#: funciones `SECURITY DEFINER` de alcance mínimo (login, registro, verificación
+#: de correo, recuperación de contraseña, autoservicio de creación de
+#: organizaciones) que resuelven su propia visibilidad sin depender del `Host`
+#: ni de una organización activa.
+SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
-async def get_db(
+async def get_db_organizacion_activa(
+    claims: Annotated[AccessTokenClaims, Depends(get_token_claims)],
     session: Annotated[AsyncSession, Depends(get_session)],
-    organizacion: Annotated[ResolvedOrganization, Depends(get_current_organization)],
 ) -> AsyncSession:
-    """Sesión con el contexto RLS de la organización ya fijado."""
-    await set_organization_context(session, organizacion.id)
+    """Sesión con el contexto RLS de la organización activa de la sesión (JWT).
+
+    La organización activa es la que lleva el propio access token (claim
+    `org`), cambiable sin volver a loguearse vía
+    `POST /auth/switch-organization` — sin dominio por organización, no hay
+    ningún host que pudiera decirlo.
+    """
+    await set_organization_context(session, claims.organization_id, claims.user_id)
     return session
-
-
-# Reutilizable por los endpoints públicos (sin autenticar): necesitan el `id` de la
-# organización resuelta por host, pero no un usuario — `get_db` ya deja el contexto
-# RLS listo con solo esta dependencia, sin pasar por `get_current_user`.
-OrganizationDep = Annotated[ResolvedOrganization, Depends(get_current_organization)]
 
 
 async def get_maintenance_db() -> AsyncIterator[AsyncSession]:
@@ -83,8 +85,20 @@ def _extraer_token(request: Request) -> str:
 
 
 async def get_token_claims(request: Request) -> AccessTokenClaims:
-    """Contenido verificado del access token, sin tocar la base de datos."""
-    return decode_access_token(_extraer_token(request))
+    """Contenido verificado del access token, sin tocar la base de datos.
+
+    La única excepción es una sesión de impersonación: se comprueba contra
+    Redis que siga viva. Un JWT no se puede invalidar por sí solo, así que sin
+    esta consulta «salir de la suplantación» solo borraría el token del cliente
+    y el token robado seguiría valiendo hasta su `exp`.
+    """
+    claims = decode_access_token(_extraer_token(request))
+    if claims.impersonated_by is not None:
+        from app.modules.admin import impersonation
+
+        if not await impersonation.sesion_activa(claims.jti):
+            raise AuthenticationError("La suplantación ha terminado.")
+    return claims
 
 
 class CurrentUser:
@@ -96,8 +110,10 @@ class CurrentUser:
         "first_name",
         "last_name",
         "is_superadmin",
+        "platform_role",
         "organization_id",
         "refresh_family",
+        "notify_similar_events",
     )
 
     def __init__(
@@ -110,38 +126,41 @@ class CurrentUser:
         is_superadmin: bool,
         organization_id: uuid.UUID,
         refresh_family: str | None = None,
+        notify_similar_events: bool = False,
+        platform_role: str | None = None,
     ) -> None:
         self.id = id
         self.email = email
         self.first_name = first_name
         self.last_name = last_name
         self.is_superadmin = is_superadmin
+        self.platform_role = platform_role
         self.organization_id = organization_id
         self.refresh_family = refresh_family
+        self.notify_similar_events = notify_similar_events
 
 
 async def get_current_user(
     claims: Annotated[AccessTokenClaims, Depends(get_token_claims)],
-    organizacion: Annotated[ResolvedOrganization, Depends(get_current_organization)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    session: Annotated[AsyncSession, Depends(get_db_organizacion_activa)],
 ) -> CurrentUser:
-    """Carga el usuario del token.
+    """Carga el usuario del token en su organización activa.
 
-    Un token emitido para otra organización no vale en este host aunque la firma sea
-    válida: sin esta comprobación bastaría con cambiar el `Host` para llevarse una
-    sesión de una organización a otra.
+    `session` ya llega con el contexto RLS fijado a la organización del propio
+    token (`get_db_organizacion_activa`) — no hay ningún host contra el que
+    comprobarla. Un token sin organización activa (cuenta recién verificada,
+    sin crear ni unirse a ninguna todavía) no vale aquí: los endpoints
+    organizativos siempre necesitan una: usa `VerifiedUserDep` para el
+    autoservicio de creación de organizaciones, que no la necesita.
     """
-    if claims.organization_id != organizacion.id:
-        raise PermissionDeniedError("El token no pertenece a esta organización.")
-
-    # `users` también tiene RLS: hay que declarar quién pregunta antes de leer.
-    await set_organization_context(session, organizacion.id, claims.user_id)
+    if claims.organization_id is None:
+        raise PermissionDeniedError("Esta cuenta no tiene ninguna organización activa.")
 
     fila = (
         await session.execute(
             text(
-                "SELECT id, email, first_name, last_name, is_superadmin, is_active "
-                "FROM users WHERE id = :id"
+                "SELECT id, email, first_name, last_name, is_superadmin, is_active, "
+                "notify_similar_events, platform_role FROM users WHERE id = :id"
             ),
             {"id": claims.user_id},
         )
@@ -155,8 +174,10 @@ async def get_current_user(
         first_name=fila[2],
         last_name=fila[3],
         is_superadmin=fila[4],
-        organization_id=organizacion.id,
+        organization_id=claims.organization_id,
         refresh_family=claims.family,
+        notify_similar_events=fila[6],
+        platform_role=fila[7],
     )
 
 
@@ -182,7 +203,10 @@ async def get_user_permissions(session: AsyncSession, usuario: CurrentUser) -> s
 
 
 CurrentUserDep = Annotated[CurrentUser, Depends(get_current_user)]
-DbDep = Annotated[AsyncSession, Depends(get_db)]
+#: Sesión con el contexto RLS de la organización activa de la sesión
+#: autenticada (el claim `org` del propio token). Ningún endpoint, público o
+#: autenticado, depende ya del host de la petición.
+DbDep = Annotated[AsyncSession, Depends(get_db_organizacion_activa)]
 
 
 async def current_permissions(usuario: CurrentUserDep, session: DbDep) -> set[Permission]:
@@ -191,6 +215,55 @@ async def current_permissions(usuario: CurrentUserDep, session: DbDep) -> set[Pe
 
 
 PermissionsDep = Annotated[set[Permission], Depends(current_permissions)]
+
+#: Métodos que una sesión de impersonación puede usar. Todo lo demás se rechaza:
+#: la suplantación es de **solo lectura**, y esa garantía tiene que vivir en el
+#: backend, no en el banner del cliente (una petición directa no lo pinta).
+_METODOS_DE_LECTURA = frozenset({"GET", "HEAD", "OPTIONS"})
+
+
+async def bloquear_escritura_si_impersona(request: Request) -> None:
+    """Impide escribir durante una sesión de impersonación.
+
+    Se aplica como dependencia **global** (ver `main.py`), no endpoint a
+    endpoint: así cubre los ~120 endpoints de la API sin tocar ninguno y sin
+    que un endpoint nuevo se quede fuera por olvido. Una suplantación sirve para
+    ver lo que ve la persona suplantada, no para actuar en su nombre.
+
+    Es deliberadamente **opcional** respecto al token: se aplica a rutas
+    públicas (login, registro, webhooks) que no llevan `Authorization`. Sin
+    token no hay sesión de suplantación, así que se deja pasar; la exigencia de
+    autenticación es cosa de cada endpoint, no de esta dependencia.
+    """
+    cabecera = request.headers.get("authorization", "")
+    _, _, token = cabecera.partition(" ")
+    if not token:
+        return
+
+    try:
+        claims = decode_access_token(token)
+    except AuthenticationError:
+        # Un token inválido lo rechazará la autenticación del endpoint con su
+        # propio mensaje; aquí no se adelanta ese juicio.
+        return
+
+    if claims.impersonated_by is None:
+        return
+
+    if request.method.upper() in _METODOS_DE_LECTURA:
+        return
+
+    # Salir de la suplantación es un `POST`, y tiene que poder hacerse desde la
+    # propia sesión de suplantación: sin esta excepción, la regla de solo
+    # lectura encerraría al administrador dentro de la sesión hasta que
+    # caducase. Es la única escritura permitida, y no toca datos de nadie.
+    if request.url.path.endswith("/impersonate/stop"):
+        return
+
+    raise PermissionDeniedError(
+        "Una sesión de suplantación solo puede consultar, no modificar.",
+        extra={"metodo": request.method},
+    )
 
 
 def require_permission(*requeridos: Permission):  # type: ignore[no-untyped-def]
@@ -217,7 +290,18 @@ async def require_superadmin(
     Los endpoints de administración son globales, así que no exigen organización en
     el token. `is_superadmin` se comprueba **en base de datos** en cada petición: un
     token antiguo no puede conservar el privilegio si se revocó.
+
+    Un token de **impersonación** se rechaza siempre, aunque el usuario suplantado
+    sea superadmin en la base de datos: el claim `sa` no es la defensa (este gate
+    lee `users`, no el claim), así que sin esta comprobación una sesión de
+    suplantación sobre un superadmin pasaría los endpoints de administración —
+    que son, precisamente, los que no debe poder usar.
     """
+    if claims.impersonated_by is not None:
+        raise PermissionDeniedError(
+            "Una sesión de suplantación no puede usar los endpoints de administración."
+        )
+
     fila = (
         await session.execute(
             text(
@@ -241,12 +325,66 @@ async def require_superadmin(
     )
 
 
+async def require_platform_staff(
+    claims: Annotated[AccessTokenClaims, Depends(get_token_claims)],
+    session: Annotated[AsyncSession, Depends(get_maintenance_db)],
+) -> CurrentUser:
+    """Personal de plataforma: `superadmin` **o** el rol aditivo `soporte`.
+
+    Aditiva sobre `require_superadmin`, nunca la sustituye: los endpoints de
+    escritura sensible (desactivar un usuario, asignar/retirar un rol de
+    plataforma) siguen exigiendo `require_superadmin` sin más, no esta
+    dependencia. `soporte` solo alcanza lectura (directorio de
+    usuarios/eventos) y suplantación.
+
+    Mismas dos garantías que `require_superadmin`, por el mismo motivo —
+    plan `260916-0810-usuarios-y-permisos-plataforma`, hallazgos S-1/S-2 del
+    red-team de ese plan:
+
+    - `is_superadmin`/`platform_role` se comprueban **en base de datos**, en
+      cada petición, nunca desde un claim del JWT: un token antiguo no
+      conserva el privilegio si se revocó, y retirar `soporte` a alguien
+      tiene efecto en la siguiente petición, no al expirar el token.
+    - Un token de **impersonación** se rechaza siempre, aunque la cuenta
+      suplantada sea `superadmin` o `soporte` en la base de datos: sin esta
+      comprobación, una sesión de suplantación pasaría estos endpoints, que
+      son precisamente los que no debe poder usar.
+    """
+    if claims.impersonated_by is not None:
+        raise PermissionDeniedError(
+            "Una sesión de suplantación no puede usar los endpoints de administración."
+        )
+
+    fila = (
+        await session.execute(
+            text(
+                "SELECT id, email, first_name, last_name, is_superadmin, is_active, "
+                "platform_role FROM users WHERE id = :id"
+            ),
+            {"id": claims.user_id},
+        )
+    ).first()
+    if fila is None or not fila[5]:
+        raise AuthenticationError("El usuario ya no existe o está desactivado.")
+    if not fila[4] and fila[6] != "soporte":
+        raise PermissionDeniedError("Se requieren privilegios de personal de plataforma.")
+    return CurrentUser(
+        id=fila[0],
+        email=fila[1],
+        first_name=fila[2],
+        last_name=fila[3],
+        is_superadmin=fila[4],
+        organization_id=claims.organization_id or uuid.UUID(int=0),
+        platform_role=fila[6],
+    )
+
+
 class VerifiedUser:
     """Persona con el correo verificado, sin organización todavía.
 
-    Distinto de `CurrentUser`: ese exige que el token pertenezca a la organización del
-    host de la petición, algo que no tiene sentido para quien acaba de verificar su
-    correo y aún no ha creado ninguna. Solo lo usa el autoservicio de creación de
+    Distinto de `CurrentUser`: ese exige una organización activa en el token, algo
+    que no tiene sentido para quien acaba de verificar su correo y aún no ha creado
+    ni se ha unido a ninguna. Solo lo usa el autoservicio de creación de
     organizaciones.
     """
 
@@ -259,22 +397,26 @@ class VerifiedUser:
 
 async def require_verified_user(
     claims: Annotated[AccessTokenClaims, Depends(get_token_claims)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    session: Annotated[AsyncSession, Depends(get_session)],
 ) -> VerifiedUser:
     """Exige un token válido de una persona con el correo ya verificado.
 
     La visibilidad normal de `users` bajo RLS exige compartir organización con quien
     pregunta; por eso usa `app_find_user_by_id`, la misma función `SECURITY DEFINER`
-    de alcance mínimo que el registro (fase 1) usa por correo.
+    de alcance mínimo que el registro (fase 1) usa por correo. Sesión sin contexto
+    (`get_session`, no `get_db_organizacion_activa`): esto no depende de
+    ninguna organización ni de ningún host — lo usa el autoservicio de
+    creación de organizaciones, antes de que exista ninguna que fijar como
+    contexto.
     """
     fila = (
         await session.execute(
-            text("SELECT id, email, email_verified_at FROM app_find_user_by_id(:id)"),
+            text("SELECT id, email, email_verified_at, is_active FROM app_find_user_by_id(:id)"),
             {"id": claims.user_id},
         )
     ).first()
-    if fila is None:
-        raise AuthenticationError("El usuario ya no existe.")
+    if fila is None or not fila[3]:
+        raise AuthenticationError("El usuario ya no existe o está desactivado.")
     if fila[2] is None:
         raise PermissionDeniedError("El correo todavía no está verificado.")
     return VerifiedUser(id=fila[0], email=fila[1])

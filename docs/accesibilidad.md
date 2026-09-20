@@ -35,9 +35,16 @@ lo que se exige.
   `role="status"` para el resto, para no interrumpir la lectura sin motivo.
 - **Objetivo táctil** (2.5.5): botones y campos con 44 px de alto mínimo.
 - **Movimiento** (2.3.3): `prefers-reduced-motion` anula animaciones y transiciones.
-- **Contraste** (1.4.3): la paleta por defecto cumple AA. Como el branding lo elige cada
-  organización, `core/theming/contrast.ts` calcula la razón de contraste de los pares
-  críticos y el panel avisa cuando alguno baja de 4,5:1.
+- **Contraste** (1.4.3): ya no hay una paleta libre por organización. La base del
+  sistema son los dos modos de `styles/tokens.css`, y cada plantilla del catálogo se
+  verifica **al crearse o editarse**, no una vez. El cálculo está duplicado a
+  propósito: `core/theming/contrast.ts` avisa mientras se edita, y
+  `app/modules/theme_templates/contrast.py` es quien **rechaza con 422** — la garantía
+  es del servidor, no del formulario, así que un `POST` directo a la API con una
+  plantilla que no llega a AA tampoco entra. Ambos lados comparten la misma lista
+  `PARES_CRITICOS` y el mismo mínimo AA; cambiar uno exige tocar el otro.
+  `core/theming/contrast.spec.ts` verifica además los tokens de los dos modos leídos
+  de disco, en lugar de comprobar cifras copiadas a mano.
 - **Idioma** (3.1.1): `<html lang="es-ES">`; todos los textos vienen de
   `public/assets/i18n/es-ES.json`, ninguno está incrustado en las plantillas.
 
@@ -207,6 +214,137 @@ activo; `200` con contenido para el evento, la sesión y el ponente publicados; 
 aislamiento multi-tenant end-to-end (el mismo evento pedido con el host de otra
 organización responde `404`, no solo a nivel de API sino a través de todo el
 recorrido de SSR).
+
+## Checklist manual — Fase 5 del PRD, fase 2 (patrocinadores)
+
+Revisado el 2026-09-08 sobre las tres pantallas nuevas: `/admin/sponsor-tiers`
+(niveles de la organización), el bloque de patrocinadores embebido en
+`/admin/events/:id` (`EventSponsors`) y el bloque público en
+`/eventos/:slug`.
+
+| # | Criterio WCAG 2.1 AA | Cómo se ha comprobado | Resultado |
+|---|---|---|---|
+| 2.1.1 / 2.5.5 | Teclado / objetivo táctil | Reordenar niveles usa botones «↑»/«↓» (`app-button`, 2.75rem de alto mínimo), nunca arrastrar y soltar sin alternativa por teclado | ✅ |
+| 4.1.2 | Nombre, función, valor | Los botones de reordenar llevan `aria-label` con el nombre del nivel (`"Subir Oro"`/`"Bajar Oro"`), no solo la flecha visual | ✅ |
+| 1.1.1 | Contenido no textual | Cada logo de patrocinador (panel y bloque público) lleva `alt` con el nombre del patrocinador; sin logo, se muestra el nombre como texto | ✅ |
+| 4.1.3 | Mensajes de estado | Errores de carga/guardado con `app-alert`, mismo patrón que el resto del panel | ✅ |
+| — | Cobertura automática | 3 ficheros de test nuevos (`sponsor-tiers-page`, `event-sponsors`, `event-page` ampliado): cero violaciones de axe en cada estado con datos (niveles reordenados, patrocinador monetario/en especie, bloque público agrupado) | ✅ |
+
+**Decisión de diseño con impacto en accesibilidad**: reordenar con dos
+llamadas `PATCH` secuenciales (intercambiar `display_order` entre el nivel
+movido y su vecino) en vez de arrastrar y soltar evita por completo el
+problema de accesibilidad del drag-and-drop (WCAG 2.5.7, objetivos de
+arrastre) — no hay nada que arrastrar, cada movimiento es una acción de
+botón discreta y anunciable.
+
+## Checklist manual — Fase 5 del PRD, fase 3 (legal, cookies y consentimientos)
+
+Revisado el 2026-09-08 sobre el banner de cookies (`shared/cookies/cookie-banner.ts`,
+integrado en `layouts/public/public-shell.ts`), las cuatro páginas legales públicas
+(`/legal/*`) y su editor en el panel (`/admin/legal`).
+
+**Orejime vs. Klaro, decisión tomada en esta fase.** `docs/prd.md` §7 dejaba el
+banner "a confirmar frente a Klaro según auditoría WCAG". Comprobación rápida
+(no una auditoría exhaustiva): Orejime es un fork de Klaro nacido explícitamente
+para corregir problemas de accesibilidad de Klaro (gestión de foco al abrir/cerrar,
+navegación por teclado del panel de personalización) documentados por su propio
+proyecto. Ninguna de las dos librerías se ha integrado: en vez de instalar un
+paquete de terceros con su propio DOM y su propia gestión de foco (una caja negra
+más difícil de auditar y de mantener alineada con el resto del sistema de diseño
+Angular), el banner es un componente propio (`CookieBanner`) construido con los
+mismos bloques (`app-button`, señales, `afterNextRender`) que el resto del panel,
+lo que permite verificar directamente los criterios de abajo en vez de confiar en
+la accesibilidad de una librería externa. Documentado aquí en vez de en el PRD
+porque es una decisión de implementación, no de producto.
+
+| # | Criterio WCAG 2.1 AA | Cómo se ha comprobado | Resultado |
+|---|---|---|---|
+| 2.4.3 | Orden del foco | Al aparecer el banner, el foco se mueve al panel (`afterNextRender` + `.focus()`); al decidir (aceptar/rechazar/guardar), el foco vuelve al elemento que lo tenía antes de que apareciera el banner | ✅ |
+| 2.1.2 | Sin trampa de foco | El banner no es un diálogo modal: no intercepta `Tab`/`Shift+Tab`, el resto de la página sigue siendo alcanzable mientras está visible | ✅ |
+| 1.3.1 / 4.1.2 | Información y relaciones | `role="region"` con `aria-label`; casillas de categoría dentro de `fieldset`/`legend`; cada `label` envuelve su `input`, sin necesitar `id` generado | ✅ |
+| 1.4.1 / — | Uso del color | "Aceptar todo" / "Rechazar todo" / "Personalizar" usan la misma variante de botón (`secundario`), verificado con un test que compara las clases CSS de los tres, no solo revisión visual | ✅ |
+| 2.1.1 | Teclado | Las tres acciones y las casillas de personalizar son accesibles y activables por teclado (elementos `button`/`input` nativos, sin manejadores de solo ratón) | ✅ |
+| 1.3.1 | Encabezados | Cada página legal pública tiene un único `h1` con el nombre de la página | ✅ |
+| — | Cobertura automática | `cookie-banner.spec.ts`, `legal-page.spec.ts`, `legal-pages-page.spec.ts`: cero violaciones de axe en el banner (con y sin personalización visible), las cuatro páginas legales con contenido renderizado y el editor del panel | ✅ |
+
+**Contenido legal sin `[innerHTML]` directo.** Las páginas legales muestran el
+contenido primero como texto plano interpolado por Angular (SSR y antes de
+hidratar) y solo lo sustituyen por HTML saneado (`marked` + `DOMPurify`, lista
+blanca explícita) tras `afterNextRender` en el navegador — nunca hay una ventana
+en la que un `<script>` guardado como contenido legal pudiera ejecutarse, ni en el
+servidor ni en el cliente. Verificado con un test explícito que guarda
+`<script>alert(1)</script>` como contenido y comprueba que no aparece como
+etiqueta `<script>` real en el DOM servido (`legal-page.spec.ts`), además de un
+test de la función de saneado en sí (`sanitize-markdown.spec.ts`) y uno en el
+backend que confirma que el contenido viaja como string dentro de JSON, nunca
+como HTML de la propia respuesta.
+
+## Checklist manual — Fase 6 del PRD (pagos con Stripe Connect)
+
+Revisado sobre las cinco pantallas nuevas: `/admin/organization` (conexión
+Stripe, `stripe-connection.ts`), `/admin/events/:id` → tipos de entrada
+(`event-ticket-types.ts`) y códigos de descuento (`event-discount-codes.ts`),
+`/admin/events/:id` → pagos y reembolsos (`event-payments.ts`), el paso de
+compra del formulario público (`registration-page.ts`) y la pantalla de
+retorno de pago (`payment-return.ts`).
+
+| # | Criterio WCAG 2.1 AA | Cómo se ha comprobado | Resultado |
+|---|---|---|---|
+| 4.1.3 | Mensajes de estado | El estado de la conexión Stripe (`stripe-connection.ts:47`) y el de la pantalla de retorno de pago (`payment-return.ts:47`) viven en un `<div aria-live="polite">`: un lector de pantalla anuncia el cambio de "conectando"/"pendiente" a "conectado"/"pagado" sin que la persona tenga que volver a enfocar nada | ✅ |
+| 4.1.3 | Mensajes de estado | El mensaje de éxito/error tras reembolsar en `event-payments.ts:85` usa `role="status" aria-live="polite"`, mismo patrón que el resto de formularios del panel | ✅ |
+| 4.1.2 | Nombre, función, valor | Los botones de reordenar tipos de entrada (`event-ticket-types.ts:80,88`) llevan `aria-label` con el nombre de la acción, mismo patrón ya usado por `sponsor-tiers-page` en la fase 5 | ✅ |
+| 2.1.1 | Teclado | Los formularios de tipo de entrada, código de descuento y el paso de compra del formulario público usan controles nativos (`input`/`select`/`button`), sin manejadores de solo ratón | ✅ |
+| 1.3.1 | Encabezados y estructura | Cada pantalla nueva del panel tiene un único `h1`/`h2` propio dentro de su tarjeta, sin saltarse niveles | ✅ |
+| — | Cobertura automática | `stripe-connection.spec.ts`, `event-ticket-types.spec.ts`, `event-discount-codes.spec.ts`, `event-payments.spec.ts`, `registration-page.spec.ts` y `payment-return.spec.ts`: cero violaciones de axe en cada estado con datos (sin conectar/conectado/desautorizado, lista vacía/con tipos, con/sin código de descuento aplicado, pago pendiente/pagado/reembolsado) | ✅ |
+
+**El paso de compra no introduce un widget de pago propio.** Con Checkout
+hosted, la página de pago la aloja Stripe: el formulario público solo pide
+tipo de entrada, código opcional y los datos ya existentes de inscripción, y
+redirige. No hay ningún campo de tarjeta ni iframe de Stripe.js que auditar
+en el frontend de este proyecto — el único punto de accesibilidad de pago
+que corresponde a esta fase es antes (selección) y después (retorno) del
+propio Checkout.
+
+## Checklist manual — pase visual del sistema de diseño (2026-09-13)
+
+El pase del sistema de diseño (tokens, componentes compartidos, aplicación al panel y a
+la web pública) se verificó con cobertura automática y con comprobación medida sobre la
+aplicación en marcha. **La matriz manual de recorrido —dos temas, tres anchos, teclado,
+lector de pantalla— no se ha completado**: requiere navegador y dispositivo reales que
+no estaban disponibles. Se declara aquí en vez de darla por hecha.
+
+| # | Criterio WCAG 2.1 AA | Cómo se ha comprobado | Resultado |
+|---|---|---|---|
+| — | Cobertura automática | `pnpm test`: 491 tests, cero violaciones de axe con el conjunto `wcag2a`/`wcag2aa`/`wcag21a`/`wcag21aa`. Las tablas migradas a `app-data-table` se comprueban además bajo `data-theme="light"` | ✅ |
+| 1.4.3 | Contraste | `core/theming/contrast.spec.ts` lee los tokens de los dos modos desde `styles/tokens.css` y verifica los pares críticos. La retirada del bloque de alias `--color-*` se hizo **después** de que los greps de cierre dieran vacío, y se volvió a pasar la suite tras ella | ✅ |
+| 1.4.3 | Contraste | La puerta de contraste del catálogo de plantillas es **del servidor**, no del formulario: `theme_templates/contrast.py` rechaza con 422 una plantilla que no llegue a AA, verificado con `POST` directo a la API | ✅ |
+| 1.4.1 | Uso del color | Los estados del panel (inscripción, evento, cuenta de Stripe) van en `app-chip` **con su texto**; el tono solo lo refuerza. `event-check-in` comunica el resultado del escaneo con icono y texto, no solo con verde/rojo, y tiene test que lo fija | ✅ |
+| 1.3.1 | Estructura de tablas | Las tablas migradas a `app-data-table` llevan `<caption>`, `th scope="col"` y la ranura de scroll es un `role="region"` con `tabindex="0"` y nombre accesible; cada tabla tiene test de columnas, filas, caption y scroll alcanzable | ✅ |
+| 3.1.1 | Idioma | Ningún texto nuevo incrustado en plantillas: todo sale de `es-ES.json` | ✅ |
+| 4.1.3 | Mensajes de estado | La cuenta de Stripe dejó de usar `app-alert` para sus cuatro estados (estado, no mensaje) y pasó a chip con texto, dentro del contenedor `aria-live` que ya existía | ✅ |
+| 1.4.13 | Contraste de contenido no textual | Verificado en la aplicación en marcha con el servidor SSR de producción: tras retirar los alias, los tokens resuelven a sus valores reales y **el conmutador de tema cambia fondo y texto en ambos sentidos**, sin elementos atados al tema anterior | ✅ |
+| 1.4.3 / 3.2.2 | Tema sin parpadeo y sin JavaScript | SSR sirve el HTML con `data-theme` ya pintado desde la cookie `eventarium.tema`: con `claro` sale `data-theme="light"`; con `oscuro` no sale atributo (es el defecto de `:root`). Comprobado por HTTP, con el cuerpo servido leído entero. No hay script inline de tema en `index.html` | ✅ |
+| 2.1.1 | Teclado | Los 12 `<select>` nativos **se conservan** (fase 2 descartó el combobox custom): no hay widget nuevo que auditar. Los estilos repetidos se retiraron en once pantallas para que el control siga la regla compartida | ✅ |
+| 2.5.5 | Objetivo táctil | `event-check-in` ganó el tratamiento de pantalla en movimiento: filas con relleno amplio y borde de 2 px, contador y resultado con `--fs-h3`, y el resultado con icono de texto además del color | ✅ |
+| — | Presupuesto de estilos | `pnpm build --configuration production` en verde sin superar `anyComponentStyle` (aviso 4 kB / error 8 kB), y ningún fichero por encima de las 1000 líneas | ✅ |
+
+### Pendiente de este pase
+
+- **Matriz manual de recorrido**: los cinco viajes (asistente, acceso y cuenta,
+  organizador, organizador por evento, superadministración) en tema oscuro y claro, a
+  320, 768 y 1440 px.
+- **Recorrido solo con teclado** del panel y de la web pública: sin trampas de foco,
+  orden lógico, foco siempre visible.
+- **Lector de pantalla** en los dos shells y en el marco de autenticación: landmarks,
+  grupos de navegación, nombre del evento activo, enlace de salto.
+- **Zoom al 200 %** en `role-form.ts`, `event-agenda.ts`, `event-registrations.ts` y
+  `registration-page.ts`.
+- **`prefers-reduced-motion`** activo: nada se mueve y nada queda invisible. La regla
+  existe en `styles.css` (anula la ocultación de `[appReveal]`, no solo acorta la
+  transición), pero no se ha visto con la preferencia activa.
+- **`prefers-contrast: more`** y modo de contraste alto del sistema operativo.
+- **`event-check-in` en un móvil real**, de pie y con la cámara.
+- **Tablas a 320 px** con scroll horizontal alcanzable solo con teclado.
 
 ## Al añadir una pantalla
 

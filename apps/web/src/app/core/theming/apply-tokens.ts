@@ -1,56 +1,160 @@
-import { Branding } from './branding.model';
+import { TOKENS_DE_PLANTILLA, PlantillaDeTema, TokensDePlantilla } from './theme-template.model';
+
+/** Identidad del chrome de la web pública: se aplica al documento entero. */
+const ID_ESTILO_PLATAFORMA = 'tema-plataforma';
+
+/** Hoja del tema propio de un evento, por encima del de la plataforma. */
+const ID_ESTILO_EVENTO = 'tema-evento';
 
 /**
- * Traduce el branding a custom properties CSS.
+ * Ámbito del **evento**.
  *
- * La API devuelve claves como `primary` o `text-muted`; en CSS viven como
- * `--color-primary` y `--color-text-muted`. Las fuentes siguen la misma regla con el
- * prefijo `--font-`.
+ * La página de un evento lleva este marcador en su contenedor raíz, así que
+ * hereda los tokens de su plantilla sin que el resto de la web (que se queda
+ * con los de plataforma) cambie. Los dos ámbitos (plataforma, evento) son el
+ * mismo mecanismo con distinto selector, no dos sistemas.
  */
-export function brandingToCssVariables(branding: Branding): Record<string, string> {
-  const variables: Record<string, string> = {};
+export const SELECTOR_AMBITO_EVENTO = '[data-ambito="evento"]';
 
-  for (const [clave, valor] of Object.entries(branding.colors ?? {})) {
-    if (esValorSeguro(valor)) {
-      variables[`--color-${clave}`] = valor;
+/** Hex de 6 dígitos u `oklch()`: los dos formatos que también valida el backend. */
+const FORMATO_HEX = /^#[0-9a-f]{6}$/i;
+const FORMATO_OKLCH = /^oklch\(\s*[\d.]+%\s+[\d.]+\s+[\d.]+\s*(?:\/\s*[\d.]+%?)?\s*\)$/i;
+
+/**
+ * `--shadow-md`/`--shadow-lg` son el único par de tokens de plantilla cuyo valor no es
+ * un color suelto, sino un `box-shadow` completo con un color `oklch()` embebido (así
+ * es como los consume `shared/ui/card.ts` vía el alias `--shadow-card`). El resto de
+ * la lista blanca exige hex o `oklch()` exactos.
+ */
+const TOKENS_DE_SOMBRA = new Set(['shadow-md', 'shadow-lg']);
+
+/** Tokens tipográficos: su valor no es un color sino el nombre de una familia
+ * autoalojada (mismo contrato que `FAMILIAS_POR_TOKEN` de theme-template.model). */
+const TOKENS_DE_FUENTE = new Set(['font-display', 'font-body']);
+const FAMILIAS_POR_TOKEN: Record<string, Set<string>> = {
+  'font-display': new Set(['Bebas Neue', 'Archivo Black', 'Oswald', 'Playfair Display']),
+  'font-body': new Set(['DM Sans', 'Inter', 'Lora']),
+};
+const FORMATO_SOMBRA_CON_OKLCH = /oklch\(\s*[\d.]+%\s+[\d.]+\s+[\d.]+\s*(?:\/\s*[\d.]+%?)?\s*\)/i;
+
+/**
+ * Un valor de plantilla acaba dentro de una hoja de estilo, así que se exige un
+ * formato de color admitido antes de escribirlo. Defensa en profundidad: el backend ya
+ * valida lista blanca y formato, pero el cliente no depende de ello. Un token que no
+ * pasa esto no se escribe, y el modo se cae al valor de reserva de `tokens.css`.
+ */
+function esValorSeguro(nombreToken: string, valor: unknown): valor is string {
+  if (typeof valor !== 'string' || valor.length === 0 || valor.length > 300) {
+    return false;
+  }
+  if (/[;{}<>]/.test(valor) || /url\s*\(/i.test(valor) || /expression\s*\(/i.test(valor)) {
+    return false;
+  }
+  if (TOKENS_DE_SOMBRA.has(nombreToken)) {
+    return FORMATO_SOMBRA_CON_OKLCH.test(valor);
+  }
+  if (TOKENS_DE_FUENTE.has(nombreToken)) {
+    return FAMILIAS_POR_TOKEN[nombreToken]?.has(valor) ?? false;
+  }
+  return FORMATO_HEX.test(valor) || FORMATO_OKLCH.test(valor);
+}
+
+/** Filtra un juego de tokens de un modo por la lista blanca + el formato admitido. */
+function tokensValidos(tokens: TokensDePlantilla): Record<string, string> {
+  const validos: Record<string, string> = {};
+  for (const nombre of TOKENS_DE_PLANTILLA) {
+    const valor = tokens[nombre];
+    if (esValorSeguro(nombre, valor)) {
+      validos[nombre] = valor;
     }
   }
-  for (const [clave, valor] of Object.entries(branding.fonts ?? {})) {
-    if (esValorSeguro(valor)) {
-      variables[`--font-${clave}`] = valor;
-    }
-  }
-  return variables;
+  return validos;
+}
+
+function bloqueDeDeclaraciones(tokens: Record<string, string>): string {
+  return Object.entries(tokens)
+    .map(([nombre, valor]) => `--${nombre}:${valor};`)
+    .join('');
 }
 
 /**
- * Un valor de branding acaba dentro de una hoja de estilo, así que se rechaza todo lo
- * que pueda cerrar la declaración o abrir una regla nueva. El branding lo edita el
- * organizador, no un tercero, pero no hay motivo para confiar en él a ciegas.
+ * Traduce los tokens de una plantilla al bloque de dos reglas que se inyecta en
+ * `<head>`: el modo oscuro con el selector base y el claro con
+ * `[data-theme="light"]`, en ese orden, para que el modo claro de la plantilla
+ * gane al oscuro de la propia plantilla.
+ *
+ * `selector` es el ámbito al que se aplican: `:root` para la identidad de la
+ * plataforma (el chrome) y un contenedor para la plantilla propia de un evento
+ * (su página pública). Como las custom properties se heredan, redefinirlas en
+ * un contenedor basta para scoping sin tocar cada componente.
+ *
+ * `''` si no hay plantilla (`theme` es `null`): no se inyecta nada y el ámbito
+ * se queda con la base de reserva de `tokens.css`.
  */
-function esValorSeguro(valor: unknown): valor is string {
-  return (
-    typeof valor === 'string' &&
-    valor.length > 0 &&
-    valor.length <= 200 &&
-    !/[;{}<>]/.test(valor) &&
-    !/url\s*\(/i.test(valor) &&
-    !/expression\s*\(/i.test(valor)
-  );
+export function brandingToStyleBlock(tema: PlantillaDeTema | null, selector: string): string {
+  if (!tema) {
+    return '';
+  }
+  const oscuro = bloqueDeDeclaraciones(tokensValidos(tema.tokens.dark));
+  const claro = bloqueDeDeclaraciones(tokensValidos(tema.tokens.light));
+  const selectorClaro = selectorDeModoClaro(selector);
+  return `${selector}{${oscuro}}${selectorClaro}{${claro}}`;
 }
 
-/** Aplica el branding al documento. Solo tiene efecto en el navegador. */
-export function applyTokens(branding: Branding, documento: Document): void {
-  const raiz = documento.documentElement;
-  for (const [propiedad, valor] of Object.entries(brandingToCssVariables(branding))) {
-    raiz.style.setProperty(propiedad, valor);
+/**
+ * Selector del modo claro para un ámbito dado.
+ *
+ * El modo oscuro va en el selector base y el claro lo sobreescribe cuando el
+ * documento lleva `data-theme="light"` (lo pone el conmutador de tema). Para
+ * `:root` hay que escribirlo como `:root[data-theme="light"]` (compuesto, no
+ * descendiente); para un contenedor, `[data-theme="light"] <contenedor>`.
+ */
+function selectorDeModoClaro(selector: string): string {
+  if (selector === ':root') {
+    return ':root[data-theme="light"]';
+  }
+  return `[data-theme="light"] ${selector}`;
+}
+
+function _inyectar(documento: Document, id: string, bloque: string): void {
+  const existente = documento.getElementById(id);
+  if (!bloque) {
+    existente?.remove();
+    return;
+  }
+  const estilo = existente ?? documento.createElement('style');
+  estilo.id = id;
+  estilo.textContent = bloque;
+  if (!existente) {
+    documento.head.appendChild(estilo);
   }
 }
 
-/** Bloque `<style>` equivalente, para inyectarlo en el HTML servido por SSR. */
-export function brandingToStyleBlock(branding: Branding): string {
-  const declaraciones = Object.entries(brandingToCssVariables(branding))
-    .map(([propiedad, valor]) => `${propiedad}:${valor};`)
-    .join('');
-  return `:root{${declaraciones}}`;
+/**
+ * Aplica la plantilla de la **plataforma** al documento entero: es la identidad
+ * del chrome de la web pública (header, pie, botones). Si no hay plantilla de
+ * plataforma, el documento se queda con la base de reserva de `tokens.css`.
+ */
+export function applyTokensDePlataforma(
+  plataforma: { theme: PlantillaDeTema | null },
+  documento: Document,
+): void {
+  _inyectar(documento, ID_ESTILO_PLATAFORMA, brandingToStyleBlock(plataforma.theme, ':root'));
+}
+
+/**
+ * Aplica la plantilla propia de un **evento**, si la eligió.
+ *
+ * No se aplica al documento entero: el chrome es de plataforma, y un evento
+ * solo impone su marca en su propia página pública. Sin plantilla no se
+ * inyecta nada, y eso es deliberado: el ámbito del evento deja de emitir
+ * reglas y la cascada devuelve el tema de la plataforma, que es exactamente
+ * lo que significa «heredar».
+ */
+export function applyTokensDeEvento(
+  evento: { theme: PlantillaDeTema | null } | null,
+  documento: Document,
+): void {
+  const bloque = brandingToStyleBlock(evento?.theme ?? null, SELECTOR_AMBITO_EVENTO);
+  _inyectar(documento, ID_ESTILO_EVENTO, bloque);
 }

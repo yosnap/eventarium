@@ -11,6 +11,7 @@ import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
 import { Textarea } from '../../../shared/ui/textarea';
+import { PageHeader } from '../../../shared/ui/page-header';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -34,11 +35,13 @@ type Campo = 'name' | 'contactEmail';
 @Component({
   selector: 'app-organization-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input, Textarea],
+  imports: [TranslocoDirective, Alert, Button, Card, Input, Textarea, PageHeader],
   template: `
     <ng-container *transloco="let t">
-      <h1>{{ t('admin.organizacion.titulo') }}</h1>
-      <p>{{ t('admin.organizacion.descripcion') }}</p>
+      <app-page-header [rotulo]="t('admin.organizacion.rotulo')">
+        {{ t('admin.organizacion.cabeceraInicio') }}
+        <span class="mark">{{ t('admin.organizacion.cabeceraMarca') }}</span>
+      </app-page-header>
 
       @if (cargando()) {
         <p>{{ t('comun.cargando') }}</p>
@@ -90,9 +93,6 @@ type Campo = 'name' | 'contactEmail';
     </ng-container>
   `,
   styles: `
-    h1 {
-      margin-top: 0;
-    }
     form {
       display: grid;
       gap: var(--space-md);

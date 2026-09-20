@@ -3,7 +3,8 @@
 
 
 /**
- * Campos editables directamente, sin flujo propio (nombre, locale).
+ * Campos editables directamente, sin flujo propio (nombre, locale,
+ * preferencia de notificaciones).
  *
  * El correo no está aquí: tiene su propio flujo con confirmación
  * (`POST /users/me/change-email`).
@@ -12,4 +13,5 @@ export interface UserMeUpdate {
   first_name?: (string | null);
   last_name?: (string | null);
   locale?: (string | null);
+  notify_similar_events?: (boolean | null);
 }

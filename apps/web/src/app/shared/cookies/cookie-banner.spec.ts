@@ -1,0 +1,396 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideZonelessChangeDetection } from '@angular/core';
+import { provideRouter } from '@angular/router';
+import { TranslocoTestingModule } from '@jsverse/transloco';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { CookieBanner } from './cookie-banner';
+import { CookieConsentService } from '../../core/cookies/cookie-consent.service';
+import { esperarSinViolacionesDeAccesibilidad } from '../../../testing/axe';
+import es from '../../../../public/assets/i18n/es-ES.json';
+
+/**
+ * Dos rondas de estabilización, no una: los métodos del banner encadenan
+ * varios `await` (componente → `CookieConsentService.personalizar()` →
+ * `decidir()` → `firstValueFrom(http.post())`), y una sola ronda de
+ * `whenStable()` puede devolver el control antes de que la última promesa de
+ * esa cadena se resuelva del todo en modo zoneless.
+ */
+async function avanzar(fixture: ComponentFixture<unknown>): Promise<void> {
+  await fixture.whenStable();
+  fixture.detectChanges();
+  await fixture.whenStable();
+  fixture.detectChanges();
+}
+
+describe('CookieBanner', () => {
+  let http: HttpTestingController;
+
+  beforeEach(() => {
+    localStorage.clear();
+    for (const id of ['ga4-analytics-script', 'meta-pixel-script', 'cloudflare-analytics-script']) {
+      document.getElementById(id)?.remove();
+    }
+    delete (window as unknown as { dataLayer?: unknown[] }).dataLayer;
+    delete (window as unknown as { fbq?: unknown; _fbq?: unknown }).fbq;
+    delete (window as unknown as { fbq?: unknown; _fbq?: unknown })._fbq;
+
+    TestBed.configureTestingModule({
+      imports: [
+        TranslocoTestingModule.forRoot({
+          langs: { 'es-ES': es },
+          translocoConfig: { availableLangs: ['es-ES'], defaultLang: 'es-ES' },
+        }),
+      ],
+      providers: [
+        provideZonelessChangeDetection(),
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
+    });
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    http.verify();
+  });
+
+  it('aparece en la primera visita y bloquea los scripts de analítica no esenciales', async () => {
+    const fixture = TestBed.createComponent(CookieBanner);
+    await avanzar(fixture);
+
+    const raiz = fixture.nativeElement as HTMLElement;
+    expect(raiz.querySelector('[role="region"]')).not.toBeNull();
+    expect(document.getElementById('ga4-analytics-script')).toBeNull();
+    await esperarSinViolacionesDeAccesibilidad(raiz);
+  });
+
+  it('"solo las necesarias" y "aceptar todas" tienen el mismo peso visual (misma variante de botón)', async () => {
+    const fixture = TestBed.createComponent(CookieBanner);
+    await avanzar(fixture);
+
+    const botones = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.cookies button'),
+    ) as HTMLButtonElement[];
+    const clases = botones.map((boton) => boton.className);
+    // Las dos decisiones directas usan la misma clase de variante: ninguna
+    // lleva la clase `primario`, que sí destacaría una sobre la otra. "Elegir"
+    // es un tercer control, pero un enlace de texto, no un botón con esa clase.
+    expect(clases.some((c) => c.includes('primario'))).toBe(false);
+    expect(new Set(clases.filter((c) => c.includes('secundario'))).size).toBe(1);
+  });
+
+  it('"solo las necesarias" no activa ningún script de analítica y registra el consentimiento', async () => {
+    const fixture = TestBed.createComponent(CookieBanner);
+    await avanzar(fixture);
+
+    const botones = (fixture.nativeElement as HTMLElement).querySelectorAll('button');
+    const rechazar = Array.from(botones).find((b) =>
+      b.textContent?.includes('Solo las necesarias'),
+    );
+    rechazar?.dispatchEvent(new Event('click'));
+    await avanzar(fixture);
+
+    const peticion = http.expectOne('/api/v1/public/cookie-consent');
+    expect(peticion.request.body).toEqual({ categories: ['necessary'] });
+    peticion.flush(null, { status: 204, statusText: 'No Content' });
+    await avanzar(fixture);
+
+    expect(document.getElementById('ga4-analytics-script')).toBeNull();
+    expect(document.getElementById('meta-pixel-script')).toBeNull();
+    expect(document.getElementById('cloudflare-analytics-script')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('[role="region"]')).toBeNull();
+    expect(JSON.parse(localStorage.getItem('cookie-consent') ?? '{}').categories).toEqual([
+      'necessary',
+    ]);
+  });
+
+  it('aceptar todas activa los scripts reales de los tres proveedores configurados', async () => {
+    const fixture = TestBed.createComponent(CookieBanner);
+    await avanzar(fixture);
+
+    const botones = (fixture.nativeElement as HTMLElement).querySelectorAll('button');
+    const aceptar = Array.from(botones).find((b) => b.textContent?.includes('Aceptar todas'));
+    aceptar?.dispatchEvent(new Event('click'));
+    await avanzar(fixture);
+
+    const peticion = http.expectOne('/api/v1/public/cookie-consent');
+    expect(new Set(peticion.request.body.categories)).toEqual(
+      new Set(['necessary', 'analytics', 'marketing']),
+    );
+    peticion.flush(null, { status: 204, statusText: 'No Content' });
+
+    // El servicio de scripts consulta los identificadores públicos una vez
+    // para los tres proveedores.
+    const identificadores = http.expectOne('/api/v1/tenant/analytics');
+    identificadores.flush({
+      ga4_measurement_id: 'G-TEST123',
+      meta_pixel_id: '1234567890',
+      cloudflare_analytics_token: 'tok-publico',
+    });
+    await avanzar(fixture);
+
+    const ga4 = document.getElementById('ga4-analytics-script') as HTMLScriptElement | null;
+    expect(ga4).not.toBeNull();
+    expect(ga4?.src).toContain('googletagmanager.com/gtag/js?id=G-TEST123');
+    expect(document.getElementById('meta-pixel-script')).not.toBeNull();
+    const nube = document.getElementById('cloudflare-analytics-script') as HTMLScriptElement | null;
+    expect(nube?.getAttribute('data-cf-beacon')).toContain('tok-publico');
+  });
+
+  it('"Elegir" abre la ventana de personalización y solo activa las categorías marcadas', async () => {
+    const fixture = TestBed.createComponent(CookieBanner);
+    await avanzar(fixture);
+    const raiz = fixture.nativeElement as HTMLElement;
+
+    const elegir = Array.from(raiz.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Elegir'),
+    );
+    elegir?.dispatchEvent(new Event('click'));
+    await avanzar(fixture);
+
+    const dialogo = raiz.querySelector('dialog') as HTMLDialogElement;
+    expect(dialogo.hasAttribute('open')).toBe(true);
+    await esperarSinViolacionesDeAccesibilidad(raiz);
+
+    const interruptores = Array.from(
+      dialogo.querySelectorAll('button[role="switch"]:not([disabled])'),
+    ) as HTMLButtonElement[];
+    expect(interruptores.length).toBe(2);
+    interruptores[0].dispatchEvent(new Event('click'));
+    await avanzar(fixture);
+
+    const guardar = Array.from(dialogo.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Guardar mi elección'),
+    );
+    guardar?.dispatchEvent(new Event('click'));
+    await avanzar(fixture);
+
+    const peticion = http.expectOne('/api/v1/public/cookie-consent');
+    expect(new Set(peticion.request.body.categories)).toEqual(new Set(['necessary', 'analytics']));
+    peticion.flush(null, { status: 204, statusText: 'No Content' });
+    // Sin identificadores configurados: la categoría se consentiría, pero no
+    // hay script que inyectar (nunca un script roto a `undefined`).
+    http.expectOne('/api/v1/tenant/analytics').flush({
+      ga4_measurement_id: null,
+      meta_pixel_id: null,
+      cloudflare_analytics_token: null,
+    });
+    await avanzar(fixture);
+
+    expect(dialogo.hasAttribute('open')).toBe(false);
+  });
+
+  it('no vuelve a mostrarse si ya hay una decisión guardada', async () => {
+    localStorage.setItem('cookie-consent', JSON.stringify({ categories: ['necessary'] }));
+    const fixture = TestBed.createComponent(CookieBanner);
+    await avanzar(fixture);
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('[role="region"]')).toBeNull();
+  });
+
+  it('guarda versión y fecha en la decisión persistida', async () => {
+    const fixture = TestBed.createComponent(CookieBanner);
+    await avanzar(fixture);
+
+    const botones = (fixture.nativeElement as HTMLElement).querySelectorAll('button');
+    const aceptar = Array.from(botones).find((b) => b.textContent?.includes('Aceptar todas'));
+    aceptar?.dispatchEvent(new Event('click'));
+    await avanzar(fixture);
+    http
+      .expectOne('/api/v1/public/cookie-consent')
+      .flush(null, { status: 204, statusText: 'No Content' });
+    await avanzar(fixture);
+
+    http.expectOne('/api/v1/tenant/analytics').flush({
+      ga4_measurement_id: null,
+      meta_pixel_id: null,
+      cloudflare_analytics_token: null,
+    });
+    await avanzar(fixture);
+
+    const guardado = JSON.parse(localStorage.getItem('cookie-consent') ?? '{}');
+    expect(guardado.version).toBe(1);
+    expect(typeof guardado.created_at).toBe('string');
+    expect(Number.isNaN(Date.parse(guardado.created_at))).toBe(false);
+  });
+
+  it('"Preferencias de cookies" reabre la ventana con las categorías previamente elegidas ya marcadas', async () => {
+    localStorage.setItem(
+      'cookie-consent',
+      JSON.stringify({ categories: ['necessary', 'analytics'], version: 1, created_at: 'x' }),
+    );
+    const fixture = TestBed.createComponent(CookieBanner);
+    await avanzar(fixture);
+    const raiz = fixture.nativeElement as HTMLElement;
+
+    // Ya hay una decisión guardada: ni el banner ni la ventana se muestran
+    // hasta reabrir la gestión.
+    expect(raiz.querySelector('[role="region"]')).toBeNull();
+    expect((raiz.querySelector('dialog') as HTMLDialogElement).hasAttribute('open')).toBe(false);
+
+    const consentimiento = TestBed.inject(CookieConsentService);
+    consentimiento.abrirGestionDeCookies();
+    await avanzar(fixture);
+
+    const dialogo = raiz.querySelector('dialog') as HTMLDialogElement;
+    expect(dialogo.hasAttribute('open')).toBe(true);
+    const interruptores = Array.from(
+      dialogo.querySelectorAll('button[role="switch"]:not([disabled])'),
+    ) as HTMLButtonElement[];
+    // Medición (ya elegida antes) viene precargada; comunicación no.
+    expect(interruptores[0].getAttribute('aria-checked')).toBe('true');
+    expect(interruptores[1].getAttribute('aria-checked')).toBe('false');
+    await esperarSinViolacionesDeAccesibilidad(raiz);
+
+    // Cambia una categoría y guarda: la nueva decisión sobrescribe la anterior.
+    interruptores[1].dispatchEvent(new Event('click'));
+    await avanzar(fixture);
+
+    const guardar = Array.from(dialogo.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Guardar mi elección'),
+    );
+    guardar?.dispatchEvent(new Event('click'));
+    await avanzar(fixture);
+
+    const peticion = http.expectOne('/api/v1/public/cookie-consent');
+    expect(new Set(peticion.request.body.categories)).toEqual(
+      new Set(['necessary', 'analytics', 'marketing']),
+    );
+    peticion.flush(null, { status: 204, statusText: 'No Content' });
+    http.expectOne('/api/v1/tenant/analytics').flush({
+      ga4_measurement_id: null,
+      meta_pixel_id: null,
+      cloudflare_analytics_token: null,
+    });
+    await avanzar(fixture);
+
+    expect(dialogo.hasAttribute('open')).toBe(false);
+    const persistido = JSON.parse(localStorage.getItem('cookie-consent') ?? '{}');
+    expect(new Set(persistido.categories)).toEqual(
+      new Set(['necessary', 'analytics', 'marketing']),
+    );
+  });
+
+  it('retirar una categoría ya consentida recarga la página en vez de dejar los scripts corriendo', async () => {
+    localStorage.setItem(
+      'cookie-consent',
+      JSON.stringify({
+        categories: ['necessary', 'analytics', 'marketing'],
+        version: 1,
+        created_at: 'x',
+      }),
+    );
+    const fixture = TestBed.createComponent(CookieBanner);
+    await avanzar(fixture);
+    // Consentimiento previo con analítica: el constructor activa sus
+    // scripts, que consultan los identificadores públicos una vez.
+    http.expectOne('/api/v1/tenant/analytics').flush({
+      ga4_measurement_id: 'G-TEST123',
+      meta_pixel_id: null,
+      cloudflare_analytics_token: null,
+    });
+    await avanzar(fixture);
+    expect(document.getElementById('ga4-analytics-script')).not.toBeNull();
+
+    const recargar = vi.fn();
+    const ubicacionOriginal = Object.getOwnPropertyDescriptor(window, 'location')!;
+    Object.defineProperty(window, 'location', {
+      value: { ...window.location, reload: recargar },
+      writable: true,
+      configurable: true,
+    });
+
+    try {
+      const consentimiento = TestBed.inject(CookieConsentService);
+      consentimiento.abrirGestionDeCookies();
+      await avanzar(fixture);
+
+      const raiz = fixture.nativeElement as HTMLElement;
+      const dialogo = raiz.querySelector('dialog') as HTMLDialogElement;
+      const interruptores = Array.from(
+        dialogo.querySelectorAll('button[role="switch"]:not([disabled])'),
+      ) as HTMLButtonElement[];
+      // Desactiva medición (interruptores[0]), que ya estaba consentida.
+      interruptores[0].dispatchEvent(new Event('click'));
+      await avanzar(fixture);
+
+      const guardar = Array.from(dialogo.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('Guardar mi elección'),
+      );
+      guardar?.dispatchEvent(new Event('click'));
+      await avanzar(fixture);
+
+      const peticion = http.expectOne('/api/v1/public/cookie-consent');
+      peticion.flush(null, { status: 204, statusText: 'No Content' });
+      await avanzar(fixture);
+
+      // No debe volver a consultar `/tenant/analytics`: retirar una
+      // categoría no reactiva scripts, recarga la página.
+      http.expectNone('/api/v1/tenant/analytics');
+      expect(recargar).toHaveBeenCalledOnce();
+    } finally {
+      Object.defineProperty(window, 'location', ubicacionOriginal);
+    }
+  });
+
+  it('"Cancelar" tras reabrir "Preferencias de cookies" cierra sin cambiar la decisión guardada', async () => {
+    localStorage.setItem(
+      'cookie-consent',
+      JSON.stringify({ categories: ['necessary'], version: 1, created_at: 'x' }),
+    );
+    const fixture = TestBed.createComponent(CookieBanner);
+    await avanzar(fixture);
+    const raiz = fixture.nativeElement as HTMLElement;
+
+    const consentimiento = TestBed.inject(CookieConsentService);
+    consentimiento.abrirGestionDeCookies();
+    await avanzar(fixture);
+    const dialogo = raiz.querySelector('dialog') as HTMLDialogElement;
+    expect(dialogo.hasAttribute('open')).toBe(true);
+
+    const cancelar = Array.from(dialogo.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Cancelar'),
+    );
+    cancelar?.dispatchEvent(new Event('click'));
+    await avanzar(fixture);
+
+    expect(dialogo.hasAttribute('open')).toBe(false);
+    expect(JSON.parse(localStorage.getItem('cookie-consent') ?? '{}').categories).toEqual([
+      'necessary',
+    ]);
+  });
+
+  it('rechazar todo no toca nada relacionado con Turnstile (aislamiento arquitectónico)', async () => {
+    // Cloudflare Turnstile es un caso aparte a propósito (ver
+    // `turnstile-widget.ts` y `templates.py`): `CookieConsentService` no debe
+    // importarlo, referenciarlo ni condicionar su carga bajo ningún concepto,
+    // para que rechazar cookies nunca pueda bloquear el formulario público de
+    // inscripción. Se comprueba aquí en el mismo módulo que decide qué
+    // scripts activar (`activarScriptsDeLasCategorias`): los únicos scripts
+    // condicionados a categorías son los de analítica externa (GA4, Meta
+    // Pixel, Cloudflare) del `ScriptsDeAnaliticaService`.
+    const modulo = await import('../../core/cookies/cookie-consent.service');
+    const fuente = modulo.CookieConsentService.toString();
+    expect(fuente.toLowerCase()).not.toContain('turnstile');
+
+    const fixture = TestBed.createComponent(CookieBanner);
+    await avanzar(fixture);
+    const rechazar = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('button'),
+    ).find((b) => b.textContent?.includes('Solo las necesarias'));
+    rechazar?.dispatchEvent(new Event('click'));
+    await avanzar(fixture);
+    http.expectOne('/api/v1/public/cookie-consent').flush(null, {
+      status: 204,
+      statusText: 'No Content',
+    });
+
+    // Turnstile no depende de ningún estado que `CookieConsentService` toque
+    // (ni `localStorage`, ni el DOM que gestiona `ScriptsDeAnaliticaService`).
+    expect(document.getElementById('ga4-analytics-script')).toBeNull();
+  });
+});

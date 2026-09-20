@@ -6,23 +6,48 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
+from app.core.deps import bloquear_escritura_si_impersona
 from app.core.redis_client import close_redis
 from app.core.storage import get_storage
+from app.modules.accounting.router import router as accounting_router
+from app.modules.admin.analytics_router import router as admin_analytics_router
+from app.modules.admin.ga4_client import close_ga4
+from app.modules.admin.impersonation_router import router as admin_impersonation_router
+from app.modules.admin.platform_router import router as admin_platform_router
 from app.modules.admin.router import router as admin_router
+from app.modules.admin.users_router import router as admin_users_router
 from app.modules.auth.router import router as auth_router
 from app.modules.events.public_router import router as events_public_router
 from app.modules.events.router import router as events_router
 from app.modules.health.router import router as health_router
+from app.modules.legal.router import router_cookie_consent as cookie_consent_router
+from app.modules.legal.router import router_public as legal_public_router
+from app.modules.media.router import folders_router as media_folders_router
+from app.modules.media.router import router as media_router
+from app.modules.metrics.router import router as metrics_router
+from app.modules.organizations.invitations_public_router import (
+    router as invitations_public_router,
+)
 from app.modules.organizations.router import router as organizations_router
 from app.modules.organizations.self_service import router as organizations_self_service_router
+from app.modules.payments.public_router import router as payments_public_router
+from app.modules.payments.router import router as payments_router
+from app.modules.payments.router import router_discount_codes as payments_discount_codes_router
+from app.modules.payments.router import router_payments as payments_payments_router
+from app.modules.payments.router import router_ticket_types as payments_ticket_types_router
+from app.modules.payments.webhooks import router as payments_webhooks_router
 from app.modules.registrations.public_router import router as registrations_public_router
 from app.modules.registrations.router import router as registrations_router
 from app.modules.roles.router import router as roles_router
+from app.modules.sponsors.router import router_sponsors as sponsors_router
+from app.modules.sponsors.router import router_tiers as sponsor_tiers_router
 from app.modules.tenant.router import router as tenant_router
+from app.modules.tickets.public_router import router as tickets_public_router
+from app.modules.tickets.router import router as tickets_router
 from app.modules.users.router import router as users_router
 from app.shared.errors import register_exception_handlers
 
@@ -43,6 +68,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         await close_redis()
+        await close_ga4()
 
 
 def create_app() -> FastAPI:
@@ -75,19 +101,47 @@ def create_app() -> FastAPI:
 
     register_exception_handlers(app)
 
-    api = APIRouter(prefix=API_PREFIX)
+    # La dependencia de solo lectura se aplica aquí, al router raíz de la API,
+    # y no endpoint a endpoint: una sesión de suplantación no debe poder
+    # escribir en ningún sitio, y un endpoint nuevo no puede quedarse fuera por
+    # olvido. Es inerte para una sesión normal.
+    api = APIRouter(
+        prefix=API_PREFIX,
+        dependencies=[Depends(bloquear_escritura_si_impersona)],
+    )
     api.include_router(health_router)
     api.include_router(auth_router)
     api.include_router(tenant_router)
     api.include_router(organizations_self_service_router)
     api.include_router(organizations_router)
+    api.include_router(invitations_public_router)
     api.include_router(users_router)
     api.include_router(roles_router)
     api.include_router(admin_router)
+    api.include_router(admin_users_router)
+    api.include_router(admin_analytics_router)
+    api.include_router(admin_platform_router)
+    api.include_router(admin_impersonation_router)
     api.include_router(events_router)
     api.include_router(events_public_router)
     api.include_router(registrations_router)
+    api.include_router(metrics_router)
     api.include_router(registrations_public_router)
+    api.include_router(tickets_router)
+    api.include_router(tickets_public_router)
+    api.include_router(sponsor_tiers_router)
+    api.include_router(sponsors_router)
+    api.include_router(media_router)
+    api.include_router(media_folders_router)
+    api.include_router(payments_router)
+    api.include_router(payments_ticket_types_router)
+    api.include_router(payments_discount_codes_router)
+    api.include_router(payments_payments_router)
+    api.include_router(payments_public_router)
+    api.include_router(payments_webhooks_router)
+    api.include_router(legal_public_router)
+    api.include_router(cookie_consent_router)
+    api.include_router(accounting_router)
     app.include_router(api)
 
     return app

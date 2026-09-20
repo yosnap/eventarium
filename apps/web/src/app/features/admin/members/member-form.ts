@@ -13,6 +13,7 @@ import { DynamicField } from '../../../shared/ui/dynamic-field';
 import { ProfileField, validateDynamicFieldValue } from '../../../shared/ui/dynamic-field.model';
 import { ErrorSummary, ResumenDeError } from '../../../shared/ui/error-summary';
 import { Input } from '../../../shared/ui/input';
+import { PageHeader } from '../../../shared/ui/page-header';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -33,10 +34,22 @@ type CampoBase = 'email' | 'firstName' | 'lastName' | 'roleId';
 @Component({
   selector: 'app-member-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, DynamicField, ErrorSummary, Input],
+  imports: [
+    TranslocoDirective,
+    RouterLink,
+    Alert,
+    Button,
+    Card,
+    DynamicField,
+    ErrorSummary,
+    Input,
+    PageHeader,
+  ],
   template: `
     <ng-container *transloco="let t">
-      <h1>{{ t('admin.members.formulario.titulo') }}</h1>
+      <app-page-header [rotulo]="t('admin.members.formulario.rotulo')">
+        {{ t('admin.members.formulario.titulo') }}
+      </app-page-header>
 
       @if (cargando()) {
         <p>{{ t('comun.cargando') }}</p>
@@ -113,7 +126,7 @@ type CampoBase = 'email' | 'firstName' | 'lastName' | 'roleId';
           }
 
           <div class="acciones-finales">
-            <a routerLink="/admin/members">
+            <a routerLink="/dashboard/members">
               <app-button variant="secundario" type="button">{{
                 t('admin.roles.cancelar')
               }}</app-button>
@@ -131,9 +144,6 @@ type CampoBase = 'email' | 'firstName' | 'lastName' | 'roleId';
     </ng-container>
   `,
   styles: `
-    h1 {
-      margin-top: 0;
-    }
     form {
       display: grid;
       gap: var(--space-lg);
@@ -145,19 +155,12 @@ type CampoBase = 'email' | 'firstName' | 'lastName' | 'roleId';
       gap: var(--space-xs);
     }
     .campo-select select {
+      /* La pintura del control la da la regla compartida de styles.css. */
       width: 100%;
-      box-sizing: border-box;
-      padding: 0.625rem 0.75rem;
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-md);
-      background-color: var(--color-surface);
-      color: var(--color-text);
-      font: inherit;
-      min-height: 2.75rem;
     }
     .error {
       margin: 0;
-      color: var(--color-danger);
+      color: var(--danger);
       font-size: 0.875rem;
     }
     .acciones-finales {

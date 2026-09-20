@@ -1,26 +1,55 @@
 import {
   ApplicationConfig,
+  LOCALE_ID,
   inject,
   provideAppInitializer,
   provideBrowserGlobalErrorListeners,
   provideZonelessChangeDetection,
 } from '@angular/core';
+import { registerLocaleData } from '@angular/common';
+import localeEs from '@angular/common/locales/es';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
-import { provideRouter, withComponentInputBinding } from '@angular/router';
+import {
+  provideRouter,
+  withComponentInputBinding,
+  withInMemoryScrolling,
+  withRouterConfig,
+} from '@angular/router';
+import { provideServiceWorker } from '@angular/service-worker';
 import { provideTransloco } from '@jsverse/transloco';
 
 import { authInterceptor } from './core/api/auth.interceptor';
 import { errorInterceptor } from './core/api/error.interceptor';
 import { TraduccionesLoader } from './core/i18n/transloco-loader';
 import { ThemingService } from './core/theming/theming.service';
+import { environment } from '../environments/environment';
 import { routes } from './app.routes';
+
+// Sin esto, DatePipe/DecimalPipe caen al 'en-US' que Angular trae integrado por
+// defecto: las fechas de la app (creada íntegramente en castellano) salían en
+// inglés ("Friday, January 15, 2027") pese a que Transloco sí traduce el resto
+// de textos — son dos mecanismos de localización distintos, y solo se había
+// configurado uno.
+registerLocaleData(localeEs, 'es-ES');
 
 export const appConfig: ApplicationConfig = {
   providers: [
+    { provide: LOCALE_ID, useValue: 'es-ES' },
     provideBrowserGlobalErrorListeners(),
     provideZonelessChangeDetection(),
-    provideRouter(routes, withComponentInputBinding()),
+    // Sin esto, un `routerLink` con `fragment` (p. ej. la miga de pan
+    // "Programa" enlazando a `#agenda-h2`) cambia la URL pero no hace scroll:
+    // Angular no activa el desplazamiento a anclas por defecto.
+    provideRouter(
+      routes,
+      withComponentInputBinding(),
+      withInMemoryScrolling({ anchorScrolling: 'enabled', scrollPositionRestoration: 'enabled' }),
+      // Sin esto, un hijo de `events/:eventId` (p. ej. `agenda`) no ve el
+      // `eventId` del padre: por defecto el router solo hereda parámetros de
+      // rutas con `path: ''`, no de cualquier ruta con hijos (`EventShell`).
+      withRouterConfig({ paramsInheritanceStrategy: 'always' }),
+    ),
     provideClientHydration(withEventReplay()),
     // `withFetch` es necesario para que las peticiones funcionen igual en SSR.
     provideHttpClient(withFetch(), withInterceptors([errorInterceptor, authInterceptor])),
@@ -36,5 +65,12 @@ export const appConfig: ApplicationConfig = {
     // El branding se carga antes de pintar nada: así no hay un parpadeo con la paleta
     // por defecto antes de aplicar la de la organización.
     provideAppInitializer(() => inject(ThemingService).load()),
+    // Solo la PWA de check-in (fase 4 del PRD) lo necesita hoy, pero registrarlo aquí
+    // no afecta al resto del panel: `enabled` ya lo desactiva fuera de producción, y
+    // `provideServiceWorker` no hace nada en SSR (no hay `navigator.serviceWorker`).
+    provideServiceWorker('ngsw-worker.js', {
+      enabled: environment.production,
+      registrationStrategy: 'registerWhenStable:30000',
+    }),
   ],
 };

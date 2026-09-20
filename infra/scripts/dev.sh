@@ -94,6 +94,44 @@ levantar_dependencias() {
 	verde "  listas"
 }
 
+# La BD queda a veces por detrás del código (pull, cambio de rama) y la API arranca
+# igual: las rutas nuevas fallan con 500 hasta que alguien se da cuenta. Este chequeo
+# compara la revisión aplicada con la cabecera de Alembic antes de arrancar procesos.
+comprobar_migraciones() {
+	local actual cabecera respuesta
+	actual="$(cd "$RAIZ/apps/api" && uv run alembic current 2>/dev/null | tail -n 1 | awk '{print $1}')"
+	cabecera="$(cd "$RAIZ/apps/api" && uv run alembic heads 2>/dev/null | tail -n 1 | awk '{print $1}')"
+
+	# Sin cabecera no hay nada que comparar; sin revisión aplicada la BD está vacía.
+	[ -z "$cabecera" ] && return 0
+	if [ -z "$actual" ]; then
+		azul "→ Base de datos sin migrar: ejecuta «make db-migrate» antes de usar la aplicación."
+		return 0
+	fi
+
+	if [ "$actual" != "$cabecera" ]; then
+		rojo "→ La BD está en $actual y el código espera $cabecera: las rutas nuevas darán 500."
+		if [ -t 0 ]; then
+			printf '  ¿Aplicar las migraciones ahora? [S/n] '
+			read -r respuesta
+			case "${respuesta:-s}" in
+				n* | N*)
+					azul "  Se continúa sin migrar."
+					;;
+				*)
+					(cd "$RAIZ/apps/api" && uv run alembic upgrade head > /dev/null) \
+						&& verde "  Migraciones aplicadas: $cabecera" \
+						|| rojo "  Fallo al migrar: ejecuta «make db-migrate» a mano."
+					;;
+			esac
+		else
+			rojo "  Ejecuta «make db-migrate» y vuelve a arrancar."
+		fi
+	else
+		verde "→ Migraciones al día ($actual)"
+	fi
+}
+
 # -------------------------------------------------------------------- procesos
 
 PIDS=()
@@ -165,6 +203,7 @@ esac
 
 comprobar_entorno
 levantar_dependencias
+comprobar_migraciones
 
 trap parar_hijos INT TERM EXIT
 

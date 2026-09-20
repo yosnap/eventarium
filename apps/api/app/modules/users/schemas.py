@@ -38,13 +38,20 @@ class CurrentUserResponse(BaseModel):
     first_name: str | None
     last_name: str | None
     is_superadmin: bool
+    # Rol aditivo de plataforma (`soporte`, plan `260916-0810`): el panel de
+    # plataforma lo usa para dejar entrar a lectura al soporte sin que sea
+    # superadmin (guard + visibilidad de enlaces), igual que hace el backend
+    # con `require_platform_staff`.
+    platform_role: str | None
     organization_id: str
     roles: list[str]
     permissions: list[Permission]
+    notify_similar_events: bool
 
 
 class UserMeUpdate(BaseModel):
-    """Campos editables directamente, sin flujo propio (nombre, locale).
+    """Campos editables directamente, sin flujo propio (nombre, locale,
+    preferencia de notificaciones).
 
     El correo no está aquí: tiene su propio flujo con confirmación
     (`POST /users/me/change-email`).
@@ -53,6 +60,11 @@ class UserMeUpdate(BaseModel):
     first_name: Annotated[str, Field(min_length=1, max_length=100)] | None = None
     last_name: Annotated[str, Field(min_length=1, max_length=100)] | None = None
     locale: Annotated[str, Field(min_length=2, max_length=10)] | None = None
+    # "Avisarme de eventos similares" — la persona la activa sobre sí misma.
+    # Sin motor de envío todavía (plan `260916-0810-usuarios-y-permisos-
+    # plataforma`, fase 3): el campo se guarda desde ya para no perder la
+    # señal hasta que exista ese motor.
+    notify_similar_events: bool | None = None
 
 
 class ChangeEmailRequest(BaseModel):
@@ -107,12 +119,21 @@ class SocialLinkResponse(BaseModel):
 
 
 class OrganizationMembershipResponse(BaseModel):
-    """Una organización a la que pertenece la persona, para el selector del panel."""
+    """Una organización a la que pertenece la persona, para el selector del panel.
+
+    Sin dominio por organización (fase 6 del plan «organización sin
+    dominio»): ya no lleva `host`, campo que solo devolvía `NULL` desde que
+    `organization_domains` se retiró.
+
+    `role_name` puede ser `None`: `app_user_organizations` usa `LEFT JOIN
+    roles` (plan «selector de espacio de trabajo»), así que un fallo de
+    resolución del rol no hace desaparecer la organización de la lista.
+    """
 
     organization_id: str
     slug: str
     name: str
-    host: str | None
+    role_name: str | None
 
 
 class PublicProfileUpdate(BaseModel):

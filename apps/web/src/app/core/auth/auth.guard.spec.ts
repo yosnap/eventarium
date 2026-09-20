@@ -57,7 +57,7 @@ describe('authGuard', () => {
     const resultado = await ejecutarGuard('/admin/branding');
 
     expect(resultado).toBeInstanceOf(UrlTree);
-    expect((resultado as UrlTree).toString()).toContain('/admin/login');
+    expect((resultado as UrlTree).toString()).toContain('/acceder');
     expect((resultado as UrlTree).toString()).toContain('redirigir');
   });
 

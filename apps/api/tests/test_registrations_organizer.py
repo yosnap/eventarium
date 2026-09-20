@@ -288,9 +288,7 @@ class TestCancelacionYListaDeEspera:
         )
         token = await generate_token(PROPOSITO_PROMOCION_LISTA_ESPERA, en_espera_id)
 
-        respuesta = await cliente.post(
-            CONFIRM_PROMOTION, headers={"Host": organizacion.host}, json={"token": token}
-        )
+        respuesta = await cliente.post(CONFIRM_PROMOTION, json={"token": token})
 
         assert respuesta.status_code == 200, respuesta.text
         assert await _estado(en_espera_id) == "confirmed"
@@ -298,9 +296,7 @@ class TestCancelacionYListaDeEspera:
     async def test_confirmar_promocion_con_token_invalido_falla(
         self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
     ) -> None:
-        respuesta = await cliente.post(
-            CONFIRM_PROMOTION, headers={"Host": organizacion.host}, json={"token": "inventado"}
-        )
+        respuesta = await cliente.post(CONFIRM_PROMOTION, json={"token": "inventado"})
         assert respuesta.status_code == 422
 
     async def test_confirmar_promocion_caducada_falla_y_no_consume_dos_veces(
@@ -323,9 +319,7 @@ class TestCancelacionYListaDeEspera:
             await session.commit()
         token = await generate_token(PROPOSITO_PROMOCION_LISTA_ESPERA, en_espera_id)
 
-        respuesta = await cliente.post(
-            CONFIRM_PROMOTION, headers={"Host": organizacion.host}, json={"token": token}
-        )
+        respuesta = await cliente.post(CONFIRM_PROMOTION, json={"token": token})
 
         assert respuesta.status_code == 422
         assert await _estado(en_espera_id) == "waitlisted"
@@ -563,6 +557,17 @@ class TestListadoYEstadisticas:
                 ),
                 {"event_id": evento["id"]},
             )
+            # Aprobadas: `approved_at` es un hito, no un estado. Aprobar deja la
+            # fila en `confirmed` o `waitlisted`, así que el embudo solo puede
+            # contarlas por esta columna.
+            await session.execute(
+                text(
+                    "UPDATE event_registrations SET approved_at = now() "
+                    "WHERE event_id = :event_id AND email IN "
+                    "('c@example.com', 'f@example.com')"
+                ),
+                {"event_id": evento["id"]},
+            )
             await session.commit()
 
         respuesta = await cliente.get(
@@ -573,6 +578,7 @@ class TestListadoYEstadisticas:
         stats = respuesta.json()
         assert stats["initiated"] == 6
         assert stats["verified"] == 3
+        assert stats["approved"] == 2
         assert stats["pending_approval"] == 1
         assert stats["confirmed"] == 1
         assert stats["rejected"] == 1
@@ -580,6 +586,61 @@ class TestListadoYEstadisticas:
         assert stats["waitlisted"] == 1
         assert stats["verified_conversion_rate"] == pytest.approx(3 / 6)
         assert stats["confirmed_conversion_rate"] == pytest.approx(1 / 3)
+
+    async def test_el_embudo_cuenta_las_entradas_emitidas_y_excluye_las_revocadas(
+        self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
+    ) -> None:
+        """El último escalón sale de `event_tickets`, no de las inscripciones.
+
+        Una entrada revocada **no** cuenta: no llegó a servir para entrar, y
+        contarla dejaría el final del embudo por encima de las personas que de
+        verdad tienen entrada.
+        """
+        _, cabeceras = await iniciar_sesion(cliente, organizacion)
+        evento = await _crear_y_publicar_evento(cliente, cabeceras, "estadisticas-entradas")
+        await _crear_inscripcion(organizacion, evento, email="a@example.com", status="confirmed")
+        await _crear_inscripcion(organizacion, evento, email="b@example.com", status="confirmed")
+        await _crear_inscripcion(organizacion, evento, email="c@example.com", status="confirmed")
+
+        async with SessionMaintenance() as session:
+            inscripciones = (
+                await session.execute(
+                    text(
+                        "SELECT id, email FROM event_registrations "
+                        "WHERE event_id = :event_id ORDER BY email"
+                    ),
+                    {"event_id": evento["id"]},
+                )
+            ).all()
+            for inscripcion in inscripciones:
+                # Tres entradas emitidas; la de `b` se revoca después.
+                await session.execute(
+                    text(
+                        """
+                        INSERT INTO event_tickets
+                            (id, event_id, organization_id, registration_id, issued_at, revoked_at)
+                        VALUES
+                            (gen_random_uuid(), :event_id, :org_id, :reg_id, now(),
+                             CASE WHEN :email = 'b@example.com' THEN now() ELSE NULL END)
+                        """
+                    ),
+                    {
+                        "event_id": evento["id"],
+                        "org_id": str(organizacion.id),
+                        "reg_id": str(inscripcion.id),
+                        "email": inscripcion.email,
+                    },
+                )
+            await session.commit()
+
+        respuesta = await cliente.get(
+            f"{EVENTS}/{evento['id']}/registrations/stats", headers=cabeceras
+        )
+
+        assert respuesta.status_code == 200, respuesta.text
+        stats = respuesta.json()
+        assert stats["confirmed"] == 3
+        assert stats["issued"] == 2, "la entrada revocada no cuenta como emitida"
 
     async def test_estadisticas_sin_verificacion_de_email_no_penalizan_verificados(
         self, cliente: AsyncClient, organizacion: OrganizacionDePrueba

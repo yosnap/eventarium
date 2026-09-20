@@ -22,7 +22,6 @@ async def test_login_correcto_devuelve_token_y_cookie(
     respuesta = await cliente.post(
         LOGIN,
         json={"email": organizacion.owner_email, "password": organizacion.owner_password},
-        headers={"Host": organizacion.host},
     )
     assert respuesta.status_code == 200
     cuerpo = respuesta.json()
@@ -48,26 +47,34 @@ async def test_login_con_contraseña_incorrecta_devuelve_401(
     respuesta = await cliente.post(
         LOGIN,
         json={"email": organizacion.owner_email, "password": "no-es-la-buena"},
-        headers={"Host": organizacion.host},
     )
     assert respuesta.status_code == 401
 
 
-async def test_login_con_usuario_de_otra_organizacion_devuelve_401(
+async def test_login_ignora_el_host_y_activa_la_organizacion_propia(
     cliente: AsyncClient,
     organizacion: OrganizacionDePrueba,
     otra_organizacion: OrganizacionDePrueba,
 ) -> None:
-    """Las credenciales de una organización no valen en el host de otra."""
+    """Sin dominio por organización (fase 6, cierre del plan: ya no existe
+    ningún `Host` que resolver), unas credenciales válidas siempre entran, y
+    en su propia organización."""
     respuesta = await cliente.post(
         LOGIN,
         json={
             "email": otra_organizacion.owner_email,
             "password": otra_organizacion.owner_password,
         },
-        headers={"Host": organizacion.host},
     )
-    assert respuesta.status_code == 401
+    assert respuesta.status_code == 200, respuesta.text
+    token = respuesta.json()["access_token"]
+
+    perfil = await cliente.get(
+        "/api/v1/users/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert perfil.status_code == 200, perfil.text
+    assert perfil.json()["organization_id"] == str(otra_organizacion.id)
 
 
 async def test_refresh_rota_el_token(
@@ -76,11 +83,10 @@ async def test_refresh_rota_el_token(
     login = await cliente.post(
         LOGIN,
         json={"email": organizacion.owner_email, "password": organizacion.owner_password},
-        headers={"Host": organizacion.host},
     )
     primero = login.cookies[COOKIE_NOMBRE]
 
-    respuesta = await cliente.post(REFRESH, headers={"Host": organizacion.host})
+    respuesta = await cliente.post(REFRESH)
     assert respuesta.status_code == 200
     assert respuesta.json()["access_token"]
     segundo = respuesta.cookies[COOKIE_NOMBRE]
@@ -93,22 +99,21 @@ async def test_reutilizar_un_refresh_rotado_invalida_la_familia(
     login = await cliente.post(
         LOGIN,
         json={"email": organizacion.owner_email, "password": organizacion.owner_password},
-        headers={"Host": organizacion.host},
     )
     robado = login.cookies[COOKIE_NOMBRE]
 
-    primero = await cliente.post(REFRESH, headers={"Host": organizacion.host})
+    primero = await cliente.post(REFRESH)
     assert primero.status_code == 200
     vigente = primero.cookies[COOKIE_NOMBRE]
 
     # El atacante reutiliza el token antiguo.
     cliente.cookies.set(COOKIE_NOMBRE, robado, path="/api/v1/auth")
-    reutilizacion = await cliente.post(REFRESH, headers={"Host": organizacion.host})
+    reutilizacion = await cliente.post(REFRESH)
     assert reutilizacion.status_code == 401
 
     # Y el token legítimo también queda invalidado: la familia entera se revoca.
     cliente.cookies.set(COOKIE_NOMBRE, vigente, path="/api/v1/auth")
-    posterior = await cliente.post(REFRESH, headers={"Host": organizacion.host})
+    posterior = await cliente.post(REFRESH)
     assert posterior.status_code == 401
 
 
@@ -118,12 +123,11 @@ async def test_logout_revoca_la_sesion(
     await cliente.post(
         LOGIN,
         json={"email": organizacion.owner_email, "password": organizacion.owner_password},
-        headers={"Host": organizacion.host},
     )
-    salida = await cliente.post(LOGOUT, headers={"Host": organizacion.host})
+    salida = await cliente.post(LOGOUT)
     assert salida.status_code == 204
 
-    posterior = await cliente.post(REFRESH, headers={"Host": organizacion.host})
+    posterior = await cliente.post(REFRESH)
     assert posterior.status_code == 401
 
 
@@ -134,37 +138,37 @@ async def test_refresh_sin_redis_devuelve_503(
     await cliente.post(
         LOGIN,
         json={"email": organizacion.owner_email, "password": organizacion.owner_password},
-        headers={"Host": organizacion.host},
     )
     with patch(
         "app.modules.auth.service.require_redis",
         side_effect=ServiceUnavailableError("Redis caído"),
     ):
-        respuesta = await cliente.post(REFRESH, headers={"Host": organizacion.host})
+        respuesta = await cliente.post(REFRESH)
     assert respuesta.status_code == 503
 
 
 async def test_endpoint_protegido_sin_token_devuelve_401(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    respuesta = await cliente.get("/api/v1/users/me", headers={"Host": organizacion.host})
+    respuesta = await cliente.get("/api/v1/users/me")
     assert respuesta.status_code == 401
 
 
-async def test_token_de_otra_organizacion_devuelve_403(
+async def test_el_token_no_depende_de_ningun_host(
     cliente: AsyncClient,
     organizacion: OrganizacionDePrueba,
-    otra_organizacion: OrganizacionDePrueba,
 ) -> None:
-    """Cambiar el Host con un token válido de otra organización no da acceso."""
-    _, _ = await iniciar_sesion(cliente, organizacion)
+    """Sin dominio por organización (fase 6, cierre del plan), la organización
+    activa la lleva el propio token — ni siquiera hay ya ningún `Host` que
+    pudiera influir en la resolución."""
     token, _ = await iniciar_sesion(cliente, organizacion)
 
     respuesta = await cliente.get(
         "/api/v1/users/me",
-        headers={"Host": otra_organizacion.host, "Authorization": f"Bearer {token}"},
+        headers={"Authorization": f"Bearer {token}"},
     )
-    assert respuesta.status_code == 403
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["organization_id"] == str(organizacion.id)
 
 
 @pytest.mark.parametrize("token", ["", "no-es-un-jwt", "a.b.c"])
@@ -173,6 +177,6 @@ async def test_token_invalido_devuelve_401(
 ) -> None:
     respuesta = await cliente.get(
         "/api/v1/users/me",
-        headers={"Host": organizacion.host, "Authorization": f"Bearer {token}"},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert respuesta.status_code == 401

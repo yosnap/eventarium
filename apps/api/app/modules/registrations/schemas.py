@@ -10,6 +10,7 @@ from pydantic import BaseModel, EmailStr, Field
 RegistrationStatus = Literal[
     "pending_verification",
     "pending_approval",
+    "pending_payment",
     "confirmed",
     "rejected",
     "cancelled",
@@ -58,6 +59,19 @@ class RegistrationMessageResponse(BaseModel):
     """Respuesta genérica del alta: siempre el mismo mensaje, exista o no ya el email."""
 
     message: str
+
+
+class RegistrationRejectRequest(BaseModel):
+    """Motivo opcional del rechazo, dirigido a la persona rechazada.
+
+    No se guarda en ninguna tabla: viaja solo en el correo de aviso, igual
+    que cualquier otro campo de texto libre en un cuerpo de correo. Nota de
+    alcance: esto acota la retención en Postgres, no en la cola de tareas —
+    ver el comentario de `send_registration_rejected_email`
+    (`app/core/tasks.py`) sobre Redis Streams.
+    """
+
+    reason: Annotated[str, Field(max_length=500)] | None = None
 
 
 class VerifyRegistrationRequest(BaseModel):
@@ -140,11 +154,24 @@ class RegistrationDetail(RegistrationListItem):
 
 
 class RegistrationStats(BaseModel):
-    """Estadísticas de conversión del embudo de inscripción de un evento."""
+    """Estadísticas del embudo de inscripción de un evento.
+
+    Los cuatro escalones del embudo son `initiated → verified → approved →
+    issued`. Los dos últimos no salen de los conteos por estado: `approved` es
+    un hito (`approved_at`), y aprobar deja la fila en `confirmed` o
+    `waitlisted`; `issued` vive en `event_tickets`.
+    """
 
     initiated: int
     verified: int
+    #: Inscripciones que pasaron por aprobación (`approved_at`), sea cual sea su
+    #: estado actual. No es un estado: una vez aprobada, la fila pasa a
+    #: `confirmed` o `waitlisted`.
+    approved: int
+    #: Entradas emitidas (`event_tickets.issued_at`), sin contar las revocadas.
+    issued: int
     pending_approval: int
+    pending_payment: int
     confirmed: int
     rejected: int
     cancelled: int

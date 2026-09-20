@@ -7,7 +7,6 @@ posteriores reutilizando estos cimientos.
 
 ```mermaid
 erDiagram
-  organizations ||--o{ organization_domains : "resuelve por host"
   organizations ||--o| organization_branding : "identidad visual"
   organizations ||--o{ roles : "clona plantillas"
   organizations ||--o{ organization_members : "equipo"
@@ -34,21 +33,13 @@ erDiagram
     text contact_email
     bool is_active
   }
-  organization_domains {
-    uuid id PK
-    uuid organization_id FK
-    text host UK
-    bool is_primary
-  }
   organization_branding {
     uuid organization_id PK
-    text template_key
     text logo_object_key
     text favicon_object_key
-    jsonb colors
-    jsonb fonts
     jsonb social_links
     text organizer_blurb
+    uuid theme_template_id FK
   }
   users {
     uuid id PK
@@ -258,10 +249,194 @@ se salta esa capa.
 plataforma declarada es conocida (`youtube`, `vimeo`, `twitch`), un dominio de su
 lista (`youtube.com`/`youtu.be`, `vimeo.com`, `twitch.tv`); para `other` basta con
 `https`. Sin esto, una sesión podría embeber un `iframe`/enlace controlado por
-terceros desde el propio dominio de la organización. Se aplica tanto al alta
+terceros servido desde nuestro propio dominio. Se aplica tanto al alta
 (`EventSessionCreate`) como a la edición — un `PATCH` parcial que solo toca uno de
 los dos campos se revalida en `service.update_session` contra el valor ya
 guardado del otro, no solo campo a campo.
+
+### Patrocinadores: niveles por organización, patrocinio por edición (fase 5 del PRD)
+
+Dos tablas: `sponsor_tiers` (organización) y `sponsors` (evento + nivel).
+`sponsor_tiers` es por organización porque los niveles se reutilizan entre
+ediciones (ej. "Oro" siempre significa lo mismo); `sponsors` cuelga de
+`(event_id, tier_id)` porque un patrocinio es por edición concreta, no
+permanente — una empresa puede patrocinar una edición y no la siguiente.
+Mismo patrón de FK compuesta que `event_sessions`/`event_members`:
+`sponsors.organization_id` denormalizado, `UNIQUE(id, organization_id)` en
+`sponsor_tiers` para que la FK compuesta de `sponsors.tier_id` pueda
+crearse.
+
+**Borrar un nivel con patrocinadores activos es un 409, no un 500.**
+`sponsors.tier_id` es `RESTRICT` (sin `ondelete`): la base de datos rechaza el
+borrado si algún patrocinador sigue apuntando a ese nivel.
+`sponsors/service.py:delete_tier` traduce el `IntegrityError` resultante a un
+mensaje legible en vez de dejarlo subir como error de servidor.
+
+**La aportación es mutuamente excluyente por tipo.**
+`contribution_type` (`monetaria`/`en_especie`) determina cuál de
+`contribution_amount`/`contribution_description` va relleno — nunca los dos,
+nunca ninguno. Se valida en el esquema Pydantic para el alta
+(`SponsorCreate`) y se revalida en el servicio para el `PATCH` parcial
+(`update_sponsor`), donde la combinación final solo se conoce tras fusionar
+con lo que el patrocinador ya tenía guardado — mismo motivo que
+`events/service.py:update_session` con `video_platform`/`video_url`.
+
+**El bloque público nunca expone la aportación.** El endpoint público de
+detalle de evento (`GET /public/events/{slug}`) agrupa los patrocinadores por
+nivel y los ordena por `sponsor_tiers.display_order`, pero solo expone
+`name`/`logo_url`/`website` (`PublicSponsor`) — nunca importe ni descripción:
+el PRD no pide hacer pública la valoración económica de nadie. El filtro de
+publicación del evento (`published` + `public`) ya se aplica al resolver el
+evento antes de construir este bloque, así que un borrador u oculto no expone
+tampoco sus patrocinadores.
+
+### Pagos con Stripe Connect, tipos de entrada, descuentos y reembolsos (fase 6 del PRD)
+
+Seis tablas nuevas. Cinco de dominio, con RLS y `UNIQUE(id, organization_id)`
+igual que el resto del esquema, más una de instalación:
+
+- **`organization_stripe_accounts`**: una fila por cuenta Stripe Connect
+  conectada. La unicidad no es `UNIQUE(organization_id)` sino un índice único
+  **parcial** `WHERE deauthorized_at IS NULL`: así una organización que
+  desconecta su cuenta (`account.application.deauthorized`) puede volver a
+  conectarse sin tocar la base de datos a mano, y la fila antigua sobrevive
+  para poder seguir reembolsando los pagos cobrados con ella —
+  `event_payments` guarda su propio `stripe_account_id`, así que el
+  reembolso se resuelve por la cuenta **del pago**, no por la cuenta activa
+  actual de la organización.
+- **`event_ticket_types`**: nombre, precio en céntimos, `currency` fija por
+  evento, cupo (`max_quantity` nullable = sin límite) y ventana de venta.
+- **`event_discount_codes`**: código único por evento (comparado en
+  mayúsculas), tipo de descuento, límite de usos total (sin límite por
+  persona: las inscripciones no requieren cuenta de usuario). **Sin columna
+  `used_count`**: el consumo se deriva con un `COUNT` sobre
+  `event_payments` en los estados consumibles, ejecutado con la fila del
+  código bloqueada (`FOR UPDATE`) — un contador que la compra incrementa y el
+  barrido de caducados decrementa se desajusta en cuanto dos ejecuciones del
+  cron se solapan, y el derivado no puede desajustarse porque sale de la
+  misma tabla que decide si se cobró. El cupo de `event_ticket_types` se
+  deriva igual.
+- **`event_payments`**: registro de cada intento de compra
+  (`registration_id` nullable, `ondelete SET NULL` para que el borrado RGPD
+  no falle), con `stripe_account_id` propio, `stripe_checkout_session_id` y
+  `stripe_payment_intent_id` (nullable hasta que el pago completa),
+  importes en céntimos y `status`
+  (`pending`/`paid`/`refunded`/`partially_refunded`/`expired`).
+- **`event_payment_refunds`**: el outbox de reembolsos — la intención
+  persistida **antes** de llamar a Stripe (`payment_id`, importe, motivo,
+  `revoke_ticket`, `status`), para que ninguna llamada de red ocurra con un
+  bloqueo de fila abierto y para que un reembolso no pueda perderse entre la
+  respuesta de Stripe y la escritura en base de datos.
+- **`stripe_webhook_events`** (instalación, sin RLS): antirreplay del
+  webhook, con `REVOKE ALL ... FROM app_user` — solo `app_maintainer` (el
+  endpoint de webhooks y la tarea de fondo) lee/escribe, mismo patrón que
+  `audit_log`/`cookie_consents` de la fase 5. Su `payload` **no es el evento
+  crudo de Stripe**: es una proyección con lista blanca de los campos que el
+  handler procesa (nunca `customer_details.email` ni ningún otro dato
+  personal), y una tarea diaria purga las filas con más de
+  `stripe_webhook_retention_days` (90 por defecto).
+
+**`pending_payment` es un estado nuevo de `EventRegistration` que cuenta
+como plaza reservada.** El flujo es: formulario público → `pending_payment`
+→ Checkout Session → webhook `checkout.session.completed` → `confirmed`.
+Si `pending_payment` no contara para el aforo, varias personas podrían abrir
+Checkout a la vez sobre la última plaza y todas pagar. Por eso
+`count_reserved_registrations` incluye `pending_payment` cuya ventana no
+haya expirado (`payment_expires_at`), igual que ya hacía con una promoción
+de lista de espera vigente, y `_cancelar_inscripcion` libera esa misma
+condición al expirar. La ventana de pago es la columna
+`events.payment_checkout_window_minutes` (`NOT NULL DEFAULT 30`, `CHECK
+BETWEEN 30 AND 1439`) — por evento, no una variable de entorno: el aforo y
+la fila que lo retiene son ambos de nivel evento, y un pago solo afecta a un
+tipo de entrada.
+
+**La revocación de una entrada es la de la fase 4, reutilizada, no una
+nueva.** `event_tickets.revoked_at` ya existía; el reembolso total llama a
+la `revocar_entrada` ya existente en vez de añadir un segundo estado de
+validez que el escáner tendría que consultar por separado. Un reembolso
+parcial no revoca salvo que el organizador marque la casilla explícita del
+panel — es un ajuste de precio, no una anulación.
+
+**Dinero en céntimos, `currency` fija por evento.** Enteros, nunca `float`
+ni `Numeric` con decimales libres: es lo que espera la API de Stripe y
+elimina cualquier desajuste de redondeo entre lo que la plataforma calcula
+(precio − descuento) y lo que Stripe cobra. `currency` es fija por evento
+para que dos tipos de entrada en divisas distintas no puedan compartir una
+misma Checkout Session.
+
+### Páginas legales, cookies y consentimientos (fase 5 del PRD)
+
+Las cuatro páginas legales (`legal_notice_content`, `privacy_policy_content`,
+`cookies_policy_content`, `registration_terms_content`) son columnas `Text`
+nullable de `Organization`, no tablas aparte: son contenido de la entidad
+responsable, no del evento, y `NULL` significa "usar la plantilla por
+defecto" — el mismo patrón que un campo opcional editable desde el panel, sin
+una tabla de "página" genérica para cuatro casos fijos.
+
+**Plantillas en Python, no en base de datos ni con un motor nuevo.** Las
+plantillas (`apps/api/app/modules/legal/templates.py`) son f-strings de
+Python rellenadas con `legal_name`/`contact_email`/`legal_address`/`tax_id`
+de la organización — mismo patrón que los emails de `app/core/tasks.py`, sin
+Jinja2 ni ningún motor de plantillas: el contenido es editable por
+`owner`/`organizer` y se sirve en SSR público, así que un motor que
+interprete el texto guardado como plantilla (en vez de como variable)
+abriría SSTI, y un escapado manual mal hecho abriría XSS. El contenido
+Markdown se sanea en el frontend (`marked` + `DOMPurify`, lista blanca de
+párrafos/negrita/cursiva/listas/enlaces) antes de mostrarse — nunca se
+interpreta como HTML en el backend.
+
+**`cookie_consents` es anónima por diseño.** Solo `organization_id`,
+`categories_accepted` (JSONB) y `created_at` — sin `user_id`, sin email y sin
+ningún campo de IP o su hash: RGPD no exige identificar a quien acepta o
+rechaza cookies, es la decisión de un navegador, no un consentimiento de
+inscripción ligado a una persona. La tabla no lleva RLS (es de instalación,
+no de organización) pero tampoco el acceso por defecto de `app_user`: la
+migración `0012` hace `REVOKE ALL ON cookie_consents FROM app_user` seguido
+de `GRANT INSERT` puntual, lo mínimo que el endpoint público necesita para
+escribir sin poder leer ni borrar filas ajenas ni propias. El endpoint
+(`POST /public/cookie-consent`) inserta con `sqlalchemy.insert()` de Core, no
+con `session.add()`: el ORM añadiría `RETURNING` para leer `created_at`
+(`server_default`), y `INSERT ... RETURNING` exige además `SELECT` sobre las
+columnas devueltas, que este rol no tiene a propósito.
+
+### Invitaciones de equipo y de ponente (plan de invitaciones)
+
+`organization_invitations` guarda **estado**, nunca el token: `id`,
+`organization_id`, `email`, `role_id`, `event_id` (nullable — vacío para una
+invitación de equipo, relleno cuando nace desde un evento), `estado`
+(`pendiente`/`aceptada`/`revocada`; `caducada` se deriva de `expires_at` al
+leer, no se escribe), `expires_at`, `accepted_at`, `accepted_by_user_id`,
+`invited_by_user_id`, `token_hash`. El token de un solo uso vive en Redis
+(`auth/verification.py`, propósito `invitacion`), con el `id` de esta fila
+como payload — ver la razón de seguridad en `docs/arquitectura.md`.
+
+**`role_id` con `ON DELETE CASCADE`.** Borrar un rol cancela (borra) sus
+invitaciones pendientes: un rol que ya no existe no debería poder concederse,
+así que no tiene sentido conservar una invitación que apunta a él.
+
+**`event_id` con FK compuesta contra `(id, organization_id)` de `events`**,
+mismo patrón que `event_members`: sin ella, nada a nivel de base de datos
+impediría que una invitación de un evento apuntara a un evento de otra
+organización.
+
+**`accepted_by_user_id`/`invited_by_user_id` con `ON DELETE SET NULL`**,
+mismo patrón que `audit_log.actor_user_id`: la fila se conserva por
+trazabilidad aunque la persona se borre — no existe hoy un endpoint que borre
+usuarios, pero el patrón es el mismo que ya usa el proyecto para estas
+referencias.
+
+**`token_hash` no es el token.** Es su huella SHA-256, igual que
+`users.password_hash` no es la contraseña. Sirve para que reenviar una
+invitación pueda borrar la clave de Redis del token anterior por su nombre
+exacto, sin haber guardado nunca el token en claro en ningún sitio.
+
+**El listado de miembros agrupa por persona, no por membresía.**
+`GET /organizations/me/members` devuelve una fila por persona con
+`roles: [...]` — antes era una fila por rol, así que la misma persona con dos
+roles (`UNIQUE(organization_id, user_id, role_id)`, el modelo ya lo permitía)
+aparecía dos veces sin nada que dijera que eran la misma. Es un cambio de
+contrato, no un cambio de esquema: el modelo no se tocó, solo la forma de la
+respuesta.
 
 ### Permisos como texto validado en código
 
@@ -274,19 +449,35 @@ lugar de romper la sesión de quien lo tuviera.
 | Tabla | Política |
 |---|---|
 | `organizations` | `id = app_current_organization()` |
-| `organization_domains`, `organization_branding`, `organization_members`, `roles`, `role_permissions`, `role_profile_fields`, `events`, `event_sessions`, `event_members`, `event_session_participants`, `speaker_public_profiles` | `organization_id = app_current_organization()` |
+| `organization_domains`, `organization_branding`, `organization_members`, `roles`, `role_permissions`, `role_profile_fields`, `events`, `event_sessions`, `event_members`, `event_session_participants`, `speaker_public_profiles`, `event_registrations`, `event_registration_answers`, `event_registration_consents`, `event_tickets`, `event_ticket_scans`, `sponsor_tiers`, `sponsors` | `organization_id = app_current_organization()` |
 | `users` | Uno mismo (`id = app_current_user()`) o quien comparta organización |
 | `user_social_links` | Según la visibilidad de su usuario |
 
 Todas con `ENABLE` + `FORCE ROW LEVEL SECURITY`.
 
+`audit_log` y `cookie_consents` (fase 5 del PRD) son la excepción deliberada: **sin**
+política RLS, porque son tablas de instalación, no de dominio por organización, pero
+tampoco con el `GRANT` automático que `app_user` recibiría de otro modo — la migración
+`0012` ejecuta `REVOKE ALL ... FROM app_user` explícito sobre ambas (con `GRANT INSERT`
+puntual sobre `cookie_consents` para el endpoint público de consentimiento). Sin ese
+`REVOKE`, `ALTER DEFAULT PRIVILEGES` (`infra/postgres/sql/roles.sql`) le habría dado a
+`app_user` acceso de lectura y **borrado** sobre el registro de auditoría completo de la
+instalación — ver `docs/arquitectura.md` § Auditoría y RGPD.
+
+`theme_templates` sigue el mismo patrón por la misma razón: es el catálogo de plantillas
+de la **plataforma**, no de una organización, así que no lleva RLS — pero sí
+`REVOKE ALL ... FROM app_user` con un `GRANT SELECT` puntual. Comprobado contra la base
+de datos real: `app_user` puede leerlo y no puede insertar ni borrar. Lo escribe solo el
+superadministrador, a través del módulo `admin`.
+
 RLS aísla por **organización**, no por si un evento está publicado: un borrador de
-la propia organización sigue siendo visible bajo RLS para cualquiera que resuelva
-el host correcto (incluido el contexto anónimo de los endpoints públicos, que solo
-fija `app.organization_id`, sin usuario). El filtro `status = 'published' AND
-visibility = 'public'` de las páginas públicas (`public_router.py`) es por tanto
-explícito en cada consulta, nunca delegado a RLS — ver
-`docs/arquitectura.md` § Páginas públicas con datos.
+la propia organización sigue siendo visible bajo RLS para cualquiera con el
+contexto de esa organización fijado (incluido el contexto anónimo de los endpoints
+públicos, que solo fija `app.organization_id`, sin usuario — y que hoy se fija desde
+el propio evento vía `app_resolve_public_event`). El filtro `status = 'published'
+AND visibility = 'public'` de las páginas públicas (`public_router.py`) es por tanto
+explícito en cada consulta (y dentro de la propia función de resolución), nunca
+delegado a RLS — ver `docs/arquitectura.md`.
 
 `users` tiene además una política solo de `INSERT` que permite crear la fila cuando hay
 contexto de organización: dar de alta a alguien crea primero el usuario y después la
@@ -309,6 +500,14 @@ la visibilidad: la fila solo será legible cuando exista la membresía.
 | `0006_autoservicio_organizaciones` | Tres funciones `SECURITY DEFINER` para el alta de organización desde el propio registro público (ver más abajo) |
 | `0007_barrido_no_verificados` | `users.verification_warning_sent_at`, para el barrido de cuentas sin verificar |
 | `0008_cuenta_y_recuperacion` | Tres funciones `SECURITY DEFINER` para cuenta propia y recuperación de contraseña (ver más abajo) |
+| `0009_eventos_agenda_y_ponentes` | `events`, `event_sessions`, `event_members`, `event_session_participants`, `speaker_public_profiles`; políticas RLS y FK compuestas del mismo patrón que las tablas anteriores |
+| `0010_inscripcion_de_asistentes` | `event_registrations`, `event_registration_answers`, `event_registration_consents`; funciones `SECURITY DEFINER` para el formulario público de inscripción |
+| `0011_entradas_qr` | `event_tickets`, `event_ticket_scans`; emisión automática de entrada al confirmarse una inscripción |
+| `0012_patrocinio_legal_auditoria` | `sponsor_tiers`, `sponsors` (con `UNIQUE(id, organization_id)` en `sponsor_tiers`), `audit_log`, `cookie_consents` (`REVOKE ALL ... FROM app_user` explícito en ambas, `GRANT INSERT` puntual en `cookie_consents`), columnas legales en `organizations`; backfill de `sponsors:read`/`write` a roles existentes con `organizations:write` |
+| … | Fases 6-7 del PRD (pagos, contabilidad) y ajustes de tema/plataforma — no recogidas aquí; ver los ficheros de `alembic/versions/` para su detalle |
+| `0026_permiso_de_invitaciones` | `Permission.INVITATIONS_MANAGE`; backfill a roles con `organizations:write`, más la plantilla `ORGANIZER` actualizada en código (fase 0 del plan de invitaciones) |
+| `0027_invitaciones_de_equipo` | `organization_invitations`, con RLS y las FK compuestas/`CASCADE` descritas arriba (fase 1 del plan de invitaciones) |
+| `0028_estado_de_cuenta_invitada` | `app_find_user_by_email` gana `has_password` (requiere `DROP`+`CREATE`, no `CREATE OR REPLACE`, porque cambia el tipo de retorno); `app_accept_invited_user`, nueva (fase 2 del plan de invitaciones, ver más abajo) |
 
 Se ejecutan siempre con `DATABASE_MIGRATIONS_URL` (rol `app_maintainer`). Con el rol de
 la API fallarían, y eso es deliberado. El ciclo `upgrade head` → `downgrade base` →
@@ -357,15 +556,41 @@ con el mismo patrón que `app_resolve_organization` y las funciones de la fase a
 
 Confirmar un cambio de correo o completar una recuperación de contraseña llega por un
 enlace de correo, sin sesión ni contexto RLS (igual que el registro público). Listar
-"mis organizaciones" tiene el problema inverso: el contexto lo fija el host, no la
-persona. Mismo patrón que las funciones anteriores:
+"mis organizaciones" tiene el problema inverso: el contexto RLS está fijado a la
+organización **activa** de la sesión, y la consulta normal solo vería esa. Mismo
+patrón que las funciones anteriores:
 
 | Función | Uso |
 |---|---|
 | `app_change_user_email(user_id, new_email)` | Aplicar un cambio de correo ya confirmado por token; devuelve si cambió algo |
 | `app_set_user_password(user_id, password_hash)` | Aplicar una contraseña nueva (cambio autenticado con RLS normal; recuperación, sin sesión) |
-| `app_user_organizations(p_user_id)` | Listar las organizaciones de una persona con independencia del host; solo responde si `p_user_id` coincide con `app.user_id` de la sesión |
+| `app_user_organizations(p_user_id)` | Listar las organizaciones de una persona con independencia de la activa; solo responde si `p_user_id` coincide con `app.user_id` de la sesión |
 
-Tras `app_create_organization_row`, el resto del alta (clonar roles, crear el dominio y
-el branding por defecto, dar de alta a la persona como `owner`) ya ocurre con contexto
+Tras `app_create_organization_row`, el resto del alta (clonar roles, crear el
+branding por defecto, dar de alta a la persona como `owner`) ya ocurre con contexto
 RLS normal, fijado por `set_organization_context` con la organización recién creada.
+
+### Invitaciones: dos funciones `SECURITY DEFINER` más
+
+Resolver un token de invitación tiene el mismo problema que el registro público: la
+persona todavía no ha iniciado sesión y puede no pertenecer a ninguna organización, así
+que `tenant_users` no le deja ver su propia fila. Y aceptar la invitación tiene uno
+añadido, propio de esta fase: la fila de `users` a actualizar puede pertenecer a alguien
+que **ya** es miembro de otra organización distinta a la que invita, así que tampoco vale
+con el contexto de la organización que invita.
+
+| Función | Uso |
+|---|---|
+| `app_find_user_by_email(email)` | Extendida en `0028` con `has_password`: `create_invitation` la usa para decidir si el correo ya tiene cuenta (S-1: solo entonces se salta el token) |
+| `app_accept_invited_user(user_id, password_hash, first_name, last_name)` | Fija contraseña, nombre y apellidos, y marca el correo verificado si no lo estaba — en una única llamada atómica |
+
+`app_find_user_by_email` cambia de tipo de retorno en `0028` (gana la columna
+`has_password`), así que la migración la recrea con `DROP FUNCTION` + `CREATE FUNCTION`:
+`CREATE OR REPLACE` no vale cuando cambia la firma de salida, solo cuando cambian el
+cuerpo o los argumentos de entrada.
+
+`accept_invitation` (`invitations_service.py`) crea la fila de `OrganizationMember`
+**antes** de llamar a `app_accept_invited_user`, dentro de la misma transacción: así esa
+membresía ya es visible para la política `tenant_users` (que exige compartir
+organización) en cuanto la función marca el correo como verificado, sin depender de que
+`app_accept_invited_user` sea la única vía de lectura.

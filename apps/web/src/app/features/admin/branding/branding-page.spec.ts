@@ -1,32 +1,35 @@
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
+import { provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BrandingPage } from './branding-page';
+import { errorInterceptor } from '../../../core/api/error.interceptor';
 import { ThemingService } from '../../../core/theming/theming.service';
+import { plantillaDeTemaDePrueba } from '../../../../testing/branding.fixture';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../../testing/axe';
 import es from '../../../../../public/assets/i18n/es-ES.json';
 
+const ORGANIZACION_URL = '/api/v1/organizations/me';
 const BRANDING_URL = '/api/v1/organizations/me/branding';
+const CATALOGO_URL = '/api/v1/organizations/me/theme-templates';
+const MEDIA_URL = '/api/v1/organizations/me/media';
+
+const ORGANIZACION_VALIDA = { name: 'Organización de prueba' };
+
+const PLANTILLA_OSCURA = plantillaDeTemaDePrueba({
+  id: 'tema-oscuro',
+  key: 'oscuro',
+  name: 'Oscuro',
+});
+const PLANTILLA_CLARA = plantillaDeTemaDePrueba({ id: 'tema-claro', key: 'claro', name: 'Claro' });
+const CATALOGO = [PLANTILLA_OSCURA, PLANTILLA_CLARA];
 
 const BRANDING_VALIDO = {
-  template_key: 'classic',
-  colors: {
-    primary: '#1d4ed8',
-    'primary-contrast': '#ffffff',
-    secondary: '#0f766e',
-    surface: '#ffffff',
-    'surface-muted': '#f1f5f9',
-    text: '#0f172a',
-    'text-muted': '#475569',
-    border: '#cbd5e1',
-    danger: '#b91c1c',
-    success: '#15803d',
-  },
-  fonts: { sans: 'system-ui', heading: 'system-ui' },
+  theme_template_id: PLANTILLA_OSCURA.id,
   social_links: [],
   organizer_blurb: null,
   logo_url: null,
@@ -53,7 +56,8 @@ describe('BrandingPage', () => {
       ],
       providers: [
         provideZonelessChangeDetection(),
-        provideHttpClient(),
+        provideRouter([]),
+        provideHttpClient(withInterceptors([errorInterceptor])),
         provideHttpClientTesting(),
         { provide: ThemingService, useValue: { load: themingLoad } },
       ],
@@ -65,40 +69,49 @@ describe('BrandingPage', () => {
     http.verify();
   });
 
-  it('carga el branding y no tiene violaciones de accesibilidad', async () => {
+  async function crearYCargar(): Promise<ComponentFixture<BrandingPage>> {
     const fixture = TestBed.createComponent(BrandingPage);
     await avanzar(fixture);
+    http.expectOne(ORGANIZACION_URL).flush(ORGANIZACION_VALIDA);
     http.expectOne(BRANDING_URL).flush(BRANDING_VALIDO);
+    http.expectOne(CATALOGO_URL).flush(CATALOGO);
     await avanzar(fixture);
+    await avanzar(fixture);
+    return fixture;
+  }
 
-    expect(fixture.nativeElement.querySelector('select').value).toBe('classic');
+  it('carga el branding y el catálogo, sin violaciones de accesibilidad', async () => {
+    const fixture = await crearYCargar();
+
+    expect(fixture.nativeElement.textContent).toContain('Organización de prueba');
+    const opciones = Array.from(
+      fixture.nativeElement.querySelectorAll('.plantilla-tarjeta'),
+    ) as HTMLElement[];
+    expect(opciones.length).toBe(2);
+    const marcada = opciones.find((r) => r.getAttribute('aria-pressed') === 'true');
+    expect(marcada?.textContent).toContain(PLANTILLA_OSCURA.name);
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
-  it('avisa de contraste insuficiente y el aviso desaparece al corregirlo', async () => {
-    const fixture = TestBed.createComponent(BrandingPage);
-    await avanzar(fixture);
-    http
-      .expectOne(BRANDING_URL)
-      .flush({ ...BRANDING_VALIDO, colors: { ...BRANDING_VALIDO.colors, text: '#f5f5f5' } });
-    await avanzar(fixture);
+  it('la galería de plantillas tiene nombre accesible y cada tarjeta indica si está aplicada', async () => {
+    const fixture = await crearYCargar();
 
-    expect(fixture.nativeElement.textContent).toContain('contraste');
-
-    const campoTexto = Array.from(
-      fixture.nativeElement.querySelectorAll('input[type="text"], input:not([type])'),
-    ).find((el) => (el as HTMLInputElement).value === '#f5f5f5') as HTMLInputElement;
-    campoTexto.value = '#0f172a';
-    campoTexto.dispatchEvent(new Event('input'));
-    await avanzar(fixture);
-
-    expect(fixture.nativeElement.textContent).not.toContain('contraste');
+    const grupo = fixture.nativeElement.querySelector('.plantillas');
+    expect(grupo.getAttribute('aria-label')).toBeTruthy();
+    const opciones = grupo.querySelectorAll('.plantilla-tarjeta');
+    expect(opciones.length).toBe(2);
+    expect(fixture.nativeElement.textContent).toContain('Claro');
+    expect(fixture.nativeElement.textContent).toContain('Oscuro');
   });
 
-  it('guarda los cambios y refresca el branding público aplicado', async () => {
-    const fixture = TestBed.createComponent(BrandingPage);
-    await avanzar(fixture);
-    http.expectOne(BRANDING_URL).flush(BRANDING_VALIDO);
+  it('elegir otra plantilla de tema la envía en el PUT', async () => {
+    const fixture = await crearYCargar();
+
+    const tarjetas = Array.from(
+      fixture.nativeElement.querySelectorAll('.plantilla-tarjeta'),
+    ) as HTMLButtonElement[];
+    const tarjetaClara = tarjetas.find((t) => t.textContent?.includes(PLANTILLA_CLARA.name))!;
+    tarjetaClara.click();
     await avanzar(fixture);
 
     (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
@@ -108,7 +121,27 @@ describe('BrandingPage', () => {
 
     const peticion = http.expectOne(BRANDING_URL);
     expect(peticion.request.method).toBe('PUT');
-    expect(peticion.request.body.template_key).toBe('classic');
+    expect(peticion.request.body.theme_template_id).toBe(PLANTILLA_CLARA.id);
+    expect(peticion.request.body.template_key).toBeUndefined();
+    expect(peticion.request.body.colors).toBeUndefined();
+    expect(peticion.request.body.fonts).toBeUndefined();
+    peticion.flush({ ...BRANDING_VALIDO, theme_template_id: PLANTILLA_CLARA.id });
+    await avanzar(fixture);
+    await avanzar(fixture);
+
+    expect(themingLoad).toHaveBeenCalled();
+  });
+
+  it('guarda los cambios y refresca el branding público aplicado', async () => {
+    const fixture = await crearYCargar();
+
+    (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
+      new Event('submit'),
+    );
+    await avanzar(fixture);
+
+    const peticion = http.expectOne(BRANDING_URL);
+    expect(peticion.request.method).toBe('PUT');
     peticion.flush(BRANDING_VALIDO);
     // Dos ciclos: uno para la respuesta del PUT, otro para el `await` encadenado a
     // `theming.load()` dentro de `guardar()`.
@@ -120,11 +153,11 @@ describe('BrandingPage', () => {
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
-  it('rechaza en el cliente un logotipo con un tipo no permitido', async () => {
-    const fixture = TestBed.createComponent(BrandingPage);
-    await avanzar(fixture);
-    http.expectOne(BRANDING_URL).flush(BRANDING_VALIDO);
-    await avanzar(fixture);
+  it('un logotipo rechazado por el servidor no queda pendiente de asignar', async () => {
+    // La validación del tipo real (por bytes, no por extensión) vive en el
+    // servidor (`validate_upload`) desde que `MediaFields` sube directo a la
+    // biblioteca — ya no hay una comprobación duplicada en el cliente.
+    const fixture = await crearYCargar();
 
     const campoFichero = fixture.nativeElement.querySelector(
       'input[type="file"]',
@@ -134,13 +167,78 @@ describe('BrandingPage', () => {
     campoFichero.dispatchEvent(new Event('change'));
     await avanzar(fixture);
 
-    expect(fixture.nativeElement.textContent).toContain('PNG, JPEG o WebP');
+    const subida = http.expectOne(MEDIA_URL);
+    expect(subida.request.method).toBe('POST');
+    subida.flush(
+      { title: 'Datos no válidos', detail: 'Tipo de fichero no admitido.' },
+      { status: 422, statusText: 'Unprocessable Entity' },
+    );
+    await avanzar(fixture);
+
+    expect(fixture.nativeElement.textContent).toContain('Tipo de fichero no admitido.');
 
     (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
       new Event('submit'),
     );
     await avanzar(fixture);
-    // Solo el PUT de datos de branding, nunca el de subida del logo rechazado.
+    // Solo el PUT de datos de branding, nunca el de asignación del logo rechazado.
     http.expectOne(BRANDING_URL).flush(BRANDING_VALIDO);
+  });
+
+  it('elegir un logotipo nuevo lo sube a la biblioteca y lo asigna al guardar', async () => {
+    const fixture = await crearYCargar();
+
+    const campoFichero = fixture.nativeElement.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+    const fichero = new File([new Uint8Array([1])], 'logo.png', { type: 'image/png' });
+    Object.defineProperty(campoFichero, 'files', { value: [fichero] });
+    campoFichero.dispatchEvent(new Event('change'));
+    await avanzar(fixture);
+
+    const subida = http.expectOne(MEDIA_URL);
+    expect(subida.request.method).toBe('POST');
+    expect(subida.request.body instanceof FormData).toBe(true);
+    subida.flush({ id: 'media-nuevo', url: 'https://cdn.test/nuevo.webp' });
+    await avanzar(fixture);
+
+    const previsualizacion = fixture.nativeElement.querySelector(
+      '.previsualizacion',
+    ) as HTMLImageElement;
+    expect(previsualizacion.src).toBe('https://cdn.test/nuevo.webp');
+
+    const formulario = fixture.nativeElement.querySelector('form') as HTMLFormElement;
+    formulario.dispatchEvent(new Event('submit'));
+    await avanzar(fixture);
+    http.expectOne(BRANDING_URL).flush(BRANDING_VALIDO);
+    await avanzar(fixture);
+
+    const asignacion = http.expectOne(`${BRANDING_URL}/logo`);
+    expect(asignacion.request.method).toBe('PUT');
+    expect(asignacion.request.body).toEqual({ media_id: 'media-nuevo' });
+    asignacion.flush({ ...BRANDING_VALIDO, logo_url: 'https://cdn.test/nuevo.webp' });
+    await avanzar(fixture);
+    await avanzar(fixture);
+
+    // El `media_id` ya asignado no queda pendiente para un segundo guardado.
+    formulario.dispatchEvent(new Event('submit'));
+    await avanzar(fixture);
+    http
+      .expectOne(BRANDING_URL)
+      .flush({ ...BRANDING_VALIDO, logo_url: 'https://cdn.test/nuevo.webp' });
+    await avanzar(fixture);
+  });
+
+  it('si falla la carga inicial, no deja un formulario enviable que pueda sobrescribir el branding', async () => {
+    const fixture = TestBed.createComponent(BrandingPage);
+    await avanzar(fixture);
+    http.expectOne(ORGANIZACION_URL).flush('error', { status: 500, statusText: 'Error' });
+    http.expectOne(BRANDING_URL).flush(BRANDING_VALIDO);
+    http.expectOne(CATALOGO_URL).flush(CATALOGO);
+    await avanzar(fixture);
+    await avanzar(fixture);
+
+    expect(fixture.nativeElement.querySelector('form')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[role="alert"]')).toBeTruthy();
   });
 });

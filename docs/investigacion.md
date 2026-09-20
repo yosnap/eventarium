@@ -64,7 +64,7 @@ Funcionalidades pedidas **sin referente documentado** (hay que diseñarlas nosot
 | Rate limiting | fastapi-limiter (Redis) | SlowAPI | Reutiliza Redis |
 | Email | fastapi-mail (SMTP) tras interfaz `EmailProvider`; Resend/Postmark como plug-in | — | Self-host sin proveedor de pago obligatorio |
 | QR | segno + firma HMAC/JWT propia (`ticket_id`, `event_id`, `exp`, `nonce`) + `used_at` en BD | Librerías de nicho | ~30 líneas, sin dependencia extra |
-| OCR facturas | PaddleOCR self-hosted + fallback LLM vision si baja confianza | Tesseract (peor en tablas), EasyOCR (confunde símbolos monetarios) | Precisión en facturas |
+| OCR facturas | LLM vision vía pasarela de IA multi-proveedor propia (LiteLLM SDK embebido; sin motor autoalojado), proveedor elegido por cada organización — ver `plans/260911-0325-prd-pasarela-ia-multiproveedor/plan.md` | PaddleOCR self-hosted (decisión revertida 2026-09-11), Tesseract (peor en tablas), EasyOCR (confunde símbolos monetarios) | Evita mantener un motor autoalojado; observabilidad/coste/límites centralizados y reutilizables por futuras funciones de IA |
 | Pagos | stripe-python, **Stripe Checkout** hosted, webhooks con firma verificada | — | Mínima superficie PCI; pendiente marketplace vs Connect |
 | Antibot | Cloudflare Turnstile verificado server-side (`siteverify`, token 5 min, un uso) | — | Trivial con httpx |
 | Frontend | Angular 22 (o 21 LTS si hay fricción), standalone + Signals; zone.js por defecto salvo experiencia zoneless | — | Proyecto nuevo, última estable |

@@ -11,8 +11,10 @@ import {
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
+import { Checkbox } from '../../../shared/ui/checkbox';
 import { Input } from '../../../shared/ui/input';
 import { PasswordStrength, isPasswordValid } from '../../../shared/ui/password-strength';
+import { PageHeader } from '../../../shared/ui/page-header';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const TIPOS_DE_ENLACE = ['twitter', 'linkedin', 'instagram', 'web'] as const;
@@ -26,10 +28,13 @@ const TIPOS_DE_ENLACE = ['twitter', 'linkedin', 'instagram', 'web'] as const;
 @Component({
   selector: 'app-account-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input, PasswordStrength],
+  imports: [TranslocoDirective, Alert, Button, Card, Checkbox, Input, PasswordStrength, PageHeader],
   template: `
     <ng-container *transloco="let t">
-      <h1>{{ t('admin.cuenta.titulo') }}</h1>
+      <app-page-header [rotulo]="t('admin.cuenta.rotulo')">
+        {{ t('admin.cuenta.cabeceraInicio') }}
+        <span class="mark">{{ t('admin.cuenta.cabeceraMarca') }}</span>
+      </app-page-header>
 
       <app-card [heading]="t('admin.cuenta.perfil.titulo')">
         <form (submit)="guardarPerfil($event)" novalidate>
@@ -42,6 +47,11 @@ const TIPOS_DE_ENLACE = ['twitter', 'linkedin', 'instagram', 'web'] as const;
             [label]="t('admin.cuenta.perfil.apellidos')"
             autocomplete="family-name"
             [(value)]="lastName"
+          />
+          <app-checkbox
+            [label]="t('admin.cuenta.perfil.avisarmeEventosSimilares')"
+            [hint]="t('admin.cuenta.perfil.avisarmeEventosSimilaresPista')"
+            [(checked)]="notifySimilarEvents"
           />
           @if (errorPerfil(); as mensaje) {
             <app-alert tone="error">{{ mensaje }}</app-alert>
@@ -197,9 +207,6 @@ const TIPOS_DE_ENLACE = ['twitter', 'linkedin', 'instagram', 'web'] as const;
     </ng-container>
   `,
   styles: `
-    h1 {
-      margin-top: 0;
-    }
     app-card {
       display: block;
       margin-bottom: var(--space-lg);
@@ -223,14 +230,8 @@ const TIPOS_DE_ENLACE = ['twitter', 'linkedin', 'instagram', 'web'] as const;
       max-width: 26rem;
     }
     .campo-select select {
+      /* La pintura del control la da la regla compartida de styles.css. */
       width: 100%;
-      box-sizing: border-box;
-      padding: 0.625rem 0.75rem;
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-md);
-      background-color: var(--color-surface);
-      color: var(--color-text);
-      font: inherit;
     }
     .acciones-perfil-publico {
       display: flex;
@@ -246,6 +247,9 @@ export class AccountPage {
 
   protected readonly firstName = signal(this.auth.currentUser()?.first_name ?? '');
   protected readonly lastName = signal(this.auth.currentUser()?.last_name ?? '');
+  protected readonly notifySimilarEvents = signal(
+    this.auth.currentUser()?.notify_similar_events ?? false,
+  );
   protected readonly guardandoPerfil = signal(false);
   protected readonly exitoPerfil = signal(false);
   protected readonly errorPerfil = signal<string | null>(null);
@@ -318,6 +322,7 @@ export class AccountPage {
       await this.auth.updateMe({
         firstName: this.firstName().trim(),
         lastName: this.lastName().trim(),
+        notifySimilarEvents: this.notifySimilarEvents(),
       });
       this.exitoPerfil.set(true);
     } catch (error) {

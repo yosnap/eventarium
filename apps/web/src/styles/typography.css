@@ -1,0 +1,37 @@
+/*
+ * Tokens de tipografía del sistema Eventarium.
+ *
+ * Solo variables: los `@font-face` que autoalojan los binarios viven en
+ * `font-faces.css` (ver ese fichero para el motivo de la separación).
+ */
+
+:root {
+  /* Papeles tipográficos. */
+  --font-display: 'Bebas Neue', var(--font-body);
+  --font-body: 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Space Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+  /*
+   * Escala realineada con los mínimos/máximos literales de la referencia
+   * (eventarium.css:28-35): --fs-hero 3.4rem→6.5rem, --fs-h1 2.4rem→4rem,
+   * --fs-h2 1.75rem→2.5rem, --fs-metric 2rem→2.75rem. La referencia interpola
+   * con `vw` puro en el término central; aquí se ancla ese término también a
+   * `rem` (mismo patrón que ya tenía esta hoja) para que el zoom al 200 %
+   * siga funcionando (WCAG 1.4.4) sin congelarse — los extremos, que son lo
+   * que de verdad se nota en pantalla, son los literales de la referencia.
+   */
+  --fs-hero: clamp(3.4rem, 3rem + 3vw, 6.5rem);
+  --fs-h1: clamp(2.4rem, 2rem + 3vw, 4rem);
+  --fs-h2: clamp(1.75rem, 1.5rem + 2vw, 2.5rem);
+  /* Fijos, no `clamp()` (eventarium.css:31-33): la referencia usa estos tres
+   * como valores estáticos, no fluidos — un `clamp()` aquí cambia el tamaño
+   * del cuerpo de lectura con el ancho de ventana, que no es lo que hace la
+   * referencia. */
+  --fs-h3: 1.25rem;
+  --fs-body: 1rem;
+  --fs-sm: 0.875rem;
+  /* Fijo (eventarium.css:34): 0.6875rem exacto, mismo motivo que arriba. Solo
+   * `chip.ts` y `data-table.ts` lo consumen (grep verificado). */
+  --fs-label: 0.6875rem;
+  --fs-metric: clamp(2rem, 1.7rem + 2vw, 2.75rem);
+}

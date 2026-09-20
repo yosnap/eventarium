@@ -6,5 +6,5 @@ export interface BodyUploadCoverApiV1EventsEventIdCoverPut {
   /**
    * Imagen de portada
    */
-  fichero: string;
+  fichero?: (string | null);
 }

@@ -3,7 +3,8 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
 import { ApiError } from '../../../core/api/error.interceptor';
-import { AuthService } from '../../../core/auth/auth.service';
+import { AuthService, esPersonalDePlataforma } from '../../../core/auth/auth.service';
+import { AuthFrame } from '../../../layouts/public/auth-frame';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
@@ -13,10 +14,10 @@ import { Input } from '../../../shared/ui/input';
 @Component({
   selector: 'app-login-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, Input],
+  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, Input, AuthFrame],
   template: `
     <ng-container *transloco="let t">
-      <main id="contenido" class="pagina">
+      <app-auth-frame [titulo]="t('admin.login.titulo')">
         <app-card [heading]="t('admin.login.titulo')">
           <form (submit)="enviar($event)" novalidate>
             <app-input
@@ -48,19 +49,13 @@ import { Input } from '../../../shared/ui/input';
             <a routerLink="/recuperar-contrasena">{{ t('admin.login.olvidasteContrasena') }}</a>
           </p>
         </app-card>
-      </main>
+      </app-auth-frame>
     </ng-container>
   `,
   styles: `
-    .pagina {
-      display: grid;
-      place-items: center;
-      min-height: 100vh;
-      padding: var(--space-lg);
-      background-color: var(--color-surface-muted);
-    }
     app-card {
       width: min(24rem, 100%);
+      margin: var(--space-lg) auto;
     }
     form {
       display: grid;
@@ -100,7 +95,33 @@ export class LoginPage {
     this.enviando.set(true);
     try {
       await this.auth.login(this.email().trim(), this.password());
-      const destino = this.ruta.snapshot.queryParamMap.get('redirigir') ?? '/admin';
+      // Un `redirigir` explícito (enlace profundo, invitación, aviso por
+      // correo) siempre gana: la lógica de espacio de trabajo de abajo solo
+      // decide un destino por defecto cuando nadie pidió uno concreto —
+      // si no, un organizador con 2+ espacios perdía su destino real y
+      // aterrizaba en el selector (hallazgo de red-team).
+      const redirigirExplicito = this.ruta.snapshot.queryParamMap.get('redirigir');
+      let destino = redirigirExplicito ?? '/dashboard';
+      if (!redirigirExplicito) {
+        try {
+          const organizaciones = await this.auth.listMyOrganizations();
+          const esPlataforma = esPersonalDePlataforma(this.auth.currentUser());
+          if (organizaciones.length === 0 && esPlataforma) {
+            // Su único espacio real es la plataforma: no tiene sentido mandarlo
+            // a un escritorio de organización que no existe.
+            destino = '/admin';
+          } else if (organizaciones.length + (esPlataforma ? 1 : 0) > 1) {
+            // 2+ espacios de trabajo: elegir cuál usar antes de entrar.
+            destino = '/espacio-de-trabajo';
+          }
+          // 1 organización y sin rol de plataforma: se queda en '/dashboard'.
+        } catch {
+          // Fallo al contar espacios tras un login ya válido (sesión creada,
+          // cookie de refresco emitida): no es motivo para abortar el login,
+          // mismo criterio que `admin-shell.ts::cargarOrganizaciones`, que ya
+          // trata esta misma llamada como no crítica.
+        }
+      }
       await this.router.navigateByUrl(destino);
     } catch (error) {
       this.error.set(

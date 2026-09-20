@@ -2,12 +2,23 @@
 
 from __future__ import annotations
 
+import base64
+import uuid
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from httpx import AsyncClient
 
+from app.core.database import SessionMaintenance
 from app.core.ratelimit import PUBLICO_POR_IP
+from app.modules.events import repository
+from app.modules.registrations.models import EventRegistration
 from tests.conftest import OrganizacionDePrueba, crear_miembro, iniciar_sesion, iniciar_sesion_con
+from tests.payments_test_helpers import (
+    _crear_publicar_evento_de_pago,
+    _crear_tipo,
+    _preparar_evento_de_pago,
+)
 
 PUBLIC_EVENTS = "/api/v1/public/events"
 PUBLIC_SPEAKERS = "/api/v1/public/speakers"
@@ -60,18 +71,131 @@ async def test_el_listado_publico_solo_incluye_published_public(
     publico = await _crear_evento(cliente, cabeceras, slug="publico")
     await _publicar(cliente, cabeceras, publico["id"], visibility="public")
 
-    listado = await cliente.get(PUBLIC_EVENTS, headers={"Host": organizacion.host})
+    listado = await cliente.get(PUBLIC_EVENTS)
     assert listado.status_code == 200
     slugs = [e["slug"] for e in listado.json()]
     assert slugs == ["publico"]
     assert borrador["slug"] not in slugs
 
 
+async def test_el_listado_publico_resuelve_la_portada_de_biblioteca_de_varias_organizaciones(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    otra_organizacion: OrganizacionDePrueba,
+) -> None:
+    """Regresión: `list_public_events_across_organizations` fija el contexto
+    RLS organización a organización dentro de un bucle; resolver la portada
+    de biblioteca DESPUÉS de que el bucle termine la resolvía con el
+    contexto de la ÚLTIMA organización, y la portada de cualquier evento de
+    otra organización salía `null` en silencio (`Media` tiene `FORCE ROW
+    LEVEL SECURITY`)."""
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    )
+
+    async def _publicar_con_portada_de_biblioteca(org: OrganizacionDePrueba, slug: str) -> None:
+        _, cabeceras = await iniciar_sesion(cliente, org)
+        evento = await _crear_evento(cliente, cabeceras, slug=slug)
+        subido = await cliente.post(
+            "/api/v1/organizations/me/media",
+            headers=cabeceras,
+            data={"kind": "events"},
+            files={"fichero": (f"{slug}.png", png, "image/png")},
+        )
+        assert subido.status_code == 200, subido.text
+        asignada = await cliente.put(
+            f"{EVENTS}/{evento['id']}/cover",
+            headers=cabeceras,
+            json={"media_id": subido.json()["id"]},
+        )
+        assert asignada.status_code == 200, asignada.text
+        await _publicar(cliente, cabeceras, evento["id"])
+
+    await _publicar_con_portada_de_biblioteca(organizacion, "portada-org-a")
+    await _publicar_con_portada_de_biblioteca(otra_organizacion, "portada-org-b")
+
+    listado = await cliente.get(PUBLIC_EVENTS)
+    assert listado.status_code == 200, listado.text
+    portadas = {e["slug"]: e["cover_url"] for e in listado.json()}
+    assert portadas["portada-org-a"] is not None
+    assert portadas["portada-org-b"] is not None
+
+
+async def test_el_listado_y_el_detalle_incluyen_el_precio_desde_del_tipo_mas_barato(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+    gratis = await _crear_evento(cliente, cabeceras, slug="precio-gratis")
+    await _publicar(cliente, cabeceras, gratis["id"])
+
+    # `_preparar_evento_de_pago` publica con un tipo «General» a 1000 céntimos
+    # (exige al menos uno vigente para publicar un evento `paid`); se añade
+    # aquí un segundo tipo más barato para comprobar que gana el más barato.
+    de_pago, tipo_general = await _preparar_evento_de_pago(
+        cliente, organizacion, monkeypatch, "precio-pago"
+    )
+    await _crear_tipo(cliente, cabeceras, de_pago["id"], name="Early bird", price_cents=750)
+
+    # A partir de aquí no se reusa `_preparar_evento_de_pago`: conecta una
+    # cuenta Stripe nueva y la organización solo puede tener una activa a la
+    # vez (índice único parcial en `organization_stripe_accounts`). La cuenta
+    # que ya conectó la primera llamada sirve igual para el resto.
+    de_pago_sin_tipos = await _crear_publicar_evento_de_pago(
+        cliente, cabeceras, organizacion, "precio-pago-sin-tipos"
+    )
+    listado_tipos = await cliente.get(
+        f"{EVENTS}/{de_pago_sin_tipos['id']}/ticket-types", headers=cabeceras
+    )
+    assert listado_tipos.status_code == 200, listado_tipos.text
+    tipo_desactivado = listado_tipos.json()[0]
+    desactivacion = await cliente.patch(
+        f"{EVENTS}/{de_pago_sin_tipos['id']}/ticket-types/{tipo_desactivado['id']}",
+        headers=cabeceras,
+        json={"is_active": False},
+    )
+    assert desactivacion.status_code == 200, desactivacion.text
+
+    # Un solo tipo de entrada: precio único, sin «Desde».
+    await _crear_publicar_evento_de_pago(cliente, cabeceras, organizacion, "precio-pago-unico")
+
+    # Dos tipos de entrada al mismo precio: sigue siendo un precio único, la
+    # variación real es lo que dispara «Desde», no el número de tipos.
+    de_pago_mismo_precio = await _crear_publicar_evento_de_pago(
+        cliente, cabeceras, organizacion, "precio-pago-mismo-precio"
+    )
+    await _crear_tipo(
+        cliente, cabeceras, de_pago_mismo_precio["id"], name="Estudiante", price_cents=1000
+    )
+
+    listado = await cliente.get(PUBLIC_EVENTS)
+    assert listado.status_code == 200
+    por_slug = {evento["slug"]: evento for evento in listado.json()}
+    assert por_slug["precio-gratis"]["price_from_cents"] is None
+    assert por_slug["precio-pago-sin-tipos"]["price_from_cents"] is None
+    assert por_slug["precio-pago"]["price_from_cents"] == 750
+    assert por_slug["precio-pago"]["price_currency"] == "eur"
+    assert por_slug["precio-pago"]["price_multiple"] is True
+    assert por_slug["precio-pago-unico"]["price_from_cents"] == 1000
+    assert por_slug["precio-pago-unico"]["price_multiple"] is False
+    assert por_slug["precio-pago-mismo-precio"]["price_from_cents"] == 1000
+    assert por_slug["precio-pago-mismo-precio"]["price_multiple"] is False
+
+    detalle = await cliente.get(f"{PUBLIC_EVENTS}/precio-pago")
+    assert detalle.status_code == 200
+    assert detalle.json()["price_from_cents"] == 750
+    assert detalle.json()["price_currency"] == "eur"
+    assert detalle.json()["price_multiple"] is True
+
+    detalle_unico = await cliente.get(f"{PUBLIC_EVENTS}/precio-pago-unico")
+    assert detalle_unico.status_code == 200
+    assert detalle_unico.json()["price_multiple"] is False
+
+
 async def test_el_detalle_de_un_evento_no_publico_da_404_uniforme(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
-    cabeceras_publicas = {"Host": organizacion.host}
 
     await _crear_evento(cliente, cabeceras, slug="en-borrador")
     oculto = await _crear_evento(cliente, cabeceras, slug="oculto-2")
@@ -80,9 +204,80 @@ async def test_el_detalle_de_un_evento_no_publico_da_404_uniforme(
     await _publicar(cliente, cabeceras, privado["id"], visibility="private")
 
     for slug in ("en-borrador", "oculto-2", "privado-2", "no-existe"):
-        respuesta = await cliente.get(f"{PUBLIC_EVENTS}/{slug}", headers=cabeceras_publicas)
+        respuesta = await cliente.get(f"{PUBLIC_EVENTS}/{slug}")
         assert respuesta.status_code == 404
         assert respuesta.json()["detail"] == "El evento no existe."
+
+
+async def test_la_resolucion_publica_por_evento_no_filtra_datos_de_otra_organizacion(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    otra_organizacion: OrganizacionDePrueba,
+) -> None:
+    """Fase 5 del plan de organización sin dominio, requisito de seguridad
+    dedicado: la función `SECURITY DEFINER` que resuelve el evento público por
+    slug (fase 2) nunca devuelve datos de un evento no publicable, con casos
+    de dos organizaciones distintas, cada una con su propio evento no
+    publicable (los slugs son únicos en toda la instalación desde la fase 0,
+    así que no pueden coincidir)."""
+    _, cabeceras_a = await iniciar_sesion(cliente, organizacion)
+    _, cabeceras_b = await iniciar_sesion(cliente, otra_organizacion)
+
+    borrador_a = await _crear_evento(cliente, cabeceras_a, slug="borrador-org-a")
+    oculto_b = await _crear_evento(cliente, cabeceras_b, slug="oculto-org-b")
+    await _publicar(cliente, cabeceras_b, oculto_b["id"], visibility="hidden")
+
+    for slug in ("borrador-org-a", "oculto-org-b"):
+        respuesta = await cliente.get(f"{PUBLIC_EVENTS}/{slug}")
+        assert respuesta.status_code == 404
+        assert respuesta.json()["detail"] == "El evento no existe."
+
+    # Publicar el de la organización A no afecta ni revela nada de la B.
+    await _publicar(cliente, cabeceras_a, borrador_a["id"])
+    publico = await cliente.get(f"{PUBLIC_EVENTS}/borrador-org-a")
+    assert publico.status_code == 200
+    assert publico.json()["title"] == borrador_a["title"]
+
+    sigue_oculto = await cliente.get(f"{PUBLIC_EVENTS}/oculto-org-b")
+    assert sigue_oculto.status_code == 404
+    assert sigue_oculto.json()["detail"] == "El evento no existe."
+
+    # Ausencia real de datos cruzados, no solo un 404: cada organización
+    # publica un evento con su propia sede, y el detalle de una nunca
+    # menciona la sede de la otra (si la función `SECURITY DEFINER` filtrase
+    # por el `id` equivocado, aquí se filtraría un nombre de sede ajeno).
+    from unittest.mock import AsyncMock, patch
+
+    with patch(
+        "app.modules.events.service.geocode_address",
+        new=AsyncMock(return_value=(39.4699, -0.3763)),
+    ):
+        sede_a = (
+            await cliente.post(
+                f"{EVENTS}/{borrador_a['id']}/venues",
+                headers=cabeceras_a,
+                json={"name": "Sede exclusiva de la organización A", "address": "Valencia"},
+            )
+        ).json()
+        evento_b_publico = await _crear_evento(cliente, cabeceras_b, slug="publico-org-b")
+        sede_b = (
+            await cliente.post(
+                f"{EVENTS}/{evento_b_publico['id']}/venues",
+                headers=cabeceras_b,
+                json={"name": "Sede exclusiva de la organización B", "address": "Bilbao"},
+            )
+        ).json()
+    await _publicar(cliente, cabeceras_b, evento_b_publico["id"])
+
+    detalle_a = (await cliente.get(f"{PUBLIC_EVENTS}/borrador-org-a")).json()
+    nombres_de_sede_en_a = {sede["name"] for sede in detalle_a["venues"]}
+    assert sede_a["name"] in nombres_de_sede_en_a
+    assert sede_b["name"] not in nombres_de_sede_en_a
+
+    detalle_b = (await cliente.get(f"{PUBLIC_EVENTS}/publico-org-b")).json()
+    nombres_de_sede_en_b = {sede["name"] for sede in detalle_b["venues"]}
+    assert sede_b["name"] in nombres_de_sede_en_b
+    assert sede_a["name"] not in nombres_de_sede_en_b
 
 
 async def test_el_detalle_incluye_agenda_y_participantes_sin_correo(
@@ -120,7 +315,7 @@ async def test_el_detalle_incluye_agenda_y_participantes_sin_correo(
     )
     await _publicar(cliente, cabeceras, evento["id"])
 
-    detalle = await cliente.get(f"{PUBLIC_EVENTS}/con-agenda", headers={"Host": organizacion.host})
+    detalle = await cliente.get(f"{PUBLIC_EVENTS}/con-agenda")
     assert detalle.status_code == 200
     cuerpo = detalle.json()
     assert len(cuerpo["sessions"]) == 1
@@ -148,10 +343,7 @@ async def test_una_sesion_de_evento_no_publicado_da_404_aunque_se_conozca_el_id(
         )
     ).json()
 
-    respuesta = await cliente.get(
-        f"{PUBLIC_EVENTS}/sin-publicar/sessions/{sesion['id']}",
-        headers={"Host": organizacion.host},
-    )
+    respuesta = await cliente.get(f"{PUBLIC_EVENTS}/sin-publicar/sessions/{sesion['id']}")
     assert respuesta.status_code == 404
 
 
@@ -174,10 +366,7 @@ async def test_una_sesion_publicada_se_ve_anidada_bajo_su_evento(
     ).json()
     await _publicar(cliente, cabeceras, evento["id"])
 
-    respuesta = await cliente.get(
-        f"{PUBLIC_EVENTS}/con-sesion-publica/sessions/{sesion['id']}",
-        headers={"Host": organizacion.host},
-    )
+    respuesta = await cliente.get(f"{PUBLIC_EVENTS}/con-sesion-publica/sessions/{sesion['id']}")
     assert respuesta.status_code == 200
     cuerpo = respuesta.json()
     assert cuerpo["event_slug"] == "con-sesion-publica"
@@ -187,9 +376,7 @@ async def test_una_sesion_publicada_se_ve_anidada_bajo_su_evento(
 async def test_un_ponente_sin_perfil_publico_da_404(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    respuesta = await cliente.get(
-        f"{PUBLIC_SPEAKERS}/no-existe", headers={"Host": organizacion.host}
-    )
+    respuesta = await cliente.get(f"{PUBLIC_SPEAKERS}/no-existe")
     assert respuesta.status_code == 404
 
 
@@ -241,9 +428,7 @@ async def test_el_perfil_publico_de_un_ponente_expone_la_lista_blanca_y_el_histo
     )
     await _publicar(cliente, cabeceras_admin, evento["id"])
 
-    perfil = await cliente.get(
-        f"{PUBLIC_SPEAKERS}/la-gran-ponente", headers={"Host": organizacion.host}
-    )
+    perfil = await cliente.get(f"{PUBLIC_SPEAKERS}/la-gran-ponente")
     assert perfil.status_code == 200
     cuerpo = perfil.json()
     assert cuerpo["public_slug"] == "la-gran-ponente"
@@ -259,37 +444,302 @@ async def test_el_perfil_publico_de_un_ponente_expone_la_lista_blanca_y_el_histo
     assert cuerpo["history"][0]["event_slug"] == "con-ponente-publico"
 
     # La agenda pública del evento enlaza al perfil recién activado.
-    detalle = await cliente.get(
-        f"{PUBLIC_EVENTS}/con-ponente-publico", headers={"Host": organizacion.host}
-    )
+    detalle = await cliente.get(f"{PUBLIC_EVENTS}/con-ponente-publico")
     assert detalle.json()["sessions"][0]["participants"][0]["public_slug"] == "la-gran-ponente"
 
 
-async def test_dos_organizaciones_no_ven_los_eventos_ni_ponentes_de_la_otra(
+async def test_el_listado_publico_incluye_eventos_de_toda_la_instalacion(
     cliente: AsyncClient,
     organizacion: OrganizacionDePrueba,
     otra_organizacion: OrganizacionDePrueba,
 ) -> None:
+    """Fase 6 (cierre) del plan de organización sin dominio: el listado
+    público deja de resolver por host (ya no hay ningún host que lo haga) y
+    pasa a devolver los eventos publicables de TODA la instalación, no de una
+    única organización — mismo criterio que ya regía el detalle desde la
+    fase 2 (resuelto por el propio evento, nunca por host)."""
+    _, cabeceras_a = await iniciar_sesion(cliente, organizacion)
+    evento_a = await _crear_evento(cliente, cabeceras_a, slug="evento-de-acme")
+    await _publicar(cliente, cabeceras_a, evento_a["id"])
+
+    _, cabeceras_b = await iniciar_sesion(cliente, otra_organizacion)
+    evento_b = await _crear_evento(cliente, cabeceras_b, slug="evento-de-rival")
+    await _publicar(cliente, cabeceras_b, evento_b["id"])
+
+    listado = await cliente.get(PUBLIC_EVENTS)
+    slugs = {evento["slug"] for evento in listado.json()}
+    assert slugs == {"evento-de-acme", "evento-de-rival"}
+
+    detalle = await cliente.get(f"{PUBLIC_EVENTS}/evento-de-acme")
+    assert detalle.status_code == 200, detalle.text
+    assert detalle.json()["slug"] == "evento-de-acme"
+
+
+async def _crear_inscripcion(
+    organization_id: uuid.UUID, event_id: uuid.UUID, email: str, **overrides: object
+) -> None:
+    """Inserta una inscripción directamente en base de datos, saltándose el
+    formulario público: los tests de `reserved_count` necesitan estados
+    (`pending_payment` con ventana concreta, promoción de lista de espera con
+    ventana concreta) que el flujo público no permite fijar a voluntad."""
+    async with SessionMaintenance() as session:
+        session.add(
+            EventRegistration(
+                organization_id=organization_id,
+                event_id=event_id,
+                email=email,
+                full_name="Persona de prueba",
+                status=overrides.pop("status", "confirmed"),
+                **overrides,
+            )
+        )
+        await session.commit()
+
+
+async def _contar_reservadas(organization_id: uuid.UUID) -> dict[str, int]:
+    """`reserved_count` de cada evento publicado de la organización, por slug —
+    ejecuta `public_events_with_confirmed_count_query` directamente contra la
+    base de datos, igual que hace `list_public_events`."""
+    async with SessionMaintenance() as session:
+        consulta = repository.public_events_with_confirmed_count_query(organization_id)
+        filas = (await session.execute(consulta)).all()
+        return {evento.slug: reservadas for evento, reservadas in filas}
+
+
+async def test_reserved_count_es_cero_sin_inscripciones(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
-    evento = await _crear_evento(cliente, cabeceras, slug="evento-de-acme")
+    evento = await _crear_evento(cliente, cabeceras, slug="sin-inscripciones")
     await _publicar(cliente, cabeceras, evento["id"])
 
-    listado_rival = await cliente.get(PUBLIC_EVENTS, headers={"Host": otra_organizacion.host})
-    assert listado_rival.json() == []
+    conteos = await _contar_reservadas(organizacion.id)
+    assert conteos["sin-inscripciones"] == 0
 
-    detalle_rival = await cliente.get(
-        f"{PUBLIC_EVENTS}/evento-de-acme", headers={"Host": otra_organizacion.host}
+
+async def test_reserved_count_solo_cuenta_los_estados_que_ocupan_aforo(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento = await _crear_evento(cliente, cabeceras, slug="varios-estados")
+    await _publicar(cliente, cabeceras, evento["id"])
+    event_id = uuid.UUID(evento["id"])
+    organization_id = organizacion.id
+
+    await _crear_inscripcion(
+        organization_id, event_id, "confirmada@example.com", status="confirmed"
     )
-    assert detalle_rival.status_code == 404
+    await _crear_inscripcion(
+        organization_id,
+        event_id,
+        "pendiente-verificacion@example.com",
+        status="pending_verification",
+    )
+    await _crear_inscripcion(organization_id, event_id, "rechazada@example.com", status="rejected")
+    await _crear_inscripcion(organization_id, event_id, "cancelada@example.com", status="cancelled")
+    await _crear_inscripcion(
+        organization_id,
+        event_id,
+        "pago-caducado@example.com",
+        status="pending_payment",
+        payment_expires_at=AHORA - timedelta(minutes=5),
+    )
+
+    conteos = await _contar_reservadas(organizacion.id)
+    assert conteos["varios-estados"] == 1
+
+
+async def test_reserved_count_incluye_pending_payment_dentro_de_ventana(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento = await _crear_evento(cliente, cabeceras, slug="pago-en-curso")
+    await _publicar(cliente, cabeceras, evento["id"])
+    event_id = uuid.UUID(evento["id"])
+
+    await _crear_inscripcion(
+        organizacion.id,
+        event_id,
+        "comprando@example.com",
+        status="pending_payment",
+        payment_expires_at=AHORA + timedelta(minutes=10),
+    )
+
+    conteos = await _contar_reservadas(organizacion.id)
+    assert conteos["pago-en-curso"] == 1
+
+
+async def test_reserved_count_incluye_promocion_de_lista_de_espera_dentro_de_ventana(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento = await _crear_evento(cliente, cabeceras, slug="promocion-lista-espera")
+    await _publicar(cliente, cabeceras, evento["id"])
+    event_id = uuid.UUID(evento["id"])
+
+    await _crear_inscripcion(
+        organizacion.id,
+        event_id,
+        "promovida@example.com",
+        status="waitlisted",
+        waitlist_promoted_at=AHORA,
+        waitlist_promotion_expires_at=AHORA + timedelta(hours=1),
+    )
+    await _crear_inscripcion(
+        organizacion.id,
+        event_id,
+        "promocion-caducada@example.com",
+        status="waitlisted",
+        waitlist_promoted_at=AHORA - timedelta(hours=2),
+        waitlist_promotion_expires_at=AHORA - timedelta(hours=1),
+    )
+    await _crear_inscripcion(
+        organizacion.id, event_id, "en-lista-sin-promover@example.com", status="waitlisted"
+    )
+
+    conteos = await _contar_reservadas(organizacion.id)
+    assert conteos["promocion-lista-espera"] == 1
+
+
+async def test_reserved_count_no_mezcla_eventos_distintos(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento_a = await _crear_evento(cliente, cabeceras, slug="evento-a")
+    await _publicar(cliente, cabeceras, evento_a["id"])
+    evento_b = await _crear_evento(
+        cliente,
+        cabeceras,
+        slug="evento-b",
+        starts_at=(AHORA + timedelta(days=5)).isoformat(),
+        ends_at=(AHORA + timedelta(days=6)).isoformat(),
+    )
+    await _publicar(cliente, cabeceras, evento_b["id"])
+
+    await _crear_inscripcion(
+        organizacion.id, uuid.UUID(evento_a["id"]), "una@example.com", status="confirmed"
+    )
+    for correo in ("dos@example.com", "tres@example.com"):
+        await _crear_inscripcion(
+            organizacion.id, uuid.UUID(evento_b["id"]), correo, status="confirmed"
+        )
+
+    conteos = await _contar_reservadas(organizacion.id)
+    assert conteos["evento-a"] == 1
+    assert conteos["evento-b"] == 2
+
+
+async def test_reserved_count_conserva_el_orden_por_starts_at(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    tardio = await _crear_evento(
+        cliente,
+        cabeceras,
+        slug="tardio",
+        starts_at=(AHORA + timedelta(days=10)).isoformat(),
+        ends_at=(AHORA + timedelta(days=11)).isoformat(),
+    )
+    await _publicar(cliente, cabeceras, tardio["id"])
+    temprano = await _crear_evento(
+        cliente,
+        cabeceras,
+        slug="temprano",
+        starts_at=(AHORA + timedelta(days=1)).isoformat(),
+        ends_at=(AHORA + timedelta(days=2)).isoformat(),
+    )
+    await _publicar(cliente, cabeceras, temprano["id"])
+
+    async with SessionMaintenance() as session:
+        filas = (
+            await session.execute(
+                repository.public_events_with_confirmed_count_query(organizacion.id)
+            )
+        ).all()
+    assert [evento.slug for evento, _ in filas] == ["temprano", "tardio"]
+
+
+async def test_el_detalle_publico_expone_sedes_y_venue_id_de_la_sesion(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """Tanda 1 (solo backend): el detalle público debe llevar `venues` (con
+    `latitude`/`longitude`) y `venue_id` en cada sesión, aunque todavía no haya
+    ningún flujo de admin para asignar sedes a sesiones (tanda 2)."""
+    from unittest.mock import AsyncMock, patch
+
+    from sqlalchemy import text as sql_text
+
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento = await _crear_evento(cliente, cabeceras, slug="con-sedes")
+
+    with patch(
+        "app.modules.events.service.geocode_address",
+        new=AsyncMock(return_value=(39.4699, -0.3763)),
+    ):
+        sede = (
+            await cliente.post(
+                f"{EVENTS}/{evento['id']}/venues",
+                headers=cabeceras,
+                json={"name": "Las Naves", "address": "Valencia"},
+            )
+        ).json()
+
+    sesion = (
+        await cliente.post(
+            f"{EVENTS}/{evento['id']}/sessions",
+            headers=cabeceras,
+            json={
+                "session_type": "talk",
+                "title": "Charla en Las Naves",
+                "starts_at": (AHORA + timedelta(hours=1)).isoformat(),
+                "ends_at": (AHORA + timedelta(hours=2)).isoformat(),
+            },
+        )
+    ).json()
+
+    async with SessionMaintenance() as session:
+        await session.execute(
+            sql_text("UPDATE event_sessions SET venue_id = :venue_id WHERE id = :session_id"),
+            {"venue_id": sede["id"], "session_id": sesion["id"]},
+        )
+        await session.commit()
+
+    await _publicar(cliente, cabeceras, evento["id"])
+
+    detalle = await cliente.get(f"{PUBLIC_EVENTS}/con-sedes")
+    assert detalle.status_code == 200
+    cuerpo = detalle.json()
+    assert len(cuerpo["venues"]) == 1
+    assert cuerpo["venues"][0]["name"] == "Las Naves"
+    assert cuerpo["venues"][0]["latitude"] == 39.4699
+    assert cuerpo["sessions"][0]["venue_id"] == sede["id"]
+
+
+async def test_el_detalle_publico_expone_las_plazas_reservadas(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """La ficha de evento pinta la ocupación (barra de aforo), no solo el aforo
+    total: necesita `reserved_count`, con la misma regla que el listado."""
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento = await _crear_evento(cliente, cabeceras, slug="detalle-con-reservas", capacity=10)
+    await _publicar(cliente, cabeceras, evento["id"])
+
+    sin_reservas = await cliente.get(f"{PUBLIC_EVENTS}/detalle-con-reservas")
+    assert sin_reservas.json()["reserved_count"] == 0
+
+    await _crear_inscripcion(organizacion.id, uuid.UUID(evento["id"]), "una@example.test")
+    await _crear_inscripcion(organizacion.id, uuid.UUID(evento["id"]), "otra@example.test")
+
+    con_reservas = await cliente.get(f"{PUBLIC_EVENTS}/detalle-con-reservas")
+    assert con_reservas.json()["reserved_count"] == 2
 
 
 async def test_el_listado_publico_tiene_limite_de_peticiones_por_ip(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    cabeceras = {"Host": organizacion.host}
     for _ in range(PUBLICO_POR_IP):
-        respuesta = await cliente.get(PUBLIC_EVENTS, headers=cabeceras)
+        respuesta = await cliente.get(PUBLIC_EVENTS)
         assert respuesta.status_code == 200
 
-    bloqueada = await cliente.get(PUBLIC_EVENTS, headers=cabeceras)
+    bloqueada = await cliente.get(PUBLIC_EVENTS)
     assert bloqueada.status_code == 429

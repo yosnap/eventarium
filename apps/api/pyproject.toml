@@ -1,6 +1,6 @@
 [project]
 name = "ia-week-api"
-version = "0.16.0"
+version = "0.21.12"
 description = "API de la plataforma de eventos IA Week"
 requires-python = ">=3.12,<3.13"
 license = { text = "MIT" }
@@ -24,6 +24,28 @@ dependencies = [
     "uuid-utils>=0.10,<1.0",
     "httpx>=0.28,<1.0",
     "aiosmtplib>=5.1.2,<6.0",
+    # Imagen PNG del QR de la entrada (fase 4 del PRD). Puro Python, sin
+    # dependencias propias (a diferencia de `qrcode`, que necesita Pillow
+    # para generar PNG) — la más ligera que cubre "PNG a partir de una
+    # cadena", según el plan.
+    "segno>=1.6,<2.0",
+    # Pagos con Stripe Connect (fase 6 del PRD). Rango fijado a la última
+    # estable (15.6.1): desde la v13 el SDK ya no tiene `stripe.error`
+    # (excepción a capturar: `stripe.StripeError`, del módulo raíz).
+    "stripe[async]>=15.6,<16.0",
+    # API de Datos de GA4 (fase 2 del plan de cookies): estadísticas de
+    # tráfico dentro del panel. Librería oficial (módulo
+    # `google.analytics.data_v1beta`); sigue en beta en Google, no es un
+    # rango holgado sin motivo.
+    "google-analytics-data>=0.19,<1.0",
+    # Biblioteca de medios (plan `260918-1944`): conversión a WebP y
+    # redimensionado de imágenes subidas por usuarios. El proyecto evitó
+    # Pillow deliberadamente para el QR de entradas (ver `segno` arriba),
+    # pero ese caso era generar un PNG desde una cadena propia, no procesar
+    # ficheros de usuario — aquí no hay alternativa razonable sin decodificar
+    # imágenes. Mitigado con límite de dimensiones antes de decodificar
+    # completo (ver `app/modules/media/processing.py`).
+    "pillow>=12.3,<13.0",
 ]
 
 [dependency-groups]
@@ -48,13 +70,24 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "S"]
+select = ["E", "F", "I", "B", "UP", "S", "TID"]
 # S101 (assert) solo se permite en tests; ver per-file-ignores.
 ignore = ["B008"]  # Depends() en argumentos por defecto es el idioma de FastAPI.
 
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+# Confina el SDK de Stripe a un único wrapper (fase 6 del PRD, decisión #7 del
+# plan): ninguna función de servicio importa `stripe` directamente, así que el
+# `acct_id` de destino siempre pasa por la resolución de ese fichero.
+"stripe" = { msg = "Importa stripe solo desde app/modules/payments/stripe_client.py" }
+
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "S105", "S106", "S107"]
-"alembic/**" = ["E501"]
+# `TID251` solo se releva en tests: la regla confina el SDK en el código de la
+# aplicación (`app/`), no en la suite, que necesita construir excepciones y
+# firmas reales del SDK para simular a Stripe sin red.
+"tests/**" = ["S101", "S105", "S106", "S107", "TID251"]
+"alembic/**" = ["E501", "S608"]
+"scripts/**" = ["S608"]
+"app/modules/payments/stripe_client.py" = ["TID251"]
 
 [tool.mypy]
 python_version = "3.12"

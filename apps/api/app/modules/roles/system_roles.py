@@ -62,6 +62,41 @@ ORGANIZER = SystemRoleTemplate(
         Permission.USERS_READ,
         Permission.EVENTS_READ,
         Permission.EVENTS_WRITE,
+        # `REGISTRATIONS_*` faltaba en esta plantilla desde la fase 3 del PRD:
+        # la migración 0010 las dio de alta por backfill a los organizadores
+        # ya clonados en ese momento, pero una organización creada después de
+        # esa migración clonaba un organizador sin ellas, corregido aquí en
+        # la raíz.
+        Permission.REGISTRATIONS_READ,
+        Permission.REGISTRATIONS_WRITE,
+        Permission.TICKETS_READ,
+        Permission.TICKETS_WRITE,
+        # Mismo bug que `REGISTRATIONS_*` en su día (fase 5 del PRD, decisión
+        # #7 del plan): el backfill de la migración solo cubre organizaciones
+        # ya existentes; sin tocar la plantilla, una organización creada
+        # después de esa migración clonaría un organizador sin `sponsors:*`.
+        Permission.SPONSORS_READ,
+        Permission.SPONSORS_WRITE,
+        # Mismo bug que `REGISTRATIONS_*`/`SPONSORS_*` (fase 6 del PRD,
+        # decisión #16 del plan): el backfill de la migración solo cubre
+        # organizaciones ya existentes; sin tocar la plantilla, una
+        # organización creada después clonaría un organizador sin
+        # `payments:*`.
+        Permission.PAYMENTS_READ,
+        Permission.PAYMENTS_WRITE,
+        # Mismo bug que `REGISTRATIONS_*`/`SPONSORS_*`/`PAYMENTS_*` (fase 7 del
+        # PRD, decisión #16 del plan): el backfill de la migración solo cubre
+        # organizaciones ya existentes; sin tocar la plantilla, una
+        # organización creada después clonaría un organizador sin
+        # `accounting:*`.
+        Permission.ACCOUNTING_READ,
+        Permission.ACCOUNTING_WRITE,
+        # Fase 0 del PRD de invitaciones (plan.md): el backfill de la
+        # migración solo cubre organizaciones ya existentes; sin tocar la
+        # plantilla, una organización creada después clonaría un organizador
+        # sin `invitations:manage` — mismo bug que `REGISTRATIONS_*`,
+        # `SPONSORS_*`, `PAYMENTS_*` y `ACCOUNTING_*` antes, ya cuatro veces.
+        Permission.INVITATIONS_MANAGE,
     ),
     profile_fields=(
         ProfileFieldTemplate(key="cargo", label="Cargo", sort_order=10),
@@ -94,7 +129,10 @@ VOLUNTEER = SystemRoleTemplate(
     key="volunteer",
     name="Voluntariado",
     description="Apoya la organización durante el evento.",
-    permissions=(Permission.ORGANIZATIONS_READ,),
+    # Solo escanea entradas en la puerta, no ve estadísticas ni gestiona
+    # preguntas del formulario — de ahí `TICKETS_WRITE` sin `TICKETS_READ`
+    # (fase 4 del PRD, decisión #8 del plan).
+    permissions=(Permission.ORGANIZATIONS_READ, Permission.TICKETS_WRITE),
     profile_fields=(
         ProfileFieldTemplate(
             key="disponibilidad", label="Disponibilidad", field_type="textarea", sort_order=10
@@ -132,3 +170,6 @@ SYSTEM_ROLE_TEMPLATES: tuple[SystemRoleTemplate, ...] = (
 TEMPLATES_BY_KEY: dict[str, SystemRoleTemplate] = {t.key: t for t in SYSTEM_ROLE_TEMPLATES}
 
 OWNER_KEY = OWNER.key
+# Fase 3 del plan de invitaciones: rol por defecto al invitar desde un
+# evento (`POST /events/{id}/invitations`).
+SPEAKER_KEY = SPEAKER.key

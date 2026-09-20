@@ -9,16 +9,31 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import delete
+from sqlalchemy import delete, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
+from app.core.database import set_organization_context
+from app.core.storage import get_storage
 from app.modules.events import repository
 from app.modules.events import schemas as events_schemas
-from app.modules.events.models import Event, EventMember, EventSession, EventSessionParticipant
+from app.modules.events.geocoding import geocode_address
+from app.modules.events.models import (
+    Event,
+    EventMember,
+    EventSession,
+    EventSessionParticipant,
+    EventVenue,
+)
+from app.modules.media.models import Media
 from app.modules.organizations import repository as organizations_repository
+from app.modules.payments import repository as payments_repository
+from app.modules.payments import service as payments_service
+from app.modules.theme_templates.models import ThemeTemplate
 from app.shared.errors import ConflictError, NotFoundError, ValidationDomainError
 
 
@@ -28,6 +43,95 @@ async def _asegurar_slug_disponible(
     existente = await repository.get_event_by_slug(session, organization_id, slug)
     if existente is not None:
         raise ConflictError(f"Ya existe un evento con el identificador «{slug}».")
+
+
+async def _asegurar_venta_posible(
+    session: AsyncSession,
+    organization_id: uuid.UUID,
+    *,
+    status: str,
+    registration_mode: str,
+    event_id: uuid.UUID | None = None,
+) -> None:
+    """Bloquea la **venta**, no la configuración (decisión #13 del plan de
+    la fase 6 del PRD): crear y editar un evento `paid` sigue permitido en
+    borrador, mientras el organizador completa el KYC de Stripe, que puede
+    tardar días. Lo único que exige `charges_enabled = true` es que el
+    resultante sea `published` **y** `paid` a la vez.
+
+    Invocada desde `create_event` **y** `update_event`: `create_event` no
+    validaba nada de estado y aceptaba un
+    evento ya `published`/`paid` de alta, así que la guarda no puede vivir
+    solo en la edición.
+
+    `event_id` solo llega desde `update_event` (`create_event` no tiene
+    todavía una fila de evento sobre la que colgar tipos de entrada). Con él,
+    exige al menos un tipo de entrada vigente: el formulario público decide
+    si un evento «es de pago» por si
+    la lista de tipos de entrada vendibles está vacía o no
+    (`registration-page.ts`), así que un evento `paid` publicado sin ninguno
+    la confundiría con uno gratuito.
+    """
+    if status != "published" or registration_mode != "paid":
+        return
+
+    settings = get_settings()
+    if not settings.payments_enabled:
+        raise ConflictError(
+            "No se puede publicar un evento de pago: esta instalación no tiene Stripe configurado."
+        )
+
+    cuenta = await payments_repository.get_cuenta_activa(session, organization_id)
+    if cuenta is None or not cuenta.charges_enabled:
+        raise ConflictError(
+            "No se puede publicar un evento de pago hasta conectar una cuenta de Stripe "
+            "y completar su verificación."
+        )
+
+    if event_id is not None:
+        ahora = datetime.now(UTC)
+        tipos = await payments_repository.get_ticket_types(session, organization_id, event_id)
+        if not any(payments_service.validar_tipo_vigente(tipo, ahora) for tipo in tipos):
+            raise ConflictError(
+                "No se puede publicar un evento de pago sin ningún tipo de entrada vigente."
+            )
+
+
+async def _geocodificar_direccion(address: str) -> tuple[Decimal, Decimal, datetime] | None:
+    """Geocodifica `address` y empaqueta el resultado listo para persistir, o
+    `None` si Nominatim no devolvió coordenadas (fallo de red, sin resultados,
+    respuesta inesperada — `geocode_address` ya absorbe esos casos, aquí solo
+    se traduce a los tipos de columna)."""
+    resultado = await geocode_address(address)
+    if resultado is None:
+        return None
+    latitud, longitud = resultado
+    return (Decimal(str(latitud)), Decimal(str(longitud)), datetime.now(UTC))
+
+
+async def _sincronizar_geocodificacion_evento(
+    evento: Event, *, location_mode: str, address: str | None, direccion_anterior: str | None
+) -> None:
+    """Geocodifica `Event.location_address` con el mismo mecanismo que
+    `EventVenue.address` (decisión #4 del encargo: un único mecanismo de
+    dirección+geocodificación para ambos). Solo llama a Nominatim cuando la
+    dirección cambió (o nunca se geocodificó) respecto al valor guardado — la
+    comparación vive aquí, `geocode_address` es una función pura sin acceso a
+    base de datos."""
+    if location_mode == "online" or not address:
+        evento.latitude = None
+        evento.longitude = None
+        evento.geocoded_at = None
+        return
+    if address == direccion_anterior and evento.geocoded_at is not None:
+        return
+    resultado = await _geocodificar_direccion(address)
+    if resultado is None:
+        evento.latitude = None
+        evento.longitude = None
+        evento.geocoded_at = None
+        return
+    evento.latitude, evento.longitude, evento.geocoded_at = resultado
 
 
 async def create_event(
@@ -40,16 +144,64 @@ async def create_event(
     try:
         await session.flush()
     except IntegrityError as exc:
-        # La comprobación de arriba no cierra la carrera: dos altas con el mismo
-        # slug pueden llegar a la vez. El `UNIQUE(organization_id, slug)` es la
-        # única fuente de verdad ante esa carrera estrecha.
+        # El slug es único en toda la instalación (`UNIQUE(slug)`), no solo
+        # dentro de la organización: la comprobación de arriba solo ve, bajo
+        # RLS, los eventos de la propia organización, así que una colisión con
+        # el slug de OTRA organización es un flujo normal que solo se detecta
+        # aquí, en el `flush` — no únicamente la carrera entre dos altas
+        # simultáneas dentro de la misma organización.
         raise ConflictError(f"Ya existe un evento con el identificador «{datos['slug']}».") from exc
+
+    # `event_id=evento.id` tras el `flush` (no antes de crearlo, como hacía
+    # esta llamada originalmente): sin él, un alta directa con
+    # `status=published`/`registration_mode=paid` se saltaba la exigencia de
+    # al menos un tipo de entrada vigente, porque
+    # `_asegurar_venta_posible` solo la comprueba cuando recibe `event_id`. Si
+    # esto falla, el `session.begin()` de `get_db` deshace también el
+    # `flush` de arriba: nunca queda un evento a medio crear.
+    await _asegurar_venta_posible(
+        session,
+        organization_id,
+        status=evento.status,
+        registration_mode=evento.registration_mode,
+        event_id=evento.id,
+    )
+    await _sincronizar_geocodificacion_evento(
+        evento,
+        location_mode=evento.location_mode,
+        address=evento.location_address,
+        direccion_anterior=None,
+    )
+    await session.flush()
     return evento
 
 
 def _validar_transicion_de_estado(actual: str, nuevo: str) -> None:
     if actual == "archived" and nuevo != "archived":
         raise ValidationDomainError("Un evento archivado no puede volver a editarse.")
+
+
+async def _resolver_plantilla_del_evento(
+    session: AsyncSession, valor: str | None
+) -> uuid.UUID | None:
+    """Traduce la plantilla que llega del panel al id que va a la columna.
+
+    Cadena vacía o `None` significan **heredar** (la columna queda `NULL`), que
+    es como se deshace una elección. Cualquier otra cosa tiene que ser el id de
+    una plantilla del catálogo: si no es un id o no existe, se rechaza con un
+    mensaje legible en vez de dejar que reviente la base de datos.
+    """
+    if not valor:
+        return None
+    try:
+        plantilla_id = uuid.UUID(valor)
+    except (ValueError, AttributeError) as exc:
+        raise ValidationDomainError("La plantilla indicada no es válida.") from exc
+
+    existe = await session.scalar(select(ThemeTemplate.id).where(ThemeTemplate.id == plantilla_id))
+    if existe is None:
+        raise ValidationDomainError("La plantilla indicada no existe.")
+    return plantilla_id
 
 
 async def update_event(
@@ -67,13 +219,60 @@ async def update_event(
     if nuevo_estado is not None and nuevo_estado != evento.status:
         _validar_transicion_de_estado(evento.status, nuevo_estado)
 
+    # `contingency_fund_percent` es el único campo de contabilidad editable
+    # desde `EventUpdate` (plan.md Decisión #6) y solo mientras el
+    # presupuesto no esté aprobado: una vez aprobado, `contingency_fund_cents`
+    # ya está dotado sobre el porcentaje congelado en ese momento — cambiar el
+    # porcentaje después desincronizaría el fondo ya dotado del que se
+    # recalcularía en la siguiente aprobación, sin que nadie lo audite (esa
+    # auditoría vive en `accounting.aprobar_presupuesto`/`reabrir_presupuesto`,
+    # no aquí).
+    if "contingency_fund_percent" in datos and evento.budget_approved_at is not None:
+        raise ConflictError(
+            "El fondo de contingencia ya está aprobado; reabre el presupuesto "
+            "antes de cambiar el porcentaje."
+        )
+
+    # Evaluado sobre el evento **resultante**, no el actual: un `PATCH` que
+    # cambia `status` y `registration_mode` a la vez debe quedar bloqueado
+    # igual que si cada campo se editara por separado.
+    await _asegurar_venta_posible(
+        session,
+        organization_id,
+        status=datos.get("status", evento.status),
+        registration_mode=datos.get("registration_mode", evento.registration_mode),
+        event_id=evento.id,
+    )
+
     inicio = datos.get("starts_at", evento.starts_at)
     fin = datos.get("ends_at", evento.ends_at)
     if fin <= inicio:
         raise ValidationDomainError("La fecha de fin debe ser posterior a la de inicio.")
 
+    direccion_anterior = evento.location_address
+
+    # La plantilla del evento llega como cadena (o vacía, para volver a heredar)
+    # y la columna es UUID: se traduce antes del `setattr` genérico, que si no
+    # intentaría guardar texto en una columna de otro tipo.
+    #
+    # La validación ocurre **aquí y no en el `flush`**: un identificador que no
+    # existe o mal formado saltaría como `IntegrityError`, y el `except` de
+    # abajo lo reportaría como «ya existe un evento con ese identificador», que
+    # no tiene nada que ver con lo que ha pasado.
+    if "theme_template_id" in datos:
+        evento.theme_template_id = await _resolver_plantilla_del_evento(
+            session, datos.pop("theme_template_id")
+        )
+
     for campo, valor in datos.items():
         setattr(evento, campo, valor)
+
+    await _sincronizar_geocodificacion_evento(
+        evento,
+        location_mode=evento.location_mode,
+        address=evento.location_address,
+        direccion_anterior=direccion_anterior,
+    )
 
     try:
         await session.flush()
@@ -89,6 +288,21 @@ def _validar_sesion_dentro_del_evento(
         raise ValidationDomainError("La sesión debe caer dentro del rango de fechas del evento.")
 
 
+async def _validar_sede_del_evento(
+    session: AsyncSession,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    venue_id: str,
+) -> None:
+    try:
+        venue_uuid = uuid.UUID(venue_id)
+    except ValueError as exc:
+        raise ValidationDomainError("El identificador de la sede no es válido.") from exc
+    sede = await repository.get_event_venue(session, organization_id, event_id, venue_uuid)
+    if sede is None:
+        raise ValidationDomainError("La sede indicada no pertenece a este evento.")
+
+
 async def create_session(
     session: AsyncSession,
     *,
@@ -100,6 +314,8 @@ async def create_session(
     if evento is None:
         raise NotFoundError("El evento no existe.")
     _validar_sesion_dentro_del_evento(evento, datos["starts_at"], datos["ends_at"])
+    if datos.get("venue_id") is not None:
+        await _validar_sede_del_evento(session, organization_id, event_id, datos["venue_id"])
 
     sesion = EventSession(event_id=event_id, organization_id=organization_id, **datos)
     session.add(sesion)
@@ -127,6 +343,8 @@ async def update_session(
     if fin <= inicio:
         raise ValidationDomainError("La fecha de fin debe ser posterior a la de inicio.")
     _validar_sesion_dentro_del_evento(evento, inicio, fin)
+    if "venue_id" in datos and datos["venue_id"] is not None:
+        await _validar_sede_del_evento(session, organization_id, event_id, datos["venue_id"])
 
     # `EventSessionUpdate` valida `video_url`/`materials` campo a campo, pero un
     # `PATCH` parcial puede tocar solo uno de los dos (p. ej. cambiar la URL sin
@@ -280,3 +498,195 @@ async def replace_session_participants(
             "Dos guardados de la agenda han chocado. Recarga e inténtalo de nuevo."
         ) from exc
     return sesion
+
+
+async def _sincronizar_geocodificacion_sede(
+    sede: EventVenue, *, address: str | None, direccion_anterior: str | None
+) -> None:
+    """Misma lógica que `_sincronizar_geocodificacion_evento`, sin el concepto de
+    `location_mode`: una sede siempre es un sitio físico, así que basta con que
+    tenga dirección."""
+    if not address:
+        sede.latitude = None
+        sede.longitude = None
+        sede.geocoded_at = None
+        return
+    if address == direccion_anterior and sede.geocoded_at is not None:
+        return
+    resultado = await _geocodificar_direccion(address)
+    if resultado is None:
+        sede.latitude = None
+        sede.longitude = None
+        sede.geocoded_at = None
+        return
+    sede.latitude, sede.longitude, sede.geocoded_at = resultado
+
+
+async def create_venue(
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    datos: dict[str, Any],
+) -> EventVenue:
+    evento = await repository.get_event(session, organization_id, event_id)
+    if evento is None:
+        raise NotFoundError("El evento no existe.")
+
+    sede = EventVenue(event_id=event_id, organization_id=organization_id, **datos)
+    session.add(sede)
+    await _sincronizar_geocodificacion_sede(sede, address=sede.address, direccion_anterior=None)
+    await session.flush()
+    return sede
+
+
+async def update_venue(
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    venue_id: uuid.UUID,
+    datos: dict[str, Any],
+) -> EventVenue:
+    evento = await repository.get_event(session, organization_id, event_id)
+    if evento is None:
+        raise NotFoundError("El evento no existe.")
+    sede = await repository.get_event_venue(session, organization_id, event_id, venue_id)
+    if sede is None:
+        raise NotFoundError("La sede no existe.")
+
+    direccion_anterior = sede.address
+    for campo, valor in datos.items():
+        setattr(sede, campo, valor)
+
+    await _sincronizar_geocodificacion_sede(
+        sede, address=sede.address, direccion_anterior=direccion_anterior
+    )
+    await session.flush()
+    return sede
+
+
+async def delete_venue(
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    venue_id: uuid.UUID,
+) -> None:
+    evento = await repository.get_event(session, organization_id, event_id)
+    if evento is None:
+        raise NotFoundError("El evento no existe.")
+    sede = await repository.get_event_venue(session, organization_id, event_id, venue_id)
+    if sede is None:
+        raise NotFoundError("La sede no existe.")
+
+    en_uso = await repository.count_sessions_using_venue(session, organization_id, sede.id)
+    if en_uso > 0:
+        raise ConflictError(
+            f"No se puede borrar la sede: {en_uso} sesión(es) de la agenda la tienen asignada."
+        )
+
+    await session.delete(sede)
+    await session.flush()
+
+
+async def resolve_public_event_by_slug(session: AsyncSession, slug: str) -> Event:
+    """Resuelve un evento público por su slug, sin ningún contexto RLS previo.
+
+    Sin dominio por organización, la organización de una página pública sale
+    del propio evento, no de ningún host (fase 2 del plan de organización sin
+    dominio). `app_resolve_public_event` es `SECURITY DEFINER` de alcance
+    mínimo: solo devuelve `(id, organization_id)`, y solo si el evento ya
+    cumple las condiciones de "publicable" (`published` + `public`) — la
+    comprobación de visibilidad va dentro de la función, no después, para que
+    un evento no publicable no revele ni que existe (mismo fail-closed que
+    usaba antes la resolución por host para un host desconocido).
+
+    Fija el contexto RLS de `session` (organización **y** vacía `app.user_id`
+    — solo para caminos sin autenticar). Solo debe llamarse desde routers
+    públicos, nunca desde uno autenticado: sobrescribiría la organización
+    activa y el usuario de la sesión en curso.
+    """
+    fila = (
+        await session.execute(
+            text("SELECT id, organization_id FROM app_resolve_public_event(:slug)"),
+            {"slug": slug},
+        )
+    ).first()
+    if fila is None:
+        raise NotFoundError("El evento no existe.")
+
+    await set_organization_context(session, fila[1])
+    evento = await session.get(Event, fila[0])
+    if evento is None:  # pragma: no cover - ya lo garantiza la función SECURITY DEFINER
+        raise NotFoundError("El evento no existe.")
+
+    return evento
+
+
+async def _resolver_cover_url(session: AsyncSession, evento: Event) -> str | None:
+    """Misma lógica que `events/public_router.py::_cover_url`, pero
+    invocada DENTRO del bucle por organización de
+    `list_public_events_across_organizations` — llamarla después de que el
+    bucle termine resolvería `Media` con el contexto RLS de la ÚLTIMA
+    organización iterada, y la portada de cualquier otro evento con
+    `cover_media_id` saldría `None` en silencio (`Media` tiene `FORCE ROW
+    LEVEL SECURITY`, hallazgo de code-review)."""
+    almacen = get_storage()
+    if evento.cover_media_id is not None:
+        media = await session.get(Media, evento.cover_media_id)
+        return almacen.public_url(media.object_key) if media else None
+    if evento.cover_object_key:
+        return almacen.public_url(evento.cover_object_key)
+    return None
+
+
+async def list_public_events_across_organizations(
+    session: AsyncSession,
+) -> list[tuple[Event, int, payments_service.PrecioPublico | None, str | None]]:
+    """Eventos publicados de **toda la instalación**, sin organización activa.
+
+    Fase 6 del plan de organización sin dominio: `GET /public/events` (el
+    listado) seguía resolviendo por host, comportamiento roto en producción
+    sin dominio propio (ver riesgos de `plan.md`). El frontend ya esperaba un
+    listado de toda la instalación, sin filtro de organización
+    (`upcoming-events.ts`/`events-list-page.ts` piden el mismo endpoint sin
+    ningún parámetro).
+
+    RLS exige el contexto de una organización por fila; no hay ningún host
+    que lo fije de antemano para "todas a la vez". `app_list_public_event_organizations`
+    (`SECURITY DEFINER` de alcance mínimo, mismo patrón que
+    `app_resolve_public_event`) devuelve solo los `id` de organización con al
+    menos un evento publicable — la resolución completa de cada una se hace
+    después, fijando su contexto RLS una por una y reutilizando exactamente
+    las mismas consultas que ya usa el listado de una sola organización
+    (`public_events_with_confirmed_count_query`, `get_min_public_prices`):
+    nada de SQL nuevo por duplicar, solo repetido por organización. El número
+    de organizaciones de una instalación es pequeño (no es una consulta por
+    evento, es una por organización), así que el coste es aceptable para un
+    endpoint ya limitado por IP.
+    """
+    organizaciones = (
+        await session.execute(
+            text("SELECT organization_id FROM app_list_public_event_organizations()")
+        )
+    ).all()
+
+    resultado: list[tuple[Event, int, payments_service.PrecioPublico | None, str | None]] = []
+    for (organization_id,) in organizaciones:
+        await set_organization_context(session, organization_id)
+        filas = (
+            await session.execute(
+                repository.public_events_with_confirmed_count_query(organization_id)
+            )
+        ).all()
+        ids_de_pago = [evento.id for evento, _ in filas if evento.registration_mode == "paid"]
+        precios = await payments_service.get_min_public_prices(
+            session, organization_id=organization_id, event_ids=ids_de_pago
+        )
+        for evento, reservadas in filas:
+            cover_url = await _resolver_cover_url(session, evento)
+            resultado.append((evento, reservadas, precios.get(evento.id), cover_url))
+
+    resultado.sort(key=lambda item: item[0].starts_at)
+    return resultado

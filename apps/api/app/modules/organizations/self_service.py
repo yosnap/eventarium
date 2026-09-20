@@ -10,7 +10,7 @@ Solo la primerísima fila de `organizations` necesita saltarse RLS (la política
 `id = app_current_organization()`, y una organización que aún no existe no puede ser
 el contexto de nadie). Se resuelve con `app_create_organization_row`, una función
 `SECURITY DEFINER` de alcance mínimo. En cuanto esa fila existe, el resto —clonar
-roles, dominio, branding, membresía del propietario— se hace fijando el contexto RLS a
+roles, branding, membresía del propietario— se hace fijando el contexto RLS a
 la organización nueva y reutilizando el código normal (`organization_service`), no una
 versión reimplementada que pudiera divergir del alta por superadmin.
 """
@@ -19,21 +19,19 @@ from __future__ import annotations
 
 import re
 
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, Request, Response, status
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from app.core.config import get_settings
 from app.core.database import set_organization_context
-from app.core.deps import DbDep, VerifiedUserDep
+from app.core.deps import SessionDep, VerifiedUserDep
 from app.core.ratelimit import CHECK_SLUG_POR_IP, CREAR_ORGANIZACION_POR_IP, limit_per_ip
 from app.core.turnstile import require_turnstile
+from app.modules.auth import service as auth_service
+from app.modules.auth.cookies import fijar_cookie_refresh
+from app.modules.auth.service import AuthenticatedUser
 from app.modules.organizations import service as organization_service
-from app.modules.organizations.models import (
-    OrganizationBranding,
-    OrganizationDomain,
-    OrganizationMember,
-)
+from app.modules.organizations.models import OrganizationBranding, OrganizationMember
 from app.modules.organizations.schemas import (
     RESERVED_SLUGS,
     SLUG_PATTERN,
@@ -42,7 +40,6 @@ from app.modules.organizations.schemas import (
     SelfServiceOrganizationResponse,
 )
 from app.modules.roles.system_roles import OWNER_KEY
-from app.modules.tenant.schemas import DEFAULT_COLORS, DEFAULT_FONTS
 from app.shared.errors import ConflictError, ValidationDomainError
 from app.shared.identifiers import new_uuid7
 
@@ -59,14 +56,16 @@ def _slug_valido(slug: str) -> bool:
     "/check-slug",
     summary="Comprobar disponibilidad de un identificador de organización",
     description=(
-        "Ayuda de UX para sugerir un subdominio libre mientras se escribe. No es la "
-        "validación de seguridad: la creación real vuelve a comprobarlo y el `UNIQUE` "
-        "de la base de datos es la única fuente de verdad ante una carrera."
+        "Ayuda de UX para comprobar si un identificador interno de organización "
+        "está libre (el cliente lo genera desde el nombre y reintenta con sufijo "
+        "si colisiona). No es la validación de seguridad: la creación real vuelve "
+        "a comprobarlo y el `UNIQUE` de la base de datos es la única fuente de "
+        "verdad ante una carrera."
     ),
     response_model=CheckSlugResponse,
     dependencies=[limit_per_ip("check-slug", CHECK_SLUG_POR_IP)],
 )
-async def check_slug(slug: str, session: DbDep) -> CheckSlugResponse:
+async def check_slug(slug: str, session: SessionDep) -> CheckSlugResponse:
     slug_limpio = slug.strip().lower()
     if not _slug_valido(slug_limpio):
         return CheckSlugResponse(available=False)
@@ -79,10 +78,7 @@ async def check_slug(slug: str, session: DbDep) -> CheckSlugResponse:
 @router.post(
     "",
     summary="Crear una organización (autoservicio)",
-    description=(
-        "Exige correo verificado y Turnstile. La persona autenticada queda como "
-        "`owner`; el subdominio se registra como `{slug}.DOMINIO_BASE`."
-    ),
+    description="Exige correo verificado y Turnstile. La persona autenticada queda como `owner`.",
     status_code=status.HTTP_201_CREATED,
     response_model=SelfServiceOrganizationResponse,
     dependencies=[limit_per_ip("crear-organizacion", CREAR_ORGANIZACION_POR_IP)],
@@ -91,7 +87,8 @@ async def create_organization(
     datos: SelfServiceOrganizationCreate,
     persona: VerifiedUserDep,
     request: Request,
-    session: DbDep,
+    response: Response,
+    session: SessionDep,
 ) -> SelfServiceOrganizationResponse:
     await require_turnstile(request, datos.turnstile_token)
 
@@ -100,9 +97,6 @@ async def create_organization(
         raise ValidationDomainError(
             f"El identificador «{slug_limpio}» no es válido o está reservado."
         )
-
-    settings = get_settings()
-    host = f"{slug_limpio}.{settings.dominio_base}" if settings.dominio_base else slug_limpio
 
     organization_id = new_uuid7()
     try:
@@ -125,13 +119,9 @@ async def create_organization(
     roles_clonados = await organization_service.clone_system_roles(session, organization_id)
     owner_role = roles_clonados[OWNER_KEY]
 
-    session.add(OrganizationDomain(organization_id=organization_id, host=host, is_primary=True))
     session.add(
         OrganizationBranding(
             organization_id=organization_id,
-            template_key="classic",
-            colors=dict(DEFAULT_COLORS),
-            fonts=dict(DEFAULT_FONTS),
             social_links=[],
         )
     )
@@ -155,4 +145,26 @@ async def create_organization(
     )
     await session.flush()
 
-    return SelfServiceOrganizationResponse(id=str(organization_id), slug=slug_limpio, host=host)
+    # Sesión completa, con la organización recién creada ya activa: quien
+    # llega aquí puede venir del enlace de verificación de correo, sin
+    # ninguna cookie de refresco todavía — igual que `/auth/login`, no un
+    # mecanismo aparte (fase 4 del plan de organización sin dominio).
+    es_superadmin = await session.scalar(
+        text("SELECT is_superadmin FROM users WHERE id = :id"), {"id": persona.id}
+    )
+    usuario = AuthenticatedUser(
+        id=persona.id,
+        email=persona.email,
+        first_name=datos.first_name,
+        last_name=datos.last_name,
+        is_superadmin=bool(es_superadmin),
+    )
+    tokens = await auth_service.issue_tokens(usuario, organization_id)
+    fijar_cookie_refresh(response, tokens.refresh_token)
+
+    return SelfServiceOrganizationResponse(
+        id=str(organization_id),
+        slug=slug_limpio,
+        access_token=tokens.access_token,
+        expires_in=tokens.expires_in,
+    )

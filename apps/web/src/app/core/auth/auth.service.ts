@@ -10,6 +10,33 @@ export interface UsuarioAutenticado {
   readonly first_name: string | null;
   readonly last_name: string | null;
   readonly is_superadmin: boolean;
+  /** Rol aditivo de plataforma (`soporte`): lectura del panel de plataforma
+   * sin ser superadmin. Viaja en la respuesta del login (`UserSummary`,
+   * migración `0042`) y en `loadCurrentUser()`: el guard del panel decide
+   * con él nada más entrar, sin esperar a un `/users/me` extra. */
+  readonly platform_role?: string | null;
+  /** Ausente en la respuesta del login (`UserSummary`, sin organización
+   * resuelta todavía en ese momento); presente en `loadCurrentUser()`
+   * (`/users/me`, `CurrentUserResponse`). La organización activa de la
+   * sesión — nunca la del host, que ya no determina nada. */
+  readonly organization_id?: string;
+  /** "Avisarme de eventos similares" — mismo motivo de ausencia que
+   * `organization_id`: no viaja en `UserSummary` del login, solo en
+   * `CurrentUserResponse`. */
+  readonly notify_similar_events?: boolean;
+}
+
+/**
+ * Quien el backend deja entrar en el panel de plataforma
+ * (`require_platform_staff`): superadmin, o el rol aditivo `soporte`
+ * (solo lectura de lo que administra la instalación). El guard de las rutas
+ * `/admin`, la visibilidad de los enlaces del nav y el puente entre paneles
+ * comparten esta única definición para no divergir del backend.
+ */
+export function esPersonalDePlataforma(
+  usuario: Pick<UsuarioAutenticado, 'is_superadmin' | 'platform_role'> | null,
+): boolean {
+  return !!usuario && (usuario.is_superadmin || usuario.platform_role === 'soporte');
 }
 
 /**
@@ -47,7 +74,7 @@ export interface OrganizacionDeLaPersona {
   readonly organization_id: string;
   readonly slug: string;
   readonly name: string;
-  readonly host: string | null;
+  readonly role_name: string | null;
 }
 
 export interface MembresiaPublicable {
@@ -89,10 +116,34 @@ export class AuthService {
    */
   private readonly bridge = signal<string | null>(null);
 
+  /**
+   * Sesión de impersonación activa: a quién se suplanta y con qué token.
+   *
+   * El token del administrador **no se toca**: se guarda aparte el de la
+   * suplantación, que es el que viaja en las peticiones mientras dura. Así
+   * «salir» es simplemente descartar este estado y volver al del admin, y una
+   * recarga de página pierde la suplantación (el token vive en memoria, nunca
+   * en `localStorage`) — documentado como comportamiento esperado.
+   */
+  private readonly impersonacion = signal<{
+    token: string;
+    usuarioId: string;
+    nombre: string;
+  } | null>(null);
+
   readonly accessToken = this.token.asReadonly();
   readonly currentUser = this.usuario.asReadonly();
   readonly isAuthenticated = computed(() => this.token() !== null);
   readonly bridgeToken = this.bridge.asReadonly();
+  /** Datos de la suplantación en curso, o `null` si no la hay. */
+  readonly suplantando = this.impersonacion.asReadonly();
+
+  /**
+   * Token que deben usar las peticiones: el de la suplantación si la hay, y si
+   * no el de la sesión normal. El interceptor lee `accessToken`, así que este
+   * es el punto donde una suplantación toma el relevo.
+   */
+  readonly tokenEfectivo = computed(() => this.impersonacion()?.token ?? this.token());
 
   /**
    * Recarga el usuario actual desde la API.
@@ -159,9 +210,20 @@ export class AuthService {
   }
 
   /**
-   * Crea la organización con el token puente de `verifyEmail`. La cabecera se fija a
-   * mano: el interceptor solo añade automáticamente el token de sesión normal
-   * (`accessToken`), que aquí sigue valiendo `null`.
+   * Crea la organización con el token puente de `verifyEmail` cuando existe (alta
+   * justo tras verificar el correo, sin sesión normal todavía); si no, con la sesión
+   * normal ya iniciada — el backend acepta cualquiera de los dos
+   * (`VerifiedUserDep` solo exige un token válido con el correo verificado, no un
+   * tipo de token concreto), así que una cuenta que ya tiene una organización puede
+   * dar de alta otra sin volver a verificar nada. La cabecera se fija a mano porque
+   * el interceptor solo añade automáticamente el token de sesión normal, que en el
+   * primer caso (justo tras verificar) todavía vale `null`.
+   */
+  /**
+   * Crea la organización y activa la sesión completa que devuelve la propia
+   * respuesta — quien llama puede venir de verificar su correo, sin ninguna
+   * sesión normal todavía (fase 4 del plan de organización sin dominio: sin
+   * dominio propio, no hay a qué host redirigir).
    */
   async createOrganization(datos: {
     name: string;
@@ -170,12 +232,18 @@ export class AuthService {
     lastName: string;
     turnstileToken: string;
   }): Promise<{ id: string; slug: string; host: string }> {
-    const token = this.bridge();
+    const token = this.bridge() ?? this.tokenEfectivo();
     if (!token) {
-      throw new Error('No hay una sesión de verificación activa.');
+      throw new Error('No hay una sesión activa.');
     }
-    return firstValueFrom(
-      this.http.post<{ id: string; slug: string; host: string }>(
+    const respuesta = await firstValueFrom(
+      this.http.post<{
+        id: string;
+        slug: string;
+        host: string;
+        access_token: string;
+        expires_in: number;
+      }>(
         this.api.url('/organizations'),
         {
           name: datos.name,
@@ -184,9 +252,12 @@ export class AuthService {
           last_name: datos.lastName,
           turnstile_token: datos.turnstileToken,
         },
-        { headers: { Authorization: `Bearer ${token}` } },
+        { headers: { Authorization: `Bearer ${token}` }, withCredentials: true },
       ),
     );
+    this.token.set(respuesta.access_token);
+    this.bridge.set(null);
+    return respuesta;
   }
 
   async checkSlug(slug: string): Promise<boolean> {
@@ -226,12 +297,20 @@ export class AuthService {
   }
 
   /** Nombre y locale. El correo tiene su propio flujo (`changeEmail`). */
-  async updateMe(datos: { firstName?: string; lastName?: string; locale?: string }): Promise<void> {
+  async updateMe(datos: {
+    firstName?: string;
+    lastName?: string;
+    locale?: string;
+    notifySimilarEvents?: boolean;
+  }): Promise<void> {
     const respuesta = await firstValueFrom(
       this.http.patch<UsuarioAutenticado>(this.api.url('/users/me'), {
         ...(datos.firstName !== undefined ? { first_name: datos.firstName } : {}),
         ...(datos.lastName !== undefined ? { last_name: datos.lastName } : {}),
         ...(datos.locale !== undefined ? { locale: datos.locale } : {}),
+        ...(datos.notifySimilarEvents !== undefined
+          ? { notify_similar_events: datos.notifySimilarEvents }
+          : {}),
       }),
     );
     this.usuario.set(respuesta);
@@ -311,6 +390,26 @@ export class AuthService {
     );
   }
 
+  /**
+   * Cambia la organización activa sin volver a loguearse.
+   *
+   * `withCredentials: true` porque el backend necesita la cookie de refresco
+   * (rota el refresh token igual que un `/auth/refresh` normal, con la
+   * organización de destino) — no basta con el access token de la sesión.
+   * Sin dominio por organización, esto sustituye por completo al antiguo
+   * enlace a `https://{host}/dashboard`.
+   */
+  async switchOrganization(organizationId: string): Promise<void> {
+    const respuesta = await firstValueFrom(
+      this.http.post<RespuestaRefresh>(
+        this.api.url('/auth/switch-organization'),
+        { organization_id: organizationId },
+        { withCredentials: true },
+      ),
+    );
+    this.token.set(respuesta.access_token);
+  }
+
   async logout(): Promise<void> {
     try {
       await firstValueFrom(
@@ -321,9 +420,59 @@ export class AuthService {
     }
   }
 
+  /**
+   * Abre una sesión de impersonación sobre otro usuario (solo lectura).
+   *
+   * Exige la contraseña del propio administrador y un motivo, y la organización
+   * en la que se suplanta: el usuario puede pertenecer a varias y el token fija
+   * una, así que hay que decir cuál. El token del administrador se conserva
+   * intacto para poder salir.
+   */
+  async impersonar(datos: {
+    userId: string;
+    organizationId: string;
+    reason: string;
+    password: string;
+    nombreVisible: string;
+  }): Promise<void> {
+    const respuesta = await firstValueFrom(
+      this.http.post<{ access_token: string }>(this.api.url('/admin/impersonate'), {
+        user_id: datos.userId,
+        organization_id: datos.organizationId,
+        reason: datos.reason,
+        password: datos.password,
+      }),
+    );
+    this.impersonacion.set({
+      token: respuesta.access_token,
+      usuarioId: datos.userId,
+      nombre: datos.nombreVisible,
+    });
+  }
+
+  /**
+   * Sale de la suplantación.
+   *
+   * El `POST` de salida se hace **con el token de suplantación** (que es lo que
+   * el interceptor pone ahora en la cabecera), y es lo que revoca la sesión en
+   * el servidor. Después se descarta el estado local: el administrador vuelve a
+   * su propia sesión, que nunca se había tocado.
+   */
+  async salirDeImpersonacion(): Promise<void> {
+    if (this.impersonacion() === null) {
+      return;
+    }
+    try {
+      await firstValueFrom(this.http.post(this.api.url('/admin/impersonate/stop'), null));
+    } finally {
+      this.impersonacion.set(null);
+    }
+  }
+
   clear(): void {
     this.token.set(null);
     this.usuario.set(null);
     this.bridge.set(null);
+    this.impersonacion.set(null);
   }
 }

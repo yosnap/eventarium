@@ -9,8 +9,9 @@ from fastapi import APIRouter, status
 from sqlalchemy import delete, select, text
 from sqlalchemy.exc import IntegrityError
 
-from app.core.deps import CurrentUserDep, DbDep, PermissionsDep
+from app.core.deps import CurrentUserDep, DbDep, PermissionsDep, SessionDep
 from app.core.permissions import Permission
+from app.core.ratelimit import CHECK_SLUG_POR_IP, limit_per_ip
 from app.modules.auth import service as auth_service
 from app.modules.events.models import SpeakerPublicProfile
 from app.modules.organizations.models import OrganizationMember
@@ -57,9 +58,11 @@ async def get_me(
         first_name=usuario.first_name,
         last_name=usuario.last_name,
         is_superadmin=usuario.is_superadmin,
+        platform_role=usuario.platform_role,
         organization_id=str(usuario.organization_id),
         roles=sorted(claves),
         permissions=sorted(Permission(p) for p in permisos),
+        notify_similar_events=usuario.notify_similar_events,
     )
 
 
@@ -117,7 +120,9 @@ async def change_email(
         "correo nuevo."
     ),
 )
-async def change_email_confirm(datos: ChangeEmailConfirmRequest, session: DbDep) -> dict[str, str]:
+async def change_email_confirm(
+    datos: ChangeEmailConfirmRequest, session: SessionDep
+) -> dict[str, str]:
     await auth_service.change_email_confirm(session, token=datos.token)
     return {"message": "Correo actualizado correctamente."}
 
@@ -313,11 +318,14 @@ async def update_public_profile(
     "/me/public-profile/check-slug",
     summary="Comprobar disponibilidad de un identificador de ponente",
     description=(
-        "Ayuda de UX en vivo, mismo espíritu que el `check-slug` de organizaciones "
-        "pero sin `SECURITY DEFINER`: quien pregunta ya tiene contexto de "
-        "organización (autenticado), así que una consulta normal bajo RLS basta."
+        "Ayuda de UX en vivo, mismo espíritu que el `check-slug` de organizaciones: "
+        "el `public_slug` es único en toda la instalación, no solo dentro de la "
+        "organización de quien pregunta, así que hace falta `SECURITY DEFINER` "
+        "para verlo — una consulta normal bajo RLS no vería perfiles de otras "
+        "organizaciones."
     ),
     response_model=CheckPublicSlugResponse,
+    dependencies=[limit_per_ip("check-slug-ponente", CHECK_SLUG_POR_IP)],
 )
 async def check_public_slug(
     slug: str, usuario: CurrentUserDep, session: DbDep
@@ -325,31 +333,39 @@ async def check_public_slug(
     slug_limpio = slug.strip().lower()
     if not _SLUG_RE.fullmatch(slug_limpio):
         return CheckPublicSlugResponse(available=False)
-    existente = await session.scalar(
-        select(SpeakerPublicProfile.id).where(
-            SpeakerPublicProfile.organization_id == usuario.organization_id,
-            SpeakerPublicProfile.public_slug == slug_limpio,
+    disponible = (
+        await session.execute(
+            text("SELECT app_check_public_slug_available(:slug)"), {"slug": slug_limpio}
         )
-    )
-    return CheckPublicSlugResponse(available=existente is None)
+    ).scalar_one()
+    return CheckPublicSlugResponse(available=bool(disponible))
 
 
 @router.get(
     "/me/organizations",
     summary="Organizaciones a las que pertenece la persona",
-    description="Para el selector de organización del panel, cuando pertenece a más de una.",
+    description=(
+        "Para el selector de espacio de trabajo, cuando pertenece a más de una. "
+        "El orden (`last_seen_at` descendente) se fija aquí, no solo dentro de "
+        "`app_user_organizations`: el `ORDER BY` de una función SQL no se "
+        "propaga de forma garantizada a través de este `SELECT` externo."
+    ),
     response_model=list[OrganizationMembershipResponse],
 )
 async def list_my_organizations(
     usuario: CurrentUserDep, session: DbDep
 ) -> list[OrganizationMembershipResponse]:
     filas = await session.execute(
-        text("SELECT organization_id, slug, name, host FROM app_user_organizations(:id)"),
+        text(
+            "SELECT organization_id, slug, name, role_name "
+            "FROM app_user_organizations(:id) "
+            "ORDER BY last_seen_at DESC NULLS LAST, name, organization_id"
+        ),
         {"id": usuario.id},
     )
     return [
         OrganizationMembershipResponse(
-            organization_id=str(fila[0]), slug=fila[1], name=fila[2], host=fila[3]
+            organization_id=str(fila[0]), slug=fila[1], name=fila[2], role_name=fila[3]
         )
         for fila in filas
     ]

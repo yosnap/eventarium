@@ -3,8 +3,10 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 
 import { AuthService } from '../../../core/auth/auth.service';
+import { AuthFrame } from '../../../layouts/public/auth-frame';
 import { Alert } from '../../../shared/ui/alert';
 import { Card } from '../../../shared/ui/card';
+import { Reveal } from '../../../shared/ui/reveal.directive';
 
 type Estado = 'comprobando' | 'exito' | 'error';
 
@@ -16,44 +18,39 @@ type Estado = 'comprobando' | 'exito' | 'error';
 @Component({
   selector: 'app-confirm-email-change-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Card],
+  imports: [TranslocoDirective, RouterLink, AuthFrame, Alert, Card, Reveal],
   template: `
     <ng-container *transloco="let t">
-      <main id="contenido" class="pagina">
-        <app-card [heading]="t('cuenta.confirmarCorreo.titulo')">
-          <div aria-live="assertive">
-            @switch (estado()) {
-              @case ('comprobando') {
-                <app-alert tone="info">{{ t('cuenta.confirmarCorreo.comprobando') }}</app-alert>
+      <app-auth-frame [titulo]="t('cuenta.confirmarCorreo.titulo')">
+        <div class="envoltura" appReveal>
+          <app-card [heading]="t('cuenta.confirmarCorreo.titulo')">
+            <div aria-live="assertive">
+              @switch (estado()) {
+                @case ('comprobando') {
+                  <app-alert tone="info">{{ t('cuenta.confirmarCorreo.comprobando') }}</app-alert>
+                }
+                @case ('exito') {
+                  <app-alert tone="exito" [title]="t('cuenta.confirmarCorreo.exitoTitulo')">
+                    {{ t('cuenta.confirmarCorreo.exitoDetalle') }}
+                    <p>
+                      <a routerLink="/acceder">{{ t('registro.yaTengoCuenta') }}</a>
+                    </p>
+                  </app-alert>
+                }
+                @case ('error') {
+                  <app-alert tone="error" [title]="t('verificarCorreo.errorTitulo')">
+                    {{ t('cuenta.confirmarCorreo.errorDetalle') }}
+                  </app-alert>
+                }
               }
-              @case ('exito') {
-                <app-alert tone="exito" [title]="t('cuenta.confirmarCorreo.exitoTitulo')">
-                  {{ t('cuenta.confirmarCorreo.exitoDetalle') }}
-                  <p>
-                    <a routerLink="/admin/login">{{ t('registro.yaTengoCuenta') }}</a>
-                  </p>
-                </app-alert>
-              }
-              @case ('error') {
-                <app-alert tone="error" [title]="t('verificarCorreo.errorTitulo')">
-                  {{ t('cuenta.confirmarCorreo.errorDetalle') }}
-                </app-alert>
-              }
-            }
-          </div>
-        </app-card>
-      </main>
+            </div>
+          </app-card>
+        </div>
+      </app-auth-frame>
     </ng-container>
   `,
   styles: `
-    .pagina {
-      display: grid;
-      place-items: center;
-      min-height: 100vh;
-      padding: var(--space-lg);
-      background-color: var(--color-surface-muted);
-    }
-    app-card {
+    .envoltura {
       width: min(26rem, 100%);
     }
   `,

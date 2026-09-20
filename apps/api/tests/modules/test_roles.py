@@ -3,10 +3,23 @@
 from __future__ import annotations
 
 from httpx import AsyncClient
+from sqlalchemy import func, select
 
+from app.core.audit import AuditLog
+from app.core.database import SessionMaintenance
 from tests.conftest import OrganizacionDePrueba, iniciar_sesion
 
 ROLES = "/api/v1/roles"
+
+
+async def _contar_auditoria_de_permisos() -> int:
+    async with SessionMaintenance() as session:
+        total = await session.scalar(
+            select(func.count())
+            .select_from(AuditLog)
+            .where(AuditLog.action == "role.permissions_changed")
+        )
+    return total or 0
 
 
 async def test_una_organizacion_nueva_tiene_los_cinco_roles_del_sistema(
@@ -151,6 +164,41 @@ async def test_no_se_puede_borrar_un_campo_bloqueado(
     )
     assert respuesta.status_code == 409
     assert "bio" in respuesta.json()["campos_bloqueados"]
+
+
+async def test_cambio_de_permisos_no_deja_auditoria_si_profile_fields_falla(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """Regresión: `role.permissions_changed` se escribía en una
+    `maintenance_session` propia que hacía commit inmediato, antes de que
+    `profile_fields` pudiera fallar y revertir el cambio real de permisos en
+    la transacción principal (`roles/service.py`). Una petición que falla por
+    `profile_fields` inválidos no debe dejar ninguna fila en `audit_log`."""
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    roles = (await cliente.get(ROLES, headers=cabeceras)).json()
+    ponente = next(rol for rol in roles if rol["key"] == "speaker")
+    permisos_originales = ponente["permissions"]
+
+    assert await _contar_auditoria_de_permisos() == 0
+
+    respuesta = await cliente.patch(
+        f"{ROLES}/{ponente['id']}",
+        headers=cabeceras,
+        json={
+            "permissions": ["events:read"],
+            # Vacío: le faltan los campos bloqueados del ponente
+            # (bio/curriculum/web/contacto) -> 409 antes de terminar.
+            "profile_fields": [],
+        },
+    )
+    assert respuesta.status_code == 409, respuesta.text
+
+    # Ni la auditoría del cambio de permisos...
+    assert await _contar_auditoria_de_permisos() == 0
+
+    # ...ni el cambio de permisos en sí sobrevivieron al rollback.
+    tras_el_fallo = (await cliente.get(f"{ROLES}/{ponente['id']}", headers=cabeceras)).json()
+    assert sorted(tras_el_fallo["permissions"]) == sorted(permisos_originales)
 
 
 async def test_un_rol_de_otra_organizacion_no_es_accesible(

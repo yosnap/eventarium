@@ -7,6 +7,8 @@
  */
 export interface EventUpdate {
   capacity?: (number | null);
+  city?: (string | null);
+  contingency_fund_percent?: (number | string | null);
   description?: (string | null);
   email_verification_required?: (boolean | null);
   ends_at?: (string | null);
@@ -14,10 +16,16 @@ export interface EventUpdate {
   location_mode?: ('in_person' | 'online' | 'hybrid' | null);
   location_name?: (string | null);
   online_url?: (string | null);
+  payment_checkout_window_minutes?: (number | null);
   registration_mode?: ('free' | 'approval' | 'paid' | null);
+  registration_opens_at?: (string | null);
   starts_at?: (string | null);
   status?: ('draft' | 'published' | 'archived' | null);
   summary?: (string | null);
+  theme_overrides?: ({
+[key: string]: any;
+} | null);
+  theme_template_id?: (string | null);
   timezone?: (string | null);
   title?: (string | null);
   visibility?: ('public' | 'hidden' | 'private' | null);

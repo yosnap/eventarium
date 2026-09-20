@@ -57,6 +57,21 @@ describe('SpeakerPage', () => {
 
   afterEach(() => {
     http.verify();
+    document.documentElement.removeAttribute('data-theme');
+  });
+
+  it('muestra el perfil en tema claro sin violaciones de accesibilidad', async () => {
+    document.documentElement.setAttribute('data-theme', 'light');
+    const fixture = TestBed.createComponent(SpeakerPage);
+    fixture.componentRef.setInput('publicSlug', 'ana');
+    fixture.detectChanges();
+    http
+      .expectOne((peticion) => peticion.url === '/api/v1/public/speakers/ana')
+      .flush(perfilPublico());
+    await avanzar(fixture);
+
+    expect(fixture.nativeElement.textContent).toContain('Ana Ponente');
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
   it('muestra la lista blanca de campos, redes y el historial agrupado por evento', async () => {

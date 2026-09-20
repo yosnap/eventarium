@@ -1,0 +1,14 @@
+PENDIENTE: los .woff2 de este directorio son placeholders vacíos (0 bytes), no fuentes reales.
+
+Este directorio debe contener `bebas-neue-400.woff2` (peso 400, subconjunto latín) y la
+licencia real de Bebas Neue (SIL Open Font License 1.1, https://fonts.google.com/specimen/Bebas+Neue)
+antes de desplegar a producción. El entorno en el que se ha escrito esta fase no tiene
+acceso a Internet para descargar y subconjuntar el binario, así que `typography.css` ya
+apunta a la ruta y al nombre definitivos, pero el fichero `.woff2` no existe todavía: el
+navegador cae a la familia de reserva (`sans-serif`) sin romper nada mientras tanto.
+
+Pasos para completar, con acceso a red:
+1. Descargar Bebas Neue 400 (p. ej. desde Google Fonts) y subconjuntar a latín con
+   `pyftsubset` o `glyphhanger`.
+2. Convertir a `woff2` y guardar como `bebas-neue-400.woff2` en este mismo directorio.
+3. Sustituir este fichero por el texto real de la licencia (SIL OFL 1.1).
