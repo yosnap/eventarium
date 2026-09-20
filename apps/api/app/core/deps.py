@@ -14,13 +14,36 @@ dominio: los últimos consumidores genuinamente públicos que quedaban —
 `get_db_organizacion_activa` es el único punto donde se fija el contexto de
 RLS a partir de una sesión autenticada. Ningún router abre sesiones por su
 cuenta ni usa el motor de mantenimiento.
+
+Toda dependencia de sesión se declara con `scope="function"` (ver
+`SCOPE_SESION`). Son dos garantías distintas, ambas comprobadas con una
+reproducción mínima sobre `fastapi==0.141.1` y vigiladas por
+`tests/test_core_deps.py`:
+
+1. **Orden `commit` → tarea de fondo.** Con el `scope` de petición por
+   omisión, una dependencia con `yield` termina *después* de enviar la
+   respuesta, y por tanto después de las `BackgroundTasks`: el orden real era
+   `handler → tarea → commit`. Cualquier tarea que dé por confirmada la
+   transacción (borrar del almacén el objeto de una fila ya borrada,
+   auditoría, avisos) corría sobre datos aún sin persistir, y seguía
+   corriendo aunque el `commit` fallara después. Con `scope="function"` el
+   orden pasa a ser `handler → commit → tarea`.
+2. **Una sola sesión por petición.** FastAPI mete el `scope` calculado en la
+   clave de caché de la dependencia, así que declarar `get_session` con
+   `scope` en un sitio y sin él en otro abre **dos** sesiones distintas en la
+   misma petición: dos transacciones, y la segunda sin el contexto de RLS que
+   fijó la primera. Por eso el `scope` se declara en todos los puntos de uso,
+   no solo en uno.
+
+Efecto colateral buscado: un `commit` fallido ya no devuelve un 200 con
+`rollback` silencioso, sino el error real.
 """
 
 from __future__ import annotations
 
 import uuid
 from collections.abc import AsyncIterator
-from typing import Annotated
+from typing import Annotated, Final, Literal
 
 from fastapi import Depends, Request
 from sqlalchemy import text
@@ -33,6 +56,13 @@ from app.shared.errors import (
     AuthenticationError,
     PermissionDeniedError,
 )
+
+#: `scope` de toda dependencia de sesión transaccional. Ver el docstring del
+#: módulo: fija el orden `commit` → tarea de fondo y evita que se abra una
+#: segunda sesión por divergencia de la clave de caché. Cualquier
+#: `Depends(get_session)` o `Depends(get_maintenance_db)` del proyecto tiene
+#: que pasarlo, incluidos los alias `MaintenanceDb` de `modules/admin`.
+SCOPE_SESION: Final[Literal["function"]] = "function"
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
@@ -47,12 +77,12 @@ async def get_session() -> AsyncIterator[AsyncSession]:
 #: de correo, recuperación de contraseña, autoservicio de creación de
 #: organizaciones) que resuelven su propia visibilidad sin depender del `Host`
 #: ni de una organización activa.
-SessionDep = Annotated[AsyncSession, Depends(get_session)]
+SessionDep = Annotated[AsyncSession, Depends(get_session, scope=SCOPE_SESION)]
 
 
 async def get_db_organizacion_activa(
     claims: Annotated[AccessTokenClaims, Depends(get_token_claims)],
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: SessionDep,
 ) -> AsyncSession:
     """Sesión con el contexto RLS de la organización activa de la sesión (JWT).
 
@@ -70,6 +100,12 @@ async def get_maintenance_db() -> AsyncIterator[AsyncSession]:
 
     Solo puede usarla `app.modules.admin`. La regla se verifica en CI con un test
     estático que falla si esta dependencia aparece en cualquier otro módulo.
+
+    Cada módulo de `admin` declara su propio alias `MaintenanceDb` en lugar de
+    importar uno común precisamente para que ese test estático siga siendo el
+    único camino de entrada. Todos esos alias tienen que pasar
+    `scope=SCOPE_SESION`, igual que `SessionDep`: sin él, el módulo abriría una
+    segunda sesión `app_maintainer` por divergencia de la clave de caché.
     """
     async with SessionMaintenance() as session:
         async with session.begin():
@@ -283,7 +319,7 @@ def require_permission(*requeridos: Permission):  # type: ignore[no-untyped-def]
 
 async def require_superadmin(
     claims: Annotated[AccessTokenClaims, Depends(get_token_claims)],
-    session: Annotated[AsyncSession, Depends(get_maintenance_db)],
+    session: Annotated[AsyncSession, Depends(get_maintenance_db, scope=SCOPE_SESION)],
 ) -> CurrentUser:
     """Superadmin de la instalación.
 
@@ -361,7 +397,7 @@ OrgOwnerDep = Annotated[CurrentUser, Depends(require_org_owner)]
 
 async def require_platform_staff(
     claims: Annotated[AccessTokenClaims, Depends(get_token_claims)],
-    session: Annotated[AsyncSession, Depends(get_maintenance_db)],
+    session: Annotated[AsyncSession, Depends(get_maintenance_db, scope=SCOPE_SESION)],
 ) -> CurrentUser:
     """Personal de plataforma: `superadmin` **o** el rol aditivo `soporte`.
 
@@ -431,7 +467,7 @@ class VerifiedUser:
 
 async def require_verified_user(
     claims: Annotated[AccessTokenClaims, Depends(get_token_claims)],
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: SessionDep,
 ) -> VerifiedUser:
     """Exige un token válido de una persona con el correo ya verificado.
 

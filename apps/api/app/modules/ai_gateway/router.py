@@ -174,9 +174,10 @@ async def _auditar(
 ) -> None:
     """Auditoría de los cambios de credencial de la organización.
 
-    Se encola como `BackgroundTask` —Starlette la corre tras enviar la
-    respuesta, y por tanto tras el `commit` real de la transacción de la
-    petición— y abre su propia sesión de mantenimiento, porque `audit_log`
+    Se encola como `BackgroundTask` —verificado: corre tras el `commit` real
+    de la transacción de la petición, gracias al `scope="function"` con el que
+    `core/deps.py` declara la sesión— y abre su propia sesión de
+    mantenimiento, porque `audit_log`
     tiene `REVOKE ALL … FROM app_user`. Mismo patrón que
     `roles/service.py:_registrar_cambio_de_permisos`: la auditoría no puede
     sobrevivir a un rollback del cambio que describe.

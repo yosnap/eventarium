@@ -235,9 +235,10 @@ async def delete_sponsor(
         sponsor_id=uuid.UUID(sponsor_id),
     )
     # Igual que `events/router.py:upload_cover`: el borrado del objeto se difiere
-    # a después de que la respuesta salga (y por tanto tras el commit real de la
-    # transacción), para no dejar la fila borrada con un objeto huérfano si el
-    # commit fallara antes de llegar aquí.
+    # a una tarea de fondo para no dejar la fila borrada con un objeto huérfano
+    # si el commit fallara antes de llegar aquí. Que la tarea corra tras el
+    # commit no lo da el `BackgroundTask` por sí solo: lo da el
+    # `scope="function"` de la sesión en `core/deps.py` (ver su docstring).
     if clave_logo:
         background_tasks.add_task(get_storage().delete_object, clave_logo)
 

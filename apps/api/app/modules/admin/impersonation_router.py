@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import registrar_auditoria
 from app.core.deps import (
+    SCOPE_SESION,
     CurrentUser,
     get_maintenance_db,
     get_token_claims,
@@ -54,7 +55,7 @@ from app.shared.identifiers import new_uuid7
 
 router = APIRouter(prefix="/admin", tags=["administración"])
 
-MaintenanceDb = Annotated[AsyncSession, Depends(get_maintenance_db)]
+MaintenanceDb = Annotated[AsyncSession, Depends(get_maintenance_db, scope=SCOPE_SESION)]
 PlatformStaff = Annotated[CurrentUser, Depends(require_platform_staff)]
 TokenClaims = Annotated[AccessTokenClaims, Depends(get_token_claims)]
 

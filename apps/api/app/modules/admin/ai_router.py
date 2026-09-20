@@ -25,7 +25,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import registrar_auditoria
-from app.core.deps import CurrentUser, get_maintenance_db, require_superadmin
+from app.core.deps import SCOPE_SESION, CurrentUser, get_maintenance_db, require_superadmin
 from app.modules.ai_gateway import repository as ai_repository
 from app.modules.ai_gateway import service as ai_service
 from app.modules.ai_gateway.schemas import (
@@ -42,7 +42,7 @@ from app.shared.errors import NotFoundError
 
 router = APIRouter(prefix="/admin", tags=["administración"])
 
-MaintenanceDb = Annotated[AsyncSession, Depends(get_maintenance_db)]
+MaintenanceDb = Annotated[AsyncSession, Depends(get_maintenance_db, scope=SCOPE_SESION)]
 Superadmin = Annotated[CurrentUser, Depends(require_superadmin)]
 
 
