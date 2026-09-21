@@ -238,6 +238,25 @@ describe('ReceiptDraftsPanel', () => {
     http.expectNone(LISTADO);
   });
 
+  it('no muestra un error si se destruye con una petición de listado en vuelo que falla', async () => {
+    const fixture = TestBed.createComponent(ReceiptDraftsPanel);
+    fixture.componentRef.setInput('eventId', 'e1');
+    fixture.componentRef.setInput('partidas', []);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // Se destruye con el listado todavía sin responder: al llegar el fallo
+    // no puede pintar un error en un componente que ya no existe.
+    const enVuelo = http.expectOne(LISTADO);
+    fixture.destroy();
+    enVuelo.flush(
+      { detail: 'No hemos podido cargar los justificantes.' },
+      { status: 500, statusText: 'Error' },
+    );
+
+    expect(fixture.nativeElement.querySelector('[role="alert"]')).toBeNull();
+  });
+
   it('lleva el foco al primer campo del borrador que acaba de quedar listo', async () => {
     vi.useFakeTimers();
     const fixture = await montar([draft({ id: 'd1' })]);
