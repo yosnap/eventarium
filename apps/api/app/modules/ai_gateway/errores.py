@@ -17,7 +17,9 @@ aquí: `clasificar` no puede devolver nada que no esté en `CODIGOS_DE_ERROR`.
 
 from __future__ import annotations
 
+import base64
 from typing import Any
+from urllib.parse import quote
 
 from app.modules.ai_gateway import litellm_runtime
 from app.shared.errors import (
@@ -29,17 +31,30 @@ from app.shared.errors import (
 
 
 def sanear(texto: str, clave: str) -> str:
-    """Sustituye el literal de la clave del proveedor por `***`.
+    """Sustituye el literal de la clave del proveedor por `***`, y también
+    sus formas transformadas más comunes en un mensaje de error eco.
 
     Se aplica a **todo** texto que venga del proveedor antes de tocar un log
     o una respuesta: los mensajes de error de varias APIs OpenAI-compatible
     reproducen la petición recibida, cabeceras incluidas, y con ellas la
     clave. Vive aquí, y no en el cliente de generación, porque lo necesitan
     por igual ese cliente y el descubrimiento de modelos.
+
+    El literal en texto plano no es la única forma en que la clave puede
+    aparecer: un proveedor `custom` con auth HTTP Basic la manda como
+    `base64("<clave>:")`, y una URL puede llevarla percent-encoded en un
+    parámetro de query. Ninguna sustitución adicional cubre todos los casos
+    posibles (una clave partida entre líneas, por ejemplo, seguiría
+    escapando) — es defensa en profundidad, no una garantía absoluta.
     """
     if not clave:
         return texto
-    return texto.replace(clave, "***")
+    saneado = texto.replace(clave, "***")
+    saneado = saneado.replace(base64.b64encode(f"{clave}:".encode()).decode(), "***")
+    percent_encoded = quote(clave, safe="")
+    if percent_encoded != clave:
+        saneado = saneado.replace(percent_encoded, "***")
+    return saneado
 
 
 class ErrorDeConfiguracionDeIa(ValidationDomainError):

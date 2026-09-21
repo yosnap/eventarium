@@ -28,9 +28,11 @@ aquí, junto al resto de detalles de cada API (`_ADAPTADORES`).
   incluidas— dentro del mensaje de error.
 - Nunca se sigue una redirección: un 3xx del proveedor hacia otro host
   reenviaría la cabecera con la clave a ese host.
-- El `api_base` de `custom` lo valida `validacion.validar_api_base` igual que
-  en la llamada de generación, y por el mismo motivo: es el único que escribe
-  quien configura, y sin validarlo este endpoint sería un SSRF con respuesta.
+- El `api_base` se valida siempre con `validacion.validar_api_base`, para
+  los siete proveedores, no solo `custom` — mismo criterio que
+  `client.py::_validar_destino` en la llamada de generación: aunque la
+  dirección venga del catálogo, el DNS del proveedor puede haber cambiado
+  entre desplegar y usarla, y el coste de revalidar es despreciable.
 
 **La marca de visión nunca se inventa.** Solo se marca `True` cuando el propio
 proveedor lo declara en un campo interpretable. Si no lo declara, este módulo
@@ -178,14 +180,18 @@ async def _url_de_listado(provider: str, api_base: str | None) -> str:
             "para poder consultar sus modelos."
         )
 
-    proveedor = catalogo.obtener(provider)
-    if proveedor is not None and proveedor.api_base_editable:
-        # Mismo control que en la llamada de generación: el DNS del host puede
-        # haber cambiado entre guardar la configuración y usarla. Va a un hilo
-        # porque `getaddrinfo` es bloqueante y pararía el bucle de eventos.
-        base = await asyncio.to_thread(
-            validar_api_base, base, es_produccion=get_settings().app_env == "production"
-        )
+    # Se revalida siempre, también para un proveedor de base fija
+    # (`api_base_editable=False`): mismo criterio que `client.py::_validar_destino`
+    # para la llamada de generación real — "aunque la dirección venga del
+    # catálogo y no del usuario: el coste es despreciable y protege de un
+    # secuestro de DNS del host del proveedor". Antes solo se revalidaba en
+    # `custom`, dejando el listado de modelos y la prueba de conexión de los
+    # seis proveedores de base fija sin esta defensa, a diferencia de la
+    # llamada de generación que sí la aplicaba siempre. Va a un hilo porque
+    # `getaddrinfo` es bloqueante y pararía el bucle de eventos.
+    base = await asyncio.to_thread(
+        validar_api_base, base, es_produccion=get_settings().app_env == "production"
+    )
 
     return f"{base}/models"
 
