@@ -42,13 +42,17 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
               <span class="nombre">{{ nombreSinInicial() }}</span>
             }
           </a>
-          <nav [attr.aria-label]="t('publico.navegacion')">
-            <!-- Sin «Inicio»: la raíz ya es el directorio de eventos (fase 6
-                 del plan de organización sin dominio), y el logo enlaza a ella. -->
-            <a routerLink="/eventos">{{ t('publico.eventos.listadoTitulo') }}</a>
-          </nav>
-          <app-theme-toggle />
-          <app-access-menu />
+          <div class="bloque-derecho">
+            <nav [attr.aria-label]="t('publico.navegacion')">
+              <!-- Sin «Inicio»: la raíz ya es el directorio de eventos (fase 6
+                   del plan de organización sin dominio), y el logo enlaza a ella. -->
+              <a routerLink="/eventos">{{ t('publico.eventos.listadoTitulo') }}</a>
+            </nav>
+            <div class="controles-usuario">
+              <app-theme-toggle />
+              <app-access-menu />
+            </div>
+          </div>
         </div>
       </header>
 
@@ -147,6 +151,21 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       font-family: var(--font-display);
       font-size: 1.1rem;
       letter-spacing: 0.01em;
+    }
+    /* Agrupa enlaces + controles de usuario como un único bloque a la
+       derecha del logo — antes eran 4 hijos sueltos de .header-en con
+       space-between, que los repartía a distancias iguales por todo el
+       ancho en vez de agruparlos (hallazgo: el icono de tema quedaba lejos
+       del menú de acceso en vez de pegado a él). */
+    .bloque-derecho {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+    .controles-usuario {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
     nav {
       display: flex;
