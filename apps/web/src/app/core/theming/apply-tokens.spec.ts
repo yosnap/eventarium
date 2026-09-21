@@ -99,6 +99,7 @@ describe('applyTokens (dos alcances)', () => {
     document.getElementById('tema-plataforma')?.remove();
     document.getElementById('tema-evento')?.remove();
     document.documentElement.removeAttribute('data-theme');
+    document.body.removeAttribute('data-ambito');
   });
 
   it('la plataforma se aplica al documento entero', () => {
@@ -110,28 +111,33 @@ describe('applyTokens (dos alcances)', () => {
     expect(estilo!.textContent).toContain('--bg:#080808;');
   });
 
-  it('el evento se aplica a su ámbito, no al documento', () => {
+  it('el evento marca <body> con su ámbito (aplicación total, no solo su ficha)', () => {
     applyTokensDeEvento({ theme: plantillaDeTemaDePrueba() }, document);
 
     const estilo = document.getElementById('tema-evento');
     expect(estilo).toBeTruthy();
     expect(estilo!.textContent).toContain(SELECTOR_AMBITO_EVENTO);
-    // No debe tocar `:root`: eso pintaría el chrome entero con la marca del
-    // evento, que es justo lo que este cambio evita.
+    // No debe tocar `:root` directamente: el selector es `[data-ambito]`, no
+    // `:root` — pero sí marca `<body>` con ese atributo, así que el fondo de
+    // página y el header/nav (que consumen tokens vía `var()`) sí lo heredan.
     expect(estilo!.textContent).not.toContain(':root{');
+    expect(document.body.getAttribute('data-ambito')).toBe('evento');
   });
 
-  it('sin plantilla de evento, no inyecta ninguna hoja', () => {
+  it('sin plantilla de evento, no inyecta ninguna hoja ni marca <body>', () => {
     applyTokensDeEvento(null, document);
     expect(document.getElementById('tema-evento')).toBeNull();
+    expect(document.body.hasAttribute('data-ambito')).toBe(false);
   });
 
-  it('quita el bloque anterior si la plantilla nueva es null', () => {
+  it('quita el bloque anterior y el ámbito de <body> si la plantilla nueva es null', () => {
     applyTokensDeEvento({ theme: plantillaDeTemaDePrueba() }, document);
     expect(document.getElementById('tema-evento')).toBeTruthy();
+    expect(document.body.getAttribute('data-ambito')).toBe('evento');
 
     applyTokensDeEvento({ theme: null }, document);
     expect(document.getElementById('tema-evento')).toBeNull();
+    expect(document.body.hasAttribute('data-ambito')).toBe(false);
   });
 
   it('cascada: la plantilla del evento solo afecta dentro de su ámbito', () => {
