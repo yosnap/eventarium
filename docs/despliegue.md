@@ -139,6 +139,14 @@ Comprueba `https://eventos.tu-dominio.org/api/v1/health`: los tres valores deben
 mismo dominio. El `Caddyfile` de desarrollo (`infra/caddy/Caddyfile.dev`) muestra el
 enrutado que hace falta.
 
+Los servicios `migrate`, `api`, `worker` y `scheduler` leen su configuración por
+`environment:` con interpolación `${VAR}`, no por `env_file:` — así el fichero no tiene
+que existir dentro del *checkout* que hace el orquestador (Dokploy, o cualquier CI que
+clona el repo y construye ahí mismo), solo en el entorno con el que se invoca `docker
+compose`. En el flujo manual eso sigue siendo `infra/env/.env` vía `--env-file`, igual
+que antes; un orquestador como Dokploy pasa esas mismas variables por su propio panel de
+entorno, sin tocar el checkout.
+
 ## Actualización
 
 En EasyPanel: cambia la etiqueta de imagen de `api`, `worker`, `scheduler` y `web` a
