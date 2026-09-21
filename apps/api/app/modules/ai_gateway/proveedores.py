@@ -158,8 +158,9 @@ PROVEEDORES: dict[str, Proveedor] = {
         api_base_fijo=None,
         api_base_editable=False,
         modelos=(
-            Modelo(clave="claude-3-5-sonnet-latest", etiqueta="Claude 3.5 Sonnet", vision=True),
-            Modelo(clave="claude-3-5-haiku-latest", etiqueta="Claude 3.5 Haiku", vision=True),
+            Modelo(clave="claude-opus-5", etiqueta="Claude Opus 5", vision=True),
+            Modelo(clave="claude-sonnet-5", etiqueta="Claude Sonnet 5", vision=True),
+            Modelo(clave="claude-haiku-4-5-20251001", etiqueta="Claude Haiku 4.5", vision=True),
         ),
     ),
     "openai": Proveedor(
