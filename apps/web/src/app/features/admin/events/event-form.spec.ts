@@ -83,7 +83,10 @@ describe('EventForm', () => {
     ) as HTMLInputElement;
     expect(campoVentana.value).toBe('30');
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
-  });
+    // Una pasada de axe sobre este formulario ronda los 4 s en solitario y se
+    // va más arriba con la suite en paralelo: el margen por defecto de 5 s
+    // convierte la carga de la máquina en un fallo intermitente.
+  }, 20_000);
 
   it('modo alta: 29 o 1440 minutos de ventana de pago se bloquean en el cliente', async () => {
     configurar(null);
