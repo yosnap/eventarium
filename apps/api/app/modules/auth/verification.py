@@ -46,6 +46,14 @@ PROPOSITO_CANCELACION_INSCRIPCION = "registration_cancel"
 # se acepta con menos urgencia que verificar un correo recién registrado.
 PROPOSITO_INVITACION = "invitacion"
 TTL_INVITACION = timedelta(days=7)
+# Plan «mis-eventos-asistente». Payload: el email (no hay fila "asistente" a
+# la que apuntar — a diferencia del resto de propósitos, que llevan un `id`).
+# TTL propio y corto, no `TTL_TOKEN` (hallazgo del predict, Security): el
+# enlace no dispara una acción de una sola vez, expone un listado de datos
+# personales (todas las inscripciones de la persona, cruzando
+# organizaciones) mientras el token siga vivo.
+PROPOSITO_MIS_EVENTOS_ACCESO = "mis_eventos_acceso"
+TTL_MIS_EVENTOS_ACCESO = timedelta(minutes=30)
 
 _CLAVE = "verify:{proposito}:{huella}"
 

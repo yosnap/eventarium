@@ -115,6 +115,15 @@ AI_TEST_CONNECTION_POR_IP = 10
 # magnitud que el propio login — no hay ningún motivo legítimo para cambiar
 # de organización muchas veces por minuto.
 SWITCH_ORGANIZATION_POR_IP = 20
+# Plan «mis-eventos-asistente»: encola correo, mismo perfil de riesgo que
+# `forgot-password` (email bombing) — mismo tope, con Turnstile obligatorio
+# delante igual que allí (hallazgo de code-review, Fase 3: la primera
+# redacción de este límite no llevaba Turnstile pese al comentario, lo que
+# hacía el ataque mucho más barato que contra `forgot-password`).
+MIS_EVENTOS_SOLICITAR_POR_IP = FORGOT_PASSWORD_POR_IP
+# Consulta del listado: el token tiene entropía de sobra, pero el endpoint
+# necesita su propio tope por ser público, igual que verify-email.
+MIS_EVENTOS_VER_POR_IP = 20
 
 VENTANA_SEGUNDOS = 60
 

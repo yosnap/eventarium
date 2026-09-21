@@ -144,6 +144,31 @@ async def send_password_reset_email(to_email: str, token: str) -> None:
 
 
 @broker.task(retry_on_error=True, max_retries=5)
+async def send_mis_eventos_access_email(to_email: str, token: str) -> None:
+    """Envía el magic-link de «Mis eventos» (listado de inscripciones por email).
+
+    Mismo mecanismo que `send_password_reset_email` (Redis + huella + TTL
+    propio de 30 min, ver `verification.py`), pero el enlace no cambia nada:
+    solo lista. El asunto y el cuerpo lo dicen explícitamente para no sonar a
+    aviso de seguridad de cuenta.
+    """
+    settings = get_settings()
+    enlace = f"{settings.web_base_url}/mis-eventos/ver?token={token}"
+    await get_email_provider().send(
+        to=to_email,
+        subject="Tus inscripciones a eventos",
+        body=(
+            "Hola,\n\n"
+            "Alguien ha pedido ver el listado de inscripciones a eventos de este "
+            "correo. Si has sido tú, entra aquí:\n"
+            f"{enlace}\n\n"
+            "El enlace caduca en 30 minutos y solo sirve una vez. Si no has sido "
+            "tú, ignora este mensaje."
+        ),
+    )
+
+
+@broker.task(retry_on_error=True, max_retries=5)
 async def send_email_change_warning(to_email: str, new_email: str) -> None:
     """Avisa al correo **actual** de que se ha solicitado cambiarlo. Sin enlace ni token."""
     await get_email_provider().send(

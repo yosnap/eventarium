@@ -470,6 +470,20 @@ export const routes: Routes = [
           import('./features/public/events/speaker-page').then((m) => m.SpeakerPage),
       },
       {
+        path: 'mis-eventos',
+        loadComponent: () =>
+          import('./features/public/mis-eventos/mis-eventos-solicitar-page').then(
+            (m) => m.MisEventosSolicitarPage,
+          ),
+      },
+      {
+        path: 'mis-eventos/ver',
+        loadComponent: () =>
+          import('./features/public/mis-eventos/mis-eventos-listado-page').then(
+            (m) => m.MisEventosListadoPage,
+          ),
+      },
+      {
         path: 'legal/aviso-legal',
         loadComponent: () => import('./features/public/legal/legal-page').then((m) => m.LegalPage),
         data: { page: 'aviso-legal' },
