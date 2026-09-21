@@ -16,6 +16,7 @@ from app.core.config import get_settings
 from app.core.database import maintenance_session, set_organization_context
 from app.core.tasks import (
     process_refunds_task,
+    send_mis_eventos_access_email,
     send_registration_cancelled_email,
     send_registration_confirmed_email,
     send_registration_rejected_email,
@@ -25,8 +26,10 @@ from app.core.tasks import (
 )
 from app.modules.auth.verification import (
     PROPOSITO_CANCELACION_INSCRIPCION,
+    PROPOSITO_MIS_EVENTOS_ACCESO,
     PROPOSITO_PROMOCION_LISTA_ESPERA,
     PROPOSITO_VERIFICACION_INSCRIPCION,
+    TTL_MIS_EVENTOS_ACCESO,
     consume_token,
     generate_token,
 )
@@ -40,7 +43,7 @@ from app.modules.registrations.models import (
     EventRegistrationConsent,
     EventRegistrationQuestion,
 )
-from app.modules.registrations.schemas import RegistrationAnswerInput
+from app.modules.registrations.schemas import MyRegistrationItem, RegistrationAnswerInput
 from app.modules.tickets.service import emitir_entrada, generar_token_qr, revocar_entrada
 from app.shared.errors import ConflictError, NotFoundError, ValidationDomainError
 
@@ -940,3 +943,48 @@ async def delete_registration_question(
     if await repository.question_has_answers(session, organization_id, pregunta.id):
         raise ConflictError("No se puede borrar una pregunta con respuestas guardadas.")
     await session.delete(pregunta)
+
+
+# --- Mis eventos (magic-link, sin cuenta) -------------------------------
+
+
+async def request_mis_eventos_access(session: AsyncSession, *, email: str) -> None:
+    """Encola el magic-link de «Mis eventos» solo si el email tiene alguna
+    inscripción. Respuesta anti-enumeración, mismo patrón que `forgot_password`.
+
+    Hallazgo de red-team (Critical) sobre la primera redacción de este plan:
+    mandar el enlace a cualquier email escrito en el formulario, exista o no
+    una inscripción real, lo convertía en una herramienta de acoso por
+    correo. El endpoint que llama a esta función sigue respondiendo 200
+    siempre; el correo real solo sale de aquí.
+    """
+    email_normalizado = email.strip().lower()
+    if await repository.has_registration_by_email(session, email_normalizado):
+        token = await generate_token(
+            PROPOSITO_MIS_EVENTOS_ACCESO, email_normalizado, ttl=TTL_MIS_EVENTOS_ACCESO
+        )
+        await send_mis_eventos_access_email.kiq(email_normalizado, token)
+
+
+async def list_mis_eventos(session: AsyncSession, *, token: str) -> list[MyRegistrationItem]:
+    """Consume el token del magic-link y devuelve las inscripciones del email.
+
+    Token de un solo uso (`consume_token`, no `peek_token`): recargar la
+    página exige pedir un enlace nuevo, trade-off de UX aceptado
+    explícitamente en el plan (alcance ya cerrado a "sin sesión persistente").
+    """
+    email = await consume_token(PROPOSITO_MIS_EVENTOS_ACCESO, token)
+    if email is None:
+        raise ValidationDomainError("El enlace no es válido o ha caducado. Pide uno nuevo.")
+
+    filas = await repository.list_registrations_by_email(session, email)
+    return [
+        MyRegistrationItem(
+            event_slug=fila.event_slug,
+            event_title=fila.event_title,
+            starts_at=fila.starts_at,
+            organization_name=fila.organization_name,
+            status=fila.status,
+        )
+        for fila in filas
+    ]

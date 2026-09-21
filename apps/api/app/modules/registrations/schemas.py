@@ -112,6 +112,45 @@ class CancelRegistrationResponse(BaseModel):
     message: str
 
 
+# --- Mis eventos (magic-link, sin cuenta) -------------------------------
+
+
+class MisEventosSolicitarRequest(BaseModel):
+    """Email del formulario de «Mis eventos»."""
+
+    email: EmailStr
+    turnstile_token: str = Field(description="Token del widget de Turnstile")
+
+
+class MisEventosVerRequest(BaseModel):
+    """Token del magic-link de «Mis eventos».
+
+    `POST`, no `GET`: el endpoint consume el token (efecto secundario), y un
+    `GET` con efectos secundarios lo puede disparar sin querer un escáner de
+    enlaces de correo corporativo (hallazgo de code-review, alcance mínimo
+    revisado en la Fase 3) — mismo motivo por el que `verify`/`cancel`/
+    `confirm-waitlist-promotion` ya son `POST` en este mismo router.
+    """
+
+    token: str
+
+
+class MyRegistrationItem(BaseModel):
+    """Una inscripción tal como la ve el listado de «Mis eventos»."""
+
+    event_slug: str
+    event_title: str
+    starts_at: datetime
+    organization_name: str
+    status: RegistrationStatus
+
+
+class MyRegistrationsResponse(BaseModel):
+    """Listado de inscripciones de un email, cruzando organizaciones."""
+
+    registrations: list[MyRegistrationItem]
+
+
 # --- Panel de organizador (fase 3 de trabajo) --------------------------------
 
 

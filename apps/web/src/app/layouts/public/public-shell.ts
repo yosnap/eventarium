@@ -47,6 +47,7 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
               <!-- Sin «Inicio»: la raíz ya es el directorio de eventos (fase 6
                    del plan de organización sin dominio), y el logo enlaza a ella. -->
               <a routerLink="/eventos">{{ t('publico.eventos.listadoTitulo') }}</a>
+              <a routerLink="/mis-eventos">{{ t('publico.misEventos.enlaceNav') }}</a>
             </nav>
             <div class="controles-usuario">
               <app-theme-toggle />

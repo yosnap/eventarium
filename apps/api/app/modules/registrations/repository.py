@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import Select, and_, case, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -415,3 +416,34 @@ async def resolve_registration_organization(
         text("SELECT app_resolve_registration_organization(:id)"), {"id": registration_id}
     )
     return resultado
+
+
+async def has_registration_by_email(session: AsyncSession, email: str) -> bool:
+    """Si el email tiene alguna inscripción, en cualquier organización activa.
+
+    `app_has_registration_by_email` (`SECURITY DEFINER`, alcance mínimo,
+    migración `0052`): no hay ningún contexto RLS que fijar antes de esta
+    comprobación, así que la propia función se lo salta — mismo patrón que
+    `app_find_user_by_email`, y misma razón que la propia función existe:
+    `mis_eventos_service.request_access` decide si encola el correo real
+    antes de generar ningún token (patrón `forgot_password`).
+    """
+    resultado = await session.scalar(
+        text("SELECT app_has_registration_by_email(:email)"), {"email": email}
+    )
+    return bool(resultado)
+
+
+async def list_registrations_by_email(session: AsyncSession, email: str) -> list[Any]:
+    """Inscripciones de un email, cruzando organizaciones activas.
+
+    `app_list_registrations_by_email` (`SECURITY DEFINER`, alcance mínimo,
+    migración `0052`): devuelve solo las columnas que pinta el listado
+    público de «Mis eventos», nunca la fila entera de `event_registrations`.
+    """
+    filas = (
+        await session.execute(
+            text("SELECT * FROM app_list_registrations_by_email(:email)"), {"email": email}
+        )
+    ).all()
+    return list(filas)

@@ -25,6 +25,32 @@
   },
   "publico": {
     "navegacion": "Navegación principal",
+    "misEventos": {
+      "enlaceNav": "Mis eventos",
+      "titulo": "Mis eventos",
+      "instrucciones": "Escribe tu correo y te enviaremos un enlace con todas tus inscripciones.",
+      "email": "Correo electrónico",
+      "enviar": "Enviar enlace",
+      "enviando": "Enviando…",
+      "error": "No hemos podido completar la solicitud.",
+      "exitoTitulo": "Revisa tu correo",
+      "exitoDetalle": "Si ese correo tiene inscripciones, en breve recibirás un enlace. Revisa también la carpeta de spam.",
+      "listadoTitulo": "Mis eventos",
+      "comprobando": "Comprobando el enlace…",
+      "errorTitulo": "El enlace no es válido o ha caducado",
+      "tokenInvalido": "Pide un enlace nuevo para ver tus inscripciones.",
+      "pedirOtro": "Pedir un enlace nuevo",
+      "sinInscripciones": "No hay ninguna inscripción asociada a este enlace.",
+      "estado": {
+        "PendingVerification": "Pendiente de verificación",
+        "PendingApproval": "Pendiente de aprobación",
+        "PendingPayment": "Pendiente de pago",
+        "Confirmed": "Confirmada",
+        "Rejected": "Rechazada",
+        "Cancelled": "Cancelada",
+        "Waitlisted": "Lista de espera"
+      }
+    },
     "eventos": {
       "listadoTitulo": "Eventos",
       "ruta": "Ruta",

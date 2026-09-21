@@ -21,6 +21,8 @@ from app.core.ratelimit import (
     CANCELACION_INSCRIPCION_POR_IP,
     CONFIRMACION_PROMOCION_POR_IP,
     INSCRIPCION_POR_IP,
+    MIS_EVENTOS_SOLICITAR_POR_IP,
+    MIS_EVENTOS_VER_POR_IP,
     PUBLICO_POR_IP,
     VERIFICACION_INSCRIPCION_POR_IP,
     limit_per_ip,
@@ -34,6 +36,9 @@ from app.modules.registrations.schemas import (
     CancelRegistrationResponse,
     ConfirmWaitlistPromotionRequest,
     ConfirmWaitlistPromotionResponse,
+    MisEventosSolicitarRequest,
+    MisEventosVerRequest,
+    MyRegistrationsResponse,
     RegistrationMessageResponse,
     RegistrationQuestionPublic,
     SubmitRegistrationRequest,
@@ -171,3 +176,42 @@ async def cancel_registration(
 ) -> CancelRegistrationResponse:
     await service.cancel_registration_by_token(session, token=datos.token)
     return CancelRegistrationResponse(message="Tu inscripción ha sido cancelada.")
+
+
+@router.post(
+    "/mis-eventos/solicitar",
+    summary="Pedir el enlace de «Mis eventos»",
+    description=(
+        "Encola el magic-link solo si el email tiene alguna inscripción. "
+        "Responde siempre igual, para no filtrar si un correo tiene inscripciones."
+    ),
+    response_model=RegistrationMessageResponse,
+    dependencies=[limit_per_ip("mis-eventos-solicitar", MIS_EVENTOS_SOLICITAR_POR_IP)],
+)
+async def solicitar_mis_eventos(
+    datos: MisEventosSolicitarRequest, request: Request, session: SessionDep
+) -> RegistrationMessageResponse:
+    await require_turnstile(request, datos.turnstile_token)
+    await service.request_mis_eventos_access(session, email=str(datos.email))
+    return RegistrationMessageResponse(
+        message="Si ese correo tiene inscripciones, en breve recibirás un enlace."
+    )
+
+
+@router.post(
+    "/mis-eventos/ver",
+    summary="Listar las inscripciones de «Mis eventos»",
+    description=(
+        "Consume el token del magic-link (un solo uso) y devuelve las inscripciones. "
+        "POST, no GET: el consumo del token es un efecto secundario, y un enlace de "
+        "correo con efecto secundario en GET puede dispararlo un escáner de enlaces "
+        "corporativo sin que la persona real haya hecho clic."
+    ),
+    response_model=MyRegistrationsResponse,
+    dependencies=[limit_per_ip("mis-eventos-ver", MIS_EVENTOS_VER_POR_IP)],
+)
+async def ver_mis_eventos(
+    datos: MisEventosVerRequest, session: SessionDep
+) -> MyRegistrationsResponse:
+    registrations = await service.list_mis_eventos(session, token=datos.token)
+    return MyRegistrationsResponse(registrations=registrations)

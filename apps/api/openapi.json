@@ -5629,6 +5629,90 @@
         }
       }
     },
+    "/api/v1/public/mis-eventos/solicitar": {
+      "post": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Pedir el enlace de «Mis eventos»",
+        "description": "Encola el magic-link solo si el email tiene alguna inscripción. Responde siempre igual, para no filtrar si un correo tiene inscripciones.",
+        "operationId": "solicitar_mis_eventos_api_v1_public_mis_eventos_solicitar_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MisEventosSolicitarRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationMessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/mis-eventos/ver": {
+      "post": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Listar las inscripciones de «Mis eventos»",
+        "description": "Consume el token del magic-link (un solo uso) y devuelve las inscripciones. POST, no GET: el consumo del token es un efecto secundario, y un enlace de correo con efecto secundario en GET puede dispararlo un escáner de enlaces corporativo sin que la persona real haya hecho clic.",
+        "operationId": "ver_mis_eventos_api_v1_public_mis_eventos_ver_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MisEventosVerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyRegistrationsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/events/{event_id}/tickets/scan": {
       "post": {
         "tags": [
@@ -14647,6 +14731,41 @@
         "title": "MetricasDelEventoOut",
         "description": "Todo lo que el escritorio de un evento necesita, en una sola llamada.\n\nLos bloques de permiso opcional (`dinero`) son `None` cuando quien pide no\npuede verlos. Los demás van siempre: si un miembro alcanza el evento, puede\nver cómo va."
       },
+      "MisEventosSolicitarRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "turnstile_token": {
+            "type": "string",
+            "title": "Turnstile Token",
+            "description": "Token del widget de Turnstile"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "turnstile_token"
+        ],
+        "title": "MisEventosSolicitarRequest",
+        "description": "Email del formulario de «Mis eventos»."
+      },
+      "MisEventosVerRequest": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "MisEventosVerRequest",
+        "description": "Token del magic-link de «Mis eventos».\n\n`POST`, no `GET`: el endpoint consume el token (efecto secundario), y un\n`GET` con efectos secundarios lo puede disparar sin querer un escáner de\nenlaces de correo corporativo (hallazgo de code-review, alcance mínimo\nrevisado en la Fase 3) — mismo motivo por el que `verify`/`cancel`/\n`confirm-waitlist-promotion` ya son `POST` en este mismo router."
+      },
       "ModeloDelCatalogoOut": {
         "properties": {
           "clave": {
@@ -14709,6 +14828,67 @@
         ],
         "title": "ModelosDelProveedorOut",
         "description": "`GET /ai/catalog/{provider}/models`: el listado consultado en vivo.\n\n`en_vivo=false` significa que la consulta al proveedor no salió y lo que\nviaja es el catálogo estático de `proveedores.py`, que es la última lista\nconocida. El panel lo avisa sin bloquear nada: la lista sigue siendo\nutilizable, solo puede estar incompleta."
+      },
+      "MyRegistrationItem": {
+        "properties": {
+          "event_slug": {
+            "type": "string",
+            "title": "Event Slug"
+          },
+          "event_title": {
+            "type": "string",
+            "title": "Event Title"
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Starts At"
+          },
+          "organization_name": {
+            "type": "string",
+            "title": "Organization Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending_verification",
+              "pending_approval",
+              "pending_payment",
+              "confirmed",
+              "rejected",
+              "cancelled",
+              "waitlisted"
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_slug",
+          "event_title",
+          "starts_at",
+          "organization_name",
+          "status"
+        ],
+        "title": "MyRegistrationItem",
+        "description": "Una inscripción tal como la ve el listado de «Mis eventos»."
+      },
+      "MyRegistrationsResponse": {
+        "properties": {
+          "registrations": {
+            "items": {
+              "$ref": "#/components/schemas/MyRegistrationItem"
+            },
+            "type": "array",
+            "title": "Registrations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "registrations"
+        ],
+        "title": "MyRegistrationsResponse",
+        "description": "Listado de inscripciones de un email, cruzando organizaciones."
       },
       "MyTicketResponse": {
         "properties": {
