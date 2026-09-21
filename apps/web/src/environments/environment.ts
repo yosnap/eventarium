@@ -26,5 +26,5 @@ export const environment = {
   // API con TURNSTILE_SECRET_KEY). Sustituir por la del sitio antes de compilar para
   // producción; ver docs/despliegue.md.
   turnstileEnabled: true,
-  turnstileSiteKey: '0x0000000000000000000000',
+  turnstileSiteKey: '0x4AAAAAAE-r2Qgfg7ktnNvc',
 } as const;
