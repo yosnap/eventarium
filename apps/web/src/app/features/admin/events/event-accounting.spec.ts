@@ -110,6 +110,15 @@ function flushCarga(http: HttpTestingController): void {
   http.expectOne((p) => p.url === `${BASE}/expenses` && p.method === 'GET').flush(gastos());
 }
 
+/**
+ * La bandeja de justificantes pide su listado en cuanto la pantalla pinta el
+ * resumen (antes no existe en el DOM), así que va después de `flushCarga` y
+ * de su ronda de detección de cambios.
+ */
+function flushJustificantes(http: HttpTestingController, borradores: unknown[] = []): void {
+  http.expectOne((p) => p.url === `${BASE}/expense-drafts` && p.method === 'GET').flush(borradores);
+}
+
 describe('EventAccounting', () => {
   let http: HttpTestingController;
 
@@ -142,6 +151,8 @@ describe('EventAccounting', () => {
 
     flushCarga(http);
     await avanzarHastaQueTermineLaCarga(fixture);
+    flushJustificantes(http);
+    await avanzar(fixture);
 
     const texto = fixture.nativeElement.textContent as string;
     expect(texto).toContain('Catering');
@@ -150,7 +161,9 @@ describe('EventAccounting', () => {
     // cubre `panelVisible()` en el test de cambio de pestaña.
     expect(texto).toContain('Ayuntamiento');
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
-  });
+    // Esta pantalla monta ocho bloques y axe los recorre enteros: con la
+    // máquina cargada se pasa de los 5 s por defecto sin que nada esté mal.
+  }, 20_000);
 
   it('muestra los KPI calculados a partir del resumen y los ingresos', async () => {
     const fixture = TestBed.createComponent(EventAccounting);
@@ -160,6 +173,8 @@ describe('EventAccounting', () => {
 
     flushCarga(http);
     await avanzarHastaQueTermineLaCarga(fixture);
+    flushJustificantes(http);
+    await avanzar(fixture);
 
     const texto = fixture.nativeElement.textContent as string;
     // Presupuesto: 1000.00 €
@@ -176,6 +191,8 @@ describe('EventAccounting', () => {
 
     flushCarga(http);
     await avanzarHastaQueTermineLaCarga(fixture);
+    flushJustificantes(http);
+    await avanzar(fixture);
 
     const botones = fixture.nativeElement.querySelectorAll(
       '[role="tab"]',
@@ -196,6 +213,8 @@ describe('EventAccounting', () => {
 
     flushCarga(http);
     await avanzarHastaQueTermineLaCarga(fixture);
+    flushJustificantes(http);
+    await avanzar(fixture);
 
     const botones = fixture.nativeElement.querySelectorAll(
       '[role="tab"]',
@@ -241,6 +260,8 @@ describe('EventAccounting', () => {
 
     flushCarga(http);
     await avanzarHastaQueTermineLaCarga(fixture);
+    flushJustificantes(http);
+    await avanzar(fixture);
 
     const texto = fixture.nativeElement.textContent as string;
     // Ejecutado en metálico: 60000 cents (única partida) = 600.00 €.
@@ -300,6 +321,8 @@ describe('EventAccounting', () => {
     http.expectOne((p) => p.url === `${BASE}/budget-lines` && p.method === 'GET').flush(lineas());
     http.expectOne((p) => p.url === `${BASE}/expenses` && p.method === 'GET').flush(gastos());
     await avanzarHastaQueTermineLaCarga(fixture);
+    flushJustificantes(http);
+    await avanzar(fixture);
 
     const texto = fixture.nativeElement.textContent as string;
     // Aviso de cabecera del panel de presupuesto, en singular.
@@ -349,6 +372,8 @@ describe('EventAccounting', () => {
     http.expectOne((p) => p.url === `${BASE}/budget-lines` && p.method === 'GET').flush(lineas());
     http.expectOne((p) => p.url === `${BASE}/expenses` && p.method === 'GET').flush(gastos());
     await avanzarHastaQueTermineLaCarga(fixture);
+    flushJustificantes(http);
+    await avanzar(fixture);
 
     const texto = fixture.nativeElement.textContent as string;
     expect(texto).toContain('Cobrado');
@@ -369,6 +394,8 @@ describe('EventAccounting', () => {
 
     flushCarga(http);
     await avanzarHastaQueTermineLaCarga(fixture);
+    flushJustificantes(http);
+    await avanzar(fixture);
 
     const texto = fixture.nativeElement.textContent as string;
     expect(texto).toContain('Total de ingresos');
@@ -376,5 +403,84 @@ describe('EventAccounting', () => {
     expect(texto).toContain('Total de gastos en metálico');
     expect(texto).toContain('600.00 €');
     expect(texto).toContain('Total valorado en especie');
+  });
+
+  it('monta el alta por justificante junto al alta manual, no dentro de ella', async () => {
+    const fixture = TestBed.createComponent(EventAccounting);
+    fixture.componentRef.setInput('eventId', 'e1');
+    fixture.detectChanges();
+    await avanzar(fixture);
+
+    flushCarga(http);
+    await avanzarHastaQueTermineLaCarga(fixture);
+    flushJustificantes(http);
+    await avanzar(fixture);
+
+    const alta = fixture.nativeElement.querySelector('app-expense-form') as HTMLElement;
+    const justificantes = fixture.nativeElement.querySelector(
+      'app-receipt-drafts-panel',
+    ) as HTMLElement;
+    expect(justificantes).not.toBeNull();
+    expect(alta.contains(justificantes)).toBe(false);
+  });
+
+  it('confirmar un justificante recarga las cifras del libro', async () => {
+    const fixture = TestBed.createComponent(EventAccounting);
+    fixture.componentRef.setInput('eventId', 'e1');
+    fixture.detectChanges();
+    await avanzar(fixture);
+
+    flushCarga(http);
+    await avanzarHastaQueTermineLaCarga(fixture);
+    flushJustificantes(http, [
+      {
+        id: 'd1',
+        event_id: 'e1',
+        status: 'pending_review',
+        error_code: null,
+        ocr_provider: 'openai/gpt-4o-mini',
+        receipt_object_key: 'orgs/o1/accounting-receipts/abc.pdf',
+        rasterized_object_key: null,
+        extracted_fields: {
+          provider_name: 'Catering SL',
+          expense_date: '2026-09-05',
+          base_cents: 10_000,
+          vat_cents: 2_100,
+          total_cents: 12_100,
+          currency: 'EUR',
+        },
+        field_confidence: {
+          provider_name: 'alta',
+          expense_date: 'alta',
+          base_cents: 'alta',
+          vat_cents: 'alta',
+          total_cents: 'alta',
+          currency: 'alta',
+        },
+        attempts: 1,
+        confirmed_expense_id: null,
+        created_at: '2026-09-05T10:00:00Z',
+      },
+    ]);
+    await avanzar(fixture);
+
+    const formularioDeRevision = fixture.nativeElement.querySelector(
+      'app-receipt-review-form form',
+    ) as HTMLFormElement;
+    formularioDeRevision.dispatchEvent(new Event('submit'));
+    await avanzar(fixture);
+
+    http.expectOne('/api/v1/accounting/expense-drafts/d1/confirm').flush({ id: 'g1' });
+    await avanzarHastaQueTermineLaCarga(fixture);
+
+    // El gasto nuevo obliga a releer resumen, ingresos, partidas y gastos.
+    flushCarga(http);
+    await avanzarHastaQueTermineLaCarga(fixture);
+    // La recarga repinta la pantalla entera, así que la bandeja vuelve a
+    // pedir su listado al montarse de nuevo.
+    flushJustificantes(http);
+    await avanzarHastaQueTermineLaCarga(fixture);
+
+    expect(fixture.nativeElement.textContent).toContain('Gasto dado de alta desde el justificante');
   });
 });

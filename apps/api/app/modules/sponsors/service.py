@@ -144,7 +144,8 @@ async def delete_sponsor(
     sponsor_id: uuid.UUID,
 ) -> str | None:
     """Borra el patrocinador y devuelve la clave de su logo (si tenía), para que
-    el router la borre del almacén en un `BackgroundTask` tras el commit —
+    el router la borre del almacén en un `BackgroundTask`, que corre tras el
+    commit gracias al `scope="function"` de la sesión (`core/deps.py`) —
     mismo patrón que `events/router.py:upload_cover`. Si el logo está
     gestionado por la biblioteca de medios (`logo_media_id` no nulo), no se
     devuelve clave: ese objeto puede seguir en uso en otro sitio."""

@@ -76,8 +76,93 @@ export interface IngresoCombinado extends IncomeLine {
   readonly cobrado: boolean;
 }
 
+/** Nivel de confianza de un campo extraído de un justificante. Tres niveles
+ * cerrados, nunca un porcentaje: `FieldConfidence` del backend. */
+export type NivelDeConfianza = 'alta' | 'media' | 'baja';
+
+/** Estados del borrador de gasto (`CHECK` de `accounting_expense_drafts`).
+ * La bandeja solo lista los tres primeros: los confirmados ya son un gasto y
+ * los descartados no existen. */
+export type EstadoDeDraft =
+  'pending_extraction' | 'pending_review' | 'extraction_failed' | 'confirmed' | 'discarded';
+
+/** Taxonomía cerrada de `error_code` de la pasarela de IA. Cada valor tiene su
+ * propio mensaje en `es-ES.json`, y solo `limite_superado` se puede reintentar
+ * a mano (los demás darían exactamente el mismo resultado). */
+export type ErrorDeExtraccion =
+  | 'servicio_desactivado'
+  | 'sin_configuracion'
+  | 'limite_superado'
+  | 'credencial_ilegible'
+  | 'proveedor_error'
+  | 'modelo_sin_vision'
+  | 'clave_rechazada'
+  | 'payload_invalido'
+  | 'reserva_abandonada';
+
+/** El único `error_code` que la pantalla ofrece reintentar: se agotó el
+ * presupuesto de IA y basta con ampliarlo (fase 4, R3). */
+export const ERROR_REINTENTABLE: ErrorDeExtraccion = 'limite_superado';
+
+/** Los dos `error_code` que se arreglan desde la configuración de IA de la
+ * organización, no reintentando. */
+export const ERRORES_DE_CONFIGURACION: readonly ErrorDeExtraccion[] = [
+  'sin_configuracion',
+  'servicio_desactivado',
+];
+
+/** Lo que el modelo leyó. Entrada **no confiable**: una propuesta que una
+ * persona corrige y confirma. Un campo de confianza baja llega en `null` a
+ * propósito, para que se teclee en vez de darlo por bueno. */
+export interface CamposExtraidos {
+  readonly provider_name: string | null;
+  readonly expense_date: string | null;
+  readonly base_cents: number | null;
+  readonly vat_cents: number | null;
+  readonly total_cents: number | null;
+  readonly currency: string | null;
+}
+
+export interface ReceiptDraft {
+  readonly id: string;
+  readonly event_id: string;
+  readonly status: EstadoDeDraft;
+  readonly error_code: string | null;
+  /** `ai_gateway` mientras está pendiente; `"{proveedor}/{modelo}"` efectivo
+   * en cuanto la extracción termina. */
+  readonly ocr_provider: string;
+  readonly receipt_object_key: string;
+  /** Solo si hubo que rasterizar un PDF: es la imagen que vio el modelo, y
+   * por eso es la que se previsualiza. */
+  readonly rasterized_object_key: string | null;
+  readonly extracted_fields: CamposExtraidos;
+  readonly field_confidence: Readonly<Record<string, NivelDeConfianza>>;
+  readonly attempts: number;
+  readonly confirmed_expense_id: string | null;
+  readonly created_at: string;
+}
+
+/** Centinela de `ocr_provider` mientras no se sabe qué modelo lo leerá. */
+export const MOTOR_PENDIENTE = 'ai_gateway';
+
 export function euros(cents: number): string {
   return (cents / 100).toFixed(2);
+}
+
+/**
+ * Convierte «1.234,56» o «1234.56» a céntimos. `null` si no es un número.
+ *
+ * Vive aquí, y no dentro de un formulario, porque el alta manual y la revisión
+ * de un justificante tienen que redondear los céntimos **exactamente igual**:
+ * dos copias divergirían en el redondeo y el mismo importe entraría con un
+ * céntimo de diferencia según por dónde se diera de alta.
+ */
+export function aCents(texto: string): number | null {
+  if (!texto.trim()) {
+    return null;
+  }
+  const valor = Number(texto.replace(',', '.'));
+  return Number.isFinite(valor) ? Math.round(valor * 100) : null;
 }
 
 /** Cifra con signo explícito, para las líneas de previsión (`+`/`−`). */

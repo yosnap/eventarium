@@ -49,13 +49,21 @@ jobs:
 
       # SeaweedFS no se puede declarar como `service`: necesita argumentos de arranque
       # y un healthcheck sobre el puerto S3, así que se levanta a mano y se espera.
+      #
+      # `-volume.port=8081`: por defecto `weed server` publica el volume server en
+      # el 8080 además del S3 gateway en el 8333 explícito. Con `--network host` ese
+      # 8080 se pega directamente al del runner y se come el puerto que necesita
+      # Caddy más abajo (mismo 8080 que usa `S3_PUBLIC_BASE_URL` en local/prod) — un
+      # `GET` anónimo contra el prefijo de justificantes acababa respondiendo el 400
+      # crudo del volume server en vez del 403 de la regla de Caddy, dando un falso
+      # verde a la prueba de seguridad. Apartar el volume server evita el choque.
       - name: Levantar SeaweedFS
         run: |
           # --network host: con -ip=127.0.0.1 el proceso escucha en el localhost del
           # contenedor, que no es alcanzable a través de un puerto publicado.
           docker run -d --name seaweedfs --network host \
             chrislusf/seaweedfs:3.97 \
-            server -dir=/data -s3 -s3.port=8333 -ip=127.0.0.1
+            server -dir=/data -s3 -s3.port=8333 -volume.port=8081 -ip=127.0.0.1
           for intento in $(seq 1 40); do
             if curl -sf http://127.0.0.1:8333/status > /dev/null; then
               echo "SeaweedFS listo"; break
@@ -69,6 +77,28 @@ jobs:
             -e AWS_DEFAULT_REGION=us-east-1 \
             amazon/aws-cli:2.31.9 \
             --endpoint-url http://127.0.0.1:8333 s3api create-bucket --bucket media
+
+      # Sin esto, ningún test podía comprobar de verdad la regla que deniega el
+      # prefijo `accounting-receipts/` al bucket público (Fase 4 de contabilidad):
+      # `S3_PUBLIC_BASE_URL` apunta a `localhost:8080/media`, pero nada escuchaba ahí.
+      # Mismo `Caddyfile.dev` que usa el entorno local, con `S3_UPSTREAM` apuntando
+      # al SeaweedFS ya levantado; `API_UPSTREAM`/`WEB_UPSTREAM` no se ejercitan en
+      # este job (solo corren los tests de la API contra Postgres/Redis directos) así
+      # que apuntan a puertos que no hace falta que respondan.
+      - name: Levantar Caddy (regla de justificantes)
+        run: |
+          docker run -d --name caddy --network host \
+            -v "$PWD/infra/caddy/Caddyfile.dev:/etc/caddy/Caddyfile:ro" \
+            -e API_UPSTREAM=127.0.0.1:8000 \
+            -e WEB_UPSTREAM=127.0.0.1:4200 \
+            -e S3_UPSTREAM=127.0.0.1:8333 \
+            caddy:2.10-alpine
+          for intento in $(seq 1 20); do
+            codigo=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/media/orgs/x/accounting-receipts/y || echo 000)
+            [ "$codigo" = "403" ] && { echo "Caddy listo (regla de justificantes activa)"; break; }
+            [ "$intento" = "20" ] && { docker logs caddy; exit 1; }
+            sleep 1
+          done
 
       - name: Crear los roles de base de datos
         env:

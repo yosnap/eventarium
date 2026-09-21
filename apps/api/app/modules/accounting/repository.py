@@ -12,19 +12,21 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.accounting.models import (
     AccountingBudgetLine,
     AccountingExpense,
+    AccountingExpenseDraft,
     AccountingIncome,
     SponsorPaymentDetail,
 )
 from app.modules.events.models import Event
+from app.modules.organizations.models import OrganizationMember
 from app.modules.payments import repository as payments_repository
 from app.modules.payments.models import EventPayment
 from app.modules.sponsors.models import Sponsor
@@ -555,6 +557,161 @@ async def serie_temporal(
         )
         for clave, valores in sorted(acumulado.items())
     ]
+
+
+# --- Borradores de gasto extraídos por OCR (fase 4 de trabajo) --------------
+
+
+async def list_drafts(
+    session: AsyncSession,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    *,
+    estados: tuple[str, ...] | None = None,
+) -> list[AccountingExpenseDraft]:
+    """Borradores de un evento, del más reciente al más antiguo.
+
+    Sin `estados`, todos: la pantalla de revisión necesita ver en la misma
+    lista lo pendiente de extraer, lo pendiente de revisar y lo que falló con
+    su motivo, que es justo lo que distingue «presupuesto de IA agotado» de
+    «extracción fallida»."""
+    consulta = select(AccountingExpenseDraft).where(
+        AccountingExpenseDraft.organization_id == organization_id,
+        AccountingExpenseDraft.event_id == event_id,
+    )
+    if estados is not None:
+        consulta = consulta.where(AccountingExpenseDraft.status.in_(estados))
+    filas = (
+        await session.execute(consulta.order_by(AccountingExpenseDraft.created_at.desc()))
+    ).scalars()
+    return list(filas)
+
+
+async def get_draft(
+    session: AsyncSession, organization_id: uuid.UUID, draft_id: uuid.UUID
+) -> AccountingExpenseDraft | None:
+    resultado: AccountingExpenseDraft | None = await session.scalar(
+        select(AccountingExpenseDraft).where(
+            AccountingExpenseDraft.id == draft_id,
+            AccountingExpenseDraft.organization_id == organization_id,
+        )
+    )
+    return resultado
+
+
+async def get_draft_for_update(
+    session: AsyncSession, organization_id: uuid.UUID, draft_id: uuid.UUID
+) -> AccountingExpenseDraft | None:
+    """Bloquea la fila del borrador (`SELECT ... FOR UPDATE`).
+
+    Es la primera de las dos barreras contra una doble confirmación; la
+    segunda es el índice único parcial `uq_accounting_expenses_draft_id`.
+    `populate_existing=True` por el mismo motivo que
+    `get_event_for_update`: sin él, un borrador ya cargado en el mapa de
+    identidad de la sesión se devolvería con el estado obsoleto y la segunda
+    confirmación vería `pending_review` después de que la primera hubiera
+    escrito `confirmed`."""
+    resultado: AccountingExpenseDraft | None = await session.scalar(
+        select(AccountingExpenseDraft)
+        .where(
+            AccountingExpenseDraft.id == draft_id,
+            AccountingExpenseDraft.organization_id == organization_id,
+        )
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    return resultado
+
+
+async def get_member_id(
+    session: AsyncSession, organization_id: uuid.UUID, user_id: uuid.UUID
+) -> uuid.UUID | None:
+    """Membresía de quien confirma, para `confirmed_by_member_id`.
+
+    Una persona puede tener varias membresías en la misma organización (una
+    por rol): se queda con la más antigua, que es la estable — basta con dejar
+    constancia de **quién** confirmó, no con qué rol lo hizo."""
+    resultado: uuid.UUID | None = await session.scalar(
+        select(OrganizationMember.id)
+        .where(
+            OrganizationMember.organization_id == organization_id,
+            OrganizationMember.user_id == user_id,
+        )
+        .order_by(OrganizationMember.created_at)
+        .limit(1)
+    )
+    return resultado
+
+
+async def drafts_reencolables(
+    session: AsyncSession,
+    *,
+    minutos: int,
+    max_intentos: int,
+    error_code_reintentable: str,
+    limite: int,
+) -> list[tuple[uuid.UUID, uuid.UUID]]:
+    """`(draft_id, organization_id)` de lo que el barrido debe reencolar.
+
+    Dos conjuntos, y **solo** esos dos:
+
+    - lo que lleva demasiado tiempo en `pending_extraction` (el worker murió
+      entre el encolado y la escritura);
+    - lo que falló con el único código transitorio (`proveedor_error`).
+
+    Deliberadamente **no** incluye `limite_superado`: con el límite todavía
+    agotado, cada pasada del barrido consumiría una reserva, fallaría y
+    quemaría cuota llenando `ai_usage_records` de filas fallidas. Ese estado
+    se reencola solo por acción explícita del organizador. El resto de
+    códigos (`payload_invalido`, `modelo_sin_vision`, `clave_rechazada`,
+    `credencial_ilegible`, `sin_configuracion`) tampoco: repetir la misma
+    llamada daría el mismo resultado.
+
+    Consulta de solo lectura y transversal a organizaciones: la escritura
+    posterior va organización a organización bajo RLS.
+
+    `limite` acota el lote de una pasada: tras una caída larga del proveedor
+    puede haber cientos de borradores atascados, y reencolarlos todos de
+    golpe descargaría sobre la cola —y sobre el presupuesto de IA— todo el
+    atasco de una vez. Se atiende lo más antiguo primero y el resto espera a
+    la pasada siguiente."""
+    corte = datetime.now(UTC) - timedelta(minutes=minutos)
+    filas = await session.execute(
+        select(AccountingExpenseDraft.id, AccountingExpenseDraft.organization_id)
+        .where(
+            AccountingExpenseDraft.attempts < max_intentos,
+            or_(
+                and_(
+                    AccountingExpenseDraft.status == "pending_extraction",
+                    AccountingExpenseDraft.updated_at < corte,
+                ),
+                and_(
+                    AccountingExpenseDraft.status == "extraction_failed",
+                    AccountingExpenseDraft.error_code == error_code_reintentable,
+                    AccountingExpenseDraft.updated_at < corte,
+                ),
+            ),
+        )
+        .order_by(AccountingExpenseDraft.created_at)
+        .limit(limite)
+    )
+    return [(fila[0], fila[1]) for fila in filas.all()]
+
+
+async def contar_drafts_agotados(session: AsyncSession, *, max_intentos: int) -> int:
+    """Cuántas extracciones fallidas ya no se van a reintentar solas.
+
+    El barrido lo escala a log `ERROR`: es el único aviso de que hay
+    justificantes esperando una acción humana."""
+    total = await session.scalar(
+        select(func.count())
+        .select_from(AccountingExpenseDraft)
+        .where(
+            AccountingExpenseDraft.status == "extraction_failed",
+            AccountingExpenseDraft.attempts >= max_intentos,
+        )
+    )
+    return int(total or 0)
 
 
 async def ejecutado_en_especie_cents(

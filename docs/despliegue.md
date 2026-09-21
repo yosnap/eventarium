@@ -358,6 +358,44 @@ Todas están documentadas en `infra/env/.env.example`. Las que solo aplican a pr
 | `GITHUB_REPOSITORY` | Origen de las imágenes en GHCR |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_USE_TLS`, `SMTP_FROM` | Proveedor de correo real para la verificación de cuentas. Mailpit solo existe en desarrollo |
 | `TURNSTILE_ENABLED`, `TURNSTILE_SECRET_KEY` | Anti-bot en el registro, el reenvío de verificación y el alta de organización. **`TURNSTILE_ENABLED` no puede ser `false` en producción**: el arranque de la API falla si lo es |
+| `AI_SETTINGS_ENCRYPTION_KEY` | Clave Fernet con la que se cifran en reposo las claves de los proveedores de IA. Opcional: sin ella la instalación arranca y funciona, pero no se puede guardar ninguna configuración de IA. Ver abajo |
+
+### Pasarela de IA: cifrado y orden de despliegue
+
+La configuración de IA vive en la base de datos (proveedor, modelo, techo de gasto
+y clave del proveedor **cifrada**), no en variables de entorno. La única variable
+es la clave de cifrado:
+
+```bash
+# Genera la clave (una sola vez por instalación)
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+AI_SETTINGS_ENCRYPTION_KEY=<la clave generada>
+```
+
+Orden de despliegue de la configuración de plataforma:
+
+1. fija `AI_SETTINGS_ENCRYPTION_KEY` en `api`, `worker` y `scheduler` (las tres
+   la necesitan: el worker también resuelve credenciales) y arranca. Un formato
+   inválido **impide arrancar**, a propósito, en vez de fallar al guardar;
+2. entra como superadministrador y guarda la configuración de plataforma en
+   `PUT /api/v1/admin/ai-settings`: proveedor, modelo, clave y techo de gasto.
+   La clave no se puede volver a leer nunca — el panel solo muestra sus últimos
+   caracteres;
+3. opcionalmente, cada organización sobrescribe la suya con su propia clave y su
+   límite, que nunca puede superar el techo de la plataforma.
+
+Rotación de la clave de cifrado (parada corta; la clave es de aplicación, así que
+rotarla obliga a re-cifrar todas las filas):
+
+```bash
+# 1. Para api, worker y scheduler
+# 2. Re-cifra con la clave antigua y la nueva
+python -m app.cli rotate-ai-encryption-key --old-key <antigua> --new-key <nueva>
+# 3. Cambia AI_SETTINGS_ENCRYPTION_KEY por la nueva y vuelve a arrancar
+```
+
+Sin la variable, guardar una configuración de IA devuelve un error explícito
+(`cifrado_no_configurado`) y el resto de la plataforma funciona con normalidad.
 
 La clave pública de Turnstile (`turnstileSiteKey`) no es un secreto de la API: se
 compila en el bundle del frontend (`apps/web/src/environments/environment.ts`) antes de

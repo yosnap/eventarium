@@ -352,10 +352,13 @@ async def test_no_se_borra_la_portada_anterior_si_falla_el_commit(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
     """El objeto anterior solo se borra tras el `commit` real de la transacción
-    (vía `BackgroundTask`, que Starlette ejecuta después de enviar la respuesta).
-    Si la persistencia falla, la petición nunca llega a construir esa respuesta y
-    el borrado no llega a programarse — el objeto anterior sigue vivo, no
-    huérfano, aunque la fila en base de datos tampoco haya quedado actualizada."""
+    (vía `BackgroundTask`; el orden lo garantiza el `scope="function"` de la
+    sesión en `core/deps.py`, no el `BackgroundTask` por sí solo).
+    Si la persistencia falla, el teardown de la sesión (el commit) falla
+    después de que el handler ya construyera su respuesta; el manejador de
+    excepciones la sustituye por un error y la `BackgroundTask` de borrado
+    nunca llega a programarse — el objeto anterior sigue vivo, no huérfano,
+    aunque la fila en base de datos tampoco haya quedado actualizada."""
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_evento(cliente, cabeceras)
 

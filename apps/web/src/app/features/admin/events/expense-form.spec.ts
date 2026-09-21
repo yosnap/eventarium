@@ -124,6 +124,32 @@ describe('ExpenseForm', () => {
     peticion.flush({});
   });
 
+  it('la conversión a céntimos no ha cambiado al pasar a ser compartida', async () => {
+    // Regresión de la extracción de `aCents` a `accounting-types`: el alta
+    // manual y la revisión de un justificante tienen que redondear igual, y
+    // este es el comportamiento que había antes de moverla.
+    const fixture = await montar(http);
+    escribir(fixture, 'gasto-proveedor', 'Catering SL');
+    escribir(fixture, 'gasto-fecha', '2026-09-05');
+    escribir(fixture, 'gasto-base', '0,015');
+    await enviar(fixture);
+
+    const peticion = http.expectOne((p) => p.url === `${BASE}/expenses` && p.method === 'POST');
+    expect(peticion.request.body.base_cents).toBe(2);
+    peticion.flush({});
+  });
+
+  it('un importe que no es un número se rechaza sin llamar al API', async () => {
+    const fixture = await montar(http);
+    escribir(fixture, 'gasto-proveedor', 'Catering SL');
+    escribir(fixture, 'gasto-fecha', '2026-09-05');
+    escribir(fixture, 'gasto-base', 'mil euros');
+    await enviar(fixture);
+
+    expect(fixture.nativeElement.textContent).toContain('importe base válido');
+    http.expectNone((p) => p.url === `${BASE}/expenses` && p.method === 'POST');
+  });
+
   it('la partida es opcional y va nula si no se elige', async () => {
     const fixture = await montar(http);
     escribir(fixture, 'gasto-proveedor', 'Varios');

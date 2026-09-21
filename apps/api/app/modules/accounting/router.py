@@ -120,7 +120,7 @@ async def download_receipt(usuario: CurrentUserDep, object_key: str) -> Response
 
 async def _obtener_evento_o_404(session: DbDep, usuario: CurrentUserDep, event_id: str) -> Event:
     evento = await events_repository.get_event(
-        session, usuario.organization_id, _uuid_o_422(event_id, "event_id")
+        session, usuario.organization_id, uuid_o_422(event_id, "event_id")
     )
     if evento is None:
         raise NotFoundError("El evento no existe.")
@@ -245,7 +245,7 @@ async def update_income(
         background_tasks,
         actor_user_id=usuario.id,
         organization_id=usuario.organization_id,
-        income_id=_uuid_o_422(income_id, "income_id"),
+        income_id=uuid_o_422(income_id, "income_id"),
         datos=datos.model_dump(exclude_unset=True),
     )
     return _income_response(ingreso)
@@ -269,7 +269,7 @@ async def upsert_sponsor_payment_details(
     sponsor_id: str,
     background_tasks: BackgroundTasks,
 ) -> SponsorPaymentDetailOut:
-    sponsor_uuid = _uuid_o_422(sponsor_id, "sponsor_id")
+    sponsor_uuid = uuid_o_422(sponsor_id, "sponsor_id")
     # El patrocinador tiene que existir en esta organización antes de fijarle
     # datos de cobro: sin esta comprobación, un `sponsor_id` inventado
     # produciría un `IntegrityError` de la FK compuesta sin traducir en vez
@@ -309,7 +309,7 @@ def _budget_line_response(linea: AccountingBudgetLine) -> BudgetLineOut:
     )
 
 
-def _expense_response(gasto: AccountingExpense) -> ExpenseOut:
+def expense_response(gasto: AccountingExpense) -> ExpenseOut:
     return ExpenseOut(
         id=str(gasto.id),
         event_id=str(gasto.event_id),
@@ -325,7 +325,7 @@ def _expense_response(gasto: AccountingExpense) -> ExpenseOut:
     )
 
 
-def _uuid_o_422(valor: str, etiqueta: str) -> uuid.UUID:
+def uuid_o_422(valor: str, etiqueta: str) -> uuid.UUID:
     try:
         return uuid.UUID(valor)
     except ValueError as exc:
@@ -387,7 +387,7 @@ async def update_budget_line(
         background_tasks,
         actor_user_id=usuario.id,
         organization_id=usuario.organization_id,
-        budget_line_id=_uuid_o_422(budget_line_id, "budget_line_id"),
+        budget_line_id=uuid_o_422(budget_line_id, "budget_line_id"),
         datos=datos.model_dump(exclude_unset=True),
     )
     return _budget_line_response(linea)
@@ -413,7 +413,7 @@ async def delete_budget_line(
         background_tasks,
         actor_user_id=usuario.id,
         organization_id=usuario.organization_id,
-        budget_line_id=_uuid_o_422(budget_line_id, "budget_line_id"),
+        budget_line_id=uuid_o_422(budget_line_id, "budget_line_id"),
     )
 
 
@@ -541,7 +541,7 @@ async def get_budget_summary(evento: EventoDep, session: DbDep) -> BudgetSummary
 )
 async def list_expenses(evento: EventoDep, session: DbDep) -> list[ExpenseOut]:
     gastos = await repository.list_expenses(session, evento.organization_id, evento.id)
-    return [_expense_response(gasto) for gasto in gastos]
+    return [expense_response(gasto) for gasto in gastos]
 
 
 @router.post(
@@ -569,13 +569,11 @@ async def create_expense(
         datos={
             **valores,
             "budget_line_id": (
-                _uuid_o_422(budget_line_id, "budget_line_id")
-                if budget_line_id is not None
-                else None
+                uuid_o_422(budget_line_id, "budget_line_id") if budget_line_id is not None else None
             ),
         },
     )
-    return _expense_response(gasto)
+    return expense_response(gasto)
 
 
 @router.patch(
@@ -594,16 +592,16 @@ async def update_expense(
 ) -> ExpenseOut:
     valores = datos.model_dump(exclude_unset=True)
     if "budget_line_id" in valores and valores["budget_line_id"] is not None:
-        valores["budget_line_id"] = _uuid_o_422(valores["budget_line_id"], "budget_line_id")
+        valores["budget_line_id"] = uuid_o_422(valores["budget_line_id"], "budget_line_id")
     gasto = await service.editar_gasto(
         session,
         background_tasks,
         actor_user_id=usuario.id,
         organization_id=usuario.organization_id,
-        expense_id=_uuid_o_422(expense_id, "expense_id"),
+        expense_id=uuid_o_422(expense_id, "expense_id"),
         datos=valores,
     )
-    return _expense_response(gasto)
+    return expense_response(gasto)
 
 
 @router.delete(
@@ -624,7 +622,7 @@ async def delete_expense(
         background_tasks,
         actor_user_id=usuario.id,
         organization_id=usuario.organization_id,
-        expense_id=_uuid_o_422(expense_id, "expense_id"),
+        expense_id=uuid_o_422(expense_id, "expense_id"),
     )
 
 
@@ -651,10 +649,10 @@ async def set_in_kind_valuation(
         background_tasks,
         actor_user_id=usuario.id,
         organization_id=usuario.organization_id,
-        sponsor_id=_uuid_o_422(sponsor_id, "sponsor_id"),
+        sponsor_id=uuid_o_422(sponsor_id, "sponsor_id"),
         valoracion_cents=datos.valoracion_cents,
         budget_line_id=(
-            _uuid_o_422(datos.budget_line_id, "budget_line_id")
+            uuid_o_422(datos.budget_line_id, "budget_line_id")
             if datos.budget_line_id is not None
             else None
         ),
@@ -749,7 +747,7 @@ async def redownload_export(
     snapshot, contenido = await export.redescargar_snapshot(
         session,
         organization_id=evento.organization_id,
-        snapshot_id=_uuid_o_422(snapshot_id, "snapshot_id"),
+        snapshot_id=uuid_o_422(snapshot_id, "snapshot_id"),
     )
     if snapshot.event_id != evento.id:
         raise NotFoundError("Ese balance exportado no existe.")

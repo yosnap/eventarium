@@ -17,6 +17,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Select, type SelectOption } from '../../../shared/ui/select';
+import { aCents } from './accounting-types';
 
 /** Una partida del presupuesto, para el desplegable de imputación. */
 export interface PartidaParaGasto {
@@ -172,23 +173,14 @@ export class ExpenseForm {
     return (evento.target as HTMLInputElement).value;
   }
 
-  /** Convierte «1.234,56» o «1234.56» a céntimos. `null` si no es un número. */
-  private aCents(texto: string): number | null {
-    if (!texto.trim()) {
-      return null;
-    }
-    const valor = Number(texto.replace(',', '.'));
-    return Number.isFinite(valor) ? Math.round(valor * 100) : null;
-  }
-
   protected async crear(evento: SubmitEvent): Promise<void> {
     evento.preventDefault();
     this.error.set(null);
 
     const proveedor = this.proveedor().trim();
     const fecha = this.fecha();
-    const baseCents = this.aCents(this.base());
-    const ivaCents = this.aCents(this.iva());
+    const baseCents = aCents(this.base());
+    const ivaCents = aCents(this.iva());
 
     if (!proveedor) {
       this.error.set(

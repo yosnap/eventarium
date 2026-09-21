@@ -46,6 +46,33 @@ dependencies = [
     # imágenes. Mitigado con límite de dimensiones antes de decodificar
     # completo (ver `app/modules/media/processing.py`).
     "pillow>=12.3,<13.0",
+    # Cifrado en reposo de las claves de proveedor de IA (plan
+    # `260911-0325`, fase 1): `cryptography.fernet`. Rango cerrado a la
+    # major actual — Fernet es estable, pero la librería rota APIs de
+    # criptografía de bajo nivel entre majors. Se fija a la major que ya
+    # estaba resuelta como dependencia transitiva (50.x): declararla más
+    # abajo habría **degradado** la versión que el resto del árbol usa.
+    "cryptography>=50.0,<51.0",
+    # Cliente único de generación de la pasarela de IA (plan `260911-0325`,
+    # fase 2). Se usa **solo** `litellm.acompletion` y su mapa de precios:
+    # ni el proxy, ni el router, ni los callbacks.
+    #
+    # Tope en `<1.98` a propósito, no por pereza de rango: desde 1.98 LiteLLM
+    # declara `boto3>=1.43.1` como dependencia **base** (antes solo la traía
+    # el extra `proxy`, que no usamos), y `aioboto3` —el cliente S3 de la
+    # biblioteca de medios y de contabilidad— arrastra `aiobotocore==2.25.1`,
+    # que fija `botocore<1.40.62`. Las dos restricciones son incompatibles y
+    # no hay ninguna versión de `aioboto3` publicada que admita la serie
+    # 1.43 de botocore, así que subir LiteLLM aquí rompería la subida de
+    # ficheros. Al soltarse ese pin en `aioboto3`, se puede ampliar el tope.
+    "litellm>=1.95,<1.98",
+    # Rasterización de PDF antes del OCR de justificantes (plan
+    # `260910-2216`, fase 4). `pypdfium2` y no `pdf2image`: este trae el
+    # binario de PDFium dentro de la rueda, así que la imagen Docker no gana
+    # ninguna dependencia de sistema nueva (`poppler-utils`), que era el
+    # criterio de la fase. Solo se usa para convertir páginas a mapa de bits:
+    # el adaptador de OCR nunca recibe un PDF.
+    "pypdfium2>=5.0,<6.0",
 ]
 
 [dependency-groups]
@@ -96,7 +123,7 @@ plugins = []
 exclude = ["alembic/versions/"]
 
 [[tool.mypy.overrides]]
-module = ["magic.*", "taskiq_redis.*", "aioboto3.*"]
+module = ["magic.*", "taskiq_redis.*", "aioboto3.*", "pypdfium2.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

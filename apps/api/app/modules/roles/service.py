@@ -150,10 +150,11 @@ async def _registrar_cambio_de_permisos(
 ) -> None:
     """Escribe en `audit_log` el cambio de permisos de un rol.
 
-    Se ejecuta como `BackgroundTask` (Starlette la corre tras enviar la
-    respuesta, y por tanto tras el `commit` real de la transacción principal
-    que ocurre al salir de la dependencia `get_db` — mismo patrón que el
-    borrado de objetos huérfanos en `events/router.py:upload_cover`). Si la
+    Se ejecuta como `BackgroundTask` (verificado: corre tras el `commit` real
+    de la transacción principal, porque `core/deps.py` declara la sesión con
+    `scope="function"` y su salida se adelanta a las tareas de fondo — mismo
+    patrón que el borrado de objetos huérfanos en
+    `events/router.py:upload_cover`). Si la
     petición fallase más tarde (p. ej. `profile_fields` inválidos) y la
     transacción principal revirtiera el cambio de permisos, esta función
     nunca llegaría a encolarse: la auditoría no puede sobrevivir a un

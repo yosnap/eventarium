@@ -136,6 +136,54 @@ class Settings(BaseSettings):
     ga4_service_account_json: str = ""
     ga4_property_id: str = ""
 
+    # Pasarela de IA (plan `260911-0325`): clave simétrica con la que se
+    # cifran en reposo las claves de proveedor de los dos niveles (plataforma
+    # y organización). Vacía por defecto, como los secretos de Stripe: una
+    # instalación que no usa IA arranca igual y solo falla al intentar
+    # guardar una clave, con un error de dominio explícito. Si tiene valor,
+    # se valida como clave Fernet **al arrancar** — no en el primer `PUT`.
+    # Rotarla exige re-cifrar todas las filas: ver
+    # `python -m app.cli rotate-ai-encryption-key`.
+    ai_settings_encryption_key: str = ""
+
+    # Retención de `ai_usage_records` (fase 2 de la pasarela de IA). El
+    # histórico de uso sirve para el panel de gasto del periodo y para
+    # auditar una factura reciente, no para guardar actividad indefinidamente:
+    # mismo criterio (y mismo valor) que `stripe_webhook_retention_days`.
+    ai_usage_retention_days: int = 90
+    # Cuánto puede llevar una reserva sin liquidar antes de que el barrido la
+    # dé por abandonada. Tiene que ser holgadamente mayor que el timeout de
+    # una llamada (`client.TIMEOUT_POR_DEFECTO_S`, 120 s): cerrar una reserva
+    # que todavía está en vuelo marcaría como fallida una llamada que va a
+    # completarse, y la liquidación posterior ya no la recuperaría.
+    ai_reservation_stuck_minutes: int = 30
+
+    # OCR de justificantes (plan `260910-2216`, fase 4). Aquí **no** hay
+    # ninguna credencial ni dirección de motor: el proveedor lo resuelve la
+    # pasarela de IA por organización. Solo límites de operación.
+    #
+    # Páginas que se rasterizan de un PDF: el límite se aplica al convertir,
+    # no contando páginas del PDF crudo (que ya es la parte insegura). Un
+    # justificante real tiene una o dos; más allá de eso el coste de la
+    # llamada crece sin aportar nada.
+    accounting_ocr_max_pdf_pages: int = Field(default=3, gt=0)
+    # Ancho máximo, en píxeles, de cada página rasterizada. Suficiente para
+    # leer los importes de un ticket y acotado para que la imagen en base64
+    # no dispare el contexto del modelo.
+    accounting_ocr_raster_max_width: int = Field(default=1654, gt=0)
+    # Intentos de extracción antes de dejar el borrador fallido a la vista.
+    # Cuenta igual los del barrido y los manuales: un reintento manual
+    # tampoco es infinito.
+    accounting_ocr_max_attempts: int = Field(default=3, gt=0)
+    # Cuánto puede llevar un borrador en `pending_extraction` antes de que el
+    # barrido lo dé por atascado y lo reencole. Holgadamente mayor que el
+    # timeout de una llamada a la pasarela (120 s).
+    accounting_ocr_stuck_minutes: int = Field(default=15, gt=0)
+    # Techo por encima del cual confirmar un gasto exige una confirmación
+    # explícita adicional en el propio payload: el texto extraído por un
+    # modelo nunca da de alta un importe grande por sí solo.
+    accounting_expense_confirmation_ceiling_cents: int = Field(default=100_000, gt=0)
+
     @field_validator("jwt_secret", "ticket_qr_secret")
     @classmethod
     def _validar_secreto(cls, valor: str) -> str:
@@ -152,6 +200,32 @@ class Settings(BaseSettings):
         pueden validarse incondicionalmente."""
         if valor and len(valor) < 32:
             raise ValueError("El secreto debe tener al menos 32 caracteres")
+        return valor
+
+    @field_validator("ai_settings_encryption_key")
+    @classmethod
+    def _validar_clave_de_cifrado_de_ia(cls, valor: str) -> str:
+        """Un formato inválido falla **al arrancar**, no en el primer `PUT`.
+
+        Mismo criterio que `jwt_secret`, con la diferencia de que esta es
+        opcional: sin valor no hay nada que validar (la instalación
+        simplemente no puede guardar claves de IA). `Fernet` se importa
+        aquí dentro para no cargar `cryptography` en cada importación de la
+        configuración, que la usa todo el proyecto.
+        """
+        if not valor:
+            return valor
+        from cryptography.fernet import Fernet
+
+        try:
+            Fernet(valor.encode("utf-8"))
+        except (ValueError, TypeError) as error:
+            raise ValueError(
+                "AI_SETTINGS_ENCRYPTION_KEY debe ser una clave Fernet válida "
+                "(32 bytes en base64 url-safe; genérala con "
+                '`python -c "from cryptography.fernet import Fernet; '
+                'print(Fernet.generate_key().decode())"`).'
+            ) from error
         return valor
 
     @field_validator("s3_public_base_url", "web_base_url")

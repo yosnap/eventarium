@@ -287,11 +287,13 @@ async def upload_cover(
 
     await session.flush()
 
-    # El objeto anterior se borra en un `BackgroundTask`, que Starlette ejecuta
-    # tras enviar la respuesta — y por tanto tras el `commit` real de la
-    # transacción (que ocurre al salir de la dependencia `get_db`, antes de que
-    # exista una `Response` a la que enganchar la tarea). Si el `commit` fallara,
-    # nunca se llega a construir la respuesta y esta tarea nunca se ejecuta: el
+    # El objeto anterior se borra en un `BackgroundTask`, que corre tras el
+    # `commit` real de la transacción. El orden no lo da el `BackgroundTask` por
+    # sí solo — de hecho, una dependencia con `yield` sin `scope` cierra
+    # *después* de las tareas de fondo —, sino el `scope="function"` con el que
+    # `core/deps.py` declara la sesión; su docstring lo explica y
+    # `tests/test_core_deps.py` lo vigila. Si el `commit` fallara, su excepción
+    # sustituye la respuesta y esta tarea nunca se ejecuta: el
     # objeto anterior no se borra si la fila no queda actualizada. Borrarlo justo
     # tras el `flush()` (como hacía `branding/logo`) dejaría la fila apuntando a
     # un objeto ya inexistente ante cualquier fallo posterior en la misma

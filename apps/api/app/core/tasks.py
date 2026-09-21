@@ -29,6 +29,7 @@ from app.core.tenant import base_url_de_organizacion
 # `NoReferencedTableError`/`PendingRollbackError` («could not find table
 # 'users'»): SQLAlchemy resuelve las FK declaradas por nombre de tabla contra
 # `Base.metadata`, que solo se rellena importando la clase del modelo.
+from app.modules.accounting import models as _accounting_models  # noqa: F401
 from app.modules.events import models as _event_models  # noqa: F401
 from app.modules.legal import models as _legal_models  # noqa: F401
 from app.modules.organizations import models as _organization_models  # noqa: F401
@@ -486,6 +487,72 @@ async def sweep_stuck_refunds_task() -> None:
     from app.modules.payments.refunds_service import reencolar_reembolsos_atascados
 
     await reencolar_reembolsos_atascados()
+
+
+@broker.task(schedule=[{"cron": "*/10 * * * *"}])
+async def sweep_stuck_ai_reservations_task() -> None:
+    """Cada 10 minutos: cierra las reservas de gasto de IA que nadie liquidó.
+
+    Una llamada a un proveedor aparta su coste estimado (`reservado`) antes
+    de salir a la red y lo liquida al volver. Si el proceso muere en medio,
+    la fila se queda apartando gasto para siempre y el límite del periodo se
+    va estrechando sin que nadie sepa por qué. El barrido la marca `fallido`
+    con `reserva_abandonada`: el gasto se cuenta como potencialmente
+    consumido —nunca se ignora— y queda dicho que nadie confirmó qué pasó."""
+    from app.modules.ai_gateway.client import cerrar_reservas_abandonadas
+
+    await cerrar_reservas_abandonadas(minutos=get_settings().ai_reservation_stuck_minutes)
+
+
+@broker.task(retry_on_error=False)
+async def extraer_campos_task(draft_id: str, organization_id: str) -> None:
+    """Extrae los campos de un justificante ya subido.
+
+    `retry_on_error=False` a propósito, a diferencia de las tareas de correo:
+    el reintento no lo decide taskiq sino el dominio. El cuerpo no propaga
+    nunca —traduce el fallo a `error_code` en el propio borrador— y es esa
+    columna la que decide si el barrido lo reencola, si espera una acción
+    manual o si se queda a la vista. Un reintento ciego de taskiq encima de
+    eso podría quemar cuota de IA con el límite ya agotado.
+
+    `organization_id` viaja en la firma porque el worker no tiene petición
+    HTTP y necesita fijar el contexto de RLS antes de leer nada; si no
+    coincidiera con el del borrador, RLS simplemente no lo encontraría."""
+    from app.modules.accounting.drafts_service import extraer_campos
+
+    await extraer_campos(uuid.UUID(draft_id), uuid.UUID(organization_id))
+
+
+@broker.task(schedule=[{"cron": "*/10 * * * *"}])
+async def sweep_stuck_extractions_task() -> None:
+    """Cada 10 minutos: rescata extracciones de justificantes atascadas.
+
+    Reencola lo que lleva demasiado tiempo en `pending_extraction` (el worker
+    murió entre el encolado y la escritura) y lo que falló con
+    `proveedor_error`, el único código transitorio. **Nunca** reencola un
+    borrador con `limite_superado`: con el presupuesto de IA todavía agotado,
+    cada pasada consumiría una reserva, fallaría y llenaría
+    `ai_usage_records` de filas fallidas; ese estado lo recupera el
+    organizador desde el panel tras ampliar el límite. Lo que agotó sus
+    intentos se escala a log `ERROR`, que es el único aviso de que hay
+    justificantes esperando una acción humana."""
+    from app.modules.accounting.drafts_service import reencolar_extracciones_atascadas
+
+    await reencolar_extracciones_atascadas()
+
+
+@broker.task(schedule=[{"cron": "30 3 * * *"}])
+async def purge_ai_usage_records_task() -> None:
+    """Diaria: purga `ai_usage_records` más antiguos que
+    `ai_usage_retention_days`. Nunca borra una reserva sin cerrar: eso lo
+    resuelve el barrido, y borrarla aquí escondería el gasto."""
+    from app.core.database import maintenance_session
+    from app.modules.ai_gateway import repository as ai_repository
+
+    async with maintenance_session() as session:
+        await ai_repository.purgar_usos_antiguos(
+            session, dias=get_settings().ai_usage_retention_days
+        )
 
 
 @broker.task(retry_on_error=True, max_retries=5)

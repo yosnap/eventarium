@@ -2582,6 +2582,262 @@
         }
       }
     },
+    "/api/v1/admin/ai-settings": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Configuración de IA por defecto de la plataforma",
+        "description": "Proveedor, modelo, dirección efectiva y techo de gasto de la instalación. **Nunca** devuelve la clave, ni siquiera a quien la guardó: solo `has_key`, la pista de sus últimos caracteres y la fecha.",
+        "operationId": "get_platform_ai_settings_api_v1_admin_ai_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformAiSettingsOut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Configurar la IA por defecto de la plataforma",
+        "description": "Guarda proveedor, modelo, clave (write-only) y techo de gasto. La clave se cifra en reposo con `AI_SETTINGS_ENCRYPTION_KEY`; sin esa variable, la operación falla con un error de dominio explícito.\n\nBajar el techo por debajo de límites de organización ya fijados **no** se bloquea: el límite efectivo de cada organización es el menor de los dos, así que el techo manda igualmente.",
+        "operationId": "update_platform_ai_settings_api_v1_admin_ai_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformAiSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformAiSettingsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/ai-usage": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Gasto y actividad de IA de toda la instalación",
+        "description": "Agregado del mes en curso cruzando **todas** las organizaciones (llamadas, tokens y gasto en USD frente al techo de plataforma), las últimas llamadas y los últimos códigos de error. `gasto_auditable` es `false` cuando alguna llamada del periodo lleva un importe solo estimado: ese total es orientativo.",
+        "operationId": "get_platform_ai_usage_api_v1_admin_ai_usage_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformAiUsageOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/services": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Interruptores globales de servicios",
+        "operationId": "list_platform_services_api_v1_admin_services_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ServiceOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Platform Services Api V1 Admin Services Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Activar o desactivar servicios para toda la instalación",
+        "description": "Un servicio apagado aquí queda apagado para **todas** las organizaciones; ninguna puede reactivarlo. Una clave de servicio fuera del catálogo se rechaza con 422.",
+        "operationId": "update_platform_services_api_v1_admin_services_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformServicesUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ServiceOut"
+                  },
+                  "type": "array",
+                  "title": "Response Update Platform Services Api V1 Admin Services Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/organizations/{organization_id}/services": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Estado de los servicios de una organización",
+        "operationId": "get_organization_services_api_v1_admin_organizations__organization_id__services_get",
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrganizationServiceOut"
+                  },
+                  "title": "Response Get Organization Services Api V1 Admin Organizations  Organization Id  Services Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Forzar a apagado (o volver a heredar) un servicio de una organización",
+        "description": "El override es binario y solo puede **desactivar**: `enabled=false` apaga el servicio para esa organización y `enabled=true` borra el override para volver a heredar el estado global — nunca enciende por encima de una decisión global de apagado. Lo escribe solo el admin: el organizador no tiene ningún endpoint de servicios.",
+        "operationId": "update_organization_services_api_v1_admin_organizations__organization_id__services_put",
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganizationServicesUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrganizationServiceOut"
+                  },
+                  "title": "Response Update Organization Services Api V1 Admin Organizations  Organization Id  Services Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/identity": {
       "get": {
         "tags": [
@@ -8516,6 +8772,467 @@
           }
         }
       }
+    },
+    "/api/v1/accounting/events/{event_id}/expense-drafts": {
+      "post": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Subir un justificante y encolar su extracción",
+        "description": "Acepta imagen o PDF, validado por sus bytes reales y por `max_document_bytes`. La extracción **nunca** es síncrona: el borrador nace en `pending_extraction` y un worker lo completa. Un documento no soportado o demasiado grande se rechaza con 422 sin crear borrador ni consumir la pasarela de IA.",
+        "operationId": "upload_expense_draft_api_v1_accounting_events__event_id__expense_drafts_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_expense_draft_api_v1_accounting_events__event_id__expense_drafts_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseDraftOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Listar los borradores de gasto de un evento",
+        "description": "`estado` filtra por uno de los estados del borrador. Sin filtro devuelve todos, que es lo que necesita la pantalla de revisión para distinguir «presupuesto de IA agotado» de «extracción fallida».",
+        "operationId": "list_expense_drafts_api_v1_accounting_events__event_id__expense_drafts_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "estado",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Estado"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExpenseDraftOut"
+                  },
+                  "title": "Response List Expense Drafts Api V1 Accounting Events  Event Id  Expense Drafts Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/expense-drafts/{draft_id}/confirm": {
+      "post": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Confirmar un borrador y dar de alta el gasto",
+        "description": "Único camino de alta de un gasto por OCR, y siempre con una persona detrás: el modelo nunca autoconfirma. Bloquea la fila del borrador y revalida importes y pertenencia de la partida. 409 si el borrador ya no está pendiente de revisión o ya se confirmó.",
+        "operationId": "confirm_expense_draft_api_v1_accounting_expense_drafts__draft_id__confirm_post",
+        "parameters": [
+          {
+            "name": "draft_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Draft Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpenseDraftConfirm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/expense-drafts/{draft_id}/discard": {
+      "post": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Descartar un borrador",
+        "description": "Borra el justificante (y su página rasterizada) del almacén de inmediato, sin papelera: es un documento con datos fiscales que ya nadie va a usar.",
+        "operationId": "discard_expense_draft_api_v1_accounting_expense_drafts__draft_id__discard_post",
+        "parameters": [
+          {
+            "name": "draft_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Draft Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseDraftOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/expense-drafts/{draft_id}/retry": {
+      "post": {
+        "tags": [
+          "contabilidad"
+        ],
+        "summary": "Reintentar la extracción de un borrador",
+        "description": "Solo para `error_code=limite_superado`, tras ampliar el límite de gasto de IA: 422 con cualquier otro código, porque repetir la llamada daría el mismo resultado. El barrido automático nunca reencola este estado —consumiría una reserva por pasada con el límite todavía agotado—, así que este endpoint es el único camino.",
+        "operationId": "retry_expense_draft_api_v1_accounting_expense_drafts__draft_id__retry_post",
+        "parameters": [
+          {
+            "name": "draft_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Draft Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseDraftOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me/ai-settings": {
+      "get": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Configuración de IA de la organización (propia o heredada)",
+        "description": "Devuelve la configuración que usa de verdad esta organización: la suya si la ha guardado, o la heredada de la plataforma. **Nunca** devuelve la clave: solo `has_key`, la pista de sus últimos caracteres y la fecha. La pista solo aparece cuando la clave es propia — la de plataforma es compartida por toda la instalación y sus últimos caracteres no se enseñan a ningún tenant.",
+        "operationId": "get_my_ai_settings_api_v1_organizations_me_ai_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationAiSettingsOut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Sobrescribir la configuración de IA de la organización",
+        "description": "Guarda la configuración propia (proveedor, modelo, clave y, en un proveedor personalizado, su dirección) y el límite de gasto propio, que no puede superar el techo de la plataforma (422). La configuración se guarda **entera**: enviar proveedor o dirección exige enviar también la clave, y enviar la clave exige proveedor y modelo.",
+        "operationId": "update_my_ai_settings_api_v1_organizations_me_ai_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganizationAiSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationAiSettingsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Volver a heredar la configuración de IA de la plataforma",
+        "description": "Borra la configuración propia, incluida su clave cifrada. A partir de ese momento la organización vuelve a usar la de la plataforma; si la plataforma no tiene ninguna, queda «sin configuración».",
+        "operationId": "delete_my_ai_settings_api_v1_organizations_me_ai_settings_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me/ai-usage": {
+      "get": {
+        "tags": [
+          "organizaciones"
+        ],
+        "summary": "Gasto y actividad de IA de la organización en el periodo actual",
+        "description": "Resumen del mes en curso (llamadas, tokens y gasto en USD frente al límite efectivo), las últimas llamadas y los últimos códigos de error. El gasto suma las llamadas liquidadas y las reservas en vuelo, nunca las fallidas. `gasto_auditable` es `false` cuando alguna llamada del periodo lleva un importe solo estimado, porque su modelo no está en el mapa de precios del proveedor: ese total es orientativo.",
+        "operationId": "get_my_ai_usage_api_v1_organizations_me_ai_usage_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiUsageOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/catalog": {
+      "get": {
+        "tags": [
+          "ia"
+        ],
+        "summary": "Catálogo cerrado de proveedores y modelos de IA",
+        "description": "Los proveedores válidos y, por cada uno, sus modelos con la marca de visión (`vision`), si su dirección la escribe quien configura (`api_base_editable`) y si su gasto es auditable. Es la **única** fuente del desplegable de los dos paneles: no hay una segunda lista en el cliente que pudiera quedarse desfasada.\n\nNo lleva nada sensible —claves y etiquetas del catálogo, las mismas que ya publica el `enum` de `provider`—, así que basta con estar autenticado.",
+        "operationId": "get_ai_catalog_api_v1_ai_catalog_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProveedorDelCatalogoOut"
+                  },
+                  "type": "array",
+                  "title": "Response Get Ai Catalog Api V1 Ai Catalog Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/catalog/{provider}/models": {
+      "get": {
+        "tags": [
+          "ia"
+        ],
+        "summary": "Modelos de un proveedor, consultados en vivo",
+        "description": "Pregunta al proveedor qué modelos tiene disponibles **ahora**, con la clave que ya usa esta organización (la suya si tiene configuración propia, la de la plataforma si hereda). La clave nunca viaja en la respuesta.\n\nSi la consulta no sale —no hay clave para ese proveedor, la rechaza, no responde o contesta algo ilegible— devuelve el catálogo conocido con `en_vivo: false` y el `motivo`, en vez de una lista vacía.\n\nEl resultado se cachea unos minutos por organización y proveedor, así que abrir el panel varias veces no repite la llamada saliente.\n\nSolo lo puede pedir el propietario de la organización o el personal de plataforma: gasta la credencial guardada en una llamada saliente.",
+        "operationId": "get_ai_provider_models_api_v1_ai_catalog__provider__models_get",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Provider"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelosDelProveedorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/test-connection": {
+      "post": {
+        "tags": [
+          "ia"
+        ],
+        "summary": "Probar una clave de proveedor sin guardarla",
+        "description": "Comprueba que la clave enviada sirve contra el proveedor indicado. Usa su listado de modelos, que es la llamada autenticada más barata: no consume cuota de generación ni deja rastro en el histórico de uso.\n\nLa clave viaja en el cuerpo porque lo que se prueba es la que acaba de escribirse en el formulario y todavía no está guardada. Es `writeOnly`: no se almacena, no se registra en ningún log y no vuelve en la respuesta.\n\nResponde siempre 200 con `ok`: un `false` con su `motivo` (`clave_rechazada`, `tiempo_agotado`, `proveedor_error`, `respuesta_inesperada`) es un resultado de la prueba, no un error de la petición. Sí da 422 lo que sí es entrada inválida: un proveedor fuera del catálogo o una dirección de endpoint no permitida.\n\nSolo lo puede pedir el propietario de la organización o el personal de plataforma: provoca una llamada saliente con datos escritos por quien la pide.",
+        "operationId": "post_ai_test_connection_api_v1_ai_test_connection_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PruebaDeConexionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PruebaDeConexionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -8835,6 +9552,210 @@
         "title": "ActividadDeOrganizacionOut",
         "description": "Qué hace una organización, sin ningún importe.\n\nLas cuatro marcas de tiempo responden a preguntas distintas y por eso van\nseparadas, no fundidas en un «última actividad»: una cuenta que crea eventos\npero no recibe inscripciones está rota, y una que recibe inscripciones sin\naccesos nuevos puede estar abandonada.\n\n`evento_mas_reciente` es `updated_at` («última vez que se tocó un evento») y\n`ultimo_evento_creado` es `created_at` («último dado de alta»): editar un\nevento existente es trabajar, y con una sola marca se leería como parada."
       },
+      "AiUsageErrorOut": {
+        "properties": {
+          "error_code": {
+            "type": "string",
+            "title": "Error Code"
+          },
+          "veces": {
+            "type": "integer",
+            "title": "Veces"
+          },
+          "ultima_vez": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ultima Vez"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error_code",
+          "veces",
+          "ultima_vez"
+        ],
+        "title": "AiUsageErrorOut",
+        "description": "Un `error_code` reciente y cuántas veces salió.\n\nEs la única pista de diagnóstico del panel: no hay vista de detalle de\nlas llamadas (no-objetivo del PRD)."
+      },
+      "AiUsageOut": {
+        "properties": {
+          "periodo": {
+            "type": "string",
+            "title": "Periodo"
+          },
+          "llamadas": {
+            "type": "integer",
+            "title": "Llamadas"
+          },
+          "llamadas_fallidas": {
+            "type": "integer",
+            "title": "Llamadas Fallidas"
+          },
+          "gasto_usd": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Gasto Usd"
+          },
+          "gasto_auditable": {
+            "type": "boolean",
+            "title": "Gasto Auditable"
+          },
+          "input_tokens": {
+            "type": "integer",
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "type": "integer",
+            "title": "Output Tokens"
+          },
+          "limite_efectivo_usd": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limite Efectivo Usd"
+          },
+          "servicio_ia_activo": {
+            "type": "boolean",
+            "title": "Servicio Ia Activo"
+          },
+          "ultimos": {
+            "items": {
+              "$ref": "#/components/schemas/AiUsageRecordOut"
+            },
+            "type": "array",
+            "title": "Ultimos"
+          },
+          "ultimos_errores": {
+            "items": {
+              "$ref": "#/components/schemas/AiUsageErrorOut"
+            },
+            "type": "array",
+            "title": "Ultimos Errores"
+          }
+        },
+        "type": "object",
+        "required": [
+          "periodo",
+          "llamadas",
+          "llamadas_fallidas",
+          "gasto_usd",
+          "gasto_auditable",
+          "input_tokens",
+          "output_tokens",
+          "limite_efectivo_usd",
+          "servicio_ia_activo",
+          "ultimos",
+          "ultimos_errores"
+        ],
+        "title": "AiUsageOut",
+        "description": "`GET /organizations/me/ai-usage`: gasto del periodo y actividad."
+      },
+      "AiUsageRecordOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "use_case": {
+            "type": "string",
+            "title": "Use Case"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens"
+          },
+          "cost_usd": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cost Usd"
+          },
+          "cost_auditable": {
+            "type": "boolean",
+            "title": "Cost Auditable"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "use_case",
+          "provider",
+          "model",
+          "status",
+          "input_tokens",
+          "output_tokens",
+          "cost_usd",
+          "cost_auditable",
+          "error_code",
+          "latency_ms",
+          "created_at"
+        ],
+        "title": "AiUsageRecordOut",
+        "description": "Una llamada del histórico, tal y como la pinta el panel."
+      },
       "AnalyticsPublicResponse": {
         "properties": {
           "ga4_measurement_id": {
@@ -9117,6 +10038,20 @@
         },
         "type": "object",
         "title": "Body_upload_cover_api_v1_events__event_id__cover_put"
+      },
+      "Body_upload_expense_draft_api_v1_accounting_events__event_id__expense_drafts_post": {
+        "properties": {
+          "fichero": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Fichero"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fichero"
+        ],
+        "title": "Body_upload_expense_draft_api_v1_accounting_events__event_id__expense_drafts_post"
       },
       "Body_upload_logo_api_v1_organizations_me_branding_logo_put": {
         "properties": {
@@ -12250,6 +13185,248 @@
         "title": "ExpenseCreate",
         "description": "Alta de un gasto manual. Sin `sponsor_id`: ese campo es exclusivo de\n`fijar_valoracion_en_especie` (plan.md Decisión #3), nunca se informa\ndesde este endpoint — ni siquiera existe en este esquema."
       },
+      "ExpenseDraftConfirm": {
+        "properties": {
+          "budget_line_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Line Id"
+          },
+          "provider_name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Provider Name"
+          },
+          "expense_date": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expense Date"
+          },
+          "base_cents": {
+            "type": "integer",
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Base Cents"
+          },
+          "vat_cents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 2147483647.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vat Cents"
+          },
+          "total_cents": {
+            "type": "integer",
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Total Cents"
+          },
+          "confirmar_importe_alto": {
+            "type": "boolean",
+            "title": "Confirmar Importe Alto",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider_name",
+          "expense_date",
+          "base_cents",
+          "total_cents"
+        ],
+        "title": "ExpenseDraftConfirm",
+        "description": "Confirmación humana de un borrador: da de alta el gasto.\n\nLos importes son los que envía quien revisa, no los que extrajo el modelo:\nel servidor revalida `total = base + iva` y la pertenencia de la partida\nsobre **estos** valores."
+      },
+      "ExpenseDraftFieldsOut": {
+        "properties": {
+          "provider_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Name"
+          },
+          "expense_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expense Date"
+          },
+          "base_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Cents"
+          },
+          "vat_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vat Cents"
+          },
+          "total_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Cents"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          }
+        },
+        "type": "object",
+        "title": "ExpenseDraftFieldsOut",
+        "description": "Lo que el modelo leyó del justificante. Entrada **no confiable**: es una\npropuesta que una persona corrige y confirma, nunca un gasto.\n\nUn campo con confianza `baja` llega aquí en `null` a propósito (se vacía\nen el adaptador): que lo teclee quien revisa es el resultado seguro."
+      },
+      "ExpenseDraftOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending_extraction",
+              "pending_review",
+              "extraction_failed",
+              "confirmed",
+              "discarded"
+            ],
+            "title": "Status"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "ocr_provider": {
+            "type": "string",
+            "title": "Ocr Provider"
+          },
+          "receipt_object_key": {
+            "type": "string",
+            "title": "Receipt Object Key"
+          },
+          "rasterized_object_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rasterized Object Key"
+          },
+          "extracted_fields": {
+            "$ref": "#/components/schemas/ExpenseDraftFieldsOut"
+          },
+          "field_confidence": {
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "alta",
+                "media",
+                "baja"
+              ]
+            },
+            "type": "object",
+            "title": "Field Confidence"
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts"
+          },
+          "confirmed_expense_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed Expense Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "event_id",
+          "status",
+          "error_code",
+          "ocr_provider",
+          "receipt_object_key",
+          "rasterized_object_key",
+          "extracted_fields",
+          "field_confidence",
+          "attempts",
+          "confirmed_expense_id",
+          "created_at"
+        ],
+        "title": "ExpenseDraftOut"
+      },
       "ExpenseOut": {
         "properties": {
           "id": {
@@ -13610,6 +14787,69 @@
         "title": "MetricasDelEventoOut",
         "description": "Todo lo que el escritorio de un evento necesita, en una sola llamada.\n\nLos bloques de permiso opcional (`dinero`) son `None` cuando quien pide no\npuede verlos. Los demás van siempre: si un miembro alcanza el evento, puede\nver cómo va."
       },
+      "ModeloDelCatalogoOut": {
+        "properties": {
+          "clave": {
+            "type": "string",
+            "title": "Clave"
+          },
+          "etiqueta": {
+            "type": "string",
+            "title": "Etiqueta"
+          },
+          "vision": {
+            "type": "boolean",
+            "title": "Vision"
+          }
+        },
+        "type": "object",
+        "required": [
+          "clave",
+          "etiqueta",
+          "vision"
+        ],
+        "title": "ModeloDelCatalogoOut",
+        "description": "Un modelo del catálogo cerrado, con su marca de visión."
+      },
+      "ModelosDelProveedorOut": {
+        "properties": {
+          "proveedor": {
+            "type": "string",
+            "title": "Proveedor"
+          },
+          "en_vivo": {
+            "type": "boolean",
+            "title": "En Vivo"
+          },
+          "motivo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo"
+          },
+          "modelos": {
+            "items": {
+              "$ref": "#/components/schemas/ModeloDelCatalogoOut"
+            },
+            "type": "array",
+            "title": "Modelos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "proveedor",
+          "en_vivo",
+          "motivo",
+          "modelos"
+        ],
+        "title": "ModelosDelProveedorOut",
+        "description": "`GET /ai/catalog/{provider}/models`: el listado consultado en vivo.\n\n`en_vivo=false` significa que la consulta al proveedor no salió y lo que\nviaja es el catálogo estático de `proveedores.py`, que es la última lista\nconocida. El panel lo avisa sin bloquear nada: la lista sigue siendo\nutilizable, solo puede estar incompleta."
+      },
       "MyTicketResponse": {
         "properties": {
           "status": {
@@ -13659,6 +14899,227 @@
         ],
         "title": "OcupacionOut",
         "description": "Cuánto del aforo está tomado.\n\n`reservadas` es lo que el propio sistema considera ocupado —no solo las\nconfirmadas: también las promociones de lista de espera y los pagos dentro\nde su ventana—, porque es el número con el que decide si cabe una persona\nmás. Pintar solo las confirmadas daría un aforo que no coincide con el que\nla aplicación aplica."
+      },
+      "OrganizationAiSettingsOut": {
+        "properties": {
+          "origen": {
+            "type": "string",
+            "enum": [
+              "propia",
+              "heredada",
+              "sin_configuracion"
+            ],
+            "title": "Origen"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "default_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Model"
+          },
+          "api_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Base"
+          },
+          "api_base_editable": {
+            "type": "boolean",
+            "title": "Api Base Editable"
+          },
+          "has_key": {
+            "type": "boolean",
+            "title": "Has Key"
+          },
+          "api_key_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key Hint"
+          },
+          "monthly_limit_usd": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Limit Usd"
+          },
+          "monthly_ceiling_usd": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Ceiling Usd"
+          },
+          "limite_efectivo_usd": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limite Efectivo Usd"
+          },
+          "servicio_ia_activo": {
+            "type": "boolean",
+            "title": "Servicio Ia Activo"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "origen",
+          "provider",
+          "default_model",
+          "api_base",
+          "api_base_editable",
+          "has_key",
+          "api_key_hint",
+          "monthly_limit_usd",
+          "monthly_ceiling_usd",
+          "limite_efectivo_usd",
+          "servicio_ia_activo",
+          "updated_at"
+        ],
+        "title": "OrganizationAiSettingsOut",
+        "description": "Configuración efectiva que ve el organizador.\n\n`api_key_hint` es `null` cuando la configuración es **heredada** (V-11):\nla clave de plataforma es compartida por toda la instalación y enseñar\nsus últimos caracteres a cada tenant sería una fuga entre organizaciones."
+      },
+      "OrganizationAiSettingsUpdate": {
+        "properties": {
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "nan_builders",
+                  "openrouter",
+                  "cheaper_inference",
+                  "anthropic",
+                  "openai",
+                  "gemini",
+                  "custom"
+                ],
+                "maxLength": 40,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "default_model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Model"
+          },
+          "api_base": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Base"
+          },
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 400,
+                "minLength": 8,
+                "format": "password",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key"
+          },
+          "monthly_limit_usd": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 99999999.999999,
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d{0,6}0*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Limit Usd"
+          }
+        },
+        "type": "object",
+        "title": "OrganizationAiSettingsUpdate",
+        "description": "`PUT /organizations/me/ai-settings`.\n\nMismas reglas de coherencia que el nivel plataforma, más la del techo:\n`monthly_limit_usd` no puede superar el `monthly_ceiling_usd` vigente."
       },
       "OrganizationCreate": {
         "properties": {
@@ -13816,6 +15277,59 @@
         ],
         "title": "OrganizationResponse",
         "description": "Datos de la organización actual."
+      },
+      "OrganizationServiceOut": {
+        "properties": {
+          "service_key": {
+            "type": "string",
+            "title": "Service Key"
+          },
+          "etiqueta": {
+            "type": "string",
+            "title": "Etiqueta"
+          },
+          "global_enabled": {
+            "type": "boolean",
+            "title": "Global Enabled"
+          },
+          "overridden_off": {
+            "type": "boolean",
+            "title": "Overridden Off"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "service_key",
+          "etiqueta",
+          "global_enabled",
+          "overridden_off",
+          "enabled"
+        ],
+        "title": "OrganizationServiceOut",
+        "description": "Estado de un servicio para una organización concreta."
+      },
+      "OrganizationServicesUpdate": {
+        "properties": {
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceToggle"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Services"
+          }
+        },
+        "type": "object",
+        "required": [
+          "services"
+        ],
+        "title": "OrganizationServicesUpdate",
+        "description": "`PUT /admin/organizations/{id}/services`.\n\n`enabled=false` fuerza el servicio a apagado para esa organización;\n`enabled=true` **no** lo enciende por encima de la decisión global: borra\nel override y vuelve a heredar (V-7)."
       },
       "OrganizationUpdate": {
         "properties": {
@@ -14365,6 +15879,366 @@
         "title": "PiezaOut",
         "description": "Una de las piezas del evento, con su estado y cuánto tiene."
       },
+      "PlatformAiSettingsOut": {
+        "properties": {
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "default_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Model"
+          },
+          "api_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Base"
+          },
+          "api_base_editable": {
+            "type": "boolean",
+            "title": "Api Base Editable"
+          },
+          "has_key": {
+            "type": "boolean",
+            "title": "Has Key"
+          },
+          "api_key_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key Hint"
+          },
+          "monthly_ceiling_usd": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Ceiling Usd"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "default_model",
+          "api_base",
+          "api_base_editable",
+          "has_key",
+          "api_key_hint",
+          "monthly_ceiling_usd",
+          "updated_at"
+        ],
+        "title": "PlatformAiSettingsOut",
+        "description": "Estado de la configuración de plataforma. Nunca lleva la clave."
+      },
+      "PlatformAiSettingsUpdate": {
+        "properties": {
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "nan_builders",
+                  "openrouter",
+                  "cheaper_inference",
+                  "anthropic",
+                  "openai",
+                  "gemini",
+                  "custom"
+                ],
+                "maxLength": 40,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "default_model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Model"
+          },
+          "api_base": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Base"
+          },
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 400,
+                "minLength": 8,
+                "format": "password",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key"
+          },
+          "monthly_ceiling_usd": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 99999999.999999,
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d{0,6}0*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Ceiling Usd"
+          }
+        },
+        "type": "object",
+        "title": "PlatformAiSettingsUpdate",
+        "description": "`PUT /admin/ai-settings`. Parcial: solo se toca lo enviado.\n\nCoherencia (la aplica el servicio, no el esquema, para poder dar el\n`code` exacto): enviar `provider` o `api_base` exige `api_key`, y enviar\n`api_key` exige `provider` y `default_model`."
+      },
+      "PlatformAiUsageOut": {
+        "properties": {
+          "periodo": {
+            "type": "string",
+            "title": "Periodo"
+          },
+          "llamadas": {
+            "type": "integer",
+            "title": "Llamadas"
+          },
+          "llamadas_fallidas": {
+            "type": "integer",
+            "title": "Llamadas Fallidas"
+          },
+          "gasto_usd": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Gasto Usd"
+          },
+          "gasto_auditable": {
+            "type": "boolean",
+            "title": "Gasto Auditable"
+          },
+          "input_tokens": {
+            "type": "integer",
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "type": "integer",
+            "title": "Output Tokens"
+          },
+          "monthly_ceiling_usd": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Ceiling Usd"
+          },
+          "ultimos": {
+            "items": {
+              "$ref": "#/components/schemas/PlatformAiUsageRecordOut"
+            },
+            "type": "array",
+            "title": "Ultimos"
+          },
+          "ultimos_errores": {
+            "items": {
+              "$ref": "#/components/schemas/AiUsageErrorOut"
+            },
+            "type": "array",
+            "title": "Ultimos Errores"
+          }
+        },
+        "type": "object",
+        "required": [
+          "periodo",
+          "llamadas",
+          "llamadas_fallidas",
+          "gasto_usd",
+          "gasto_auditable",
+          "input_tokens",
+          "output_tokens",
+          "monthly_ceiling_usd",
+          "ultimos",
+          "ultimos_errores"
+        ],
+        "title": "PlatformAiUsageOut",
+        "description": "`GET /admin/ai-usage`: gasto agregado de toda la instalación.\n\nSin límite efectivo ni interruptor: ambos son por organización. Lo que el\nadmin compara aquí es el gasto total contra **su** techo."
+      },
+      "PlatformAiUsageRecordOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "use_case": {
+            "type": "string",
+            "title": "Use Case"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens"
+          },
+          "cost_usd": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cost Usd"
+          },
+          "cost_auditable": {
+            "type": "boolean",
+            "title": "Cost Auditable"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Organization Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "use_case",
+          "provider",
+          "model",
+          "status",
+          "input_tokens",
+          "output_tokens",
+          "cost_usd",
+          "cost_auditable",
+          "error_code",
+          "latency_ms",
+          "created_at",
+          "organization_id"
+        ],
+        "title": "PlatformAiUsageRecordOut",
+        "description": "Una llamada del histórico agregado: añade de quién fue.\n\nSolo la ve el admin: en el panel del organizador la organización siempre\nes la suya y el campo sobraría."
+      },
       "PlatformBrandingBlock": {
         "properties": {
           "name": {
@@ -14681,6 +16555,25 @@
         ],
         "title": "PlatformRoleUpdate",
         "description": "Cuerpo de `PUT /admin/users/{id}/platform-role`.\n\nNunca acepta `\"superadmin\"`: ese poder sigue siendo exclusivamente\n`is_superadmin`, fuera de este endpoint a propósito."
+      },
+      "PlatformServicesUpdate": {
+        "properties": {
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceToggle"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Services"
+          }
+        },
+        "type": "object",
+        "required": [
+          "services"
+        ],
+        "title": "PlatformServicesUpdate",
+        "description": "`PUT /admin/services`: cambia uno o varios interruptores globales."
       },
       "PlatformUserActionResult": {
         "properties": {
@@ -15034,6 +16927,141 @@
         ],
         "title": "ProfileFieldResponse",
         "description": "Campo de perfil tal y como se devuelve."
+      },
+      "ProveedorDelCatalogoOut": {
+        "properties": {
+          "clave": {
+            "type": "string",
+            "title": "Clave"
+          },
+          "etiqueta": {
+            "type": "string",
+            "title": "Etiqueta"
+          },
+          "api_base_editable": {
+            "type": "boolean",
+            "title": "Api Base Editable"
+          },
+          "api_base_fijo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Base Fijo"
+          },
+          "modelos_abiertos": {
+            "type": "boolean",
+            "title": "Modelos Abiertos"
+          },
+          "coste_auditable": {
+            "type": "boolean",
+            "title": "Coste Auditable"
+          },
+          "modelos": {
+            "items": {
+              "$ref": "#/components/schemas/ModeloDelCatalogoOut"
+            },
+            "type": "array",
+            "title": "Modelos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "clave",
+          "etiqueta",
+          "api_base_editable",
+          "api_base_fijo",
+          "modelos_abiertos",
+          "coste_auditable",
+          "modelos"
+        ],
+        "title": "ProveedorDelCatalogoOut",
+        "description": "Un proveedor del catálogo cerrado, tal y como lo pinta el desplegable.\n\nEs la **misma** lista que valida el `PUT` (`proveedores.PROVEEDORES`),\nserializada: sin este endpoint, el panel tendría que reescribir a mano los\nmodelos y su marca de visión, que es justo lo que el catálogo cerrado\nexiste para evitar."
+      },
+      "PruebaDeConexionIn": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "nan_builders",
+              "openrouter",
+              "cheaper_inference",
+              "anthropic",
+              "openai",
+              "gemini",
+              "custom"
+            ],
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Provider"
+          },
+          "api_base": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Base"
+          },
+          "api_key": {
+            "type": "string",
+            "maxLength": 400,
+            "minLength": 8,
+            "format": "password",
+            "title": "Api Key",
+            "writeOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "api_key"
+        ],
+        "title": "PruebaDeConexionIn",
+        "description": "`POST /ai/test-connection`.\n\nLa clave llega en el cuerpo **a propósito**: lo que se prueba es la que\nacaba de escribirse en el formulario y todavía no está guardada. Es\n`write-only` igual que en el `PUT`, así que no aparece en ningún esquema\nde salida ni vuelve nunca al cliente."
+      },
+      "PruebaDeConexionOut": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "motivo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo"
+          },
+          "modelos": {
+            "items": {
+              "$ref": "#/components/schemas/ModeloDelCatalogoOut"
+            },
+            "type": "array",
+            "title": "Modelos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "motivo",
+          "modelos"
+        ],
+        "title": "PruebaDeConexionOut",
+        "description": "Resultado de la prueba. Nunca lleva la clave ni el texto del proveedor.\n\nLos modelos que devuelve son los que el proveedor declaró con **esa**\ncredencial: el panel rellena con ellos el desplegable, que es la única\nforma de elegir modelo antes de guardar la clave."
       },
       "PublicEventDetail": {
         "properties": {
@@ -17497,6 +19525,58 @@
         ],
         "title": "SelfServiceOrganizationResponse",
         "description": "Organización recién creada, con una sesión completa ya activa en ella.\n\nSin dominio por organización (fase 4 del plan de organización sin\ndominio), no hay ningún host al que redirigir: quien crea la\norganización puede venir de verificar su correo, sin ninguna sesión\nnormal todavía (sin cookie de refresco), así que este endpoint emite la\nsuya propia — mismo mecanismo que `/auth/login`, con la organización\nrecién creada ya activa. El cliente no necesita llamar aparte a\n`switch-organization`."
+      },
+      "ServiceOut": {
+        "properties": {
+          "service_key": {
+            "type": "string",
+            "title": "Service Key"
+          },
+          "etiqueta": {
+            "type": "string",
+            "title": "Etiqueta"
+          },
+          "descripcion": {
+            "type": "string",
+            "title": "Descripcion"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "service_key",
+          "etiqueta",
+          "descripcion",
+          "enabled"
+        ],
+        "title": "ServiceOut",
+        "description": "Un interruptor global con su descripción del catálogo."
+      },
+      "ServiceToggle": {
+        "properties": {
+          "service_key": {
+            "type": "string",
+            "enum": [
+              "ai"
+            ],
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Service Key"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "service_key",
+          "enabled"
+        ],
+        "title": "ServiceToggle"
       },
       "SessionParticipantEntry": {
         "properties": {
