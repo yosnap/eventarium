@@ -143,6 +143,18 @@ describe('shells', () => {
     expect((raiz.querySelector('dialog') as HTMLDialogElement).hasAttribute('open')).toBe(true);
   });
 
+  it('sin logotipo, la marca del shell público lee "Eventarium" sin duplicar la inicial', async () => {
+    const fixture = TestBed.createComponent(PublicShell);
+    await fixture.whenStable();
+
+    const raiz = fixture.nativeElement as HTMLElement;
+    expect(raiz.querySelector('img')).toBeNull();
+    // app-brand-mark ya pinta la "E" dentro de su caja: el texto no la repite,
+    // pero juntos (caja + texto) siguen leyendo "Eventarium".
+    expect(raiz.querySelector('.marca')?.textContent?.trim()).toBe('Eventarium');
+    expect(raiz.querySelector('.nombre')?.textContent).toBe('ventarium');
+  });
+
   it('el shell público muestra el logotipo de la plataforma con texto alternativo', async () => {
     branding.set(brandingDePrueba({ platform: { logo_url: 'https://ejemplo.com/logo.png' } }));
     const fixture = TestBed.createComponent(PublicShell);
