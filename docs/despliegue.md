@@ -61,6 +61,17 @@ sesión: la cookie de refresco es first-party y no lleva atributo `Domain`.
 
 Deja que EasyPanel gestione el certificado TLS.
 
+**Bloqueante de seguridad si el módulo de contabilidad está activo.** Este
+enrutado directo por 3 reglas expone todo `/media/*` sin la regla `@justificantes`
+que sí lleva `infra/caddy/Caddyfile` (ver el comentario largo ahí): cualquiera con
+la clave del objeto (`orgs/<id>/accounting-receipts/…`) descargaría un
+justificante de gasto sin sesión. `AccountingExpenseDraft`/`AccountingExpense` ya
+sirven el justificante por `GET /api/v1/accounting/receipts/{clave}` con sesión y
+como adjunto — ese es el único camino que debe quedar abierto. Antes de enrutar
+así con el módulo de contabilidad en producción, pon delante un proxy con esa
+misma regla `path_regexp` (Traefik middleware o un Caddy propio) en vez de las 3
+reglas directas de EasyPanel/Dokploy.
+
 ### 3. Variables de entorno
 
 En cada servicio que las necesite (`api`, `worker`, `scheduler` y `migrate`):
