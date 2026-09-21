@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterOutlet } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 
@@ -39,7 +39,7 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
               <img [src]="logo" [alt]="theming.nombreDeMarca()" height="40" />
             } @else {
               <app-brand-mark [nombre]="theming.nombreDeMarca()" />
-              <span class="nombre">{{ theming.nombreDeMarca() }}</span>
+              <span class="nombre">{{ nombreSinInicial() }}</span>
             }
           </a>
           <nav [attr.aria-label]="t('publico.navegacion')">
@@ -135,17 +135,18 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
     .marca {
       display: inline-flex;
       align-items: center;
-      gap: 10px;
+      gap: 3px;
       text-decoration: none;
       color: inherit;
     }
-    /* .brand__name (eventarium.css:148): sin negrita explícita en la referencia,
-       mayúsculas con tracking amplio. */
+    /* Lockup de la plataforma: la caja de app-brand-mark ya hace de mayúscula
+       inicial ("E"), así que el texto sigue en minúsculas, más pequeño y
+       pegado a la caja — junto con ella se lee "Eventarium" como un solo
+       nombre, no dos piezas sueltas. */
     .nombre {
       font-family: var(--font-display);
-      font-size: 1.35rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
+      font-size: 1.1rem;
+      letter-spacing: 0.01em;
     }
     nav {
       display: flex;
@@ -201,6 +202,11 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
 export class PublicShell {
   protected readonly theming = inject(ThemingService);
   private readonly consentimiento = inject(CookieConsentService);
+
+  /** `app-brand-mark` ya pinta la primera letra dentro de su caja: sin esto,
+   * el nombre de la plataforma se leería duplicado ("[E] Eventarium" en vez
+   * de "[E]ventarium" como un único lockup). */
+  protected readonly nombreSinInicial = computed(() => this.theming.nombreDeMarca().slice(1));
 
   protected gestionarCookies(): void {
     this.consentimiento.abrirGestionDeCookies();
