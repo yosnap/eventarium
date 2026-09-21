@@ -169,6 +169,7 @@
       }
     },
     "accesoPanel": "Acceso al panel",
+    "crearCuenta": "Crear cuenta",
     "redesSociales": "Redes sociales del organizador",
     "piePagina": "Pie de página",
     "ponentes": {
@@ -674,7 +675,9 @@
       "error": "No hemos podido iniciar sesión.",
       "emailRequerido": "Escribe tu correo electrónico.",
       "passwordRequerido": "Escribe tu contraseña.",
-      "olvidasteContrasena": "¿Has olvidado tu contraseña?"
+      "olvidasteContrasena": "¿Has olvidado tu contraseña?",
+      "sinCuenta": "¿No tienes cuenta?",
+      "registrate": "Regístrate"
     },
     "escritorioPagina": {
       "bienvenida": "Hola, {{nombre}}",

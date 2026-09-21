@@ -155,6 +155,16 @@ describe('LoginPage', () => {
     ).toBe('/dashboard');
   });
 
+  it('enlaza a /registro para quien todavía no tiene cuenta', async () => {
+    configurar({} as unknown as Partial<AuthService>, rutaConRedirigir(null));
+    const fixture = TestBed.createComponent(LoginPage);
+    await fixture.whenStable();
+
+    const enlace = fixture.nativeElement.querySelector('a[href="/registro"]') as HTMLAnchorElement;
+    expect(enlace).not.toBeNull();
+    expect(enlace.textContent?.trim()).toBe('Regístrate');
+  });
+
   it('no tiene violaciones de accesibilidad', async () => {
     configurar({} as unknown as Partial<AuthService>, rutaConRedirigir(null));
     const fixture = TestBed.createComponent(LoginPage);

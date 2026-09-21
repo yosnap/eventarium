@@ -143,6 +143,17 @@ describe('shells', () => {
     expect((raiz.querySelector('dialog') as HTMLDialogElement).hasAttribute('open')).toBe(true);
   });
 
+  it('el nav público enlaza tanto a acceder como a crear cuenta', async () => {
+    const fixture = TestBed.createComponent(PublicShell);
+    await fixture.whenStable();
+
+    const raiz = fixture.nativeElement as HTMLElement;
+    expect(raiz.querySelector('nav a[href="/acceder"]')).not.toBeNull();
+    const registro = raiz.querySelector('nav a[href="/registro"]') as HTMLAnchorElement;
+    expect(registro).not.toBeNull();
+    expect(registro.textContent?.trim()).toBe('Crear cuenta');
+  });
+
   it('el shell público muestra el logotipo de la plataforma con texto alternativo', async () => {
     branding.set(brandingDePrueba({ platform: { logo_url: 'https://ejemplo.com/logo.png' } }));
     const fixture = TestBed.createComponent(PublicShell);

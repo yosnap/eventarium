@@ -45,6 +45,7 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
                  del plan de organización sin dominio), y el logo enlaza a ella. -->
             <a routerLink="/eventos">{{ t('publico.eventos.listadoTitulo') }}</a>
             <a routerLink="/acceder">{{ t('publico.accesoPanel') }}</a>
+            <a routerLink="/registro">{{ t('publico.crearCuenta') }}</a>
           </nav>
           <app-theme-toggle />
         </div>
