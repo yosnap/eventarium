@@ -17,7 +17,6 @@ from app.core.storage import get_storage
 from app.modules.media import service
 from app.modules.media.models import Media, MediaFolder
 from app.modules.media.schemas import (
-    MediaCropRequest,
     MediaFolderCreate,
     MediaFolderResponse,
     MediaResponse,
@@ -144,30 +143,6 @@ async def restaurar(
         organization_id=usuario.organization_id,
         user_id=usuario.id,
         permisos=permisos,
-    )
-    return _media_response(fila)
-
-
-@router.patch(
-    "/{media_id}/crop", summary="Recortar (crea una imagen nueva)", response_model=MediaResponse
-)
-async def recortar(
-    media_id: str,
-    cuerpo: MediaCropRequest,
-    usuario: CurrentUserDep,
-    session: DbDep,
-    permisos: PermissionsDep,
-) -> MediaResponse:
-    fila = await service.recortar(
-        session,
-        media_id=uuid.UUID(media_id),
-        organization_id=usuario.organization_id,
-        uploaded_by_user_id=usuario.id,
-        permisos=permisos,
-        x=cuerpo.x,
-        y=cuerpo.y,
-        width=cuerpo.width,
-        height=cuerpo.height,
     )
     return _media_response(fila)
 

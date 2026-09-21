@@ -3240,58 +3240,6 @@
         }
       }
     },
-    "/api/v1/admin/platform/media/{media_id}/crop": {
-      "patch": {
-        "tags": [
-          "administración"
-        ],
-        "summary": "Recortar (crea una imagen nueva)",
-        "operationId": "crop_platform_media_api_v1_admin_platform_media__media_id__crop_patch",
-        "parameters": [
-          {
-            "name": "media_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Media Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MediaCropRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MediaResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/admin/platform/media-folders": {
       "get": {
         "tags": [
@@ -6717,58 +6665,6 @@
             }
           }
         ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MediaResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/organizations/me/media/{media_id}/crop": {
-      "patch": {
-        "tags": [
-          "biblioteca de medios"
-        ],
-        "summary": "Recortar (crea una imagen nueva)",
-        "operationId": "recortar_api_v1_organizations_me_media__media_id__crop_patch",
-        "parameters": [
-          {
-            "name": "media_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Media Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MediaCropRequest"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -14315,43 +14211,6 @@
         ],
         "title": "LoginResponse",
         "description": "Respuesta del login."
-      },
-      "MediaCropRequest": {
-        "properties": {
-          "x": {
-            "type": "number",
-            "maximum": 1.0,
-            "minimum": 0.0,
-            "title": "X"
-          },
-          "y": {
-            "type": "number",
-            "maximum": 1.0,
-            "minimum": 0.0,
-            "title": "Y"
-          },
-          "width": {
-            "type": "number",
-            "maximum": 1.0,
-            "exclusiveMinimum": 0.0,
-            "title": "Width"
-          },
-          "height": {
-            "type": "number",
-            "maximum": 1.0,
-            "exclusiveMinimum": 0.0,
-            "title": "Height"
-          }
-        },
-        "type": "object",
-        "required": [
-          "x",
-          "y",
-          "width",
-          "height"
-        ],
-        "title": "MediaCropRequest",
-        "description": "Rectángulo de recorte normalizado (0-1 respecto al tamaño actual)."
       },
       "MediaFolderCreate": {
         "properties": {

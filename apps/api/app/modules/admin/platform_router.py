@@ -22,7 +22,6 @@ from app.core.storage import build_platform_object_key, get_storage, validate_up
 from app.modules.media import platform_service as platform_media_service
 from app.modules.media.models import PlatformMedia, PlatformMediaFolder
 from app.modules.media.schemas import (
-    MediaCropRequest,
     MediaFolderResponse,
     MediaResponse,
     MediaUpdateRequest,
@@ -343,26 +342,6 @@ async def restore_platform_media(
     media_id: str, superadmin: Superadmin, session: MaintenanceDb
 ) -> MediaResponse:
     fila = await platform_media_service.restaurar(session, media_id=uuid.UUID(media_id))
-    return _platform_media_response(fila)
-
-
-@router.patch(
-    "/platform/media/{media_id}/crop",
-    summary="Recortar (crea una imagen nueva)",
-    response_model=MediaResponse,
-)
-async def crop_platform_media(
-    media_id: str, cuerpo: MediaCropRequest, superadmin: Superadmin, session: MaintenanceDb
-) -> MediaResponse:
-    fila = await platform_media_service.recortar(
-        session,
-        media_id=uuid.UUID(media_id),
-        uploaded_by_user_id=superadmin.id,
-        x=cuerpo.x,
-        y=cuerpo.y,
-        width=cuerpo.width,
-        height=cuerpo.height,
-    )
     return _platform_media_response(fila)
 
 

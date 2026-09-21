@@ -16,7 +16,7 @@ import { ApiService } from '../../core/api/api.service';
 import { ApiError } from '../../core/api/error.interceptor';
 import { Button } from './button';
 import { Input } from './input';
-import { MediaCropEditor, RectanguloDeRecorte } from './media-crop-editor';
+import { MediaCropEditor } from './media-crop-editor';
 
 /** Catálogo cerrado — igual que `KIND_A_PERMISO` en el backend
  * (`app/modules/media/service.py`). `platform` no lleva `kind` en sus
@@ -37,6 +37,7 @@ interface MediaItem {
   readonly url: string;
   readonly filename: string;
   readonly alt: string | null;
+  readonly folder_id: string | null;
 }
 
 interface MediaFolder {
@@ -613,19 +614,47 @@ export class MediaFields {
     this.recortando.set(item);
   }
 
-  protected async confirmarRecorte(rectangulo: RectanguloDeRecorte): Promise<void> {
+  /** El editor de recorte ya entrega el resultado final (proporción,
+   * rotación, volteo y zoom horneados en los píxeles) como `Blob`: se sube
+   * por el mismo endpoint multipart que "Subir fichero", no por
+   * `PATCH .../crop` — el recorte ya no se calcula en el servidor (decisión
+   * explícita del usuario, `plans/260921-1720-prd-editor-recorte-imagen`). */
+  protected async confirmarRecorte(blob: Blob): Promise<void> {
     const item = this.recortando();
     if (!item) {
       return;
     }
     this.recortandoEnCurso.set(true);
+    this.error.set(null);
     try {
-      const nuevo = await firstValueFrom(
-        this.http.patch<MediaItem>(
-          this.api.url(`${baseDeMedia(this.kind())}/${item.id}/crop`),
-          rectangulo,
-        ),
+      const datos = new FormData();
+      datos.append('fichero', blob, `${item.filename}-recorte.webp`);
+      if (this.kind() !== 'platform') {
+        datos.append('kind', this.kind());
+      }
+      let nuevo = await firstValueFrom(
+        this.http.post<MediaItem>(this.api.url(baseDeMedia(this.kind())), datos),
       );
+      // La subida genérica no acepta `folder_id` (ningún origen lo manda hoy:
+      // fichero, URL ni biblioteca) — el recorte SÍ conocía su carpeta antes
+      // de esta reescritura (`recortar()` la heredaba del original), así que
+      // aquí hace falta un segundo paso explícito para no perderla. No
+      // atómico con la subida: si este paso falla, el recorte YA existe y ya
+      // es válido (solo queda en la raíz en vez de su carpeta), así que se
+      // trata como un fallo menor que no debe impedir ofrecer el resultado
+      // (hallazgo de code-review: antes un fallo aquí ocultaba que la subida
+      // sí había funcionado).
+      if (item.folder_id) {
+        try {
+          nuevo = await firstValueFrom(
+            this.http.patch<MediaItem>(`${this.api.url(baseDeMedia(this.kind()))}/${nuevo.id}`, {
+              folder_id: item.folder_id,
+            }),
+          );
+        } catch {
+          // Ignorado a propósito: ver comentario de arriba.
+        }
+      }
       this.recortando.set(null);
       // El recorte se ofrece directamente como si se hubiera elegido de
       // biblioteca (Requirements de la Fase 3): sin este paso, confirmar un

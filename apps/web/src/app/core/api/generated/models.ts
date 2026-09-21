@@ -102,7 +102,6 @@ export type { InvitationTokenErrorResponse } from './models/invitation-token-err
 export type { LegalPageResponse } from './models/legal-page-response';
 export type { LoginRequest } from './models/login-request';
 export type { LoginResponse } from './models/login-response';
-export type { MediaCropRequest } from './models/media-crop-request';
 export type { MediaFolderCreate } from './models/media-folder-create';
 export type { MediaFolderResponse } from './models/media-folder-response';
 export type { MediaResponse } from './models/media-response';

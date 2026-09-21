@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class MediaResponse(BaseModel):
@@ -33,15 +33,6 @@ class MediaAssignRequest(BaseModel):
 class MediaUpdateRequest(BaseModel):
     alt: str | None = None
     folder_id: str | None = None
-
-
-class MediaCropRequest(BaseModel):
-    """Rectángulo de recorte normalizado (0-1 respecto al tamaño actual)."""
-
-    x: float = Field(ge=0, le=1)
-    y: float = Field(ge=0, le=1)
-    width: float = Field(gt=0, le=1)
-    height: float = Field(gt=0, le=1)
 
 
 class MediaFolderResponse(BaseModel):

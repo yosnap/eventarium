@@ -1773,12 +1773,9 @@
     "plataforma": {
       "identidad": {
         "titulo": "Identidad de la plataforma",
-        "descripcion": "Nombre, logotipo, favicon y plantilla de la web de Eventarium. Es la marca de la instalación, no la de una organización.",
+        "descripcion": "Nombre, logotipo y favicon de la web de Eventarium. Es la marca de la instalación, no la de una organización. La plantilla del chrome se elige en «Plantillas de tema».",
         "marca": "Marca",
         "nombre": "Nombre de la plataforma",
-        "plantilla": "Plantilla del chrome",
-        "plantillaAyuda": "Se aplica a la cabecera, el pie y los botones de la web pública.",
-        "plantillaPorDefecto": "La de por defecto del catálogo",
         "imagenes": "Logotipo y favicon",
         "logotipo": "Logotipo",
         "favicon": "Favicon",
@@ -2240,7 +2237,13 @@
       "recortar": "Recortar",
       "confirmarRecorte": "Confirmar recorte",
       "usarRecorte": "Usar esta versión",
-      "arrastraParaRecortar": "Arrastra sobre la imagen para elegir el recorte."
+      "arrastraParaRecortar": "Arrastra sobre la imagen para elegir el recorte.",
+      "proporcion": "Proporción",
+      "proporcionLibre": "Libre",
+      "rotar": "Rotar",
+      "voltearHorizontal": "Voltear horizontal",
+      "voltearVertical": "Voltear vertical",
+      "zoom": "Zoom"
     }
   }
 }

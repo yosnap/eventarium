@@ -1,6 +1,9 @@
-"""Papelera (`DELETE`/`restore`) y recorte (`PATCH .../crop`) de la biblioteca
-de medios. El borrado comprueba referencias en las 3 tablas de dominio antes
-de aceptar; el recorte crea siempre una fila nueva, nunca muta la original."""
+"""Papelera (`DELETE`/`restore`) de la biblioteca de medios. El borrado
+comprueba referencias en las 3 tablas de dominio antes de aceptar.
+
+El recorte (`PATCH .../crop`) se retiró: el editor de recorte ahora hornea
+proporción/rotación/volteo/zoom en el propio navegador y sube el resultado
+como una subida normal — ver `plans/260921-1720-prd-editor-recorte-imagen`."""
 
 from __future__ import annotations
 
@@ -97,25 +100,6 @@ async def test_restaurar_una_imagen_de_la_papelera(
     assert listado.json()["total"] == 1
 
 
-async def test_recortar_crea_una_fila_nueva_y_no_toca_la_original(
-    cliente: AsyncClient, organizacion: OrganizacionDePrueba
-) -> None:
-    _, cabeceras = await iniciar_sesion(cliente, organizacion)
-    subido = await _subir(cliente, cabeceras, "branding")
-
-    recortado = await cliente.patch(
-        f"{MEDIA}/{subido['id']}/crop",
-        headers=cabeceras,
-        json={"x": 0.0, "y": 0.0, "width": 1.0, "height": 1.0},
-    )
-    assert recortado.status_code == 200, recortado.text
-    assert recortado.json()["id"] != subido["id"]
-
-    listado = await cliente.get(f"{MEDIA}?kind=branding", headers=cabeceras)
-    ids = {f["id"] for f in listado.json()["items"]}
-    assert {subido["id"], recortado.json()["id"]} <= ids
-
-
 async def test_editar_metadatos_de_una_imagen(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
@@ -178,12 +162,12 @@ async def test_borrar_una_imagen_reutilizada_en_dos_eventos_da_409_no_500(
     assert ("evento", segundo["id"]) in tipos_y_ids
 
 
-async def test_restaurar_recortar_y_editar_exigen_permiso_o_propiedad(
+async def test_restaurar_y_editar_exigen_permiso_o_propiedad(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    """Regresión: `restore`/`crop`/`PATCH` no comprobaban ni permiso ni
-    propiedad — cualquier miembro autenticado podía gestionar cualquier
-    medio ajeno de la organización, sin importar su `kind`."""
+    """Regresión: `restore`/`PATCH` no comprobaban ni permiso ni propiedad —
+    cualquier miembro autenticado podía gestionar cualquier medio ajeno de
+    la organización, sin importar su `kind`."""
     _, cabeceras_owner = await iniciar_sesion(cliente, organizacion)
     subido = await _subir(cliente, cabeceras_owner, "branding")
     borrado = await cliente.delete(f"{MEDIA}/{subido['id']}", headers=cabeceras_owner)
@@ -196,21 +180,13 @@ async def test_restaurar_recortar_y_editar_exigen_permiso_o_propiedad(
     restaurado = await cliente.post(f"{MEDIA}/{subido['id']}/restore", headers=cabeceras_ajenas)
     assert restaurado.status_code == 403, restaurado.text
 
-    # Recortar/editar exigen el medio fuera de la papelera para llegar a
-    # comprobar el permiso (si no, `recortar`/`actualizar` ya lo rechazan
-    # antes por estar borrado) — lo restaura quien sí puede, y se prueba el
-    # permiso sobre esas dos acciones por separado.
+    # Editar exige el medio fuera de la papelera para llegar a comprobar el
+    # permiso (si no, `actualizar` ya lo rechaza antes por estar borrado) —
+    # lo restaura quien sí puede.
     restaurado_por_dueno = await cliente.post(
         f"{MEDIA}/{subido['id']}/restore", headers=cabeceras_owner
     )
     assert restaurado_por_dueno.status_code == 200, restaurado_por_dueno.text
-
-    recortado = await cliente.patch(
-        f"{MEDIA}/{subido['id']}/crop",
-        headers=cabeceras_ajenas,
-        json={"x": 0.0, "y": 0.0, "width": 1.0, "height": 1.0},
-    )
-    assert recortado.status_code == 403, recortado.text
 
     editado = await cliente.patch(
         f"{MEDIA}/{subido['id']}", headers=cabeceras_ajenas, json={"alt": "intento ajeno"}

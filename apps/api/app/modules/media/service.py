@@ -1,18 +1,16 @@
-"""Lógica de la biblioteca de medios: subida, asignación, listado, papelera,
-recorte. Compartida entre el router de organización (RLS) y el de
-plataforma (sesión de mantenimiento) — solo cambia qué modelo/sesión se
-pasa, la lógica de negocio es la misma.
+"""Lógica de la biblioteca de medios: subida, asignación, listado, papelera.
+Compartida entre el router de organización (RLS) y el de plataforma (sesión
+de mantenimiento) — solo cambia qué modelo/sesión se pasa, la lógica de
+negocio es la misma.
 """
 
 from __future__ import annotations
 
-import io
 import uuid
 from datetime import UTC, datetime
 from typing import Literal
 
 import httpx
-from PIL import Image
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -72,14 +70,14 @@ def _requerir_propiedad_o_permiso(
     fila: Media, *, user_id: uuid.UUID, permisos: set[Permission]
 ) -> None:
     """Quien sube un medio, o quien tiene el permiso de escritura de SU
-    `kind`, puede gestionarlo (borrar/restaurar/recortar/editar metadatos).
+    `kind`, puede gestionarlo (borrar/restaurar/editar metadatos).
 
-    Antes solo `borrar()` comprobaba esto — `restaurar()`, `recortar()` y
+    Antes solo `borrar()` comprobaba esto — `restaurar()` y
     `actualizar_metadatos()` no comprobaban ni permiso ni propiedad, así que
     cualquier miembro autenticado de la organización (sin importar su rol)
-    podía sacar de la papelera, recortar o editar el `alt`/carpeta de
-    CUALQUIER medio ajeno — incluido uno de un `kind` que ni siquiera podría
-    listar (hallazgo de code-review)."""
+    podía sacar de la papelera o editar el `alt`/carpeta de CUALQUIER medio
+    ajeno — incluido uno de un `kind` que ni siquiera podría listar
+    (hallazgo de code-review)."""
     permiso = KIND_A_PERMISO.get(fila.kind)
     puede_gestionar = fila.uploaded_by_user_id == user_id or (
         permiso is not None and permiso in permisos
@@ -338,65 +336,6 @@ async def restaurar(
     fila.deleted_at = None
     await session.flush()
     return fila
-
-
-async def recortar(
-    session: AsyncSession,
-    *,
-    media_id: uuid.UUID,
-    organization_id: uuid.UUID,
-    uploaded_by_user_id: uuid.UUID,
-    permisos: set[Permission],
-    x: float,
-    y: float,
-    width: float,
-    height: float,
-) -> Media:
-    """Crea una fila NUEVA con clave nueva — nunca muta el objeto existente
-    (hallazgo de red-team: la caché pública es `immutable`, y dos personas
-    recortando el mismo ítem compartido se pisarían sin esto)."""
-    original = await session.get(Media, media_id)
-    if (
-        original is None
-        or original.organization_id != organization_id
-        or original.deleted_at is not None
-    ):
-        raise NotFoundError("Ese medio no existe.")
-    _requerir_propiedad_o_permiso(original, user_id=uploaded_by_user_id, permisos=permisos)
-
-    contenido, _mime = await get_storage().get_object(original.object_key)
-    with Image.open(io.BytesIO(contenido)) as imagen:
-        ancho, alto = imagen.size
-        caja = (
-            int(x * ancho),
-            int(y * alto),
-            int((x + width) * ancho),
-            int((y + height) * alto),
-        )
-        recortada = imagen.convert("RGB").crop(caja)
-        salida = io.BytesIO()
-        recortada.save(salida, format="WEBP", quality=85)
-        contenido_final = salida.getvalue()
-        ancho_final, alto_final = recortada.size
-
-    clave = build_object_key(organization_id, f"media/{original.kind}", "webp")
-    await get_storage().put_object(clave, contenido_final, "image/webp")
-
-    nueva = Media(
-        organization_id=organization_id,
-        kind=original.kind,
-        uploaded_by_user_id=uploaded_by_user_id,
-        folder_id=original.folder_id,
-        object_key=clave,
-        filename=original.filename,
-        mime_type="image/webp",
-        size=len(contenido_final),
-        width=ancho_final,
-        height=alto_final,
-    )
-    session.add(nueva)
-    await session.flush()
-    return nueva
 
 
 async def actualizar_metadatos(
