@@ -66,8 +66,17 @@ MOTOR_PENDIENTE = "ai_gateway"
 #: Prefijo de almacenamiento de justificantes y de sus páginas rasterizadas.
 PREFIJO_DE_JUSTIFICANTES = "accounting-receipts"
 
-#: Estados desde los que todavía se puede descartar un borrador.
-ESTADOS_DESCARTABLES = ("pending_extraction", "pending_review", "extraction_failed")
+#: Estados desde los que todavía se puede descartar un borrador. Incluye
+#: `en_extraccion`: descartar mientras el worker está a mitad de la llamada
+#: al modelo debe poder hacerse (no hay ninguna transacción abierta durante
+#: esa llamada), y es justo lo que `_apuntar_rasterizada`/`_liquidar_extraccion`/
+#: `_marcar_fallo` ya esperan poder encontrarse al volver a coger el candado.
+ESTADOS_DESCARTABLES = (
+    "pending_extraction",
+    "en_extraccion",
+    "pending_review",
+    "extraction_failed",
+)
 
 #: Único `error_code` que el barrido reintenta por tiempo (ver R3 del plan):
 #: es el único transitorio de verdad.
@@ -242,17 +251,27 @@ async def extraer_campos(draft_id: uuid.UUID, organization_id: uuid.UUID) -> Non
 
 
 async def _reservar_intento(draft_id: uuid.UUID, organization_id: uuid.UUID) -> _Documento | None:
-    """Tramo 1: cuenta el intento y lee el justificante.
+    """Tramo 1: cuenta el intento, marca el borrador «en extracción» y lee el
+    justificante.
 
     Devuelve `None` si el borrador ya no está pendiente (lo confirmó o
     descartó alguien, o esta tarea llegó duplicada): la tarea es idempotente,
     nunca pisa un borrador que ya salió de `pending_extraction`.
+
+    Escribir `status = "en_extraccion"` **dentro** de esta misma transacción
+    con el candado (`SELECT ... FOR UPDATE`) es lo que cierra la carrera: una
+    segunda invocación para el mismo `draft_id` (entrega duplicada de la
+    cola, o el barrido reencolando uno que solo esperaba turno con la cola
+    con retraso) se bloquea hasta que esta transacción libera el candado, y
+    al leer entonces ve `en_extraccion`, no `pending_extraction` — así que
+    no reserva un segundo intento ni llama al proveedor por segunda vez.
     """
     async with _sesion_de_organizacion(organization_id) as tx:
         borrador = await repository.get_draft_for_update(tx, organization_id, draft_id)
         if borrador is None or borrador.status != "pending_extraction":
             return None
         borrador.attempts += 1
+        borrador.status = "en_extraccion"
         clave = borrador.receipt_object_key
 
     try:
@@ -322,12 +341,12 @@ async def _apuntar_rasterizada(
 
     Dos casos de sobra, los dos del mismo estilo: la de un intento anterior
     que este reintento acaba de sustituir, y la recién subida cuando el
-    borrador ya no está pendiente —alguien lo descartó o lo confirmó mientras
-    se rasterizaba— y por tanto nadie la referenciaría nunca.
+    borrador ya no está en extracción —alguien lo descartó o lo confirmó
+    mientras se rasterizaba— y por tanto nadie la referenciaría nunca.
     """
     async with _sesion_de_organizacion(organization_id) as tx:
         borrador = await repository.get_draft_for_update(tx, organization_id, draft_id)
-        if borrador is None or borrador.status != "pending_extraction":
+        if borrador is None or borrador.status != "en_extraccion":
             return clave
         anterior = borrador.rasterized_object_key
         borrador.rasterized_object_key = clave
@@ -345,7 +364,7 @@ async def _liquidar_extraccion(
     pierda."""
     async with _sesion_de_organizacion(organization_id) as tx:
         borrador = await repository.get_draft_for_update(tx, organization_id, draft_id)
-        if borrador is None or borrador.status != "pending_extraction":
+        if borrador is None or borrador.status != "en_extraccion":
             return
         borrador.extracted_fields = extraccion.campos
         borrador.field_confidence = extraccion.confianza
@@ -359,7 +378,7 @@ async def _marcar_fallo(draft_id: uuid.UUID, organization_id: uuid.UUID, codigo:
         codigo = ai_errores.PROVEEDOR_ERROR
     async with _sesion_de_organizacion(organization_id) as tx:
         borrador = await repository.get_draft_for_update(tx, organization_id, draft_id)
-        if borrador is None or borrador.status != "pending_extraction":
+        if borrador is None or borrador.status != "en_extraccion":
             return
         borrador.status = "extraction_failed"
         borrador.error_code = codigo
@@ -391,6 +410,13 @@ async def reencolar_extracciones_atascadas() -> int:
     descubrimiento es transversal y va con la sesión de mantenimiento en solo
     lectura; la escritura va organización a organización bajo RLS.
 
+    Dos señales de atasco, no una: `pending_extraction` con `updated_at`
+    viejo (la tarea nunca llegó a arrancar, se perdió de la cola) y
+    `en_extraccion` con `updated_at` viejo (arrancó y el worker murió a
+    mitad). Reencolar reinicia siempre a `pending_extraction`: quien recoja
+    la nueva tarea vuelve a pasar por `_reservar_intento`, que es quien
+    marca `en_extraccion` de nuevo bajo su propio candado.
+
     **Nunca** reencola un borrador con `error_code="limite_superado"` (R3):
     con el límite agotado, cada pasada consumiría una reserva y la quemaría.
     Ese estado se recupera solo con el reintento manual del organizador, tras
@@ -418,6 +444,7 @@ async def reencolar_extracciones_atascadas() -> int:
             borrador = await repository.get_draft_for_update(tx, organization_id, draft_id)
             if borrador is None or borrador.status not in (
                 "pending_extraction",
+                "en_extraccion",
                 "extraction_failed",
             ):
                 continue

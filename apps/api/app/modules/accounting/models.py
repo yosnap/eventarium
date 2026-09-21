@@ -217,8 +217,8 @@ class AccountingExpenseDraft(Base, TimestampMixin):
             "id", "organization_id", name="uq_accounting_expense_drafts_id_organization_id"
         ),
         CheckConstraint(
-            "status IN ('pending_extraction', 'pending_review', 'extraction_failed', "
-            "'confirmed', 'discarded')",
+            "status IN ('pending_extraction', 'en_extraccion', 'pending_review', "
+            "'extraction_failed', 'confirmed', 'discarded')",
             name="ck_accounting_expense_drafts_status",
         ),
     )

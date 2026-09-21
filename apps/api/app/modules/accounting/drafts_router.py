@@ -36,6 +36,7 @@ router = APIRouter(prefix="/accounting", tags=["contabilidad"])
 #: Espejo del `CHECK` de `accounting_expense_drafts.status`.
 _ESTADOS_VALIDOS = (
     "pending_extraction",
+    "en_extraccion",
     "pending_review",
     "extraction_failed",
     "confirmed",

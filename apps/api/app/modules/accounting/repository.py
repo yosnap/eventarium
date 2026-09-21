@@ -653,10 +653,13 @@ async def drafts_reencolables(
 ) -> list[tuple[uuid.UUID, uuid.UUID]]:
     """`(draft_id, organization_id)` de lo que el barrido debe reencolar.
 
-    Dos conjuntos, y **solo** esos dos:
+    Tres conjuntos, y **solo** esos tres:
 
-    - lo que lleva demasiado tiempo en `pending_extraction` (el worker murió
-      entre el encolado y la escritura);
+    - lo que lleva demasiado tiempo en `pending_extraction` (la tarea nunca
+      llegó a arrancar — se perdió de la cola antes de que
+      `_reservar_intento` la tocara);
+    - lo que lleva demasiado tiempo en `en_extraccion` (arrancó y el worker
+      murió a mitad de la llamada al modelo);
     - lo que falló con el único código transitorio (`proveedor_error`).
 
     Deliberadamente **no** incluye `limite_superado`: con el límite todavía
@@ -686,6 +689,10 @@ async def drafts_reencolables(
                     AccountingExpenseDraft.updated_at < corte,
                 ),
                 and_(
+                    AccountingExpenseDraft.status == "en_extraccion",
+                    AccountingExpenseDraft.updated_at < corte,
+                ),
+                and_(
                     AccountingExpenseDraft.status == "extraction_failed",
                     AccountingExpenseDraft.error_code == error_code_reintentable,
                     AccountingExpenseDraft.updated_at < corte,
@@ -699,7 +706,13 @@ async def drafts_reencolables(
 
 
 async def contar_drafts_agotados(session: AsyncSession, *, max_intentos: int) -> int:
-    """Cuántas extracciones fallidas ya no se van a reintentar solas.
+    """Cuántas extracciones ya no se van a reintentar solas.
+
+    Incluye `en_extraccion` además de `extraction_failed`: un borrador puede
+    agotar sus intentos sin llegar nunca a `extraction_failed` si el worker
+    muere antes de que `_marcar_fallo` escriba nada — sin esto, ese caso
+    quedaría invisible para esta alerta aunque `drafts_reencolables` ya haya
+    dejado de reencolarlo (`attempts >= max_intentos`).
 
     El barrido lo escala a log `ERROR`: es el único aviso de que hay
     justificantes esperando una acción humana."""
@@ -707,7 +720,7 @@ async def contar_drafts_agotados(session: AsyncSession, *, max_intentos: int) ->
         select(func.count())
         .select_from(AccountingExpenseDraft)
         .where(
-            AccountingExpenseDraft.status == "extraction_failed",
+            AccountingExpenseDraft.status.in_(("extraction_failed", "en_extraccion")),
             AccountingExpenseDraft.attempts >= max_intentos,
         )
     )

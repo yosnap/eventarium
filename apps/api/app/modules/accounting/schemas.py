@@ -270,7 +270,12 @@ class InKindValuationOut(BaseModel):
 FieldConfidence = Literal["alta", "media", "baja"]
 
 DraftStatus = Literal[
-    "pending_extraction", "pending_review", "extraction_failed", "confirmed", "discarded"
+    "pending_extraction",
+    "en_extraccion",
+    "pending_review",
+    "extraction_failed",
+    "confirmed",
+    "discarded",
 ]
 
 

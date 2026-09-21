@@ -16,5 +16,5 @@ export interface ExpenseDraftOut {
   ocr_provider: string;
   rasterized_object_key: (string | null);
   receipt_object_key: string;
-  status: 'pending_extraction' | 'pending_review' | 'extraction_failed' | 'confirmed' | 'discarded';
+  status: 'pending_extraction' | 'en_extraccion' | 'pending_review' | 'extraction_failed' | 'confirmed' | 'discarded';
 }

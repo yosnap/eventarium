@@ -273,6 +273,37 @@ async def test_extraccion_con_exito_deja_el_borrador_listo_para_revisar(
     assert cuerpo["attempts"] == 1
 
 
+async def test_dos_extracciones_concurrentes_del_mismo_borrador_llaman_al_modelo_una_sola_vez(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    monkeypatch: pytest.MonkeyPatch,
+    sin_cola: AsyncMock,
+) -> None:
+    """Cierra la carrera de doble gasto: `_reservar_intento` marca el borrador
+    `en_extraccion` dentro de la misma transacción bloqueada que cuenta el
+    intento, así que una segunda invocación para el mismo `draft_id` —una
+    entrega duplicada de la cola, o el barrido reencolando uno que solo
+    esperaba turno— ve ese estado al adquirir el candado y no reserva un
+    segundo intento."""
+    doble = _doblar_completar(monkeypatch, _resultado())
+    event_id = await _crear_evento(organizacion)
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    respuesta = await _subir(cliente, cabeceras, event_id)
+    assert respuesta.status_code == 200, respuesta.text
+    draft_id = uuid.UUID(respuesta.json()["id"])
+
+    await asyncio.gather(
+        drafts_service.extraer_campos(draft_id, organizacion.id),
+        drafts_service.extraer_campos(draft_id, organizacion.id),
+    )
+
+    assert doble.await_count == 1
+    listado = await cliente.get(f"{BASE}/events/{event_id}/expense-drafts", headers=cabeceras)
+    cuerpo = listado.json()[0]
+    assert cuerpo["status"] == "pending_review"
+    assert cuerpo["attempts"] == 1
+
+
 async def test_un_pdf_se_rasteriza_y_la_imagen_se_conserva(
     cliente: AsyncClient,
     organizacion: OrganizacionDePrueba,

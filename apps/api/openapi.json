@@ -13337,6 +13337,7 @@
             "type": "string",
             "enum": [
               "pending_extraction",
+              "en_extraccion",
               "pending_review",
               "extraction_failed",
               "confirmed",

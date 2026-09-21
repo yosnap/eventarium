@@ -81,10 +81,17 @@ export interface IngresoCombinado extends IncomeLine {
 export type NivelDeConfianza = 'alta' | 'media' | 'baja';
 
 /** Estados del borrador de gasto (`CHECK` de `accounting_expense_drafts`).
- * La bandeja solo lista los tres primeros: los confirmados ya son un gasto y
- * los descartados no existen. */
+ * La bandeja solo lista los cuatro primeros: los confirmados ya son un gasto
+ * y los descartados no existen. `en_extraccion` es el estado mientras el
+ * worker está a mitad de la llamada al modelo — visualmente indistinguible
+ * de `pending_extraction` ("Leyendo"), la panel lo trata igual. */
 export type EstadoDeDraft =
-  'pending_extraction' | 'pending_review' | 'extraction_failed' | 'confirmed' | 'discarded';
+  | 'pending_extraction'
+  | 'en_extraccion'
+  | 'pending_review'
+  | 'extraction_failed'
+  | 'confirmed'
+  | 'discarded';
 
 /** Taxonomía cerrada de `error_code` de la pasarela de IA. Cada valor tiene su
  * propio mensaje en `es-ES.json`, y solo `limite_superado` se puede reintentar

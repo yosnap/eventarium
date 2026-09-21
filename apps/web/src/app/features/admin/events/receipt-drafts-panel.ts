@@ -304,7 +304,7 @@ export class ReceiptDraftsPanel implements OnInit {
   private destruido = false;
 
   protected readonly extrayendo = computed(() =>
-    this.drafts().filter((d) => d.status === 'pending_extraction'),
+    this.drafts().filter((d) => d.status === 'pending_extraction' || d.status === 'en_extraccion'),
   );
   protected readonly pendientes = computed(() =>
     this.drafts().filter((d) => d.status === 'pending_review'),
@@ -417,12 +417,15 @@ export class ReceiptDraftsPanel implements OnInit {
     const vivos = listado.filter(
       (draft) =>
         draft.status === 'pending_extraction' ||
+        draft.status === 'en_extraccion' ||
         draft.status === 'pending_review' ||
         draft.status === 'extraction_failed',
     );
     const recienListo = vivos.find(
       (draft) =>
-        draft.status === 'pending_review' && anteriores.get(draft.id) === 'pending_extraction',
+        draft.status === 'pending_review' &&
+        (anteriores.get(draft.id) === 'pending_extraction' ||
+          anteriores.get(draft.id) === 'en_extraccion'),
     );
     this.drafts.set(vivos);
     if (recienListo) {
