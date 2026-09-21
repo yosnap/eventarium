@@ -12,15 +12,12 @@ import { MediaPicker } from '../../../shared/ui/media-picker';
 import { PlatformIdentityPage } from './platform-identity-page';
 
 const IDENTIDAD_URL = '/api/v1/admin/identity';
-const PLANTILLAS_URL = '/api/v1/admin/theme-templates';
 
 const IDENTIDAD = {
   name: 'Eventarium',
   logo_url: null,
   favicon_url: null,
   social_links: [],
-  theme_template_id: null,
-  theme: null,
 };
 
 async function avanzar(fixture: ComponentFixture<unknown>): Promise<void> {
@@ -56,9 +53,7 @@ describe('PlatformIdentityPage', () => {
   async function crearYCargar(): Promise<ComponentFixture<PlatformIdentityPage>> {
     const fixture = TestBed.createComponent(PlatformIdentityPage);
     await avanzar(fixture);
-    // La pantalla pide identidad y catálogo de plantillas a la vez.
     http.expectOne(IDENTIDAD_URL).flush(IDENTIDAD);
-    http.expectOne(PLANTILLAS_URL).flush([]);
     await avanzar(fixture);
     return fixture;
   }
@@ -88,11 +83,9 @@ describe('PlatformIdentityPage', () => {
     expect(fixture.componentInstance.guardado()).toBe(true);
   });
 
-  it('solo ofrece la plantilla por defecto cuando el catálogo está vacío', async () => {
+  it('no ofrece ningún selector de plantilla: eso vive solo en Plantillas de tema', async () => {
     const fixture = await crearYCargar();
-    const opciones = fixture.componentInstance.opcionesDePlantilla();
-    expect(opciones).toHaveLength(1);
-    expect(opciones[0].value).toBe('');
+    expect(fixture.nativeElement.querySelector('app-select')).toBeNull();
   });
 
   it('asigna el media_id elegido en el picker y actualiza la URL', async () => {

@@ -1,16 +1,14 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
-import { PlantillaDeTema } from '../../../core/theming/theme-template.model';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
-import { Select, SelectOption } from '../../../shared/ui/select';
 import { PageHeader } from '../../../shared/ui/page-header';
 import { MediaElegida, MediaPicker } from '../../../shared/ui/media-picker';
 import { LOGO_ACEPTADOS } from '../../../shared/uploads/image-upload-constraints';
@@ -21,21 +19,22 @@ interface IdentidadDePlataforma {
   logo_url: string | null;
   favicon_url: string | null;
   social_links: readonly { kind: string; url: string }[];
-  theme_template_id: string | null;
-  theme: { id: string; key: string; name: string } | null;
 }
 
 const CLAVE_IDENTIDAD = '/admin/identity';
 
 /**
- * Identidad de la web de la instalación: nombre, logotipo, favicon y plantilla
- * del chrome. Es la marca de **Eventarium**, no la de una organización; por eso
- * vive en el panel de administración de plataforma.
+ * Identidad de la web de la instalación: nombre, logotipo y favicon. Es la
+ * marca de **Eventarium**, no la de una organización; por eso vive en el
+ * panel de administración de plataforma. La plantilla del chrome no se
+ * elige aquí: vive solo en «Plantillas de tema» (`theme-templates-page.ts`),
+ * que ya tiene su propio flujo completo de aplicar — este formulario no
+ * duplica ese selector.
  */
 @Component({
   selector: 'app-platform-identity-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input, Select, PageHeader, MediaPicker],
+  imports: [TranslocoDirective, Alert, Button, Card, Input, PageHeader, MediaPicker],
   template: `
     <ng-container *transloco="let t">
       <app-page-header [rotulo]="t('admin.plataforma.identidad.rotulo')">
@@ -60,13 +59,6 @@ const CLAVE_IDENTIDAD = '/admin/identity';
               [label]="t('admin.plataforma.identidad.nombre')"
               [required]="true"
               [(value)]="nombre"
-            />
-
-            <app-select
-              [label]="t('admin.plataforma.identidad.plantilla')"
-              [options]="opcionesDePlantilla()"
-              [(value)]="plantillaElegida"
-              [hint]="t('admin.plataforma.identidad.plantillaAyuda')"
             />
 
             <app-button type="submit" [loading]="guardando()">
@@ -156,18 +148,8 @@ export class PlatformIdentityPage {
   readonly error = signal<string | null>(null);
 
   readonly nombre = signal('');
-  readonly plantillaElegida = signal('');
   readonly logoUrl = signal<string | null>(null);
   readonly faviconUrl = signal<string | null>(null);
-  readonly plantillas = signal<readonly PlantillaDeTema[]>([]);
-
-  readonly opcionesDePlantilla = computed<readonly SelectOption[]>(() => [
-    {
-      value: '',
-      label: this.transloco.translate('admin.plataforma.identidad.plantillaPorDefecto'),
-    },
-    ...this.plantillas().map((p) => ({ value: p.id, label: p.name })),
-  ]);
 
   constructor() {
     void this.cargar();
@@ -175,21 +157,12 @@ export class PlatformIdentityPage {
 
   private async cargar(): Promise<void> {
     try {
-      const [identidad, plantillas] = await Promise.all([
-        firstValueFrom(
-          this.http.get<IdentidadDePlataforma>(this.api.url(CLAVE_IDENTIDAD), {
-            headers: this.api.serverForwardHeaders(),
-          }),
-        ),
-        firstValueFrom(
-          this.http.get<readonly PlantillaDeTema[]>(this.api.url('/admin/theme-templates'), {
-            headers: this.api.serverForwardHeaders(),
-          }),
-        ),
-      ]);
-      this.plantillas.set(plantillas);
+      const identidad = await firstValueFrom(
+        this.http.get<IdentidadDePlataforma>(this.api.url(CLAVE_IDENTIDAD), {
+          headers: this.api.serverForwardHeaders(),
+        }),
+      );
       this.nombre.set(identidad.name);
-      this.plantillaElegida.set(identidad.theme_template_id ?? '');
       this.logoUrl.set(identidad.logo_url);
       this.faviconUrl.set(identidad.favicon_url);
     } catch {
@@ -208,7 +181,7 @@ export class PlatformIdentityPage {
       const identidad = await firstValueFrom(
         this.http.patch<IdentidadDePlataforma>(
           this.api.url(CLAVE_IDENTIDAD),
-          { name: this.nombre().trim(), theme_template_id: this.plantillaElegida() },
+          { name: this.nombre().trim() },
           { headers: this.api.serverForwardHeaders() },
         ),
       );
@@ -252,7 +225,6 @@ export class PlatformIdentityPage {
     this.nombre.set(identidad.name);
     this.logoUrl.set(identidad.logo_url);
     this.faviconUrl.set(identidad.favicon_url);
-    this.plantillaElegida.set(identidad.theme_template_id ?? '');
   }
 
   private mensajeDeError(fallo: unknown, clave: string): string {
