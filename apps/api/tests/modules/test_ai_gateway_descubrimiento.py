@@ -115,6 +115,24 @@ def test_la_modalidad_de_salida_no_cuenta_como_vision() -> None:
     assert modelo.vision is False
 
 
+def test_input_modalities_vacio_no_declara_nada() -> None:
+    """`[]` no es «declara que no acepta imágenes» — es indistinguible de «no
+    declarado»: debe caer al catálogo estático, no fijarse en `False`."""
+    (modelo,) = descubrimiento.interpretar(
+        {"data": [{"id": "x/y", "architecture": {"input_modalities": []}}]}
+    )
+
+    assert modelo.vision is None
+
+
+def test_modality_vacia_no_declara_nada() -> None:
+    (modelo,) = descubrimiento.interpretar(
+        {"data": [{"id": "x/y", "architecture": {"modality": ""}}]}
+    )
+
+    assert modelo.vision is None
+
+
 def test_anthropic_usa_capabilities_image_input() -> None:
     modelos = descubrimiento.interpretar(
         {
@@ -180,6 +198,24 @@ def test_openai_no_declara_capacidades_y_la_etiqueta_cae_al_identificador() -> N
     assert modelo.clave == "gpt-4o"
     assert modelo.etiqueta == "gpt-4o"
     assert modelo.vision is None
+
+
+def test_id_vacio_cae_al_name_y_no_se_confunde_con_ausente() -> None:
+    """`id: ""` no es un identificador válido — cae a `name`, igual que si
+    `id` faltara del todo, no se cuela como clave vacía."""
+    (modelo,) = descubrimiento.interpretar({"data": [{"id": "", "name": "modelo-x"}]})
+
+    assert modelo.clave == "modelo-x"
+
+
+def test_dos_entradas_con_id_vacio_no_colisionan_entre_si() -> None:
+    """Regresión: si `""` se usara tal cual como clave de deduplicación, la
+    segunda entrada pisaría a la primera y se perdería un modelo real."""
+    modelos = descubrimiento.interpretar(
+        {"data": [{"id": "", "name": "modelo-a"}, {"id": "", "name": "modelo-b"}]}
+    )
+
+    assert {modelo.clave for modelo in modelos} == {"modelo-a", "modelo-b"}
 
 
 def test_un_cuerpo_sin_listado_reconocible_no_se_interpreta() -> None:

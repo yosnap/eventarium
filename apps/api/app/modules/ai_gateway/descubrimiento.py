@@ -261,13 +261,18 @@ def vision_declarada(entrada: dict[str, Any]) -> bool | None:
     arquitectura = entrada.get("architecture")
     if isinstance(arquitectura, dict):
         modalidades = arquitectura.get("input_modalities")
-        if isinstance(modalidades, list):
+        # Una lista vacía no es «declara que no acepta nada» — es indistinguible
+        # de «no declarado» (hallazgo de triage): sin esto, `any(...)` sobre `[]`
+        # daría `False` y el catálogo estático, que sí sabe si el modelo ve
+        # imágenes, nunca llegaría a consultarse para él.
+        if isinstance(modalidades, list) and modalidades:
             return any(
                 isinstance(modalidad, str) and modalidad.lower() == "image"
                 for modalidad in modalidades
             )
         modalidad = arquitectura.get("modality")
-        if isinstance(modalidad, str):
+        # Mismo motivo: una cadena vacía tras `.strip()` no declara nada.
+        if isinstance(modalidad, str) and modalidad.strip():
             # `"text+image->text"`: solo cuenta la parte de entrada.
             entrada_de_modalidad = modalidad.split("->")[0]
             return "image" in entrada_de_modalidad.lower()

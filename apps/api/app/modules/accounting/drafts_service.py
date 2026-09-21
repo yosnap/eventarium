@@ -195,26 +195,26 @@ class _Documento:
 def _codigo_de_error(exc: BaseException) -> str:
     """Excepción → `error_code` de la taxonomía cerrada de la pasarela.
 
-    Nunca inventa un código fuera de `ai_errores.CODIGOS_DE_ERROR`: esa
+    Lee `.error_code` directamente de la excepción en vez de mapear cada tipo
+    a mano con `isinstance` — todas las excepciones de la taxonomía
+    (`ServicioDesactivado`, `SinConfiguracion`, `CredencialIlegible`,
+    `LimiteDeGastoSuperado`, `ErrorDeProveedor`) ya lo llevan como atributo de
+    clase o instancia. La rama manual anterior arriesgaba que una excepción
+    nueva de la pasarela cayera al genérico `PROVEEDOR_ERROR` si se olvidaba
+    añadirle su `isinstance` aquí (hallazgo de triage); con `.error_code`
+    directo, basta con que la excepción lo declare correctamente, igual que
+    ya hace el resto del módulo `ai_errores`.
+
+    Nunca devuelve un código fuera de `ai_errores.CODIGOS_DE_ERROR`: esa
     columna es lo único que distingue «amplía el límite» de «este documento no
     se puede leer», y el barrido decide con ella si reintentar.
     """
-    if isinstance(exc, ai_errores.ServicioDesactivado):
-        return ai_errores.SERVICIO_DESACTIVADO
-    if isinstance(exc, ai_errores.SinConfiguracion):
-        return ai_errores.SIN_CONFIGURACION
-    if isinstance(exc, ai_errores.LimiteDeGastoSuperado):
-        return ai_errores.LIMITE_SUPERADO
-    if isinstance(exc, ai_errores.CredencialIlegible):
-        return ai_errores.CREDENCIAL_ILEGIBLE
-    if isinstance(exc, ai_errores.ErrorDeProveedor):
-        codigo = getattr(exc, "error_code", ai_errores.PROVEEDOR_ERROR)
-        return codigo if codigo in ai_errores.CODIGOS_DE_ERROR else ai_errores.PROVEEDOR_ERROR
     if isinstance(exc, ocr_client.RespuestaFueraDeEsquema | rasterizacion.DocumentoIlegible):
         # Ni una respuesta fuera de esquema ni un PDF ilegible mejoran
         # repitiendo la llamada: quedan a la vista, sin reintento en bucle.
         return ai_errores.PAYLOAD_INVALIDO
-    return ai_errores.PROVEEDOR_ERROR
+    codigo = getattr(exc, "error_code", None)
+    return codigo if codigo in ai_errores.CODIGOS_DE_ERROR else ai_errores.PROVEEDOR_ERROR
 
 
 async def extraer_campos(draft_id: uuid.UUID, organization_id: uuid.UUID) -> None:
