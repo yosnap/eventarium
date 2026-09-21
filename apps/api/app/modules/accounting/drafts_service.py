@@ -435,7 +435,9 @@ async def reencolar_extracciones_atascadas() -> int:
             limite=MAXIMO_REENCOLADAS_POR_PASADA,
         )
         agotados = await repository.contar_drafts_agotados(
-            lectura, max_intentos=settings.accounting_ocr_max_attempts
+            lectura,
+            max_intentos=settings.accounting_ocr_max_attempts,
+            minutos=settings.accounting_ocr_stuck_minutes,
         )
 
     reencoladas = 0

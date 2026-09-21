@@ -26,7 +26,7 @@ from app.core.audit import AuditLog
 from app.core.config import get_settings
 from app.core.database import SessionApp, SessionMaintenance, set_organization_context
 from app.core.storage import get_storage
-from app.modules.accounting import drafts_service
+from app.modules.accounting import drafts_service, repository
 from app.modules.accounting.models import AccountingExpense, AccountingExpenseDraft
 from app.modules.ai_gateway import client as ai_client
 from app.modules.ai_gateway import errores as ai_errores
@@ -539,6 +539,61 @@ async def test_el_barrido_reencola_una_extraccion_atascada(
 
     assert reencoladas == 1
     sin_cola.assert_awaited_once()
+
+
+async def test_agotados_no_cuenta_un_en_extraccion_todavia_en_curso(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, sin_cola: AsyncMock
+) -> None:
+    """`en_extraccion` con `updated_at` reciente es un intento legítimamente en
+    curso (la llamada al modelo puede tardar hasta ~120 s) — no un atasco.
+    Sin el filtro de antigüedad, este borrador se contaría como agotado
+    mientras procesa con normalidad."""
+    event_id = await _crear_evento(organizacion)
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    respuesta = await _subir(cliente, cabeceras, event_id)
+    draft_id = uuid.UUID(respuesta.json()["id"])
+    await _forzar_estado(
+        organizacion,
+        draft_id,
+        status="en_extraccion",
+        attempts=get_settings().accounting_ocr_max_attempts,
+    )
+
+    async with SessionMaintenance() as session:
+        agotados = await repository.contar_drafts_agotados(
+            session,
+            max_intentos=get_settings().accounting_ocr_max_attempts,
+            minutos=get_settings().accounting_ocr_stuck_minutes,
+        )
+
+    assert agotados == 0
+
+
+async def test_agotados_cuenta_un_en_extraccion_parado(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, sin_cola: AsyncMock
+) -> None:
+    """El mismo estado, pero con `updated_at` viejo: el worker murió a mitad
+    y sí es un atasco real que necesita acción humana."""
+    event_id = await _crear_evento(organizacion)
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    respuesta = await _subir(cliente, cabeceras, event_id)
+    draft_id = uuid.UUID(respuesta.json()["id"])
+    await _forzar_estado(
+        organizacion,
+        draft_id,
+        status="en_extraccion",
+        attempts=get_settings().accounting_ocr_max_attempts,
+        antiguedad_minutos=get_settings().accounting_ocr_stuck_minutes + 5,
+    )
+
+    async with SessionMaintenance() as session:
+        agotados = await repository.contar_drafts_agotados(
+            session,
+            max_intentos=get_settings().accounting_ocr_max_attempts,
+            minutos=get_settings().accounting_ocr_stuck_minutes,
+        )
+
+    assert agotados == 1
 
 
 async def test_el_barrido_acota_el_lote_de_cada_pasada(

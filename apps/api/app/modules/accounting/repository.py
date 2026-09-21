@@ -705,7 +705,7 @@ async def drafts_reencolables(
     return [(fila[0], fila[1]) for fila in filas.all()]
 
 
-async def contar_drafts_agotados(session: AsyncSession, *, max_intentos: int) -> int:
+async def contar_drafts_agotados(session: AsyncSession, *, max_intentos: int, minutos: int) -> int:
     """Cuántas extracciones ya no se van a reintentar solas.
 
     Incluye `en_extraccion` además de `extraction_failed`: un borrador puede
@@ -714,14 +714,29 @@ async def contar_drafts_agotados(session: AsyncSession, *, max_intentos: int) ->
     quedaría invisible para esta alerta aunque `drafts_reencolables` ya haya
     dejado de reencolarlo (`attempts >= max_intentos`).
 
+    Para `en_extraccion` exige además `updated_at` viejo (`minutos`, mismo
+    corte que `drafts_reencolables`): un borrador en su último intento
+    permitido puede seguir legítimamente en curso —la llamada al modelo
+    tarda hasta ~120 s— y sin este filtro se contaría como agotado mientras
+    todavía procesa con normalidad, disparando un `ERROR` de plataforma
+    falso. `extraction_failed` no necesita el filtro: ese estado solo se
+    alcanza cuando el procesamiento ya ha terminado.
+
     El barrido lo escala a log `ERROR`: es el único aviso de que hay
     justificantes esperando una acción humana."""
+    corte = datetime.now(UTC) - timedelta(minutes=minutos)
     total = await session.scalar(
         select(func.count())
         .select_from(AccountingExpenseDraft)
         .where(
-            AccountingExpenseDraft.status.in_(("extraction_failed", "en_extraccion")),
             AccountingExpenseDraft.attempts >= max_intentos,
+            or_(
+                AccountingExpenseDraft.status == "extraction_failed",
+                and_(
+                    AccountingExpenseDraft.status == "en_extraccion",
+                    AccountingExpenseDraft.updated_at < corte,
+                ),
+            ),
         )
     )
     return int(total or 0)
