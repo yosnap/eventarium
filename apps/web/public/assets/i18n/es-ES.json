@@ -168,8 +168,11 @@
         "desde": "Desde {{precio}}"
       }
     },
-    "accesoPanel": "Acceso al panel",
-    "crearCuenta": "Crear cuenta",
+    "accesoMenu": {
+      "titulo": "Acceso a la cuenta",
+      "iniciarSesion": "Iniciar sesión",
+      "crearCuenta": "Crear cuenta"
+    },
     "redesSociales": "Redes sociales del organizador",
     "piePagina": "Pie de página",
     "ponentes": {

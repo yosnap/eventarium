@@ -5,6 +5,7 @@ import { TranslocoDirective } from '@jsverse/transloco';
 import { CookieBanner } from '../../shared/cookies/cookie-banner';
 import { CookieConsentService } from '../../core/cookies/cookie-consent.service';
 import { ThemingService } from '../../core/theming/theming.service';
+import { AccessMenu } from '../../shared/ui/access-menu';
 import { BrandMark } from '../../shared/ui/brand-mark';
 import { Button } from '../../shared/ui/button';
 import { ThemeToggle } from '../../shared/ui/theme-toggle';
@@ -25,6 +26,7 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
     ThemeToggle,
     BrandMark,
     Button,
+    AccessMenu,
   ],
   template: `
     <ng-container *transloco="let t">
@@ -44,9 +46,8 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
             <!-- Sin «Inicio»: la raíz ya es el directorio de eventos (fase 6
                  del plan de organización sin dominio), y el logo enlaza a ella. -->
             <a routerLink="/eventos">{{ t('publico.eventos.listadoTitulo') }}</a>
-            <a routerLink="/acceder">{{ t('publico.accesoPanel') }}</a>
-            <a routerLink="/registro">{{ t('publico.crearCuenta') }}</a>
           </nav>
+          <app-access-menu />
           <app-theme-toggle />
         </div>
       </header>

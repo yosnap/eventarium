@@ -15,7 +15,7 @@ export interface Speaker {
  * Rejilla de ponentes, sobre `.speaker`/`.speaker__mark` de la referencia
  * (`evento-iawic.html:196-232`). La caja de iniciales es un patrón propio (dos
  * iniciales, 52×52px) y no `app-brand-mark`: ese componente es la marca de
- * 26×26px con una sola inicial junto al nombre de la organización
+ * 29×29px con una sola inicial junto al nombre de la organización
  * (`shared/ui/brand-mark.ts`), un contexto visual distinto al de una ficha de
  * ponente.
  *
