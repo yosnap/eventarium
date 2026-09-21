@@ -156,19 +156,47 @@ export function euros(cents: number): string {
   return (cents / 100).toFixed(2);
 }
 
+/** Un único separador seguido de exactamente 3 dígitos y nada más detrás es
+ * casi siempre un agrupador de miles sin céntimos («2.500», «1,850»):
+ * ninguna divisa real lleva 3 decimales. */
+function sonMilesSinDecimales(texto: string, separador: string): boolean {
+  const partes = texto.split(separador);
+  return partes.length === 2 && /^\d{3}$/.test(partes[1]);
+}
+
 /**
- * Convierte «1.234,56» o «1234.56» a céntimos. `null` si no es un número.
+ * Convierte «1.234,56» (español), «1,234.56» (EE. UU.) o «1234.56» a
+ * céntimos. `null` si no es un número.
  *
  * Vive aquí, y no dentro de un formulario, porque el alta manual y la revisión
  * de un justificante tienen que redondear los céntimos **exactamente igual**:
  * dos copias divergirían en el redondeo y el mismo importe entraría con un
- * céntimo de diferencia según por dónde se diera de alta.
+ * céntimo de diferencia según por dónde se diera de alta. Mismo heurístico
+ * que `ocr_client.py::_importe_a_centimos` en el backend: con los dos
+ * separadores presentes, el que aparece último es el decimal; con uno solo,
+ * `sonMilesSinDecimales` decide si es de miles o decimal.
  */
 export function aCents(texto: string): number | null {
-  if (!texto.trim()) {
+  const limpio = texto.trim();
+  if (!limpio) {
     return null;
   }
-  const valor = Number(texto.replace(',', '.'));
+  const ultimaComa = limpio.lastIndexOf(',');
+  const ultimoPunto = limpio.lastIndexOf('.');
+  let normalizado = limpio;
+  if (ultimaComa !== -1 && ultimoPunto !== -1) {
+    normalizado =
+      ultimaComa > ultimoPunto
+        ? limpio.replace(/\./g, '').replace(',', '.')
+        : limpio.replace(/,/g, '');
+  } else if (ultimaComa !== -1) {
+    normalizado = sonMilesSinDecimales(limpio, ',')
+      ? limpio.replace(',', '')
+      : limpio.replace(',', '.');
+  } else if (ultimoPunto !== -1 && sonMilesSinDecimales(limpio, '.')) {
+    normalizado = limpio.replace('.', '');
+  }
+  const valor = Number(normalizado);
   return Number.isFinite(valor) ? Math.round(valor * 100) : null;
 }
 

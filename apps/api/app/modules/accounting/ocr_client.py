@@ -192,6 +192,37 @@ def _nivel_por_numero(valor: float) -> str:
     return "baja"
 
 
+def _son_miles_sin_decimales(texto: str, separador: str) -> bool:
+    """Un único separador seguido de exactamente 3 dígitos y nada más detrás
+    es casi siempre un agrupador de miles sin céntimos («2.500», «1,850»):
+    ninguna divisa real lleva 3 decimales, así que esa lectura es más
+    probable que un importe con 3 cifras decimales."""
+    partes = texto.split(separador)
+    return len(partes) == 2 and len(partes[1]) == 3 and partes[1].isdigit()
+
+
+def _normalizar_separadores_de_importe(texto: str) -> str:
+    """Separador decimal español o estadounidense → punto decimal, sin
+    separador de miles.
+
+    Con los dos separadores presentes, el que aparece último es el decimal:
+    «1.234,56» (español) frente a «1,234.56» (EE. UU.); el otro es de miles y
+    se descarta. Con uno solo, `_son_miles_sin_decimales` decide si es de
+    miles («2.500» → 2500) o decimal («2.50» → 2,50).
+    """
+    if "," in texto and "." in texto:
+        if texto.rfind(",") > texto.rfind("."):
+            return texto.replace(".", "").replace(",", ".")
+        return texto.replace(",", "")
+    if "," in texto:
+        if _son_miles_sin_decimales(texto, ","):
+            return texto.replace(",", "")
+        return texto.replace(",", ".")
+    if "." in texto and _son_miles_sin_decimales(texto, "."):
+        return texto.replace(".", "")
+    return texto
+
+
 def _importe_a_centimos(valor: Any) -> int | None:
     """Importe del modelo → céntimos, o `None` si no es un número legible.
 
@@ -207,11 +238,7 @@ def _importe_a_centimos(valor: Any) -> int | None:
     texto = str(valor).strip().replace(" ", "").replace("€", "")
     if not texto:
         return None
-    # Formato español («1.234,56») frente a formato de punto decimal.
-    if "," in texto and "." in texto:
-        texto = texto.replace(".", "").replace(",", ".")
-    elif "," in texto:
-        texto = texto.replace(",", ".")
+    texto = _normalizar_separadores_de_importe(texto)
     try:
         importe = Decimal(texto)
     except (InvalidOperation, ValueError):

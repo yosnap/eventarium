@@ -203,6 +203,32 @@ def test_importe_en_formato_espanol_se_convierte_a_centimos() -> None:
     assert campos["total_cents"] == 123_456
 
 
+def test_importe_en_formato_estadounidense_se_convierte_a_centimos() -> None:
+    campos_crudos = _campos_completos() | {"total": "1,234.56"}
+    campos, _ = ocr_client.parsear_respuesta(_respuesta(campos_crudos, _confianza_alta()))
+    assert campos["total_cents"] == 123_456
+
+
+def test_un_punto_de_miles_sin_decimales_no_se_confunde_con_decimal() -> None:
+    campos_crudos = _campos_completos() | {"total": "2.500"}
+    campos, _ = ocr_client.parsear_respuesta(_respuesta(campos_crudos, _confianza_alta()))
+    assert campos["total_cents"] == 250_000
+
+
+def test_una_coma_de_miles_sin_decimales_no_se_confunde_con_decimal() -> None:
+    campos_crudos = _campos_completos() | {"total": "1,850"}
+    campos, _ = ocr_client.parsear_respuesta(_respuesta(campos_crudos, _confianza_alta()))
+    assert campos["total_cents"] == 185_000
+
+
+def test_un_punto_decimal_con_mas_de_tres_cifras_se_lee_como_decimal_no_miles() -> None:
+    # 3 cifras tras el separador es ambiguo por convención se lee como miles;
+    # con más de 3 no hay ambigüedad posible y se lee como decimal.
+    campos_crudos = _campos_completos() | {"total": "2.5001"}
+    campos, _ = ocr_client.parsear_respuesta(_respuesta(campos_crudos, _confianza_alta()))
+    assert campos["total_cents"] == 250
+
+
 def test_un_importe_negativo_o_desorbitado_no_llega_al_borrador() -> None:
     campos_crudos = _campos_completos() | {"base": "-10.00", "vat": "99999999999"}
     campos, _ = ocr_client.parsear_respuesta(_respuesta(campos_crudos, _confianza_alta()))
