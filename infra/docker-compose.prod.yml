@@ -15,6 +15,52 @@ name: eventarium
 x-imagen-api: &imagen-api
   image: ghcr.io/${GITHUB_REPOSITORY:-yosnap/eventarium}/api:${IMAGE_TAG:?falta IMAGE_TAG}
 
+# `env_file: ./env/.env` requeriría ese fichero *dentro del checkout* que hace el
+# orquestador (Dokploy, o cualquier CI que clona el repo y construye ahí mismo):
+# infra/env/.env nunca se versiona, así que ese fichero no existe salvo que alguien lo
+# cree a mano en el servidor. Con `environment:` + interpolación `${VAR}`, en cambio, el
+# valor sale del entorno con el que se invoca `docker compose` (el `--env-file` del
+# orquestador, o el shell), sin depender de ningún fichero dentro del propio checkout —
+# mismo patrón que ya usaba `web` más abajo.
+x-entorno-api: &entorno-api
+  APP_ENV: ${APP_ENV:-production}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  DATABASE_URL: ${DATABASE_URL:?falta DATABASE_URL}
+  DATABASE_MIGRATIONS_URL: ${DATABASE_MIGRATIONS_URL:?falta DATABASE_MIGRATIONS_URL}
+  REDIS_URL: ${REDIS_URL:?falta REDIS_URL}
+  S3_ENDPOINT: ${S3_ENDPOINT:?falta S3_ENDPOINT}
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:?falta S3_ACCESS_KEY}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:?falta S3_SECRET_KEY}
+  S3_BUCKET: ${S3_BUCKET:-media}
+  S3_REGION: ${S3_REGION:-us-east-1}
+  S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:?falta S3_PUBLIC_BASE_URL}
+  WEB_BASE_URL: ${WEB_BASE_URL:?falta WEB_BASE_URL}
+  JWT_SECRET: ${JWT_SECRET:?falta JWT_SECRET}
+  ACCESS_TOKEN_TTL_MINUTES: ${ACCESS_TOKEN_TTL_MINUTES:-15}
+  REFRESH_TOKEN_TTL_DAYS: ${REFRESH_TOKEN_TTL_DAYS:-7}
+  COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+  TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:?falta TRUSTED_PROXY_CIDRS}
+  CORS_ORIGINS: ${CORS_ORIGINS:-}
+  SMTP_HOST: ${SMTP_HOST:-localhost}
+  SMTP_PORT: ${SMTP_PORT:-1025}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  SMTP_USE_TLS: ${SMTP_USE_TLS:-false}
+  SMTP_FROM: ${SMTP_FROM:-no-responder@example.com}
+  TURNSTILE_ENABLED: ${TURNSTILE_ENABLED:-true}
+  TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+  SEED_OWNER_EMAIL: ${SEED_OWNER_EMAIL:-owner@example.com}
+  SEED_OWNER_PASSWORD: ${SEED_OWNER_PASSWORD:-}
+  TICKET_QR_SECRET: ${TICKET_QR_SECRET:?falta TICKET_QR_SECRET}
+  TICKET_QR_EXPIRY_MARGIN_HOURS: ${TICKET_QR_EXPIRY_MARGIN_HOURS:-48}
+  STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+  STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+  PAYMENT_REFUND_CUTOFF_HOURS: ${PAYMENT_REFUND_CUTOFF_HOURS:-24}
+  STRIPE_WEBHOOK_RETENTION_DAYS: ${STRIPE_WEBHOOK_RETENTION_DAYS:-90}
+  GA4_SERVICE_ACCOUNT_JSON: ${GA4_SERVICE_ACCOUNT_JSON:-}
+  GA4_PROPERTY_ID: ${GA4_PROPERTY_ID:-}
+  AI_SETTINGS_ENCRYPTION_KEY: ${AI_SETTINGS_ENCRYPTION_KEY:-}
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -72,7 +118,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    env_file: ./env/.env
+    environment:
+      <<: *entorno-api
     command: ["alembic", "upgrade", "head"]
 
   api:
@@ -85,7 +132,8 @@ services:
         condition: service_healthy
       seaweedfs:
         condition: service_healthy
-    env_file: ./env/.env
+    environment:
+      <<: *entorno-api
     expose:
       - "8000"
 
@@ -97,7 +145,8 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
-    env_file: ./env/.env
+    environment:
+      <<: *entorno-api
     command: ["taskiq", "worker", "app.core.tasks:broker"]
 
   # Proceso separado del worker desde Taskiq 0.12: TaskiqScheduler corre en su propio
@@ -112,7 +161,8 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
-    env_file: ./env/.env
+    environment:
+      <<: *entorno-api
     command: ["taskiq", "scheduler", "app.core.tasks:scheduler"]
 
   web:
