@@ -100,33 +100,87 @@ describe('MediaCropEditor', () => {
     imagen.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 100 }) as DOMRect;
   }
 
-  it('sin arrastrar nada, "Confirmar recorte" está deshabilitado', async () => {
+  it('sin arrastrar nada, "Guardar como nueva" y "Sobrescribir original" están deshabilitados', async () => {
     await avanzar(fixture);
     await esperarCarga(fixture);
     const raiz = fixture.nativeElement as HTMLElement;
-    expect(botonPorTexto(raiz, 'Confirmar recorte').disabled).toBe(true);
+    expect(botonPorTexto(raiz, 'Guardar como nueva').disabled).toBe(true);
+    expect(botonPorTexto(raiz, 'Sobrescribir original').disabled).toBe(true);
   });
 
-  it('arrastrar sobre la imagen habilita confirmar y emite un Blob', async () => {
+  it('arrastrar sobre la imagen habilita confirmar y "Guardar como nueva" emite sobrescribir:false', async () => {
     await avanzar(fixture);
     await esperarCarga(fixture);
     const raiz = fixture.nativeElement as HTMLElement;
     mockearCajaDeLaImagen(raiz);
 
-    let emitido: Blob | undefined;
+    let emitido: { blob: Blob; sobrescribir: boolean } | undefined;
     fixture.componentInstance.confirmado.subscribe((valor) => (emitido = valor));
 
     const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
     lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
-    lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }));
+    lienzo.dispatchEvent(
+      new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }),
+    );
     fixture.detectChanges();
 
-    const botonConfirmar = botonPorTexto(raiz, 'Confirmar recorte');
+    const botonConfirmar = botonPorTexto(raiz, 'Guardar como nueva');
     expect(botonConfirmar.disabled).toBe(false);
     botonConfirmar.click();
     await avanzar(fixture);
 
-    expect(emitido).toBeInstanceOf(Blob);
+    expect(emitido?.blob).toBeInstanceOf(Blob);
+    expect(emitido?.sobrescribir).toBe(false);
+  });
+
+  it('el spinner sigue visible mientras el padre reporta confirmando=true tras el emit síncrono', async () => {
+    await avanzar(fixture);
+    await esperarCarga(fixture);
+    const raiz = fixture.nativeElement as HTMLElement;
+    mockearCajaDeLaImagen(raiz);
+
+    const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
+    lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
+    lienzo.dispatchEvent(
+      new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }),
+    );
+    fixture.detectChanges();
+
+    botonPorTexto(raiz, 'Guardar como nueva').click();
+    await avanzar(fixture);
+
+    // `confirmado.emit()` ya ha vuelto (síncrono) y `generando()` ya es
+    // `false` — pero la subida real en el padre sigue en curso, reflejada
+    // aquí como el input `confirmando`. El botón debe seguir mostrando el
+    // spinner (aria-busy), no solo quedar deshabilitado en silencio.
+    fixture.componentRef.setInput('confirmando', true);
+    await avanzar(fixture);
+
+    const boton = botonPorTexto(raiz, 'Guardar como nueva');
+    expect(boton.disabled).toBe(true);
+    expect(boton.getAttribute('aria-busy')).toBe('true');
+  });
+
+  it('"Sobrescribir original" emite sobrescribir:true', async () => {
+    await avanzar(fixture);
+    await esperarCarga(fixture);
+    const raiz = fixture.nativeElement as HTMLElement;
+    mockearCajaDeLaImagen(raiz);
+
+    let emitido: { blob: Blob; sobrescribir: boolean } | undefined;
+    fixture.componentInstance.confirmado.subscribe((valor) => (emitido = valor));
+
+    const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
+    lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
+    lienzo.dispatchEvent(
+      new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }),
+    );
+    fixture.detectChanges();
+
+    botonPorTexto(raiz, 'Sobrescribir original').click();
+    await avanzar(fixture);
+
+    expect(emitido?.sobrescribir).toBe(true);
   });
 
   it('con proporción 1:1, el rectángulo real en píxeles sale cuadrado aunque la imagen mostrada no lo sea', async () => {
@@ -150,6 +204,175 @@ describe('MediaCropEditor', () => {
     const anchoPx = (parseFloat(seleccion.style.width) / 100) * 200;
     const altoPx = (parseFloat(seleccion.style.height) / 100) * 100;
     expect(anchoPx).toBeCloseTo(altoPx, 5);
+  });
+
+  it('un horneado obsoleto no sobrescribe la vista previa de uno más reciente que ya terminó (llamadas solapadas a toBlob)', async () => {
+    await avanzar(fixture);
+    await esperarCarga(fixture);
+
+    // A partir de aquí se controla manualmente cuándo resuelve cada
+    // `toBlob`, para forzar el orden inverso al de llegada.
+    const llamadas: BlobCallback[] = [];
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function (
+      this: HTMLCanvasElement,
+      callback: BlobCallback,
+    ) {
+      llamadas.push(callback);
+    });
+    let contador = 0;
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:fake-${contador++}`);
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+
+    const instancia = fixture.componentInstance as unknown as {
+      hornearAsync(): Promise<void>;
+      previaSrc: () => string;
+    };
+
+    // Dos horneados solapados (p. ej. dos rotaciones seguidas antes de que
+    // el primer `toBlob` resuelva).
+    const horneadoA = instancia.hornearAsync();
+    const horneadoB = instancia.hornearAsync();
+    expect(llamadas.length).toBe(2);
+
+    // El más reciente (B) resuelve primero.
+    llamadas[1](new Blob(['b'], { type: 'image/webp' }));
+    await horneadoB;
+    expect(instancia.previaSrc()).toBe('blob:fake-0');
+
+    // El obsoleto (A) resuelve después: no debe pisar el resultado de B.
+    llamadas[0](new Blob(['a'], { type: 'image/webp' }));
+    await horneadoA;
+    expect(instancia.previaSrc()).toBe('blob:fake-0');
+  });
+
+  it('elegir una proporción fija dibuja de inmediato una selección centrada, sin arrastrar', async () => {
+    await avanzar(fixture);
+    await esperarCarga(fixture);
+    const raiz = fixture.nativeElement as HTMLElement;
+    mockearCajaDeLaImagen(raiz);
+
+    expect(raiz.querySelector('.seleccion')).toBeNull();
+    botonPorTexto(raiz, '16:9').click();
+    fixture.detectChanges();
+
+    const seleccion = raiz.querySelector('.seleccion') as HTMLDivElement;
+    expect(seleccion).not.toBeNull();
+    // Centrada: el hueco a cada lado (izquierda vs derecha, arriba vs abajo)
+    // debe ser igual.
+    const izquierda = parseFloat(seleccion.style.left);
+    const derecha = 100 - izquierda - parseFloat(seleccion.style.width);
+    expect(izquierda).toBeCloseTo(derecha, 5);
+    expect(botonPorTexto(raiz, 'Guardar como nueva').disabled).toBe(false);
+  });
+
+  it('elegir "Libre" no borra una selección ya dibujada', async () => {
+    await avanzar(fixture);
+    await esperarCarga(fixture);
+    const raiz = fixture.nativeElement as HTMLElement;
+    mockearCajaDeLaImagen(raiz);
+
+    botonPorTexto(raiz, '16:9').click();
+    fixture.detectChanges();
+    expect(raiz.querySelector('.seleccion')).not.toBeNull();
+
+    botonPorTexto(raiz, 'Libre').click();
+    fixture.detectChanges();
+
+    expect(raiz.querySelector('.seleccion')).not.toBeNull();
+  });
+
+  it('arrastrar desde dentro de la selección la mueve, sin cambiar su tamaño', async () => {
+    await avanzar(fixture);
+    await esperarCarga(fixture);
+    const raiz = fixture.nativeElement as HTMLElement;
+    mockearCajaDeLaImagen(raiz);
+
+    const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
+    lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
+    lienzo.dispatchEvent(
+      new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }),
+    );
+    lienzo.dispatchEvent(new PointerEvent('pointerup', { clientX: 120, clientY: 60 }));
+    fixture.detectChanges();
+
+    // Rectángulo inicial en porcentaje: left 10, top 10, width 50, height 50.
+    // Pulsar dentro (60,30px → 30%,30%) y arrastrar hasta (80,50px → 40%,50%)
+    // debe desplazar el rectángulo entero +10%,+20% sin tocar su tamaño.
+    lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 60, clientY: 30, buttons: 1 }));
+    lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 80, clientY: 50, buttons: 1 }));
+    fixture.detectChanges();
+
+    const seleccion = raiz.querySelector('.seleccion') as HTMLDivElement;
+    expect(parseFloat(seleccion.style.left)).toBeCloseTo(20, 5);
+    expect(parseFloat(seleccion.style.top)).toBeCloseTo(30, 5);
+    expect(parseFloat(seleccion.style.width)).toBeCloseTo(50, 5);
+    expect(parseFloat(seleccion.style.height)).toBeCloseTo(50, 5);
+  });
+
+  it('arrastrar desde un tirador de esquina la redimensiona, sin mover la esquina opuesta', async () => {
+    await avanzar(fixture);
+    await esperarCarga(fixture);
+    const raiz = fixture.nativeElement as HTMLElement;
+    mockearCajaDeLaImagen(raiz);
+
+    const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
+    lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
+    lienzo.dispatchEvent(
+      new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }),
+    );
+    lienzo.dispatchEvent(new PointerEvent('pointerup', { clientX: 120, clientY: 60 }));
+    fixture.detectChanges();
+
+    const tirador = raiz.querySelector('.manejador-se') as HTMLSpanElement;
+    tirador.dispatchEvent(
+      new PointerEvent('pointerdown', { clientX: 120, clientY: 60, buttons: 1, bubbles: true }),
+    );
+    lienzo.dispatchEvent(
+      new PointerEvent('pointermove', { clientX: 160, clientY: 80, buttons: 1 }),
+    );
+    fixture.detectChanges();
+
+    const seleccion = raiz.querySelector('.seleccion') as HTMLDivElement;
+    // La esquina opuesta (superior izquierda, 20,10 en px) no se ha movido.
+    expect(parseFloat(seleccion.style.left)).toBeCloseTo(10, 5);
+    expect(parseFloat(seleccion.style.top)).toBeCloseTo(10, 5);
+    expect(parseFloat(seleccion.style.width)).toBeCloseTo(70, 5);
+    expect(parseFloat(seleccion.style.height)).toBeCloseTo(70, 5);
+  });
+
+  it('redimensionar hacia fuera nunca deja la selección salirse de los bordes de la imagen', async () => {
+    await avanzar(fixture);
+    await esperarCarga(fixture);
+    const raiz = fixture.nativeElement as HTMLElement;
+    mockearCajaDeLaImagen(raiz);
+
+    const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
+    lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
+    lienzo.dispatchEvent(
+      new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }),
+    );
+    lienzo.dispatchEvent(new PointerEvent('pointerup', { clientX: 120, clientY: 60 }));
+    fixture.detectChanges();
+
+    const tirador = raiz.querySelector('.manejador-se') as HTMLSpanElement;
+    tirador.dispatchEvent(
+      new PointerEvent('pointerdown', { clientX: 120, clientY: 60, buttons: 1, bubbles: true }),
+    );
+    // Arrastra muy por fuera de la imagen (el lienzo mockeado mide 200×100px).
+    lienzo.dispatchEvent(
+      new PointerEvent('pointermove', { clientX: 5000, clientY: 5000, buttons: 1 }),
+    );
+    fixture.detectChanges();
+
+    const seleccion = raiz.querySelector('.seleccion') as HTMLDivElement;
+    const izquierda = parseFloat(seleccion.style.left);
+    const arriba = parseFloat(seleccion.style.top);
+    const ancho = parseFloat(seleccion.style.width);
+    const alto = parseFloat(seleccion.style.height);
+    expect(izquierda).toBeGreaterThanOrEqual(0);
+    expect(arriba).toBeGreaterThanOrEqual(0);
+    expect(izquierda + ancho).toBeLessThanOrEqual(100.0001);
+    expect(arriba + alto).toBeLessThanOrEqual(100.0001);
   });
 
   it('voltear horizontal marca el botón como activo', async () => {

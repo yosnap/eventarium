@@ -46,7 +46,11 @@ async def _crear_fila(
         uploaded_by_user_id=uploaded_by_user_id,
         folder_id=folder_id,
         object_key=clave,
-        filename=filename,
+        # Ver el mismo comentario en `service._crear_fila`: `filename` es
+        # `String(255)`, y sin recortarlo aquí un nombre importado por URL
+        # demasiado largo revienta el INSERT con un 500 tras haber subido
+        # ya el objeto al almacenamiento.
+        filename=filename[:255],
         mime_type=procesada.mime_type,
         size=len(procesada.contenido),
         width=procesada.width,
@@ -173,6 +177,16 @@ async def _referencias_activas(session: AsyncSession, media_id: uuid.UUID) -> li
     return referencias
 
 
+async def consultar_uso(session: AsyncSession, *, media_id: uuid.UUID) -> list[dict[str, str]]:
+    """Ver `service.consultar_uso` — mismo criterio, sin comprobación de
+    visibilidad adicional porque `require_superadmin` ya gatea el acceso a
+    toda la biblioteca de plataforma en el router."""
+    fila = await session.get(PlatformMedia, media_id)
+    if fila is None or fila.deleted_at is not None:
+        raise NotFoundError("Ese medio no existe.")
+    return await _referencias_activas(session, media_id)
+
+
 async def borrar(session: AsyncSession, *, media_id: uuid.UUID) -> None:
     fila = await session.get(PlatformMedia, media_id)
     if fila is None or fila.deleted_at is not None:
@@ -203,12 +217,14 @@ async def actualizar_metadatos(
     media_id: uuid.UUID,
     alt: str | None,
     folder_id: uuid.UUID | None,
+    filename: str | None,
     alt_incluido: bool,
     folder_id_incluido: bool,
+    filename_incluido: bool,
 ) -> PlatformMedia:
-    """`alt_incluido`/`folder_id_incluido`: ver el mismo parámetro en
-    `service.actualizar_metadatos` — es un PATCH, no debe borrar el campo
-    que no venía en la petición."""
+    """`alt_incluido`/`folder_id_incluido`/`filename_incluido`: ver el
+    mismo parámetro en `service.actualizar_metadatos` — es un PATCH, no
+    debe borrar el campo que no venía en la petición."""
     fila = await session.get(PlatformMedia, media_id)
     if fila is None:
         raise NotFoundError("Ese medio no existe.")
@@ -216,6 +232,37 @@ async def actualizar_metadatos(
         fila.alt = alt
     if folder_id_incluido:
         fila.folder_id = folder_id
+    if filename_incluido:
+        nombre = (filename or "").strip()
+        if not nombre:
+            raise ValidationDomainError("El nombre no puede estar vacío.")
+        fila.filename = nombre
+    await session.flush()
+    return fila
+
+
+async def sobrescribir_contenido(
+    session: AsyncSession, *, media_id: uuid.UUID, contenido: bytes
+) -> PlatformMedia:
+    """Ver `service.sobrescribir_contenido` — mismo criterio (MISMA
+    `object_key`, la URL no cambia), sin `organization_id`/permisos porque
+    el gateo de acceso (superadmin) ya lo hace `require_superadmin`."""
+    fila = await session.get(PlatformMedia, media_id)
+    if fila is None or fila.deleted_at is not None:
+        raise NotFoundError("Ese medio no existe.")
+
+    mime, _extension = validate_upload(contenido, allowed_mimes=MEDIA_LIBRARY_IMAGE_MIMES)
+    procesada = procesar_imagen(contenido, mime, "logo")
+    await get_storage().put_object(fila.object_key, procesada.contenido, procesada.mime_type)
+
+    fila.mime_type = procesada.mime_type
+    fila.size = len(procesada.contenido)
+    fila.width = procesada.width
+    fila.height = procesada.height
+    # Ver el mismo comentario en `service.sobrescribir_contenido`: `onupdate`
+    # no se dispara si las 4 columnas de arriba no cambian de valor de
+    # verdad, y sin `updated_at` fresco la URL versionada queda idéntica.
+    fila.updated_at = datetime.now(UTC)
     await session.flush()
     return fila
 

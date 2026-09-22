@@ -13,7 +13,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 
 from app.core.deps import CurrentUserDep, DbDep, PermissionsDep
-from app.core.storage import get_storage
+from app.core.storage import public_url_versionada
 from app.modules.media import service
 from app.modules.media.models import Media, MediaFolder
 from app.modules.media.schemas import (
@@ -21,6 +21,7 @@ from app.modules.media.schemas import (
     MediaFolderResponse,
     MediaResponse,
     MediaUpdateRequest,
+    MediaUsageResponse,
 )
 from app.shared.errors import ValidationDomainError
 from app.shared.pagination import Page, PageParams, page_params
@@ -32,7 +33,7 @@ def _media_response(fila: Media) -> MediaResponse:
     return MediaResponse(
         id=str(fila.id),
         kind=fila.kind,
-        url=get_storage().public_url(fila.object_key),
+        url=public_url_versionada(fila.object_key, fila.updated_at),
         filename=fila.filename,
         mime_type=fila.mime_type,
         size=fila.size,
@@ -147,7 +148,7 @@ async def restaurar(
     return _media_response(fila)
 
 
-@router.patch("/{media_id}", summary="Editar alt/carpeta", response_model=MediaResponse)
+@router.patch("/{media_id}", summary="Editar nombre/alt/carpeta", response_model=MediaResponse)
 async def actualizar(
     media_id: str,
     cuerpo: MediaUpdateRequest,
@@ -164,8 +165,55 @@ async def actualizar(
         permisos=permisos,
         alt=cuerpo.alt,
         folder_id=uuid.UUID(cuerpo.folder_id) if cuerpo.folder_id else None,
+        filename=cuerpo.filename,
         alt_incluido="alt" in campos_enviados,
         folder_id_incluido="folder_id" in campos_enviados,
+        filename_incluido="filename" in campos_enviados,
+    )
+    return _media_response(fila)
+
+
+@router.get(
+    "/{media_id}/uso",
+    summary="En qué recursos está en uso un medio",
+    response_model=MediaUsageResponse,
+)
+async def consultar_uso(
+    media_id: str,
+    usuario: CurrentUserDep,
+    session: DbDep,
+    permisos: PermissionsDep,
+) -> MediaUsageResponse:
+    referencias = await service.consultar_uso(
+        session,
+        media_id=uuid.UUID(media_id),
+        organization_id=usuario.organization_id,
+        user_id=usuario.id,
+        permisos=permisos,
+    )
+    return MediaUsageResponse(used_by=referencias)
+
+
+@router.put(
+    "/{media_id}/contenido",
+    summary="Sobrescribir los píxeles de una imagen ya existente",
+    response_model=MediaResponse,
+)
+async def sobrescribir_contenido(
+    media_id: str,
+    usuario: CurrentUserDep,
+    session: DbDep,
+    permisos: PermissionsDep,
+    fichero: Annotated[UploadFile, File()],
+) -> MediaResponse:
+    contenido = await fichero.read()
+    fila = await service.sobrescribir_contenido(
+        session,
+        media_id=uuid.UUID(media_id),
+        organization_id=usuario.organization_id,
+        user_id=usuario.id,
+        permisos=permisos,
+        contenido=contenido,
     )
     return _media_response(fila)
 

@@ -98,3 +98,45 @@ async def test_la_biblioteca_de_plataforma_procesa_siempre_con_el_perfil_logo(
     cuerpo = respuesta.json()
     assert cuerpo["width"] <= 800
     assert cuerpo["height"] <= 800
+
+
+async def test_sobrescribir_contenido_en_la_biblioteca_de_plataforma_mantiene_la_misma_id_y_url(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """Ver `test_sobrescribir_contenido_mantiene_la_misma_id_y_url` (org) —
+    mismo criterio, sin `kind`: la biblioteca de plataforma es un único
+    contexto."""
+    cabeceras = await _superadmin_headers(cliente, organizacion)
+    subido_resp = await cliente.post(
+        PLATFORM_MEDIA, headers=cabeceras, files={"fichero": ("logo.png", PNG, "image/png")}
+    )
+    subido = subido_resp.json()
+
+    buffer = io.BytesIO()
+    Image.new("RGB", (32, 32), color=(200, 40, 40)).save(buffer, format="PNG")
+
+    sobrescrito = await cliente.put(
+        f"{PLATFORM_MEDIA}/{subido['id']}/contenido",
+        headers=cabeceras,
+        files={"fichero": ("recorte.png", buffer.getvalue(), "image/png")},
+    )
+    assert sobrescrito.status_code == 200, sobrescrito.text
+    cuerpo = sobrescrito.json()
+    assert cuerpo["id"] == subido["id"]
+    assert cuerpo["url"].split("?")[0] == subido["url"].split("?")[0]
+    assert cuerpo["url"] != subido["url"]
+    assert cuerpo["size"] != subido["size"]
+
+
+async def test_consultar_uso_de_un_medio_de_plataforma(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    cabeceras = await _superadmin_headers(cliente, organizacion)
+    subido_resp = await cliente.post(
+        PLATFORM_MEDIA, headers=cabeceras, files={"fichero": ("logo.png", PNG, "image/png")}
+    )
+    subido = subido_resp.json()
+
+    uso = await cliente.get(f"{PLATFORM_MEDIA}/{subido['id']}/uso", headers=cabeceras)
+    assert uso.status_code == 200, uso.text
+    assert uso.json()["used_by"] == []

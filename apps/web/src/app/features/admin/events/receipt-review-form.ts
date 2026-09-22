@@ -259,19 +259,18 @@ function importeParaElCampo(cents: number | null): string {
           <h4>{{ t('admin.events.accounting.justificantes.revision.descarte.titulo') }}</h4>
           <p>{{ t('admin.events.accounting.justificantes.revision.descarte.texto') }}</p>
         </div>
-        <div pie>
-          <app-button variant="secundario" type="button" (pulsado)="cerrarDescarte()">
-            {{ t('admin.events.accounting.justificantes.revision.descarte.cancelar') }}
-          </app-button>
-          <app-button
-            variant="peligro"
-            type="button"
-            [loading]="enviando()"
-            (pulsado)="descartar()"
-          >
-            {{ t('admin.events.accounting.justificantes.revision.descarte.confirmar') }}
-          </app-button>
-        </div>
+        <app-button pie variant="secundario" type="button" (pulsado)="cerrarDescarte()">
+          {{ t('admin.events.accounting.justificantes.revision.descarte.cancelar') }}
+        </app-button>
+        <app-button
+          pie
+          variant="peligro"
+          type="button"
+          [loading]="enviando()"
+          (pulsado)="descartar()"
+        >
+          {{ t('admin.events.accounting.justificantes.revision.descarte.confirmar') }}
+        </app-button>
       </app-dialog>
     </ng-container>
   `,

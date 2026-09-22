@@ -12,6 +12,8 @@ export type { AnalyticsPublicResponse } from './models/analytics-public-response
 export type { AnalyticsSettingsResponse } from './models/analytics-settings-response';
 export type { AnalyticsSettingsUpdate } from './models/analytics-settings-update';
 export type { AuditLogEntry } from './models/audit-log-entry';
+export type { BodyOverwritePlatformMediaContentApiV1AdminPlatformMediaMediaIdContenidoPut } from './models/body-overwrite-platform-media-content-api-v-1-admin-platform-media-media-id-contenido-put';
+export type { BodySobrescribirContenidoApiV1OrganizationsMeMediaMediaIdContenidoPut } from './models/body-sobrescribir-contenido-api-v-1-organizations-me-media-media-id-contenido-put';
 export type { BodySubirApiV1OrganizationsMeMediaPost } from './models/body-subir-api-v-1-organizations-me-media-post';
 export type { BodyUploadCoverApiV1EventsEventIdCoverPut } from './models/body-upload-cover-api-v-1-events-event-id-cover-put';
 export type { BodyUploadExpenseDraftApiV1AccountingEventsEventIdExpenseDraftsPost } from './models/body-upload-expense-draft-api-v-1-accounting-events-event-id-expense-drafts-post';
@@ -106,6 +108,7 @@ export type { MediaFolderCreate } from './models/media-folder-create';
 export type { MediaFolderResponse } from './models/media-folder-response';
 export type { MediaResponse } from './models/media-response';
 export type { MediaUpdateRequest } from './models/media-update-request';
+export type { MediaUsageResponse } from './models/media-usage-response';
 export type { MemberCreate } from './models/member-create';
 export type { MemberResponse } from './models/member-response';
 export type { MemberRoleOut } from './models/member-role-out';

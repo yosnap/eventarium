@@ -8,6 +8,7 @@ import {
   input,
   output,
   signal,
+  viewChild,
 } from '@angular/core';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
@@ -15,13 +16,13 @@ import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../core/api/api.service';
 import { ApiError } from '../../core/api/error.interceptor';
 import { Button } from './button';
+import { Dialog } from './dialog';
 import { Input } from './input';
-import { MediaCropEditor } from './media-crop-editor';
+import { MediaEditDialog } from './media-edit-dialog';
+import { MediaFolder, MediaItem, MediaKind, baseDeMedia } from './media-types';
 
-/** Catálogo cerrado — igual que `KIND_A_PERMISO` en el backend
- * (`app/modules/media/service.py`). `platform` no lleva `kind` en sus
- * peticiones: es un único contexto sin ese campo. */
-export type MediaKind = 'branding' | 'events' | 'sponsors' | 'platform';
+export type { MediaFolder, MediaItem, MediaKind };
+export { baseDeMedia };
 
 /** Lo que produce elegir una imagen por cualquiera de las 3 vías (fichero,
  * URL, biblioteca): un medio ya persistido, nunca un `File` ni una URL
@@ -30,20 +31,6 @@ export type MediaKind = 'branding' | 'events' | 'sponsors' | 'platform';
 export interface MediaElegida {
   readonly id: string;
   readonly url: string;
-}
-
-interface MediaItem {
-  readonly id: string;
-  readonly url: string;
-  readonly filename: string;
-  readonly alt: string | null;
-  readonly folder_id: string | null;
-}
-
-interface MediaFolder {
-  readonly id: string;
-  readonly name: string;
-  readonly slug: string;
 }
 
 interface MediaPage {
@@ -55,10 +42,6 @@ interface MediaPage {
 
 const LIMITE = 12;
 const RETARDO_BUSQUEDA_MS = 300;
-
-function baseDeMedia(kind: MediaKind): string {
-  return kind === 'platform' ? '/admin/platform/media' : '/organizations/me/media';
-}
 
 function baseDeCarpetas(kind: MediaKind): string {
   return kind === 'platform' ? '/admin/platform/media-folders' : '/organizations/me/media-folders';
@@ -83,7 +66,7 @@ function baseDeCarpetas(kind: MediaKind): string {
 @Component({
   selector: 'app-media-fields',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Button, Input, MediaCropEditor],
+  imports: [TranslocoDirective, Button, Dialog, Input, MediaEditDialog],
   template: `
     <ng-container *transloco="let t">
       @if (pestanasDisponibles().length > 1) {
@@ -150,98 +133,153 @@ function baseDeCarpetas(kind: MediaKind): string {
           </app-button>
         }
         @case ('biblioteca') {
-          @if (recortando(); as item) {
-            <app-media-crop-editor
-              [url]="item.url"
-              [confirmando]="recortandoEnCurso()"
-              (confirmado)="confirmarRecorte($event)"
-              (cancelado)="recortando.set(null)"
+          <div class="biblioteca-controles">
+            <app-input
+              [fieldId]="idBuscar"
+              [label]="t('ui.media.buscarEtiqueta')"
+              [value]="buscar()"
+              (valueChange)="alBuscar($event)"
             />
+            @if (carpetas().length > 0) {
+              <label class="carpeta-filtro">
+                {{ t('ui.media.carpetaEtiqueta') }}
+                <select (change)="alFiltrarCarpeta($event)">
+                  <option value="">{{ t('ui.media.todasLasCarpetas') }}</option>
+                  @for (carpeta of carpetas(); track carpeta.id) {
+                    <option [value]="carpeta.id">{{ carpeta.name }}</option>
+                  }
+                </select>
+              </label>
+            }
+          </div>
+
+          @if (cargandoBiblioteca()) {
+            <p>{{ t('comun.cargando') }}</p>
+          } @else if (bibliotecaItems().length === 0) {
+            <p class="vacio">
+              {{ buscar() ? t('ui.media.sinResultados') : t('ui.media.bibliotecaVacia') }}
+            </p>
           } @else {
-            <div class="biblioteca-controles">
-              <app-input
-                [fieldId]="idBuscar"
-                [label]="t('ui.media.buscarEtiqueta')"
-                [etiquetaOculta]="true"
-                [value]="buscar()"
-                (valueChange)="alBuscar($event)"
-              />
-              @if (carpetas().length > 0) {
-                <label class="carpeta-filtro">
-                  {{ t('ui.media.carpetaEtiqueta') }}
-                  <select (change)="alFiltrarCarpeta($event)">
-                    <option value="">{{ t('ui.media.todasLasCarpetas') }}</option>
-                    @for (carpeta of carpetas(); track carpeta.id) {
-                      <option [value]="carpeta.id">{{ carpeta.name }}</option>
-                    }
-                  </select>
-                </label>
+            <div class="rejilla" role="group" [attr.aria-label]="etiqueta()">
+              @for (item of bibliotecaItems(); track item.id) {
+                <div class="item-envoltorio">
+                  <button
+                    type="button"
+                    class="item"
+                    [attr.aria-label]="item.alt ?? item.filename"
+                    (click)="elegirBiblioteca(item)"
+                  >
+                    <img [src]="item.url" alt="" loading="lazy" />
+                  </button>
+                  <div class="item-hover" [class.item-hover-activa]="borrandoId() === item.id">
+                    <button
+                      type="button"
+                      class="icono-accion"
+                      [attr.aria-label]="t('ui.media.editarImagenTitulo')"
+                      [title]="t('ui.media.editarImagenTitulo')"
+                      (click)="abrirEdicion(item)"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="16"
+                        height="16"
+                        aria-hidden="true"
+                        fill="none"
+                      >
+                        <path
+                          d="M16.5 3.5l4 4L7 21H3v-4L16.5 3.5z"
+                          stroke="currentColor"
+                          stroke-width="1.6"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      class="icono-accion icono-peligro"
+                      [attr.aria-label]="t('ui.media.papelera')"
+                      [title]="t('ui.media.papelera')"
+                      [disabled]="borrandoId() === item.id"
+                      (click)="enviarAPapelera(item)"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="16"
+                        height="16"
+                        aria-hidden="true"
+                        fill="none"
+                      >
+                        <path
+                          d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"
+                          stroke="currentColor"
+                          stroke-width="1.6"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
               }
             </div>
 
-            @if (cargandoBiblioteca()) {
-              <p>{{ t('comun.cargando') }}</p>
-            } @else if (bibliotecaItems().length === 0) {
-              <p class="vacio">
-                {{ buscar() ? t('ui.media.sinResultados') : t('ui.media.bibliotecaVacia') }}
-              </p>
-            } @else {
-              <div class="rejilla" role="group" [attr.aria-label]="etiqueta()">
-                @for (item of bibliotecaItems(); track item.id) {
-                  <div class="item-envoltorio">
-                    <button
-                      type="button"
-                      class="item"
-                      [attr.aria-label]="item.alt ?? item.filename"
-                      (click)="elegirBiblioteca(item)"
-                    >
-                      <img [src]="item.url" alt="" loading="lazy" />
-                    </button>
-                    <div class="item-acciones">
-                      <button type="button" class="accion-texto" (click)="abrirRecorte(item)">
-                        {{ t('ui.media.recortar') }}
-                      </button>
-                      <button
-                        type="button"
-                        class="accion-texto accion-peligro"
-                        [disabled]="borrandoId() === item.id"
-                        (click)="enviarAPapelera(item)"
-                      >
-                        {{ t('ui.media.papelera') }}
-                      </button>
-                    </div>
-                  </div>
-                }
-              </div>
-
-              @if (totalPaginas() > 1) {
-                <nav class="paginacion" [attr.aria-label]="etiqueta()">
-                  <app-button
-                    variant="secundario"
-                    type="button"
-                    [disabled]="bibliotecaOffset() === 0"
-                    (pulsado)="irAPagina(bibliotecaOffset() - LIMITE)"
-                  >
-                    {{ t('ui.media.anterior') }}
-                  </app-button>
-                  <span>
-                    {{ t('ui.media.paginaDe', { actual: paginaActual(), total: totalPaginas() }) }}
-                  </span>
-                  <app-button
-                    variant="secundario"
-                    type="button"
-                    [disabled]="bibliotecaOffset() + LIMITE >= bibliotecaTotal()"
-                    (pulsado)="irAPagina(bibliotecaOffset() + LIMITE)"
-                  >
-                    {{ t('ui.media.siguiente') }}
-                  </app-button>
-                </nav>
-              }
+            @if (totalPaginas() > 1) {
+              <nav class="paginacion" [attr.aria-label]="etiqueta()">
+                <app-button
+                  variant="secundario"
+                  type="button"
+                  [disabled]="bibliotecaOffset() === 0"
+                  (pulsado)="irAPagina(bibliotecaOffset() - LIMITE)"
+                >
+                  {{ t('ui.media.anterior') }}
+                </app-button>
+                <span>
+                  {{ t('ui.media.paginaDe', { actual: paginaActual(), total: totalPaginas() }) }}
+                </span>
+                <app-button
+                  variant="secundario"
+                  type="button"
+                  [disabled]="bibliotecaOffset() + LIMITE >= bibliotecaTotal()"
+                  (pulsado)="irAPagina(bibliotecaOffset() + LIMITE)"
+                >
+                  {{ t('ui.media.siguiente') }}
+                </app-button>
+              </nav>
             }
           }
         }
       }
+
+      <app-dialog #dialogoPapelera>
+        <p>{{ t('ui.media.papeleraConfirmacion') }}</p>
+        <app-button
+          pie
+          variant="secundario"
+          type="button"
+          [disabled]="borrandoId() !== null"
+          (pulsado)="dialogoPapelera.cerrar()"
+        >
+          {{ t('comun.cancelar') }}
+        </app-button>
+        <app-button
+          pie
+          variant="peligro"
+          type="button"
+          [loading]="borrandoId() !== null"
+          (pulsado)="confirmarEnvioAPapelera()"
+        >
+          {{ t('ui.media.papelera') }}
+        </app-button>
+      </app-dialog>
     </ng-container>
+
+    <app-media-edit-dialog
+      #dialogoEdicion
+      [kind]="kind()"
+      [carpetas]="carpetas()"
+      (metadatosGuardados)="cargarBiblioteca()"
+      (recorteGuardado)="cargarBiblioteca()"
+    />
   `,
   styles: `
     :host {
@@ -322,16 +360,17 @@ function baseDeCarpetas(kind: MediaKind): string {
     }
     .rejilla {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
       gap: var(--sp-2);
       max-height: 20rem;
       overflow: auto;
     }
     .item-envoltorio {
-      display: grid;
-      gap: 2px;
+      position: relative;
     }
     .item {
+      display: block;
+      width: 100%;
       padding: 0;
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
@@ -346,25 +385,62 @@ function baseDeCarpetas(kind: MediaKind): string {
       object-fit: cover;
       display: block;
     }
-    .item-acciones {
+    /* Superpuesta sobre .item, no debajo: la referencia del usuario pinta
+       los iconos encima de la propia miniatura al hacer hover, no en una
+       franja aparte. pointer-events: none en el contenedor — .item ya es
+       el botón que elige la imagen (elegirBiblioteca); sin esto, esta capa
+       interceptaría el clic en toda la miniatura, no solo sobre los dos
+       iconos (hallazgo de red-team). Cada button interno recupera
+       pointer-events: auto para seguir siendo clicable. */
+    .item-hover {
+      position: absolute;
+      inset: 0;
       display: flex;
-      justify-content: space-between;
-      gap: 2px;
+      align-items: flex-start;
+      justify-content: flex-end;
+      gap: 4px;
+      padding: 4px;
+      opacity: 0;
+      transition: opacity 0.15s;
+      pointer-events: none;
     }
-    .accion-texto {
-      flex: 1;
+    .item-envoltorio:hover .item-hover,
+    .item-envoltorio:focus-within .item-hover,
+    /* Borrado en curso: el ratón puede alejarse mientras el DELETE sigue en
+       vuelo (borrandoId() aún fijado) — sin esto, el estado deshabilitado
+       del icono de papelera desaparecía con el hover y la persona no veía
+       que seguía procesándose (hallazgo de code-review). */
+    .item-hover-activa {
+      opacity: 1;
+    }
+    /* Sin hover real (táctil): los iconos no pueden depender de un evento
+       que el dispositivo no dispara — siempre visibles ahí. */
+    @media (hover: none) {
+      .item-hover {
+        opacity: 1;
+      }
+    }
+    .icono-accion {
+      pointer-events: auto;
+      display: grid;
+      place-items: center;
+      min-width: 2rem;
+      min-height: 2rem;
       border: none;
-      background: none;
-      color: var(--muted);
-      font-size: 0.6875rem;
+      border-radius: var(--radius-sm);
+      background: rgba(0, 0, 0, 0.55);
+      color: #fff;
       cursor: pointer;
-      padding: 2px;
     }
-    .accion-texto:hover {
-      color: var(--fg);
+    .icono-accion:hover {
+      background: rgba(0, 0, 0, 0.75);
     }
-    .accion-peligro:hover {
-      color: var(--danger);
+    .icono-accion:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+    .icono-peligro:hover {
+      background: var(--danger);
     }
     .paginacion {
       display: flex;
@@ -431,9 +507,10 @@ export class MediaFields {
   private bibliotecaCargada = false;
   private temporizadorBusqueda: ReturnType<typeof setTimeout> | null = null;
 
-  protected readonly recortando = signal<MediaItem | null>(null);
-  protected readonly recortandoEnCurso = signal(false);
   protected readonly borrandoId = signal<string | null>(null);
+  private readonly dialogoEdicion = viewChild.required(MediaEditDialog);
+  private readonly dialogoPapelera = viewChild.required<Dialog>('dialogoPapelera');
+  private itemAPapelera: MediaItem | null = null;
 
   protected readonly totalPaginas = computed(() =>
     Math.max(1, Math.ceil(this.bibliotecaTotal() / LIMITE)),
@@ -459,7 +536,6 @@ export class MediaFields {
     this.pestana.set('subir');
     this.urlEscrita.set('');
     this.error.set(null);
-    this.recortando.set(null);
     this.bibliotecaCargada = false;
     this.limpiarTemporizadorDeBusqueda();
   }
@@ -563,7 +639,7 @@ export class MediaFields {
     }
   }
 
-  private async cargarBiblioteca(): Promise<void> {
+  protected async cargarBiblioteca(): Promise<void> {
     this.cargandoBiblioteca.set(true);
     this.error.set(null);
     try {
@@ -610,71 +686,29 @@ export class MediaFields {
     void this.cargarBiblioteca();
   }
 
-  protected abrirRecorte(item: MediaItem): void {
-    this.recortando.set(item);
+  /** Abre el modal «Editar imagen» (metadatos + recorte) — ver
+   * `media-edit-dialog.ts`. Sustituye al antiguo swap inline a
+   * `MediaCropEditor` dentro de esta misma pestaña. */
+  protected abrirEdicion(item: MediaItem): void {
+    this.dialogoEdicion().abrir(item);
   }
 
-  /** El editor de recorte ya entrega el resultado final (proporción,
-   * rotación, volteo y zoom horneados en los píxeles) como `Blob`: se sube
-   * por el mismo endpoint multipart que "Subir fichero", no por
-   * `PATCH .../crop` — el recorte ya no se calcula en el servidor (decisión
-   * explícita del usuario, `plans/260921-1720-prd-editor-recorte-imagen`). */
-  protected async confirmarRecorte(blob: Blob): Promise<void> {
-    const item = this.recortando();
-    if (!item) {
+  /** Pide confirmación con el modal del propio sistema de diseño — nunca
+   * `window.confirm()` (hallazgo del usuario: nada de diálogos nativos del
+   * navegador en la interfaz). */
+  protected enviarAPapelera(item: MediaItem): void {
+    if (this.borrandoId()) {
       return;
     }
-    this.recortandoEnCurso.set(true);
-    this.error.set(null);
-    try {
-      const datos = new FormData();
-      datos.append('fichero', blob, `${item.filename}-recorte.webp`);
-      if (this.kind() !== 'platform') {
-        datos.append('kind', this.kind());
-      }
-      let nuevo = await firstValueFrom(
-        this.http.post<MediaItem>(this.api.url(baseDeMedia(this.kind())), datos),
-      );
-      // La subida genérica no acepta `folder_id` (ningún origen lo manda hoy:
-      // fichero, URL ni biblioteca) — el recorte SÍ conocía su carpeta antes
-      // de esta reescritura (`recortar()` la heredaba del original), así que
-      // aquí hace falta un segundo paso explícito para no perderla. No
-      // atómico con la subida: si este paso falla, el recorte YA existe y ya
-      // es válido (solo queda en la raíz en vez de su carpeta), así que se
-      // trata como un fallo menor que no debe impedir ofrecer el resultado
-      // (hallazgo de code-review: antes un fallo aquí ocultaba que la subida
-      // sí había funcionado).
-      if (item.folder_id) {
-        try {
-          nuevo = await firstValueFrom(
-            this.http.patch<MediaItem>(`${this.api.url(baseDeMedia(this.kind()))}/${nuevo.id}`, {
-              folder_id: item.folder_id,
-            }),
-          );
-        } catch {
-          // Ignorado a propósito: ver comentario de arriba.
-        }
-      }
-      this.recortando.set(null);
-      // El recorte se ofrece directamente como si se hubiera elegido de
-      // biblioteca (Requirements de la Fase 3): sin este paso, confirmar un
-      // recorte no tendría ningún efecto visible hasta volver a buscarlo a
-      // mano en la rejilla.
-      this.mediaElegido.emit({ id: nuevo.id, url: nuevo.url });
-    } catch (error) {
-      this.error.set(this.mensajeDeError(error));
-    } finally {
-      this.recortandoEnCurso.set(false);
-    }
+    this.itemAPapelera = item;
+    this.dialogoPapelera().abrir();
   }
 
-  protected async enviarAPapelera(item: MediaItem): Promise<void> {
-    // Confirmación + bloqueo de doble clic — la clave de confirmación
-    // existía en el catálogo de traducciones desde el principio pero nunca
-    // se cableó, y sin un estado "en curso" un doble clic dispara dos
-    // `DELETE` (hallazgo de code-review).
-    const confirmacion = this.transloco.translate('ui.media.papeleraConfirmacion');
-    if (this.borrandoId() || !window.confirm(confirmacion)) {
+  protected async confirmarEnvioAPapelera(): Promise<void> {
+    // Bloqueo de doble clic — sin un estado "en curso" un doble pulsado
+    // dispara dos `DELETE` (hallazgo de code-review, previo a este cambio).
+    const item = this.itemAPapelera;
+    if (!item || this.borrandoId()) {
       return;
     }
     this.borrandoId.set(item.id);
@@ -683,9 +717,11 @@ export class MediaFields {
       await firstValueFrom(
         this.http.delete<void>(this.api.url(`${baseDeMedia(this.kind())}/${item.id}`)),
       );
+      this.dialogoPapelera().cerrar();
       await this.cargarBiblioteca();
     } catch (error) {
       this.error.set(this.mensajeDePapeleraEnUso(error));
+      this.dialogoPapelera().cerrar();
     } finally {
       this.borrandoId.set(null);
     }

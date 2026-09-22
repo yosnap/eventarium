@@ -40,7 +40,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import set_organization_context
 from app.core.deps import SessionDep
 from app.core.ratelimit import PUBLICO_POR_IP, limit_per_ip
-from app.core.storage import get_storage
+from app.core.storage import get_storage, public_url_versionada
 from app.modules.events import repository, service, speakers_repository
 from app.modules.events.models import (
     Event,
@@ -91,7 +91,7 @@ async def _cover_url(session: AsyncSession, evento: Event) -> str | None:
     almacen = get_storage()
     if evento.cover_media_id is not None:
         media = await session.get(Media, evento.cover_media_id)
-        return almacen.public_url(media.object_key) if media else None
+        return public_url_versionada(media.object_key, media.updated_at) if media else None
     if evento.cover_object_key:
         return almacen.public_url(evento.cover_object_key)
     return None
@@ -101,7 +101,7 @@ async def _sponsor_logo_url(session: AsyncSession, patrocinador: Sponsor) -> str
     almacen = get_storage()
     if patrocinador.logo_media_id is not None:
         media = await session.get(Media, patrocinador.logo_media_id)
-        return almacen.public_url(media.object_key) if media else None
+        return public_url_versionada(media.object_key, media.updated_at) if media else None
     if patrocinador.logo_object_key:
         return almacen.public_url(patrocinador.logo_object_key)
     return None

@@ -109,7 +109,15 @@ async def _crear_fila(
         uploaded_by_user_id=uploaded_by_user_id,
         folder_id=folder_id,
         object_key=clave,
-        filename=filename,
+        # `Media.filename` es `String(255)` — recortar aquí, no confiar en
+        # que quien llama ya lo haga: `subir_desde_url` deriva el nombre del
+        # último segmento de la URL importada (puede venir de fuera con
+        # cualquier longitud) y el multipart normal usa el nombre del
+        # fichero tal cual lo manda el navegador. Sin este recorte, Postgres
+        # rechaza el INSERT con un 500 genérico DESPUÉS de que `put_object`
+        # ya haya subido el objeto — deja un huérfano en el almacenamiento
+        # en cada intento fallido (hallazgo de code-review, reproducido).
+        filename=filename[:255],
         mime_type=procesada.mime_type,
         size=len(procesada.contenido),
         width=procesada.width,
@@ -298,6 +306,26 @@ async def _referencias_activas(session: AsyncSession, media_id: uuid.UUID) -> li
     return referencias
 
 
+async def consultar_uso(
+    session: AsyncSession,
+    *,
+    media_id: uuid.UUID,
+    organization_id: uuid.UUID,
+    user_id: uuid.UUID,
+    permisos: set[Permission],
+) -> list[dict[str, str]]:
+    """En qué recursos está en uso un medio — para avisar antes de
+    «Sobrescribir original» (irreversible) de a cuántos sitios afecta.
+    Misma visibilidad que gestionarlo (propiedad o permiso del `kind`): no
+    tiene sentido enseñar el uso de un medio que la persona ni siquiera
+    podría sobrescribir."""
+    fila = await session.get(Media, media_id)
+    if fila is None or fila.organization_id != organization_id or fila.deleted_at is not None:
+        raise NotFoundError("Ese medio no existe.")
+    _requerir_propiedad_o_permiso(fila, user_id=user_id, permisos=permisos)
+    return await _referencias_activas(session, media_id)
+
+
 async def borrar(
     session: AsyncSession,
     *,
@@ -347,13 +375,15 @@ async def actualizar_metadatos(
     permisos: set[Permission],
     alt: str | None,
     folder_id: uuid.UUID | None,
+    filename: str | None,
     alt_incluido: bool,
     folder_id_incluido: bool,
+    filename_incluido: bool,
 ) -> Media:
-    """`alt_incluido`/`folder_id_incluido` distinguen "no venía en la
-    petición" de "venía como `null`" — es un PATCH, no un PUT: enviar solo
-    `folder_id` no debe borrar el `alt` ya guardado (hallazgo de
-    code-review; antes se asignaban los dos incondicionalmente)."""
+    """`alt_incluido`/`folder_id_incluido`/`filename_incluido` distinguen
+    "no venía en la petición" de "venía como `null`" — es un PATCH, no un
+    PUT: enviar solo `folder_id` no debe borrar el `alt` ya guardado
+    (hallazgo de code-review; antes se asignaban los dos incondicionalmente)."""
     fila = await session.get(Media, media_id)
     if fila is None or fila.organization_id != organization_id:
         raise NotFoundError("Ese medio no existe.")
@@ -362,6 +392,67 @@ async def actualizar_metadatos(
         fila.alt = alt
     if folder_id_incluido:
         fila.folder_id = folder_id
+    if filename_incluido:
+        nombre = (filename or "").strip()
+        if not nombre:
+            raise ValidationDomainError("El nombre no puede estar vacío.")
+        fila.filename = nombre
+    await session.flush()
+    return fila
+
+
+async def sobrescribir_contenido(
+    session: AsyncSession,
+    *,
+    media_id: uuid.UUID,
+    organization_id: uuid.UUID,
+    user_id: uuid.UUID,
+    permisos: set[Permission],
+    contenido: bytes,
+) -> Media:
+    """«Sobrescribir original» del editor de recorte: reemplaza los píxeles
+    del medio ya existente, MISMA `object_key` — la URL no cambia, así que
+    cualquier sitio que ya la tenga guardada (portada de un evento, logo de
+    un patrocinador…) muestra el recorte nuevo sin tener que reasignar el
+    campo. Alternativa explícita a `subir_desde_fichero` (que crea un `Media`
+    nuevo): decisión del usuario en `plans/260922-0125-prd-iconos-hover-
+    biblioteca-medios` — el editor ofrece las dos, la persona elige."""
+    fila = await session.get(Media, media_id)
+    if fila is None or fila.organization_id != organization_id or fila.deleted_at is not None:
+        raise NotFoundError("Ese medio no existe.")
+    _requerir_propiedad_o_permiso(fila, user_id=user_id, permisos=permisos)
+
+    # Sobrescribir es distinto de borrar: no se bloquea si está en uso (es
+    # justo el caso de uso — corregir la portada de un evento ya publicado
+    # sin tener que reasignarla en cada sitio), pero si afecta a recursos que
+    # esta persona no gestiona, la mera propiedad del medio no basta — exige
+    # el permiso real del `kind` (igual que para subir uno nuevo). Sin esto,
+    # a alguien al que se le retira el permiso de un `kind` (p. ej.
+    # EVENTS_WRITE) le seguía bastando haber subido la imagen en su día para
+    # cambiar los píxeles de la portada pública de un evento que ya no puede
+    # editar (hallazgo de code-review).
+    if await _referencias_activas(session, media_id):
+        _requerir_permiso_del_kind(fila.kind, permisos)
+
+    mime, _extension = validate_upload(contenido, allowed_mimes=MEDIA_LIBRARY_IMAGE_MIMES)
+    procesada = procesar_imagen(contenido, mime, KIND_A_PERFIL.get(fila.kind, "default"))
+    await get_storage().put_object(fila.object_key, procesada.contenido, procesada.mime_type)
+
+    fila.mime_type = procesada.mime_type
+    fila.size = len(procesada.contenido)
+    fila.width = procesada.width
+    fila.height = procesada.height
+    # `updated_at` tiene `onupdate` (TimestampMixin), pero SQLAlchemy solo lo
+    # dispara si detecta que ALGUNA columna cambió de valor de verdad — dos
+    # recortes del mismo tamaño que comprimen al mismo número de bytes (zonas
+    # de bajo detalle, recortes vecinos de la misma foto) dejan las 4 líneas
+    # de arriba sin ningún cambio real, `onupdate` no salta, y
+    # `public_url_versionada()` devuelve la URL IDÉNTICA a la de antes de
+    # sobrescribir — la caché de `/media/*` (`Cache-Control: immutable`)
+    # sigue sirviendo los píxeles viejos hasta 24h (hallazgo de code-review,
+    # reproducido). Forzarlo a mano es la única vía fiable: no depende de que
+    # el contenido procesado termine siendo distinto byte a byte.
+    fila.updated_at = datetime.now(UTC)
     await session.flush()
     return fila
 

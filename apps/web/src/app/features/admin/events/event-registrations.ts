@@ -316,19 +316,18 @@ interface FilaEmbudo {
         @if (accionError(); as mensaje) {
           <app-alert tone="error">{{ mensaje }}</app-alert>
         }
-        <div pie>
-          <app-button variant="secundario" type="button" (pulsado)="dialogoRechazo.cerrar()">
-            {{ t('comun.cancelar') }}
-          </app-button>
-          <app-button
-            variant="peligro"
-            type="button"
-            [loading]="accionPendiente() === personaARechazar()?.id"
-            (pulsado)="confirmarRechazo()"
-          >
-            {{ t('admin.events.registrations.dialogoRechazo.confirmar') }}
-          </app-button>
-        </div>
+        <app-button pie variant="secundario" type="button" (pulsado)="dialogoRechazo.cerrar()">
+          {{ t('comun.cancelar') }}
+        </app-button>
+        <app-button
+          pie
+          variant="peligro"
+          type="button"
+          [loading]="accionPendiente() === personaARechazar()?.id"
+          (pulsado)="confirmarRechazo()"
+        >
+          {{ t('admin.events.registrations.dialogoRechazo.confirmar') }}
+        </app-button>
       </app-dialog>
 
       <app-registration-questions [eventId]="eventId()" />

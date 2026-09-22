@@ -9,6 +9,7 @@ los bytes reales y no la extensión ni el `Content-Type` declarado.
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Any, Protocol
 
 import aioboto3
@@ -229,3 +230,22 @@ def get_storage() -> StorageProvider:
     if _provider is None:
         _provider = S3StorageProvider()
     return _provider
+
+
+def public_url_versionada(key: str, actualizado_en: datetime) -> str:
+    """`public_url()` con `?v=<epoch>` — `/media/*` se sirve con
+    `Cache-Control: ... immutable` (Caddyfile) porque la clave lleva un UUID
+    y, hasta ahora, su contenido nunca cambiaba tras subirse. «Sobrescribir
+    original» (`media/service.py`) rompe justo esa asunción: reemplaza los
+    bytes de una `object_key` ya existente sin cambiarla. Sin este parámetro,
+    el navegador (y cualquier CDN intermedio) seguiría sirviendo la imagen
+    vieja hasta que expire la caché — el mismo síntoma que el hallazgo
+    original del usuario ("la imagen no hace nada"), pero en producción y
+    durante 24h en vez de una recarga. `updated_at` cambia solo cuando
+    cambian los bytes o los metadatos (columna con `onupdate`), así que una
+    imagen nunca sobrescrita sigue teniendo una URL estable de verdad.
+
+    En milisegundos, no segundos: subir y sobrescribir en la misma prueba (o
+    en dos peticiones humanas seguidas) puede caer dentro del mismo segundo,
+    lo que dejaría el `?v=` idéntico y el caché sin invalidar de verdad."""
+    return f"{get_storage().public_url(key)}?v={int(actualizado_en.timestamp() * 1000)}"

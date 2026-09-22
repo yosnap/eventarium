@@ -87,10 +87,8 @@ import { Button } from '../../../../shared/ui/button';
             </app-table-toolbar>
             <p class="nota">{{ t('admin.catalogoEstilo.patronesPanel.toolbarNota') }}</p>
           </div>
-          <div pie>
-            <span>{{ t('admin.catalogoEstilo.patronesPanel.pieIzquierda') }}</span>
-            <strong>382</strong>
-          </div>
+          <span pie>{{ t('admin.catalogoEstilo.patronesPanel.pieIzquierda') }}</span>
+          <strong pie>382</strong>
         </app-panel>
 
         <div class="fila-dialogo">

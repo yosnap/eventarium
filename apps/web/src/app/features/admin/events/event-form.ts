@@ -253,7 +253,12 @@ function zonasHorariasDisponibles(): readonly string[] {
     :host {
       display: block;
     }
-    :host > * {
+    /* :not(form): el propio <form> ya declara su display (grid, más abajo)
+       — sin esta exclusión, esta regla lo pisaba a display:block por mayor
+       especificidad ([_nghost] > [_ngcontent] gana a form[_ngcontent]), y su
+       "gap" dejaba de tener ningún efecto real (hallazgo del usuario:
+       tarjeta y botones finales quedaban pegados, sin separación). */
+    :host > *:not(form) {
       display: block;
     }
     :host > * + * {

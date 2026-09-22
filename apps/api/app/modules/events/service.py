@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import set_organization_context
-from app.core.storage import get_storage
+from app.core.storage import get_storage, public_url_versionada
 from app.modules.events import repository
 from app.modules.events import schemas as events_schemas
 from app.modules.events.geocoding import geocode_address
@@ -635,7 +635,7 @@ async def _resolver_cover_url(session: AsyncSession, evento: Event) -> str | Non
     almacen = get_storage()
     if evento.cover_media_id is not None:
         media = await session.get(Media, evento.cover_media_id)
-        return almacen.public_url(media.object_key) if media else None
+        return public_url_versionada(media.object_key, media.updated_at) if media else None
     if evento.cover_object_key:
         return almacen.public_url(evento.cover_object_key)
     return None

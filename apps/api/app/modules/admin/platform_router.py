@@ -18,13 +18,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import registrar_auditoria
 from app.core.deps import SCOPE_SESION, CurrentUser, get_maintenance_db, require_superadmin
-from app.core.storage import build_platform_object_key, get_storage, validate_upload
+from app.core.storage import (
+    build_platform_object_key,
+    get_storage,
+    public_url_versionada,
+    validate_upload,
+)
 from app.modules.media import platform_service as platform_media_service
 from app.modules.media.models import PlatformMedia, PlatformMediaFolder
 from app.modules.media.schemas import (
     MediaFolderResponse,
     MediaResponse,
     MediaUpdateRequest,
+    MediaUsageResponse,
     PlatformMediaFolderCreate,
 )
 from app.modules.platform import repository as platform_repository
@@ -50,7 +56,7 @@ def _platform_media_response(fila: PlatformMedia) -> MediaResponse:
     return MediaResponse(
         id=str(fila.id),
         kind="platform",
-        url=get_storage().public_url(fila.object_key),
+        url=public_url_versionada(fila.object_key, fila.updated_at),
         filename=fila.filename,
         mime_type=fila.mime_type,
         size=fila.size,
@@ -346,7 +352,7 @@ async def restore_platform_media(
 
 
 @router.patch(
-    "/platform/media/{media_id}", summary="Editar alt/carpeta", response_model=MediaResponse
+    "/platform/media/{media_id}", summary="Editar nombre/alt/carpeta", response_model=MediaResponse
 )
 async def update_platform_media(
     media_id: str, cuerpo: MediaUpdateRequest, superadmin: Superadmin, session: MaintenanceDb
@@ -357,8 +363,40 @@ async def update_platform_media(
         media_id=uuid.UUID(media_id),
         alt=cuerpo.alt,
         folder_id=uuid.UUID(cuerpo.folder_id) if cuerpo.folder_id else None,
+        filename=cuerpo.filename,
         alt_incluido="alt" in campos_enviados,
         folder_id_incluido="folder_id" in campos_enviados,
+        filename_incluido="filename" in campos_enviados,
+    )
+    return _platform_media_response(fila)
+
+
+@router.get(
+    "/platform/media/{media_id}/uso",
+    summary="En qué recursos está en uso un medio de plataforma",
+    response_model=MediaUsageResponse,
+)
+async def platform_media_usage(
+    media_id: str, superadmin: Superadmin, session: MaintenanceDb
+) -> MediaUsageResponse:
+    referencias = await platform_media_service.consultar_uso(session, media_id=uuid.UUID(media_id))
+    return MediaUsageResponse(used_by=referencias)
+
+
+@router.put(
+    "/platform/media/{media_id}/contenido",
+    summary="Sobrescribir los píxeles de una imagen ya existente",
+    response_model=MediaResponse,
+)
+async def overwrite_platform_media_content(
+    media_id: str,
+    superadmin: Superadmin,
+    session: MaintenanceDb,
+    fichero: Annotated[UploadFile, File(description="Imagen")],
+) -> MediaResponse:
+    contenido = await fichero.read()
+    fila = await platform_media_service.sobrescribir_contenido(
+        session, media_id=uuid.UUID(media_id), contenido=contenido
     )
     return _platform_media_response(fila)
 

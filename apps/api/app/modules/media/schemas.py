@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class MediaResponse(BaseModel):
@@ -33,6 +33,9 @@ class MediaAssignRequest(BaseModel):
 class MediaUpdateRequest(BaseModel):
     alt: str | None = None
     folder_id: str | None = None
+    # Mismo límite que la columna `filename` (`String(255)`): rechazado
+    # aquí con 422 en vez de dejar que Postgres lo haga con un 500.
+    filename: str | None = Field(default=None, max_length=255)
 
 
 class MediaFolderResponse(BaseModel):
@@ -59,4 +62,12 @@ class MediaInUseError(BaseModel):
     """Cuerpo de la respuesta 409 cuando se intenta borrar un medio en uso."""
 
     detail: str
+    used_by: list[dict[str, str]]
+
+
+class MediaUsageResponse(BaseModel):
+    """En qué recursos está en uso un medio — consulta previa a
+    «Sobrescribir original» (irreversible), para avisar de a cuántos sitios
+    afecta antes de confirmar. Mismo `used_by` que `MediaInUseError`."""
+
     used_by: list[dict[str, str]]
