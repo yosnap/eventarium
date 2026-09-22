@@ -1543,6 +1543,8 @@
           "subida": {
             "etiqueta": "Justificante (imagen o PDF)",
             "ayuda": "PNG, JPEG, WebP o PDF, hasta 10 MB.",
+            "arrastraAqui": "Arrastra aquí el justificante",
+            "oPulsaParaElegir": "o pulsa para elegir un fichero",
             "subiendo": "Subiendo el justificante…",
             "subido": "Justificante subido. Estamos leyéndolo.",
             "tipoNoPermitido": "Ese tipo de fichero no vale: sube una imagen PNG, JPEG o WebP, o un PDF.",

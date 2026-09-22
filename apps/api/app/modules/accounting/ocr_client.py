@@ -66,9 +66,19 @@ CAMPOS_DEL_BORRADOR = (
     "currency",
 )
 
-#: Techo de tokens de la respuesta: un JSON de seis campos no necesita más, y
-#: acotarlo abarata la reserva de gasto que aparta la pasarela.
-MAX_TOKENS = 600
+#: Techo de tokens de la respuesta. Un JSON de seis campos no necesita más de
+#: unos pocos cientos, pero un modelo con razonamiento interno (declarado
+#: como "Reasoning control" en su ficha) puede gastar ese margen ANTES de
+#: emitir el JSON visible — reproducido con `gemma4` (nan.builders): con 600
+#: la respuesta llegaba vacía (`RespuestaFueraDeEsquema`, `payload_invalido`
+#: en el borrador). 1500 se probó tres veces contra ese mismo modelo y las
+#: tres dio JSON completo y válido; 2000 y 4000, contra toda intuición,
+#: dieron JSON malformado — así que el valor no es "cuanto más margen mejor"
+#: para un modelo así, y 1500 es el que queda verificado, no una cota seguida
+#: de más margen porque sí. El techo solo acota la reserva de gasto (un
+#: máximo, no lo que se gasta de verdad), así que subirlo no encarece las
+#: llamadas a modelos que no razonan — solo deja sitio a los que sí.
+MAX_TOKENS = 1500
 
 _INSTRUCCIONES = (
     "Eres un extractor de datos de facturas y tickets de gasto. Recibes la "
