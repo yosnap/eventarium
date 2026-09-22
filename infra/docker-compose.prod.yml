@@ -1,8 +1,10 @@
 # Despliegue de producción.
 #
-# **Sin proxy propio**: el enrutado y el TLS los pone EasyPanel (Traefik). Este fichero
-# solo define los servicios; el dominio se apunta a `web` y se enrutan `/api` a `api` y
-# `/media` a `seaweedfs`. Ver docs/despliegue.md.
+# El TLS lo pone el proxy del orquestador (Traefik en Dokploy/EasyPanel), pero el
+# enrutado por ruta NO: el dominio se apunta entero al servicio `caddy` (puerto 80), y es
+# `infra/caddy/Caddyfile` quien reparte `/api`, `/media` y el resto. Así la regla que
+# bloquea los justificantes de gasto en `/media` vive en el repo y no depende del panel.
+# Ver docs/despliegue.md.
 #
 # Las imágenes se referencian por SHA (IMAGE_TAG), nunca por `latest`: un rollback
 # debe volver exactamente al artefacto que estaba corriendo.
@@ -135,7 +137,7 @@ services:
           -volume.max=100 -ip=seaweedfs
     volumes:
       - seaweedfs-data:/data
-    # EasyPanel enruta /media aquí para servir los objetos públicos.
+    # Solo `caddy` llega aquí (ruta /media); el puerto S3 no se publica fuera del stack.
     expose:
       - "8333"
     healthcheck:
@@ -213,8 +215,35 @@ services:
     expose:
       - "4000"
 
+  # Único servicio al que el orquestador enruta el dominio. El Caddyfile está versionado,
+  # así que sí existe en el checkout que hace el orquestador (a diferencia de
+  # infra/env/.env o infra/seaweedfs/s3.json, que son secretos).
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+      web:
+        condition: service_started
+      seaweedfs:
+        condition: service_healthy
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost/api/v1/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
 
 volumes:
   postgres-data:
   redis-data:
   seaweedfs-data:
+  caddy-data:
+  caddy-config:

@@ -1,11 +1,14 @@
 # Despliegue
 
-Producción con **EasyPanel**. `infra/docker-compose.prod.yml` define los servicios
-—PostgreSQL, Redis, SeaweedFS, la API, el worker y el frontend SSR— y EasyPanel pone el
-proxy (Traefik), el TLS y el enrutado.
+Producción con **Dokploy** (o EasyPanel). `infra/docker-compose.prod.yml` define los
+servicios —PostgreSQL, Redis, SeaweedFS, la API, el worker, el scheduler, el frontend SSR
+y un Caddy interno— y el orquestador pone el proxy de entrada (Traefik) y el TLS.
 
-Caddy es **solo para desarrollo**: en local resuelve el requisito de un único host sin
-depender de nada externo.
+El enrutado por ruta **no** lo hace el panel: el dominio se apunta entero al servicio
+`caddy` y es `infra/caddy/Caddyfile` quien reparte `/api`, `/media` y el resto. Así la
+regla que bloquea los justificantes de gasto en `/media` (ver el comentario largo en ese
+fichero) vive en el repo, versionada, y no depende de que alguien la replique a mano en el
+panel. `infra/caddy/Caddyfile.dev` es el equivalente para desarrollo local.
 
 ## Principios
 
@@ -35,6 +38,7 @@ En EasyPanel, crea un proyecto y dentro estos servicios:
 | `worker` | App | la misma imagen que `api` | — |
 | `scheduler` | App | la misma imagen que `api` | — |
 | `web` | App | `ghcr.io/yosnap/eventarium/web:sha-<commit>` | 4000 |
+| `caddy` | App | `caddy:2.10-alpine` con `infra/caddy/Caddyfile` | 80 |
 
 Comandos de arranque:
 
@@ -46,31 +50,32 @@ Comandos de arranque:
   aunque el `worker` esté sano.
 - `api` y `web` usan el comando por defecto de su imagen.
 
-### 2. Enrutar el dominio por rutas
+### 2. Enrutar el dominio
 
-Apunta el dominio al servicio `web` y añade las reglas por ruta:
+Una sola regla: el dominio, con TLS del panel (Let's Encrypt), apuntando al servicio
+`caddy`, puerto `80`, ruta `/`, sin `stripPath`. Nada más.
+
+`caddy` es quien enruta por dentro del stack (`infra/caddy/Caddyfile`):
 
 | Ruta | Servicio | Puerto |
 |---|---|---|
-| `/` | `web` | 4000 |
-| `/api` | `api` | 8000 |
-| `/media` | `seaweedfs` | 8333 |
+| `/api/*` | `api` | 8000 |
+| `/media/orgs/<id>/accounting-receipts/*` | — | 403 |
+| `/media/*` | `seaweedfs` | 8333 |
+| resto | `web` | 4000 |
 
-Las tres rutas **tienen que estar en el mismo dominio**. Es la base del diseño de
-sesión: la cookie de refresco es first-party y no lleva atributo `Domain`.
+Las rutas **tienen que estar en el mismo dominio**. Es la base del diseño de sesión: la
+cookie de refresco es first-party y no lleva atributo `Domain`.
 
-Deja que EasyPanel gestione el certificado TLS.
+Caddy conserva `X-Forwarded-Host` y `X-Forwarded-Proto` tal como las pone el Traefik del
+panel (llega desde una red privada, declarada en `trusted_proxies`), así que la API y el
+SSR ven `https` y el host real aunque el tramo Traefik→Caddy vaya sin TLS.
 
-**Bloqueante de seguridad si el módulo de contabilidad está activo.** Este
-enrutado directo por 3 reglas expone todo `/media/*` sin la regla `@justificantes`
-que sí lleva `infra/caddy/Caddyfile` (ver el comentario largo ahí): cualquiera con
-la clave del objeto (`orgs/<id>/accounting-receipts/…`) descargaría un
-justificante de gasto sin sesión. `AccountingExpenseDraft`/`AccountingExpense` ya
-sirven el justificante por `GET /api/v1/accounting/receipts/{clave}` con sesión y
-como adjunto — ese es el único camino que debe quedar abierto. Antes de enrutar
-así con el módulo de contabilidad en producción, pon delante un proxy con esa
-misma regla `path_regexp` (Traefik middleware o un Caddy propio) en vez de las 3
-reglas directas de EasyPanel/Dokploy.
+**No enrutes `/api` y `/media` como reglas directas del panel** saltándote `caddy`:
+dejarías todo `/media/*` abierto sin la regla `@justificantes`, y cualquiera con la clave
+del objeto (`orgs/<id>/accounting-receipts/…`) descargaría un justificante de gasto sin
+sesión. El único camino legítimo a un justificante es
+`GET /api/v1/accounting/receipts/{clave}`, con sesión y como adjunto.
 
 ### 3. Variables de entorno
 
@@ -145,10 +150,11 @@ Comprueba `https://eventos.tu-dominio.org/api/v1/health`: los tres valores deben
 
 ## Despliegue con Docker Compose (alternativa)
 
-`infra/docker-compose.prod.yml` sirve tal cual si prefieres no usar EasyPanel, pero
-**no incluye proxy**: tendrás que poner uno delante que enrute `/`, `/api` y `/media` al
-mismo dominio. El `Caddyfile` de desarrollo (`infra/caddy/Caddyfile.dev`) muestra el
-enrutado que hace falta.
+`infra/docker-compose.prod.yml` sirve tal cual si prefieres no usar un panel: el
+servicio `caddy` ya enruta `/`, `/api` y `/media` por dentro, pero escucha en HTTP plano
+(puerto 80, sin certificados) porque cuenta con un proxy delante que termine TLS. Sin
+panel, publica ese puerto solo a un proxy propio con TLS (otro Caddy, Traefik, nginx) que
+reenvíe todo el dominio a `caddy:80`.
 
 Los servicios `migrate`, `api`, `worker` y `scheduler` leen su configuración por
 `environment:` con interpolación `${VAR}`, no por `env_file:` — así el fichero no tiene
