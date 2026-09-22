@@ -32,6 +32,7 @@ from app.core.tenant import base_url_de_organizacion
 from app.modules.accounting import models as _accounting_models  # noqa: F401
 from app.modules.events import models as _event_models  # noqa: F401
 from app.modules.legal import models as _legal_models  # noqa: F401
+from app.modules.media import models as _media_models  # noqa: F401
 from app.modules.organizations import models as _organization_models  # noqa: F401
 from app.modules.payments import models as _payment_models  # noqa: F401
 from app.modules.registrations import models as _registration_models  # noqa: F401

@@ -140,6 +140,78 @@ describe('ReceiptUpload', () => {
     await avanzar(fixture);
   });
 
+  // --- Arrastrar y soltar ------------------------------------------------
+
+  function dropzone(fixture: ComponentFixture<unknown>): HTMLLabelElement {
+    return fixture.nativeElement.querySelector('.dropzone') as HTMLLabelElement;
+  }
+
+  /** jsdom no implementa `DragEvent`: un `Event` normal con `dataTransfer`
+   * añadido a mano basta, porque el componente solo lee `preventDefault()` y
+   * `dataTransfer?.files`. */
+  function eventoDeArrastre(tipo: string, ficheros: File[] = []): Event {
+    const evento = new Event(tipo, { cancelable: true });
+    Object.defineProperty(evento, 'dataTransfer', { value: { files: ficheros } });
+    return evento;
+  }
+
+  it('arrastrar encima marca la zona, y salir la desmarca', async () => {
+    const fixture = await montar();
+    const zona = dropzone(fixture);
+
+    zona.dispatchEvent(eventoDeArrastre('dragover'));
+    await avanzar(fixture);
+    expect(zona.classList.contains('encima')).toBe(true);
+
+    zona.dispatchEvent(new Event('dragleave', { cancelable: true }));
+    await avanzar(fixture);
+    expect(zona.classList.contains('encima')).toBe(false);
+  });
+
+  it('soltar un fichero lo sube igual que elegirlo con el selector', async () => {
+    const fixture = await montar();
+    let emitido: { id: string } | null = null;
+    fixture.componentInstance.subido.subscribe((draft) => (emitido = draft));
+
+    dropzone(fixture).dispatchEvent(
+      eventoDeArrastre('drop', [ficheroDe('ticket.png', 'image/png')]),
+    );
+    await avanzar(fixture);
+
+    const peticion = http.expectOne(URL_SUBIDA);
+    expect((peticion.request.body as FormData).get('fichero')).toBeInstanceOf(File);
+    peticion.flush({ id: 'd1', status: 'pending_extraction' });
+    await avanzar(fixture);
+
+    expect(emitido).not.toBeNull();
+    expect(emitido!.id).toBe('d1');
+    // Soltar también quita la marca de "encima", como cualquier `drop` real.
+    expect(dropzone(fixture).classList.contains('encima')).toBe(false);
+  });
+
+  it('soltar un tipo no permitido avisa sin llamar al API, igual que el selector', async () => {
+    const fixture = await montar();
+
+    dropzone(fixture).dispatchEvent(
+      eventoDeArrastre('drop', [ficheroDe('hoja.xlsx', 'application/vnd.ms-excel')]),
+    );
+    await avanzar(fixture);
+
+    expect(fixture.nativeElement.textContent).toContain('Ese tipo de fichero no vale');
+    http.expectNone(URL_SUBIDA);
+  });
+
+  it('mientras se sube, soltar otro fichero no dispara una segunda subida', async () => {
+    const fixture = await montar();
+    await elegir(fixture, ficheroDe('ticket.png', 'image/png'));
+
+    dropzone(fixture).dispatchEvent(eventoDeArrastre('drop', [ficheroDe('otro.png', 'image/png')]));
+    await avanzar(fixture);
+
+    http.expectOne(URL_SUBIDA).flush({ id: 'd1' });
+    await avanzar(fixture);
+  });
+
   it('no tiene violaciones de accesibilidad, ni vacío ni subiendo', async () => {
     const fixture = await montar();
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);

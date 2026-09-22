@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
@@ -20,7 +21,7 @@ from httpx import AsyncClient
 
 from app.core.config import get_settings
 from app.core.storage import get_storage
-from app.modules.accounting import drafts_service
+from app.modules.accounting import drafts_service, repository
 from app.modules.ai_gateway import errores as ai_errores
 from tests.accounting_ocr_test_helpers import (
     BASE,
@@ -231,6 +232,41 @@ async def test_cada_error_de_la_pasarela_deja_su_codigo_en_el_borrador(
     # El justificante sigue en el almacén: el borrador es recuperable.
     contenido, _ = await get_storage().get_object(borrador.receipt_object_key)
     assert contenido == CONTENIDO_PNG
+    await get_storage().delete_object(borrador.receipt_object_key)
+
+
+async def test_un_fallo_inesperado_antes_de_en_extraccion_no_deja_el_borrador_colgado(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    monkeypatch: pytest.MonkeyPatch,
+    sin_cola: AsyncMock,
+) -> None:
+    """Regresión: un error de programación/infraestructura ANTES de que
+    `_reservar_intento` llegue a escribir `en_extraccion` (reproducido: un
+    modelo sin importar en `core/tasks.py` reventaba con
+    `NoReferencedTableError` en cuanto SQLAlchemy configuraba los
+    mapeadores) dejaba el borrador en `pending_extraction` para siempre —
+    la tarea se confirmaba en la cola igualmente, así que no había reintento
+    ni aviso, solo "Leyendo este justificante…" indefinido en el panel."""
+    original = repository.get_draft_for_update
+    primera_llamada = True
+
+    async def _reventar_solo_la_primera_vez(*args: Any, **kwargs: Any) -> Any:
+        nonlocal primera_llamada
+        if primera_llamada:
+            primera_llamada = False
+            raise RuntimeError("boom")
+        return await original(*args, **kwargs)
+
+    monkeypatch.setattr(repository, "get_draft_for_update", _reventar_solo_la_primera_vez)
+    event_id = await _crear_evento(organizacion)
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+    draft_id = await _subir_y_extraer(cliente, cabeceras, organizacion, event_id)
+
+    borrador = await _leer_draft(organizacion, draft_id)
+    assert borrador.status == "extraction_failed"
+    assert borrador.error_code is not None
     await get_storage().delete_object(borrador.receipt_object_key)
 
 

@@ -227,7 +227,27 @@ async def extraer_campos(draft_id: uuid.UUID, organization_id: uuid.UUID) -> Non
     `FORCE ROW LEVEL SECURITY` y un worker sin petición HTTP no debe escribir
     esquivando RLS. Mismo criterio que `ai_gateway.client`.
     """
-    documento = await _reservar_intento(draft_id, organization_id)
+    try:
+        documento = await _reservar_intento(draft_id, organization_id)
+    except Exception as exc:  # noqa: BLE001 - se traduce a `error_code`, no se propaga
+        # `_reservar_intento` ya atrapa los fallos que espera (el justificante
+        # no está en el almacén); esto es lo INESPERADO — un error de
+        # programación o de infraestructura del propio worker (reproducido:
+        # un modelo sin importar en `core/tasks.py` reventaba aquí con
+        # `NoReferencedTableError` en cuanto SQLAlchemy configuraba los
+        # mapeadores). Sin este `except`, el borrador se quedaba en
+        # `pending_extraction` para siempre: la tarea se confirmaba (`ack`)
+        # en la cola de todos modos, así que no había ni reintento ni aviso,
+        # solo "Leyendo este justificante…" indefinido en el panel.
+        codigo = _codigo_de_error(exc)
+        logger.error(
+            "Fallo inesperado reservando el intento del borrador %s (%s): %s",
+            draft_id,
+            type(exc).__name__,
+            codigo,
+        )
+        await _marcar_fallo(draft_id, organization_id, codigo)
+        return
     if documento is None:
         return
 
@@ -374,11 +394,19 @@ async def _liquidar_extraccion(
 
 
 async def _marcar_fallo(draft_id: uuid.UUID, organization_id: uuid.UUID, codigo: str) -> None:
+    """Marca el fallo desde `en_extraccion` (el camino normal) o desde
+    `pending_extraction` (cuando `_reservar_intento` ni siquiera llegó a
+    escribir `en_extraccion` antes de reventar — ver el `except` de
+    `extraer_campos`): en los dos casos el borrador sigue sin haber salido
+    de verdad de la cola de trabajo, así que en los dos hay que explicarlo en
+    vez de dejarlo mudo. Cualquier otro estado (`pending_review`,
+    `confirmed`, `discarded`…) significa que ya avanzó por otro camino
+    mientras tanto, y no se toca."""
     if codigo not in ai_errores.CODIGOS_DE_ERROR:
         codigo = ai_errores.PROVEEDOR_ERROR
     async with _sesion_de_organizacion(organization_id) as tx:
         borrador = await repository.get_draft_for_update(tx, organization_id, draft_id)
-        if borrador is None or borrador.status != "en_extraccion":
+        if borrador is None or borrador.status not in ("pending_extraction", "en_extraccion"):
             return
         borrador.status = "extraction_failed"
         borrador.error_code = codigo

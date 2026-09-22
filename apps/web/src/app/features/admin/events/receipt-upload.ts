@@ -31,10 +31,19 @@ export const MAXIMO_BYTES_DE_JUSTIFICANTE = 10 * 1024 * 1024;
 /**
  * Subida de un justificante de gasto.
  *
- * Sigue el patrón de subida que ya usa `media-fields.ts` (`FormData`,
+ * Zona de arrastrar y soltar (mismo patrón que el dropzone de
+ * `media-fields.ts`: `<label>` que envuelve un `<input type="file">` oculto,
+ * `dragover`/`dragleave`/`drop`), sin biblioteca ni recorte — un justificante
+ * es de un solo uso, no una imagen reutilizable, así que no hace falta nada
+ * de eso. Antes era un `<input type="file">` nativo suelto, poco visible y
+ * sin ninguna pista de dónde pulsar (hallazgo del usuario).
+ *
+ * El resto sigue el patrón de subida que ya usa `media-fields.ts` (`FormData`,
  * `firstValueFrom(http.post(...))`, señal `subiendo`, mensaje de error en el
  * `catch`) y, como allí, **sin barra de progreso**: `reportProgress` obligaría
- * a salirse del patrón del proyecto para un fichero de 10 MB como mucho.
+ * a salirse del patrón del proyecto para un fichero de 10 MB como mucho. El
+ * "estamos leyéndolo" que sigue a la subida lo pinta la bandeja
+ * (`receipt-drafts-panel.ts`), que hace el *polling* de verdad.
  *
  * Las comprobaciones de tipo y tamaño de aquí son **cortesía, no barrera**: el
  * backend valida los bytes reales (no la extensión) y su 422 se muestra tal
@@ -47,28 +56,41 @@ export const MAXIMO_BYTES_DE_JUSTIFICANTE = 10 * 1024 * 1024;
   template: `
     <ng-container *transloco="let t">
       <div class="campo">
-        <label [for]="idCampo">{{
+        <span class="etiqueta" [id]="idEtiqueta">{{
           t('admin.events.accounting.justificantes.subida.etiqueta')
-        }}</label>
-        <input
-          #entrada
-          [id]="idCampo"
-          type="file"
-          [accept]="accept"
+        }}</span>
+        <label
+          class="dropzone"
+          [class.encima]="arrastrando()"
+          [class.deshabilitado]="subiendo()"
+          [attr.aria-labelledby]="idEtiqueta"
           [attr.aria-describedby]="idAyuda"
-          [disabled]="subiendo()"
-          (change)="alElegirFichero($event)"
-        />
+          (dragover)="alArrastrarEncima($event)"
+          (dragleave)="arrastrando.set(false)"
+          (drop)="alSoltar($event)"
+        >
+          <input
+            #entrada
+            [id]="idCampo"
+            type="file"
+            class="fichero-oculto"
+            [accept]="accept"
+            [disabled]="subiendo()"
+            (change)="alElegirFichero($event)"
+          />
+          @if (subiendo()) {
+            <span role="status" aria-live="polite">{{
+              t('admin.events.accounting.justificantes.subida.subiendo')
+            }}</span>
+          } @else {
+            <span>{{ t('admin.events.accounting.justificantes.subida.arrastraAqui') }}</span>
+            <small>{{ t('admin.events.accounting.justificantes.subida.oPulsaParaElegir') }}</small>
+          }
+        </label>
         <p class="ayuda" [id]="idAyuda">
           {{ t('admin.events.accounting.justificantes.subida.ayuda') }}
         </p>
       </div>
-
-      @if (subiendo()) {
-        <p role="status" aria-live="polite" class="estado">
-          {{ t('admin.events.accounting.justificantes.subida.subiendo') }}
-        </p>
-      }
 
       @if (error(); as mensaje) {
         <app-alert tone="error">{{ mensaje }}</app-alert>
@@ -84,17 +106,36 @@ export const MAXIMO_BYTES_DE_JUSTIFICANTE = 10 * 1024 * 1024;
       display: grid;
       gap: var(--space-xs);
     }
-    label {
+    .etiqueta {
       font-weight: 600;
+    }
+    .dropzone {
+      display: grid;
+      place-items: center;
+      gap: var(--space-xs);
+      min-height: 8rem;
+      padding: var(--sp-4);
+      border: 2px dashed var(--border-strong);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      text-align: center;
+      color: var(--muted);
+    }
+    .dropzone.encima {
+      border-color: var(--accent);
+      color: var(--fg);
+    }
+    .dropzone.deshabilitado {
+      cursor: wait;
+      opacity: 0.7;
+    }
+    .fichero-oculto {
+      display: none;
     }
     .ayuda {
       margin: 0;
       color: var(--muted);
       font-size: 0.8125rem;
-    }
-    .estado {
-      margin: 0;
-      color: var(--muted);
     }
   `,
 })
@@ -111,18 +152,39 @@ export class ReceiptUpload {
 
   protected readonly subiendo = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly arrastrando = signal(false);
 
   protected readonly accept = MIMES_DE_JUSTIFICANTE.join(',');
 
   private static contador = 0;
   private readonly indice = ReceiptUpload.contador++;
   protected readonly idCampo = `justificante-fichero-${this.indice}`;
+  protected readonly idEtiqueta = `${this.idCampo}-etiqueta`;
   protected readonly idAyuda = `${this.idCampo}-ayuda`;
 
   private readonly entrada = viewChild.required<ElementRef<HTMLInputElement>>('entrada');
 
+  protected alArrastrarEncima(evento: DragEvent): void {
+    evento.preventDefault();
+    if (!this.subiendo()) {
+      this.arrastrando.set(true);
+    }
+  }
+
   protected alElegirFichero(evento: Event): void {
     const fichero = (evento.target as HTMLInputElement).files?.[0];
+    if (fichero) {
+      void this.subirFichero(fichero);
+    }
+  }
+
+  protected alSoltar(evento: DragEvent): void {
+    evento.preventDefault();
+    this.arrastrando.set(false);
+    if (this.subiendo()) {
+      return;
+    }
+    const fichero = evento.dataTransfer?.files?.[0];
     if (fichero) {
       void this.subirFichero(fichero);
     }
