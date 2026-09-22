@@ -18,6 +18,19 @@ async function avanzar(fixture: ComponentFixture<unknown>): Promise<void> {
   fixture.detectChanges();
 }
 
+/** jsdom no implementa showModal/close: se sustituyen como en
+ * `patrones-panel.spec.ts`/`event-payments.spec.ts`. */
+function stubDeDialogoNativo(): void {
+  if (!HTMLDialogElement.prototype.showModal) {
+    HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+      this.setAttribute('open', '');
+    };
+    HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+      this.removeAttribute('open');
+    };
+  }
+}
+
 describe('MediaFields', () => {
   let fixture: ComponentFixture<MediaFields>;
   let http: HttpTestingController;
@@ -187,7 +200,7 @@ describe('MediaFields', () => {
 
     const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const botonPapelera = Array.from(raiz.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('papelera'),
+      b.getAttribute('aria-label')?.includes('papelera'),
     ) as HTMLButtonElement;
     botonPapelera.click();
     await avanzar(fixture);
@@ -223,11 +236,45 @@ describe('MediaFields', () => {
 
     vi.spyOn(window, 'confirm').mockReturnValue(false);
     const botonPapelera = Array.from(raiz.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('papelera'),
+      b.getAttribute('aria-label')?.includes('papelera'),
     ) as HTMLButtonElement;
     botonPapelera.click();
     await avanzar(fixture);
 
     http.expectNone((r) => r.method === 'DELETE');
+  });
+
+  it('el icono de lápiz abre el modal «Editar imagen» con los metadatos y el recorte', async () => {
+    stubDeDialogoNativo();
+    await avanzar(fixture);
+    const raiz = fixture.nativeElement as HTMLElement;
+    const tabs = Array.from(raiz.querySelectorAll('[role="tab"]')) as HTMLButtonElement[];
+    tabs.find((t) => t.textContent?.includes('Biblioteca'))!.click();
+    await avanzar(fixture);
+    http.expectOne((r) => r.url === CARPETAS_URL).flush([]);
+    http
+      .expectOne((r) => r.url === MEDIA_URL)
+      .flush({
+        items: [
+          { id: 'a', url: 'https://cdn.test/a.png', filename: 'a.png', alt: 'Descripción' },
+        ],
+        total: 1,
+        limit: 12,
+        offset: 0,
+      });
+    await avanzar(fixture);
+
+    const botonEditar = Array.from(raiz.querySelectorAll('button')).find((b) =>
+      b.getAttribute('aria-label')?.includes('Editar imagen'),
+    ) as HTMLButtonElement;
+    botonEditar.click();
+    await avanzar(fixture);
+
+    expect(raiz.querySelector('app-media-crop-editor')).not.toBeNull();
+    const campoNombre = raiz.querySelector(
+      'app-media-edit-dialog input[type="text"]',
+    ) as HTMLInputElement;
+    expect(campoNombre.value).toBe('a.png');
+    await esperarSinViolacionesDeAccesibilidad(raiz);
   });
 });

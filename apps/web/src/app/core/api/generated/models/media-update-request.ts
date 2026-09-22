@@ -3,5 +3,6 @@
 
 export interface MediaUpdateRequest {
   alt?: (string | null);
+  filename?: (string | null);
   folder_id?: (string | null);
 }

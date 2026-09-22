@@ -3151,7 +3151,7 @@
         "tags": [
           "administración"
         ],
-        "summary": "Editar alt/carpeta",
+        "summary": "Editar nombre/alt/carpeta",
         "operationId": "update_platform_media_api_v1_admin_platform_media__media_id__patch",
         "parameters": [
           {
@@ -6684,7 +6684,7 @@
         "tags": [
           "biblioteca de medios"
         ],
-        "summary": "Editar alt/carpeta",
+        "summary": "Editar nombre/alt/carpeta",
         "operationId": "actualizar_api_v1_organizations_me_media__media_id__patch",
         "parameters": [
           {
@@ -14458,6 +14458,18 @@
               }
             ],
             "title": "Folder Id"
+          },
+          "filename": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename"
           }
         },
         "type": "object",

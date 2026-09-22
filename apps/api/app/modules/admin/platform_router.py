@@ -346,7 +346,7 @@ async def restore_platform_media(
 
 
 @router.patch(
-    "/platform/media/{media_id}", summary="Editar alt/carpeta", response_model=MediaResponse
+    "/platform/media/{media_id}", summary="Editar nombre/alt/carpeta", response_model=MediaResponse
 )
 async def update_platform_media(
     media_id: str, cuerpo: MediaUpdateRequest, superadmin: Superadmin, session: MaintenanceDb
@@ -357,8 +357,10 @@ async def update_platform_media(
         media_id=uuid.UUID(media_id),
         alt=cuerpo.alt,
         folder_id=uuid.UUID(cuerpo.folder_id) if cuerpo.folder_id else None,
+        filename=cuerpo.filename,
         alt_incluido="alt" in campos_enviados,
         folder_id_incluido="folder_id" in campos_enviados,
+        filename_incluido="filename" in campos_enviados,
     )
     return _platform_media_response(fila)
 

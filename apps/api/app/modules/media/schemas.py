@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class MediaResponse(BaseModel):
@@ -33,6 +33,9 @@ class MediaAssignRequest(BaseModel):
 class MediaUpdateRequest(BaseModel):
     alt: str | None = None
     folder_id: str | None = None
+    # Mismo límite que la columna `filename` (`String(255)`): rechazado
+    # aquí con 422 en vez de dejar que Postgres lo haga con un 500.
+    filename: str | None = Field(default=None, max_length=255)
 
 
 class MediaFolderResponse(BaseModel):

@@ -147,7 +147,7 @@ async def restaurar(
     return _media_response(fila)
 
 
-@router.patch("/{media_id}", summary="Editar alt/carpeta", response_model=MediaResponse)
+@router.patch("/{media_id}", summary="Editar nombre/alt/carpeta", response_model=MediaResponse)
 async def actualizar(
     media_id: str,
     cuerpo: MediaUpdateRequest,
@@ -164,8 +164,10 @@ async def actualizar(
         permisos=permisos,
         alt=cuerpo.alt,
         folder_id=uuid.UUID(cuerpo.folder_id) if cuerpo.folder_id else None,
+        filename=cuerpo.filename,
         alt_incluido="alt" in campos_enviados,
         folder_id_incluido="folder_id" in campos_enviados,
+        filename_incluido="filename" in campos_enviados,
     )
     return _media_response(fila)
 

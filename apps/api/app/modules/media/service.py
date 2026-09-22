@@ -347,13 +347,15 @@ async def actualizar_metadatos(
     permisos: set[Permission],
     alt: str | None,
     folder_id: uuid.UUID | None,
+    filename: str | None,
     alt_incluido: bool,
     folder_id_incluido: bool,
+    filename_incluido: bool,
 ) -> Media:
-    """`alt_incluido`/`folder_id_incluido` distinguen "no venía en la
-    petición" de "venía como `null`" — es un PATCH, no un PUT: enviar solo
-    `folder_id` no debe borrar el `alt` ya guardado (hallazgo de
-    code-review; antes se asignaban los dos incondicionalmente)."""
+    """`alt_incluido`/`folder_id_incluido`/`filename_incluido` distinguen
+    "no venía en la petición" de "venía como `null`" — es un PATCH, no un
+    PUT: enviar solo `folder_id` no debe borrar el `alt` ya guardado
+    (hallazgo de code-review; antes se asignaban los dos incondicionalmente)."""
     fila = await session.get(Media, media_id)
     if fila is None or fila.organization_id != organization_id:
         raise NotFoundError("Ese medio no existe.")
@@ -362,6 +364,11 @@ async def actualizar_metadatos(
         fila.alt = alt
     if folder_id_incluido:
         fila.folder_id = folder_id
+    if filename_incluido:
+        nombre = (filename or "").strip()
+        if not nombre:
+            raise ValidationDomainError("El nombre no puede estar vacío.")
+        fila.filename = nombre
     await session.flush()
     return fila
 

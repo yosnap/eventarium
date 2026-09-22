@@ -137,6 +137,60 @@ async def test_editar_solo_la_carpeta_no_borra_el_alt_ya_guardado(
     assert editado.json()["folder_id"] == carpeta.json()["id"]
 
 
+async def test_editar_el_nombre_de_una_imagen(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    subido = await _subir(cliente, cabeceras, "branding")
+
+    editado = await cliente.patch(
+        f"{MEDIA}/{subido['id']}", headers=cabeceras, json={"filename": "logo-nuevo.png"}
+    )
+    assert editado.status_code == 200, editado.text
+    assert editado.json()["filename"] == "logo-nuevo.png"
+
+
+async def test_editar_el_nombre_no_borra_el_alt_ya_guardado(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """Mismo criterio que `test_editar_solo_la_carpeta_no_borra_el_alt_ya_guardado`,
+    aplicado al campo `filename` añadido para el modal «Editar imagen»."""
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    subido = await _subir(cliente, cabeceras, "branding")
+    await cliente.patch(f"{MEDIA}/{subido['id']}", headers=cabeceras, json={"alt": "Logo"})
+
+    editado = await cliente.patch(
+        f"{MEDIA}/{subido['id']}", headers=cabeceras, json={"filename": "logo-nuevo.png"}
+    )
+    assert editado.status_code == 200, editado.text
+    assert editado.json()["alt"] == "Logo"
+    assert editado.json()["filename"] == "logo-nuevo.png"
+
+
+async def test_editar_el_nombre_a_vacio_falla(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    subido = await _subir(cliente, cabeceras, "branding")
+
+    editado = await cliente.patch(
+        f"{MEDIA}/{subido['id']}", headers=cabeceras, json={"filename": "   "}
+    )
+    assert editado.status_code == 422, editado.text
+
+
+async def test_editar_el_nombre_demasiado_largo_da_422(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    subido = await _subir(cliente, cabeceras, "branding")
+
+    editado = await cliente.patch(
+        f"{MEDIA}/{subido['id']}", headers=cabeceras, json={"filename": "a" * 256}
+    )
+    assert editado.status_code == 422, editado.text
+
+
 async def test_borrar_una_imagen_reutilizada_en_dos_eventos_da_409_no_500(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
