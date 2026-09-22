@@ -24,6 +24,7 @@ def _sin_red_al_guardar(validacion_en_vivo_sin_red: None) -> None:
     `service._validar_modelo_en_vivo` consulta el listado real del proveedor
     — ver el docstring de `validacion_en_vivo_sin_red`."""
 
+
 CONFIG_NAN = {
     "provider": "nan_builders",
     "default_model": "deepseek-v4-flash",
