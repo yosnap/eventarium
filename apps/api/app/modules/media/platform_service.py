@@ -46,7 +46,11 @@ async def _crear_fila(
         uploaded_by_user_id=uploaded_by_user_id,
         folder_id=folder_id,
         object_key=clave,
-        filename=filename,
+        # Ver el mismo comentario en `service._crear_fila`: `filename` es
+        # `String(255)`, y sin recortarlo aquí un nombre importado por URL
+        # demasiado largo revienta el INSERT con un 500 tras haber subido
+        # ya el objeto al almacenamiento.
+        filename=filename[:255],
         mime_type=procesada.mime_type,
         size=len(procesada.contenido),
         width=procesada.width,
@@ -245,6 +249,10 @@ async def sobrescribir_contenido(
     fila.size = len(procesada.contenido)
     fila.width = procesada.width
     fila.height = procesada.height
+    # Ver el mismo comentario en `service.sobrescribir_contenido`: `onupdate`
+    # no se dispara si las 4 columnas de arriba no cambian de valor de
+    # verdad, y sin `updated_at` fresco la URL versionada queda idéntica.
+    fila.updated_at = datetime.now(UTC)
     await session.flush()
     return fila
 

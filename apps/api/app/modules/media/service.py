@@ -109,7 +109,15 @@ async def _crear_fila(
         uploaded_by_user_id=uploaded_by_user_id,
         folder_id=folder_id,
         object_key=clave,
-        filename=filename,
+        # `Media.filename` es `String(255)` — recortar aquí, no confiar en
+        # que quien llama ya lo haga: `subir_desde_url` deriva el nombre del
+        # último segmento de la URL importada (puede venir de fuera con
+        # cualquier longitud) y el multipart normal usa el nombre del
+        # fichero tal cual lo manda el navegador. Sin este recorte, Postgres
+        # rechaza el INSERT con un 500 genérico DESPUÉS de que `put_object`
+        # ya haya subido el objeto — deja un huérfano en el almacenamiento
+        # en cada intento fallido (hallazgo de code-review, reproducido).
+        filename=filename[:255],
         mime_type=procesada.mime_type,
         size=len(procesada.contenido),
         width=procesada.width,
@@ -402,6 +410,17 @@ async def sobrescribir_contenido(
     fila.size = len(procesada.contenido)
     fila.width = procesada.width
     fila.height = procesada.height
+    # `updated_at` tiene `onupdate` (TimestampMixin), pero SQLAlchemy solo lo
+    # dispara si detecta que ALGUNA columna cambió de valor de verdad — dos
+    # recortes del mismo tamaño que comprimen al mismo número de bytes (zonas
+    # de bajo detalle, recortes vecinos de la misma foto) dejan las 4 líneas
+    # de arriba sin ningún cambio real, `onupdate` no salta, y
+    # `public_url_versionada()` devuelve la URL IDÉNTICA a la de antes de
+    # sobrescribir — la caché de `/media/*` (`Cache-Control: immutable`)
+    # sigue sirviendo los píxeles viejos hasta 24h (hallazgo de code-review,
+    # reproducido). Forzarlo a mano es la única vía fiable: no depende de que
+    # el contenido procesado termine siendo distinto byte a byte.
+    fila.updated_at = datetime.now(UTC)
     await session.flush()
     return fila
 

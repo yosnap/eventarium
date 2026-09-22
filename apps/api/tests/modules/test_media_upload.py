@@ -51,6 +51,26 @@ async def test_subir_por_fichero_crea_una_fila_en_la_biblioteca(
     assert cuerpo["url"]
 
 
+async def test_subir_con_nombre_de_fichero_muy_largo_se_trunca_en_vez_de_dar_500(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """`Media.filename` es `String(255)` — un nombre más largo (el multipart
+    lo manda el navegador tal cual, o el propio recorte le añade un sufijo)
+    reventaba el INSERT con un 500 genérico DESPUÉS de que el fichero ya se
+    hubiera subido al almacenamiento (hallazgo de code-review, reproducido:
+    dejaba un objeto huérfano en cada intento)."""
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    nombre_largo = "a" * 300 + ".png"
+    respuesta = await cliente.post(
+        MEDIA,
+        headers=cabeceras,
+        data={"kind": "branding"},
+        files={"fichero": (nombre_largo, PNG, "image/png")},
+    )
+    assert respuesta.status_code == 200, respuesta.text
+    assert len(respuesta.json()["filename"]) == 255
+
+
 async def test_subir_sin_el_permiso_del_kind_da_403(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:

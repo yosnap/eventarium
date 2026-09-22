@@ -247,6 +247,38 @@ async def test_sobrescribir_contenido_no_borra_el_nombre_ni_la_carpeta(
     assert sobrescrito.json()["filename"] == "logo-recortado.png"
 
 
+async def test_sobrescribir_contenido_dos_veces_con_los_mismos_bytes_cambia_igualmente_el_v(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """Regresión: `onupdate` (TimestampMixin) solo se dispara si SQLAlchemy
+    detecta que alguna columna cambió de valor de verdad. Sobrescribir dos
+    veces con bytes IDÉNTICOS dejaba `mime_type`/`size`/`width`/`height`
+    exactamente iguales a los ya guardados en la segunda vez, así que
+    `updated_at` no cambiaba y el `?v=` de la URL tampoco — la caché de
+    `/media/*` (`Cache-Control: immutable`) seguía sirviendo los píxeles
+    viejos. `fila.updated_at` ahora se fija a mano, así que el `?v=` debe
+    cambiar SIEMPRE, con o sin cambio real en las otras columnas."""
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    subido = await _subir(cliente, cabeceras, "branding")
+
+    contenido = _png_mas_grande()
+    primera = await cliente.put(
+        f"{MEDIA}/{subido['id']}/contenido",
+        headers=cabeceras,
+        files={"fichero": ("recorte.png", contenido, "image/png")},
+    )
+    assert primera.status_code == 200, primera.text
+
+    segunda = await cliente.put(
+        f"{MEDIA}/{subido['id']}/contenido",
+        headers=cabeceras,
+        files={"fichero": ("recorte.png", contenido, "image/png")},
+    )
+    assert segunda.status_code == 200, segunda.text
+    assert primera.json()["size"] == segunda.json()["size"]
+    assert primera.json()["url"] != segunda.json()["url"]
+
+
 async def test_sobrescribir_contenido_exige_permiso_o_propiedad(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:

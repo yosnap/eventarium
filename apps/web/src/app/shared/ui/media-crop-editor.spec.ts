@@ -131,6 +131,32 @@ describe('MediaCropEditor', () => {
     expect(emitido?.sobrescribir).toBe(false);
   });
 
+  it('el spinner sigue visible mientras el padre reporta confirmando=true tras el emit síncrono', async () => {
+    await avanzar(fixture);
+    await esperarCarga(fixture);
+    const raiz = fixture.nativeElement as HTMLElement;
+    mockearCajaDeLaImagen(raiz);
+
+    const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
+    lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
+    lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }));
+    fixture.detectChanges();
+
+    botonPorTexto(raiz, 'Guardar como nueva').click();
+    await avanzar(fixture);
+
+    // `confirmado.emit()` ya ha vuelto (síncrono) y `generando()` ya es
+    // `false` — pero la subida real en el padre sigue en curso, reflejada
+    // aquí como el input `confirmando`. El botón debe seguir mostrando el
+    // spinner (aria-busy), no solo quedar deshabilitado en silencio.
+    fixture.componentRef.setInput('confirmando', true);
+    await avanzar(fixture);
+
+    const boton = botonPorTexto(raiz, 'Guardar como nueva');
+    expect(boton.disabled).toBe(true);
+    expect(boton.getAttribute('aria-busy')).toBe('true');
+  });
+
   it('"Sobrescribir original" emite sobrescribir:true', async () => {
     await avanzar(fixture);
     await esperarCarga(fixture);

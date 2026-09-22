@@ -779,8 +779,17 @@ export class MediaCropEditor {
       }
       this.confirmado.emit({ blob, sobrescribir: modo === 'sobrescribir' });
     } finally {
+      // `modoEnCurso` NO se limpia aquí a propósito. `confirmado.emit()` es
+      // síncrono — el `finally` corre en cuanto vuelve, mucho antes de que
+      // termine la subida real (asíncrona, en el padre). Si limpiara
+      // `modoEnCurso` ahora, `[loading]="... && modoEnCurso() === 'nueva'"`
+      // dejaría de coincidir justo cuando el padre pone `confirmando()` a
+      // `true`, y el spinner desaparecería mientras la petición sigue en
+      // vuelo (hallazgo de code-review, regresión frente al binding
+      // anterior). Se queda con el último modo usado hasta el próximo
+      // click; en cuanto `generando()` Y `confirmando()` son `false` a la
+      // vez, la expresión del binding ya da `false` sin ayuda de esto.
       this.generando.set(false);
-      this.modoEnCurso.set(null);
     }
   }
 
