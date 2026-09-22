@@ -216,6 +216,49 @@ export class AdminShell {
         this.botonNavegacion()?.nativeElement.focus();
       }
     });
+
+    // `authGuard` solo comprueba la sesión AL ENTRAR — si el token se queda a
+    // `null` mientras la persona ya está dentro del panel (el refresh de
+    // `authInterceptor` agotó su único reintento: cookie de refresco
+    // caducada, sesión cerrada en otra pestaña…), nada volvía a comprobarlo:
+    // cada petición seguía saliendo sin cabecera y la pantalla se quedaba
+    // mostrando el error crudo del backend indefinidamente (hallazgo del
+    // usuario, en un polling de OCR de justificantes que llevaba minutos
+    // reintentando sin avisar). El shell envuelve TODO el panel, así que es
+    // el único sitio que ve la sesión morir sin importar en qué página
+    // estuviera — mismo destino y mismo `redirigir` que usa `authGuard` al
+    // entrar, para volver exactamente a donde estaba tras loguearse de nuevo.
+    //
+    // Es el ÚNICO sitio que navega a `/acceder` cuando la sesión muere —
+    // `cerrarSesion()` ya no llama a `router.navigate()` por su cuenta (ver
+    // más abajo). Antes lo hacían los dos: `cerrarSesion()` navegaba sin
+    // `redirigir`, y este efecto, al ver `isAuthenticated()` a `false`
+    // (`logout()` también limpia el token), lanzaba una SEGUNDA navegación
+    // con `redirigir` detrás — `router.url` todavía no reflejaba la
+    // navegación de `cerrarSesion()` en curso (no se actualiza hasta que
+    // resuelve, y de camino pasa por `guestGuard`, que es asíncrono), así
+    // que la comprobación `!router.url.startsWith('/acceder')` no la
+    // detectaba a tiempo: la segunda navegación ganaba la carrera y la
+    // sesión siguiente aterrizaba de vuelta en el panel en vez del login
+    // limpio (hallazgo de code-review, reproducido). Con un único punto de
+    // navegación la carrera desaparece por construcción, no por temporización.
+    //
+    // El motivo del cierre (`cierreFueDeliberado`) lo lleva `AuthService`,
+    // no una bandera local puesta antes de `await auth.logout()`: si la
+    // sesión muriera por otra vía (refresh fallido) mientras ese `await`
+    // sigue en vuelo, una bandera local la consumiría la transición
+    // equivocada y perdería el `redirigir`. `clear()` conoce el motivo en
+    // el momento exacto en que ocurre.
+    effect(() => {
+      if (this.auth.isAuthenticated()) {
+        return;
+      }
+      if (this.auth.cierreFueDeliberado()) {
+        void this.router.navigate(['/acceder']);
+      } else {
+        void this.router.navigate(['/acceder'], { queryParams: { redirigir: this.router.url } });
+      }
+    });
   }
 
   private async cargarOrganizaciones(): Promise<void> {
@@ -238,6 +281,5 @@ export class AdminShell {
 
   protected async cerrarSesion(): Promise<void> {
     await this.auth.logout();
-    await this.router.navigate(['/acceder']);
   }
 }

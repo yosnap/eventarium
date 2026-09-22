@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
+import { ApiError } from '../api/error.interceptor';
 import { ApiService } from '../api/api.service';
 
 export interface UsuarioAutenticado {
@@ -108,6 +109,26 @@ export class AuthService {
   private readonly token = signal<string | null>(null);
   private readonly usuario = signal<UsuarioAutenticado | null>(null);
   /**
+   * Se incrementa cada vez que `clear()` cierra la sesión (logout, o un
+   * refresh que confirma que ya no hay nada que renovar). `refresh()` y
+   * `switchOrganization()` capturan su valor antes de esperar la respuesta
+   * del servidor: si cambió mientras esperaban (p. ej. la persona pulsó
+   * «Cerrar sesión» y esa petición resolvió antes), el token que traen ya
+   * no es aplicable y no debe resucitar una sesión que se cerró a
+   * propósito.
+   */
+  private generacionSesion = 0;
+  /**
+   * Si el último `clear()` vino de un `logout()` a propósito, o de la sesión
+   * muriendo sola (refresh que confirma que ya no hay nada que renovar).
+   * Vive aquí y no como bandera del shell porque es `clear()` quien conoce
+   * de verdad el motivo en el momento en que ocurre — una bandera puesta
+   * antes de `await this.auth.logout()` puede quedar consumida por una
+   * transición de `isAuthenticated()` distinta si la sesión muere por otra
+   * vía mientras esa petición sigue en vuelo.
+   */
+  private readonly ultimoCierreDeliberado = signal(false);
+  /**
    * Access token **sin organización**, emitido al verificar el correo (fase 2). Vive
    * aparte del token de sesión normal a propósito: si compartiera `token`,
    * `isAuthenticated()` daría `true` para alguien que todavía no pertenece a ninguna
@@ -135,6 +156,9 @@ export class AuthService {
   readonly currentUser = this.usuario.asReadonly();
   readonly isAuthenticated = computed(() => this.token() !== null);
   readonly bridgeToken = this.bridge.asReadonly();
+  /** Si el cierre de sesión que hizo caer `isAuthenticated()` a `false` fue
+   * a propósito (`logout()`) o la sesión muriendo sola. */
+  readonly cierreFueDeliberado = this.ultimoCierreDeliberado.asReadonly();
   /** Datos de la suplantación en curso, o `null` si no la hay. */
   readonly suplantando = this.impersonacion.asReadonly();
 
@@ -175,16 +199,41 @@ export class AuthService {
 
   /** Renueva el access token con la cookie. Devuelve `false` si ya no hay sesión. */
   async refresh(): Promise<boolean> {
+    const generacionAlEmpezar = this.generacionSesion;
     try {
       const respuesta = await firstValueFrom(
         this.http.post<RespuestaRefresh>(this.api.url('/auth/refresh'), null, {
           withCredentials: true,
         }),
       );
+      // La sesión pudo cerrarse (logout, u otro refresh que sí falló) mientras
+      // esta petición estaba en vuelo. Aplicar ahora este token resucitaría
+      // una sesión que se cerró a propósito.
+      if (this.generacionSesion !== generacionAlEmpezar) {
+        return false;
+      }
       this.token.set(respuesta.access_token);
       return true;
-    } catch {
-      this.clear();
+    } catch (error) {
+      // Solo se limpia la sesión cuando el SERVIDOR ha dicho de verdad que
+      // ya no hay nada que renovar (401/403 — cookie de refresco caducada o
+      // revocada). Un fallo de red, un 5xx durante un despliegue o un
+      // timeout no significan "sesión muerta", significan "no se ha podido
+      // comprobar" — limpiarla en esos casos expulsaría del panel a mitad
+      // de un formulario sin guardar por un problema pasajero (hallazgo de
+      // code-review). El resto de este método ya se comporta bien sin
+      // limpiar: se queda con el token viejo, que seguirá fallando hasta
+      // que un refresh posterior (transitorio ya resuelto, o el usuario
+      // reintentando) tenga éxito.
+      //
+      // El error que llega aquí ya pasó por `errorInterceptor`, que lo
+      // convierte siempre en `ApiError` antes de que este `catch` lo vea
+      // (`errorInterceptor` está registrado antes que `authInterceptor` en
+      // `app.config.ts`, así que es el último en tocar la respuesta). Un
+      // `HttpErrorResponse` aquí nunca llegaría a cumplirse.
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        this.clear();
+      }
       return false;
     }
   }
@@ -400,6 +449,7 @@ export class AuthService {
    * enlace a `https://{host}/dashboard`.
    */
   async switchOrganization(organizationId: string): Promise<void> {
+    const generacionAlEmpezar = this.generacionSesion;
     const respuesta = await firstValueFrom(
       this.http.post<RespuestaRefresh>(
         this.api.url('/auth/switch-organization'),
@@ -407,6 +457,9 @@ export class AuthService {
         { withCredentials: true },
       ),
     );
+    if (this.generacionSesion !== generacionAlEmpezar) {
+      return;
+    }
     this.token.set(respuesta.access_token);
   }
 
@@ -416,7 +469,7 @@ export class AuthService {
         this.http.post(this.api.url('/auth/logout'), null, { withCredentials: true }),
       );
     } finally {
-      this.clear();
+      this.clear(true);
     }
   }
 
@@ -469,7 +522,10 @@ export class AuthService {
     }
   }
 
-  clear(): void {
+  /** @param deliberado si el cierre viene de `logout()` (a propósito) o de una sesión que muere sola. */
+  clear(deliberado = false): void {
+    this.generacionSesion++;
+    this.ultimoCierreDeliberado.set(deliberado);
     this.token.set(null);
     this.usuario.set(null);
     this.bridge.set(null);

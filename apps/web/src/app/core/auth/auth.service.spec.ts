@@ -1,9 +1,11 @@
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { authInterceptor } from '../api/auth.interceptor';
+import { errorInterceptor } from '../api/error.interceptor';
 import { AuthService } from './auth.service';
 
 const IMPERSONATE = '/api/v1/admin/impersonate';
@@ -109,6 +111,95 @@ describe('AuthService: impersonación', () => {
     await cierre;
 
     expect(servicio.suplantando()).toBeNull();
+    expect(servicio.accessToken()).toBeNull();
+  });
+});
+
+describe('AuthService: refresh()', () => {
+  let servicio: AuthService;
+  let http: HttpTestingController;
+
+  // Con la cadena real de interceptores: `errorInterceptor` va antes que
+  // `authInterceptor` en `app.config.ts`, así que es el último en tocar la
+  // respuesta y convierte cualquier error en `ApiError` antes de que
+  // `refresh()` lo reciba. Con solo `provideHttpClient()` (sin
+  // interceptores) el test no habría detectado que el `catch` de
+  // `refresh()` comprobaba el tipo equivocado (`HttpErrorResponse` en vez
+  // de `ApiError`), que era exactamente el bug: el `if` nunca se cumplía y
+  // la sesión no se limpiaba nunca.
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        provideHttpClient(withInterceptors([errorInterceptor, authInterceptor])),
+        provideHttpClientTesting(),
+      ],
+    });
+    servicio = TestBed.inject(AuthService);
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  async function iniciarSesion(): Promise<void> {
+    const login = servicio.login('admin@ejemplo.test', 'secreta');
+    http.expectOne('/api/v1/auth/login').flush({ access_token: 'token-viejo', user: USUARIO });
+    await login;
+  }
+
+  it('un 401/403 del propio /auth/refresh limpia la sesión (cookie de refresco caducada o revocada)', async () => {
+    await iniciarSesion();
+
+    const renovar = servicio.refresh();
+    http
+      .expectOne('/api/v1/auth/refresh')
+      .flush({ detail: 'Refresh token inválido.' }, { status: 401, statusText: 'Unauthorized' });
+    const ok = await renovar;
+
+    expect(ok).toBe(false);
+    expect(servicio.isAuthenticated()).toBe(false);
+    expect(servicio.accessToken()).toBeNull();
+  });
+
+  it('un fallo de red (no un rechazo del servidor) NO limpia la sesión — es transitorio, no "sesión muerta"', async () => {
+    await iniciarSesion();
+
+    const renovar = servicio.refresh();
+    // `status: 0` es como Angular reporta que la petición ni siquiera llegó
+    // (red caída, CORS, servidor caído a mitad de despliegue) — a
+    // diferencia de un 401/403, el servidor no ha dicho nada sobre la
+    // sesión.
+    http.expectOne('/api/v1/auth/refresh').error(new ProgressEvent('error'), { status: 0 });
+    const ok = await renovar;
+
+    expect(ok).toBe(false);
+    // El token viejo se queda tal cual — limpiarlo aquí expulsaría del
+    // panel (y tiraría cualquier formulario a medias) por un problema de
+    // red pasajero, no por una sesión realmente caducada.
+    expect(servicio.isAuthenticated()).toBe(true);
+    expect(servicio.accessToken()).toBe('token-viejo');
+  });
+
+  it('un logout() que resuelve mientras un refresh() sigue en vuelo no resucita la sesión', async () => {
+    await iniciarSesion();
+
+    // Un 401 en otra petición dispara el refresh (vía authInterceptor); antes
+    // de que el servidor responda, la persona pulsa «Cerrar sesión».
+    const renovar = servicio.refresh();
+    const peticionRefresh = http.expectOne('/api/v1/auth/refresh');
+
+    const cierre = servicio.logout();
+    http.expectOne('/api/v1/auth/logout').flush(null);
+    await cierre;
+
+    expect(servicio.isAuthenticated()).toBe(false);
+
+    // El refresh, en vuelo desde antes del logout, responde con éxito
+    // *después* de que la sesión ya se haya cerrado a propósito.
+    peticionRefresh.flush({ access_token: 'token-resucitado', expires_in: 900 });
+    const ok = await renovar;
+
+    // No debe aplicar el token nuevo: resucitaría una sesión ya cerrada.
+    expect(ok).toBe(false);
+    expect(servicio.isAuthenticated()).toBe(false);
     expect(servicio.accessToken()).toBeNull();
   });
 });
