@@ -264,10 +264,16 @@ describe('shells', () => {
     });
 
     it('el menú de cuenta ofrece "Mi cuenta" y "Cerrar sesión"', async () => {
-      const logout = vi.fn().mockResolvedValue(undefined);
-      TestBed.overrideProvider(AuthService, {
-        useValue: { ...configurarAuth(false), logout },
+      // `logout` limpia `isAuthenticated` como hace el servicio real
+      // (`AuthService.clear()` en su `finally`): el efecto de sesión
+      // caducada del shell es quien navega, no `cerrarSesion()`
+      // directamente, así que el doble tiene que reflejar ese efecto
+      // secundario para que el efecto llegue a dispararse.
+      const auth = configurarAuth(false);
+      const logout = vi.fn().mockImplementation(async () => {
+        auth.isAuthenticated.set(false);
       });
+      TestBed.overrideProvider(AuthService, { useValue: { ...auth, logout } });
       url.set('/dashboard');
       const fixture = TestBed.createComponent(AdminShell);
       await fixture.whenStable();
@@ -294,7 +300,31 @@ describe('shells', () => {
       await fixture.whenStable();
 
       expect(logout).toHaveBeenCalled();
+      // Sin `redirigir`: un cierre de sesión deliberado no debe devolver al
+      // panel al loguearse de nuevo.
       expect(navegar).toHaveBeenCalledWith(['/acceder']);
+    });
+
+    it('la sesión que muere en caliente (sin cerrar sesión a propósito) devuelve a /acceder con redirigir', async () => {
+      const auth = configurarAuth(false);
+      TestBed.overrideProvider(AuthService, { useValue: auth });
+      url.set('/dashboard');
+      const fixture = TestBed.createComponent(AdminShell);
+      await fixture.whenStable();
+      const router = TestBed.inject(Router);
+      const navegar = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+
+      // Simula lo que hace `authInterceptor` cuando su único reintento de
+      // refresh agota (cookie de refresco caducada, sesión cerrada en otra
+      // pestaña…): el token cae a `null` sin que nadie haya pasado por
+      // `cerrarSesion()`. `router.url` real (no la señal local `url` de
+      // este describe, que solo alimenta el doble de `PanelScope`) es `/`
+      // en este arnés — no navega de verdad a `/dashboard`, así que lo que
+      // importa comprobar es que SÍ lleva `redirigir`, no el valor exacto.
+      auth.isAuthenticated.set(false);
+      await fixture.whenStable();
+
+      expect(navegar).toHaveBeenCalledWith(['/acceder'], { queryParams: { redirigir: router.url } });
     });
 
     it('la cabecera del panel de organización muestra su nombre, no el de la instalación', async () => {

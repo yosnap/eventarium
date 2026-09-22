@@ -193,6 +193,12 @@ export class AdminShell {
   private readonly panelNavegacion = viewChild<ElementRef<HTMLElement>>('panelNavegacion');
   private readonly botonNavegacion = viewChild<ElementRef<HTMLButtonElement>>('botonNavegacion');
   private seAbrioAlgunaVez = false;
+  /** Marcado por `cerrarSesion()` justo antes de llamar a `auth.logout()`,
+   * para que el `effect()` de sesión caducada (que también dispara con un
+   * cierre deliberado, ya que ambos dejan `isAuthenticated()` a `false`)
+   * sepa que no debe añadir `redirigir` — un cierre de sesión a propósito
+   * no debe devolver al panel al loguearse de nuevo. */
+  private cierreDeliberado = false;
 
   constructor() {
     void this.cargarOrganizaciones();
@@ -228,17 +234,30 @@ export class AdminShell {
     // el único sitio que ve la sesión morir sin importar en qué página
     // estuviera — mismo destino y mismo `redirigir` que usa `authGuard` al
     // entrar, para volver exactamente a donde estaba tras loguearse de nuevo.
+    //
+    // Es el ÚNICO sitio que navega a `/acceder` cuando la sesión muere —
+    // `cerrarSesion()` ya no llama a `router.navigate()` por su cuenta (ver
+    // más abajo). Antes lo hacían los dos: `cerrarSesion()` navegaba sin
+    // `redirigir`, y este efecto, al ver `isAuthenticated()` a `false`
+    // (`logout()` también limpia el token), lanzaba una SEGUNDA navegación
+    // con `redirigir` detrás — `router.url` todavía no reflejaba la
+    // navegación de `cerrarSesion()` en curso (no se actualiza hasta que
+    // resuelve, y de camino pasa por `guestGuard`, que es asíncrono), así
+    // que la comprobación `!router.url.startsWith('/acceder')` no la
+    // detectaba a tiempo: la segunda navegación ganaba la carrera y la
+    // sesión siguiente aterrizaba de vuelta en el panel en vez del login
+    // limpio (hallazgo de code-review, reproducido). Con un único punto de
+    // navegación la carrera desaparece por construcción, no por temporización.
     effect(() => {
-      // `cerrarSesion()` también deja `isAuthenticated()` a `false` y ya
-      // navega a `/acceder` por su cuenta (sin `redirigir`, a propósito: un
-      // cierre de sesión deliberado no debe devolver al panel al loguearse
-      // de nuevo) — sin esta comprobación, este efecto lanzaría una segunda
-      // navegación detrás añadiendo el `redirigir` que el logout explícito
-      // decidió no llevar.
-      if (!this.auth.isAuthenticated() && !this.router.url.startsWith('/acceder')) {
-        void this.router.navigate(['/acceder'], {
-          queryParams: { redirigir: this.router.url },
-        });
+      if (this.auth.isAuthenticated()) {
+        return;
+      }
+      const deliberado = this.cierreDeliberado;
+      this.cierreDeliberado = false;
+      if (deliberado) {
+        void this.router.navigate(['/acceder']);
+      } else {
+        void this.router.navigate(['/acceder'], { queryParams: { redirigir: this.router.url } });
       }
     });
   }
@@ -262,7 +281,11 @@ export class AdminShell {
   }
 
   protected async cerrarSesion(): Promise<void> {
+    // Marcado ANTES de `logout()`, no después: `logout()` limpia el token
+    // de forma síncrona en su `finally`, así que el efecto de sesión
+    // caducada puede disparar en cuanto esa llamada resuelve — la bandera
+    // tiene que estar ya puesta para entonces.
+    this.cierreDeliberado = true;
     await this.auth.logout();
-    await this.router.navigate(['/acceder']);
   }
 }

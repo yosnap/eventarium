@@ -113,6 +113,62 @@ describe('AuthService: impersonación', () => {
   });
 });
 
+describe('AuthService: refresh()', () => {
+  let servicio: AuthService;
+  let http: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
+    });
+    servicio = TestBed.inject(AuthService);
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  async function iniciarSesion(): Promise<void> {
+    const login = servicio.login('admin@ejemplo.test', 'secreta');
+    http.expectOne('/api/v1/auth/login').flush({ access_token: 'token-viejo', user: USUARIO });
+    await login;
+  }
+
+  it('un 401/403 del propio /auth/refresh limpia la sesión (cookie de refresco caducada o revocada)', async () => {
+    await iniciarSesion();
+
+    const renovar = servicio.refresh();
+    http
+      .expectOne('/api/v1/auth/refresh')
+      .flush({ detail: 'Refresh token inválido.' }, { status: 401, statusText: 'Unauthorized' });
+    const ok = await renovar;
+
+    expect(ok).toBe(false);
+    expect(servicio.isAuthenticated()).toBe(false);
+    expect(servicio.accessToken()).toBeNull();
+  });
+
+  it('un fallo de red (no un rechazo del servidor) NO limpia la sesión — es transitorio, no "sesión muerta"', async () => {
+    await iniciarSesion();
+
+    const renovar = servicio.refresh();
+    // `status: 0` es como Angular reporta que la petición ni siquiera llegó
+    // (red caída, CORS, servidor caído a mitad de despliegue) — a
+    // diferencia de un 401/403, el servidor no ha dicho nada sobre la
+    // sesión.
+    http.expectOne('/api/v1/auth/refresh').error(new ProgressEvent('error'), { status: 0 });
+    const ok = await renovar;
+
+    expect(ok).toBe(false);
+    // El token viejo se queda tal cual — limpiarlo aquí expulsaría del
+    // panel (y tiraría cualquier formulario a medias) por un problema de
+    // red pasajero, no por una sesión realmente caducada.
+    expect(servicio.isAuthenticated()).toBe(true);
+    expect(servicio.accessToken()).toBe('token-viejo');
+  });
+});
+
 describe('AuthService: organización sin dominio', () => {
   let servicio: AuthService;
   let http: HttpTestingController;

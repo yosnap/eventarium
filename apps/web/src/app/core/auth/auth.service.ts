@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
@@ -183,8 +183,20 @@ export class AuthService {
       );
       this.token.set(respuesta.access_token);
       return true;
-    } catch {
-      this.clear();
+    } catch (error) {
+      // Solo se limpia la sesión cuando el SERVIDOR ha dicho de verdad que
+      // ya no hay nada que renovar (401/403 — cookie de refresco caducada o
+      // revocada). Un fallo de red, un 5xx durante un despliegue o un
+      // timeout no significan "sesión muerta", significan "no se ha podido
+      // comprobar" — limpiarla en esos casos expulsaría del panel a mitad
+      // de un formulario sin guardar por un problema pasajero (hallazgo de
+      // code-review). El resto de este método ya se comporta bien sin
+      // limpiar: se queda con el token viejo, que seguirá fallando hasta
+      // que un refresh posterior (transitorio ya resuelto, o el usuario
+      // reintentando) tenga éxito.
+      if (error instanceof HttpErrorResponse && (error.status === 401 || error.status === 403)) {
+        this.clear();
+      }
       return false;
     }
   }
