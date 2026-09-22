@@ -272,6 +272,7 @@ describe('EventPage — plantilla propia del evento', () => {
   afterEach(() => {
     http.verify();
     document.getElementById('tema-evento')?.remove();
+    document.body.removeAttribute('data-ambito');
   });
 
   async function montarCon(tema: Record<string, unknown> | null) {
@@ -316,5 +317,24 @@ describe('EventPage — plantilla propia del evento', () => {
     expect(hoja).not.toBeNull();
     expect(hoja?.textContent).toContain('[data-ambito="evento"]');
     expect(hoja?.textContent).toContain('--bg');
+    // Aplicación total (decisión del usuario, 2026-09-21): también <body>,
+    // no solo el contenedor de la ficha — así el fondo de página y el
+    // header/nav (que heredan vía `var()`) reflejan la plantilla del evento.
+    expect(document.body.getAttribute('data-ambito')).toBe('evento');
+  });
+
+  it('al destruirse, limpia el ámbito de <body> para no dejarlo pegado en el resto del sitio', async () => {
+    const fixture = await montarCon({
+      id: 't1',
+      key: 'quantum',
+      name: 'Quantum',
+      tokens: { dark: { bg: 'oklch(20% 0.02 260)' }, light: { bg: 'oklch(98% 0 0)' } },
+    });
+    expect(document.body.getAttribute('data-ambito')).toBe('evento');
+
+    fixture.destroy();
+
+    expect(document.body.hasAttribute('data-ambito')).toBe(false);
+    expect(document.getElementById('tema-evento')).toBeNull();
   });
 });

@@ -145,11 +145,18 @@ export function applyTokensDePlataforma(
 /**
  * Aplica la plantilla propia de un **evento**, si la eligió.
  *
- * No se aplica al documento entero: el chrome es de plataforma, y un evento
- * solo impone su marca en su propia página pública. Sin plantilla no se
- * inyecta nada, y eso es deliberado: el ámbito del evento deja de emitir
+ * Se aplica a `<body>` entero (decisión del usuario, 2026-09-21: "la
+ * plantilla tiene que aplicarse en su totalidad" — antes solo llegaba al
+ * contenedor `<article>` de la ficha, dejando el fondo de página y el
+ * header/nav con el color de plataforma). Sin plantilla no se marca nada,
+ * y eso sigue siendo deliberado: el ámbito del evento deja de emitir
  * reglas y la cascada devuelve el tema de la plataforma, que es exactamente
  * lo que significa «heredar».
+ *
+ * Quien llama a esta función con una plantilla activa **tiene que** limpiar
+ * el ámbito en `ngOnDestroy` (llamando de nuevo con `null`) al salir de la
+ * página del evento: `<body>` sobrevive a la navegación SPA, así que un
+ * ámbito sin limpiar se quedaría pegado en el resto del sitio.
  */
 export function applyTokensDeEvento(
   evento: { theme: PlantillaDeTema | null } | null,
@@ -157,4 +164,9 @@ export function applyTokensDeEvento(
 ): void {
   const bloque = brandingToStyleBlock(evento?.theme ?? null, SELECTOR_AMBITO_EVENTO);
   _inyectar(documento, ID_ESTILO_EVENTO, bloque);
+  if (evento?.theme) {
+    documento.body.setAttribute('data-ambito', 'evento');
+  } else {
+    documento.body.removeAttribute('data-ambito');
+  }
 }

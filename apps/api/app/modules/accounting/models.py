@@ -197,6 +197,12 @@ class AccountingExpenseDraft(Base, TimestampMixin):
     FK compuesta — `AccountingExpense.draft_id` es la dirección real del
     enlace (evita una FK circular entre ambas tablas) y la escribe el
     servicio de confirmación de la fase 4 de trabajo.
+
+    El motor de extracción es el modelo de visión que resuelva la pasarela de
+    IA (`ai_gateway.completar` con `use_case="accounting_ocr"`), no un OCR
+    determinista: `field_confidence` es por tanto una confianza
+    **auto-reportada por el modelo**, que el servicio normaliza a tres niveles
+    cerrados (`alta`/`media`/`baja`) antes de exponerla, nunca un porcentaje.
     """
 
     __tablename__ = "accounting_expense_drafts"
@@ -211,8 +217,8 @@ class AccountingExpenseDraft(Base, TimestampMixin):
             "id", "organization_id", name="uq_accounting_expense_drafts_id_organization_id"
         ),
         CheckConstraint(
-            "status IN ('pending_extraction', 'pending_review', 'extraction_failed', "
-            "'confirmed', 'discarded')",
+            "status IN ('pending_extraction', 'en_extraccion', 'pending_review', "
+            "'extraction_failed', 'confirmed', 'discarded')",
             name="ck_accounting_expense_drafts_status",
         ),
     )
@@ -221,7 +227,26 @@ class AccountingExpenseDraft(Base, TimestampMixin):
     event_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False, index=True)
     organization_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
     receipt_object_key: Mapped[str] = mapped_column(String(500), nullable=False)
+    #: Imagen que se envió al motor de visión, junto al original y en el mismo
+    #: prefijo privado. La pantalla de revisión previsualiza exactamente lo que
+    #: se envió sin volver a rasterizar; el original se conserva para
+    #: descargarlo tal cual. `NULL` hasta que la extracción llega a enviarla.
+    rasterized_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    #: Con qué se extrajo este borrador. Al crearlo se escribe el centinela
+    #: `"ai_gateway"`: el modelo efectivo todavía no se conoce, lo resuelve
+    #: `resolver_config_efectiva` dentro de `ai_gateway.completar` en el
+    #: momento de la llamada. Al liquidar una extracción con éxito se
+    #: sobrescribe con el `"{provider}/{model}"` efectivo que devuelve la
+    #: pasarela. Así la columna sigue respondiendo «con qué se extrajo esto»
+    #: sin mentir mientras el borrador está en `pending_extraction`.
     ocr_provider: Mapped[str] = mapped_column(String(60), nullable=False)
+    #: Por qué falló la última extracción, dentro de la taxonomía cerrada de
+    #: `ai_gateway/errores.py` (`CODIGOS_DE_ERROR`). Sin `CHECK` en BD a
+    #: propósito: duplicar la taxonomía en una constraint acoplaría los dos
+    #: módulos por esquema. Lo valida el servicio, que importa esa taxonomía.
+    #: Es lo que separa `limite_superado` —recuperable solo por acción
+    #: explícita— de un fallo transitorio del proveedor.
+    error_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
     # Límite de tamaño aplicado en el servicio (fase 4 de trabajo), no aquí:
     # es el resultado crudo del proveedor de OCR, tratado como entrada no
     # confiable (plan.md Decisión #13).

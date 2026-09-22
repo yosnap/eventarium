@@ -116,6 +116,15 @@ class EventRegistration(Base, TimestampMixin):
         # estadísticas de la fase 3 de trabajo (`COUNT(*) ... WHERE event_id = ?
         # AND status = ?`).
         Index("ix_event_registrations_event_id_status", "event_id", "status"),
+        # Plan «mis-eventos-asistente» (migración 0052): `email` en solitario,
+        # sin `event_id` delante — a diferencia del índice de arriba, este lo
+        # usan `app_has_registration_by_email`/`app_list_registrations_by_email`
+        # (SECURITY DEFINER), que cruzan **todas** las organizaciones por
+        # email, no un evento concreto. Sin él, cada petición a
+        # `/public/mis-eventos/*` fuerza un seq scan completo de la tabla
+        # (hallazgo de red-team, Fase 3: Medium, coste creciente con el
+        # tamaño total de la tabla, no con el de un evento).
+        Index("ix_event_registrations_email", "email"),
         # Sin `ondelete`: RESTRICT por defecto, mismo criterio que
         # `event_payments.ticket_type_id`/`discount_code_id`.
         ForeignKeyConstraint(

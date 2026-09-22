@@ -17,12 +17,11 @@ from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import registrar_auditoria
-from app.core.deps import CurrentUser, get_maintenance_db, require_superadmin
+from app.core.deps import SCOPE_SESION, CurrentUser, get_maintenance_db, require_superadmin
 from app.core.storage import build_platform_object_key, get_storage, validate_upload
 from app.modules.media import platform_service as platform_media_service
 from app.modules.media.models import PlatformMedia, PlatformMediaFolder
 from app.modules.media.schemas import (
-    MediaCropRequest,
     MediaFolderResponse,
     MediaResponse,
     MediaUpdateRequest,
@@ -43,7 +42,7 @@ from app.shared.pagination import Page, PageParams, page_params
 
 router = APIRouter(prefix="/admin", tags=["administración"])
 
-MaintenanceDb = Annotated[AsyncSession, Depends(get_maintenance_db)]
+MaintenanceDb = Annotated[AsyncSession, Depends(get_maintenance_db, scope=SCOPE_SESION)]
 Superadmin = Annotated[CurrentUser, Depends(require_superadmin)]
 
 
@@ -343,26 +342,6 @@ async def restore_platform_media(
     media_id: str, superadmin: Superadmin, session: MaintenanceDb
 ) -> MediaResponse:
     fila = await platform_media_service.restaurar(session, media_id=uuid.UUID(media_id))
-    return _platform_media_response(fila)
-
-
-@router.patch(
-    "/platform/media/{media_id}/crop",
-    summary="Recortar (crea una imagen nueva)",
-    response_model=MediaResponse,
-)
-async def crop_platform_media(
-    media_id: str, cuerpo: MediaCropRequest, superadmin: Superadmin, session: MaintenanceDb
-) -> MediaResponse:
-    fila = await platform_media_service.recortar(
-        session,
-        media_id=uuid.UUID(media_id),
-        uploaded_by_user_id=superadmin.id,
-        x=cuerpo.x,
-        y=cuerpo.y,
-        width=cuerpo.width,
-        height=cuerpo.height,
-    )
     return _platform_media_response(fila)
 
 

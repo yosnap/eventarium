@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
+  type OnDestroy,
   type OnInit,
   PendingTasks,
   TransferState,
@@ -581,7 +582,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
     }
   `,
 })
-export class EventPage implements OnInit {
+export class EventPage implements OnInit, OnDestroy {
   readonly slug = input.required<string>();
 
   private readonly http = inject(HttpClient);
@@ -730,6 +731,14 @@ export class EventPage implements OnInit {
 
   ngOnInit(): void {
     void this.tareasPendientes.run(() => this.cargar());
+  }
+
+  /** `applyTokensDeEvento` marca `<body>` entero cuando el evento tiene
+   * plantilla propia (aplicación total, no solo su ficha) — `<body>`
+   * sobrevive a la navegación SPA, así que hay que limpiar el ámbito al
+   * salir de esta página o se quedaría pegado en el resto del sitio. */
+  ngOnDestroy(): void {
+    applyTokensDeEvento(null, this.documento);
   }
 
   private async cargar(): Promise<void> {

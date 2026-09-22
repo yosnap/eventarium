@@ -557,12 +557,16 @@ async def test_reserved_count_incluye_pending_payment_dentro_de_ventana(
     await _publicar(cliente, cabeceras, evento["id"])
     event_id = uuid.UUID(evento["id"])
 
+    # No usa la constante `AHORA` (congelada al importar el módulo): la suite
+    # completa tarda más de 10 minutos, y un margen fijo desde la importación
+    # puede quedar ya caducado frente al `func.now()` de la base de datos
+    # cuando este test se ejecuta tarde en la colección.
     await _crear_inscripcion(
         organizacion.id,
         event_id,
         "comprando@example.com",
         status="pending_payment",
-        payment_expires_at=AHORA + timedelta(minutes=10),
+        payment_expires_at=datetime.now(UTC) + timedelta(minutes=10),
     )
 
     conteos = await _contar_reservadas(organizacion.id)

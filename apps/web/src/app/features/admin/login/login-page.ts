@@ -48,6 +48,10 @@ import { Input } from '../../../shared/ui/input';
           <p>
             <a routerLink="/recuperar-contrasena">{{ t('admin.login.olvidasteContrasena') }}</a>
           </p>
+          <p>
+            {{ t('admin.login.sinCuenta') }}
+            <a routerLink="/registro">{{ t('admin.login.registrate') }}</a>
+          </p>
         </app-card>
       </app-auth-frame>
     </ng-container>

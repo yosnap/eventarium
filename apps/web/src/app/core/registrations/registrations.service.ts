@@ -43,6 +43,14 @@ export interface MyTicketInfo {
   readonly has_qr: boolean;
 }
 
+export interface MyRegistrationItem {
+  readonly event_slug: string;
+  readonly event_title: string;
+  readonly starts_at: string;
+  readonly organization_name: string;
+  readonly status: string;
+}
+
 /**
  * Formulario público de inscripción a un evento (fase 3 del PRD).
  *
@@ -117,5 +125,42 @@ export class RegistrationsService {
   /** URL de la imagen PNG del QR — se usa directamente como `src` de un `<img>`. */
   myTicketQrUrl(token: string): string {
     return this.api.url(`/public/registrations/my-ticket/qr?token=${encodeURIComponent(token)}`);
+  }
+
+  /**
+   * Plan «mis-eventos-asistente»: pide el magic-link de listado. Respuesta
+   * anti-enumeración (siempre el mismo mensaje, exista o no el email entre
+   * las inscripciones), igual que `AuthService.forgotPassword` — con
+   * Turnstile obligatorio delante, mismo motivo (hallazgo de code-review:
+   * sin él, el enlace es una herramienta de acoso por correo mucho más
+   * barata de explotar).
+   */
+  async requestMisEventosAccess(
+    email: string,
+    turnstileToken: string,
+  ): Promise<RespuestaGenerica> {
+    return firstValueFrom(
+      this.http.post<RespuestaGenerica>(this.api.url('/public/mis-eventos/solicitar'), {
+        email,
+        turnstile_token: turnstileToken,
+      }),
+    );
+  }
+
+  /**
+   * Consume el token del magic-link (un solo uso) y devuelve las
+   * inscripciones. `POST`, no `GET` (hallazgo de code-review): el consumo
+   * del token es un efecto secundario, y un `GET` con efecto secundario en
+   * la propia URL del enlace de correo puede dispararlo sin querer un
+   * escáner de enlaces corporativo antes de que la persona real haga clic.
+   */
+  async getMyRegistrations(token: string): Promise<readonly MyRegistrationItem[]> {
+    const respuesta = await firstValueFrom(
+      this.http.post<{ registrations: readonly MyRegistrationItem[] }>(
+        this.api.url('/public/mis-eventos/ver'),
+        { token },
+      ),
+    );
+    return respuesta.registrations;
   }
 }

@@ -55,8 +55,14 @@ _cargar_env_de_tests()
 # La fijación `fake` (cliente de Stripe simulado) vive en `payments_test_helpers.py`
 # y la usan `test_payments_checkout.py` y `test_payments_webhooks.py`: registrarla
 # como plugin evita que cada módulo la importe por nombre, que chocaría (F811) con
-# el propio parámetro `fake` de cada test que la solicita como fijación.
-pytest_plugins = ["tests.payments_test_helpers"]
+# el propio parámetro `fake` de cada test que la solicita como fijación. Mismo
+# motivo para `sin_cola` de `accounting_ocr_test_helpers.py`, usada por los 4
+# ficheros en los que se partió `test_accounting_ocr_drafts.py`.
+pytest_plugins = [
+    "tests.payments_test_helpers",
+    "tests.ai_gateway_test_helpers",
+    "tests.accounting_ocr_test_helpers",
+]
 
 import pytest  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
@@ -124,6 +130,19 @@ TABLAS = (
     # por delante justo lo que el test acaba de crear).
     "platform_branding",
     "platform_legal_pages",
+    # Pasarela de IA (plan `260911-0325`, fase 1). Las dos de organización
+    # cascadean desde `organizations`, pero se listan por el mismo criterio
+    # que arriba. `platform_ai_settings` y `platform_services` son de
+    # instalación: sin listarlas, la configuración que guarda un test (o el
+    # interruptor que apaga) se colaría en el siguiente.
+    "organization_ai_settings",
+    "organization_services",
+    "platform_ai_settings",
+    "platform_services",
+    # Fase 2: uso y mutex de periodo. Cascadean desde `organizations`, pero
+    # se listan por el mismo criterio que el resto.
+    "ai_usage_records",
+    "ai_usage_periods",
 )
 
 
@@ -139,11 +158,35 @@ def migraciones() -> None:
     )
 
 
+@pytest.fixture(scope="session")
+async def servicios_sembrados(migraciones: None) -> tuple[str, ...]:
+    """Claves de servicio que la migración dejó en `platform_services`.
+
+    Se leen de la base de datos recién migrada, no de una lista escrita a
+    mano aquí: el `TRUNCATE` de cada test se las lleva por delante y hay que
+    reponerlas, pero repetir el catálogo en el fixture lo dejaría
+    desincronizarse en silencio. Además mantiene con sentido el test que
+    comprueba que toda clave del catálogo de código está sembrada: si la
+    repusiéramos desde el catálogo, ese test no podría fallar nunca.
+    """
+    async with SessionMaintenance() as session:
+        filas = await session.execute(text("SELECT service_key FROM platform_services"))
+        return tuple(fila[0] for fila in filas)
+
+
 @pytest.fixture(autouse=True)
-async def limpiar_datos() -> AsyncIterator[None]:
+async def limpiar_datos(servicios_sembrados: tuple[str, ...]) -> AsyncIterator[None]:
     """Vacía las tablas antes de cada test y limpia Redis."""
     async with SessionMaintenance() as session:
         await session.execute(text(f"TRUNCATE {', '.join(TABLAS)} RESTART IDENTITY CASCADE"))
+        for clave in servicios_sembrados:
+            await session.execute(
+                text(
+                    "INSERT INTO platform_services (service_key, enabled) "
+                    "VALUES (:clave, true) ON CONFLICT (service_key) DO NOTHING"
+                ),
+                {"clave": clave},
+            )
         await session.commit()
     await get_redis().flushdb()
     yield

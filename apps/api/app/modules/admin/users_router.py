@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import registrar_auditoria
 from app.core.deps import (
+    SCOPE_SESION,
     CurrentUser,
     get_maintenance_db,
     require_platform_staff,
@@ -35,7 +36,7 @@ from app.shared.pagination import Page, PageParams, page_params
 
 router = APIRouter(prefix="/admin/users", tags=["administración"])
 
-MaintenanceDb = Annotated[AsyncSession, Depends(get_maintenance_db)]
+MaintenanceDb = Annotated[AsyncSession, Depends(get_maintenance_db, scope=SCOPE_SESION)]
 PlatformStaff = Annotated[CurrentUser, Depends(require_platform_staff)]
 Superadmin = Annotated[CurrentUser, Depends(require_superadmin)]
 

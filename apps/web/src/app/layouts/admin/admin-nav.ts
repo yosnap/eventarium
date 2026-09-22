@@ -23,6 +23,9 @@ export const ORGANIZATION_NAV_LINKS: readonly AdminNavLink[] = [
   { path: ['/dashboard/events'], labelKey: 'admin.eventsNav' },
   { path: ['/dashboard/sponsor-tiers'], labelKey: 'admin.sponsorTiersNav' },
   { path: ['/dashboard/stripe'], labelKey: 'admin.stripeNav' },
+  // Sin `soloSuperadmin`: es una pantalla del panel de organización, y quien no
+  // sea propietario ve el aviso de solo lectura que devuelve el backend.
+  { path: ['/dashboard/ia'], labelKey: 'admin.ia.organizacion.titulo' },
 ];
 
 export const PLATFORM_NAV_LINKS: readonly AdminNavLink[] = [
@@ -50,6 +53,10 @@ export const PLATFORM_NAV_LINKS: readonly AdminNavLink[] = [
   // plataforma `soporte` en el backend (`require_platform_staff`, plan
   // `260916-0810-usuarios-y-permisos-plataforma`): sin `soloSuperadmin`,
   // listos para cuando el guard del panel se abra a ese rol.
+  // Credencial del proveedor de IA e interruptores de servicio: solo superadmin,
+  // igual que el guard de sus rutas.
+  { path: ['/admin/ia'], labelKey: 'admin.ia.plataforma.titulo', soloSuperadmin: true },
+  { path: ['/admin/servicios'], labelKey: 'admin.ia.servicios.titulo', soloSuperadmin: true },
   { path: ['/admin/suplantar'], labelKey: 'admin.plataforma.impersonar.titulo' },
   { path: ['/admin/usuarios'], labelKey: 'admin.plataforma.usuarios.titulo' },
   // La caja de piezas con la que se construyen la landing y la presentación del

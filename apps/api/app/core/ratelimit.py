@@ -100,11 +100,30 @@ STRIPE_SYNC_POR_IP = 20
 # descuento por fuerza bruta — mismo tope que `check-slug`, otro endpoint de
 # solo lectura sin más protección que este límite y Turnstile.
 CHECKOUT_QUOTE_POR_IP = 30
+# Catálogo de modelos en vivo: provoca una llamada saliente al proveedor por
+# cada entrada que no esté en caché, así que necesita tope propio aunque la
+# caché absorba la mayoría. Permisivo porque el panel lo pide cada vez que se
+# cambia el desplegable de proveedor, y son siete.
+AI_MODELOS_EN_VIVO_POR_IP = 30
+# Prueba de conexión: cada petición es sí o sí una llamada saliente (no se
+# cachea: comprueba la credencial de ahora mismo) y, en `custom`, hacia un
+# host que escribe quien la pide. Tope bajo, del orden de `IMPERSONATION`:
+# pulsar «Probar conexión» es una acción manual, no un bucle.
+AI_TEST_CONNECTION_POR_IP = 10
 # Cambio de organización activa (fase 1 del plan de organización sin
 # dominio): emite un token nuevo tras comprobar pertenencia, mismo orden de
 # magnitud que el propio login — no hay ningún motivo legítimo para cambiar
 # de organización muchas veces por minuto.
 SWITCH_ORGANIZATION_POR_IP = 20
+# Plan «mis-eventos-asistente»: encola correo, mismo perfil de riesgo que
+# `forgot-password` (email bombing) — mismo tope, con Turnstile obligatorio
+# delante igual que allí (hallazgo de code-review, Fase 3: la primera
+# redacción de este límite no llevaba Turnstile pese al comentario, lo que
+# hacía el ataque mucho más barato que contra `forgot-password`).
+MIS_EVENTOS_SOLICITAR_POR_IP = FORGOT_PASSWORD_POR_IP
+# Consulta del listado: el token tiene entropía de sobra, pero el endpoint
+# necesita su propio tope por ser público, igual que verify-email.
+MIS_EVENTOS_VER_POR_IP = 20
 
 VENTANA_SEGUNDOS = 60
 

@@ -1,11 +1,14 @@
 # Despliegue
 
-Producción con **EasyPanel**. `infra/docker-compose.prod.yml` define los servicios
-—PostgreSQL, Redis, SeaweedFS, la API, el worker y el frontend SSR— y EasyPanel pone el
-proxy (Traefik), el TLS y el enrutado.
+Producción con **Dokploy** (o EasyPanel). `infra/docker-compose.prod.yml` define los
+servicios —PostgreSQL, Redis, SeaweedFS, la API, el worker, el scheduler, el frontend SSR
+y un Caddy interno— y el orquestador pone el proxy de entrada (Traefik) y el TLS.
 
-Caddy es **solo para desarrollo**: en local resuelve el requisito de un único host sin
-depender de nada externo.
+El enrutado por ruta **no** lo hace el panel: el dominio se apunta entero al servicio
+`caddy` y es `infra/caddy/Caddyfile` quien reparte `/api`, `/media` y el resto. Así la
+regla que bloquea los justificantes de gasto en `/media` (ver el comentario largo en ese
+fichero) vive en el repo, versionada, y no depende de que alguien la replique a mano en el
+panel. `infra/caddy/Caddyfile.dev` es el equivalente para desarrollo local.
 
 ## Principios
 
@@ -35,6 +38,7 @@ En EasyPanel, crea un proyecto y dentro estos servicios:
 | `worker` | App | la misma imagen que `api` | — |
 | `scheduler` | App | la misma imagen que `api` | — |
 | `web` | App | `ghcr.io/yosnap/eventarium/web:sha-<commit>` | 4000 |
+| `caddy` | Compose (no App suelta) | `caddy:2.10-alpine` | 80 |
 
 Comandos de arranque:
 
@@ -45,21 +49,37 @@ Comandos de arranque:
   `schedule`): sin este servicio, el barrido de cuentas sin verificar no se ejecuta nunca,
   aunque el `worker` esté sano.
 - `api` y `web` usan el comando por defecto de su imagen.
+- `caddy` necesita `infra/caddy/Caddyfile` montado en `/etc/caddy/Caddyfile`, y un
+  servicio «App» desde imagen no tiene checkout del repo: despliégalo desde
+  `infra/docker-compose.prod.yml` (recurso Compose del panel), que ya lo monta. Con la
+  imagen sola, el dominio mostraría la página de bienvenida de Caddy.
 
-### 2. Enrutar el dominio por rutas
+### 2. Enrutar el dominio
 
-Apunta el dominio al servicio `web` y añade las reglas por ruta:
+Una sola regla: el dominio, con TLS del panel (Let's Encrypt), apuntando al servicio
+`caddy`, puerto `80`, ruta `/`, sin `stripPath`. Nada más.
+
+`caddy` es quien enruta por dentro del stack (`infra/caddy/Caddyfile`):
 
 | Ruta | Servicio | Puerto |
 |---|---|---|
-| `/` | `web` | 4000 |
-| `/api` | `api` | 8000 |
-| `/media` | `seaweedfs` | 8333 |
+| `/api/*` | `api` | 8000 |
+| `/media/orgs/<id>/accounting-receipts/*` | — | 403 |
+| `/media/*` | `seaweedfs` | 8333 |
+| resto | `web` | 4000 |
 
-Las tres rutas **tienen que estar en el mismo dominio**. Es la base del diseño de
-sesión: la cookie de refresco es first-party y no lleva atributo `Domain`.
+Las rutas **tienen que estar en el mismo dominio**. Es la base del diseño de sesión: la
+cookie de refresco es first-party y no lleva atributo `Domain`.
 
-Deja que EasyPanel gestione el certificado TLS.
+Caddy conserva `X-Forwarded-Host` y `X-Forwarded-Proto` tal como las pone el Traefik del
+panel (llega desde una red privada, declarada en `trusted_proxies`), así que la API y el
+SSR ven `https` y el host real aunque el tramo Traefik→Caddy vaya sin TLS.
+
+**No enrutes `/api` y `/media` como reglas directas del panel** saltándote `caddy`:
+dejarías todo `/media/*` abierto sin la regla `@justificantes`, y cualquiera con la clave
+del objeto (`orgs/<id>/accounting-receipts/…`) descargaría un justificante de gasto sin
+sesión. El único camino legítimo a un justificante es
+`GET /api/v1/accounting/receipts/{clave}`, con sesión y como adjunto.
 
 ### 3. Variables de entorno
 
@@ -77,7 +97,7 @@ S3_BUCKET=media
 S3_PUBLIC_BASE_URL=https://eventos.tu-dominio.org/media
 WEB_BASE_URL=https://eventos.tu-dominio.org
 JWT_SECRET=<openssl rand -base64 48>
-TRUSTED_PROXY_CIDRS=10.0.0.0/8,172.16.0.0/12
+TRUSTED_PROXY_CIDRS=172.16.0.0/12,192.168.0.0/16
 ```
 
 Y en `web`:
@@ -91,10 +111,15 @@ NG_ALLOWED_HOSTS=tu-dominio.org
 Una que suele dar problemas:
 
 - **`TRUSTED_PROXY_CIDRS`** decide desde qué redes se acepta `X-Forwarded-For` al
-  calcular la IP real del cliente (limitadores de tasa). Tiene que cubrir la red del
-  proxy de EasyPanel y nada más: abrirlo a `0.0.0.0/0` dejaría a cualquiera falsear su
-  IP contra los límites. Comprueba el rango real con `docker network inspect` en el
-  servidor.
+  calcular la IP real del cliente (limitadores de tasa). El peer TCP de la API es el
+  servicio `caddy`, que vive en la red del proyecto Compose (no en la red del Traefik
+  del panel): el CIDR tiene que cubrir esa red, y nada más. Si se queda fuera, la API
+  toma la IP de `caddy` como cliente para todo el mundo y el limitador colapsa en un
+  solo contador: un puñado de intentos de cualquiera daría 429 a toda la plataforma.
+  Docker asigna esas subredes dentro de `172.16.0.0/12` y, cuando ese pool se agota en
+  un host con muchos proyectos, dentro de `192.168.0.0/16`; incluye los dos rangos o
+  comprueba el real con `docker network inspect <proyecto>_default`. Abrirlo a
+  `0.0.0.0/0` dejaría a cualquiera falsear su IP contra los límites.
 
 ### 4. Roles de base de datos y migraciones
 
@@ -134,10 +159,22 @@ Comprueba `https://eventos.tu-dominio.org/api/v1/health`: los tres valores deben
 
 ## Despliegue con Docker Compose (alternativa)
 
-`infra/docker-compose.prod.yml` sirve tal cual si prefieres no usar EasyPanel, pero
-**no incluye proxy**: tendrás que poner uno delante que enrute `/`, `/api` y `/media` al
-mismo dominio. El `Caddyfile` de desarrollo (`infra/caddy/Caddyfile.dev`) muestra el
-enrutado que hace falta.
+`infra/docker-compose.prod.yml` sirve tal cual si prefieres no usar un panel: el
+servicio `caddy` ya enruta `/`, `/api` y `/media` por dentro, pero escucha en HTTP plano
+(puerto 80, sin certificados) porque cuenta con un proxy delante que termine TLS. Sin
+panel, publica ese puerto solo a un proxy propio con TLS (otro Caddy, Traefik, nginx) que
+reenvíe todo el dominio a `caddy:80` **y ponga `X-Forwarded-Proto: https` y
+`X-Forwarded-Host` con el dominio**: el Caddy interno ya no las escribe, las conserva del
+proxy frontal, y sin ellas el SSR renderizaría URLs absolutas en `http`. Un `proxy_pass`
+de nginx por defecto no las añade.
+
+Los servicios `migrate`, `api`, `worker` y `scheduler` leen su configuración por
+`environment:` con interpolación `${VAR}`, no por `env_file:` — así el fichero no tiene
+que existir dentro del *checkout* que hace el orquestador (Dokploy, o cualquier CI que
+clona el repo y construye ahí mismo), solo en el entorno con el que se invoca `docker
+compose`. En el flujo manual eso sigue siendo `infra/env/.env` vía `--env-file`, igual
+que antes; un orquestador como Dokploy pasa esas mismas variables por su propio panel de
+entorno, sin tocar el checkout.
 
 Los servicios `migrate`, `api`, `worker` y `scheduler` leen su configuración por
 `environment:` con interpolación `${VAR}`, no por `env_file:` — así el fichero no tiene
@@ -366,6 +403,44 @@ Todas están documentadas en `infra/env/.env.example`. Las que solo aplican a pr
 | `GITHUB_REPOSITORY` | Origen de las imágenes en GHCR |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_USE_TLS`, `SMTP_FROM` | Proveedor de correo real para la verificación de cuentas. Mailpit solo existe en desarrollo |
 | `TURNSTILE_ENABLED`, `TURNSTILE_SECRET_KEY` | Anti-bot en el registro, el reenvío de verificación y el alta de organización. **`TURNSTILE_ENABLED` no puede ser `false` en producción**: el arranque de la API falla si lo es |
+| `AI_SETTINGS_ENCRYPTION_KEY` | Clave Fernet con la que se cifran en reposo las claves de los proveedores de IA. Opcional: sin ella la instalación arranca y funciona, pero no se puede guardar ninguna configuración de IA. Ver abajo |
+
+### Pasarela de IA: cifrado y orden de despliegue
+
+La configuración de IA vive en la base de datos (proveedor, modelo, techo de gasto
+y clave del proveedor **cifrada**), no en variables de entorno. La única variable
+es la clave de cifrado:
+
+```bash
+# Genera la clave (una sola vez por instalación)
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+AI_SETTINGS_ENCRYPTION_KEY=<la clave generada>
+```
+
+Orden de despliegue de la configuración de plataforma:
+
+1. fija `AI_SETTINGS_ENCRYPTION_KEY` en `api`, `worker` y `scheduler` (las tres
+   la necesitan: el worker también resuelve credenciales) y arranca. Un formato
+   inválido **impide arrancar**, a propósito, en vez de fallar al guardar;
+2. entra como superadministrador y guarda la configuración de plataforma en
+   `PUT /api/v1/admin/ai-settings`: proveedor, modelo, clave y techo de gasto.
+   La clave no se puede volver a leer nunca — el panel solo muestra sus últimos
+   caracteres;
+3. opcionalmente, cada organización sobrescribe la suya con su propia clave y su
+   límite, que nunca puede superar el techo de la plataforma.
+
+Rotación de la clave de cifrado (parada corta; la clave es de aplicación, así que
+rotarla obliga a re-cifrar todas las filas):
+
+```bash
+# 1. Para api, worker y scheduler
+# 2. Re-cifra con la clave antigua y la nueva
+python -m app.cli rotate-ai-encryption-key --old-key <antigua> --new-key <nueva>
+# 3. Cambia AI_SETTINGS_ENCRYPTION_KEY por la nueva y vuelve a arrancar
+```
+
+Sin la variable, guardar una configuración de IA devuelve un error explícito
+(`cifrado_no_configurado`) y el resto de la plataforma funciona con normalidad.
 
 La clave pública de Turnstile (`turnstileSiteKey`) no es un secreto de la API: se
 compila en el bundle del frontend (`apps/web/src/environments/environment.ts`) antes de

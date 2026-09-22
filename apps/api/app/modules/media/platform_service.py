@@ -8,13 +8,11 @@ control.
 
 from __future__ import annotations
 
-import io
 import uuid
 from datetime import UTC, datetime
 from typing import Literal
 
 import httpx
-from PIL import Image
 from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -197,53 +195,6 @@ async def restaurar(session: AsyncSession, *, media_id: uuid.UUID) -> PlatformMe
     fila.deleted_at = None
     await session.flush()
     return fila
-
-
-async def recortar(
-    session: AsyncSession,
-    *,
-    media_id: uuid.UUID,
-    uploaded_by_user_id: uuid.UUID,
-    x: float,
-    y: float,
-    width: float,
-    height: float,
-) -> PlatformMedia:
-    original = await session.get(PlatformMedia, media_id)
-    if original is None or original.deleted_at is not None:
-        raise NotFoundError("Ese medio no existe.")
-
-    contenido, _mime = await get_storage().get_object(original.object_key)
-    with Image.open(io.BytesIO(contenido)) as imagen:
-        ancho, alto = imagen.size
-        caja = (
-            int(x * ancho),
-            int(y * alto),
-            int((x + width) * ancho),
-            int((y + height) * alto),
-        )
-        recortada = imagen.convert("RGB").crop(caja)
-        salida = io.BytesIO()
-        recortada.save(salida, format="WEBP", quality=85)
-        contenido_final = salida.getvalue()
-        ancho_final, alto_final = recortada.size
-
-    clave = build_platform_object_key("media", "webp")
-    await get_storage().put_object(clave, contenido_final, "image/webp")
-
-    nueva = PlatformMedia(
-        uploaded_by_user_id=uploaded_by_user_id,
-        folder_id=original.folder_id,
-        object_key=clave,
-        filename=original.filename,
-        mime_type="image/webp",
-        size=len(contenido_final),
-        width=ancho_final,
-        height=alto_final,
-    )
-    session.add(nueva)
-    await session.flush()
-    return nueva
 
 
 async def actualizar_metadatos(
