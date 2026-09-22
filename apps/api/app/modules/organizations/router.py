@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import CurrentUserDep, DbDep, PermissionsDep, require_permission
 from app.core.permissions import Permission
-from app.core.storage import build_object_key, get_storage, validate_upload
+from app.core.storage import build_object_key, get_storage, public_url_versionada, validate_upload
 from app.core.tasks import send_invitation_email
 from app.modules.media import service as media_service
 from app.modules.media.models import Media
@@ -53,7 +53,7 @@ async def _branding_response(
     almacen = get_storage()
     if branding.logo_media_id is not None:
         media = await session.get(Media, branding.logo_media_id)
-        logo_url = almacen.public_url(media.object_key) if media else None
+        logo_url = public_url_versionada(media.object_key, media.updated_at) if media else None
     elif branding.logo_object_key:
         logo_url = almacen.public_url(branding.logo_object_key)
     else:

@@ -205,9 +205,12 @@ def _png_mas_grande() -> bytes:
 async def test_sobrescribir_contenido_mantiene_la_misma_id_y_url(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    """«Sobrescribir original»: mismo `id`/`url` que antes, solo cambian los
-    píxeles — cualquier sitio que ya use esta imagen (portada, logo…) ve el
-    recorte nuevo sin tener que reasignar el campo."""
+    """«Sobrescribir original»: misma `id` y mismo objeto de almacenamiento
+    (la URL sin el `?v=` no cambia) que antes, solo cambian los píxeles —
+    cualquier sitio que ya use esta imagen (portada, logo…) ve el recorte
+    nuevo sin tener que reasignar el campo. El `?v=` SÍ debe cambiar: es lo
+    que evita que `/media/*` (servido con `Cache-Control: immutable`) siga
+    entregando los bytes viejos desde caché."""
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     subido = await _subir(cliente, cabeceras, "branding")
 
@@ -219,7 +222,8 @@ async def test_sobrescribir_contenido_mantiene_la_misma_id_y_url(
     assert sobrescrito.status_code == 200, sobrescrito.text
     cuerpo = sobrescrito.json()
     assert cuerpo["id"] == subido["id"]
-    assert cuerpo["url"] == subido["url"]
+    assert cuerpo["url"].split("?")[0] == subido["url"].split("?")[0]
+    assert cuerpo["url"] != subido["url"]
     assert cuerpo["width"] == 64
     assert cuerpo["height"] == 64
     assert cuerpo["size"] != subido["size"]

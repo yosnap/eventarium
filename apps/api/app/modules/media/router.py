@@ -13,7 +13,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 
 from app.core.deps import CurrentUserDep, DbDep, PermissionsDep
-from app.core.storage import get_storage
+from app.core.storage import public_url_versionada
 from app.modules.media import service
 from app.modules.media.models import Media, MediaFolder
 from app.modules.media.schemas import (
@@ -32,7 +32,7 @@ def _media_response(fila: Media) -> MediaResponse:
     return MediaResponse(
         id=str(fila.id),
         kind=fila.kind,
-        url=get_storage().public_url(fila.object_key),
+        url=public_url_versionada(fila.object_key, fila.updated_at),
         filename=fila.filename,
         mime_type=fila.mime_type,
         size=fila.size,

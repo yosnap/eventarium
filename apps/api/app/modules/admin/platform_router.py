@@ -18,7 +18,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import registrar_auditoria
 from app.core.deps import SCOPE_SESION, CurrentUser, get_maintenance_db, require_superadmin
-from app.core.storage import build_platform_object_key, get_storage, validate_upload
+from app.core.storage import (
+    build_platform_object_key,
+    get_storage,
+    public_url_versionada,
+    validate_upload,
+)
 from app.modules.media import platform_service as platform_media_service
 from app.modules.media.models import PlatformMedia, PlatformMediaFolder
 from app.modules.media.schemas import (
@@ -50,7 +55,7 @@ def _platform_media_response(fila: PlatformMedia) -> MediaResponse:
     return MediaResponse(
         id=str(fila.id),
         kind="platform",
-        url=get_storage().public_url(fila.object_key),
+        url=public_url_versionada(fila.object_key, fila.updated_at),
         filename=fila.filename,
         mime_type=fila.mime_type,
         size=fila.size,

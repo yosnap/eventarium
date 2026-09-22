@@ -139,6 +139,20 @@ describe('MediaEditDialog', () => {
     expect(campos[1].value).toBe('Descripción actual');
   });
 
+  it('abrir() preselecciona la carpeta actual del item en el desplegable', async () => {
+    fixture.componentRef.setInput('carpetas', [
+      { id: 'carpeta-1', name: 'Logos', slug: 'logos' },
+      { id: 'carpeta-2', name: 'Portadas', slug: 'portadas' },
+    ]);
+    await avanzar(fixture);
+    fixture.componentInstance.abrir(itemDePrueba({ folder_id: 'carpeta-2' }));
+    await avanzar(fixture);
+
+    const raiz = fixture.nativeElement as HTMLElement;
+    const select = raiz.querySelector('select') as HTMLSelectElement;
+    expect(select.value).toBe('carpeta-2');
+  });
+
   it('guardar cambios manda el PATCH con nombre/alt/carpeta y emite metadatosGuardados', async () => {
     await avanzar(fixture);
     fixture.componentInstance.abrir(itemDePrueba());
@@ -203,6 +217,33 @@ describe('MediaEditDialog', () => {
 
     expect(recorteGuardadoEmitido).toBe(true);
     expect(raiz.querySelector('dialog')?.hasAttribute('open')).toBe(false);
+  });
+
+  it('un nombre de archivo muy largo se trunca para no superar los 255 caracteres de la columna', async () => {
+    await avanzar(fixture);
+    fixture.componentInstance.abrir(itemDePrueba({ filename: 'a'.repeat(250) + '.png' }));
+    await avanzar(fixture);
+    await esperarCargaDelRecorte(fixture);
+
+    const raiz = fixture.nativeElement as HTMLElement;
+    const imagen = raiz.querySelector('app-media-crop-editor img') as HTMLImageElement;
+    imagen.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 200, height: 100 }) as DOMRect;
+
+    const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
+    lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
+    lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }));
+    fixture.detectChanges();
+
+    botonPorTexto(raiz, 'Guardar como nueva').click();
+    await avanzar(fixture);
+
+    const subida = http.expectOne((r) => r.url === MEDIA_URL && r.method === 'POST');
+    const fichero = (subida.request.body as FormData).get('fichero') as File;
+    expect(fichero.name.length).toBeLessThanOrEqual(255);
+    expect(fichero.name.endsWith('-recorte.webp')).toBe(true);
+    subida.flush({ id: 'b', url: 'https://cdn.test/b.webp', filename: fichero.name });
+    await avanzar(fixture);
   });
 
   it('«Sobrescribir original» hace un PUT a .../contenido con la misma id, sin crear un Media nuevo', async () => {

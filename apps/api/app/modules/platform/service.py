@@ -11,7 +11,7 @@ from __future__ import annotations
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.storage import get_storage
+from app.core.storage import get_storage, public_url_versionada
 from app.modules.media.models import PlatformMedia
 from app.modules.platform import repository
 from app.modules.platform.models import PLATFORM_LEGAL_PAGE_KINDS, PlatformBranding
@@ -57,7 +57,7 @@ async def branding_publico(session: AsyncSession) -> PlatformBrandingResponse:
     logo_url: str | None
     if branding.logo_media_id is not None:
         media = await session.get(PlatformMedia, branding.logo_media_id)
-        logo_url = almacen.public_url(media.object_key) if media else None
+        logo_url = public_url_versionada(media.object_key, media.updated_at) if media else None
     elif branding.logo_object_key:
         logo_url = almacen.public_url(branding.logo_object_key)
     else:
@@ -66,7 +66,7 @@ async def branding_publico(session: AsyncSession) -> PlatformBrandingResponse:
     favicon_url: str | None
     if branding.favicon_media_id is not None:
         media = await session.get(PlatformMedia, branding.favicon_media_id)
-        favicon_url = almacen.public_url(media.object_key) if media else None
+        favicon_url = public_url_versionada(media.object_key, media.updated_at) if media else None
     else:
         favicon_url = (
             almacen.public_url(branding.favicon_object_key) if branding.favicon_object_key else None

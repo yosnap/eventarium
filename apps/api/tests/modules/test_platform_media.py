@@ -123,5 +123,6 @@ async def test_sobrescribir_contenido_en_la_biblioteca_de_plataforma_mantiene_la
     assert sobrescrito.status_code == 200, sobrescrito.text
     cuerpo = sobrescrito.json()
     assert cuerpo["id"] == subido["id"]
-    assert cuerpo["url"] == subido["url"]
+    assert cuerpo["url"].split("?")[0] == subido["url"].split("?")[0]
+    assert cuerpo["url"] != subido["url"]
     assert cuerpo["size"] != subido["size"]

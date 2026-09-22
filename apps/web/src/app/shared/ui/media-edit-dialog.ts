@@ -95,9 +95,13 @@ import { MediaFolder, MediaItem, MediaKind, baseDeMedia } from './media-types';
                 <label class="carpeta-campo">
                   {{ t('ui.media.carpetaEtiqueta') }}
                   <select [value]="carpetaId() ?? ''" (change)="alCambiarCarpeta($event)">
-                    <option value="">{{ t('ui.media.todasLasCarpetas') }}</option>
+                    <option value="" [selected]="carpetaId() === null">
+                      {{ t('ui.media.todasLasCarpetas') }}
+                    </option>
                     @for (carpeta of carpetas(); track carpeta.id) {
-                      <option [value]="carpeta.id">{{ carpeta.name }}</option>
+                      <option [value]="carpeta.id" [selected]="carpeta.id === carpetaId()">
+                        {{ carpeta.name }}
+                      </option>
                     }
                   </select>
                 </label>
@@ -336,7 +340,7 @@ export class MediaEditDialog {
    * emite ningún evento de "imagen elegida" (ver JSDoc de la clase). */
   private async subirComoNuevo(actual: MediaItem, blob: Blob): Promise<void> {
     const datos = new FormData();
-    datos.append('fichero', blob, `${actual.filename}-recorte.webp`);
+    datos.append('fichero', blob, this.nombreDelRecorte(actual.filename));
     if (this.kind() !== 'platform') {
       datos.append('kind', this.kind());
     }
@@ -366,7 +370,7 @@ export class MediaEditDialog {
    * — misma `id`/URL, sin carpeta/nombre/alt que reasignar (no cambian). */
   private async sobrescribirContenido(actual: MediaItem, blob: Blob): Promise<void> {
     const datos = new FormData();
-    datos.append('fichero', blob, `${actual.filename}-recorte.webp`);
+    datos.append('fichero', blob, this.nombreDelRecorte(actual.filename));
     const actualizado = await firstValueFrom(
       this.http.put<MediaItem>(
         `${this.api.url(baseDeMedia(this.kind()))}/${actual.id}/contenido`,
@@ -379,6 +383,18 @@ export class MediaEditDialog {
     if (this.item()?.id === actual.id) {
       this.item.set(actualizado);
     }
+  }
+
+  /** `Media.filename` es `String(255)` (columna de BD) — sumar el sufijo
+   * `-recorte.webp` (13 caracteres) a un nombre ya cercano a ese límite
+   * supera la columna y el POST de «Guardar como nueva» devuelve un 500
+   * genérico en vez de un error legible (hallazgo de code-review: un nombre
+   * de 250 caracteres, válido de sobra al renombrar, basta para
+   * reproducirlo). */
+  private nombreDelRecorte(filename: string): string {
+    const sufijo = '-recorte.webp';
+    const base = filename.slice(0, 255 - sufijo.length);
+    return `${base}${sufijo}`;
   }
 
   private mensajeDeError(error: unknown): string {

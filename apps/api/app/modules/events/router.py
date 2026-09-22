@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import CurrentUserDep, DbDep, PermissionsDep, require_permission
 from app.core.permissions import Permission
 from app.core.ratelimit import PEDIR_BIO_POR_IP, limit_per_ip
-from app.core.storage import build_object_key, get_storage, validate_upload
+from app.core.storage import build_object_key, get_storage, public_url_versionada, validate_upload
 from app.core.tasks import send_invitation_email, send_speaker_bio_request_email
 from app.modules.events import repository, service, speakers_repository
 from app.modules.events.models import Event, EventMember, EventSession, EventVenue
@@ -62,7 +62,7 @@ async def _event_response(session: AsyncSession, evento: Event) -> EventResponse
     almacen = get_storage()
     if evento.cover_media_id is not None:
         media = await session.get(Media, evento.cover_media_id)
-        cover_url = almacen.public_url(media.object_key) if media else None
+        cover_url = public_url_versionada(media.object_key, media.updated_at) if media else None
     elif evento.cover_object_key:
         cover_url = almacen.public_url(evento.cover_object_key)
     else:
