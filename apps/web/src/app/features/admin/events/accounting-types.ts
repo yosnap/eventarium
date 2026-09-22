@@ -161,7 +161,10 @@ export function euros(cents: number): string {
  * ninguna divisa real lleva 3 decimales. */
 function sonMilesSinDecimales(texto: string, separador: string): boolean {
   const partes = texto.split(separador);
-  return partes.length === 2 && /^\d{3}$/.test(partes[1]);
+  // Un separador de miles va precedido de 1-3 cifras que no son un cero a
+  // solas: «0,015» es un decimal (nadie escribe «0.500» para quinientos),
+  // mientras que «2.500» o «1,850» sí son miles sin decimales.
+  return partes.length === 2 && /^[1-9]\d{0,2}$/.test(partes[0]) && /^\d{3}$/.test(partes[1]);
 }
 
 /**

@@ -27,6 +27,11 @@ describe('aCents', () => {
     expect(aCents('1,850')).toBe(185_000);
   });
 
+  it('un cero a solas delante del separador nunca es de miles: es un decimal', () => {
+    expect(aCents('0,015')).toBe(2);
+    expect(aCents('0.500')).toBe(50);
+  });
+
   it('lee como decimal un punto con más de 3 cifras detrás', () => {
     expect(aCents('2.5001')).toBe(250);
   });
