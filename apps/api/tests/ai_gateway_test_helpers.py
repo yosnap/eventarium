@@ -17,12 +17,20 @@ Ningún test de este módulo sale a Internet ni usa una clave real:
 - `dns_publico` sustituye la resolución DNS de la validación SSRF: sin ella,
   revalidar `api_base` en cada llamada resolvería de verdad el host del
   proveedor, y la suite dejaría de poder ejecutarse sin red.
+- `validacion_en_vivo_sin_red` sustituye el transporte HTTP de
+  `descubrimiento` por uno que responde con los modelos habituales de la
+  suite: desde que `service._validar_modelo_en_vivo` consulta el listado
+  real del proveedor al guardar la configuración (los dos niveles del PUT),
+  guardar una clave saldría a la red si no se corta aquí. Los módulos que
+  guardan configuración la activan con un `autouse` local (no aquí, para no
+  afectar a toda la suite).
 - Las claves son literales falsos (`sk-…`), nunca variables de entorno.
 """
 
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -37,7 +45,7 @@ from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.core.database import SessionMaintenance
-from app.modules.ai_gateway import validacion
+from app.modules.ai_gateway import descubrimiento, validacion
 from app.modules.ai_gateway.crypto import cifrar_clave, pista_de_clave
 from app.modules.ai_gateway.models import (
     ID_FILA_DE_PLATAFORMA,
@@ -281,3 +289,69 @@ def dns_publico(monkeypatch: pytest.MonkeyPatch) -> None:
 def dns_interno(monkeypatch: pytest.MonkeyPatch) -> None:
     """Simula un host de proveedor secuestrado hacia la red interna."""
     monkeypatch.setattr(validacion, "_resolver", lambda _host: ["10.0.0.5"])
+
+
+#: Modelos que responde el transporte simulado por defecto — cubre los
+#: `default_model` que ya usan los tests de guardado de configuración
+#: (`nan_builders`/`deepseek-v4-flash`, `cheaper_inference`/`gpt-5.4`…). Un
+#: test que necesite comprobar el rechazo de un modelo (`no-existe`) sigue
+#: funcionando: esta lista nunca lo incluye a propósito.
+_MODELOS_EN_VIVO_POR_DEFECTO: dict[str, Any] = {
+    "data": [
+        {"id": "deepseek-v4-flash"},
+        {"id": "glm5.3"},
+        {"id": "gpt-5.4"},
+    ]
+}
+
+
+def _resolver_sin_red_pero_honesto(host: str) -> list[str]:
+    """Como `dns_publico`, pero sin mentir sobre una IP literal.
+
+    `dns_publico` sustituye `_resolver` por una constante pública, que
+    serviría igual de bien aquí para los `api_base` fijos del catálogo
+    (`api.nan.builders`, `api.cheaperinference.com` — nombres reales que
+    necesitarían DNS de verdad). Pero también hay tests en el mismo módulo
+    que comprueban el rechazo de un `api_base` con una IP **literal**
+    interna (`https://10.0.0.5/v1`): con `dns_publico` esa IP nunca llegaría
+    a `ip_es_insegura` tal cual, la sustituiría siempre por la pública y el
+    rechazo dejaría de dispararse. `socket.getaddrinfo` sobre una IP ya
+    literal no hace ninguna consulta de red (es solo parseo), así que
+    devolverla tal cual es seguro para la suite y preserva el
+    comportamiento real que esos tests comprueban.
+    """
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        return ["93.184.216.34"]
+    return [host]
+
+
+@pytest.fixture
+def validacion_en_vivo_sin_red(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Guardar configuración (`PUT` de ambos niveles) sale a la red y a DNS
+    sin esto: `service._validar_modelo_en_vivo` consulta el listado real del
+    proveedor (misma llamada que `descubrimiento.listar_modelos`), y esa
+    misma ruta dispara la resolución DNS de `validar_api_base` incluso para
+    proveedores de base fija.
+
+    No es `autouse` aquí (afectaría a TODA la suite, no solo a `ai_gateway`):
+    los módulos de test que guardan configuración la activan con un
+    `autouse` local (ver `test_ai_gateway_admin.py`/`test_ai_gateway_organizacion.py`).
+    Quien necesite un listado o un fallo concretos (`ListadoNoDisponible`,
+    otro modelo, un `motivo` determinado) pide `listado_simulado`
+    (`test_ai_gateway_descubrimiento.py`), que sustituye este mismo
+    transporte bajo su propio control — se aplica después y por tanto gana.
+    """
+    monkeypatch.setattr(validacion, "_resolver", _resolver_sin_red_pero_honesto)
+
+    async def _manejar(_peticion: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=_MODELOS_EN_VIVO_POR_DEFECTO)
+
+    original = httpx.AsyncClient
+
+    def _cliente(*args: Any, **kwargs: Any) -> httpx.AsyncClient:
+        kwargs["transport"] = httpx.MockTransport(_manejar)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(descubrimiento.httpx, "AsyncClient", _cliente)

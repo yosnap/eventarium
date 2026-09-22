@@ -17,6 +17,13 @@ from tests.conftest import OrganizacionDePrueba, iniciar_sesion
 AJUSTES = "/api/v1/admin/ai-settings"
 SERVICIOS = "/api/v1/admin/services"
 
+
+@pytest.fixture(autouse=True)
+def _sin_red_al_guardar(validacion_en_vivo_sin_red: None) -> None:
+    """Todo este módulo guarda configuración (`PUT {AJUSTES}`), que desde
+    `service._validar_modelo_en_vivo` consulta el listado real del proveedor
+    — ver el docstring de `validacion_en_vivo_sin_red`."""
+
 CONFIG_NAN = {
     "provider": "nan_builders",
     "default_model": "deepseek-v4-flash",

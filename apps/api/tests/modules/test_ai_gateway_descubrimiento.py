@@ -505,6 +505,121 @@ async def test_la_segunda_llamada_dentro_del_ttl_no_vuelve_a_salir(
     assert len(listado_simulado.peticiones) == 1, "la segunda salió a la red"
 
 
+async def test_guardar_un_modelo_que_solo_esta_en_el_listado_en_vivo_se_acepta(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    cifrado: str,
+    listado_simulado: ListadoSimulado,
+    dns_publico: None,
+) -> None:
+    """Regresión: `service._validar_modelo_en_vivo` debe aceptar un modelo
+    que el proveedor sí ofrece aunque `proveedores.py` (catálogo anotado a
+    mano) no lo tenga anotado — el caso real que lo motivó: `gemma4` es un
+    modelo de `nan_builders` con visión que el catálogo no conocía, y el
+    guardado lo rechazaba pese a que «Probar conexión» ya lo enseñaba en el
+    desplegable con esa misma clave (hallazgo del usuario)."""
+    listado_simulado.cuerpo = {"data": [{"id": "gemma4", "capabilities": {"vision": True}}]}
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+    guardado = await cliente.put(
+        "/api/v1/organizations/me/ai-settings",
+        headers=cabeceras,
+        json={
+            "provider": "nan_builders",
+            "default_model": "gemma4",
+            "api_key": CLAVE_DE_PROVEEDOR,
+        },
+    )
+    assert guardado.status_code == 200, guardado.text
+    assert guardado.json()["default_model"] == "gemma4"
+
+
+async def test_guardar_un_modelo_ausente_del_listado_en_vivo_se_rechaza(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    cifrado: str,
+    listado_simulado: ListadoSimulado,
+    dns_publico: None,
+) -> None:
+    """La otra cara: un modelo que ni el catálogo estático ni el proveedor
+    reconocen se sigue rechazando (no basta con "cualquier cosa vale")."""
+    listado_simulado.cuerpo = {"data": [{"id": "gemma4"}]}
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+    guardado = await cliente.put(
+        "/api/v1/organizations/me/ai-settings",
+        headers=cabeceras,
+        json={
+            "provider": "nan_builders",
+            "default_model": "modelo-que-no-existe",
+            "api_key": CLAVE_DE_PROVEEDOR,
+        },
+    )
+    assert guardado.status_code == 422, guardado.text
+    assert guardado.json()["code"] == "modelo_desconocido"
+
+
+async def test_guardar_se_degrada_al_catalogo_estatico_si_el_proveedor_no_responde(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    cifrado: str,
+    listado_simulado: ListadoSimulado,
+    dns_publico: None,
+) -> None:
+    """Si el listado en vivo falla, se valida contra el catálogo estático —
+    mismo criterio que el desplegable (`catalogo_dinamico.modelos_de_proveedor`):
+    un modelo YA conocido (`deepseek-v4-flash`) se sigue aceptando aunque el
+    proveedor esté caído en ese instante."""
+    listado_simulado.estado = 503
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+    guardado = await cliente.put(
+        "/api/v1/organizations/me/ai-settings",
+        headers=cabeceras,
+        json={
+            "provider": "nan_builders",
+            "default_model": "deepseek-v4-flash",
+            "api_key": CLAVE_DE_PROVEEDOR,
+        },
+    )
+    assert guardado.status_code == 200, guardado.text
+
+
+async def test_cambiar_solo_el_modelo_tambien_valida_en_vivo_con_la_clave_ya_guardada(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    cifrado: str,
+    listado_simulado: ListadoSimulado,
+    dns_publico: None,
+) -> None:
+    """`elif "default_model" in enviados` (sin `api_key` en la petición):
+    la validación en vivo tiene que descifrar y usar la clave YA guardada,
+    no quedarse sin clave y degradar de más."""
+    listado_simulado.cuerpo = {"data": [{"id": "deepseek-v4-flash"}]}
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    creado = await cliente.put(
+        "/api/v1/organizations/me/ai-settings",
+        headers=cabeceras,
+        json={
+            "provider": "nan_builders",
+            "default_model": "deepseek-v4-flash",
+            "api_key": CLAVE_DE_PROVEEDOR,
+        },
+    )
+    assert creado.status_code == 200, creado.text
+
+    listado_simulado.cuerpo = {"data": [{"id": "gemma4"}]}
+    cambiado = await cliente.put(
+        "/api/v1/organizations/me/ai-settings",
+        headers=cabeceras,
+        json={"default_model": "gemma4"},
+    )
+    assert cambiado.status_code == 200, cambiado.text
+    assert cambiado.json()["default_model"] == "gemma4"
+    # La petición en vivo llevaba la clave ya guardada, no vacía.
+    assert listado_simulado.ultima.headers.get("authorization") == f"Bearer {CLAVE_DE_PROVEEDOR}"
+
+
 async def test_guardar_la_configuracion_invalida_lo_cacheado(
     cliente: AsyncClient,
     organizacion: OrganizacionDePrueba,
@@ -517,6 +632,10 @@ async def test_guardar_la_configuracion_invalida_lo_cacheado(
     url = MODELOS.format(proveedor="openai")
     await cliente.get(url, headers=cabeceras)
 
+    # El modelo nuevo tiene que estar en lo que "responde" el proveedor: el
+    # `PUT` ahora valida el modelo en vivo con la clave que se está guardando
+    # (ver `service._validar_modelo_en_vivo`), no solo el catálogo estático.
+    listado_simulado.cuerpo = {"data": [{"id": "gpt-4o-mini"}]}
     guardado = await cliente.put(
         "/api/v1/organizations/me/ai-settings",
         headers=cabeceras,
@@ -529,7 +648,7 @@ async def test_guardar_la_configuracion_invalida_lo_cacheado(
     await cliente.get(url, headers=cabeceras)
 
     assert guardado.status_code == 200, guardado.text
-    assert len(listado_simulado.peticiones) == 2, "la clave nueva debe reconsultar"
+    assert len(listado_simulado.peticiones) == 3, "la clave nueva debe reconsultar"
 
 
 async def test_si_el_proveedor_falla_se_degrada_al_catalogo_conocido(

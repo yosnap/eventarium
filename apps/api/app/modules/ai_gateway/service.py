@@ -24,13 +24,15 @@ from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.modules.ai_gateway import cache_modelos, repository, servicios
+from app.modules.ai_gateway import cache_modelos, descubrimiento, repository, servicios
 from app.modules.ai_gateway import proveedores as catalogo
-from app.modules.ai_gateway.crypto import cifrar_clave, pista_de_clave
+from app.modules.ai_gateway.crypto import cifrar_clave, descifrar_clave, pista_de_clave
+from app.modules.ai_gateway.descubrimiento import ListadoNoDisponible
 from app.modules.ai_gateway.errores import (
     ApiBaseNoPermitido,
     ApiBaseRequerido,
     ClaveRequerida,
+    CredencialIlegible,
     LimitePorEncimaDelTecho,
     ModeloDesconocido,
     ProveedorDesconocido,
@@ -376,11 +378,65 @@ def _proveedor_del_catalogo(clave: str) -> catalogo.Proveedor:
     return proveedor
 
 
-def _validar_modelo(proveedor: catalogo.Proveedor, modelo: str) -> None:
-    if not proveedor.acepta_modelo(modelo):
+def _clave_en_claro_o_none(cifrada: str | None) -> str | None:
+    """Descifra la clave ya guardada para poder validar el modelo en vivo con
+    ella (caso "solo cambio el modelo, sin tocar la clave"). Si no descifra
+    (p. ej. la clave de cifrado de la instalación rotó), se trata como "sin
+    clave": la validación se degrada al catálogo estático en vez de romper
+    un simple cambio de modelo con un error de criptografía que no tiene
+    nada que ver con lo que se está guardando."""
+    if cifrada is None:
+        return None
+    try:
+        return descifrar_clave(cifrada)
+    except CredencialIlegible:
+        return None
+
+
+async def _validar_modelo_en_vivo(
+    proveedor: catalogo.Proveedor, modelo: str, *, api_key: str | None, api_base: str | None
+) -> None:
+    """Comprueba el modelo contra el listado EN VIVO del proveedor —la misma
+    llamada que ya usan «Probar conexión» y el desplegable
+    (`descubrimiento.listar_modelos`)—, no contra el catálogo fijo de
+    `proveedores.py`. Ese catálogo es una anotación manual hecha a mano
+    desde la documentación de cada proveedor y se queda corto en cuanto el
+    proveedor saca un modelo nuevo: «gemma4» es un modelo real de
+    nan.builders (con visión, válido para el OCR de justificantes) que el
+    catálogo no tenía anotado, y el guardado lo rechazaba pese a que
+    «Probar conexión» ya lo enseñaba en el desplegable con esa misma clave
+    (hallazgo del usuario).
+
+    Si el listado en vivo no está disponible (proveedor caído, timeout, sin
+    clave utilizable...), se degrada al catálogo estático — mismo criterio
+    que `catalogo_dinamico.modelos_de_proveedor` para el desplegable: un
+    fallo de red no debe impedir guardar un modelo que ya se sabía válido.
+
+    `custom` (`modelos_abiertos=True`) no consulta nada: su endpoint es
+    arbitrario y ya acepta cualquier modelo no vacío, así que salir a la red
+    aquí no comprobaría nada que el catálogo no sepa ya.
+    """
+    if proveedor.modelos_abiertos:
+        if not proveedor.acepta_modelo(modelo):
+            raise ModeloDesconocido(f"«{modelo}» no puede estar vacío.")
+        return
+
+    try:
+        modelos_en_vivo = await descubrimiento.listar_modelos(
+            proveedor.clave, api_key=api_key, api_base=api_base
+        )
+    except ListadoNoDisponible:
+        if not proveedor.acepta_modelo(modelo):
+            raise ModeloDesconocido(
+                f"«{modelo}» no es un modelo admitido de {proveedor.etiqueta}.",
+                extra={"modelos": [entrada.clave for entrada in proveedor.modelos]},
+            ) from None
+        return
+
+    if not any(entrada.clave == modelo for entrada in modelos_en_vivo):
         raise ModeloDesconocido(
             f"«{modelo}» no es un modelo admitido de {proveedor.etiqueta}.",
-            extra={"modelos": [entrada.clave for entrada in proveedor.modelos]},
+            extra={"modelos": [entrada.clave for entrada in modelos_en_vivo]},
         )
 
 
@@ -446,17 +502,23 @@ async def guardar_config_de_plataforma(
         clave_texto = datos.provider or ""
         proveedor = _proveedor_del_catalogo(clave_texto)
         modelo = datos.default_model or ""
-        _validar_modelo(proveedor, modelo)
         api_base = _api_base_a_guardar(proveedor, datos.api_base, enviado="api_base" in enviados)
         if datos.api_key is None:
             raise ClaveRequerida("La clave del proveedor no puede estar vacía.")
         en_claro = datos.api_key.get_secret_value()
+        # Cifrar YA, antes de la validación en vivo (que sale a la red): si
+        # el cifrado no está configurado, `CifradoNoConfigurado` debe salir
+        # rápido y sin tocar el proveedor — mismo orden de fallos que antes
+        # de este cambio.
+        cifrada = cifrar_clave(en_claro)
+        pista = pista_de_clave(en_claro)
+        await _validar_modelo_en_vivo(proveedor, modelo, api_key=en_claro, api_base=api_base)
 
         fila.provider = proveedor.clave
         fila.default_model = modelo
         fila.api_base = api_base
-        fila.api_key_encrypted = cifrar_clave(en_claro)
-        fila.api_key_hint = pista_de_clave(en_claro)
+        fila.api_key_encrypted = cifrada
+        fila.api_key_hint = pista
     elif "default_model" in enviados:
         # Cambiar solo el modelo, conservando proveedor y clave.
         if fila.provider is None:
@@ -465,7 +527,9 @@ async def guardar_config_de_plataforma(
                 "y «api_key» juntos."
             )
         proveedor = _proveedor_del_catalogo(fila.provider)
-        _validar_modelo(proveedor, datos.default_model or "")
+        modelo = datos.default_model or ""
+        api_key = _clave_en_claro_o_none(fila.api_key_encrypted)
+        await _validar_modelo_en_vivo(proveedor, modelo, api_key=api_key, api_base=fila.api_base)
         fila.default_model = datos.default_model
 
     if "monthly_ceiling_usd" in enviados:
@@ -504,12 +568,15 @@ async def guardar_override_de_organizacion(
     if "api_key" in enviados:
         proveedor = _proveedor_del_catalogo(datos.provider or "")
         modelo = datos.default_model or ""
-        _validar_modelo(proveedor, modelo)
         api_base = _api_base_a_guardar(proveedor, datos.api_base, enviado="api_base" in enviados)
         if datos.api_key is None:
             raise ClaveRequerida("La clave del proveedor no puede estar vacía.")
         en_claro = datos.api_key.get_secret_value()
+        # Mismo orden que `guardar_config_de_plataforma`: cifrar antes de la
+        # validación en vivo, para que `CifradoNoConfigurado` salga sin
+        # tocar la red.
         cifrada = cifrar_clave(en_claro)
+        await _validar_modelo_en_vivo(proveedor, modelo, api_key=en_claro, api_base=api_base)
 
         if fila is None:
             fila = OrganizationAiSettings(
@@ -529,7 +596,9 @@ async def guardar_override_de_organizacion(
             fila.api_key_hint = pista_de_clave(en_claro)
     elif fila is not None and "default_model" in enviados:
         proveedor = _proveedor_del_catalogo(fila.provider)
-        _validar_modelo(proveedor, datos.default_model or "")
+        modelo = datos.default_model or ""
+        api_key = _clave_en_claro_o_none(fila.api_key_encrypted)
+        await _validar_modelo_en_vivo(proveedor, modelo, api_key=api_key, api_base=fila.api_base)
         fila.default_model = datos.default_model or fila.default_model
 
     if fila is None:
