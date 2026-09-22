@@ -124,6 +124,7 @@ type Modo = 'heredada' | 'propia';
                     [catalogo]="catalogo()"
                     [hasKey]="estado.origen === 'propia' && estado.has_key"
                     [apiKeyHint]="estado.origen === 'propia' ? estado.api_key_hint : null"
+                    [savedProvider]="estado.origen === 'propia' ? estado.provider : null"
                     [(provider)]="provider"
                     [(defaultModel)]="defaultModel"
                     [(apiBase)]="apiBase"

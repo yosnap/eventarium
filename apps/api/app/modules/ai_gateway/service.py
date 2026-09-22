@@ -393,6 +393,32 @@ def _clave_en_claro_o_none(cifrada: str | None) -> str | None:
         return None
 
 
+async def resolver_credencial_guardada_para_prueba(
+    session: AsyncSession, *, is_superadmin: bool, organization_id: uuid.UUID, provider: str
+) -> tuple[str, str | None] | None:
+    """La clave y el `api_base` ya guardados de este nivel, para «Probar
+    conexión» sin volver a escribir la clave — solo si el proveedor guardado
+    es el mismo que se está probando: probar con la clave de un proveedor
+    distinto la expondría a un endpoint que no es el suyo.
+
+    `None` si no hay nada guardado, el proveedor no coincide, o la clave
+    guardada no descifra (instalación con la clave de cifrado rotada): en
+    cualquiera de esos casos, quien llama debe escribir la clave a mano — no
+    hay nada fiable con lo que probar.
+    """
+    fila: PlatformAiSettings | OrganizationAiSettings | None
+    if is_superadmin:
+        fila = await repository.get_platform_settings(session)
+    else:
+        fila = await repository.get_organization_settings(session, organization_id)
+    if fila is None or fila.provider != provider or fila.api_key_encrypted is None:
+        return None
+    api_key = _clave_en_claro_o_none(fila.api_key_encrypted)
+    if api_key is None:
+        return None
+    return api_key, fila.api_base
+
+
 async def _validar_modelo_en_vivo(
     proveedor: catalogo.Proveedor, modelo: str, *, api_key: str | None, api_base: str | None
 ) -> None:

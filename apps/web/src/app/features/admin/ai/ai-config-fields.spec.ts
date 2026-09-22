@@ -281,6 +281,70 @@ describe('AiConfigFields', () => {
     expect(texto).not.toContain('admin.ia.motivos');
   });
 
+  // --- Clave ya guardada -------------------------------------------------
+
+  it('con clave ya guardada del mismo proveedor, el campo muestra un marcador y el botón se habilita sin escribir nada', async () => {
+    const fixture = await crear();
+    fixture.componentRef.setInput('hasKey', true);
+    fixture.componentRef.setInput('savedProvider', 'openai');
+    fixture.componentInstance.provider.set('openai');
+    await avanzar(fixture);
+    http.expectOne(MODELOS_URL('openai')).flush({
+      proveedor: 'openai',
+      en_vivo: true,
+      motivo: null,
+      modelos: [{ clave: 'gpt-4o', etiqueta: 'GPT-4o', vision: true }],
+    });
+    await avanzar(fixture);
+
+    expect(fixture.componentInstance['marcadorDeClave']()).toBe('••••••••');
+    expect(fixture.componentInstance['sePuedeProbar']()).toBe(true);
+
+    const campoClave = fixture.nativeElement.querySelector('#ia-test-clave') as HTMLInputElement;
+    expect(campoClave.placeholder).toBe('••••••••');
+  });
+
+  it('con clave guardada de OTRO proveedor, cambiar de proveedor no habilita probar sin escribir clave', async () => {
+    const fixture = await crear();
+    fixture.componentRef.setInput('hasKey', true);
+    fixture.componentRef.setInput('savedProvider', 'openai');
+    fixture.componentInstance.provider.set('custom');
+    await avanzar(fixture);
+    http
+      .expectOne(MODELOS_URL('custom'))
+      .flush({ proveedor: 'custom', en_vivo: false, motivo: 'sin_clave', modelos: [] });
+    await avanzar(fixture);
+
+    expect(fixture.componentInstance['marcadorDeClave']()).toBe('');
+    expect(fixture.componentInstance['sePuedeProbar']()).toBe(false);
+  });
+
+  it('probar con la clave guardada (campo vacío) no manda `api_key` en la petición', async () => {
+    const fixture = await crear();
+    fixture.componentRef.setInput('hasKey', true);
+    fixture.componentRef.setInput('savedProvider', 'openai');
+    fixture.componentInstance.provider.set('openai');
+    await avanzar(fixture);
+    http.expectOne(MODELOS_URL('openai')).flush({
+      proveedor: 'openai',
+      en_vivo: true,
+      motivo: null,
+      modelos: [{ clave: 'gpt-4o', etiqueta: 'GPT-4o', vision: true }],
+    });
+    await avanzar(fixture);
+
+    const probando = fixture.componentInstance.probarConexion();
+    await avanzar(fixture);
+
+    const peticion = http.expectOne(PRUEBA_URL);
+    expect(peticion.request.body).toEqual({ provider: 'openai' });
+    peticion.flush({ ok: true, motivo: null, modelos: [] });
+    await probando;
+    await avanzar(fixture);
+
+    expect(textoDe(fixture)).toContain('Conexión correcta');
+  });
+
   it('cambiar de proveedor borra el resultado de la prueba anterior', async () => {
     const fixture = await conProveedorCargado();
     fixture.componentInstance.apiKey.set('sk-recien-escrita');

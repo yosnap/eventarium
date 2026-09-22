@@ -780,6 +780,83 @@ async def test_la_prueba_de_conexion_usa_la_clave_enviada_sin_guardarla(
     assert ajustes.json()["origen"] == "sin_configuracion"
 
 
+async def test_la_prueba_de_conexion_sin_clave_usa_la_ya_guardada_de_la_organizacion(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    cifrado: str,
+    listado_simulado: ListadoSimulado,
+    dns_publico: None,
+) -> None:
+    """El botón «Probar conexión» con el campo de clave vacío prueba la que
+    ya está guardada — sin esto, comprobar que una clave ya guardada seguía
+    siendo válida exigía volver a escribirla en el formulario (hallazgo del
+    usuario: el botón se quedaba deshabilitado con el campo vacío)."""
+    await configurar_organizacion(
+        organizacion.id, provider="openai", default_model="gpt-4o", clave="sk-clave-guardada-org-1"
+    )
+    listado_simulado.cuerpo = {"data": [{"id": "gpt-4o"}]}
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+    respuesta = await cliente.post(PRUEBA, headers=cabeceras, json={"provider": "openai"})
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["ok"] is True
+    assert listado_simulado.ultima.headers["authorization"] == "Bearer sk-clave-guardada-org-1"
+
+
+async def test_la_prueba_de_conexion_sin_clave_usa_la_de_plataforma_si_es_superadmin(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    cifrado: str,
+    listado_simulado: ListadoSimulado,
+    dns_publico: None,
+) -> None:
+    await configurar_plataforma(
+        provider="openai", default_model="gpt-4o", clave="sk-clave-guardada-plataforma-1"
+    )
+    miembro = await crear_miembro(organizacion, "organizer", email="plataforma2@acme.com")
+    await hacer_superadmin(miembro.email)
+    _, cabeceras = await iniciar_sesion_con(cliente, organizacion, miembro.email, miembro.password)
+    listado_simulado.cuerpo = {"data": [{"id": "gpt-4o"}]}
+
+    respuesta = await cliente.post(PRUEBA, headers=cabeceras, json={"provider": "openai"})
+
+    assert respuesta.status_code == 200, respuesta.text
+    autorizacion = listado_simulado.ultima.headers["authorization"]
+    assert autorizacion == "Bearer sk-clave-guardada-plataforma-1"
+
+
+async def test_la_prueba_de_conexion_sin_clave_ni_guardada_es_422(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, cifrado: str
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    respuesta = await cliente.post(PRUEBA, headers=cabeceras, json={"provider": "openai"})
+    assert respuesta.status_code == 422, respuesta.text
+    assert respuesta.json()["code"] == "clave_requerida"
+
+
+async def test_la_prueba_de_conexion_sin_clave_no_reutiliza_la_de_otro_proveedor(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    cifrado: str,
+    listado_simulado: ListadoSimulado,
+    dns_publico: None,
+) -> None:
+    """La clave guardada es de `openai`; probar `openrouter` sin escribir una
+    nueva no debe reutilizarla — la mandaría a un endpoint que no es el
+    suyo."""
+    await configurar_organizacion(
+        organizacion.id, provider="openai", default_model="gpt-4o", clave="sk-clave-guardada-org-1"
+    )
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+    respuesta = await cliente.post(PRUEBA, headers=cabeceras, json={"provider": "openrouter"})
+
+    assert respuesta.status_code == 422, respuesta.text
+    assert respuesta.json()["code"] == "clave_requerida"
+    assert len(listado_simulado.peticiones) == 0
+
+
 async def test_una_clave_rechazada_es_un_resultado_no_un_error(
     cliente: AsyncClient,
     organizacion: OrganizacionDePrueba,

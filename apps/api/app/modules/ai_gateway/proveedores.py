@@ -112,6 +112,12 @@ PROVEEDORES: dict[str, Proveedor] = {
         modelos=(
             Modelo(clave="deepseek-v4-flash", etiqueta="DeepSeek v4 Flash"),
             Modelo(clave="glm5.3", etiqueta="GLM 5.3"),
+            # Con visión: confirmado por el usuario (2026-09-22), no
+            # verificado contra documentación propia — nan.builders no
+            # publica `capabilities.vision` en su listado de modelos (API
+            # OpenAI-compatible genérica), así que `descubrimiento.py` no
+            # puede resolverlo solo y cae aquí, la anotación manual.
+            Modelo(clave="gemma4", etiqueta="Gemma 4", vision=True),
         ),
     ),
     # OpenRouter: el único de los tres con precios en el mapa de LiteLLM, y

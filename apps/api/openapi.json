@@ -9178,7 +9178,7 @@
           "ia"
         ],
         "summary": "Probar una clave de proveedor sin guardarla",
-        "description": "Comprueba que la clave enviada sirve contra el proveedor indicado. Usa su listado de modelos, que es la llamada autenticada más barata: no consume cuota de generación ni deja rastro en el histórico de uso.\n\nLa clave viaja en el cuerpo porque lo que se prueba es la que acaba de escribirse en el formulario y todavía no está guardada. Es `writeOnly`: no se almacena, no se registra en ningún log y no vuelve en la respuesta.\n\nResponde siempre 200 con `ok`: un `false` con su `motivo` (`clave_rechazada`, `tiempo_agotado`, `proveedor_error`, `respuesta_inesperada`) es un resultado de la prueba, no un error de la petición. Sí da 422 lo que sí es entrada inválida: un proveedor fuera del catálogo o una dirección de endpoint no permitida.\n\nSolo lo puede pedir el propietario de la organización o el personal de plataforma: provoca una llamada saliente con datos escritos por quien la pide.",
+        "description": "Comprueba que la clave enviada sirve contra el proveedor indicado. Usa su listado de modelos, que es la llamada autenticada más barata: no consume cuota de generación ni deja rastro en el histórico de uso.\n\nLa clave viaja en el cuerpo porque lo normal es probar la que acaba de escribirse en el formulario y todavía no está guardada. Es `writeOnly`: no se almacena, no se registra en ningún log y no vuelve en la respuesta. Se puede omitir para probar la clave YA guardada de este mismo nivel, si su proveedor coincide con el indicado.\n\nResponde siempre 200 con `ok`: un `false` con su `motivo` (`clave_rechazada`, `tiempo_agotado`, `proveedor_error`, `respuesta_inesperada`) es un resultado de la prueba, no un error de la petición. Sí da 422 lo que sí es entrada inválida: un proveedor fuera del catálogo, una dirección de endpoint no permitida, o ninguna clave escrita ni guardada que probar.\n\nSolo lo puede pedir el propietario de la organización o el personal de plataforma: provoca una llamada saliente con datos escritos por quien la pide.",
         "operationId": "post_ai_test_connection_api_v1_ai_test_connection_post",
         "requestBody": {
           "content": {
@@ -17053,21 +17053,27 @@
             "title": "Api Base"
           },
           "api_key": {
-            "type": "string",
-            "maxLength": 400,
-            "minLength": 8,
-            "format": "password",
-            "title": "Api Key",
-            "writeOnly": true
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 400,
+                "minLength": 8,
+                "format": "password",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key"
           }
         },
         "type": "object",
         "required": [
-          "provider",
-          "api_key"
+          "provider"
         ],
         "title": "PruebaDeConexionIn",
-        "description": "`POST /ai/test-connection`.\n\nLa clave llega en el cuerpo **a propósito**: lo que se prueba es la que\nacaba de escribirse en el formulario y todavía no está guardada. Es\n`write-only` igual que en el `PUT`, así que no aparece en ningún esquema\nde salida ni vuelve nunca al cliente."
+        "description": "`POST /ai/test-connection`.\n\nLa clave llega en el cuerpo **a propósito**: lo normal es probar la que\nacaba de escribirse en el formulario y todavía no está guardada. Es\n`write-only` igual que en el `PUT`, así que no aparece en ningún esquema\nde salida ni vuelve nunca al cliente.\n\n`api_key` es opcional: dejarla vacía prueba la clave YA GUARDADA de este\nmismo nivel (plataforma si quien llama es superadmin, la propia si es el\n`owner` de una organización) — solo si su `provider` coincide con el\nenviado aquí. Sin esto, comprobar que una clave ya guardada sigue siendo\nválida exigía volver a escribirla en el formulario (hallazgo del\nusuario: el botón «Probar conexión» se quedaba deshabilitado con el\ncampo vacío aunque ya hubiera una clave guardada)."
       },
       "PruebaDeConexionOut": {
         "properties": {
