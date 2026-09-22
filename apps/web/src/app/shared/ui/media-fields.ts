@@ -16,6 +16,7 @@ import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../core/api/api.service';
 import { ApiError } from '../../core/api/error.interceptor';
 import { Button } from './button';
+import { Dialog } from './dialog';
 import { Input } from './input';
 import { MediaEditDialog } from './media-edit-dialog';
 import { MediaFolder, MediaItem, MediaKind, baseDeMedia } from './media-types';
@@ -65,7 +66,7 @@ function baseDeCarpetas(kind: MediaKind): string {
 @Component({
   selector: 'app-media-fields',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Button, Input, MediaEditDialog],
+  imports: [TranslocoDirective, Button, Dialog, Input, MediaEditDialog],
   template: `
     <ng-container *transloco="let t">
       @if (pestanasDisponibles().length > 1) {
@@ -236,6 +237,28 @@ function baseDeCarpetas(kind: MediaKind): string {
           }
         }
       }
+
+      <app-dialog #dialogoPapelera>
+        <p>{{ t('ui.media.papeleraConfirmacion') }}</p>
+        <div pie>
+          <app-button
+            variant="secundario"
+            type="button"
+            [disabled]="borrandoId() !== null"
+            (pulsado)="dialogoPapelera.cerrar()"
+          >
+            {{ t('comun.cancelar') }}
+          </app-button>
+          <app-button
+            variant="peligro"
+            type="button"
+            [loading]="borrandoId() !== null"
+            (pulsado)="confirmarEnvioAPapelera()"
+          >
+            {{ t('ui.media.papelera') }}
+          </app-button>
+        </div>
+      </app-dialog>
     </ng-container>
 
     <app-media-edit-dialog
@@ -474,6 +497,8 @@ export class MediaFields {
 
   protected readonly borrandoId = signal<string | null>(null);
   private readonly dialogoEdicion = viewChild.required(MediaEditDialog);
+  private readonly dialogoPapelera = viewChild.required<Dialog>('dialogoPapelera');
+  private itemAPapelera: MediaItem | null = null;
 
   protected readonly totalPaginas = computed(() =>
     Math.max(1, Math.ceil(this.bibliotecaTotal() / LIMITE)),
@@ -656,13 +681,22 @@ export class MediaFields {
     this.dialogoEdicion().abrir(item);
   }
 
-  protected async enviarAPapelera(item: MediaItem): Promise<void> {
-    // Confirmación + bloqueo de doble clic — la clave de confirmación
-    // existía en el catálogo de traducciones desde el principio pero nunca
-    // se cableó, y sin un estado "en curso" un doble clic dispara dos
-    // `DELETE` (hallazgo de code-review).
-    const confirmacion = this.transloco.translate('ui.media.papeleraConfirmacion');
-    if (this.borrandoId() || !window.confirm(confirmacion)) {
+  /** Pide confirmación con el modal del propio sistema de diseño — nunca
+   * `window.confirm()` (hallazgo del usuario: nada de diálogos nativos del
+   * navegador en la interfaz). */
+  protected enviarAPapelera(item: MediaItem): void {
+    if (this.borrandoId()) {
+      return;
+    }
+    this.itemAPapelera = item;
+    this.dialogoPapelera().abrir();
+  }
+
+  protected async confirmarEnvioAPapelera(): Promise<void> {
+    // Bloqueo de doble clic — sin un estado "en curso" un doble pulsado
+    // dispara dos `DELETE` (hallazgo de code-review, previo a este cambio).
+    const item = this.itemAPapelera;
+    if (!item || this.borrandoId()) {
       return;
     }
     this.borrandoId.set(item.id);
@@ -671,9 +705,11 @@ export class MediaFields {
       await firstValueFrom(
         this.http.delete<void>(this.api.url(`${baseDeMedia(this.kind())}/${item.id}`)),
       );
+      this.dialogoPapelera().cerrar();
       await this.cargarBiblioteca();
     } catch (error) {
       this.error.set(this.mensajeDePapeleraEnUso(error));
+      this.dialogoPapelera().cerrar();
     } finally {
       this.borrandoId.set(null);
     }

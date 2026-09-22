@@ -181,7 +181,9 @@ describe('MediaFields', () => {
     await esperarSinViolacionesDeAccesibilidad(raiz);
   });
 
-  it('enviar un ítem a la papelera con 409 muestra qué lo está usando', async () => {
+  it('enviar un ítem a la papelera abre un modal del propio sistema de diseño, nunca window.confirm', async () => {
+    stubDeDialogoNativo();
+    const confirmarNativo = vi.spyOn(window, 'confirm');
     await avanzar(fixture);
     const raiz = fixture.nativeElement as HTMLElement;
     const tabs = Array.from(raiz.querySelectorAll('[role="tab"]')) as HTMLButtonElement[];
@@ -198,14 +200,48 @@ describe('MediaFields', () => {
       });
     await avanzar(fixture);
 
-    const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const botonPapelera = Array.from(raiz.querySelectorAll('button')).find((b) =>
       b.getAttribute('aria-label')?.includes('papelera'),
     ) as HTMLButtonElement;
     botonPapelera.click();
     await avanzar(fixture);
 
-    expect(confirmar).toHaveBeenCalledOnce();
+    expect(confirmarNativo).not.toHaveBeenCalled();
+    const dialogos = raiz.querySelectorAll('dialog');
+    expect(Array.from(dialogos).some((d) => d.hasAttribute('open'))).toBe(true);
+    http.expectNone((r) => r.method === 'DELETE');
+  });
+
+  it('confirmar en el modal envía el DELETE; un 409 muestra qué lo está usando', async () => {
+    stubDeDialogoNativo();
+    await avanzar(fixture);
+    const raiz = fixture.nativeElement as HTMLElement;
+    const tabs = Array.from(raiz.querySelectorAll('[role="tab"]')) as HTMLButtonElement[];
+    tabs.find((t) => t.textContent?.includes('Biblioteca'))!.click();
+    await avanzar(fixture);
+    http.expectOne((r) => r.url === CARPETAS_URL).flush([]);
+    http
+      .expectOne((r) => r.url === MEDIA_URL)
+      .flush({
+        items: [{ id: 'a', url: 'https://cdn.test/a.png', filename: 'a.png', alt: null }],
+        total: 1,
+        limit: 12,
+        offset: 0,
+      });
+    await avanzar(fixture);
+
+    const botonPapelera = Array.from(raiz.querySelectorAll('button')).find((b) =>
+      b.getAttribute('aria-label')?.includes('papelera'),
+    ) as HTMLButtonElement;
+    botonPapelera.click();
+    await avanzar(fixture);
+
+    const botonConfirmar = Array.from(raiz.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Enviar a la papelera',
+    ) as HTMLButtonElement;
+    botonConfirmar.click();
+    await avanzar(fixture);
+
     http
       .expectOne((r) => r.method === 'DELETE')
       .flush(
@@ -217,7 +253,8 @@ describe('MediaFields', () => {
     expect(raiz.textContent).toContain('IA Week 2026');
   });
 
-  it('cancelar la confirmación de la papelera no dispara ningún DELETE', async () => {
+  it('cancelar el modal de la papelera no dispara ningún DELETE', async () => {
+    stubDeDialogoNativo();
     await avanzar(fixture);
     const raiz = fixture.nativeElement as HTMLElement;
     const tabs = Array.from(raiz.querySelectorAll('[role="tab"]')) as HTMLButtonElement[];
@@ -234,14 +271,23 @@ describe('MediaFields', () => {
       });
     await avanzar(fixture);
 
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
     const botonPapelera = Array.from(raiz.querySelectorAll('button')).find((b) =>
       b.getAttribute('aria-label')?.includes('papelera'),
     ) as HTMLButtonElement;
     botonPapelera.click();
     await avanzar(fixture);
 
+    const botonCancelar = Array.from(raiz.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Cancelar',
+    ) as HTMLButtonElement;
+    botonCancelar.click();
+    await avanzar(fixture);
+
     http.expectNone((r) => r.method === 'DELETE');
+    const dialogoPapelera = Array.from(raiz.querySelectorAll('dialog')).find((d) =>
+      d.textContent?.includes('¿Enviar esta imagen a la papelera?'),
+    );
+    expect(dialogoPapelera?.hasAttribute('open')).toBe(false);
   });
 
   it('el icono de lápiz abre el modal «Editar imagen» con los metadatos y el recorte', async () => {
