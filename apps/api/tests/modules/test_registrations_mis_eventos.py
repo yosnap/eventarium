@@ -177,9 +177,7 @@ class TestVer:
             await _nombre(otra_organizacion.id),
         }
 
-    async def test_token_sin_inscripciones_devuelve_lista_vacia(
-        self, cliente: AsyncClient
-    ) -> None:
+    async def test_token_sin_inscripciones_devuelve_lista_vacia(self, cliente: AsyncClient) -> None:
         token = await generate_token(PROPOSITO_MIS_EVENTOS_ACCESO, "sin-inscripciones@example.com")
 
         respuesta = await cliente.post(VER, json={"token": token})

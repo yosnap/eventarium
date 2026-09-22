@@ -87,9 +87,7 @@ _NOMBRES = (
 
 
 def upgrade() -> None:
-    op.create_index(
-        "ix_event_registrations_email", "event_registrations", ["email"], unique=False
-    )
+    op.create_index("ix_event_registrations_email", "event_registrations", ["email"], unique=False)
     for sentencia in _FUNCIONES:
         op.execute(sentencia)
     for nombre in _NOMBRES:
