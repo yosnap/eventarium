@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { computed, provideZonelessChangeDetection, signal } from '@angular/core';
+import { Component, computed, provideZonelessChangeDetection, signal } from '@angular/core';
 import { provideRouter, Router } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
 
@@ -21,6 +21,12 @@ import { themingDePrueba } from '../../testing/theming.fixture';
  * Los shells contienen los landmarks, el enlace de salto y la navegación: son la parte
  * de la aplicación donde más fácil se cuela un fallo de accesibilidad estructural.
  */
+/** Ruta comodín para que `Router.navigateByUrl()` actualice `router.url` de
+ * verdad en los tests que lo necesitan (sin rutas registradas, una
+ * navegación sin coincidencia no llega a cambiarlo). */
+@Component({ selector: 'app-ruta-de-prueba', template: '' })
+class RutaDePrueba {}
+
 describe('shells', () => {
   const theming = themingDePrueba();
   const branding = theming.estado;
@@ -37,6 +43,7 @@ describe('shells', () => {
         is_superadmin: esSuperadmin,
       }),
       isAuthenticated: signal(true),
+      cierreFueDeliberado: signal(false),
       logout: vi.fn(),
       listMyOrganizations: vi.fn().mockResolvedValue([]),
       loadCurrentUser: vi.fn().mockResolvedValue(undefined),
@@ -57,7 +64,7 @@ describe('shells', () => {
       ],
       providers: [
         provideZonelessChangeDetection(),
-        provideRouter([]),
+        provideRouter([{ path: '**', component: RutaDePrueba }]),
         // `PanelScope` decide, leyendo la URL, qué navegación pinta el shell. Se
         // sustituye aquí porque montar el árbol de rutas real arrastraría guards
         // y peticiones ajenas a estas pruebas; el doble expone lo mismo que el
@@ -271,6 +278,7 @@ describe('shells', () => {
       // secundario para que el efecto llegue a dispararse.
       const auth = configurarAuth(false);
       const logout = vi.fn().mockImplementation(async () => {
+        auth.cierreFueDeliberado.set(true);
         auth.isAuthenticated.set(false);
       });
       TestBed.overrideProvider(AuthService, { useValue: { ...auth, logout } });
@@ -312,19 +320,25 @@ describe('shells', () => {
       const fixture = TestBed.createComponent(AdminShell);
       await fixture.whenStable();
       const router = TestBed.inject(Router);
+
+      // Navegación real (ruta comodín `RutaDePrueba`) a una URL concreta y
+      // conocida, ANTES de espiar `navigate`: así `router.url` no depende
+      // de lo que capture el propio espía, y la aserción de más abajo
+      // compara contra un valor fijo, no contra sí misma.
+      await router.navigateByUrl('/dashboard/eventos/123');
+      expect(router.url).toBe('/dashboard/eventos/123');
       const navegar = vi.spyOn(router, 'navigate').mockResolvedValue(true);
 
       // Simula lo que hace `authInterceptor` cuando su único reintento de
       // refresh agota (cookie de refresco caducada, sesión cerrada en otra
       // pestaña…): el token cae a `null` sin que nadie haya pasado por
-      // `cerrarSesion()`. `router.url` real (no la señal local `url` de
-      // este describe, que solo alimenta el doble de `PanelScope`) es `/`
-      // en este arnés — no navega de verdad a `/dashboard`, así que lo que
-      // importa comprobar es que SÍ lleva `redirigir`, no el valor exacto.
+      // `cerrarSesion()`.
       auth.isAuthenticated.set(false);
       await fixture.whenStable();
 
-      expect(navegar).toHaveBeenCalledWith(['/acceder'], { queryParams: { redirigir: router.url } });
+      expect(navegar).toHaveBeenCalledWith(['/acceder'], {
+        queryParams: { redirigir: '/dashboard/eventos/123' },
+      });
     });
 
     it('la cabecera del panel de organización muestra su nombre, no el de la instalación', async () => {

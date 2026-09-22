@@ -193,12 +193,6 @@ export class AdminShell {
   private readonly panelNavegacion = viewChild<ElementRef<HTMLElement>>('panelNavegacion');
   private readonly botonNavegacion = viewChild<ElementRef<HTMLButtonElement>>('botonNavegacion');
   private seAbrioAlgunaVez = false;
-  /** Marcado por `cerrarSesion()` justo antes de llamar a `auth.logout()`,
-   * para que el `effect()` de sesión caducada (que también dispara con un
-   * cierre deliberado, ya que ambos dejan `isAuthenticated()` a `false`)
-   * sepa que no debe añadir `redirigir` — un cierre de sesión a propósito
-   * no debe devolver al panel al loguearse de nuevo. */
-  private cierreDeliberado = false;
 
   constructor() {
     void this.cargarOrganizaciones();
@@ -248,13 +242,18 @@ export class AdminShell {
     // sesión siguiente aterrizaba de vuelta en el panel en vez del login
     // limpio (hallazgo de code-review, reproducido). Con un único punto de
     // navegación la carrera desaparece por construcción, no por temporización.
+    //
+    // El motivo del cierre (`cierreFueDeliberado`) lo lleva `AuthService`,
+    // no una bandera local puesta antes de `await auth.logout()`: si la
+    // sesión muriera por otra vía (refresh fallido) mientras ese `await`
+    // sigue en vuelo, una bandera local la consumiría la transición
+    // equivocada y perdería el `redirigir`. `clear()` conoce el motivo en
+    // el momento exacto en que ocurre.
     effect(() => {
       if (this.auth.isAuthenticated()) {
         return;
       }
-      const deliberado = this.cierreDeliberado;
-      this.cierreDeliberado = false;
-      if (deliberado) {
+      if (this.auth.cierreFueDeliberado()) {
         void this.router.navigate(['/acceder']);
       } else {
         void this.router.navigate(['/acceder'], { queryParams: { redirigir: this.router.url } });
@@ -281,11 +280,6 @@ export class AdminShell {
   }
 
   protected async cerrarSesion(): Promise<void> {
-    // Marcado ANTES de `logout()`, no después: `logout()` limpia el token
-    // de forma síncrona en su `finally`, así que el efecto de sesión
-    // caducada puede disparar en cuanto esa llamada resuelve — la bandera
-    // tiene que estar ya puesta para entonces.
-    this.cierreDeliberado = true;
     await this.auth.logout();
   }
 }
