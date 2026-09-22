@@ -7,6 +7,7 @@ import { MediaElegida, MediaFields, MediaKind } from './media-fields';
 
 export type { MediaElegida, MediaKind };
 
+
 /**
  * Campo de selección de imagen.
  *
@@ -34,8 +35,13 @@ export type { MediaElegida, MediaKind };
     <ng-container *transloco="let t">
       <span class="etiqueta">{{ etiqueta() }}</span>
       @if (url(); as actual) {
-        <div class="campo">
-          <img class="previsualizacion" [src]="actual" [alt]="etiqueta()" />
+        <div class="campo" [class.campo-ancho]="variante() === 'ancha'">
+          <img
+            class="previsualizacion"
+            [class.previsualizacion-ancha]="variante() === 'ancha'"
+            [src]="actual"
+            [alt]="etiqueta()"
+          />
           <div class="acciones">
             <app-button variant="secundario" type="button" (pulsado)="abrir()">
               {{ t('ui.media.cambiar') }}
@@ -77,6 +83,17 @@ export type { MediaElegida, MediaKind };
       align-items: center;
       gap: var(--sp-3);
     }
+    /* Portada de evento: mismo criterio visual que .portada en la propia
+       ficha pública (event-page.ts) — ancho completo, recorte por
+       object-fit: cover, tope de altura en vez del 4rem cuadrado
+       genérico del resto de campos (logos, mucho más pequeños en la
+       página real). aspect-ratio: 16/9 es una aproximación fija a la
+       franja fluida de la ficha (ahí no hay una ratio única, es
+       width:100%; max-height:20rem) — razonable para una vista previa
+       en un formulario, no una réplica exacta pixel a pixel. */
+    .campo-ancho {
+      display: block;
+    }
     .previsualizacion {
       width: 4rem;
       height: 4rem;
@@ -84,6 +101,17 @@ export type { MediaElegida, MediaKind };
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
       background-color: var(--surface-2);
+    }
+    .previsualizacion-ancha {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      border-radius: var(--radius-lg);
+      margin-bottom: var(--space-sm);
+    }
+    .campo-ancho .acciones {
+      display: block;
     }
     .acciones {
       display: grid;
@@ -94,6 +122,10 @@ export type { MediaElegida, MediaKind };
 export class MediaPicker {
   /** Rótulo del campo (etiqueta accesible de la imagen y del diálogo). */
   readonly etiqueta = input.required<string>();
+  /** `'compacta'` (por defecto): miniatura cuadrada de 4rem, para logos.
+   * `'ancha'`: previsualización a todo el ancho del contenedor con la
+   * proporción de una portada de evento (16:9) — ver comentario del CSS. */
+  readonly variante = input<'compacta' | 'ancha'>('compacta');
   /** Tipos aceptados por el selector de fichero. */
   readonly aceptados = input.required<string>();
   readonly kind = input.required<MediaKind>();

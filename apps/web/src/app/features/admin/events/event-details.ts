@@ -55,6 +55,7 @@ interface EventoResumen {
               [etiqueta]="t('admin.events.formulario.portada')"
               [aceptados]="PORTADA_ACEPTADOS"
               kind="events"
+              variante="ancha"
               [url]="portadaUrl()"
               (mediaElegido)="asignarPortada($event, portadaPicker)"
             />
