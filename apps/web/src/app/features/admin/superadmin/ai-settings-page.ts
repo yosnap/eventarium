@@ -68,6 +68,7 @@ const USO = '/admin/ai-usage';
                 [catalogo]="catalogo()"
                 [hasKey]="ajustes()?.has_key ?? false"
                 [apiKeyHint]="ajustes()?.api_key_hint ?? null"
+                [savedProvider]="ajustes()?.provider ?? null"
                 [(provider)]="provider"
                 [(defaultModel)]="defaultModel"
                 [(apiBase)]="apiBase"

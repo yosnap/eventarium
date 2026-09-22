@@ -285,16 +285,23 @@ class ModelosDelProveedorOut(BaseModel):
 class PruebaDeConexionIn(BaseModel):
     """`POST /ai/test-connection`.
 
-    La clave llega en el cuerpo **a propósito**: lo que se prueba es la que
+    La clave llega en el cuerpo **a propósito**: lo normal es probar la que
     acaba de escribirse en el formulario y todavía no está guardada. Es
     `write-only` igual que en el `PUT`, así que no aparece en ningún esquema
     de salida ni vuelve nunca al cliente.
-    """
+
+    `api_key` es opcional: dejarla vacía prueba la clave YA GUARDADA de este
+    mismo nivel (plataforma si quien llama es superadmin, la propia si es el
+    `owner` de una organización) — solo si su `provider` coincide con el
+    enviado aquí. Sin esto, comprobar que una clave ya guardada sigue siendo
+    válida exigía volver a escribirla en el formulario (hallazgo del
+    usuario: el botón «Probar conexión» se quedaba deshabilitado con el
+    campo vacío aunque ya hubiera una clave guardada)."""
 
     provider: Proveedor
     #: Solo lo admite `custom`; en el resto la dirección es constante nuestra.
     api_base: ApiBase | None = None
-    api_key: ClaveDeApi
+    api_key: ClaveDeApi | None = None
 
 
 class PruebaDeConexionOut(BaseModel):

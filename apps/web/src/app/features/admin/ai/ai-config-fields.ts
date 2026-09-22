@@ -132,6 +132,7 @@ interface ResultadoDePrueba {
             autocomplete="off"
             [disabled]="disabled()"
             [attr.aria-describedby]="idDe('clave-ayuda')"
+            [placeholder]="marcadorDeClave()"
             [value]="apiKey()"
             (input)="apiKey.set(alTexto($event))"
           />
@@ -245,6 +246,14 @@ export class AiConfigFields {
    * se enseña a ninguna organización (V-11).
    */
   readonly apiKeyHint = input<string | null>(null);
+  /**
+   * El proveedor de la clave YA guardada de este nivel, o `null` si no hay
+   * ninguna. Distinto de `provider` (el del formulario, que la persona
+   * puede cambiar antes de guardar): sirve para saber si «Probar conexión»
+   * con el campo de clave vacío puede usar la guardada — solo tiene sentido
+   * si sigue siendo la del mismo proveedor que se está probando.
+   */
+  readonly savedProvider = input<string | null>(null);
   readonly disabled = input(false);
 
   readonly provider = model('');
@@ -310,23 +319,55 @@ export class AiConfigFields {
   }
 
   /**
-   * Probar exige proveedor y clave escritos, y la dirección del endpoint en el
-   * único proveedor que la pide. Sin eso el backend devolvería un 422 y el
-   * viaje sobraría.
+   * `true` si hay una clave guardada de este nivel para el proveedor
+   * elegido AHORA MISMO en el formulario — no basta con `hasKey()`: si la
+   * persona cambia de proveedor sin escribir una clave nueva, la guardada
+   * es de otro proveedor y no sirve para probar este.
+   */
+  protected readonly puedeUsarLaClaveGuardada = computed(
+    () => this.hasKey() && this.provider().trim() === (this.savedProvider() ?? ''),
+  );
+
+  /**
+   * Asteriscos en el propio campo cuando hay clave guardada para este
+   * proveedor y no se ha escrito ninguna nueva: antes solo lo decía el
+   * texto de ayuda de debajo, y de un vistazo el campo vacío podía parecer
+   * "no hay nada guardado" (hallazgo del usuario).
+   */
+  protected readonly marcadorDeClave = computed(() =>
+    this.puedeUsarLaClaveGuardada() && !this.apiKey().trim() ? '••••••••' : '',
+  );
+
+  /**
+   * Probar exige proveedor y, o bien una clave escrita, o bien una ya
+   * guardada de ESE MISMO proveedor (`puedeUsarLaClaveGuardada`) — antes el
+   * botón se quedaba deshabilitado con el campo vacío aunque ya hubiera una
+   * clave guardada, y comprobar que seguía siendo válida exigía volver a
+   * escribirla (hallazgo del usuario). La dirección del endpoint solo hace
+   * falta si se escribe una clave nueva: si se usa la guardada, el backend
+   * cae al `api_base` que ya tiene guardado.
    */
   protected readonly sePuedeProbar = computed(() => {
     if (this.disabled() || this.probando()) {
       return false;
     }
     const elegido = this.proveedorElegido();
-    if (elegido === null || !this.apiKey().trim()) {
+    if (elegido === null) {
       return false;
     }
-    return !elegido.api_base_editable || this.apiBase().trim().length > 0;
+    const claveEscrita = this.apiKey().trim().length > 0;
+    if (!claveEscrita && !this.puedeUsarLaClaveGuardada()) {
+      return false;
+    }
+    if (claveEscrita && elegido.api_base_editable) {
+      return this.apiBase().trim().length > 0;
+    }
+    return true;
   });
 
   /**
-   * Comprueba la clave del formulario contra el proveedor. Cuando va bien, sus
+   * Comprueba la clave del formulario contra el proveedor — o, con el campo
+   * vacío, la ya guardada de ese mismo proveedor. Cuando va bien, sus
    * modelos pasan a ser los del desplegable: son los que esa clave ve.
    */
   async probarConexion(): Promise<void> {
@@ -335,12 +376,13 @@ export class AiConfigFields {
     }
     const proveedor = this.provider().trim();
     const direccion = this.apiBase().trim();
+    const clave = this.apiKey().trim();
     this.probando.set(true);
     this.resultado.set(null);
     try {
       const respuesta = await this.catalogoDeIa.probar({
         provider: proveedor,
-        apiKey: this.apiKey().trim(),
+        ...(clave ? { apiKey: clave } : {}),
         ...(direccion ? { apiBase: direccion } : {}),
       });
       if (this.provider().trim() !== proveedor) {

@@ -12,9 +12,18 @@
 Ningún otro sitio puede declarar proveedores ni modelos: añadir uno es
 añadir una entrada aquí.
 
-**Sin descubrimiento dinámico** (no-objetivo del PRD): no se consulta
-`GET /v1/models` de ningún proveedor para poblar esta lista. Cada modelo se
-anota a mano desde la documentación del proveedor, incluida su **marca de
+**Ya no es la única validación de qué modelo se admite** (revierte la
+decisión #10 original de "sin descubrimiento dinámico, no-objetivo del
+PRD"): `service._validar_modelo_en_vivo` consulta primero el listado real
+del proveedor (`descubrimiento.listar_modelos`, la misma llamada que
+«Probar conexión» y el desplegable) y solo cae a esta lista fija cuando esa
+consulta falla (proveedor caído, timeout…) — un catálogo anotado a mano se
+queda corto en cuanto el proveedor saca un modelo nuevo (hallazgo del
+usuario: `gemma4` es un modelo real de `nan_builders`, con visión, que este
+fichero no tenía anotado). Esta lista sigue siendo la fuente de verdad para
+el enrutado a LiteLLM (`prefijo_litellm`) y el respaldo del desplegable/
+validación cuando el proveedor no responde. Cada modelo listado aquí sigue
+anotado a mano desde la documentación del proveedor, incluida su **marca de
 visión** (`vision`), que `accounting_ocr` necesita para no enviar una
 factura rasterizada a un modelo que no acepta imágenes.
 
@@ -103,6 +112,12 @@ PROVEEDORES: dict[str, Proveedor] = {
         modelos=(
             Modelo(clave="deepseek-v4-flash", etiqueta="DeepSeek v4 Flash"),
             Modelo(clave="glm5.3", etiqueta="GLM 5.3"),
+            # Con visión: confirmado por el usuario (2026-09-22), no
+            # verificado contra documentación propia — nan.builders no
+            # publica `capabilities.vision` en su listado de modelos (API
+            # OpenAI-compatible genérica), así que `descubrimiento.py` no
+            # puede resolverlo solo y cae aquí, la anotación manual.
+            Modelo(clave="gemma4", etiqueta="Gemma 4", vision=True),
         ),
     ),
     # OpenRouter: el único de los tres con precios en el mapa de LiteLLM, y

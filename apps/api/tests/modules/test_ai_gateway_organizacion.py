@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from decimal import Decimal
 
+import pytest
 from httpx import AsyncClient
 from sqlalchemy import delete, select
 
@@ -27,6 +28,15 @@ from tests.conftest import (
 
 MIS_AJUSTES = "/api/v1/organizations/me/ai-settings"
 AJUSTES_DE_PLATAFORMA = "/api/v1/admin/ai-settings"
+
+
+@pytest.fixture(autouse=True)
+def _sin_red_al_guardar(validacion_en_vivo_sin_red: None) -> None:
+    """Todo este módulo guarda configuración (`PUT {MIS_AJUSTES}` o
+    `{AJUSTES_DE_PLATAFORMA}`), que desde `service._validar_modelo_en_vivo`
+    consulta el listado real del proveedor — ver el docstring de
+    `validacion_en_vivo_sin_red`."""
+
 
 CLAVE_PROPIA = "ci_live_clave-propia-de-la-org-9876"
 

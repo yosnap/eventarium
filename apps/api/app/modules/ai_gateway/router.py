@@ -40,6 +40,7 @@ from app.core.ratelimit import (
     limit_per_ip,
 )
 from app.modules.ai_gateway import catalogo_dinamico, service
+from app.modules.ai_gateway.errores import ClaveRequerida
 from app.modules.ai_gateway.schemas import (
     AiUsageOut,
     ModelosDelProveedorOut,
@@ -139,15 +140,17 @@ async def get_ai_provider_models(
         "Comprueba que la clave enviada sirve contra el proveedor indicado. Usa "
         "su listado de modelos, que es la llamada autenticada más barata: no "
         "consume cuota de generación ni deja rastro en el histórico de uso.\n\n"
-        "La clave viaja en el cuerpo porque lo que se prueba es la que acaba de "
+        "La clave viaja en el cuerpo porque lo normal es probar la que acaba de "
         "escribirse en el formulario y todavía no está guardada. Es `writeOnly`: "
         "no se almacena, no se registra en ningún log y no vuelve en la "
-        "respuesta.\n\n"
+        "respuesta. Se puede omitir para probar la clave YA guardada de este "
+        "mismo nivel, si su proveedor coincide con el indicado.\n\n"
         "Responde siempre 200 con `ok`: un `false` con su `motivo` "
         "(`clave_rechazada`, `tiempo_agotado`, `proveedor_error`, "
         "`respuesta_inesperada`) es un resultado de la prueba, no un error de la "
         "petición. Sí da 422 lo que sí es entrada inválida: un proveedor fuera "
-        "del catálogo o una dirección de endpoint no permitida.\n\n"
+        "del catálogo, una dirección de endpoint no permitida, o ninguna clave "
+        "escrita ni guardada que probar.\n\n"
         "Solo lo puede pedir el propietario de la organización o el personal de "
         "plataforma: provoca una llamada saliente con datos escritos por quien "
         "la pide."
@@ -156,12 +159,28 @@ async def get_ai_provider_models(
     dependencies=[limit_per_ip("ai-test-connection", AI_TEST_CONNECTION_POR_IP)],
 )
 async def post_ai_test_connection(
-    datos: PruebaDeConexionIn, _: OwnerOPlataformaDep
+    datos: PruebaDeConexionIn, usuario: OwnerOPlataformaDep, session: DbDep
 ) -> PruebaDeConexionOut:
+    api_key = datos.api_key.get_secret_value() if datos.api_key is not None else None
+    api_base = datos.api_base
+    if api_key is None:
+        credencial = await service.resolver_credencial_guardada_para_prueba(
+            session,
+            is_superadmin=usuario.is_superadmin,
+            organization_id=usuario.organization_id,
+            provider=datos.provider,
+        )
+        if credencial is None:
+            raise ClaveRequerida(
+                "Escribe la clave para probarla, o guarda una antes de probar sin escribirla."
+            )
+        api_key, api_base_guardada = credencial
+        if api_base is None:
+            api_base = api_base_guardada
     return await catalogo_dinamico.probar_conexion(
         datos.provider,
-        api_key=datos.api_key.get_secret_value(),
-        api_base=datos.api_base,
+        api_key=api_key,
+        api_base=api_base,
     )
 
 

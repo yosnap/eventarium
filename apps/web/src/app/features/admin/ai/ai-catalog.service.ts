@@ -7,10 +7,14 @@ import { ModelosDelProveedorOut } from '../../../core/api/generated/models/model
 import { ProveedorDelCatalogoOut } from '../../../core/api/generated/models/proveedor-del-catalogo-out';
 import { PruebaDeConexionOut } from '../../../core/api/generated/models/prueba-de-conexion-out';
 
-/** Lo que el formulario envía para probar una credencial sin guardarla. */
+/**
+ * Lo que el formulario envía para probar una credencial. `apiKey` es
+ * opcional: sin ella, el backend prueba la ya guardada de este mismo nivel
+ * si coincide el proveedor (ver `PruebaDeConexionIn` del backend).
+ */
 export interface PruebaDeConexion {
   provider: string;
-  apiKey: string;
+  apiKey?: string;
   apiBase?: string;
 }
 
@@ -66,8 +70,8 @@ export class AiCatalogService {
   }
 
   /**
-   * Prueba una credencial recién escrita. La clave viaja en el cuerpo porque
-   * lo que se comprueba es justo la que todavía no se ha guardado.
+   * Prueba una credencial recién escrita, o (sin `apiKey`) la ya guardada de
+   * este mismo nivel para ese proveedor.
    *
    * Igual que `modelosDe`, un `ok: false` es un resultado, no un rechazo.
    */
@@ -75,7 +79,7 @@ export class AiCatalogService {
     return firstValueFrom(
       this.http.post<PruebaDeConexionOut>(this.api.url('/ai/test-connection'), {
         provider: datos.provider,
-        api_key: datos.apiKey,
+        ...(datos.apiKey ? { api_key: datos.apiKey } : {}),
         ...(datos.apiBase ? { api_base: datos.apiBase } : {}),
       }),
     );
