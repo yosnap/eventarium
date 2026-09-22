@@ -306,6 +306,26 @@ async def _referencias_activas(session: AsyncSession, media_id: uuid.UUID) -> li
     return referencias
 
 
+async def consultar_uso(
+    session: AsyncSession,
+    *,
+    media_id: uuid.UUID,
+    organization_id: uuid.UUID,
+    user_id: uuid.UUID,
+    permisos: set[Permission],
+) -> list[dict[str, str]]:
+    """En qué recursos está en uso un medio — para avisar antes de
+    «Sobrescribir original» (irreversible) de a cuántos sitios afecta.
+    Misma visibilidad que gestionarlo (propiedad o permiso del `kind`): no
+    tiene sentido enseñar el uso de un medio que la persona ni siquiera
+    podría sobrescribir."""
+    fila = await session.get(Media, media_id)
+    if fila is None or fila.organization_id != organization_id or fila.deleted_at is not None:
+        raise NotFoundError("Ese medio no existe.")
+    _requerir_propiedad_o_permiso(fila, user_id=user_id, permisos=permisos)
+    return await _referencias_activas(session, media_id)
+
+
 async def borrar(
     session: AsyncSession,
     *,
@@ -401,6 +421,18 @@ async def sobrescribir_contenido(
     if fila is None or fila.organization_id != organization_id or fila.deleted_at is not None:
         raise NotFoundError("Ese medio no existe.")
     _requerir_propiedad_o_permiso(fila, user_id=user_id, permisos=permisos)
+
+    # Sobrescribir es distinto de borrar: no se bloquea si está en uso (es
+    # justo el caso de uso — corregir la portada de un evento ya publicado
+    # sin tener que reasignarla en cada sitio), pero si afecta a recursos que
+    # esta persona no gestiona, la mera propiedad del medio no basta — exige
+    # el permiso real del `kind` (igual que para subir uno nuevo). Sin esto,
+    # a alguien al que se le retira el permiso de un `kind` (p. ej.
+    # EVENTS_WRITE) le seguía bastando haber subido la imagen en su día para
+    # cambiar los píxeles de la portada pública de un evento que ya no puede
+    # editar (hallazgo de code-review).
+    if await _referencias_activas(session, media_id):
+        _requerir_permiso_del_kind(fila.kind, permisos)
 
     mime, _extension = validate_upload(contenido, allowed_mimes=MEDIA_LIBRARY_IMAGE_MIMES)
     procesada = procesar_imagen(contenido, mime, KIND_A_PERFIL.get(fila.kind, "default"))

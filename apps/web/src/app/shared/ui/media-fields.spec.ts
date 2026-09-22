@@ -301,9 +301,7 @@ describe('MediaFields', () => {
     http
       .expectOne((r) => r.url === MEDIA_URL)
       .flush({
-        items: [
-          { id: 'a', url: 'https://cdn.test/a.png', filename: 'a.png', alt: 'Descripción' },
-        ],
+        items: [{ id: 'a', url: 'https://cdn.test/a.png', filename: 'a.png', alt: 'Descripción' }],
         total: 1,
         limit: 12,
         offset: 0,

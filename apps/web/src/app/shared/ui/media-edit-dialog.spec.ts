@@ -196,15 +196,16 @@ describe('MediaEditDialog', () => {
 
     const raiz = fixture.nativeElement as HTMLElement;
     const imagen = raiz.querySelector('app-media-crop-editor img') as HTMLImageElement;
-    imagen.getBoundingClientRect = () =>
-      ({ left: 0, top: 0, width: 200, height: 100 }) as DOMRect;
+    imagen.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 100 }) as DOMRect;
 
     let recorteGuardadoEmitido = false;
     fixture.componentInstance.recorteGuardado.subscribe(() => (recorteGuardadoEmitido = true));
 
     const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
     lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
-    lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }));
+    lienzo.dispatchEvent(
+      new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }),
+    );
     fixture.detectChanges();
 
     botonPorTexto(raiz, 'Guardar como nueva').click();
@@ -227,12 +228,13 @@ describe('MediaEditDialog', () => {
 
     const raiz = fixture.nativeElement as HTMLElement;
     const imagen = raiz.querySelector('app-media-crop-editor img') as HTMLImageElement;
-    imagen.getBoundingClientRect = () =>
-      ({ left: 0, top: 0, width: 200, height: 100 }) as DOMRect;
+    imagen.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 100 }) as DOMRect;
 
     const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
     lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
-    lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }));
+    lienzo.dispatchEvent(
+      new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }),
+    );
     fixture.detectChanges();
 
     botonPorTexto(raiz, 'Guardar como nueva').click();
@@ -254,24 +256,86 @@ describe('MediaEditDialog', () => {
 
     const raiz = fixture.nativeElement as HTMLElement;
     const imagen = raiz.querySelector('app-media-crop-editor img') as HTMLImageElement;
-    imagen.getBoundingClientRect = () =>
-      ({ left: 0, top: 0, width: 200, height: 100 }) as DOMRect;
+    imagen.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 100 }) as DOMRect;
 
     let recorteGuardadoEmitido = false;
     fixture.componentInstance.recorteGuardado.subscribe(() => (recorteGuardadoEmitido = true));
 
     const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
     lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
-    lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }));
+    lienzo.dispatchEvent(
+      new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }),
+    );
     fixture.detectChanges();
 
     botonPorTexto(raiz, 'Sobrescribir original').click();
+    await avanzar(fixture);
+
+    // Antes de sobrescribir de verdad, consulta en qué recursos está en
+    // uso el medio (para avisar si hiciera falta) — sin uso, sigue directo.
+    const consultaDeUso = http.expectOne(
+      (r) => r.url === `${MEDIA_URL}/a/uso` && r.method === 'GET',
+    );
+    consultaDeUso.flush({ used_by: [] });
     await avanzar(fixture);
 
     const sobrescritura = http.expectOne(
       (r) => r.url === `${MEDIA_URL}/a/contenido` && r.method === 'PUT',
     );
     expect(sobrescritura.request.body instanceof FormData).toBe(true);
+    sobrescritura.flush(itemDePrueba({ size: 999 }));
+    await avanzar(fixture);
+
+    expect(recorteGuardadoEmitido).toBe(true);
+    expect(raiz.querySelector('dialog')?.hasAttribute('open')).toBe(false);
+  });
+
+  it('«Sobrescribir original» de una imagen en uso pide confirmación explícita, y no sobrescribe hasta confirmarla', async () => {
+    await avanzar(fixture);
+    fixture.componentInstance.abrir(itemDePrueba());
+    await avanzar(fixture);
+    await esperarCargaDelRecorte(fixture);
+
+    const raiz = fixture.nativeElement as HTMLElement;
+    const imagen = raiz.querySelector('app-media-crop-editor img') as HTMLImageElement;
+    imagen.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 100 }) as DOMRect;
+
+    const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
+    lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
+    lienzo.dispatchEvent(
+      new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }),
+    );
+    fixture.detectChanges();
+
+    botonPorTexto(raiz, 'Sobrescribir original').click();
+    await avanzar(fixture);
+
+    const consultaDeUso = http.expectOne(
+      (r) => r.url === `${MEDIA_URL}/a/uso` && r.method === 'GET',
+    );
+    consultaDeUso.flush({ used_by: [{ tipo: 'evento', nombre: 'Evento de prueba' }] });
+    await avanzar(fixture);
+
+    // Sin confirmar todavía: ningún PUT, y el modal de confirmación muestra
+    // el detalle de en qué recurso está en uso.
+    http.expectNone((r) => r.url === `${MEDIA_URL}/a/contenido`);
+    expect(raiz.textContent).toContain('Evento de prueba');
+
+    let recorteGuardadoEmitido = false;
+    fixture.componentInstance.recorteGuardado.subscribe(() => (recorteGuardadoEmitido = true));
+
+    // Confirma en el modal de aviso (segundo botón "Sobrescribir original",
+    // el del diálogo de confirmación).
+    const botonesSobrescribir = Array.from(raiz.querySelectorAll('button')).filter(
+      (b) => b.textContent?.trim() === 'Sobrescribir original',
+    );
+    expect(botonesSobrescribir.length).toBe(2);
+    botonesSobrescribir[1].click();
+    await avanzar(fixture);
+
+    const sobrescritura = http.expectOne(
+      (r) => r.url === `${MEDIA_URL}/a/contenido` && r.method === 'PUT',
+    );
     sobrescritura.flush(itemDePrueba({ size: 999 }));
     await avanzar(fixture);
 
@@ -321,9 +385,7 @@ describe('MediaEditDialog', () => {
 
   it('muestra dimensiones, tamaño y fecha de subida del item', async () => {
     await avanzar(fixture);
-    fixture.componentInstance.abrir(
-      itemDePrueba({ width: 1920, height: 1080, size: 2_500_000 }),
-    );
+    fixture.componentInstance.abrir(itemDePrueba({ width: 1920, height: 1080, size: 2_500_000 }));
     await avanzar(fixture);
 
     const raiz = fixture.nativeElement as HTMLElement;

@@ -126,3 +126,17 @@ async def test_sobrescribir_contenido_en_la_biblioteca_de_plataforma_mantiene_la
     assert cuerpo["url"].split("?")[0] == subido["url"].split("?")[0]
     assert cuerpo["url"] != subido["url"]
     assert cuerpo["size"] != subido["size"]
+
+
+async def test_consultar_uso_de_un_medio_de_plataforma(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    cabeceras = await _superadmin_headers(cliente, organizacion)
+    subido_resp = await cliente.post(
+        PLATFORM_MEDIA, headers=cabeceras, files={"fichero": ("logo.png", PNG, "image/png")}
+    )
+    subido = subido_resp.json()
+
+    uso = await cliente.get(f"{PLATFORM_MEDIA}/{subido['id']}/uso", headers=cabeceras)
+    assert uso.status_code == 200, uso.text
+    assert uso.json()["used_by"] == []

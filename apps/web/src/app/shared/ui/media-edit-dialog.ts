@@ -15,6 +15,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../../core/api/api.service';
 import { ApiError } from '../../core/api/error.interceptor';
+import { MediaUsageResponse } from '../../core/api/generated/models/media-usage-response';
 import { Button } from './button';
 import { Dialog } from './dialog';
 import { Input } from './input';
@@ -123,7 +124,11 @@ import { MediaFolder, MediaItem, MediaKind, baseDeMedia } from './media-types';
               <dl class="datos-imagen">
                 <dt>{{ t('ui.media.dimensiones') }}</dt>
                 <dd>
-                  {{ actual.width && actual.height ? actual.width + ' × ' + actual.height + ' px' : '—' }}
+                  {{
+                    actual.width && actual.height
+                      ? actual.width + ' × ' + actual.height + ' px'
+                      : '—'
+                  }}
                 </dd>
                 <dt>{{ t('ui.media.tamano') }}</dt>
                 <dd>{{ formatearTamano(actual.size) }}</dd>
@@ -136,6 +141,29 @@ import { MediaFolder, MediaItem, MediaKind, baseDeMedia } from './media-types';
             </section>
           </div>
         }
+      </app-dialog>
+
+      <app-dialog #dialogoConfirmarSobrescribir>
+        <p>{{ t('ui.media.sobrescribirEnUsoConfirmacion') }}</p>
+        <p class="uso-detalle">{{ usoPendienteFormateado() }}</p>
+        <app-button
+          pie
+          variant="secundario"
+          type="button"
+          [disabled]="recortandoEnCurso()"
+          (pulsado)="cancelarSobrescritura()"
+        >
+          {{ t('comun.cancelar') }}
+        </app-button>
+        <app-button
+          pie
+          variant="peligro"
+          type="button"
+          [loading]="recortandoEnCurso()"
+          (pulsado)="confirmarSobrescrituraDeVerdad()"
+        >
+          {{ t('ui.media.sobrescribirOriginal') }}
+        </app-button>
       </app-dialog>
     </ng-container>
   `,
@@ -197,6 +225,10 @@ import { MediaFolder, MediaItem, MediaKind, baseDeMedia } from './media-types';
       color: var(--fg);
       text-align: right;
     }
+    .uso-detalle {
+      color: var(--muted);
+      font-size: var(--fs-sm);
+    }
   `,
 })
 export class MediaEditDialog {
@@ -215,6 +247,9 @@ export class MediaEditDialog {
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
   private readonly dialogo = viewChild.required(Dialog);
+  private readonly dialogoConfirmarSobrescribir = viewChild.required<Dialog>(
+    'dialogoConfirmarSobrescribir',
+  );
 
   protected readonly item = signal<MediaItem | null>(null);
   protected readonly nombre = signal('');
@@ -225,6 +260,14 @@ export class MediaEditDialog {
   protected readonly error = signal<string | null>(null);
   protected readonly urlCopiada = signal(false);
   private temporizadorCopiado: ReturnType<typeof setTimeout> | null = null;
+  /** «Sobrescribir original» en un medio en uso es irreversible y afecta a
+   * cualquier sitio que ya lo use — se pide confirmación explícita con el
+   * detalle de en qué recursos (ver `_referencias_activas` del backend),
+   * en vez de sobrescribir directo como antes (decisión del usuario). Sin
+   * uso, se sobrescribe sin este paso intermedio — el riesgo real es que
+   * afecte a algo que la persona no controla, no la acción en sí. */
+  protected readonly usoPendiente = signal<MediaUsageResponse['used_by']>([]);
+  private pendienteDeConfirmar: { actual: MediaItem; blob: Blob } | null = null;
 
   constructor() {
     inject(DestroyRef).onDestroy(() => {
@@ -311,14 +354,14 @@ export class MediaEditDialog {
     if (!actual) {
       return;
     }
+    if (resultado.sobrescribir) {
+      await this.prepararSobrescritura(actual, resultado.blob);
+      return;
+    }
     this.recortandoEnCurso.set(true);
     this.error.set(null);
     try {
-      if (resultado.sobrescribir) {
-        await this.sobrescribirContenido(actual, resultado.blob);
-      } else {
-        await this.subirComoNuevo(actual, resultado.blob);
-      }
+      await this.subirComoNuevo(actual, resultado.blob);
       this.recorteGuardado.emit();
       // A diferencia de guardar metadatos (que puede encadenar con el
       // recorte a continuación), aquí ya no queda nada más que hacer — sin
@@ -332,6 +375,74 @@ export class MediaEditDialog {
     } finally {
       this.recortandoEnCurso.set(false);
     }
+  }
+
+  /** Consulta en qué recursos está en uso el medio antes de sobrescribirlo.
+   * Sin uso, sobrescribe directo (mismo comportamiento de siempre); en uso,
+   * abre el modal de confirmación con el detalle y espera la decisión —
+   * `confirmarSobrescrituraDeVerdad()`/`cancelarSobrescritura()`. */
+  private async prepararSobrescritura(actual: MediaItem, blob: Blob): Promise<void> {
+    this.recortandoEnCurso.set(true);
+    this.error.set(null);
+    try {
+      const uso = await firstValueFrom(
+        this.http.get<MediaUsageResponse>(
+          `${this.api.url(baseDeMedia(this.kind()))}/${actual.id}/uso`,
+        ),
+      );
+      if (uso.used_by.length === 0) {
+        await this.ejecutarSobrescritura(actual, blob);
+        return;
+      }
+      this.usoPendiente.set(uso.used_by);
+      this.pendienteDeConfirmar = { actual, blob };
+      this.dialogoConfirmarSobrescribir().abrir();
+    } catch (error) {
+      this.error.set(this.mensajeDeError(error));
+    } finally {
+      this.recortandoEnCurso.set(false);
+    }
+  }
+
+  protected async confirmarSobrescrituraDeVerdad(): Promise<void> {
+    const pendiente = this.pendienteDeConfirmar;
+    if (!pendiente) {
+      return;
+    }
+    // Se cierra ANTES de esperar la respuesta: si falla, el error debe
+    // verse en el modal principal (que sigue debajo), no quedar oculto tras
+    // este de confirmación.
+    this.dialogoConfirmarSobrescribir().cerrar();
+    this.recortandoEnCurso.set(true);
+    this.error.set(null);
+    try {
+      await this.ejecutarSobrescritura(pendiente.actual, pendiente.blob);
+    } catch (error) {
+      this.error.set(this.mensajeDeError(error));
+    } finally {
+      this.recortandoEnCurso.set(false);
+      this.pendienteDeConfirmar = null;
+    }
+  }
+
+  protected cancelarSobrescritura(): void {
+    this.pendienteDeConfirmar = null;
+    this.dialogoConfirmarSobrescribir().cerrar();
+  }
+
+  private async ejecutarSobrescritura(actual: MediaItem, blob: Blob): Promise<void> {
+    await this.sobrescribirContenido(actual, blob);
+    this.recorteGuardado.emit();
+    this.dialogo().cerrar();
+  }
+
+  /** Igual que `mensajeDePapeleraEnUso` de `MediaFields` (misma forma
+   * `used_by`): nombre cuando lo hay, tipo si no. */
+  protected usoPendienteFormateado(): string {
+    const nombres = this.usoPendiente()
+      .map((u) => (typeof u['nombre'] === 'string' ? u['nombre'] : u['tipo']))
+      .join(', ');
+    return this.transloco.translate('ui.media.enUsoDetalle', { recursos: nombres });
   }
 
   /** Trasladado tal cual desde `MediaFields.confirmarRecorte` (antes de
@@ -401,4 +512,3 @@ export class MediaEditDialog {
     return error instanceof ApiError ? error.message : this.transloco.translate('comun.error');
   }
 }
-

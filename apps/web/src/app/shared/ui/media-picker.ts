@@ -7,7 +7,6 @@ import { MediaElegida, MediaFields, MediaKind } from './media-fields';
 
 export type { MediaElegida, MediaKind };
 
-
 /**
  * Campo de selección de imagen.
  *

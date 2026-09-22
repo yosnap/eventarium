@@ -391,6 +391,14 @@ export class MediaCropEditor {
   private imagenOriginal: HTMLImageElement | null = null;
   private lienzoHorneado: HTMLCanvasElement | null = null;
   private urlPreviaActual: string | null = null;
+  /** Se incrementa en cada `hornearAsync()`. `toBlob` es asíncrono y dos
+   * rotaciones/volteos seguidos pueden resolver fuera de orden: sin esto,
+   * el horneado más antiguo podía sobrescribir `previaSrc`/`rectangulo`
+   * DESPUÉS de uno más reciente, dejando en pantalla una orientación que ya
+   * no es la que se recorta de verdad (`lienzoHorneado` habría quedado con
+   * el resultado correcto, pero la vista previa mostraría el viejo) —
+   * grave con «Sobrescribir original», que es irreversible. */
+  private tokenHorneado = 0;
 
   private readonly transloco = inject(TranslocoService);
 
@@ -464,6 +472,7 @@ export class MediaCropEditor {
     if (!original) {
       return;
     }
+    const token = ++this.tokenHorneado;
     try {
       const rot = this.rotacion();
       const horizontal = rot === 90 || rot === 270;
@@ -489,22 +498,31 @@ export class MediaCropEditor {
       ctx.rotate((rot * Math.PI) / 180);
       ctx.drawImage(original, -original.naturalWidth / 2, -original.naturalHeight / 2);
       ctx.restore();
-      this.lienzoHorneado = canvas;
       const blob = await new Promise<Blob | null>((resolve) =>
         canvas.toBlob(resolve, 'image/webp', 0.92),
       );
       if (!blob) {
         throw new Error('No se ha podido generar la previsualización.');
       }
+      if (token !== this.tokenHorneado) {
+        // Horneado obsoleto: otra rotación/volteo ya lanzó uno más nuevo
+        // mientras este `toBlob` estaba en vuelo. Se descarta entero (canvas
+        // y blob juntos) para que `lienzoHorneado` y `previaSrc` nunca
+        // queden de orientaciones distintas.
+        return;
+      }
       const url = URL.createObjectURL(blob);
       if (this.urlPreviaActual) {
         URL.revokeObjectURL(this.urlPreviaActual);
       }
       this.urlPreviaActual = url;
+      this.lienzoHorneado = canvas;
       this.previaSrc.set(url);
       this.rectangulo.set(null);
     } catch {
-      this.error.set(this.transloco.translate('comun.error'));
+      if (token === this.tokenHorneado) {
+        this.error.set(this.transloco.translate('comun.error'));
+      }
     }
   }
 
@@ -527,7 +545,12 @@ export class MediaCropEditor {
     }
     const { ancho, alto } = this.ajustarARatio(1, 1, ratioEnFraccion);
     this.rectangulo.set(
-      this.clampearRectangulo({ x: (1 - ancho) / 2, y: (1 - alto) / 2, width: ancho, height: alto }),
+      this.clampearRectangulo({
+        x: (1 - ancho) / 2,
+        y: (1 - alto) / 2,
+        width: ancho,
+        height: alto,
+      }),
     );
   }
 
@@ -564,8 +587,7 @@ export class MediaCropEditor {
     const posicion = this.posicionRelativa(evento);
     const actual = this.rectangulo();
     const manejador = (evento.target as HTMLElement).dataset?.['manejador'] as
-      | EsquinaDeManejador
-      | undefined;
+      EsquinaDeManejador | undefined;
 
     if (manejador && actual) {
       this.modo = 'redimensionar';
@@ -634,10 +656,7 @@ export class MediaCropEditor {
     return { x, y, width, height };
   }
 
-  private dentroDelRectangulo(
-    punto: { x: number; y: number },
-    r: RectanguloDeRecorte,
-  ): boolean {
+  private dentroDelRectangulo(punto: { x: number; y: number }, r: RectanguloDeRecorte): boolean {
     return (
       punto.x >= r.x && punto.x <= r.x + r.width && punto.y >= r.y && punto.y <= r.y + r.height
     );
@@ -728,21 +747,23 @@ export class MediaCropEditor {
 
   /** Convierte una proporción en píxeles reales (p. ej. 16/9) a la misma
    * proporción expresada en fracciones (0-1) del rectángulo mostrado, que
-   * depende de cómo de ancha/alta se vea la imagen actual. `null` si el
-   * lienzo todavía no tiene tamaño real (p. ej. un arrastre disparado antes
-   * de que el `<img>` recién actualizado termine su primer layout) — evita
-   * dividir por cero y propagar `NaN` hasta el recorte final (hallazgo de
-   * code-review). */
+   * depende de cómo de ancha/alta se vea la imagen actual. Se calcula desde
+   * `lienzoHorneado` (los píxeles que se recortan de verdad) y no desde
+   * `getBoundingClientRect()` del `<img>`: tras rotar, el `<img>` sigue
+   * mostrando la caja de la imagen anterior hasta que el nuevo `blob:` carga
+   * y relayout — elegir una proporción justo entonces calculaba la ratio
+   * sobre la orientación vieja y el recorte final no salía con la
+   * proporción pedida (hallazgo de code-review). La proporción del canvas
+   * es la misma que la del `<img>` una vez cargado (se muestra sin recortar
+   * ni deformar), así que el resultado es idéntico pero inmune al retraso
+   * de layout. `null` si el lienzo todavía no existe — evita dividir por
+   * cero y propagar `NaN` hasta el recorte final. */
   private ratioEnFraccionDeImagen(ratioEnPixeles: number): number | null {
-    const imagen = this.imgPrevia();
-    if (!imagen) {
+    const lienzo = this.lienzoHorneado;
+    if (!lienzo || lienzo.width === 0 || lienzo.height === 0) {
       return null;
     }
-    const caja = imagen.nativeElement.getBoundingClientRect();
-    if (caja.width === 0 || caja.height === 0) {
-      return null;
-    }
-    return (ratioEnPixeles * caja.height) / caja.width;
+    return (ratioEnPixeles * lienzo.height) / lienzo.width;
   }
 
   protected alSoltar(evento: PointerEvent): void {
@@ -793,7 +814,10 @@ export class MediaCropEditor {
     }
   }
 
-  private recortarAPngWebp(horneado: HTMLCanvasElement, r: RectanguloDeRecorte): Promise<Blob | null> {
+  private recortarAPngWebp(
+    horneado: HTMLCanvasElement,
+    r: RectanguloDeRecorte,
+  ): Promise<Blob | null> {
     const anchoPx = Math.max(1, Math.round(r.width * horneado.width));
     const altoPx = Math.max(1, Math.round(r.height * horneado.height));
     const canvas = document.createElement('canvas');

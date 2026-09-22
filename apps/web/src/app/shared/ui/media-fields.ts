@@ -179,7 +179,13 @@ function baseDeCarpetas(kind: MediaKind): string {
                       [title]="t('ui.media.editarImagenTitulo')"
                       (click)="abrirEdicion(item)"
                     >
-                      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none">
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="16"
+                        height="16"
+                        aria-hidden="true"
+                        fill="none"
+                      >
                         <path
                           d="M16.5 3.5l4 4L7 21H3v-4L16.5 3.5z"
                           stroke="currentColor"
@@ -196,7 +202,13 @@ function baseDeCarpetas(kind: MediaKind): string {
                       [disabled]="borrandoId() === item.id"
                       (click)="enviarAPapelera(item)"
                     >
-                      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none">
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="16"
+                        height="16"
+                        aria-hidden="true"
+                        fill="none"
+                      >
                         <path
                           d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"
                           stroke="currentColor"

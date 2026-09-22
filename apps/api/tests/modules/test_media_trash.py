@@ -16,8 +16,11 @@ from datetime import UTC, datetime, timedelta
 
 from httpx import AsyncClient
 from PIL import Image
+from sqlalchemy import delete
 
+from app.core.database import SessionMaintenance
 from app.core.permissions import Permission
+from app.modules.roles.models import RolePermission
 from tests.conftest import (
     OrganizacionDePrueba,
     crear_rol,
@@ -295,6 +298,74 @@ async def test_sobrescribir_contenido_exige_permiso_o_propiedad(
         files={"fichero": ("recorte.png", _png_mas_grande(), "image/png")},
     )
     assert sobrescrito.status_code == 403, sobrescrito.text
+
+
+async def test_sobrescribir_contenido_en_uso_exige_permiso_del_kind_no_solo_propiedad(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """Regresión: sobrescribir un medio EN USO solo exigía propiedad (haberlo
+    subido), no el permiso del `kind` — a alguien al que se le retira
+    `BRANDING_WRITE` seguía bastándole haber subido la imagen en su día para
+    cambiar los píxeles del logo ya publicado de la organización (hallazgo
+    de code-review). Sin uso, la propiedad sigue bastando (no se toca ese
+    caso, ver `test_sobrescribir_contenido_mantiene_la_misma_id_y_url`)."""
+    await crear_rol(organizacion, key="editor-branding", permisos=[Permission.BRANDING_WRITE])
+    correo, contrasena = await crear_usuario_con_rol(organizacion, "editor-branding")
+    _, cabeceras = await iniciar_sesion_con(cliente, organizacion, correo, contrasena)
+
+    subido = await _subir(cliente, cabeceras, "branding")
+    asignado = await cliente.put(BRANDING_LOGO, headers=cabeceras, json={"media_id": subido["id"]})
+    assert asignado.status_code == 200, asignado.text
+
+    # Revocación del permiso (como haría un admin editando el rol): la
+    # propiedad del medio se conserva, el permiso no.
+    async with SessionMaintenance() as session:
+        await session.execute(
+            delete(RolePermission).where(
+                RolePermission.organization_id == organizacion.id,
+                RolePermission.permission == Permission.BRANDING_WRITE.value,
+            )
+        )
+        await session.commit()
+
+    sobrescrito = await cliente.put(
+        f"{MEDIA}/{subido['id']}/contenido",
+        headers=cabeceras,
+        files={"fichero": ("recorte.png", _png_mas_grande(), "image/png")},
+    )
+    assert sobrescrito.status_code == 403, sobrescrito.text
+
+
+async def test_consultar_uso_de_un_medio(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    subido = await _subir(cliente, cabeceras, "branding")
+
+    sin_uso = await cliente.get(f"{MEDIA}/{subido['id']}/uso", headers=cabeceras)
+    assert sin_uso.status_code == 200, sin_uso.text
+    assert sin_uso.json()["used_by"] == []
+
+    asignado = await cliente.put(BRANDING_LOGO, headers=cabeceras, json={"media_id": subido["id"]})
+    assert asignado.status_code == 200, asignado.text
+
+    con_uso = await cliente.get(f"{MEDIA}/{subido['id']}/uso", headers=cabeceras)
+    assert con_uso.status_code == 200, con_uso.text
+    assert con_uso.json()["used_by"][0]["tipo"] == "branding"
+
+
+async def test_consultar_uso_exige_permiso_o_propiedad(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras_owner = await iniciar_sesion(cliente, organizacion)
+    subido = await _subir(cliente, cabeceras_owner, "branding")
+
+    await crear_rol(organizacion, key="solo-eventos", permisos=[Permission.EVENTS_WRITE])
+    correo, contrasena = await crear_usuario_con_rol(organizacion, "solo-eventos")
+    _, cabeceras_ajenas = await iniciar_sesion_con(cliente, organizacion, correo, contrasena)
+
+    uso = await cliente.get(f"{MEDIA}/{subido['id']}/uso", headers=cabeceras_ajenas)
+    assert uso.status_code == 403, uso.text
 
 
 async def test_borrar_una_imagen_reutilizada_en_dos_eventos_da_409_no_500(

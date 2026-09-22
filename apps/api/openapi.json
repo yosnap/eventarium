@@ -3240,6 +3240,48 @@
         }
       }
     },
+    "/api/v1/admin/platform/media/{media_id}/uso": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "En qué recursos está en uso un medio de plataforma",
+        "operationId": "platform_media_usage_api_v1_admin_platform_media__media_id__uso_get",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Media Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaUsageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/platform/media/{media_id}/contenido": {
       "put": {
         "tags": [
@@ -6808,6 +6850,48 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MediaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me/media/{media_id}/uso": {
+      "get": {
+        "tags": [
+          "biblioteca de medios"
+        ],
+        "summary": "En qué recursos está en uso un medio",
+        "operationId": "consultar_uso_api_v1_organizations_me_media__media_id__uso_get",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Media Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaUsageResponse"
                 }
               }
             }
@@ -14607,6 +14691,26 @@
         },
         "type": "object",
         "title": "MediaUpdateRequest"
+      },
+      "MediaUsageResponse": {
+        "properties": {
+          "used_by": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Used By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "used_by"
+        ],
+        "title": "MediaUsageResponse",
+        "description": "En qué recursos está en uso un medio — consulta previa a\n«Sobrescribir original» (irreversible), para avisar de a cuántos sitios\nafecta antes de confirmar. Mismo `used_by` que `MediaInUseError`."
       },
       "MemberCreate": {
         "properties": {

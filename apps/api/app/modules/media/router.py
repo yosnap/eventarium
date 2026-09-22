@@ -21,6 +21,7 @@ from app.modules.media.schemas import (
     MediaFolderResponse,
     MediaResponse,
     MediaUpdateRequest,
+    MediaUsageResponse,
 )
 from app.shared.errors import ValidationDomainError
 from app.shared.pagination import Page, PageParams, page_params
@@ -170,6 +171,27 @@ async def actualizar(
         filename_incluido="filename" in campos_enviados,
     )
     return _media_response(fila)
+
+
+@router.get(
+    "/{media_id}/uso",
+    summary="En qué recursos está en uso un medio",
+    response_model=MediaUsageResponse,
+)
+async def consultar_uso(
+    media_id: str,
+    usuario: CurrentUserDep,
+    session: DbDep,
+    permisos: PermissionsDep,
+) -> MediaUsageResponse:
+    referencias = await service.consultar_uso(
+        session,
+        media_id=uuid.UUID(media_id),
+        organization_id=usuario.organization_id,
+        user_id=usuario.id,
+        permisos=permisos,
+    )
+    return MediaUsageResponse(used_by=referencias)
 
 
 @router.put(

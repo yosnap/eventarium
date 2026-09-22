@@ -177,6 +177,16 @@ async def _referencias_activas(session: AsyncSession, media_id: uuid.UUID) -> li
     return referencias
 
 
+async def consultar_uso(session: AsyncSession, *, media_id: uuid.UUID) -> list[dict[str, str]]:
+    """Ver `service.consultar_uso` — mismo criterio, sin comprobación de
+    visibilidad adicional porque `require_superadmin` ya gatea el acceso a
+    toda la biblioteca de plataforma en el router."""
+    fila = await session.get(PlatformMedia, media_id)
+    if fila is None or fila.deleted_at is not None:
+        raise NotFoundError("Ese medio no existe.")
+    return await _referencias_activas(session, media_id)
+
+
 async def borrar(session: AsyncSession, *, media_id: uuid.UUID) -> None:
     fila = await session.get(PlatformMedia, media_id)
     if fila is None or fila.deleted_at is not None:

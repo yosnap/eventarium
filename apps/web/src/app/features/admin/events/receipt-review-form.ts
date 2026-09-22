@@ -262,7 +262,13 @@ function importeParaElCampo(cents: number | null): string {
         <app-button pie variant="secundario" type="button" (pulsado)="cerrarDescarte()">
           {{ t('admin.events.accounting.justificantes.revision.descarte.cancelar') }}
         </app-button>
-        <app-button pie variant="peligro" type="button" [loading]="enviando()" (pulsado)="descartar()">
+        <app-button
+          pie
+          variant="peligro"
+          type="button"
+          [loading]="enviando()"
+          (pulsado)="descartar()"
+        >
           {{ t('admin.events.accounting.justificantes.revision.descarte.confirmar') }}
         </app-button>
       </app-dialog>

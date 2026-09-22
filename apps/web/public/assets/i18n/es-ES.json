@@ -2260,6 +2260,8 @@
       "papelera": "Enviar a la papelera",
       "papeleraConfirmacion": "¿Enviar esta imagen a la papelera?",
       "enUso": "En uso por: {{recursos}} — no se puede borrar.",
+      "sobrescribirEnUsoConfirmacion": "Esta imagen está en uso. Sobrescribirla cambiará lo que se ve en todos esos sitios, sin poder deshacerlo.",
+      "enUsoDetalle": "En uso por: {{recursos}}.",
       "editarImagenTitulo": "Editar imagen",
       "nombreEtiqueta": "Nombre",
       "altEtiqueta": "Texto alternativo",

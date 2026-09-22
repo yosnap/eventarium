@@ -108,6 +108,7 @@ export type { MediaFolderCreate } from './models/media-folder-create';
 export type { MediaFolderResponse } from './models/media-folder-response';
 export type { MediaResponse } from './models/media-response';
 export type { MediaUpdateRequest } from './models/media-update-request';
+export type { MediaUsageResponse } from './models/media-usage-response';
 export type { MemberCreate } from './models/member-create';
 export type { MemberResponse } from './models/member-response';
 export type { MemberRoleOut } from './models/member-role-out';

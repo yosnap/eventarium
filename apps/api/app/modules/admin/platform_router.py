@@ -30,6 +30,7 @@ from app.modules.media.schemas import (
     MediaFolderResponse,
     MediaResponse,
     MediaUpdateRequest,
+    MediaUsageResponse,
     PlatformMediaFolderCreate,
 )
 from app.modules.platform import repository as platform_repository
@@ -368,6 +369,18 @@ async def update_platform_media(
         filename_incluido="filename" in campos_enviados,
     )
     return _platform_media_response(fila)
+
+
+@router.get(
+    "/platform/media/{media_id}/uso",
+    summary="En qué recursos está en uso un medio de plataforma",
+    response_model=MediaUsageResponse,
+)
+async def platform_media_usage(
+    media_id: str, superadmin: Superadmin, session: MaintenanceDb
+) -> MediaUsageResponse:
+    referencias = await platform_media_service.consultar_uso(session, media_id=uuid.UUID(media_id))
+    return MediaUsageResponse(used_by=referencias)
 
 
 @router.put(

@@ -119,7 +119,9 @@ describe('MediaCropEditor', () => {
 
     const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
     lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
-    lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }));
+    lienzo.dispatchEvent(
+      new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }),
+    );
     fixture.detectChanges();
 
     const botonConfirmar = botonPorTexto(raiz, 'Guardar como nueva');
@@ -139,7 +141,9 @@ describe('MediaCropEditor', () => {
 
     const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
     lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
-    lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }));
+    lienzo.dispatchEvent(
+      new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }),
+    );
     fixture.detectChanges();
 
     botonPorTexto(raiz, 'Guardar como nueva').click();
@@ -168,7 +172,9 @@ describe('MediaCropEditor', () => {
 
     const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
     lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
-    lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }));
+    lienzo.dispatchEvent(
+      new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }),
+    );
     fixture.detectChanges();
 
     botonPorTexto(raiz, 'Sobrescribir original').click();
@@ -198,6 +204,45 @@ describe('MediaCropEditor', () => {
     const anchoPx = (parseFloat(seleccion.style.width) / 100) * 200;
     const altoPx = (parseFloat(seleccion.style.height) / 100) * 100;
     expect(anchoPx).toBeCloseTo(altoPx, 5);
+  });
+
+  it('un horneado obsoleto no sobrescribe la vista previa de uno más reciente que ya terminó (llamadas solapadas a toBlob)', async () => {
+    await avanzar(fixture);
+    await esperarCarga(fixture);
+
+    // A partir de aquí se controla manualmente cuándo resuelve cada
+    // `toBlob`, para forzar el orden inverso al de llegada.
+    const llamadas: BlobCallback[] = [];
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function (
+      this: HTMLCanvasElement,
+      callback: BlobCallback,
+    ) {
+      llamadas.push(callback);
+    });
+    let contador = 0;
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:fake-${contador++}`);
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+
+    const instancia = fixture.componentInstance as unknown as {
+      hornearAsync(): Promise<void>;
+      previaSrc: () => string;
+    };
+
+    // Dos horneados solapados (p. ej. dos rotaciones seguidas antes de que
+    // el primer `toBlob` resuelva).
+    const horneadoA = instancia.hornearAsync();
+    const horneadoB = instancia.hornearAsync();
+    expect(llamadas.length).toBe(2);
+
+    // El más reciente (B) resuelve primero.
+    llamadas[1](new Blob(['b'], { type: 'image/webp' }));
+    await horneadoB;
+    expect(instancia.previaSrc()).toBe('blob:fake-0');
+
+    // El obsoleto (A) resuelve después: no debe pisar el resultado de B.
+    llamadas[0](new Blob(['a'], { type: 'image/webp' }));
+    await horneadoA;
+    expect(instancia.previaSrc()).toBe('blob:fake-0');
   });
 
   it('elegir una proporción fija dibuja de inmediato una selección centrada, sin arrastrar', async () => {
@@ -244,7 +289,9 @@ describe('MediaCropEditor', () => {
 
     const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
     lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
-    lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }));
+    lienzo.dispatchEvent(
+      new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }),
+    );
     lienzo.dispatchEvent(new PointerEvent('pointerup', { clientX: 120, clientY: 60 }));
     fixture.detectChanges();
 
@@ -270,7 +317,9 @@ describe('MediaCropEditor', () => {
 
     const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
     lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
-    lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }));
+    lienzo.dispatchEvent(
+      new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }),
+    );
     lienzo.dispatchEvent(new PointerEvent('pointerup', { clientX: 120, clientY: 60 }));
     fixture.detectChanges();
 
@@ -278,7 +327,9 @@ describe('MediaCropEditor', () => {
     tirador.dispatchEvent(
       new PointerEvent('pointerdown', { clientX: 120, clientY: 60, buttons: 1, bubbles: true }),
     );
-    lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 160, clientY: 80, buttons: 1 }));
+    lienzo.dispatchEvent(
+      new PointerEvent('pointermove', { clientX: 160, clientY: 80, buttons: 1 }),
+    );
     fixture.detectChanges();
 
     const seleccion = raiz.querySelector('.seleccion') as HTMLDivElement;
@@ -297,7 +348,9 @@ describe('MediaCropEditor', () => {
 
     const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
     lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
-    lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }));
+    lienzo.dispatchEvent(
+      new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }),
+    );
     lienzo.dispatchEvent(new PointerEvent('pointerup', { clientX: 120, clientY: 60 }));
     fixture.detectChanges();
 
@@ -306,7 +359,9 @@ describe('MediaCropEditor', () => {
       new PointerEvent('pointerdown', { clientX: 120, clientY: 60, buttons: 1, bubbles: true }),
     );
     // Arrastra muy por fuera de la imagen (el lienzo mockeado mide 200×100px).
-    lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 5000, clientY: 5000, buttons: 1 }));
+    lienzo.dispatchEvent(
+      new PointerEvent('pointermove', { clientX: 5000, clientY: 5000, buttons: 1 }),
+    );
     fixture.detectChanges();
 
     const seleccion = raiz.querySelector('.seleccion') as HTMLDivElement;

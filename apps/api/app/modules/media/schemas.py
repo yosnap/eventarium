@@ -63,3 +63,11 @@ class MediaInUseError(BaseModel):
 
     detail: str
     used_by: list[dict[str, str]]
+
+
+class MediaUsageResponse(BaseModel):
+    """En qué recursos está en uso un medio — consulta previa a
+    «Sobrescribir original» (irreversible), para avisar de a cuántos sitios
+    afecta antes de confirmar. Mismo `used_by` que `MediaInUseError`."""
+
+    used_by: list[dict[str, str]]
