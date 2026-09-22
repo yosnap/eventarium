@@ -199,26 +199,17 @@ describe('MediaEditDialog', () => {
     expect(recorteGuardadoEmitido).toBe(true);
   });
 
-  it('cancelar el recorte no cierra el modal ni descarta el nombre ya escrito', async () => {
+  it('cancelar el recorte cierra el modal entero (misma convención que el resto de diálogos)', async () => {
     await avanzar(fixture);
     fixture.componentInstance.abrir(itemDePrueba());
     await avanzar(fixture);
     await esperarCargaDelRecorte(fixture);
 
     const raiz = fixture.nativeElement as HTMLElement;
-    const campoNombre = raiz.querySelectorAll('input[type="text"]')[0] as HTMLInputElement;
-    campoNombre.value = 'sin-guardar-todavia.png';
-    campoNombre.dispatchEvent(new Event('input'));
-    await avanzar(fixture);
-
     botonPorTexto(raiz, 'Cancelar').click();
     await avanzar(fixture);
 
-    expect(raiz.querySelector('dialog')?.hasAttribute('open')).toBe(true);
-    const campoNombreTrasCancelar = raiz.querySelectorAll(
-      'input[type="text"]',
-    )[0] as HTMLInputElement;
-    expect(campoNombreTrasCancelar.value).toBe('sin-guardar-todavia.png');
+    expect(raiz.querySelector('dialog')?.hasAttribute('open')).toBe(false);
   });
 
   it('reabrir para otro item mientras el PATCH anterior sigue en vuelo no pisa el formulario nuevo', async () => {

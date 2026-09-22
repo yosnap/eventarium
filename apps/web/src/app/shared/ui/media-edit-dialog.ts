@@ -32,9 +32,14 @@ import { MediaFolder, MediaItem, MediaKind, baseDeMedia } from './media-types';
  * `PATCH` en el mismo recurso; el recorte crea un `Media` **nuevo** (decisión
  * ya cerrada en `plans/260921-1720-prd-editor-recorte-imagen`, no se
  * reabre aquí). Fusionarlas en un único botón fingiría una semántica de
- * "sobrescribir" que no existe. Ninguna de las dos cierra el modal sola —
- * cerrar es una acción explícita de la persona, para poder encadenar ambas
- * sin perder el modal a mitad de camino.
+ * "sobrescribir" que no existe.
+ *
+ * "Cancelar" (dentro de `MediaCropEditor`) cierra el modal entero, igual
+ * que la referencia del usuario y que el resto de diálogos del proyecto —
+ * es la lectura convencional de "cancelar" en cualquier modal, incluida la
+ * propia referencia que también descarta ahí cualquier cambio de metadatos
+ * sin guardar. Guardar los metadatos sigue sin cerrar el modal (para poder
+ * encadenar con el recorte sin perderlo a mitad de camino).
  *
  * `confirmarRecorte` **no emite ningún evento de "elegir imagen para un
  * campo"** (a diferencia del `MediaCropEditor` embebido en el flujo de
@@ -50,7 +55,7 @@ import { MediaFolder, MediaItem, MediaKind, baseDeMedia } from './media-types';
   imports: [TranslocoDirective, Button, Dialog, Input, MediaCropEditor],
   template: `
     <ng-container *transloco="let t">
-      <app-dialog #dialogo>
+      <app-dialog #dialogo tamano="ancho">
         @if (item(); as actual) {
           <h3 class="titulo">{{ t('ui.media.editarImagenTitulo') }}</h3>
 
@@ -58,51 +63,53 @@ import { MediaFolder, MediaItem, MediaKind, baseDeMedia } from './media-types';
             <p class="error">{{ mensaje }}</p>
           }
 
-          <section class="metadatos">
-            <app-input
-              [label]="t('ui.media.nombreEtiqueta')"
-              [value]="nombre()"
-              (valueChange)="nombre.set($event)"
-            />
-            <app-input
-              [label]="t('ui.media.altEtiqueta')"
-              [value]="alt()"
-              (valueChange)="alt.set($event)"
-            />
-            @if (carpetas().length > 0) {
-              <label class="carpeta-campo">
-                {{ t('ui.media.carpetaEtiqueta') }}
-                <select [value]="carpetaId() ?? ''" (change)="alCambiarCarpeta($event)">
-                  <option value="">{{ t('ui.media.todasLasCarpetas') }}</option>
-                  @for (carpeta of carpetas(); track carpeta.id) {
-                    <option [value]="carpeta.id">{{ carpeta.name }}</option>
-                  }
-                </select>
-              </label>
-            }
-            <app-button
-              type="button"
-              variant="secundario"
-              [disabled]="!nombre().trim() || guardandoMetadatos()"
-              [loading]="guardandoMetadatos()"
-              (pulsado)="guardarMetadatos()"
-            >
-              {{
-                guardandoMetadatos()
-                  ? t('ui.media.guardandoCambios')
-                  : t('ui.media.guardarCambios')
-              }}
-            </app-button>
-          </section>
+          <div class="contenido">
+            <section class="recorte">
+              <app-media-crop-editor
+                [url]="actual.url"
+                [confirmando]="recortandoEnCurso()"
+                (confirmado)="confirmarRecorte($event)"
+                (cancelado)="dialogo.cerrar()"
+              />
+            </section>
 
-          <section class="recorte">
-            <app-media-crop-editor
-              [url]="actual.url"
-              [confirmando]="recortandoEnCurso()"
-              (confirmado)="confirmarRecorte($event)"
-              (cancelado)="cancelarRecorte()"
-            />
-          </section>
+            <section class="metadatos">
+              <app-input
+                [label]="t('ui.media.nombreEtiqueta')"
+                [value]="nombre()"
+                (valueChange)="nombre.set($event)"
+              />
+              <app-input
+                [label]="t('ui.media.altEtiqueta')"
+                [value]="alt()"
+                (valueChange)="alt.set($event)"
+              />
+              @if (carpetas().length > 0) {
+                <label class="carpeta-campo">
+                  {{ t('ui.media.carpetaEtiqueta') }}
+                  <select [value]="carpetaId() ?? ''" (change)="alCambiarCarpeta($event)">
+                    <option value="">{{ t('ui.media.todasLasCarpetas') }}</option>
+                    @for (carpeta of carpetas(); track carpeta.id) {
+                      <option [value]="carpeta.id">{{ carpeta.name }}</option>
+                    }
+                  </select>
+                </label>
+              }
+              <app-button
+                type="button"
+                variant="secundario"
+                [disabled]="!nombre().trim() || guardandoMetadatos()"
+                [loading]="guardandoMetadatos()"
+                (pulsado)="guardarMetadatos()"
+              >
+                {{
+                  guardandoMetadatos()
+                    ? t('ui.media.guardandoCambios')
+                    : t('ui.media.guardarCambios')
+                }}
+              </app-button>
+            </section>
+          </div>
         }
       </app-dialog>
     </ng-container>
@@ -116,12 +123,23 @@ import { MediaFolder, MediaItem, MediaKind, baseDeMedia } from './media-types';
       font-size: var(--fs-sm);
       margin: 0 0 var(--space-sm);
     }
+    /* Dos columnas como la referencia (recorte más ancho que metadatos) a
+       partir de 48rem; apiladas debajo, el modal ancho no cabe cómodo en
+       pantallas estrechas. */
+    .contenido {
+      display: grid;
+      gap: var(--sp-5);
+    }
+    @media (min-width: 48rem) {
+      .contenido {
+        grid-template-columns: 1.4fr 1fr;
+        align-items: start;
+      }
+    }
     .metadatos {
       display: grid;
       gap: var(--space-sm);
-      padding-bottom: var(--sp-4);
-      margin-bottom: var(--sp-4);
-      border-bottom: 1px solid var(--border);
+      align-content: start;
     }
     .carpeta-campo {
       display: grid;
@@ -175,17 +193,6 @@ export class MediaEditDialog {
 
   protected alCambiarCarpeta(evento: Event): void {
     this.carpetaId.set((evento.target as HTMLSelectElement).value || null);
-  }
-
-  /** El "Cancelar" del propio `MediaCropEditor` solo significa "descarto
-   * este arrastre de selección" — nunca "cierro el modal entero" (hallazgo
-   * de code-review: cerrar aquí descartaba en silencio cambios de nombre/
-   * alt/carpeta sin guardar, ya escritos pero no confirmados todavía).
-   * Cerrar el modal sigue siendo una acción explícita de la persona
-   * (botón/Escape del propio `<dialog>`), no una consecuencia de cancelar
-   * el recorte. */
-  protected cancelarRecorte(): void {
-    this.error.set(null);
   }
 
   protected async guardarMetadatos(): Promise<void> {
@@ -269,3 +276,4 @@ export class MediaEditDialog {
     return error instanceof ApiError ? error.message : this.transloco.translate('comun.error');
   }
 }
+

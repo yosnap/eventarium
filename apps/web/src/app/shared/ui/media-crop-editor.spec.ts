@@ -152,6 +152,42 @@ describe('MediaCropEditor', () => {
     expect(anchoPx).toBeCloseTo(altoPx, 5);
   });
 
+  it('elegir una proporción fija dibuja de inmediato una selección centrada, sin arrastrar', async () => {
+    await avanzar(fixture);
+    await esperarCarga(fixture);
+    const raiz = fixture.nativeElement as HTMLElement;
+    mockearCajaDeLaImagen(raiz);
+
+    expect(raiz.querySelector('.seleccion')).toBeNull();
+    botonPorTexto(raiz, '16:9').click();
+    fixture.detectChanges();
+
+    const seleccion = raiz.querySelector('.seleccion') as HTMLDivElement;
+    expect(seleccion).not.toBeNull();
+    // Centrada: el hueco a cada lado (izquierda vs derecha, arriba vs abajo)
+    // debe ser igual.
+    const izquierda = parseFloat(seleccion.style.left);
+    const derecha = 100 - izquierda - parseFloat(seleccion.style.width);
+    expect(izquierda).toBeCloseTo(derecha, 5);
+    expect(botonPorTexto(raiz, 'Confirmar recorte').disabled).toBe(false);
+  });
+
+  it('elegir "Libre" no borra una selección ya dibujada', async () => {
+    await avanzar(fixture);
+    await esperarCarga(fixture);
+    const raiz = fixture.nativeElement as HTMLElement;
+    mockearCajaDeLaImagen(raiz);
+
+    botonPorTexto(raiz, '16:9').click();
+    fixture.detectChanges();
+    expect(raiz.querySelector('.seleccion')).not.toBeNull();
+
+    botonPorTexto(raiz, 'Libre').click();
+    fixture.detectChanges();
+
+    expect(raiz.querySelector('.seleccion')).not.toBeNull();
+  });
+
   it('voltear horizontal marca el botón como activo', async () => {
     await avanzar(fixture);
     await esperarCarga(fixture);

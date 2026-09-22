@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, ElementRef, output, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  input,
+  output,
+  viewChild,
+} from '@angular/core';
 
 /**
  * Diálogo modal sobre `<dialog>` nativo.
@@ -24,7 +31,13 @@ import { ChangeDetectionStrategy, Component, ElementRef, output, viewChild } fro
          nativo ya gestiona con el evento cancel: no hay equivalente keyup que
          tenga sentido sobre el fondo, de ahí las dos excepciones documentadas. -->
     <!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -->
-    <dialog #elemento (cancel)="cerrar()" (close)="procesarCierre()" (click)="alClic($event)">
+    <dialog
+      #elemento
+      [class.ancho]="tamano() === 'ancho'"
+      (cancel)="cerrar()"
+      (close)="procesarCierre()"
+      (click)="alClic($event)"
+    >
       <div class="cuerpo">
         <ng-content />
       </div>
@@ -49,6 +62,12 @@ import { ChangeDetectionStrategy, Component, ElementRef, output, viewChild } fro
       max-width: 28.75rem;
       width: calc(100% - 40px);
     }
+    /* Variante ancha: modales con contenido de dos columnas (p. ej. el
+       editor de imagen, recorte + metadatos lado a lado) que no caben en
+       el ancho estrecho por defecto. */
+    dialog.ancho {
+      max-width: 64rem;
+    }
     dialog::backdrop {
       background-color: var(--backdrop);
     }
@@ -71,6 +90,10 @@ import { ChangeDetectionStrategy, Component, ElementRef, output, viewChild } fro
 })
 export class Dialog {
   private readonly elemento = viewChild.required<ElementRef<HTMLDialogElement>>('elemento');
+
+  /** `'normal'` (por defecto): 28.75rem, el ancho de siempre. `'ancho'`:
+   * 64rem, para contenido de dos columnas. */
+  readonly tamano = input<'normal' | 'ancho'>('normal');
 
   /** Se emite al cerrar, por cualquier vía (Escape, fondo, `cerrar()`). */
   readonly cerrado = output<void>();

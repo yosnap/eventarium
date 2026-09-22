@@ -239,11 +239,20 @@ const UMBRAL_MINIMO = 0.02;
       font-size: var(--fs-sm);
       color: var(--muted);
     }
+    /* overflow: hidden + tamaño fijo (no max-height que se adapta al
+       contenido): el zoom escala .interno desde su centro sin mover el
+       viewport — "el tamaño permanece y se centra" (hallazgo del usuario:
+       antes, con overflow: auto y transform-origin: top left, ampliar
+       el zoom hacía crecer el lienzo entero y desplazaba la vista hacia la
+       esquina superior izquierda en vez de mantenerla centrada). */
     .lienzo {
       position: relative;
-      max-width: 100%;
-      max-height: 20rem;
-      overflow: auto;
+      width: 100%;
+      height: 20rem;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       border-radius: var(--radius-md);
       border: 1px solid var(--border);
       touch-action: none;
@@ -251,7 +260,7 @@ const UMBRAL_MINIMO = 0.02;
     .interno {
       position: relative;
       display: inline-block;
-      transform-origin: top left;
+      transform-origin: center center;
       cursor: crosshair;
       user-select: none;
     }
@@ -426,9 +435,25 @@ export class MediaCropEditor {
     }
   }
 
+  /** Con una proporción fija, dibuja de inmediato una selección centrada de
+   * ese ratio (mismo comportamiento que la referencia del usuario: elegir
+   * "16:9" muestra ya un recuadro, no hace falta arrastrar a mano para
+   * verlo) — antes limpiaba la selección a `null`, dejando la persona sin
+   * ninguna vista previa hasta arrastrar (hallazgo del usuario). Con
+   * "Libre" no se toca la selección ya dibujada: solo deja de forzar una
+   * ratio en los arrastres siguientes. */
   protected elegirProporcion(valor: number | undefined): void {
     this.aspecto.set(valor);
-    this.rectangulo.set(null);
+    if (valor === undefined) {
+      return;
+    }
+    const ratioEnFraccion = this.ratioEnFraccionDeImagen(valor);
+    if (ratioEnFraccion === null) {
+      this.rectangulo.set(null);
+      return;
+    }
+    const { ancho, alto } = this.ajustarARatio(1, 1, ratioEnFraccion);
+    this.rectangulo.set({ x: (1 - ancho) / 2, y: (1 - alto) / 2, width: ancho, height: alto });
   }
 
   protected rotar(grados: 90 | -90): void {
