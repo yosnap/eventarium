@@ -67,8 +67,8 @@ function claveDeEstado(valor: string): string {
                   <li>
                     <a [routerLink]="['/eventos', fila.event_slug]">{{ fila.event_title }}</a>
                     <span class="detalle">
-                      {{ fila.starts_at | date: 'd MMM y, HH:mm' }} · {{ fila.organization_name }}
-                      · {{ t('publico.misEventos.estado.' + claveDeEstado(fila.status)) }}
+                      {{ fila.starts_at | date: 'd MMM y, HH:mm' }} · {{ fila.organization_name }} ·
+                      {{ t('publico.misEventos.estado.' + claveDeEstado(fila.status)) }}
                     </span>
                   </li>
                 }

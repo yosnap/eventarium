@@ -135,10 +135,7 @@ export class RegistrationsService {
    * sin él, el enlace es una herramienta de acoso por correo mucho más
    * barata de explotar).
    */
-  async requestMisEventosAccess(
-    email: string,
-    turnstileToken: string,
-  ): Promise<RespuestaGenerica> {
+  async requestMisEventosAccess(email: string, turnstileToken: string): Promise<RespuestaGenerica> {
     return firstValueFrom(
       this.http.post<RespuestaGenerica>(this.api.url('/public/mis-eventos/solicitar'), {
         email,
