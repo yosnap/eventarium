@@ -216,6 +216,31 @@ export class AdminShell {
         this.botonNavegacion()?.nativeElement.focus();
       }
     });
+
+    // `authGuard` solo comprueba la sesión AL ENTRAR — si el token se queda a
+    // `null` mientras la persona ya está dentro del panel (el refresh de
+    // `authInterceptor` agotó su único reintento: cookie de refresco
+    // caducada, sesión cerrada en otra pestaña…), nada volvía a comprobarlo:
+    // cada petición seguía saliendo sin cabecera y la pantalla se quedaba
+    // mostrando el error crudo del backend indefinidamente (hallazgo del
+    // usuario, en un polling de OCR de justificantes que llevaba minutos
+    // reintentando sin avisar). El shell envuelve TODO el panel, así que es
+    // el único sitio que ve la sesión morir sin importar en qué página
+    // estuviera — mismo destino y mismo `redirigir` que usa `authGuard` al
+    // entrar, para volver exactamente a donde estaba tras loguearse de nuevo.
+    effect(() => {
+      // `cerrarSesion()` también deja `isAuthenticated()` a `false` y ya
+      // navega a `/acceder` por su cuenta (sin `redirigir`, a propósito: un
+      // cierre de sesión deliberado no debe devolver al panel al loguearse
+      // de nuevo) — sin esta comprobación, este efecto lanzaría una segunda
+      // navegación detrás añadiendo el `redirigir` que el logout explícito
+      // decidió no llevar.
+      if (!this.auth.isAuthenticated() && !this.router.url.startsWith('/acceder')) {
+        void this.router.navigate(['/acceder'], {
+          queryParams: { redirigir: this.router.url },
+        });
+      }
+    });
   }
 
   private async cargarOrganizaciones(): Promise<void> {
