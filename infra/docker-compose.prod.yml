@@ -226,16 +226,14 @@ services:
         condition: service_started
       web:
         condition: service_started
-      seaweedfs:
-        condition: service_healthy
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
     expose:
       - "80"
+    # Sonda del propio Caddy (`/healthz`), no de la API: un 503 de /api/v1/health no
+    # debe dejar a `caddy` unhealthy, porque Traefik dejaría de enrutar el dominio entero.
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost/api/v1/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost/healthz || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 30
@@ -245,5 +243,3 @@ volumes:
   postgres-data:
   redis-data:
   seaweedfs-data:
-  caddy-data:
-  caddy-config:

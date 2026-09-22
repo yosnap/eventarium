@@ -100,6 +100,26 @@ jobs:
             sleep 1
           done
 
+      # El Caddyfile de producción es la única entrada del dominio: un error de
+      # sintaxis o un `handle` mal ordenado tumbaría todo el sitio en el siguiente
+      # despliegue. Se valida y se sondea la regla de justificantes a través de él,
+      # igual que con el de desarrollo. Escucha en :80 y no necesita upstreams para
+      # responder el 403 (la regla va antes de cualquier reverse_proxy).
+      - name: Validar el Caddyfile de producción (regla de justificantes)
+        run: |
+          docker run --rm -v "$PWD/infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2.10-alpine caddy validate --config /etc/caddy/Caddyfile
+          docker run -d --name caddy-prod -p 8090:80 \
+            -v "$PWD/infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2.10-alpine
+          for intento in $(seq 1 20); do
+            codigo=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8090/media/orgs/x/accounting-receipts/y || echo 000)
+            [ "$codigo" = "403" ] && { echo "Caddyfile de producción: regla de justificantes activa"; break; }
+            [ "$intento" = "20" ] && { docker logs caddy-prod; exit 1; }
+            sleep 1
+          done
+          docker rm -f caddy-prod
+
       - name: Crear los roles de base de datos
         env:
           PGPASSWORD: ${{ env.POSTGRES_SUPERUSER_PASSWORD }}

@@ -38,7 +38,7 @@ En EasyPanel, crea un proyecto y dentro estos servicios:
 | `worker` | App | la misma imagen que `api` | — |
 | `scheduler` | App | la misma imagen que `api` | — |
 | `web` | App | `ghcr.io/yosnap/eventarium/web:sha-<commit>` | 4000 |
-| `caddy` | App | `caddy:2.10-alpine` con `infra/caddy/Caddyfile` | 80 |
+| `caddy` | Compose (no App suelta) | `caddy:2.10-alpine` | 80 |
 
 Comandos de arranque:
 
@@ -49,6 +49,10 @@ Comandos de arranque:
   `schedule`): sin este servicio, el barrido de cuentas sin verificar no se ejecuta nunca,
   aunque el `worker` esté sano.
 - `api` y `web` usan el comando por defecto de su imagen.
+- `caddy` necesita `infra/caddy/Caddyfile` montado en `/etc/caddy/Caddyfile`, y un
+  servicio «App» desde imagen no tiene checkout del repo: despliégalo desde
+  `infra/docker-compose.prod.yml` (recurso Compose del panel), que ya lo monta. Con la
+  imagen sola, el dominio mostraría la página de bienvenida de Caddy.
 
 ### 2. Enrutar el dominio
 
@@ -93,7 +97,7 @@ S3_BUCKET=media
 S3_PUBLIC_BASE_URL=https://eventos.tu-dominio.org/media
 WEB_BASE_URL=https://eventos.tu-dominio.org
 JWT_SECRET=<openssl rand -base64 48>
-TRUSTED_PROXY_CIDRS=10.0.0.0/8,172.16.0.0/12
+TRUSTED_PROXY_CIDRS=172.16.0.0/12,192.168.0.0/16
 ```
 
 Y en `web`:
@@ -107,10 +111,15 @@ NG_ALLOWED_HOSTS=tu-dominio.org
 Una que suele dar problemas:
 
 - **`TRUSTED_PROXY_CIDRS`** decide desde qué redes se acepta `X-Forwarded-For` al
-  calcular la IP real del cliente (limitadores de tasa). Tiene que cubrir la red del
-  proxy de EasyPanel y nada más: abrirlo a `0.0.0.0/0` dejaría a cualquiera falsear su
-  IP contra los límites. Comprueba el rango real con `docker network inspect` en el
-  servidor.
+  calcular la IP real del cliente (limitadores de tasa). El peer TCP de la API es el
+  servicio `caddy`, que vive en la red del proyecto Compose (no en la red del Traefik
+  del panel): el CIDR tiene que cubrir esa red, y nada más. Si se queda fuera, la API
+  toma la IP de `caddy` como cliente para todo el mundo y el limitador colapsa en un
+  solo contador: un puñado de intentos de cualquiera daría 429 a toda la plataforma.
+  Docker asigna esas subredes dentro de `172.16.0.0/12` y, cuando ese pool se agota en
+  un host con muchos proyectos, dentro de `192.168.0.0/16`; incluye los dos rangos o
+  comprueba el real con `docker network inspect <proyecto>_default`. Abrirlo a
+  `0.0.0.0/0` dejaría a cualquiera falsear su IP contra los límites.
 
 ### 4. Roles de base de datos y migraciones
 
@@ -154,7 +163,10 @@ Comprueba `https://eventos.tu-dominio.org/api/v1/health`: los tres valores deben
 servicio `caddy` ya enruta `/`, `/api` y `/media` por dentro, pero escucha en HTTP plano
 (puerto 80, sin certificados) porque cuenta con un proxy delante que termine TLS. Sin
 panel, publica ese puerto solo a un proxy propio con TLS (otro Caddy, Traefik, nginx) que
-reenvíe todo el dominio a `caddy:80`.
+reenvíe todo el dominio a `caddy:80` **y ponga `X-Forwarded-Proto: https` y
+`X-Forwarded-Host` con el dominio**: el Caddy interno ya no las escribe, las conserva del
+proxy frontal, y sin ellas el SSR renderizaría URLs absolutas en `http`. Un `proxy_pass`
+de nginx por defecto no las añade.
 
 Los servicios `migrate`, `api`, `worker` y `scheduler` leen su configuración por
 `environment:` con interpolación `${VAR}`, no por `env_file:` — así el fichero no tiene

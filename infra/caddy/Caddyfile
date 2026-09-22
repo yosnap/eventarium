@@ -11,9 +11,16 @@
 #
 # X-Forwarded-Host / X-Forwarded-Proto: NO se sobrescriben aquí. Las pone el proxy del
 # orquestador con el host y el esquema reales (https) y Caddy las conserva porque ese
-# proxy llega desde una red privada (`trusted_proxies`). Si Caddy las fijara con
-# `{scheme}`, el esquema sería «http» (el tramo Traefik→Caddy va sin TLS) y la API
-# y el SSR construirían URLs y cookies como si el sitio no fuera seguro.
+# proxy llega desde una red privada (`trusted_proxies`). Quien las consume es el SSR de
+# Angular (`trustProxyHeaders` en apps/web/src/server.ts) para construir el origen de la
+# página; la API no las lee (la cookie `Secure` sale de APP_ENV y las URLs absolutas de
+# WEB_BASE_URL). Si Caddy las fijara con `{scheme}`, el esquema sería «http» (el tramo
+# Traefik→Caddy va sin TLS) y el SSR renderizaría URLs absolutas y canónicas en http.
+#
+# `private_ranges` y no la subred concreta de Traefik: esa subred la asigna Docker en
+# cada host y cambia entre instalaciones. Cualquier contenedor de la red compartida del
+# orquestador podría forjar X-Forwarded-For, pero ya podía hacerlo antes golpeando
+# `api:8000` directo, y la confianza real la decide la API con TRUSTED_PROXY_CIDRS.
 
 {
 	admin off
@@ -38,6 +45,13 @@
 		Referrer-Policy strict-origin-when-cross-origin
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		-Server
+	}
+
+	# Sonda del propio Caddy, no de sus upstreams: el healthcheck del compose la usa.
+	# Si sondeara /api/v1/health (503 cuando falla BD, Redis o S3), Traefik retiraría
+	# el único router del dominio y caería también lo que sí funcionaba (SSR, /media).
+	handle /healthz {
+		respond "ok" 200
 	}
 
 	handle /api/* {
