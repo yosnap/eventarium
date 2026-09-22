@@ -100,20 +100,21 @@ describe('MediaCropEditor', () => {
     imagen.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 100 }) as DOMRect;
   }
 
-  it('sin arrastrar nada, "Confirmar recorte" está deshabilitado', async () => {
+  it('sin arrastrar nada, "Guardar como nueva" y "Sobrescribir original" están deshabilitados', async () => {
     await avanzar(fixture);
     await esperarCarga(fixture);
     const raiz = fixture.nativeElement as HTMLElement;
-    expect(botonPorTexto(raiz, 'Confirmar recorte').disabled).toBe(true);
+    expect(botonPorTexto(raiz, 'Guardar como nueva').disabled).toBe(true);
+    expect(botonPorTexto(raiz, 'Sobrescribir original').disabled).toBe(true);
   });
 
-  it('arrastrar sobre la imagen habilita confirmar y emite un Blob', async () => {
+  it('arrastrar sobre la imagen habilita confirmar y "Guardar como nueva" emite sobrescribir:false', async () => {
     await avanzar(fixture);
     await esperarCarga(fixture);
     const raiz = fixture.nativeElement as HTMLElement;
     mockearCajaDeLaImagen(raiz);
 
-    let emitido: Blob | undefined;
+    let emitido: { blob: Blob; sobrescribir: boolean } | undefined;
     fixture.componentInstance.confirmado.subscribe((valor) => (emitido = valor));
 
     const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
@@ -121,12 +122,33 @@ describe('MediaCropEditor', () => {
     lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }));
     fixture.detectChanges();
 
-    const botonConfirmar = botonPorTexto(raiz, 'Confirmar recorte');
+    const botonConfirmar = botonPorTexto(raiz, 'Guardar como nueva');
     expect(botonConfirmar.disabled).toBe(false);
     botonConfirmar.click();
     await avanzar(fixture);
 
-    expect(emitido).toBeInstanceOf(Blob);
+    expect(emitido?.blob).toBeInstanceOf(Blob);
+    expect(emitido?.sobrescribir).toBe(false);
+  });
+
+  it('"Sobrescribir original" emite sobrescribir:true', async () => {
+    await avanzar(fixture);
+    await esperarCarga(fixture);
+    const raiz = fixture.nativeElement as HTMLElement;
+    mockearCajaDeLaImagen(raiz);
+
+    let emitido: { blob: Blob; sobrescribir: boolean } | undefined;
+    fixture.componentInstance.confirmado.subscribe((valor) => (emitido = valor));
+
+    const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
+    lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
+    lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }));
+    fixture.detectChanges();
+
+    botonPorTexto(raiz, 'Sobrescribir original').click();
+    await avanzar(fixture);
+
+    expect(emitido?.sobrescribir).toBe(true);
   });
 
   it('con proporción 1:1, el rectángulo real en píxeles sale cuadrado aunque la imagen mostrada no lo sea', async () => {
@@ -169,7 +191,7 @@ describe('MediaCropEditor', () => {
     const izquierda = parseFloat(seleccion.style.left);
     const derecha = 100 - izquierda - parseFloat(seleccion.style.width);
     expect(izquierda).toBeCloseTo(derecha, 5);
-    expect(botonPorTexto(raiz, 'Confirmar recorte').disabled).toBe(false);
+    expect(botonPorTexto(raiz, 'Guardar como nueva').disabled).toBe(false);
   });
 
   it('elegir "Libre" no borra una selección ya dibujada', async () => {
@@ -186,6 +208,90 @@ describe('MediaCropEditor', () => {
     fixture.detectChanges();
 
     expect(raiz.querySelector('.seleccion')).not.toBeNull();
+  });
+
+  it('arrastrar desde dentro de la selección la mueve, sin cambiar su tamaño', async () => {
+    await avanzar(fixture);
+    await esperarCarga(fixture);
+    const raiz = fixture.nativeElement as HTMLElement;
+    mockearCajaDeLaImagen(raiz);
+
+    const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
+    lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
+    lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }));
+    lienzo.dispatchEvent(new PointerEvent('pointerup', { clientX: 120, clientY: 60 }));
+    fixture.detectChanges();
+
+    // Rectángulo inicial en porcentaje: left 10, top 10, width 50, height 50.
+    // Pulsar dentro (60,30px → 30%,30%) y arrastrar hasta (80,50px → 40%,50%)
+    // debe desplazar el rectángulo entero +10%,+20% sin tocar su tamaño.
+    lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 60, clientY: 30, buttons: 1 }));
+    lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 80, clientY: 50, buttons: 1 }));
+    fixture.detectChanges();
+
+    const seleccion = raiz.querySelector('.seleccion') as HTMLDivElement;
+    expect(parseFloat(seleccion.style.left)).toBeCloseTo(20, 5);
+    expect(parseFloat(seleccion.style.top)).toBeCloseTo(30, 5);
+    expect(parseFloat(seleccion.style.width)).toBeCloseTo(50, 5);
+    expect(parseFloat(seleccion.style.height)).toBeCloseTo(50, 5);
+  });
+
+  it('arrastrar desde un tirador de esquina la redimensiona, sin mover la esquina opuesta', async () => {
+    await avanzar(fixture);
+    await esperarCarga(fixture);
+    const raiz = fixture.nativeElement as HTMLElement;
+    mockearCajaDeLaImagen(raiz);
+
+    const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
+    lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
+    lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }));
+    lienzo.dispatchEvent(new PointerEvent('pointerup', { clientX: 120, clientY: 60 }));
+    fixture.detectChanges();
+
+    const tirador = raiz.querySelector('.manejador-se') as HTMLSpanElement;
+    tirador.dispatchEvent(
+      new PointerEvent('pointerdown', { clientX: 120, clientY: 60, buttons: 1, bubbles: true }),
+    );
+    lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 160, clientY: 80, buttons: 1 }));
+    fixture.detectChanges();
+
+    const seleccion = raiz.querySelector('.seleccion') as HTMLDivElement;
+    // La esquina opuesta (superior izquierda, 20,10 en px) no se ha movido.
+    expect(parseFloat(seleccion.style.left)).toBeCloseTo(10, 5);
+    expect(parseFloat(seleccion.style.top)).toBeCloseTo(10, 5);
+    expect(parseFloat(seleccion.style.width)).toBeCloseTo(70, 5);
+    expect(parseFloat(seleccion.style.height)).toBeCloseTo(70, 5);
+  });
+
+  it('redimensionar hacia fuera nunca deja la selección salirse de los bordes de la imagen', async () => {
+    await avanzar(fixture);
+    await esperarCarga(fixture);
+    const raiz = fixture.nativeElement as HTMLElement;
+    mockearCajaDeLaImagen(raiz);
+
+    const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
+    lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
+    lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }));
+    lienzo.dispatchEvent(new PointerEvent('pointerup', { clientX: 120, clientY: 60 }));
+    fixture.detectChanges();
+
+    const tirador = raiz.querySelector('.manejador-se') as HTMLSpanElement;
+    tirador.dispatchEvent(
+      new PointerEvent('pointerdown', { clientX: 120, clientY: 60, buttons: 1, bubbles: true }),
+    );
+    // Arrastra muy por fuera de la imagen (el lienzo mockeado mide 200×100px).
+    lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 5000, clientY: 5000, buttons: 1 }));
+    fixture.detectChanges();
+
+    const seleccion = raiz.querySelector('.seleccion') as HTMLDivElement;
+    const izquierda = parseFloat(seleccion.style.left);
+    const arriba = parseFloat(seleccion.style.top);
+    const ancho = parseFloat(seleccion.style.width);
+    const alto = parseFloat(seleccion.style.height);
+    expect(izquierda).toBeGreaterThanOrEqual(0);
+    expect(arriba).toBeGreaterThanOrEqual(0);
+    expect(izquierda + ancho).toBeLessThanOrEqual(100.0001);
+    expect(arriba + alto).toBeLessThanOrEqual(100.0001);
   });
 
   it('voltear horizontal marca el botón como activo', async () => {

@@ -227,6 +227,28 @@ async def actualizar_metadatos(
     return fila
 
 
+async def sobrescribir_contenido(
+    session: AsyncSession, *, media_id: uuid.UUID, contenido: bytes
+) -> PlatformMedia:
+    """Ver `service.sobrescribir_contenido` — mismo criterio (MISMA
+    `object_key`, la URL no cambia), sin `organization_id`/permisos porque
+    el gateo de acceso (superadmin) ya lo hace `require_superadmin`."""
+    fila = await session.get(PlatformMedia, media_id)
+    if fila is None or fila.deleted_at is not None:
+        raise NotFoundError("Ese medio no existe.")
+
+    mime, _extension = validate_upload(contenido, allowed_mimes=MEDIA_LIBRARY_IMAGE_MIMES)
+    procesada = procesar_imagen(contenido, mime, "logo")
+    await get_storage().put_object(fila.object_key, procesada.contenido, procesada.mime_type)
+
+    fila.mime_type = procesada.mime_type
+    fila.size = len(procesada.contenido)
+    fila.width = procesada.width
+    fila.height = procesada.height
+    await session.flush()
+    return fila
+
+
 async def crear_carpeta(session: AsyncSession, *, name: str, slug: str) -> PlatformMediaFolder:
     carpeta = PlatformMediaFolder(name=name, slug=slug)
     session.add(carpeta)

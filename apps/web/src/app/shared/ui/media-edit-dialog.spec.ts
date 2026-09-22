@@ -174,7 +174,7 @@ describe('MediaEditDialog', () => {
     expect(emitido).toBe(true);
   });
 
-  it('confirmar el recorte sube el Media nuevo y emite recorteGuardado, sin ningún otro evento', async () => {
+  it('confirmar el recorte sube el Media nuevo, emite recorteGuardado (sin ningún otro evento) y cierra el modal', async () => {
     await avanzar(fixture);
     fixture.componentInstance.abrir(itemDePrueba());
     await avanzar(fixture);
@@ -193,7 +193,7 @@ describe('MediaEditDialog', () => {
     lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }));
     fixture.detectChanges();
 
-    botonPorTexto(raiz, 'Confirmar recorte').click();
+    botonPorTexto(raiz, 'Guardar como nueva').click();
     await avanzar(fixture);
 
     const subida = http.expectOne((r) => r.url === MEDIA_URL && r.method === 'POST');
@@ -202,6 +202,40 @@ describe('MediaEditDialog', () => {
     await avanzar(fixture);
 
     expect(recorteGuardadoEmitido).toBe(true);
+    expect(raiz.querySelector('dialog')?.hasAttribute('open')).toBe(false);
+  });
+
+  it('«Sobrescribir original» hace un PUT a .../contenido con la misma id, sin crear un Media nuevo', async () => {
+    await avanzar(fixture);
+    fixture.componentInstance.abrir(itemDePrueba());
+    await avanzar(fixture);
+    await esperarCargaDelRecorte(fixture);
+
+    const raiz = fixture.nativeElement as HTMLElement;
+    const imagen = raiz.querySelector('app-media-crop-editor img') as HTMLImageElement;
+    imagen.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 200, height: 100 }) as DOMRect;
+
+    let recorteGuardadoEmitido = false;
+    fixture.componentInstance.recorteGuardado.subscribe(() => (recorteGuardadoEmitido = true));
+
+    const lienzo = raiz.querySelector('.lienzo') as HTMLDivElement;
+    lienzo.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, clientY: 10, buttons: 1 }));
+    lienzo.dispatchEvent(new PointerEvent('pointermove', { clientX: 120, clientY: 60, buttons: 1 }));
+    fixture.detectChanges();
+
+    botonPorTexto(raiz, 'Sobrescribir original').click();
+    await avanzar(fixture);
+
+    const sobrescritura = http.expectOne(
+      (r) => r.url === `${MEDIA_URL}/a/contenido` && r.method === 'PUT',
+    );
+    expect(sobrescritura.request.body instanceof FormData).toBe(true);
+    sobrescritura.flush(itemDePrueba({ size: 999 }));
+    await avanzar(fixture);
+
+    expect(recorteGuardadoEmitido).toBe(true);
+    expect(raiz.querySelector('dialog')?.hasAttribute('open')).toBe(false);
   });
 
   it('cancelar el recorte cierra el modal entero (misma convención que el resto de diálogos)', async () => {

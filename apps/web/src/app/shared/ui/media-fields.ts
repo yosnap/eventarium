@@ -136,7 +136,6 @@ function baseDeCarpetas(kind: MediaKind): string {
             <app-input
               [fieldId]="idBuscar"
               [label]="t('ui.media.buscarEtiqueta')"
-              [etiquetaOculta]="true"
               [value]="buscar()"
               (valueChange)="alBuscar($event)"
             />
@@ -326,7 +325,7 @@ function baseDeCarpetas(kind: MediaKind): string {
     }
     .rejilla {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
       gap: var(--sp-2);
       max-height: 20rem;
       overflow: auto;

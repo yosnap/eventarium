@@ -373,6 +373,39 @@ async def actualizar_metadatos(
     return fila
 
 
+async def sobrescribir_contenido(
+    session: AsyncSession,
+    *,
+    media_id: uuid.UUID,
+    organization_id: uuid.UUID,
+    user_id: uuid.UUID,
+    permisos: set[Permission],
+    contenido: bytes,
+) -> Media:
+    """«Sobrescribir original» del editor de recorte: reemplaza los píxeles
+    del medio ya existente, MISMA `object_key` — la URL no cambia, así que
+    cualquier sitio que ya la tenga guardada (portada de un evento, logo de
+    un patrocinador…) muestra el recorte nuevo sin tener que reasignar el
+    campo. Alternativa explícita a `subir_desde_fichero` (que crea un `Media`
+    nuevo): decisión del usuario en `plans/260922-0125-prd-iconos-hover-
+    biblioteca-medios` — el editor ofrece las dos, la persona elige."""
+    fila = await session.get(Media, media_id)
+    if fila is None or fila.organization_id != organization_id or fila.deleted_at is not None:
+        raise NotFoundError("Ese medio no existe.")
+    _requerir_propiedad_o_permiso(fila, user_id=user_id, permisos=permisos)
+
+    mime, _extension = validate_upload(contenido, allowed_mimes=MEDIA_LIBRARY_IMAGE_MIMES)
+    procesada = procesar_imagen(contenido, mime, KIND_A_PERFIL.get(fila.kind, "default"))
+    await get_storage().put_object(fila.object_key, procesada.contenido, procesada.mime_type)
+
+    fila.mime_type = procesada.mime_type
+    fila.size = len(procesada.contenido)
+    fila.width = procesada.width
+    fila.height = procesada.height
+    await session.flush()
+    return fila
+
+
 async def crear_carpeta(
     session: AsyncSession,
     *,

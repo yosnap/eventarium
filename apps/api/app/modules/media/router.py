@@ -172,6 +172,30 @@ async def actualizar(
     return _media_response(fila)
 
 
+@router.put(
+    "/{media_id}/contenido",
+    summary="Sobrescribir los píxeles de una imagen ya existente",
+    response_model=MediaResponse,
+)
+async def sobrescribir_contenido(
+    media_id: str,
+    usuario: CurrentUserDep,
+    session: DbDep,
+    permisos: PermissionsDep,
+    fichero: Annotated[UploadFile, File()],
+) -> MediaResponse:
+    contenido = await fichero.read()
+    fila = await service.sobrescribir_contenido(
+        session,
+        media_id=uuid.UUID(media_id),
+        organization_id=usuario.organization_id,
+        user_id=usuario.id,
+        permisos=permisos,
+        contenido=contenido,
+    )
+    return _media_response(fila)
+
+
 folders_router = APIRouter(prefix="/organizations/me/media-folders", tags=["biblioteca de medios"])
 
 

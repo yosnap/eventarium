@@ -365,6 +365,24 @@ async def update_platform_media(
     return _platform_media_response(fila)
 
 
+@router.put(
+    "/platform/media/{media_id}/contenido",
+    summary="Sobrescribir los píxeles de una imagen ya existente",
+    response_model=MediaResponse,
+)
+async def overwrite_platform_media_content(
+    media_id: str,
+    superadmin: Superadmin,
+    session: MaintenanceDb,
+    fichero: Annotated[UploadFile, File(description="Imagen")],
+) -> MediaResponse:
+    contenido = await fichero.read()
+    fila = await platform_media_service.sobrescribir_contenido(
+        session, media_id=uuid.UUID(media_id), contenido=contenido
+    )
+    return _platform_media_response(fila)
+
+
 @router.post(
     "/platform/media-folders", summary="Crear una carpeta", response_model=MediaFolderResponse
 )

@@ -2,15 +2,20 @@
 comprueba referencias en las 3 tablas de dominio antes de aceptar.
 
 El recorte (`PATCH .../crop`) se retiró: el editor de recorte ahora hornea
-proporción/rotación/volteo/zoom en el propio navegador y sube el resultado
-como una subida normal — ver `plans/260921-1720-prd-editor-recorte-imagen`."""
+proporción/rotación/volteo/zoom en el propio navegador. El resultado se sube
+como una subida normal (`POST`, «Guardar como nueva») o, desde
+`260922-0125-prd-iconos-hover-biblioteca-medios`, reemplaza los píxeles del
+medio ya existente (`PUT .../contenido`, «Sobrescribir original») — ver
+`sobrescribir_contenido` más abajo."""
 
 from __future__ import annotations
 
 import base64
+import io
 from datetime import UTC, datetime, timedelta
 
 from httpx import AsyncClient
+from PIL import Image
 
 from app.core.permissions import Permission
 from tests.conftest import (
@@ -189,6 +194,71 @@ async def test_editar_el_nombre_demasiado_largo_da_422(
         f"{MEDIA}/{subido['id']}", headers=cabeceras, json={"filename": "a" * 256}
     )
     assert editado.status_code == 422, editado.text
+
+
+def _png_mas_grande() -> bytes:
+    buffer = io.BytesIO()
+    Image.new("RGB", (64, 64), color=(200, 40, 40)).save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+async def test_sobrescribir_contenido_mantiene_la_misma_id_y_url(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """«Sobrescribir original»: mismo `id`/`url` que antes, solo cambian los
+    píxeles — cualquier sitio que ya use esta imagen (portada, logo…) ve el
+    recorte nuevo sin tener que reasignar el campo."""
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    subido = await _subir(cliente, cabeceras, "branding")
+
+    sobrescrito = await cliente.put(
+        f"{MEDIA}/{subido['id']}/contenido",
+        headers=cabeceras,
+        files={"fichero": ("recorte.png", _png_mas_grande(), "image/png")},
+    )
+    assert sobrescrito.status_code == 200, sobrescrito.text
+    cuerpo = sobrescrito.json()
+    assert cuerpo["id"] == subido["id"]
+    assert cuerpo["url"] == subido["url"]
+    assert cuerpo["width"] == 64
+    assert cuerpo["height"] == 64
+    assert cuerpo["size"] != subido["size"]
+
+
+async def test_sobrescribir_contenido_no_borra_el_nombre_ni_la_carpeta(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    subido = await _subir(cliente, cabeceras, "branding")
+    await cliente.patch(
+        f"{MEDIA}/{subido['id']}", headers=cabeceras, json={"filename": "logo-recortado.png"}
+    )
+
+    sobrescrito = await cliente.put(
+        f"{MEDIA}/{subido['id']}/contenido",
+        headers=cabeceras,
+        files={"fichero": ("recorte.png", _png_mas_grande(), "image/png")},
+    )
+    assert sobrescrito.status_code == 200, sobrescrito.text
+    assert sobrescrito.json()["filename"] == "logo-recortado.png"
+
+
+async def test_sobrescribir_contenido_exige_permiso_o_propiedad(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras_owner = await iniciar_sesion(cliente, organizacion)
+    subido = await _subir(cliente, cabeceras_owner, "branding")
+
+    await crear_rol(organizacion, key="solo-eventos", permisos=[Permission.EVENTS_WRITE])
+    correo, contrasena = await crear_usuario_con_rol(organizacion, "solo-eventos")
+    _, cabeceras_ajenas = await iniciar_sesion_con(cliente, organizacion, correo, contrasena)
+
+    sobrescrito = await cliente.put(
+        f"{MEDIA}/{subido['id']}/contenido",
+        headers=cabeceras_ajenas,
+        files={"fichero": ("recorte.png", _png_mas_grande(), "image/png")},
+    )
+    assert sobrescrito.status_code == 403, sobrescrito.text
 
 
 async def test_borrar_una_imagen_reutilizada_en_dos_eventos_da_409_no_500(

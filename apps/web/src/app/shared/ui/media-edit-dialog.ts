@@ -18,7 +18,7 @@ import { ApiError } from '../../core/api/error.interceptor';
 import { Button } from './button';
 import { Dialog } from './dialog';
 import { Input } from './input';
-import { MediaCropEditor } from './media-crop-editor';
+import { MediaCropEditor, ResultadoDeRecorte } from './media-crop-editor';
 import { MediaFolder, MediaItem, MediaKind, baseDeMedia } from './media-types';
 
 /**
@@ -30,18 +30,23 @@ import { MediaFolder, MediaItem, MediaKind, baseDeMedia } from './media-types';
  * descripción, que no existen en el modelo `Media`; ver
  * `plans/260922-0125-prd-iconos-hover-biblioteca-medios/prd-modal-editar-imagen.md`).
  *
- * Las dos secciones tienen guardado independiente: los metadatos son un
- * `PATCH` en el mismo recurso; el recorte crea un `Media` **nuevo** (decisión
- * ya cerrada en `plans/260921-1720-prd-editor-recorte-imagen`, no se
- * reabre aquí). Fusionarlas en un único botón fingiría una semántica de
- * "sobrescribir" que no existe.
+ * Los metadatos son un `PATCH` en el mismo recurso. El recorte ofrece las
+ * DOS vías de la referencia del usuario — «Guardar como nueva» (crea un
+ * `Media` nuevo, comportamiento de siempre) y «Sobrescribir original»
+ * (`PUT .../contenido`, misma `id`/URL): esto REABRE la decisión "el recorte
+ * siempre crea un Media nuevo" de `plans/260921-1720-prd-editor-recorte-
+ * imagen`, a petición explícita y directa del usuario en esta sesión (no una
+ * inferencia ni un hallazgo de auditoría) — ver
+ * `plans/260922-0125-prd-iconos-hover-biblioteca-medios/prd-modal-editar-imagen.md`.
  *
  * "Cancelar" (dentro de `MediaCropEditor`) cierra el modal entero, igual
  * que la referencia del usuario y que el resto de diálogos del proyecto —
  * es la lectura convencional de "cancelar" en cualquier modal, incluida la
  * propia referencia que también descarta ahí cualquier cambio de metadatos
  * sin guardar. Guardar los metadatos sigue sin cerrar el modal (para poder
- * encadenar con el recorte sin perderlo a mitad de camino).
+ * encadenar con el recorte sin perderlo a mitad de camino); confirmar el
+ * recorte (cualquiera de las dos vías) sí cierra, porque ahí ya no queda
+ * nada más que hacer.
  *
  * `confirmarRecorte` **no emite ningún evento de "elegir imagen para un
  * campo"** (a diferencia del `MediaCropEditor` embebido en el flujo de
@@ -297,11 +302,7 @@ export class MediaEditDialog {
     }
   }
 
-  /** Trasladado tal cual desde `MediaFields.confirmarRecorte` (antes de
-   * `260922-0125-prd-iconos-hover-biblioteca-medios`, fase 2) — misma lógica
-   * de subida y herencia de carpeta, sin reescribir. Único cambio real: no
-   * emite ningún evento de "imagen elegida" (ver JSDoc de la clase). */
-  protected async confirmarRecorte(blob: Blob): Promise<void> {
+  protected async confirmarRecorte(resultado: ResultadoDeRecorte): Promise<void> {
     const actual = this.item();
     if (!actual) {
       return;
@@ -309,36 +310,74 @@ export class MediaEditDialog {
     this.recortandoEnCurso.set(true);
     this.error.set(null);
     try {
-      const datos = new FormData();
-      datos.append('fichero', blob, `${actual.filename}-recorte.webp`);
-      if (this.kind() !== 'platform') {
-        datos.append('kind', this.kind());
-      }
-      const nuevo = await firstValueFrom(
-        this.http.post<MediaItem>(this.api.url(baseDeMedia(this.kind())), datos),
-      );
-      // La subida genérica no acepta `folder_id` — el recorte SÍ conoce su
-      // carpeta (heredada del original), así que hace falta un segundo paso
-      // explícito para no perderla. No atómico con la subida: si este paso
-      // falla, el recorte YA existe y ya es válido (solo queda en la raíz en
-      // vez de su carpeta), así que se trata como un fallo menor que no debe
-      // impedir ofrecer el resultado.
-      if (actual.folder_id) {
-        try {
-          await firstValueFrom(
-            this.http.patch<MediaItem>(`${this.api.url(baseDeMedia(this.kind()))}/${nuevo.id}`, {
-              folder_id: actual.folder_id,
-            }),
-          );
-        } catch {
-          // Ignorado a propósito: ver comentario de arriba.
-        }
+      if (resultado.sobrescribir) {
+        await this.sobrescribirContenido(actual, resultado.blob);
+      } else {
+        await this.subirComoNuevo(actual, resultado.blob);
       }
       this.recorteGuardado.emit();
+      // A diferencia de guardar metadatos (que puede encadenar con el
+      // recorte a continuación), aquí ya no queda nada más que hacer — sin
+      // cerrar, el modal se quedaba abierto mostrando la imagen original tal
+      // cual, sin ningún indicio de que el recorte se había subido de verdad
+      // (hallazgo del usuario: "cuando confirmo el recorte, la imagen no
+      // hace nada"). Cerrar es la confirmación visible de que ha terminado.
+      this.dialogo().cerrar();
     } catch (error) {
       this.error.set(this.mensajeDeError(error));
     } finally {
       this.recortandoEnCurso.set(false);
+    }
+  }
+
+  /** Trasladado tal cual desde `MediaFields.confirmarRecorte` (antes de
+   * `260922-0125-prd-iconos-hover-biblioteca-medios`, fase 2) — misma lógica
+   * de subida y herencia de carpeta, sin reescribir. Único cambio real: no
+   * emite ningún evento de "imagen elegida" (ver JSDoc de la clase). */
+  private async subirComoNuevo(actual: MediaItem, blob: Blob): Promise<void> {
+    const datos = new FormData();
+    datos.append('fichero', blob, `${actual.filename}-recorte.webp`);
+    if (this.kind() !== 'platform') {
+      datos.append('kind', this.kind());
+    }
+    const nuevo = await firstValueFrom(
+      this.http.post<MediaItem>(this.api.url(baseDeMedia(this.kind())), datos),
+    );
+    // La subida genérica no acepta `folder_id` — el recorte SÍ conoce su
+    // carpeta (heredada del original), así que hace falta un segundo paso
+    // explícito para no perderla. No atómico con la subida: si este paso
+    // falla, el recorte YA existe y ya es válido (solo queda en la raíz en
+    // vez de su carpeta), así que se trata como un fallo menor que no debe
+    // impedir ofrecer el resultado.
+    if (actual.folder_id) {
+      try {
+        await firstValueFrom(
+          this.http.patch<MediaItem>(`${this.api.url(baseDeMedia(this.kind()))}/${nuevo.id}`, {
+            folder_id: actual.folder_id,
+          }),
+        );
+      } catch {
+        // Ignorado a propósito: ver comentario de arriba.
+      }
+    }
+  }
+
+  /** `PUT .../{id}/contenido`: reemplaza los píxeles del medio ya existente
+   * — misma `id`/URL, sin carpeta/nombre/alt que reasignar (no cambian). */
+  private async sobrescribirContenido(actual: MediaItem, blob: Blob): Promise<void> {
+    const datos = new FormData();
+    datos.append('fichero', blob, `${actual.filename}-recorte.webp`);
+    const actualizado = await firstValueFrom(
+      this.http.put<MediaItem>(
+        `${this.api.url(baseDeMedia(this.kind()))}/${actual.id}/contenido`,
+        datos,
+      ),
+    );
+    // Mismo guardado defensivo que `guardarMetadatos`: si el modal se
+    // reabrió para otro item mientras este PUT seguía en vuelo, no pisa el
+    // formulario ya en uso para el nuevo item.
+    if (this.item()?.id === actual.id) {
+      this.item.set(actualizado);
     }
   }
 

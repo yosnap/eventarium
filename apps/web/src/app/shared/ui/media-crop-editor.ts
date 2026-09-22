@@ -29,6 +29,20 @@ interface PresetDeProporcion {
   readonly valor: number | undefined;
 }
 
+type EsquinaDeManejador = 'nw' | 'ne' | 'sw' | 'se';
+
+/** «Guardar como nueva»: sube el recorte como un `Media` distinto (de
+ * siempre). «Sobrescribir original»: reemplaza los píxeles del propio medio
+ * — mismo `id`/URL, así que cualquier sitio que ya lo use (portada de un
+ * evento, logo de un patrocinador…) ve el recorte nuevo sin reasignar nada.
+ * Las dos opciones vienen de la referencia del usuario; antes solo existía
+ * la primera (decisión que ahora reabre explícitamente, ver JSDoc de
+ * `MediaEditDialog`). */
+export interface ResultadoDeRecorte {
+  readonly blob: Blob;
+  readonly sobrescribir: boolean;
+}
+
 const PROPORCIONES: readonly PresetDeProporcion[] = [
   { etiqueta: 'ui.media.proporcionLibre', valor: undefined },
   { etiqueta: '1:1', valor: 1 },
@@ -146,7 +160,12 @@ const UMBRAL_MINIMO = 0.02;
                 [style.top.%]="r.y * 100"
                 [style.width.%]="r.width * 100"
                 [style.height.%]="r.height * 100"
-              ></div>
+              >
+                <span class="manejador manejador-nw" data-manejador="nw"></span>
+                <span class="manejador manejador-ne" data-manejador="ne"></span>
+                <span class="manejador manejador-sw" data-manejador="sw"></span>
+                <span class="manejador manejador-se" data-manejador="se"></span>
+              </div>
             }
           </div>
         </div>
@@ -161,12 +180,21 @@ const UMBRAL_MINIMO = 0.02;
             {{ t('comun.cancelar') }}
           </app-button>
           <app-button
+            variant="secundario"
             type="button"
             [disabled]="!rectangulo() || generando() || confirmando()"
-            [loading]="generando() || confirmando()"
-            (pulsado)="confirmar()"
+            [loading]="(generando() || confirmando()) && modoEnCurso() === 'nueva'"
+            (pulsado)="confirmar('nueva')"
           >
-            {{ t('ui.media.confirmarRecorte') }}
+            {{ t('ui.media.guardarComoNueva') }}
+          </app-button>
+          <app-button
+            type="button"
+            [disabled]="!rectangulo() || generando() || confirmando()"
+            [loading]="(generando() || confirmando()) && modoEnCurso() === 'sobrescribir'"
+            (pulsado)="confirmar('sobrescribir')"
+          >
+            {{ t('ui.media.sobrescribirOriginal') }}
           </app-button>
         </div>
       }
@@ -276,6 +304,41 @@ const UMBRAL_MINIMO = 0.02;
       background-color: color-mix(in srgb, var(--accent) 20%, transparent);
       pointer-events: none;
     }
+    /* Tiradores en las 4 esquinas para redimensionar (referencia del
+       usuario) — mismo patrón que .icono-accion en media-fields.ts:
+       pointer-events: auto en el hijo recupera la interactividad que el
+       padre .seleccion renuncia a propósito (para no tapar el arrastre
+       del interior, que mueve en vez de redimensionar). */
+    .manejador {
+      position: absolute;
+      width: 0.7rem;
+      height: 0.7rem;
+      background: var(--accent);
+      border: 1px solid var(--surface);
+      border-radius: 2px;
+      pointer-events: auto;
+      touch-action: none;
+    }
+    .manejador-nw {
+      top: -0.35rem;
+      left: -0.35rem;
+      cursor: nwse-resize;
+    }
+    .manejador-ne {
+      top: -0.35rem;
+      right: -0.35rem;
+      cursor: nesw-resize;
+    }
+    .manejador-sw {
+      bottom: -0.35rem;
+      left: -0.35rem;
+      cursor: nesw-resize;
+    }
+    .manejador-se {
+      bottom: -0.35rem;
+      right: -0.35rem;
+      cursor: nwse-resize;
+    }
     .acciones {
       display: flex;
       gap: var(--space-sm);
@@ -294,7 +357,7 @@ export class MediaCropEditor {
   /** El recorte final ya renderizado, listo para subir por el endpoint de
    * subida habitual (multipart) — nunca un rectángulo: el propio navegador
    * hornea rotación/volteo/zoom/recorte en el resultado. */
-  readonly confirmado = output<Blob>();
+  readonly confirmado = output<ResultadoDeRecorte>();
   readonly cancelado = output<void>();
 
   protected readonly proporciones = PROPORCIONES;
@@ -304,6 +367,7 @@ export class MediaCropEditor {
 
   protected readonly cargando = signal(true);
   protected readonly generando = signal(false);
+  protected readonly modoEnCurso = signal<'nueva' | 'sobrescribir' | null>(null);
   protected readonly error = signal<string | null>(null);
 
   protected readonly rotacion = signal<0 | 90 | 180 | 270>(0);
@@ -314,7 +378,16 @@ export class MediaCropEditor {
   protected readonly rectangulo = signal<RectanguloDeRecorte | null>(null);
   protected readonly previaSrc = signal('');
 
+  /** Qué hace el arrastre en curso: dibujar una selección desde cero
+   * (comportamiento de siempre, cuando se empieza fuera de la selección
+   * actual), moverla entera (desde dentro) o redimensionarla desde un
+   * tirador de esquina — la referencia del usuario permite las tres, antes
+   * cualquier arrastre reiniciaba la selección (hallazgo del usuario: "el
+   * recorte no me deja moverlo"). */
+  private modo: 'dibujar' | 'mover' | 'redimensionar' | null = null;
+  private manejador: EsquinaDeManejador | null = null;
   private origen: { x: number; y: number } | null = null;
+  private rectanguloAlEmpezar: RectanguloDeRecorte | null = null;
   private imagenOriginal: HTMLImageElement | null = null;
   private lienzoHorneado: HTMLCanvasElement | null = null;
   private urlPreviaActual: string | null = null;
@@ -453,7 +526,9 @@ export class MediaCropEditor {
       return;
     }
     const { ancho, alto } = this.ajustarARatio(1, 1, ratioEnFraccion);
-    this.rectangulo.set({ x: (1 - ancho) / 2, y: (1 - alto) / 2, width: ancho, height: alto });
+    this.rectangulo.set(
+      this.clampearRectangulo({ x: (1 - ancho) / 2, y: (1 - alto) / 2, width: ancho, height: alto }),
+    );
   }
 
   protected rotar(grados: 90 | -90): void {
@@ -486,16 +561,120 @@ export class MediaCropEditor {
     // code-review) — capturar el puntero en el propio lienzo evita que se
     // "pierda" al salir de sus límites.
     (evento.currentTarget as HTMLElement).setPointerCapture(evento.pointerId);
-    this.origen = this.posicionRelativa(evento);
+    const posicion = this.posicionRelativa(evento);
+    const actual = this.rectangulo();
+    const manejador = (evento.target as HTMLElement).dataset?.['manejador'] as
+      | EsquinaDeManejador
+      | undefined;
+
+    if (manejador && actual) {
+      this.modo = 'redimensionar';
+      this.manejador = manejador;
+      this.rectanguloAlEmpezar = actual;
+      this.origen = posicion;
+      return;
+    }
+
+    if (actual && this.dentroDelRectangulo(posicion, actual)) {
+      this.modo = 'mover';
+      this.rectanguloAlEmpezar = actual;
+      this.origen = posicion;
+      return;
+    }
+
+    this.modo = 'dibujar';
+    this.origen = posicion;
     this.rectangulo.set(null);
   }
 
   protected alArrastrar(evento: PointerEvent): void {
-    if (!this.origen || evento.buttons === 0) {
+    if (!this.origen || !this.modo || evento.buttons === 0) {
       return;
     }
     const actual = this.posicionRelativa(evento);
-    this.rectangulo.set(this.calcularRectangulo(this.origen, actual));
+
+    if (this.modo === 'dibujar') {
+      this.rectangulo.set(this.clampearRectangulo(this.calcularRectangulo(this.origen, actual)));
+      return;
+    }
+
+    const base = this.rectanguloAlEmpezar;
+    if (!base) {
+      return;
+    }
+
+    if (this.modo === 'mover') {
+      const x = Math.min(Math.max(base.x + (actual.x - this.origen.x), 0), 1 - base.width);
+      const y = Math.min(Math.max(base.y + (actual.y - this.origen.y), 0), 1 - base.height);
+      this.rectangulo.set(
+        this.clampearRectangulo({ x, y, width: base.width, height: base.height }),
+      );
+      return;
+    }
+
+    if (this.modo === 'redimensionar' && this.manejador) {
+      this.rectangulo.set(
+        this.clampearRectangulo(this.calcularRedimension(base, this.manejador, actual)),
+      );
+    }
+  }
+
+  /** Red de seguridad final antes de pintar: por muy correcto que sea cada
+   * cálculo de arriba, ninguno debe poder dejar el rectángulo fuera de la
+   * imagen (0-1 en cada eje) — el hallazgo del usuario ("el recorte se sale
+   * de los bordes de la imagen") es exactamente ese caso, sea cual sea la
+   * vía concreta que lo produjo. Recorta contra el borde sin reajustar la
+   * proporción: si algo ya se ha salido, hay más margen para NO perder la
+   * ratio que para preservar el tamaño exacto arrastrado. */
+  private clampearRectangulo(r: RectanguloDeRecorte): RectanguloDeRecorte {
+    const width = Math.min(Math.max(r.width, 0), 1);
+    const height = Math.min(Math.max(r.height, 0), 1);
+    const x = Math.min(Math.max(r.x, 0), 1 - width);
+    const y = Math.min(Math.max(r.y, 0), 1 - height);
+    return { x, y, width, height };
+  }
+
+  private dentroDelRectangulo(
+    punto: { x: number; y: number },
+    r: RectanguloDeRecorte,
+  ): boolean {
+    return (
+      punto.x >= r.x && punto.x <= r.x + r.width && punto.y >= r.y && punto.y <= r.y + r.height
+    );
+  }
+
+  /** Redimensiona desde el tirador arrastrado, manteniendo fija la esquina
+   * opuesta — mismo criterio de ajuste de proporción y recorte contra el
+   * borde que `calcularRectangulo` (reutiliza `ajustarARatio`). */
+  private calcularRedimension(
+    base: RectanguloDeRecorte,
+    manejador: EsquinaDeManejador,
+    puntero: { x: number; y: number },
+  ): RectanguloDeRecorte {
+    const fijoX = manejador === 'ne' || manejador === 'se' ? base.x : base.x + base.width;
+    const fijoY = manejador === 'sw' || manejador === 'se' ? base.y : base.y + base.height;
+
+    const signoX = puntero.x >= fijoX ? 1 : -1;
+    const signoY = puntero.y >= fijoY ? 1 : -1;
+    let ancho = Math.abs(puntero.x - fijoX);
+    let alto = Math.abs(puntero.y - fijoY);
+    const ratio = this.aspecto();
+    const ratioEnFraccion = ratio ? this.ratioEnFraccionDeImagen(ratio) : null;
+
+    if (ratioEnFraccion) {
+      ({ ancho, alto } = this.ajustarARatio(ancho, alto, ratioEnFraccion));
+    }
+
+    ancho = Math.min(ancho, signoX >= 0 ? 1 - fijoX : fijoX);
+    alto = Math.min(alto, signoY >= 0 ? 1 - fijoY : fijoY);
+
+    if (ratioEnFraccion) {
+      ({ ancho, alto } = this.ajustarARatio(ancho, alto, ratioEnFraccion));
+    }
+
+    const x = signoX >= 0 ? fijoX : fijoX - ancho;
+    const y = signoY >= 0 ? fijoY : fijoY - alto;
+    return { x, y, width: ancho, height: alto };
   }
 
   /** Sin restricción de proporción, el rectángulo es el arrastre libre de
@@ -574,19 +753,23 @@ export class MediaCropEditor {
       // hay nada que liberar — no es un error real.
     }
     this.origen = null;
+    this.modo = null;
+    this.manejador = null;
+    this.rectanguloAlEmpezar = null;
     const r = this.rectangulo();
     if (r && (r.width < UMBRAL_MINIMO || r.height < UMBRAL_MINIMO)) {
       this.rectangulo.set(null);
     }
   }
 
-  protected async confirmar(): Promise<void> {
+  protected async confirmar(modo: 'nueva' | 'sobrescribir'): Promise<void> {
     const r = this.rectangulo();
     const horneado = this.lienzoHorneado;
     if (!r || !horneado) {
       return;
     }
     this.generando.set(true);
+    this.modoEnCurso.set(modo);
     this.error.set(null);
     try {
       const blob = await this.recortarAPngWebp(horneado, r);
@@ -594,9 +777,10 @@ export class MediaCropEditor {
         this.error.set(this.transloco.translate('comun.error'));
         return;
       }
-      this.confirmado.emit(blob);
+      this.confirmado.emit({ blob, sobrescribir: modo === 'sobrescribir' });
     } finally {
       this.generando.set(false);
+      this.modoEnCurso.set(null);
     }
   }
 

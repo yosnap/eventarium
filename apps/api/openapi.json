@@ -3240,6 +3240,58 @@
         }
       }
     },
+    "/api/v1/admin/platform/media/{media_id}/contenido": {
+      "put": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Sobrescribir los píxeles de una imagen ya existente",
+        "operationId": "overwrite_platform_media_content_api_v1_admin_platform_media__media_id__contenido_put",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Media Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_overwrite_platform_media_content_api_v1_admin_platform_media__media_id__contenido_put"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/platform/media-folders": {
       "get": {
         "tags": [
@@ -6773,6 +6825,58 @@
         }
       }
     },
+    "/api/v1/organizations/me/media/{media_id}/contenido": {
+      "put": {
+        "tags": [
+          "biblioteca de medios"
+        ],
+        "summary": "Sobrescribir los píxeles de una imagen ya existente",
+        "operationId": "sobrescribir_contenido_api_v1_organizations_me_media__media_id__contenido_put",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Media Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_sobrescribir_contenido_api_v1_organizations_me_media__media_id__contenido_put"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/organizations/me/media-folders": {
       "get": {
         "tags": [
@@ -9970,6 +10074,35 @@
         ],
         "title": "AuditLogEntry",
         "description": "Una fila de `audit_log`, tal y como la ve el superadmin."
+      },
+      "Body_overwrite_platform_media_content_api_v1_admin_platform_media__media_id__contenido_put": {
+        "properties": {
+          "fichero": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Fichero",
+            "description": "Imagen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fichero"
+        ],
+        "title": "Body_overwrite_platform_media_content_api_v1_admin_platform_media__media_id__contenido_put"
+      },
+      "Body_sobrescribir_contenido_api_v1_organizations_me_media__media_id__contenido_put": {
+        "properties": {
+          "fichero": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Fichero"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fichero"
+        ],
+        "title": "Body_sobrescribir_contenido_api_v1_organizations_me_media__media_id__contenido_put"
       },
       "Body_subir_api_v1_organizations_me_media_post": {
         "properties": {
