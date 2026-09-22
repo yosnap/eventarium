@@ -1,10 +1,14 @@
 name: CI
 
+# Solo `main`: el trabajo rutinario se verifica en local (tests, lint,
+# build) antes de mergear a `develop`, y el CI remoto queda para la rama
+# que se despliega. Ejecutarlo también en cada push a `develop` quemaba
+# minutos de Actions (limitados) sin aportar nada que la verificación
+# local no hubiera hecho ya.
 on:
   push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
+    branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
