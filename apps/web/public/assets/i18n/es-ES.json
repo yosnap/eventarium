@@ -2274,7 +2274,12 @@
       "rotar": "Rotar",
       "voltearHorizontal": "Voltear horizontal",
       "voltearVertical": "Voltear vertical",
-      "zoom": "Zoom"
+      "zoom": "Zoom",
+      "dimensiones": "Dimensiones",
+      "tamano": "Tamaño",
+      "subida": "Subida",
+      "copiarUrl": "Copiar URL",
+      "urlCopiada": "¡Copiada!"
     }
   }
 }

@@ -20,6 +20,14 @@ export interface MediaItem {
   readonly filename: string;
   readonly alt: string | null;
   readonly folder_id: string | null;
+  /** Datos que ya devuelve `MediaResponse` (backend) pero que hasta ahora
+   * este tipo no recogía — nadie los mostraba. Necesarios para la sección
+   * "Datos de la imagen" del modal de edición (dimensiones, tamaño, fecha). */
+  readonly mime_type: string;
+  readonly size: number;
+  readonly width: number | null;
+  readonly height: number | null;
+  readonly created_at: string;
 }
 
 export interface MediaFolder {

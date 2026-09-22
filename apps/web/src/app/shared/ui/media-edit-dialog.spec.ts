@@ -59,6 +59,11 @@ function itemDePrueba(overrides: Partial<MediaItem> = {}): MediaItem {
     filename: 'a.png',
     alt: 'Descripción actual',
     folder_id: null,
+    mime_type: 'image/png',
+    size: 123456,
+    width: 800,
+    height: 600,
+    created_at: '2026-09-20T10:00:00Z',
     ...overrides,
   };
 }
@@ -237,6 +242,35 @@ describe('MediaEditDialog', () => {
 
     const campoNombre = raiz.querySelectorAll('input[type="text"]')[0] as HTMLInputElement;
     expect(campoNombre.value).toBe('b.png');
+  });
+
+  it('muestra dimensiones, tamaño y fecha de subida del item', async () => {
+    await avanzar(fixture);
+    fixture.componentInstance.abrir(
+      itemDePrueba({ width: 1920, height: 1080, size: 2_500_000 }),
+    );
+    await avanzar(fixture);
+
+    const raiz = fixture.nativeElement as HTMLElement;
+    const texto = raiz.textContent ?? '';
+    expect(texto).toContain('1920 × 1080 px');
+    expect(texto).toContain('2.4 MB');
+  });
+
+  it('copiar URL escribe en el portapapeles y muestra confirmación', async () => {
+    const escribir = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText: escribir } });
+
+    await avanzar(fixture);
+    fixture.componentInstance.abrir(itemDePrueba({ url: 'https://cdn.test/a.png' }));
+    await avanzar(fixture);
+
+    const raiz = fixture.nativeElement as HTMLElement;
+    botonPorTexto(raiz, 'Copiar URL').click();
+    await avanzar(fixture);
+
+    expect(escribir).toHaveBeenCalledWith('https://cdn.test/a.png');
+    expect(botonPorTexto(raiz, '¡Copiada!')).toBeTruthy();
   });
 
   it('no tiene violaciones de accesibilidad con el modal abierto', async () => {

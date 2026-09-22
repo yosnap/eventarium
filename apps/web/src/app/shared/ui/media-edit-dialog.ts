@@ -1,7 +1,9 @@
+import { DatePipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   inject,
   input,
   output,
@@ -52,7 +54,7 @@ import { MediaFolder, MediaItem, MediaKind, baseDeMedia } from './media-types';
 @Component({
   selector: 'app-media-edit-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Button, Dialog, Input, MediaCropEditor],
+  imports: [DatePipe, TranslocoDirective, Button, Dialog, Input, MediaCropEditor],
   template: `
     <ng-container *transloco="let t">
       <app-dialog #dialogo tamano="ancho">
@@ -108,6 +110,20 @@ import { MediaFolder, MediaItem, MediaKind, baseDeMedia } from './media-types';
                     : t('ui.media.guardarCambios')
                 }}
               </app-button>
+
+              <dl class="datos-imagen">
+                <dt>{{ t('ui.media.dimensiones') }}</dt>
+                <dd>
+                  {{ actual.width && actual.height ? actual.width + ' × ' + actual.height + ' px' : '—' }}
+                </dd>
+                <dt>{{ t('ui.media.tamano') }}</dt>
+                <dd>{{ formatearTamano(actual.size) }}</dd>
+                <dt>{{ t('ui.media.subida') }}</dt>
+                <dd>{{ actual.created_at | date: 'medium' }}</dd>
+              </dl>
+              <app-button type="button" variant="secundario" (pulsado)="copiarUrl(actual.url)">
+                {{ urlCopiada() ? t('ui.media.urlCopiada') : t('ui.media.copiarUrl') }}
+              </app-button>
             </section>
           </div>
         }
@@ -155,6 +171,23 @@ import { MediaFolder, MediaItem, MediaKind, baseDeMedia } from './media-types';
       background: var(--surface);
       color: var(--fg);
     }
+    .datos-imagen {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.25rem var(--space-sm);
+      margin: 0;
+      padding-top: var(--space-sm);
+      border-top: 1px solid var(--border);
+      font-size: var(--fs-sm);
+    }
+    .datos-imagen dt {
+      color: var(--muted);
+    }
+    .datos-imagen dd {
+      margin: 0;
+      color: var(--fg);
+      text-align: right;
+    }
   `,
 })
 export class MediaEditDialog {
@@ -181,6 +214,16 @@ export class MediaEditDialog {
   protected readonly guardandoMetadatos = signal(false);
   protected readonly recortandoEnCurso = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly urlCopiada = signal(false);
+  private temporizadorCopiado: ReturnType<typeof setTimeout> | null = null;
+
+  constructor() {
+    inject(DestroyRef).onDestroy(() => {
+      if (this.temporizadorCopiado) {
+        clearTimeout(this.temporizadorCopiado);
+      }
+    });
+  }
 
   abrir(item: MediaItem): void {
     this.item.set(item);
@@ -188,11 +231,38 @@ export class MediaEditDialog {
     this.alt.set(item.alt ?? '');
     this.carpetaId.set(item.folder_id);
     this.error.set(null);
+    this.urlCopiada.set(false);
     this.dialogo().abrir();
   }
 
   protected alCambiarCarpeta(evento: Event): void {
     this.carpetaId.set((evento.target as HTMLSelectElement).value || null);
+  }
+
+  /** Solo lectura, sin llamada al backend: formatea el tamaño en bytes que
+   * ya viene en `MediaItem.size` (mismo criterio que la referencia del
+   * usuario — KB por debajo de 1 MB, MB a partir de ahí). */
+  protected formatearTamano(bytes: number): string {
+    if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(1)} KB`;
+    }
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  protected async copiarUrl(url: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(url);
+      this.urlCopiada.set(true);
+      if (this.temporizadorCopiado) {
+        clearTimeout(this.temporizadorCopiado);
+      }
+      this.temporizadorCopiado = setTimeout(() => this.urlCopiada.set(false), 2000);
+    } catch {
+      // Sin permiso del portapapeles (contexto no seguro, navegador
+      // antiguo…): no hay nada más que ofrecer, la URL sigue visible/
+      // seleccionable a mano en el propio campo del formulario si hiciera
+      // falta copiarla de otra forma.
+    }
   }
 
   protected async guardarMetadatos(): Promise<void> {
