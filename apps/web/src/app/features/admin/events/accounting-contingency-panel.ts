@@ -78,12 +78,12 @@ interface LineaConsumo {
         </div>
 
         @if (fundCents() !== null) {
-          <div pie>
+          <ng-container pie>
             <span>{{ t('admin.events.accounting.contingencia.disponibleAhora') }}</span>
             <strong>{{
               disponibleCents() !== null ? euros(disponibleCents()!) + ' €' : '—'
             }}</strong>
-          </div>
+          </ng-container>
         }
       </app-panel>
     </ng-container>

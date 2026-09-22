@@ -240,24 +240,24 @@ function baseDeCarpetas(kind: MediaKind): string {
 
       <app-dialog #dialogoPapelera>
         <p>{{ t('ui.media.papeleraConfirmacion') }}</p>
-        <div pie>
-          <app-button
-            variant="secundario"
-            type="button"
-            [disabled]="borrandoId() !== null"
-            (pulsado)="dialogoPapelera.cerrar()"
-          >
-            {{ t('comun.cancelar') }}
-          </app-button>
-          <app-button
-            variant="peligro"
-            type="button"
-            [loading]="borrandoId() !== null"
-            (pulsado)="confirmarEnvioAPapelera()"
-          >
-            {{ t('ui.media.papelera') }}
-          </app-button>
-        </div>
+        <app-button
+          pie
+          variant="secundario"
+          type="button"
+          [disabled]="borrandoId() !== null"
+          (pulsado)="dialogoPapelera.cerrar()"
+        >
+          {{ t('comun.cancelar') }}
+        </app-button>
+        <app-button
+          pie
+          variant="peligro"
+          type="button"
+          [loading]="borrandoId() !== null"
+          (pulsado)="confirmarEnvioAPapelera()"
+        >
+          {{ t('ui.media.papelera') }}
+        </app-button>
       </app-dialog>
     </ng-container>
 
