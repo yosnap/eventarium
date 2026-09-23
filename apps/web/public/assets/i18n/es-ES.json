@@ -329,6 +329,21 @@
         "parteDe": "Parte de",
         "humanitek": "Humanitek"
       }
+    },
+    "politicas": {
+      "titulo": "Políticas y condiciones",
+      "enlace": "Políticas y condiciones del evento",
+      "fecha": "Versión {{version}}, del {{fecha}}",
+      "sinTextos": "El organizador de este evento no ha publicado condiciones propias. Aplican las condiciones generales de la plataforma.",
+      "generales": "Ver las condiciones generales",
+      "pie": "Estas condiciones las fija {{organizacion}}, que es responsable de ellas.",
+      "error": "No se han podido cargar las condiciones del evento.",
+      "tipos": {
+        "condiciones": "Condiciones del evento",
+        "reembolsos": "Política de reembolsos",
+        "privacidad": "Política de privacidad",
+        "otras": "Otras condiciones"
+      }
     }
   },
   "registro": {
@@ -439,6 +454,16 @@
       "formularioAprobacion": "Solicita tu plaza: revisamos tu inscripción antes de confirmarla",
       "formularioPago": "Elige tu entrada y completa el pago",
       "enviado": "Ya casi está"
+    },
+    "politicas": {
+      "aceptar": "He leído y acepto las condiciones de {{organizacion}}.",
+      "leer": "Leer las condiciones del evento (se abren en otra pestaña)",
+      "leerPrivacidad": "Leer la política de privacidad (se abre en otra pestaña)",
+      "requerido": "Debes aceptar las condiciones del organizador para inscribirte.",
+      "cambiadas": "Las condiciones del organizador han cambiado mientras rellenabas el formulario. Revísalas y vuelve a aceptarlas; el resto de tus datos se conserva.",
+      "errorCarga": "No se han podido cargar las condiciones del organizador, y hacen falta para inscribirse.",
+      "reintentar": "Reintentar",
+      "sinCargar": "Espera a que se carguen las condiciones del organizador para enviar el formulario."
     }
   },
   "pago": {

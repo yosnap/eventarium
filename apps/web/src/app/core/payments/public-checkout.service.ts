@@ -27,6 +27,8 @@ export interface StartCheckoutInput {
   readonly dataProcessingAccepted: boolean;
   readonly marketingAccepted: boolean;
   readonly recordingAccepted: boolean;
+  /** Versiones de las políticas del organizador aceptadas (vacía si no hay). */
+  readonly acceptedPolicyVersionIds: readonly string[];
   readonly ticketTypeId: string;
   readonly code: string | null;
   readonly turnstileToken: string;
@@ -82,6 +84,7 @@ export class PublicCheckoutService {
         data_processing_accepted: datos.dataProcessingAccepted,
         marketing_accepted: datos.marketingAccepted,
         recording_accepted: datos.recordingAccepted,
+        accepted_policy_version_ids: datos.acceptedPolicyVersionIds,
         ticket_type_id: datos.ticketTypeId,
         code: datos.code,
         turnstile_token: datos.turnstileToken,

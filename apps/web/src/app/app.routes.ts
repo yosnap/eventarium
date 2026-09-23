@@ -464,6 +464,11 @@ export const routes: Routes = [
           import('./features/public/events/sponsor-page').then((m) => m.SponsorPage),
       },
       {
+        path: 'eventos/:slug/politicas',
+        loadComponent: () =>
+          import('./features/public/events/public-policies-page').then((m) => m.PublicPoliciesPage),
+      },
+      {
         path: 'eventos/:slug/inscribirse',
         loadComponent: () =>
           import('./features/public/events/registration-page').then((m) => m.RegistrationPage),

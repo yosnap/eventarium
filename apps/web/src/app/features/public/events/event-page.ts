@@ -212,6 +212,11 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                     {{ t('publico.eventos.inscribirse') }}
                   </a>
                   <p class="ficha__nota">{{ t('publico.eventos.ficha.sinCuenta') }}</p>
+                  <p class="ficha__nota">
+                    <a [routerLink]="['/eventos', evento.slug, 'politicas']">
+                      {{ t('publico.politicas.enlace') }}
+                    </a>
+                  </p>
                 </div>
               </div>
             </div>

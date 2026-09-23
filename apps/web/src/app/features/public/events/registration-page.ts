@@ -9,6 +9,7 @@ import {
   inject,
   input,
   signal,
+  viewChild,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
@@ -37,6 +38,7 @@ import { Reveal } from '../../../shared/ui/reveal.directive';
 import { TurnstileWidget } from '../../../shared/ui/turnstile-widget';
 import type { PublicEventDetail, RegistrationMode } from './event-page.types';
 import { RegistrationConsents } from './registration-consents';
+import { CODIGO_POLITICAS_CAMBIADAS } from '../../../core/policies/public-policies.service';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -267,7 +269,10 @@ function precioEnEuros(cents: number): string {
                   }
 
                   <app-registration-consents
+                    [slug]="slug()"
                     [errorConsentimiento]="errorConsentimiento()"
+                    [errorPoliticas]="errorPoliticas()"
+                    [(politicasAceptadas)]="politicasAceptadas"
                     [(dataProcessingAccepted)]="dataProcessingAccepted"
                     [(marketingAccepted)]="marketingAccepted"
                     [(recordingAccepted)]="recordingAccepted"
@@ -538,6 +543,9 @@ export class RegistrationPage implements OnInit {
   protected readonly errorNombre = signal<string | null>(null);
   protected readonly erroresPreguntas = signal<Record<string, string | null>>({});
   protected readonly errorConsentimiento = signal<string | null>(null);
+  protected readonly errorPoliticas = signal<string | null>(null);
+  protected readonly politicasAceptadas = signal(false);
+  private readonly consentimientos = viewChild.required(RegistrationConsents);
 
   private readonly respuestasTexto = signal<Record<string, string>>({});
   private readonly respuestasLista = signal<Record<string, string[]>>({});
@@ -867,6 +875,14 @@ export class RegistrationPage implements OnInit {
         ? null
         : this.transloco.translate('inscripcion.tratamientoDatosRequerido'),
     );
+    const consentimientos = this.consentimientos();
+    this.errorPoliticas.set(
+      !consentimientos.listo()
+        ? this.transloco.translate('inscripcion.politicas.sinCargar')
+        : consentimientos.faltaAceptarPoliticas()
+          ? this.transloco.translate('inscripcion.politicas.requerido')
+          : null,
+    );
     const esCompraDePago = this.esCompraDePago();
     if (esCompraDePago) {
       this.errorTicketType.set(
@@ -881,6 +897,7 @@ export class RegistrationPage implements OnInit {
       this.errorNombre() ||
       !preguntasValidas ||
       this.errorConsentimiento() ||
+      this.errorPoliticas() ||
       (esCompraDePago && this.errorTicketType())
     ) {
       return;
@@ -898,12 +915,24 @@ export class RegistrationPage implements OnInit {
           dataProcessingAccepted: this.dataProcessingAccepted(),
           marketingAccepted: this.marketingAccepted(),
           recordingAccepted: this.recordingAccepted(),
+          acceptedPolicyVersionIds: this.consentimientos().idsAceptados(),
           turnstileToken: this.turnstileToken() ?? '',
         });
         this.mensajeExito.set(mensaje);
         this.enviado.set(true);
       }
     } catch (error) {
+      if (error instanceof ApiError && error.problem?.['code'] === CODIGO_POLITICAS_CAMBIADAS) {
+        // Las condiciones cambiaron mientras se rellenaba: se recargan y hay
+        // que volver a aceptarlas; lo demás del formulario se conserva.
+        const recargadas = await this.consentimientos().recargar();
+        // Si la recarga falla, el propio componente muestra el aviso con
+        // «Reintentar»: no se dice que han cambiado algo que no se ha podido leer.
+        this.errorPoliticas.set(
+          recargadas ? this.transloco.translate('inscripcion.politicas.cambiadas') : null,
+        );
+        return;
+      }
       this.error.set(
         error instanceof ApiError ? error.message : this.transloco.translate('inscripcion.error'),
       );
@@ -922,6 +951,7 @@ export class RegistrationPage implements OnInit {
       dataProcessingAccepted: this.dataProcessingAccepted(),
       marketingAccepted: this.marketingAccepted(),
       recordingAccepted: this.recordingAccepted(),
+      acceptedPolicyVersionIds: this.consentimientos().idsAceptados(),
       ticketTypeId: this.ticketTypeId()!,
       code: this.codigoDescuento().trim() || null,
       turnstileToken: this.turnstileToken() ?? '',
