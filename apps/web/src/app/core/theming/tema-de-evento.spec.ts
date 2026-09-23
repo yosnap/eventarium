@@ -61,6 +61,16 @@ describe('temaDeEvento', () => {
     expect(ambito()).toBe('evento');
   });
 
+  it('una respuesta que llega con la página ya cerrada no vuelve a poner el tema', async () => {
+    const ficha = abrirPagina('evento-a');
+
+    ficha.destroy();
+    await microtarea();
+    ficha.componentInstance.aplicarTema(plantillaDeTemaDePrueba());
+
+    expect(ambito()).toBeNull();
+  });
+
   it('al pasar a otro evento no arrastra el tema del anterior', async () => {
     const ficha = abrirPagina('evento-a');
     ficha.componentInstance.aplicarTema(plantillaDeTemaDePrueba());

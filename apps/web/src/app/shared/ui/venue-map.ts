@@ -104,7 +104,11 @@ export class VenueMap {
         icon: crearIcono(L, punto.color ?? COLOR_POR_DEFECTO),
       });
       if (punto.label) {
-        marcador.bindPopup(punto.label);
+        // Nodo con `textContent`, nunca la cadena: `bindPopup(string)` hace
+        // `innerHTML`, y el nombre de la sede lo escribe el organizador.
+        const contenido = contenedor.ownerDocument.createElement('span');
+        contenido.textContent = punto.label;
+        marcador.bindPopup(contenido);
       }
       this.capaMarcadores?.addLayer(marcador);
     }

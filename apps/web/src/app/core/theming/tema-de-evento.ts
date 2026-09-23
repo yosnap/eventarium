@@ -61,7 +61,17 @@ export class AmbitoDeEvento {
 export function temaDeEvento(): (tema: PlantillaDeTema | null | undefined) => void {
   const ambito = inject(AmbitoDeEvento);
   const slug = inject(ActivatedRoute).snapshot.paramMap.get('slug');
+  // Las peticiones no se cancelan al salir: una respuesta que llega con la
+  // página ya destruida no debe volver a poner su tema en otra página.
+  let viva = true;
   ambito.abrir(slug);
-  inject(DestroyRef).onDestroy(() => ambito.cerrar());
-  return (tema) => ambito.aplicar(slug, tema ?? null);
+  inject(DestroyRef).onDestroy(() => {
+    viva = false;
+    ambito.cerrar();
+  });
+  return (tema) => {
+    if (viva) {
+      ambito.aplicar(slug, tema ?? null);
+    }
+  };
 }

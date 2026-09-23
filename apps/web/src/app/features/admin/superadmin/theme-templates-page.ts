@@ -789,18 +789,18 @@ export class ThemeTemplatesPage {
     }));
   }
 
-  /**
-   * Al elegir en el selector nativo (solo sabe `#rrggbb`), el token se escribe
-   * en `oklch(...)` — el formato del sistema — conservando la alfa que tuviera
-   * (los `*-dim` van con transparencia). Las sombras no son colores: su
-   * selector se oculta y se editan por texto.
-   */
   /** El token puede no estar definido todavía en ese modo (el índice no lo
    * refleja en el tipo): el selector nativo necesita siempre un hex válido. */
   protected colorDelSelector(modo: ModoDeTema, token: string): string {
     return hexParaSelector(this.formulario().tokens[modo][token] ?? '') ?? '#808080';
   }
 
+  /**
+   * Al elegir en el selector nativo (solo sabe `#rrggbb`), el token se escribe
+   * en `oklch(...)` — el formato del sistema — conservando la alfa que tuviera
+   * (los `*-dim` van con transparencia). Las sombras no son colores: su
+   * selector se oculta y se editan por texto.
+   */
   protected elegirColor(modo: ModoDeTema, token: string, evento: Event): void {
     const hex = (evento.target as HTMLInputElement).value;
     const convertido = oklchDeHex(hex, alfaDe(this.formulario().tokens[modo][token] ?? ''));
