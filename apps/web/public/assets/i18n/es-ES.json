@@ -303,7 +303,7 @@
           "agenda": {
             "titulo": "Agenda con descansos y servicios",
             "texto": "Sesiones, salas y ponentes, pero también los cafés, las comidas y los servicios del evento como **datos de primera clase**, no como notas al pie.",
-            "captura": "Agenda de un evento de tres días con veinte sesiones por sala y hora."
+            "captura": "Agenda de un evento por días: cada sesión con su título, horario y sala, junto a los ponentes que participan en el evento."
           },
           "ponentes": {
             "titulo": "Ponentes con historial",
