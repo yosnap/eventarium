@@ -102,7 +102,11 @@ export class VerifyRegistrationPage {
   protected readonly tonoEstado = signal<ChipTone>('neutro');
 
   constructor() {
-    this.seo.set({ title: this.transloco.translate('verificarInscripcion.titulo') });
+    // La URL lleva un token de un solo uso: que ningún buscador la guarde.
+    this.seo.set({
+      title: this.transloco.translate('verificarInscripcion.titulo'),
+      noIndexar: true,
+    });
     const token = this.ruta.snapshot.queryParamMap.get('token');
     if (!token) {
       this.estado.set('error');

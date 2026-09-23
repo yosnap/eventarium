@@ -66,7 +66,8 @@ export class ConfirmWaitlistPromotionPage {
   protected readonly mensaje = signal('');
 
   constructor() {
-    this.seo.set({ title: this.transloco.translate('confirmarPromocion.titulo') });
+    // La URL lleva un token de un solo uso: que ningún buscador la guarde.
+    this.seo.set({ title: this.transloco.translate('confirmarPromocion.titulo'), noIndexar: true });
     const token = this.ruta.snapshot.queryParamMap.get('token');
     if (!token) {
       this.estado.set('error');

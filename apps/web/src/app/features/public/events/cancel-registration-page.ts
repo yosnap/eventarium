@@ -65,7 +65,11 @@ export class CancelRegistrationPage {
   protected readonly mensaje = signal('');
 
   constructor() {
-    this.seo.set({ title: this.transloco.translate('cancelarInscripcion.titulo') });
+    // La URL lleva un token de un solo uso: que ningún buscador la guarde.
+    this.seo.set({
+      title: this.transloco.translate('cancelarInscripcion.titulo'),
+      noIndexar: true,
+    });
     const token = this.ruta.snapshot.queryParamMap.get('token');
     if (!token) {
       this.estado.set('error');
