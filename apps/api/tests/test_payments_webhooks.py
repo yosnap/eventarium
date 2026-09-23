@@ -868,6 +868,7 @@ async def test_tres_compras_concurrentes_sobre_cupo_de_dos_solo_dos_prosperan(
                     data_processing_accepted=True,
                     marketing_accepted=False,
                     recording_accepted=False,
+                    accepted_policy_version_ids=[],
                     ticket_type_id=tipo_id,
                     code=None,
                 )
@@ -952,6 +953,7 @@ async def test_cuatro_usos_concurrentes_de_codigo_con_max_uses_tres(
                     data_processing_accepted=True,
                     marketing_accepted=False,
                     recording_accepted=False,
+                    accepted_policy_version_ids=[],
                     ticket_type_id=tipo_id,
                     code="LIMITADO3",
                 )

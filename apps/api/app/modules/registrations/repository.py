@@ -18,6 +18,7 @@ from app.modules.events.models import Event
 from app.modules.registrations.models import (
     EventRegistration,
     EventRegistrationAnswer,
+    EventRegistrationConsent,
     EventRegistrationQuestion,
 )
 from app.modules.tickets.models import EventTicket
@@ -447,3 +448,29 @@ async def list_registrations_by_email(session: AsyncSession, email: str) -> list
         )
     ).all()
     return list(filas)
+
+
+async def guardar_aceptacion_de_politicas(
+    session: AsyncSession,
+    inscripcion: EventRegistration,
+    politicas: list[uuid.UUID],
+    ahora: datetime,
+) -> None:
+    """Al reactivar una compra abandonada, lo aceptado ahora sustituye a lo de
+    la primera vez: si no, constaría una versión que la persona ya no vio."""
+    consentimiento = await session.scalar(
+        select(EventRegistrationConsent).where(
+            EventRegistrationConsent.registration_id == inscripcion.id
+        )
+    )
+    if consentimiento is None:
+        # Toda inscripción nace con uno; si faltara, se crea: nunca se cobra
+        # una entrada sin constancia de lo aceptado.
+        consentimiento = EventRegistrationConsent(
+            registration_id=inscripcion.id,
+            organization_id=inscripcion.organization_id,
+            data_processing_accepted_at=ahora,
+        )
+        session.add(consentimiento)
+    consentimiento.organizer_policies_accepted_at = ahora if politicas else None
+    consentimiento.accepted_policy_version_ids = politicas

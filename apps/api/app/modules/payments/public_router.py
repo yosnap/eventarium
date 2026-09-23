@@ -163,6 +163,7 @@ async def start_checkout(
         data_processing_accepted=datos.data_processing_accepted,
         marketing_accepted=datos.marketing_accepted,
         recording_accepted=datos.recording_accepted,
+        accepted_policy_version_ids=datos.accepted_policy_version_ids,
         ticket_type_id=ticket_type_id,
         code=datos.code,
     )

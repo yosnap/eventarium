@@ -17,6 +17,9 @@ from app.core.deps import CurrentUserDep, DbDep, require_permission
 from app.core.permissions import Permission
 from app.modules.events import repository as events_repository
 from app.modules.events.models import Event
+from app.modules.policies import service as policies_service
+from app.modules.policies.models import OrganizationPolicyVersion
+from app.modules.policies.schemas import AcceptedPolicyOut
 from app.modules.registrations import repository, service
 from app.modules.registrations.models import EventRegistration, EventRegistrationQuestion
 from app.modules.registrations.schemas import (
@@ -63,6 +66,7 @@ def _registration_list_item(inscripcion: EventRegistration) -> RegistrationListI
 def _registration_detail(
     inscripcion: EventRegistration,
     preguntas_por_id: dict[uuid.UUID, EventRegistrationQuestion],
+    politicas: list[OrganizationPolicyVersion],
 ) -> RegistrationDetail:
     respuestas = [
         RegistrationAnswerOut(
@@ -81,6 +85,15 @@ def _registration_detail(
             data_processing_accepted_at=inscripcion.consent.data_processing_accepted_at,
             marketing_accepted_at=inscripcion.consent.marketing_accepted_at,
             recording_accepted_at=inscripcion.consent.recording_accepted_at,
+            organizer_policies_accepted_at=inscripcion.consent.organizer_policies_accepted_at,
+            accepted_policies=[
+                AcceptedPolicyOut(
+                    version_id=str(fila.id),
+                    kind=fila.kind,  # type: ignore[arg-type]
+                    version=fila.version,
+                )
+                for fila in politicas
+            ],
         )
         if inscripcion.consent is not None
         else None
@@ -175,7 +188,14 @@ async def get_registration(
 ) -> RegistrationDetail:
     inscripcion = await _obtener_inscripcion_o_404(evento, session, registration_id)
     preguntas = await repository.get_questions(session, evento.organization_id, evento.id)
-    return _registration_detail(inscripcion, {pregunta.id: pregunta for pregunta in preguntas})
+    politicas = await policies_service.versiones_por_ids(
+        session,
+        evento.organization_id,
+        inscripcion.consent.accepted_policy_version_ids if inscripcion.consent else [],
+    )
+    return _registration_detail(
+        inscripcion, {pregunta.id: pregunta for pregunta in preguntas}, politicas
+    )
 
 
 @router.post(

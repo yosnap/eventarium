@@ -48,6 +48,21 @@ class EventPolicyItem(BaseModel):
     organization: PolicyVersionOut | None
 
 
+class OrganizationPoliciesOut(BaseModel):
+    """Los cuatro textos de la organización y si quien pregunta puede editarlos."""
+
+    #: `organizations:write`: el panel muestra la pantalla en solo lectura si no.
+    can_edit: bool
+    items: list[OrganizationPolicyItem]
+
+
+class EventPoliciesOut(BaseModel):
+    """Los cuatro textos de un evento y si quien pregunta puede editarlos."""
+
+    can_edit: bool
+    items: list[EventPolicyItem]
+
+
 class PolicyUpdate(BaseModel):
     """Guardar un texto nuevo.
 
@@ -56,3 +71,21 @@ class PolicyUpdate(BaseModel):
     """
 
     content: Annotated[str, Field(max_length=LIMITE_CARACTERES)] | None
+
+
+class PublicEventPolicies(BaseModel):
+    """Textos vigentes de un evento, para su página pública y el formulario."""
+
+    organization_name: str
+    #: Solo los tipos con texto vigente, en orden de muestra. Vacía si el
+    #: evento no tiene ninguno (aplican las condiciones generales).
+    policies: list[PolicyVersionOut]
+
+
+class AcceptedPolicyOut(BaseModel):
+    """Una versión aceptada por una inscripción (sin el contenido: se consulta
+    aparte con el endpoint de versión del evento)."""
+
+    version_id: str
+    kind: TipoDePolitica
+    version: int

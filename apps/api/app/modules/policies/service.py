@@ -16,6 +16,7 @@ from sqlalchemy import ColumnElement, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.events.models import Event
 from app.modules.policies.models import TIPOS_DE_POLITICA, OrganizationPolicyVersion
 from app.modules.policies.schemas import LIMITE_CARACTERES
 from app.shared.errors import ConflictError, NotFoundError, ValidationDomainError
@@ -185,3 +186,52 @@ async def obtener_version(
     if fila is None or fila.content is None:
         raise NotFoundError("Esa versión no existe.")
     return fila
+
+
+#: Código del 409 que el formulario de inscripción reconoce para recargar los
+#: textos y pedir que se vuelvan a aceptar (distinto del 409 de «evento de
+#: pago», que el cliente distingue por este código, no por el estado HTTP).
+CODIGO_POLITICAS_CAMBIADAS = "politicas_cambiadas"
+
+
+async def comprobar_aceptacion(
+    session: AsyncSession, event: Event, aceptadas: list[uuid.UUID]
+) -> list[uuid.UUID]:
+    """Comprueba que se aceptaron exactamente los textos vigentes del evento.
+
+    Compara conjuntos de valores, nunca resuelve cada id contra la BD: un id
+    inventado, de otra organización o de una versión antigua cae siempre en
+    el mismo 409 controlado. Sin textos vigentes no se exige nada. Devuelve
+    las versiones aceptadas, para guardarlas en el consentimiento.
+    """
+    vigentes = [
+        vigente.version.id
+        for vigente in await vigentes_de_evento(session, event.organization_id, event.id)
+        if vigente.version is not None
+    ]
+    if not vigentes:
+        return []
+    if set(aceptadas) != set(vigentes):
+        raise ConflictError(
+            "Las condiciones del organizador han cambiado mientras rellenabas el "
+            "formulario. Revísalas y vuelve a aceptarlas.",
+            extra={"code": CODIGO_POLITICAS_CAMBIADAS},
+        )
+    return vigentes
+
+
+async def versiones_por_ids(
+    session: AsyncSession, organization_id: uuid.UUID, ids: list[uuid.UUID]
+) -> list[OrganizationPolicyVersion]:
+    """Las versiones aceptadas por una inscripción, en orden de muestra."""
+    if not ids:
+        return []
+    filas = (
+        await session.scalars(
+            select(OrganizationPolicyVersion).where(
+                OrganizationPolicyVersion.organization_id == organization_id,
+                OrganizationPolicyVersion.id.in_(ids),
+            )
+        )
+    ).all()
+    return sorted(filas, key=lambda fila: TIPOS_DE_POLITICA.index(fila.kind))

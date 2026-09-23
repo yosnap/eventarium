@@ -121,6 +121,7 @@ async def create_registration(
         data_processing_accepted=datos.data_processing_accepted,
         marketing_accepted=datos.marketing_accepted,
         recording_accepted=datos.recording_accepted,
+        accepted_policy_version_ids=datos.accepted_policy_version_ids,
     )
     return RegistrationMessageResponse(
         message="Si los datos son correctos, en breve recibirás un correo con los siguientes pasos."

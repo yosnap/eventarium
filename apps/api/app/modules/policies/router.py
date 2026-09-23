@@ -12,14 +12,16 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from app.core.deps import CurrentUserDep, DbDep, require_permission
+from app.core.deps import CurrentUserDep, DbDep, PermissionsDep, require_permission
 from app.core.permissions import Permission
 from app.modules.events import repository as events_repository
 from app.modules.events.models import Event
 from app.modules.policies import service
 from app.modules.policies.models import TIPOS_DE_POLITICA, OrganizationPolicyVersion
 from app.modules.policies.schemas import (
+    EventPoliciesOut,
     EventPolicyItem,
+    OrganizationPoliciesOut,
     OrganizationPolicyItem,
     PolicyUpdate,
     PolicyVersionOut,
@@ -90,24 +92,27 @@ async def _items_de_evento(session: DbDep, evento: Event) -> list[EventPolicyIte
 @router_organizacion.get(
     "",
     summary="Textos por defecto de la organización",
-    response_model=list[OrganizationPolicyItem],
+    response_model=OrganizationPoliciesOut,
     dependencies=[require_permission(Permission.ORGANIZATIONS_READ)],
 )
 async def list_organization_policies(
-    session: DbDep, usuario: CurrentUserDep
-) -> list[OrganizationPolicyItem]:
-    return await _items_de_organizacion(session, usuario.organization_id)
+    session: DbDep, usuario: CurrentUserDep, permisos: PermissionsDep
+) -> OrganizationPoliciesOut:
+    return OrganizationPoliciesOut(
+        can_edit=Permission.ORGANIZATIONS_WRITE in permisos,
+        items=await _items_de_organizacion(session, usuario.organization_id),
+    )
 
 
 @router_organizacion.put(
     "/{kind}",
     summary="Guardar un texto por defecto de la organización (vacío = retirar)",
-    response_model=list[OrganizationPolicyItem],
+    response_model=OrganizationPoliciesOut,
     dependencies=[require_permission(Permission.ORGANIZATIONS_WRITE)],
 )
 async def save_organization_policy(
     kind: TipoDePolitica, datos: PolicyUpdate, session: DbDep, usuario: CurrentUserDep
-) -> list[OrganizationPolicyItem]:
+) -> OrganizationPoliciesOut:
     await service.guardar_version(
         session,
         organization_id=usuario.organization_id,
@@ -116,23 +121,30 @@ async def save_organization_policy(
         content=datos.content,
         user_id=usuario.id,
     )
-    return await _items_de_organizacion(session, usuario.organization_id)
+    return OrganizationPoliciesOut(
+        can_edit=True, items=await _items_de_organizacion(session, usuario.organization_id)
+    )
 
 
 @router_evento.get(
     "",
     summary="Textos vigentes de un evento y de dónde salen",
-    response_model=list[EventPolicyItem],
+    response_model=EventPoliciesOut,
     dependencies=[require_permission(Permission.EVENTS_READ)],
 )
-async def list_event_policies(evento: EventoDep, session: DbDep) -> list[EventPolicyItem]:
-    return await _items_de_evento(session, evento)
+async def list_event_policies(
+    evento: EventoDep, session: DbDep, permisos: PermissionsDep
+) -> EventPoliciesOut:
+    return EventPoliciesOut(
+        can_edit=Permission.ORGANIZATIONS_WRITE in permisos,
+        items=await _items_de_evento(session, evento),
+    )
 
 
 @router_evento.put(
     "/{kind}",
     summary="Sustituir un texto en un evento (nulo = volver a heredar)",
-    response_model=list[EventPolicyItem],
+    response_model=EventPoliciesOut,
     dependencies=[require_permission(Permission.ORGANIZATIONS_WRITE)],
 )
 async def save_event_policy(
@@ -141,7 +153,7 @@ async def save_event_policy(
     evento: EventoDep,
     session: DbDep,
     usuario: CurrentUserDep,
-) -> list[EventPolicyItem]:
+) -> EventPoliciesOut:
     await service.guardar_version(
         session,
         organization_id=evento.organization_id,
@@ -150,7 +162,7 @@ async def save_event_policy(
         content=datos.content,
         user_id=usuario.id,
     )
-    return await _items_de_evento(session, evento)
+    return EventPoliciesOut(can_edit=True, items=await _items_de_evento(session, evento))
 
 
 @router_evento.get(

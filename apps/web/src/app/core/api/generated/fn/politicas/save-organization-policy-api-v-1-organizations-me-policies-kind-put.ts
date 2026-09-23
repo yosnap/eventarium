@@ -7,7 +7,7 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { OrganizationPolicyItem } from '../../models/organization-policy-item';
+import { OrganizationPoliciesOut } from '../../models/organization-policies-out';
 import { PolicyUpdate } from '../../models/policy-update';
 
 export interface SaveOrganizationPolicyApiV1OrganizationsMePoliciesKindPut$Params {
@@ -15,7 +15,7 @@ export interface SaveOrganizationPolicyApiV1OrganizationsMePoliciesKindPut$Param
       body: PolicyUpdate
 }
 
-export function saveOrganizationPolicyApiV1OrganizationsMePoliciesKindPut(http: HttpClient, rootUrl: string, params: SaveOrganizationPolicyApiV1OrganizationsMePoliciesKindPut$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<OrganizationPolicyItem>>> {
+export function saveOrganizationPolicyApiV1OrganizationsMePoliciesKindPut(http: HttpClient, rootUrl: string, params: SaveOrganizationPolicyApiV1OrganizationsMePoliciesKindPut$Params, context?: HttpContext): Observable<StrictHttpResponse<OrganizationPoliciesOut>> {
   const rb = new RequestBuilder(rootUrl, saveOrganizationPolicyApiV1OrganizationsMePoliciesKindPut.PATH, 'put');
   if (params) {
     rb.path('kind', params.kind, {});
@@ -27,7 +27,7 @@ export function saveOrganizationPolicyApiV1OrganizationsMePoliciesKindPut(http: 
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<Array<OrganizationPolicyItem>>;
+      return r as StrictHttpResponse<OrganizationPoliciesOut>;
     })
   );
 }

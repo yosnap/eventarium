@@ -7,12 +7,12 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { OrganizationPolicyItem } from '../../models/organization-policy-item';
+import { OrganizationPoliciesOut } from '../../models/organization-policies-out';
 
 export interface ListOrganizationPoliciesApiV1OrganizationsMePoliciesGet$Params {
 }
 
-export function listOrganizationPoliciesApiV1OrganizationsMePoliciesGet(http: HttpClient, rootUrl: string, params?: ListOrganizationPoliciesApiV1OrganizationsMePoliciesGet$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<OrganizationPolicyItem>>> {
+export function listOrganizationPoliciesApiV1OrganizationsMePoliciesGet(http: HttpClient, rootUrl: string, params?: ListOrganizationPoliciesApiV1OrganizationsMePoliciesGet$Params, context?: HttpContext): Observable<StrictHttpResponse<OrganizationPoliciesOut>> {
   const rb = new RequestBuilder(rootUrl, listOrganizationPoliciesApiV1OrganizationsMePoliciesGet.PATH, 'get');
   if (params) {
   }
@@ -22,7 +22,7 @@ export function listOrganizationPoliciesApiV1OrganizationsMePoliciesGet(http: Ht
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<Array<OrganizationPolicyItem>>;
+      return r as StrictHttpResponse<OrganizationPoliciesOut>;
     })
   );
 }

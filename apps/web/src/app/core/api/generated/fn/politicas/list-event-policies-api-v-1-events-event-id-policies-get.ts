@@ -7,13 +7,13 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { EventPolicyItem } from '../../models/event-policy-item';
+import { EventPoliciesOut } from '../../models/event-policies-out';
 
 export interface ListEventPoliciesApiV1EventsEventIdPoliciesGet$Params {
   event_id: string;
 }
 
-export function listEventPoliciesApiV1EventsEventIdPoliciesGet(http: HttpClient, rootUrl: string, params: ListEventPoliciesApiV1EventsEventIdPoliciesGet$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<EventPolicyItem>>> {
+export function listEventPoliciesApiV1EventsEventIdPoliciesGet(http: HttpClient, rootUrl: string, params: ListEventPoliciesApiV1EventsEventIdPoliciesGet$Params, context?: HttpContext): Observable<StrictHttpResponse<EventPoliciesOut>> {
   const rb = new RequestBuilder(rootUrl, listEventPoliciesApiV1EventsEventIdPoliciesGet.PATH, 'get');
   if (params) {
     rb.path('event_id', params.event_id, {});
@@ -24,7 +24,7 @@ export function listEventPoliciesApiV1EventsEventIdPoliciesGet(http: HttpClient,
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<Array<EventPolicyItem>>;
+      return r as StrictHttpResponse<EventPoliciesOut>;
     })
   );
 }

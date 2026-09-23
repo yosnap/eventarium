@@ -50,8 +50,8 @@ async def _crear_evento(organizacion: OrganizacionDePrueba) -> uuid.UUID:
         return evento.id
 
 
-def _por_tipo(items: list[dict]) -> dict[str, dict]:  # type: ignore[type-arg]
-    return {item["kind"]: item for item in items}
+def _por_tipo(respuesta: dict) -> dict[str, dict]:  # type: ignore[type-arg]
+    return {item["kind"]: item for item in respuesta["items"]}
 
 
 async def test_guardar_crea_versiones_nuevas_sin_tocar_las_anteriores(
@@ -211,9 +211,12 @@ async def test_escribir_textos_exige_permiso_de_organizacion_tambien_en_un_event
         f"{ORGANIZACION}/privacidad", json={"content": "x"}, headers=cabeceras
     )
     assert organizacion_put.status_code == 403
-    # Leer sí puede.
+    # Leer sí puede, y el panel sabe que debe mostrarlo en solo lectura.
     lectura = await cliente.get(_evento_url(event_id), headers=cabeceras)
     assert lectura.status_code == 200
+    assert lectura.json()["can_edit"] is False
+    de_organizacion = await cliente.get(ORGANIZACION, headers=cabeceras)
+    assert de_organizacion.json()["can_edit"] is False
 
 
 async def test_consultar_una_version_antigua_devuelve_su_contenido_exacto(

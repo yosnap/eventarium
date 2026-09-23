@@ -7,7 +7,7 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { EventPolicyItem } from '../../models/event-policy-item';
+import { EventPoliciesOut } from '../../models/event-policies-out';
 import { PolicyUpdate } from '../../models/policy-update';
 
 export interface SaveEventPolicyApiV1EventsEventIdPoliciesKindPut$Params {
@@ -16,7 +16,7 @@ export interface SaveEventPolicyApiV1EventsEventIdPoliciesKindPut$Params {
       body: PolicyUpdate
 }
 
-export function saveEventPolicyApiV1EventsEventIdPoliciesKindPut(http: HttpClient, rootUrl: string, params: SaveEventPolicyApiV1EventsEventIdPoliciesKindPut$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<EventPolicyItem>>> {
+export function saveEventPolicyApiV1EventsEventIdPoliciesKindPut(http: HttpClient, rootUrl: string, params: SaveEventPolicyApiV1EventsEventIdPoliciesKindPut$Params, context?: HttpContext): Observable<StrictHttpResponse<EventPoliciesOut>> {
   const rb = new RequestBuilder(rootUrl, saveEventPolicyApiV1EventsEventIdPoliciesKindPut.PATH, 'put');
   if (params) {
     rb.path('kind', params.kind, {});
@@ -29,7 +29,7 @@ export function saveEventPolicyApiV1EventsEventIdPoliciesKindPut(http: HttpClien
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<Array<EventPolicyItem>>;
+      return r as StrictHttpResponse<EventPoliciesOut>;
     })
   );
 }
