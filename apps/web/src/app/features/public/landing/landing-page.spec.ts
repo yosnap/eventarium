@@ -1,5 +1,7 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
@@ -8,6 +10,20 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import es from '../../../../../public/assets/i18n/es-ES.json';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../../testing/axe';
 import { LandingPage } from './landing-page';
+
+async function renderizar(): Promise<{
+  fixture: ComponentFixture<LandingPage>;
+  raiz: HTMLElement;
+}> {
+  const fixture = TestBed.createComponent(LandingPage);
+  fixture.detectChanges();
+  TestBed.inject(HttpTestingController)
+    .expectOne((peticion) => peticion.url === '/api/v1/public/events')
+    .flush([]);
+  await fixture.whenStable();
+  fixture.detectChanges();
+  return { fixture, raiz: fixture.nativeElement };
+}
 
 describe('LandingPage', () => {
   beforeEach(() => {
@@ -19,32 +35,48 @@ describe('LandingPage', () => {
           preloadLangs: true,
         }),
       ],
-      providers: [provideZonelessChangeDetection(), provideRouter([])],
+      providers: [
+        provideZonelessChangeDetection(),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+      ],
     });
   });
 
   afterEach(() => {
+    TestBed.inject(HttpTestingController).verify();
     document.documentElement.removeAttribute('data-theme');
   });
 
-  it('renderiza el hero con un único h1 y las dos llamadas a la acción', async () => {
-    const fixture = TestBed.createComponent(LandingPage);
-    fixture.detectChanges();
-    await fixture.whenStable();
+  it('renderiza las seis secciones del PRD con un único h1 y las dos llamadas a la acción', async () => {
+    const { raiz } = await renderizar();
 
-    const raiz: HTMLElement = fixture.nativeElement;
     expect(raiz.querySelectorAll('h1')).toHaveLength(1);
     expect(raiz.querySelector('h1')?.textContent).toContain(es.publico.landing.hero.titulo);
-    const enlaces = Array.from(raiz.querySelectorAll('a[href]')).map((a) => a.getAttribute('href'));
-    expect(enlaces).toEqual(['/crear-organizacion', '/eventos']);
+    expect(raiz.querySelectorAll('section')).toHaveLength(5);
+    const titulos = Array.from(raiz.querySelectorAll('h2')).map((h) => h.textContent?.trim());
+    expect(titulos).toContain(es.publico.landing.enDirecto.titulo);
+    expect(titulos).toContain(es.publico.landing.quienesSomos.titulo);
+    expect(titulos).toContain(es.publico.landing.funcionalidades.titulo);
+    expect(titulos.some((t) => t?.startsWith(es.publico.landing.colaborar.titulo))).toBe(true);
+    expect(raiz.querySelectorAll('article')).toHaveLength(8);
+    expect(raiz.querySelector('a[href="/crear-organizacion"]')).not.toBeNull();
+    expect(raiz.querySelector('a[href="/eventos"]')).not.toBeNull();
     expect(TestBed.inject(Title).getTitle()).toBe(es.publico.landing.seo.titulo);
+  });
+
+  it('no incluye ninguna imagen raster propia (las ilustraciones son CSS)', async () => {
+    const { raiz } = await renderizar();
+    expect(raiz.querySelectorAll('img, video, picture')).toHaveLength(0);
+    expect(
+      raiz.querySelectorAll('[aria-hidden="true"].landing-ilustracion').length,
+    ).toBeGreaterThan(0);
   });
 
   it.each(['light', 'dark'])('no tiene violaciones de accesibilidad en tema %s', async (tema) => {
     document.documentElement.setAttribute('data-theme', tema);
-    const fixture = TestBed.createComponent(LandingPage);
-    fixture.detectChanges();
-    await fixture.whenStable();
-    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+    const { raiz } = await renderizar();
+    await esperarSinViolacionesDeAccesibilidad(raiz);
   });
 });

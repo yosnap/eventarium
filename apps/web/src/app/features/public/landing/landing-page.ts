@@ -1,8 +1,24 @@
-import { ChangeDetectionStrategy, Component, type OnInit, inject } from '@angular/core';
-import { RouterLink } from '@angular/router';
-import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  type OnInit,
+  ViewEncapsulation,
+  afterNextRender,
+  inject,
+} from '@angular/core';
+import { TranslocoService } from '@jsverse/transloco';
 
 import { SeoMetaService } from '../../../core/seo/meta.service';
+import { EnDirectoService } from './en-directo.service';
+import { GsapLoader } from './gsap';
+import { LandingColaborar } from './secciones/colaborar';
+import { LandingEnDirecto } from './secciones/en-directo';
+import { LandingFuncionalidades } from './secciones/funcionalidades';
+import { LandingHero } from './secciones/hero';
+import { LandingQuienesSomos } from './secciones/quienes-somos';
+
+/** Cada cuánto se recalcula «en directo» con el reloj del cliente. */
+const INTERVALO_EN_DIRECTO_MS = 60_000;
 
 /**
  * Landing de la instalación en la raíz pública. Sustituye al redirect
@@ -12,96 +28,110 @@ import { SeoMetaService } from '../../../core/seo/meta.service';
 @Component({
   selector: 'app-landing-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink],
+  imports: [
+    LandingHero,
+    LandingEnDirecto,
+    LandingQuienesSomos,
+    LandingFuncionalidades,
+    LandingColaborar,
+  ],
   template: `
-    <ng-container *transloco="let t">
-      <section class="landing-hero" aria-labelledby="landing-hero-titulo">
-        <p class="landing-hero-rotulo">{{ t('publico.landing.hero.rotulo') }}</p>
-        <h1 id="landing-hero-titulo">{{ t('publico.landing.hero.titulo') }}</h1>
-        <p class="landing-hero-subtitulo">{{ t('publico.landing.hero.subtitulo') }}</p>
-        <div class="landing-hero-acciones">
-          <a class="landing-cta landing-cta--primario" routerLink="/crear-organizacion">
-            {{ t('publico.landing.hero.ctaOrganizar') }}
-          </a>
-          <a class="landing-cta landing-cta--secundario" routerLink="/eventos">
-            {{ t('publico.landing.hero.ctaEventos') }}
-          </a>
-        </div>
-      </section>
-    </ng-container>
+    <app-landing-hero />
+    <app-landing-en-directo />
+    <app-landing-quienes-somos />
+    <app-landing-funcionalidades />
+    <app-landing-colaborar />
   `,
+  // Sin encapsulación a propósito: estas clases (prefijo `landing-`) las
+  // comparten las secciones hijas. Van aquí y no en `styles.css` para que
+  // viajen en el chunk lazy de la landing y no en el bundle inicial (presupuesto
+  // `initial` de 500 kB); las ilustraciones tienen su propio bloque en
+  // `LandingIlustracion` para que ninguno pase del aviso de 4 kB.
+  encapsulation: ViewEncapsulation.None,
   styles: `
-    :host {
+    app-landing-page {
       display: block;
     }
-    .landing-hero {
-      display: grid;
-      gap: var(--space-md);
-      max-width: 44rem;
-      padding: var(--space-xl) 0;
+    .landing-seccion {
+      padding: var(--sp-9) 0;
+      border-top: 1px solid var(--border);
     }
-    .landing-hero-rotulo {
-      margin: 0;
+    .landing-rotulo {
+      margin: 0 0 var(--space-xs);
       font-family: var(--font-mono);
       font-size: var(--fs-label);
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: var(--muted);
+      color: var(--accent);
     }
-    h1 {
-      margin: 0;
+    .landing-seccion h2 {
+      margin: 0 0 var(--space-md);
       font-family: var(--font-display);
-      font-size: var(--fs-hero);
-      line-height: 1.05;
+      font-size: var(--fs-h1);
+      line-height: 1.1;
+      max-width: 28ch;
     }
-    .landing-hero-subtitulo {
-      margin: 0;
-      font-size: var(--fs-h3);
+    .landing-intro {
+      margin: 0 0 var(--space-lg);
+      max-width: 60ch;
       color: var(--muted);
+      font-size: var(--fs-h3);
     }
-    .landing-hero-acciones {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--space-sm);
-    }
-    /* Enlaces con las métricas de Button (no un botón dentro de un enlace:
-       axe lo marca como interactivo anidado). */
-    .landing-cta {
-      display: inline-flex;
+    .landing-dos-columnas {
+      display: grid;
+      gap: var(--space-lg);
       align-items: center;
-      justify-content: center;
-      min-height: 2.75rem;
-      padding: 0 1.25rem;
-      border: 1px solid transparent;
-      border-radius: var(--radius-sm);
-      font-weight: 700;
-      text-decoration: none;
     }
-    .landing-cta--primario {
-      background: var(--accent);
-      color: var(--on-accent);
-    }
-    .landing-cta--primario:hover {
-      background: var(--accent-hi);
-    }
-    .landing-cta--secundario {
-      border-color: var(--border-strong);
-      color: var(--fg);
-      font-weight: 500;
-    }
-    .landing-cta--secundario:hover {
-      background: var(--surface-2);
-    }
-    @media (max-width: 30rem) {
-      .landing-cta {
-        flex: 1 1 100%;
+    @media (min-width: 48rem) {
+      .landing-dos-columnas {
+        grid-template-columns: 1fr 1fr;
+      }
+      .landing-dos-columnas--invertida > :first-child {
+        order: 2;
       }
     }
+    .landing-parrafo {
+      margin: 0 0 var(--space-sm);
+      max-width: 60ch;
+      line-height: 1.6;
+    }
+    .landing-funcionalidad {
+      padding: var(--sp-7) 0;
+    }
+    .landing-funcionalidad + .landing-funcionalidad {
+      border-top: 1px solid var(--border);
+    }
+    .landing-funcionalidad h3 {
+      margin: 0 0 var(--space-sm);
+      font-family: var(--font-display);
+      font-size: var(--fs-h2);
+      line-height: 1.15;
+    }
+
+    /* Colaborar */
   `,
 })
 export class LandingPage implements OnInit {
   private readonly seo = inject(SeoMetaService);
   private readonly transloco = inject(TranslocoService);
+  private readonly enDirecto = inject(EnDirectoService);
+
+  constructor() {
+    const gsap = inject(GsapLoader).cargar();
+    // Solo tras hidratar: el primer render del cliente debe coincidir con el
+    // HTML servido (el servicio pinta el conjunto transferido hasta entonces).
+    afterNextRender(() => {
+      this.enDirecto.refrescar();
+      const temporizador = setInterval(() => this.enDirecto.refrescar(), INTERVALO_EN_DIRECTO_MS);
+      // ScrollTrigger mide antes de que carguen las fuentes; sin este refresco
+      // los disparadores quedan desplazados.
+      void gsap.then((cargado) => {
+        if (!cargado) return;
+        void document.fonts.ready.then(() => cargado.ScrollTrigger.refresh());
+      });
+      return () => clearInterval(temporizador);
+    });
+  }
 
   ngOnInit(): void {
     this.seo.set({
