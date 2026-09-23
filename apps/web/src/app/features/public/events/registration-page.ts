@@ -36,6 +36,7 @@ import { Input } from '../../../shared/ui/input';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 import { TurnstileWidget } from '../../../shared/ui/turnstile-widget';
 import type { PublicEventDetail, RegistrationMode } from './event-page.types';
+import { RegistrationConsents } from './registration-consents';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -85,6 +86,7 @@ function precioEnEuros(cents: number): string {
     Input,
     Reveal,
     TurnstileWidget,
+    RegistrationConsents,
   ],
   template: `
     <ng-container *transloco="let t">
@@ -264,26 +266,11 @@ function precioEnEuros(cents: number): string {
                     </div>
                   }
 
-                  <app-checkbox
-                    fieldId="insc-tratamiento-datos"
-                    [label]="t('inscripcion.tratamientoDatos')"
-                    [describedBy]="errorConsentimiento() ? 'insc-tratamiento-datos-error' : null"
-                    [(checked)]="dataProcessingAccepted"
-                  />
-                  @if (errorConsentimiento()) {
-                    <p id="insc-tratamiento-datos-error" class="error-pregunta">
-                      {{ errorConsentimiento() }}
-                    </p>
-                  }
-
-                  <app-checkbox
-                    [label]="t('inscripcion.marketing')"
-                    [(checked)]="marketingAccepted"
-                  />
-
-                  <app-checkbox
-                    [label]="t('inscripcion.grabacion')"
-                    [(checked)]="recordingAccepted"
+                  <app-registration-consents
+                    [errorConsentimiento]="errorConsentimiento()"
+                    [(dataProcessingAccepted)]="dataProcessingAccepted"
+                    [(marketingAccepted)]="marketingAccepted"
+                    [(recordingAccepted)]="recordingAccepted"
                   />
 
                   <app-turnstile-widget (resuelto)="onTurnstileResuelto($event)" />
