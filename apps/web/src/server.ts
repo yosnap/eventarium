@@ -29,9 +29,10 @@ const CABECERAS_DE_PROXY = [
   'x-forwarded-for',
   'x-forwarded-port',
   'x-forwarded-server',
-  // No lo envía nadie hoy; si Traefik añadiera un prefijo de ruta, sin esto
-  // volvería a caer todo el SSR sin error.
-  'x-forwarded-prefix',
+  // `x-forwarded-prefix` NO: Angular lo antepone a la cabecera `Location` de las
+  // redirecciones (`redirectTo`) sin validarlo, y ni Caddy ni Traefik lo filtran
+  // si lo manda el cliente: sería una redirección abierta. Solo añadirlo si el
+  // proxy garantiza que lo elimina de las peticiones entrantes.
 ];
 
 /**
