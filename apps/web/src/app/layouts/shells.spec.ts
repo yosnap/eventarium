@@ -177,8 +177,24 @@ describe('shells', () => {
     expect(raiz.querySelector('header img')).toBeNull();
     // app-brand-mark ya pinta la "E" dentro de su caja: el texto no la repite,
     // pero juntos (caja + texto) siguen leyendo "Eventarium".
-    expect(raiz.querySelector('.marca')?.textContent?.trim()).toBe('Eventarium');
-    expect(raiz.querySelector('.nombre')?.textContent).toBe('ventarium');
+    expect(raiz.querySelector('app-brand-mark')?.textContent?.trim()).toBe('E');
+    expect(raiz.querySelector('app-brand-lockup .resto')?.textContent).toBe('ventarium');
+    // Para un lector de pantalla, el lockup es una sola imagen con el nombre entero.
+    expect(raiz.querySelector('app-brand-lockup [role="img"]')?.getAttribute('aria-label')).toBe(
+      'Eventarium',
+    );
+  });
+
+  it('"Crear evento" del shell público lleva a crear un evento en el panel', async () => {
+    const fixture = TestBed.createComponent(PublicShell);
+    await fixture.whenStable();
+
+    const enlace = (fixture.nativeElement as HTMLElement).querySelector(
+      'header a.crear-evento',
+    ) as HTMLAnchorElement;
+    expect(enlace.textContent?.trim()).toBe('Crear evento');
+    // Sin sesión, el guard del panel lo redirige a /acceder conservando el destino.
+    expect(enlace.getAttribute('href')).toBe('/dashboard/events/nuevo');
   });
 
   it('el shell público muestra el logotipo de la plataforma con texto alternativo', async () => {
@@ -342,13 +358,26 @@ describe('shells', () => {
       });
     });
 
-    it('la cabecera del panel de organización muestra su nombre, no el de la instalación', async () => {
+    it('la cabecera del panel lleva el mismo logotipo de la plataforma que la web pública', async () => {
+      branding.set(brandingDePrueba());
+      const fixture = TestBed.createComponent(AdminShell);
+      await fixture.whenStable();
+
+      const enlace = (fixture.nativeElement as HTMLElement).querySelector(
+        'header a[href="/"]',
+      ) as HTMLAnchorElement;
+      expect(
+        enlace.querySelector('app-brand-lockup [role="img"]')?.getAttribute('aria-label'),
+      ).toBe('Eventarium');
+    });
+
+    it('junto al logo, la cabecera del panel de organización indica en qué panel se está', async () => {
       url.set('/dashboard');
       const fixture = TestBed.createComponent(AdminShell);
       await fixture.whenStable();
       const raiz = fixture.nativeElement as HTMLElement;
 
-      expect(raiz.querySelector('.marca')?.textContent).toContain('Panel de la organización');
+      expect(raiz.querySelector('.contexto')?.textContent).toContain('Panel de la organización');
     });
 
     it('la cabecera del panel de plataforma se identifica como la instalación', async () => {
@@ -357,7 +386,9 @@ describe('shells', () => {
       await fixture.whenStable();
       const raiz = fixture.nativeElement as HTMLElement;
 
-      expect(raiz.querySelector('.marca')?.textContent).toContain('Administración de Eventarium');
+      expect(raiz.querySelector('.contexto')?.textContent).toContain(
+        'Administración de Eventarium',
+      );
     });
 
     it('"/dashboard/account" no está en la barra lateral y sigue accesible desde la cabecera', async () => {

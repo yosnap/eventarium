@@ -25,6 +25,7 @@
   },
   "publico": {
     "navegacion": "Navegación principal",
+    "crearEvento": "Crear evento",
     "misEventos": {
       "enlaceNav": "Mis eventos",
       "titulo": "Mis eventos",

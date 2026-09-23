@@ -10,6 +10,13 @@
   --font-display: 'Bebas Neue', var(--font-body);
   --font-body: 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'Space Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  /*
+   * Fuente del logotipo de la plataforma. Se resuelve aquí, en `:root`, con la
+   * `--font-display` de la plataforma, y se hereda ya resuelta: la plantilla de un
+   * evento redefine `--font-display` en `<body>`, pero no puede cambiar esta, así que
+   * el logo se ve igual en toda la web.
+   */
+  --font-marca: var(--font-display);
 
   /*
    * Escala realineada con los mínimos/máximos literales de la referencia
