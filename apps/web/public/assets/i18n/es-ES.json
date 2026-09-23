@@ -25,6 +25,7 @@
   },
   "publico": {
     "navegacion": "Navegación principal",
+    "crearEvento": "Crear evento",
     "misEventos": {
       "enlaceNav": "Mis eventos",
       "titulo": "Mis eventos",
@@ -236,8 +237,8 @@
       },
       "hero": {
         "rotulo": "Plataforma abierta de eventos",
-        "titulo": "Organiza eventos con tu marca. Sin comisiones. Sin cerrojos.",
-        "subtitulo": "Eventarium reúne en un solo sitio lo que hoy repartes entre cinco herramientas: inscripciones, entradas, agenda, ponentes, patrocinadores y cuentas. Código abierto, instalable donde quieras.",
+        "titulo": "Organiza eventos con **tu marca.** **Sin comisiones.** Sin cerrojos.",
+        "subtitulo": "Eventarium reúne en un solo sitio lo que hoy repartes entre cinco herramientas: inscripciones, entradas, agenda, ponentes, patrocinadores y cuentas. **Código abierto**, instalable donde quieras.",
         "ctaOrganizar": "Organiza tu evento",
         "ctaEventos": "Ver eventos"
       },
@@ -250,10 +251,10 @@
       },
       "quienesSomos": {
         "rotulo": "Por qué existe",
-        "titulo": "Una herramienta hecha por gente que organiza eventos",
-        "parrafo1": "Quien organiza un evento hoy acaba con Luma o Eventbrite para las inscripciones, Sessionize o Pretalx para los ponentes, una hoja de cálculo para las cuentas y los patrocinios, y una página improvisada para el resto. Cinco herramientas, cinco exportaciones, cinco sitios donde algo se descuadra.",
-        "parrafo2": "Las alternativas de código abierto que encontramos estaban abandonadas, escondían lo importante detrás de un muro de pago o te obligaban a mostrar su marca en tu evento.",
-        "parrafo3": "Eventarium nace para juntar todo eso en un solo sistema: abierto, instalable en tu propio servidor y con tu marca. Ni comisión por entrada ni atribución obligatoria: el evento es tuyo.",
+        "titulo": "Una herramienta hecha por **gente que organiza eventos**",
+        "parrafo1": "Quien organiza un evento hoy acaba con Luma o Eventbrite para las inscripciones, Sessionize o Pretalx para los ponentes, una hoja de cálculo para las cuentas y los patrocinios, y una página improvisada para el resto. **Cinco herramientas**, cinco exportaciones, cinco sitios donde algo se descuadra.",
+        "parrafo2": "Las alternativas de código abierto que encontramos estaban abandonadas, escondían lo importante detrás de un **muro de pago** o te obligaban a mostrar **su marca** en tu evento.",
+        "parrafo3": "Eventarium nace para juntar todo eso en un solo sistema: **abierto**, instalable en tu propio servidor y **con tu marca**. Ni comisión por entrada ni atribución obligatoria: **el evento es tuyo**.",
         "cifras": {
           "comision": {
             "valor": "0 %",
@@ -271,47 +272,55 @@
       },
       "funcionalidades": {
         "rotulo": "Qué hace",
-        "titulo": "Todo el evento en un solo sitio",
-        "intro": "Cada bloque que ves aquí existe y funciona hoy. Nada de hojas de ruta.",
+        "titulo": "**Todo el evento** en un solo sitio",
+        "intro": "Cada bloque que ves aquí **existe y funciona hoy**. Nada de hojas de ruta.",
         "items": {
           "inscripciones": {
             "titulo": "Inscripciones sin fricción",
-            "texto": "Tus asistentes se apuntan con un correo, sin crear cuenta. Verificación de email, aprobación bajo demanda cuando quieras filtrar, y lista de espera automática cuando se llena el aforo."
+            "texto": "Tus asistentes se apuntan con un correo, **sin crear cuenta**. Verificación de email, aprobación bajo demanda cuando quieras filtrar, y **lista de espera automática** cuando se llena el aforo.",
+            "captura": "Panel de inscripciones de un evento: embudo del formulario a la entrada, tres solicitudes confirmadas y filtros por estado."
           },
           "entradas": {
             "titulo": "Entradas QR firmadas",
-            "texto": "Cada entrada lleva un código firmado e intransferible. En la puerta, la app de escaneo valida en un segundo y evita que una misma entrada entre dos veces."
+            "texto": "Cada entrada lleva un código **firmado e intransferible**. En la puerta, la app de escaneo valida en un segundo y evita que una misma entrada entre dos veces.",
+            "captura": "Pantalla de check-in a la puerta con el contador de entradas verificadas, los últimos escaneos y la búsqueda manual."
           },
           "marca": {
             "titulo": "Tu marca, no la nuestra",
-            "texto": "Logo, colores, plantilla de página y redes sociales por organización. El público ve tu evento; Eventarium no aparece por ningún lado."
+            "texto": "Logo, colores, plantilla de página y redes sociales por organización. El público ve **tu evento**; Eventarium no aparece por ningún lado.",
+            "captura": "Identidad visual de la organización: logotipo, redes sociales y elección de plantilla de página."
           },
           "patrocinadores": {
             "titulo": "Patrocinadores por niveles",
-            "texto": "Oro, plata, bronce o los niveles que tú definas. Cada patrocinador tiene su ficha, su logo en el sitio y su lugar en la agenda."
+            "texto": "Oro, plata, bronce o **los niveles que tú definas**. Cada patrocinador tiene su ficha, su logo en el sitio y su lugar en la agenda.",
+            "captura": "Patrocinadores de un evento por nivel (oro, plata, colaborador) con su logo, aportación y formulario de alta."
           },
           "contabilidad": {
             "titulo": "Contabilidad del evento",
-            "texto": "Presupuesto, ingresos, gastos y aportaciones en especie en el mismo panel. Sube la foto de un ticket y la IA extrae proveedor, fecha, base, IVA y total para que solo tengas que confirmarlos."
+            "texto": "Presupuesto, ingresos, gastos y aportaciones en especie en el mismo panel. Sube la foto de un ticket y **la IA extrae** proveedor, fecha, base, IVA y total para que solo tengas que confirmarlos.",
+            "captura": "Libro del evento: presupuesto frente a ejecutado, ingresos comprometidos por patrocinio y alta de gastos por justificante."
           },
           "agenda": {
             "titulo": "Agenda con descansos y servicios",
-            "texto": "Sesiones, salas y ponentes, pero también los cafés, las comidas y los servicios del evento como datos de primera clase, no como notas al pie."
+            "texto": "Sesiones, salas y ponentes, pero también los cafés, las comidas y los servicios del evento como **datos de primera clase**, no como notas al pie.",
+            "captura": "Agenda de un evento por días: cada sesión con su título, horario y sala, junto a los ponentes que participan en el evento."
           },
           "ponentes": {
             "titulo": "Ponentes con historial",
-            "texto": "Perfil público, invitaciones por correo y trayectoria entre ediciones. Quien habló en la edición pasada aparece en la siguiente sin volver a picar sus datos."
+            "texto": "Perfil público, invitaciones por correo y **trayectoria entre ediciones**. Quien habló en la edición pasada aparece en la siguiente sin volver a picar sus datos.",
+            "captura": "Fichas de ponentes con su sesión asignada, estado de la ficha y ediciones en las que han participado."
           },
           "pagos": {
             "titulo": "Cobros directos, sin comisión",
-            "texto": "Conecta tu propia cuenta de Stripe y cobra las entradas directamente. Eventarium no se queda ningún porcentaje: el 0 % está en el código, no solo en el folleto."
+            "texto": "Conecta tu propia cuenta de Stripe y cobra las entradas directamente. Eventarium **no se queda ningún porcentaje**: el 0 % está en el código, no solo en el folleto.",
+            "captura": "Tipos de entrada de un evento de pago (General 45 €, VIP 99 €) con cupo y ventana de venta."
           }
         }
       },
       "colaborar": {
         "rotulo": "Cómo colaborar",
         "titulo": "Abierto de verdad",
-        "texto": "El código está publicado con licencia MIT. Puedes instalar Eventarium en tu propio servidor, proponer cambios o abrir una incidencia con lo que eches en falta.",
+        "texto": "El código está publicado con **licencia MIT**. Puedes instalar Eventarium en tu propio servidor, proponer cambios o abrir una incidencia con lo que eches en falta.",
         "repositorio": "Ver el repositorio en GitHub",
         "instalar": "Guía de instalación",
         "licencia": "Licencia MIT"

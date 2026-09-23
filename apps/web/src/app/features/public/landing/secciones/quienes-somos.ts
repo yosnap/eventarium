@@ -2,23 +2,38 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
 
 import { Reveal } from '../../../../shared/ui/reveal.directive';
-import { Parallax } from '../animaciones.directive';
-import { LandingIlustracion } from '../ilustraciones/ilustracion';
+import { Parallax, TextoRevelado } from '../animaciones.directive';
+import { ResaltarPipe } from '../resaltar.pipe';
 
 @Component({
   selector: 'app-landing-quienes-somos',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Reveal, Parallax, LandingIlustracion],
+  imports: [TranslocoDirective, Reveal, Parallax, TextoRevelado, ResaltarPipe],
   template: `
     <ng-container *transloco="let t">
       <section class="landing-seccion" aria-labelledby="landing-quienes-titulo">
         <div class="landing-dos-columnas">
           <div>
             <p class="landing-rotulo">{{ t('publico.landing.quienesSomos.rotulo') }}</p>
-            <h2 id="landing-quienes-titulo">{{ t('publico.landing.quienesSomos.titulo') }}</h2>
-            <p class="landing-parrafo">{{ t('publico.landing.quienesSomos.parrafo1') }}</p>
-            <p class="landing-parrafo">{{ t('publico.landing.quienesSomos.parrafo2') }}</p>
-            <p class="landing-parrafo">{{ t('publico.landing.quienesSomos.parrafo3') }}</p>
+            <h2
+              id="landing-quienes-titulo"
+              [innerHTML]="t('publico.landing.quienesSomos.titulo') | resaltar"
+            ></h2>
+            <p
+              class="landing-parrafo landing-parrafo--grande"
+              appTextoRevelado
+              [innerHTML]="t('publico.landing.quienesSomos.parrafo1') | resaltar"
+            ></p>
+            <p
+              class="landing-parrafo landing-parrafo--grande"
+              appTextoRevelado
+              [innerHTML]="t('publico.landing.quienesSomos.parrafo2') | resaltar"
+            ></p>
+            <p
+              class="landing-parrafo landing-parrafo--grande"
+              appTextoRevelado
+              [innerHTML]="t('publico.landing.quienesSomos.parrafo3') | resaltar"
+            ></p>
             <ul class="landing-cifras">
               @for (cifra of cifras; track cifra; let i = $index) {
                 <li class="landing-cifra" appReveal [index]="i">
@@ -32,7 +47,16 @@ import { LandingIlustracion } from '../ilustraciones/ilustracion';
               }
             </ul>
           </div>
-          <app-landing-ilustracion tipo="quienes" appParallax="0.15" />
+          <figure class="landing-foto" appParallax="0.14">
+            <img
+              src="assets/landing/quienes-somos.webp"
+              alt=""
+              width="1600"
+              height="1168"
+              loading="lazy"
+              decoding="async"
+            />
+          </figure>
         </div>
       </section>
     </ng-container>

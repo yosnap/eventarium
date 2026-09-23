@@ -2,30 +2,53 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 
-import { Parallax } from '../animaciones.directive';
-import { LandingIlustracion } from '../ilustraciones/ilustracion';
+import { HeroEscena, Parallax } from '../animaciones.directive';
+import { ResaltarPipe } from '../resaltar.pipe';
 
 @Component({
   selector: 'app-landing-hero',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Parallax, LandingIlustracion],
+  imports: [TranslocoDirective, RouterLink, HeroEscena, Parallax, ResaltarPipe],
   template: `
     <ng-container *transloco="let t">
-      <section class="landing-hero" aria-labelledby="landing-hero-titulo">
-        <div class="landing-hero-texto">
-          <p class="landing-rotulo">{{ t('publico.landing.hero.rotulo') }}</p>
-          <h1 id="landing-hero-titulo">{{ t('publico.landing.hero.titulo') }}</h1>
-          <p class="landing-hero-subtitulo">{{ t('publico.landing.hero.subtitulo') }}</p>
-          <div class="landing-hero-acciones">
-            <a class="landing-cta landing-cta--primario" routerLink="/crear-organizacion">
-              {{ t('publico.landing.hero.ctaOrganizar') }}
-            </a>
-            <a class="landing-cta landing-cta--secundario" routerLink="/eventos">
-              {{ t('publico.landing.hero.ctaEventos') }}
-            </a>
+      <section class="landing-hero" aria-labelledby="landing-hero-titulo" appHeroEscena>
+        <div class="ancho-maximo landing-hero-en" data-hero-contenido>
+          <div class="landing-hero-texto">
+            <p class="landing-rotulo" data-entrada>{{ t('publico.landing.hero.rotulo') }}</p>
+            <h1
+              id="landing-hero-titulo"
+              data-entrada
+              [innerHTML]="t('publico.landing.hero.titulo') | resaltar"
+            ></h1>
+            <p
+              class="landing-hero-subtitulo"
+              data-entrada
+              [innerHTML]="t('publico.landing.hero.subtitulo') | resaltar"
+            ></p>
+            <div class="landing-hero-acciones" data-entrada>
+              <a class="landing-cta landing-cta--primario" routerLink="/crear-organizacion">
+                {{ t('publico.landing.hero.ctaOrganizar') }}
+              </a>
+              <a class="landing-cta landing-cta--secundario" routerLink="/eventos">
+                {{ t('publico.landing.hero.ctaEventos') }}
+              </a>
+            </div>
+          </div>
+          <!-- El parallax va en esta capa y la entrada en la figura: si compartieran
+               elemento, el clearProps de la entrada borraría el transform del parallax. -->
+          <div appParallax="0.1">
+            <figure class="landing-foto landing-foto--hero" data-entrada>
+              <img
+                src="assets/landing/hero.webp"
+                alt=""
+                width="1600"
+                height="1168"
+                fetchpriority="high"
+                decoding="async"
+              />
+            </figure>
           </div>
         </div>
-        <app-landing-ilustracion tipo="inscripciones" appParallax="0.12" />
       </section>
     </ng-container>
   `,
@@ -34,13 +57,28 @@ import { LandingIlustracion } from '../ilustraciones/ilustracion';
       display: block;
     }
     .landing-hero {
+      /* A sangre completa: el fondo ocupa la ventana, el contenido va dentro
+         de .ancho-maximo como en el resto de páginas. */
+      min-height: calc(100vh - 4rem);
+      display: grid;
+      align-items: center;
+      background:
+        radial-gradient(60% 50% at 80% 20%, var(--accent-dim), transparent 70%),
+        linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid-size)
+          var(--grid-size),
+        linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid-size)
+          var(--grid-size);
+      border-bottom: 1px solid var(--border);
+    }
+    .landing-hero-en {
       display: grid;
       gap: var(--space-lg);
       align-items: center;
-      padding: var(--sp-8) 0 var(--sp-9);
+      padding: var(--sp-8) 0;
+      will-change: transform, opacity;
     }
     @media (min-width: 60rem) {
-      .landing-hero {
+      .landing-hero-en {
         grid-template-columns: 1.15fr 1fr;
       }
     }
@@ -52,7 +90,9 @@ import { LandingIlustracion } from '../ilustraciones/ilustracion';
       margin: 0;
       font-family: var(--font-display);
       font-size: var(--fs-hero);
-      line-height: 1.05;
+      line-height: 1.02;
+      letter-spacing: -0.02em;
+      text-wrap: balance;
     }
     .landing-hero-subtitulo {
       margin: 0;

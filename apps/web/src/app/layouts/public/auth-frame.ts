@@ -1,9 +1,8 @@
-import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 
-import { ThemingService } from '../../core/theming/theming.service';
-import { BrandMark } from '../../shared/ui/brand-mark';
+import { BrandLockup } from '../../shared/ui/brand-lockup';
 import { ThemeToggle } from '../../shared/ui/theme-toggle';
 
 /**
@@ -25,7 +24,7 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
 @Component({
   selector: 'app-auth-frame',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, TranslocoDirective, ThemeToggle, BrandMark],
+  imports: [RouterLink, TranslocoDirective, ThemeToggle, BrandLockup],
   template: `
     <ng-container *transloco="let t">
       <a class="skip-link" href="#contenido">{{ t('comun.saltarAlContenido') }}</a>
@@ -33,12 +32,7 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       <header>
         <div class="ancho-maximo header-en">
           <a routerLink="/" class="marca">
-            @if (theming.plataforma()?.logo_url; as logo) {
-              <img [src]="logo" [alt]="theming.nombreDeMarca()" height="40" />
-            } @else {
-              <app-brand-mark [nombre]="theming.nombreDeMarca()" />
-              <span class="nombre">{{ theming.nombreDeMarca() }}</span>
-            }
+            <app-brand-lockup />
           </a>
           <app-theme-toggle />
         </div>
@@ -91,16 +85,8 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
     }
     .marca {
       display: inline-flex;
-      align-items: center;
-      gap: 10px;
       text-decoration: none;
       color: inherit;
-    }
-    .nombre {
-      font-family: var(--font-display);
-      font-size: 1.35rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
     }
     main {
       display: grid;
@@ -141,6 +127,5 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
   `,
 })
 export class AuthFrame {
-  protected readonly theming = inject(ThemingService);
   readonly titulo = input<string | null>(null);
 }

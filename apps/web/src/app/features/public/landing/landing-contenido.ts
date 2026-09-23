@@ -1,6 +1,5 @@
-/** Ilustración dibujada en CSS que acompaña a cada funcionalidad (fase 3). */
-export type Ilustracion =
-  | 'quienes'
+/** Claves de las funcionalidades, en `publico.landing.funcionalidades.items`. */
+export type ClaveFuncionalidad =
   | 'inscripciones'
   | 'entradas'
   | 'marca'
@@ -12,22 +11,29 @@ export type Ilustracion =
 
 export interface FuncionalidadLanding {
   /** Clave bajo `publico.landing.funcionalidades.items`. */
-  readonly clave: Ilustracion;
-  readonly ilustracion: Ilustracion;
+  readonly clave: ClaveFuncionalidad;
+  /** Ruta del panel que muestra la captura (barra de la ventana). */
+  readonly ruta: string;
 }
 
 /** Orden de aparición en la landing. Solo funcionalidades ya implementadas
  * (PRD de la landing, «Contenido ya verificado»): el texto vive en `es-ES.json`,
  * aquí no hay literales. */
 export const FUNCIONALIDADES: readonly FuncionalidadLanding[] = [
-  { clave: 'inscripciones', ilustracion: 'inscripciones' },
-  { clave: 'entradas', ilustracion: 'entradas' },
-  { clave: 'marca', ilustracion: 'marca' },
-  { clave: 'patrocinadores', ilustracion: 'patrocinadores' },
-  { clave: 'contabilidad', ilustracion: 'contabilidad' },
-  { clave: 'agenda', ilustracion: 'agenda' },
-  { clave: 'ponentes', ilustracion: 'ponentes' },
-  { clave: 'pagos', ilustracion: 'pagos' },
+  {
+    clave: 'inscripciones',
+    ruta: '/dashboard/events/…/inscripciones',
+  },
+  { clave: 'entradas', ruta: '/dashboard/events/…/check-in' },
+  { clave: 'marca', ruta: '/dashboard/branding' },
+  {
+    clave: 'patrocinadores',
+    ruta: '/dashboard/events/…/patrocinadores',
+  },
+  { clave: 'contabilidad', ruta: '/dashboard/events/…/contabilidad' },
+  { clave: 'agenda', ruta: '/dashboard/events/…/agenda' },
+  { clave: 'ponentes', ruta: '/dashboard/events/…/ponentes' },
+  { clave: 'pagos', ruta: '/dashboard/events/…/entradas' },
 ];
 
 export const ENLACES_LANDING = {

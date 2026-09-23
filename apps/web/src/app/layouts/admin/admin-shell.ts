@@ -8,11 +8,11 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { Router, RouterOutlet } from '@angular/router';
+import { Router, RouterLink, RouterOutlet } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 
 import { AuthService, OrganizacionDeLaPersona } from '../../core/auth/auth.service';
-import { BrandMark } from '../../shared/ui/brand-mark';
+import { BrandLockup } from '../../shared/ui/brand-lockup';
 import { ThemeToggle } from '../../shared/ui/theme-toggle';
 import { AccountMenu } from './account-menu';
 import { AdminNav } from './admin-nav';
@@ -26,21 +26,33 @@ import { PanelScope } from './panel-scope';
 @Component({
   selector: 'app-admin-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, TranslocoDirective, ThemeToggle, AdminNav, BrandMark, AccountMenu],
+  imports: [
+    RouterOutlet,
+    RouterLink,
+    TranslocoDirective,
+    ThemeToggle,
+    AdminNav,
+    BrandLockup,
+    AccountMenu,
+  ],
   template: `
     <ng-container *transloco="let t">
       <a class="skip-link" href="#contenido-admin">{{ t('comun.saltarAlContenido') }}</a>
 
       <header>
         <div class="ancho-maximo header-en">
-          <p class="marca">
-            <app-brand-mark [nombre]="nombrePanel()" />
-            @if (esPanelPlataforma()) {
-              {{ t('admin.tituloPlataforma') }}
-            } @else {
-              {{ nombrePanel() }} · {{ t('admin.titulo') }}
-            }
-          </p>
+          <div class="marca">
+            <a routerLink="/" class="enlace-marca">
+              <app-brand-lockup />
+            </a>
+            <p class="contexto">
+              @if (esPanelPlataforma()) {
+                {{ t('admin.tituloPlataforma') }}
+              } @else {
+                {{ nombrePanel() }} · {{ t('admin.titulo') }}
+              }
+            </p>
+          </div>
           <div class="sesion">
             <app-theme-toggle />
             <app-account-menu
@@ -112,17 +124,24 @@ import { PanelScope } from './panel-scope';
       padding: var(--space-md) var(--space-lg);
       min-height: 64px;
     }
+    /* El logo de la plataforma es el mismo que en la web pública; el panel
+       en el que se está va al lado, como texto secundario. */
     .marca {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: var(--space-md);
+    }
+    .enlace-marca {
+      display: inline-flex;
+      text-decoration: none;
+      color: inherit;
+    }
+    .contexto {
       margin: 0;
-      /* Tipografía de marca de .brand__name (eventarium.css:148): display,
-         mayúsculas, tracking amplio, en vez de sans en negrita. */
-      font-family: var(--font-display);
-      font-size: 1.35rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
+      padding-left: var(--space-md);
+      border-left: 1px solid var(--border);
+      color: var(--muted);
+      font-size: var(--fs-sm);
     }
     .sesion {
       display: flex;

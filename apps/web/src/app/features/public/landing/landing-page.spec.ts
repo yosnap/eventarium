@@ -57,12 +57,15 @@ describe('LandingPage', () => {
     const { raiz } = await renderizar();
 
     expect(raiz.querySelectorAll('h1')).toHaveLength(1);
-    expect(raiz.querySelector('h1')?.textContent).toContain(es.publico.landing.hero.titulo);
+    expect(raiz.querySelector('h1')?.textContent).toContain(
+      es.publico.landing.hero.titulo.replaceAll('**', ''),
+    );
+    expect(raiz.querySelectorAll('h1 strong.landing-resaltado').length).toBeGreaterThan(0);
     expect(raiz.querySelectorAll('section')).toHaveLength(5);
     const titulos = Array.from(raiz.querySelectorAll('h2')).map((h) => h.textContent?.trim());
     expect(titulos).toContain(es.publico.landing.enDirecto.titulo);
-    expect(titulos).toContain(es.publico.landing.quienesSomos.titulo);
-    expect(titulos).toContain(es.publico.landing.funcionalidades.titulo);
+    expect(titulos).toContain(es.publico.landing.quienesSomos.titulo.replaceAll('**', ''));
+    expect(titulos).toContain(es.publico.landing.funcionalidades.titulo.replaceAll('**', ''));
     expect(titulos.some((t) => t?.startsWith(es.publico.landing.colaborar.titulo))).toBe(true);
     expect(raiz.querySelectorAll('article')).toHaveLength(8);
     expect(raiz.querySelector('a[href="/crear-organizacion"]')).not.toBeNull();
@@ -70,12 +73,23 @@ describe('LandingPage', () => {
     expect(TestBed.inject(Title).getTitle()).toBe(es.publico.landing.seo.titulo);
   });
 
-  it('no incluye ninguna imagen raster propia (las ilustraciones son CSS)', async () => {
+  it('las imágenes son las dos fotos (hero, quiénes somos) y las 16 capturas del panel', async () => {
     const { raiz } = await renderizar();
-    expect(raiz.querySelectorAll('img, video, picture')).toHaveLength(0);
-    expect(
-      raiz.querySelectorAll('[aria-hidden="true"].landing-ilustracion').length,
-    ).toBeGreaterThan(0);
+    expect(raiz.querySelectorAll('video, picture')).toHaveLength(0);
+    const fotos = Array.from(raiz.querySelectorAll<HTMLImageElement>('.landing-foto img'));
+    expect(fotos.map((img) => img.getAttribute('src'))).toEqual([
+      'assets/landing/hero.webp',
+      'assets/landing/quienes-somos.webp',
+    ]);
+    const capturas = Array.from(raiz.querySelectorAll<HTMLImageElement>('app-landing-captura img'));
+    expect(capturas).toHaveLength(16);
+    for (const img of capturas) {
+      expect(img.getAttribute('src')).toMatch(
+        /^assets\/landing\/capturas\/[a-z]+-(claro|oscuro)\.webp$/,
+      );
+      expect(img.getAttribute('alt')).toBeTruthy();
+      expect(img.getAttribute('loading')).toBe('lazy');
+    }
   });
 
   it.each(['light', 'dark'])('no tiene violaciones de accesibilidad en tema %s', async (tema) => {

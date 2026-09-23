@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink, RouterOutlet } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 
@@ -6,7 +6,7 @@ import { CookieBanner } from '../../shared/cookies/cookie-banner';
 import { CookieConsentService } from '../../core/cookies/cookie-consent.service';
 import { ThemingService } from '../../core/theming/theming.service';
 import { AccessMenu } from '../../shared/ui/access-menu';
-import { BrandMark } from '../../shared/ui/brand-mark';
+import { BrandLockup } from '../../shared/ui/brand-lockup';
 import { Button } from '../../shared/ui/button';
 import { ThemeToggle } from '../../shared/ui/theme-toggle';
 
@@ -24,7 +24,7 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
     TranslocoDirective,
     CookieBanner,
     ThemeToggle,
-    BrandMark,
+    BrandLockup,
     Button,
     AccessMenu,
   ],
@@ -35,12 +35,7 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       <header>
         <div class="ancho-maximo header-en">
           <a routerLink="/" class="marca">
-            @if (theming.plataforma()?.logo_url; as logo) {
-              <img [src]="logo" [alt]="theming.nombreDeMarca()" height="40" />
-            } @else {
-              <app-brand-mark [nombre]="theming.nombreDeMarca()" />
-              <span class="nombre">{{ nombreSinInicial() }}</span>
-            }
+            <app-brand-lockup />
           </a>
           <div class="bloque-derecho">
             <nav [attr.aria-label]="t('publico.navegacion')">
@@ -50,6 +45,12 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
               <a routerLink="/mis-eventos">{{ t('publico.misEventos.enlaceNav') }}</a>
             </nav>
             <div class="controles-usuario">
+              <!-- Mismo destino con o sin sesión: el guard del panel manda a
+                   «/acceder?redirigir=…» a quien no la tiene, y desde ahí puede
+                   registrarse; tras entrar vuelve directo a crear el evento. -->
+              <a routerLink="/dashboard/events/nuevo" class="crear-evento">
+                {{ t('publico.crearEvento') }}
+              </a>
               <app-theme-toggle />
               <app-access-menu />
             </div>
@@ -156,19 +157,8 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
     }
     .marca {
       display: inline-flex;
-      align-items: center;
-      gap: 3px;
       text-decoration: none;
       color: inherit;
-    }
-    /* Lockup de la plataforma: la caja de app-brand-mark ya hace de mayúscula
-       inicial ("E"), así que el texto sigue en minúsculas, más pequeño y
-       pegado a la caja — junto con ella se lee "Eventarium" como un solo
-       nombre, no dos piezas sueltas. */
-    .nombre {
-      font-family: var(--font-display);
-      font-size: 1.1rem;
-      letter-spacing: 0.01em;
     }
     /* Agrupa enlaces + controles de usuario como un único bloque a la
        derecha del logo — antes eran 4 hijos sueltos de .header-en con
@@ -184,6 +174,27 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       display: flex;
       align-items: center;
       gap: 0.5rem;
+    }
+    /* Aspecto de app-button primario compacto; es un enlace (navega), no un
+       botón. Misma altura que el conmutador de tema y el menú de acceso. */
+    .crear-evento {
+      display: inline-flex;
+      align-items: center;
+      min-height: 2.25rem;
+      padding: 0 0.875rem;
+      border-radius: var(--radius-sm);
+      background-color: var(--accent);
+      color: var(--on-accent);
+      font-size: var(--fs-label);
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: background-color 0.15s ease;
+    }
+    .crear-evento:hover,
+    .crear-evento:focus-visible {
+      background-color: var(--accent-hi);
     }
     nav {
       display: flex;
@@ -253,11 +264,6 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
 export class PublicShell {
   protected readonly theming = inject(ThemingService);
   private readonly consentimiento = inject(CookieConsentService);
-
-  /** `app-brand-mark` ya pinta la primera letra dentro de su caja: sin esto,
-   * el nombre de la plataforma se leería duplicado ("[E] Eventarium" en vez
-   * de "[E]ventarium" como un único lockup). */
-  protected readonly nombreSinInicial = computed(() => this.theming.nombreDeMarca().slice(1));
 
   protected gestionarCookies(): void {
     this.consentimiento.abrirGestionDeCookies();

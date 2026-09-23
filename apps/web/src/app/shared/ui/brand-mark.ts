@@ -3,9 +3,9 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 /**
  * Caja de marca de 29×29px con la inicial del nombre, sobre `.brand__mark`
  * (`eventarium.css:143-147`): borde de 1.5px en `--accent`, letra en
- * `--font-display`. Solo se pinta cuando no hay logotipo real subido — es el
- * mismo patrón que la referencia usa junto al nombre textual, no un sustituto
- * del logotipo de la organización.
+ * `--font-marca` (la fuente de marca de la plataforma, que no cambia con el tema
+ * de un evento). Es la inicial del lockup de `app-brand-lockup`; solo se pinta
+ * cuando no hay logotipo real subido.
  */
 @Component({
   selector: 'app-brand-mark',
@@ -20,7 +20,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
       flex: 0 0 auto;
       border: 1.5px solid var(--accent);
       border-radius: 3px;
-      font-family: var(--font-display);
+      font-family: var(--font-marca);
       font-size: 19px;
       line-height: 1;
       color: var(--accent);

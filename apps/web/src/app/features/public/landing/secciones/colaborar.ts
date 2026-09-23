@@ -2,11 +2,12 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
 
 import { ENLACES_LANDING } from '../landing-contenido';
+import { ResaltarPipe } from '../resaltar.pipe';
 
 @Component({
   selector: 'app-landing-colaborar',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective],
+  imports: [TranslocoDirective, ResaltarPipe],
   template: `
     <ng-container *transloco="let t">
       <section class="landing-seccion" aria-labelledby="landing-colaborar-titulo">
@@ -15,7 +16,7 @@ import { ENLACES_LANDING } from '../landing-contenido';
           {{ t('publico.landing.colaborar.titulo') }}
           <span class="landing-insignia">MIT</span>
         </h2>
-        <p class="landing-intro">{{ t('publico.landing.colaborar.texto') }}</p>
+        <p class="landing-intro" [innerHTML]="t('publico.landing.colaborar.texto') | resaltar"></p>
         <ul class="landing-enlaces">
           <li>
             <a
