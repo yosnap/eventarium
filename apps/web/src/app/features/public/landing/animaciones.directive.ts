@@ -75,9 +75,11 @@ export class Parallax extends AnimacionConScroll {
   }
 }
 
-/** Ventana, desde la navegación, en la que la entrada del hero aún tiene
- * sentido: si GSAP llega más tarde (red lenta), el visitante ya está leyendo y
- * reiniciar la escena sería un parpadeo, no una entrada. */
+/** Ventana, desde que el hero se crea, en la que su entrada aún tiene sentido:
+ * si GSAP llega más tarde (red lenta), el visitante ya está leyendo y reiniciar
+ * la escena sería un parpadeo, no una entrada. Se mide desde la creación del
+ * hero y no desde la carga del documento: al volver a la landing navegando
+ * dentro de la web, el documento lleva ya mucho tiempo abierto. */
 const MARGEN_ENTRADA_MS = 2500;
 
 /**
@@ -88,9 +90,11 @@ const MARGEN_ENTRADA_MS = 2500;
  */
 @Directive({ selector: '[appHeroEscena]' })
 export class HeroEscena extends AnimacionConScroll {
+  private readonly creadoEn = performance.now();
+
   protected animar({ gsap }: GsapCargado): void {
     const piezas = this.elemento.querySelectorAll<HTMLElement>('[data-entrada]');
-    if (piezas.length > 0 && performance.now() < MARGEN_ENTRADA_MS) {
+    if (piezas.length > 0 && performance.now() - this.creadoEn < MARGEN_ENTRADA_MS) {
       gsap.from(piezas, {
         opacity: 0,
         y: 28,
@@ -151,22 +155,27 @@ export class Apilado extends AnimacionConScroll {
  * Texto que se «enciende» palabra a palabra con el scroll: cada palabra pasa de
  * atenuada a color pleno según el párrafo cruza la ventana. Las palabras se
  * envuelven en `<span>` solo aquí, ya hidratado, así que el HTML servido es
- * texto plano normal.
+ * texto plano normal. Solo se tocan los nodos de texto: el marcado que ya
+ * tenga el párrafo (el `<strong>` del resaltado) se conserva.
  */
 @Directive({ selector: '[appTextoRevelado]' })
 export class TextoRevelado extends AnimacionConScroll {
   protected animar({ gsap }: GsapCargado): void {
-    const texto = this.elemento.textContent ?? '';
-    const palabras = texto.split(/(\s+)/).filter((trozo) => trozo.length > 0);
-    this.elemento.replaceChildren(
-      ...palabras.map((trozo) => {
-        if (/^\s+$/.test(trozo)) return document.createTextNode(trozo);
-        const span = document.createElement('span');
-        span.textContent = trozo;
-        span.className = 'landing-palabra';
-        return span;
-      }),
-    );
+    const recorrido = document.createTreeWalker(this.elemento, NodeFilter.SHOW_TEXT);
+    const nodos: Text[] = [];
+    while (recorrido.nextNode()) nodos.push(recorrido.currentNode as Text);
+    for (const nodo of nodos) {
+      const trozos = (nodo.textContent ?? '').split(/(\s+)/).filter((t) => t.length > 0);
+      nodo.replaceWith(
+        ...trozos.map((trozo) => {
+          if (/^\s+$/.test(trozo)) return document.createTextNode(trozo);
+          const span = document.createElement('span');
+          span.textContent = trozo;
+          span.className = 'landing-palabra';
+          return span;
+        }),
+      );
+    }
     gsap.fromTo(
       this.elemento.querySelectorAll('.landing-palabra'),
       { opacity: 0.22 },

@@ -34,16 +34,20 @@ import { ResaltarPipe } from '../resaltar.pipe';
               </a>
             </div>
           </div>
-          <figure class="landing-foto landing-foto--hero" data-entrada appParallax="0.1">
-            <img
-              src="assets/landing/hero.webp"
-              alt=""
-              width="1600"
-              height="1168"
-              fetchpriority="high"
-              decoding="async"
-            />
-          </figure>
+          <!-- El parallax va en esta capa y la entrada en la figura: si compartieran
+               elemento, el clearProps de la entrada borraría el transform del parallax. -->
+          <div appParallax="0.1">
+            <figure class="landing-foto landing-foto--hero" data-entrada>
+              <img
+                src="assets/landing/hero.webp"
+                alt=""
+                width="1600"
+                height="1168"
+                fetchpriority="high"
+                decoding="async"
+              />
+            </figure>
+          </div>
         </div>
       </section>
     </ng-container>

@@ -1,6 +1,6 @@
 import { Component, provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { Apilado, HeroEscena, Parallax, TextoRevelado } from './animaciones.directive';
 import { GsapLoader } from './gsap';
@@ -44,7 +44,7 @@ const loaderFalso = {
       <article class="landing-tarjeta" id="t2"></article>
       <article class="landing-tarjeta" id="t3"></article>
     </div>
-    <p id="texto" appTextoRevelado>Tres palabras aquí</p>
+    <p id="texto" appTextoRevelado>Tres <strong>palabras</strong> aquí</p>
   `,
 })
 class Anfitrion {}
@@ -91,8 +91,8 @@ describe('animaciones de la landing', () => {
     expect(gsapFalso.to).not.toHaveBeenCalled();
     expect(gsapFalso.from).not.toHaveBeenCalled();
     expect(gsapFalso.fromTo).not.toHaveBeenCalled();
-    // El texto sigue siendo texto plano: las palabras solo se envuelven al animar.
-    expect(fixture.nativeElement.querySelector('#texto').children).toHaveLength(0);
+    // Las palabras solo se envuelven al animar: hasta entonces no hay ningún span.
+    expect(fixture.nativeElement.querySelectorAll('#texto .landing-palabra')).toHaveLength(0);
   });
 
   it('el parallax usa el propio elemento como disparador y la velocidad indicada', async () => {
@@ -130,6 +130,24 @@ describe('animaciones de la landing', () => {
     );
   });
 
+  it('la entrada del hero se mide desde que se crea, no desde que se abrió el documento', async () => {
+    // Llegar a la landing navegando dentro de la web: el documento lleva abierto
+    // mucho más que el margen, pero el hero acaba de crearse.
+    const reloj = vi.spyOn(performance, 'now').mockReturnValue(600_000);
+    onTestFinished(() => reloj.mockRestore());
+    await renderizar();
+    ejecutarCallbacks();
+    expect(gsapFalso.from).toHaveBeenCalled();
+  });
+
+  it('si GSAP llega pasado el margen, el hero no repite la entrada', async () => {
+    const reloj = vi.spyOn(performance, 'now').mockReturnValueOnce(0).mockReturnValue(5_000);
+    onTestFinished(() => reloj.mockRestore());
+    await renderizar();
+    ejecutarCallbacks();
+    expect(gsapFalso.from).not.toHaveBeenCalled();
+  });
+
   it('cada tarjeta apilada se encoge cuando la siguiente le pasa por encima; la última no', async () => {
     const fixture = await renderizar();
     ejecutarCallbacks();
@@ -152,6 +170,8 @@ describe('animaciones de la landing', () => {
     const texto: HTMLElement = fixture.nativeElement.querySelector('#texto');
     expect(texto.querySelectorAll('.landing-palabra')).toHaveLength(3);
     expect(texto.textContent).toBe('Tres palabras aquí');
+    // El marcado del resaltado se conserva: la palabra se envuelve dentro del strong.
+    expect(texto.querySelector('strong > .landing-palabra')?.textContent).toBe('palabras');
     expect(gsapFalso.fromTo).toHaveBeenCalledWith(
       texto.querySelectorAll('.landing-palabra'),
       { opacity: 0.22 },

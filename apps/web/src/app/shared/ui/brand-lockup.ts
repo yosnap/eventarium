@@ -21,7 +21,9 @@ import { BrandMark } from './brand-mark';
   template: `
     @if (theming.plataforma()?.logo_url; as logo) {
       <img [src]="logo" [alt]="nombre()" height="40" />
-    } @else {
+    } @else if (nombre()) {
+      <!-- Sin nombre (branding aún sin cargar) no se pinta nada: una imagen
+           accesible con la etiqueta vacía no dice nada al lector de pantalla. -->
       <span class="lockup" [attr.aria-label]="nombre()" role="img">
         <app-brand-mark [nombre]="nombre()" />
         <span class="resto" aria-hidden="true">{{ restoDelNombre() }}</span>

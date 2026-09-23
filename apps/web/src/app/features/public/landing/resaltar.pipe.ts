@@ -12,10 +12,12 @@ function escapar(texto: string): string {
 }
 
 /**
- * `**palabra**` en el copy → `<strong class="landing-resaltado">`. El texto
- * viene de `es-ES.json` (nuestro, no del usuario), pero se escapa igualmente y
- * solo se genera la etiqueta `strong`, que además pasa por el saneador de
- * Angular al enlazarse con `innerHTML`.
+ * `**palabra**` en el copy → `<strong class="landing-resaltado">`. Solo para
+ * textos fijos de `es-ES.json`, nunca para contenido de la API ni del usuario:
+ * `bypassSecurityTrustHtml` se salta el saneador de Angular, así que la única
+ * protección es que todo el texto se escapa antes y la única etiqueta que se
+ * genera es `strong`. El contenido que venga de la API va por
+ * `markdownToSafeHtml`.
  */
 @Pipe({ name: 'resaltar' })
 export class ResaltarPipe implements PipeTransform {
