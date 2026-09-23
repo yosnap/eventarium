@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { TranslocoDirective } from '@jsverse/transloco';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
+import { seoDePagina } from '../../../core/seo/meta.service';
 import { Alert } from '../../../shared/ui/alert';
 import { Card } from '../../../shared/ui/card';
 import { Reveal } from '../../../shared/ui/reveal.directive';
@@ -47,6 +48,12 @@ import { Reveal } from '../../../shared/ui/reveal.directive';
   `,
 })
 export class PaymentCancelledPage {
+  private readonly seo = seoDePagina();
+  private readonly transloco = inject(TranslocoService);
+
+  constructor() {
+    this.seo.set({ title: this.transloco.translate('pago.cancelado.titulo') });
+  }
   private readonly ruta = inject(ActivatedRoute);
 
   protected readonly slug: string | null = this.ruta.snapshot.queryParamMap.get('slug');

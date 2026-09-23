@@ -15,6 +15,7 @@ import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
+import { seoDePagina } from '../../../core/seo/meta.service';
 import { temaDeEvento } from '../../../core/theming/tema-de-evento';
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
@@ -516,6 +517,7 @@ export class RegistrationPage implements OnInit {
   private readonly esNavegador = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly http = inject(HttpClient);
   private readonly aplicarTema = temaDeEvento();
+  private readonly seo = seoDePagina();
   private readonly api = inject(ApiService);
 
   protected readonly cargandoPreguntas = signal(true);
@@ -680,6 +682,13 @@ export class RegistrationPage implements OnInit {
       );
       this.evento.set(evento);
       this.aplicarTema(evento.theme);
+      this.seo.set({
+        title: `${this.transloco.translate(
+          RegistrationPage.CLAVE_TITULO_FORMULARIO_POR_MODO[evento.registration_mode],
+        )} · ${evento.title}`,
+        description: evento.summary,
+        image: evento.cover_url,
+      });
     } catch {
       // Best-effort, igual que `cargarTiposDeEntrada`: sin resumen el
       // formulario se sigue pudiendo enviar.

@@ -37,6 +37,10 @@ export class SeoMetaService {
     if (datos.description) {
       this.meta.updateTag({ property: 'og:description', content: datos.description });
       this.meta.updateTag({ name: 'description', content: datos.description });
+    } else {
+      // Sin esto se quedaría la descripción de la página anterior.
+      this.meta.removeTag('property="og:description"');
+      this.meta.removeTag('name="description"');
     }
     // Siempre se fija: si solo se pusiera cuando hay imagen, al navegar desde
     // un evento con portada a otra página se quedaría la portada anterior.
