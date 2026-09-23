@@ -9,20 +9,22 @@ import { RenderMode, ServerRoute } from '@angular/ssr';
  */
 /**
  * Páginas que consumen un token de un solo uso en su propio constructor, sin
- * esperar interacción de la persona (verificación de correo, promoción de
- * lista de espera, autocancelación…). En SSR por petición, el servidor
- * ejecuta el constructor para prerenderizar y el cliente lo vuelve a
- * ejecutar al hidratar — el token ya estaría consumido y la hidratación
- * mostraría siempre "enlace caducado" aunque la acción del servidor haya
- * funcionado. Solo cliente evita la doble ejecución.
+ * esperar interacción de la persona (verificación de correo, recuperación de
+ * contraseña…). En SSR por petición, el servidor ejecuta el constructor para
+ * prerenderizar y el cliente lo vuelve a ejecutar al hidratar — el token ya
+ * estaría consumido y la hidratación mostraría siempre "enlace caducado"
+ * aunque la acción del servidor haya funcionado. Solo cliente evita la doble
+ * ejecución.
+ *
+ * Las tres páginas de inscripción (verificar, confirmar promoción de la lista
+ * de espera y autocancelar) ya no están aquí: se renderizan en el servidor
+ * para llevar su título en el HTML y solo consumen el token en el navegador
+ * (`isPlatformBrowser` en su constructor).
  */
 const PAGINAS_DE_TOKEN_DE_UN_SOLO_USO = [
   'verificar-correo',
   'recuperar-contrasena/nueva',
   'cuenta/confirmar-correo',
-  'verificar-inscripcion',
-  'confirmar-promocion',
-  'cancelar-inscripcion',
 ];
 
 export const serverRoutes: ServerRoute[] = [

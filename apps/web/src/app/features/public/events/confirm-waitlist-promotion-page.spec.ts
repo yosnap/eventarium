@@ -1,4 +1,4 @@
-import { provideZonelessChangeDetection } from '@angular/core';
+import { PLATFORM_ID, provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
@@ -39,6 +39,17 @@ describe('ConfirmWaitlistPromotionPage', () => {
 
   afterEach(() => {
     document.documentElement.removeAttribute('data-theme');
+  });
+
+  it('en el servidor no consume el token: solo pinta la página con su título', () => {
+    const confirmWaitlistPromotion = vi.fn();
+    configurar({ confirmWaitlistPromotion }, rutaConToken('token-de-un-solo-uso'));
+    TestBed.overrideProvider(PLATFORM_ID, { useValue: 'server' });
+
+    const fixture = TestBed.createComponent(ConfirmWaitlistPromotionPage);
+    fixture.detectChanges();
+
+    expect(confirmWaitlistPromotion).not.toHaveBeenCalled();
   });
 
   it('sin token en la URL muestra el error y no tiene violaciones de accesibilidad', async () => {

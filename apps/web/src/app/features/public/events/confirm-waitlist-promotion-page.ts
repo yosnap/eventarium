@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { ChangeDetectionStrategy, Component, PLATFORM_ID, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
@@ -59,6 +60,7 @@ export class ConfirmWaitlistPromotionPage {
   private readonly transloco = inject(TranslocoService);
   private readonly registrations = inject(RegistrationsService);
   private readonly ruta = inject(ActivatedRoute);
+  private readonly enNavegador = isPlatformBrowser(inject(PLATFORM_ID));
 
   protected readonly estado = signal<Estado>('comprobando');
   protected readonly mensaje = signal('');
@@ -70,7 +72,12 @@ export class ConfirmWaitlistPromotionPage {
       this.estado.set('error');
       return;
     }
-    void this.confirmar(token);
+    // El token es de un solo uso: el servidor pinta «comprobando» con su
+    // título y solo el navegador lo consume. Si lo gastara el servidor, la
+    // hidratación volvería a intentarlo y mostraría «enlace caducado».
+    if (this.enNavegador) {
+      void this.confirmar(token);
+    }
   }
 
   private async confirmar(token: string): Promise<void> {
