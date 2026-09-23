@@ -33,7 +33,8 @@ export interface PiezaDelEvento {
 }
 
 export interface Cifras {
-  readonly por_estado: Readonly<Record<string, number>>;
+  // Solo trae los estados con alguna inscripción: una clave puede faltar.
+  readonly por_estado: Readonly<Partial<Record<string, number>>>;
   readonly lista_de_espera: number;
   readonly por_aprobar: number;
   readonly sin_entrar: number;
