@@ -4,9 +4,10 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import es from '../../../../../../public/assets/i18n/es-ES.json';
+import { GsapLoader } from '../gsap';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../../../testing/axe';
 import { EnDirectoService, estaEnDirecto, type EventoEnDirecto } from '../en-directo.service';
 import { LandingEnDirecto } from './en-directo';
@@ -58,6 +59,9 @@ describe('LandingEnDirecto', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
+        // GSAP no se carga en jsdom (matchMedia no existe): la animación no es
+        // objeto de estos specs.
+        { provide: GsapLoader, useValue: { cargar: () => Promise.resolve(null) } },
       ],
     });
     http = TestBed.inject(HttpTestingController);
@@ -96,6 +100,25 @@ describe('LandingEnDirecto', () => {
       '/eventos',
     );
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('refrescar() incorpora un evento que empieza después de cargar la página', async () => {
+    const fixture = TestBed.createComponent(LandingEnDirecto);
+    fixture.detectChanges();
+    http
+      .expectOne((p) => p.url === '/api/v1/public/events')
+      .flush([evento('inminente', 500, HORA)]);
+    await avanzar(fixture);
+    const servicio = TestBed.inject(EnDirectoService);
+    expect(servicio.eventos()).toHaveLength(0);
+
+    vi.useFakeTimers({ now: Date.now() + 1000 });
+    try {
+      servicio.refrescar();
+      expect(servicio.eventos().map((e) => e.slug)).toEqual(['inminente']);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('un 429 del limitador deja la franja vacía sin error sin capturar', async () => {

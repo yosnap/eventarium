@@ -16,7 +16,7 @@ import { type GsapCargado, GsapLoader } from './gsap';
 const SIN_REDUCIR_MOVIMIENTO = '(prefers-reduced-motion: no-preference)';
 
 /**
- * Base común: carga GSAP tras el primer render (nunca en SSR ni antes de
+ * Carga GSAP tras el primer render (nunca en SSR ni antes de
  * hidratar, así el HTML servido no depende de la librería), registra la
  * animación bajo `gsap.matchMedia()` y la revierte entera al destruir el
  * elemento — `revert()` mata los ScrollTriggers y limpia los estilos inline,
@@ -61,31 +61,12 @@ export class Parallax extends AnimacionConScroll {
       ease: 'none',
       scrollTrigger: {
         trigger: this.elemento,
-        start: 'top bottom',
-        end: 'bottom top',
+        // `clamp()`: lo que ya está en pantalla al cargar (el hero) empieza en
+        // progreso 0 en vez de saltar al valor calculado para su posición.
+        start: 'clamp(top bottom)',
+        end: 'clamp(bottom top)',
         scrub: true,
       },
-    });
-  }
-}
-
-/**
- * Entrada al llegar a pantalla: opacidad y 24 px de subida, una sola vez.
- * `gsap.from` aplica el estado inicial en el mismo instante en que se crea el
- * tween (ya con JS vivo y sin `reduce`), nunca desde el CSS servido.
- */
-@Directive({ selector: '[appEntrada]' })
-export class Entrada extends AnimacionConScroll {
-  readonly retardo = input(0, { alias: 'appEntrada', transform: numberAttribute });
-
-  protected animar({ gsap }: GsapCargado): void {
-    gsap.from(this.elemento, {
-      opacity: 0,
-      y: 24,
-      duration: 0.6,
-      delay: this.retardo(),
-      ease: 'power2.out',
-      scrollTrigger: { trigger: this.elemento, start: 'top 85%', once: true },
     });
   }
 }

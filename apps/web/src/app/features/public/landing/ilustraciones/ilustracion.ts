@@ -72,6 +72,23 @@ import type { Ilustracion } from '../landing-contenido';
   `,
   template: `
     @switch (tipo()) {
+      @case ('quienes') {
+        <div
+          class="landing-capa landing-capa--circulo landing-capa--suave"
+          style="inset: 8% auto auto 8%; width: 30%; aspect-ratio: 1"
+        ></div>
+        <div class="landing-capa" style="inset: 22% 10% 28% 30%"></div>
+        <div class="landing-capa landing-capa--linea" style="left: 36%; top: 34%; width: 40%"></div>
+        <div class="landing-capa landing-capa--linea" style="left: 36%; top: 44%; width: 28%"></div>
+        <div
+          class="landing-capa landing-capa--linea landing-capa--acento"
+          style="left: 36%; top: 56%; width: 20%"
+        ></div>
+        <div
+          class="landing-capa landing-capa--acento"
+          style="inset: auto 8% 10% auto; width: 26%; height: 16%"
+        ></div>
+      }
       @case ('inscripciones') {
         <div class="landing-capa" style="inset: 16% 30% 16% 14%"></div>
         <div class="landing-capa landing-capa--linea" style="left: 22%; top: 28%; width: 30%"></div>

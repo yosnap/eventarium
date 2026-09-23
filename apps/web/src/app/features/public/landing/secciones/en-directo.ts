@@ -3,7 +3,7 @@ import { RouterLink } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 
 import { Chip } from '../../../../shared/ui/chip';
-import { Entrada } from '../animaciones.directive';
+import { Reveal } from '../../../../shared/ui/reveal.directive';
 import { EnDirectoService, type EventoEnDirecto } from '../en-directo.service';
 
 const CLAVE_FORMATO: Record<EventoEnDirecto['location_mode'], string> = {
@@ -15,7 +15,7 @@ const CLAVE_FORMATO: Record<EventoEnDirecto['location_mode'], string> = {
 @Component({
   selector: 'app-landing-en-directo',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Chip, Entrada],
+  imports: [TranslocoDirective, RouterLink, Chip, Reveal],
   template: `
     <ng-container *transloco="let t">
       <section class="landing-seccion" aria-labelledby="landing-directo-titulo">
@@ -27,7 +27,7 @@ const CLAVE_FORMATO: Record<EventoEnDirecto['location_mode'], string> = {
         @if (servicio.eventos().length > 0) {
           <ul class="landing-directo-lista">
             @for (evento of servicio.eventos(); track evento.slug; let i = $index) {
-              <li [appEntrada]="i * 0.08">
+              <li appReveal [index]="i">
                 <a class="landing-directo-tarjeta" [routerLink]="['/eventos', evento.slug]">
                   <span class="landing-directo-portada">
                     @if (evento.cover_url) {

@@ -8,6 +8,7 @@ import { TranslocoTestingModule } from '@jsverse/transloco';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import es from '../../../../../public/assets/i18n/es-ES.json';
+import { GsapLoader } from './gsap';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../../testing/axe';
 import { LandingPage } from './landing-page';
 
@@ -40,6 +41,9 @@ describe('LandingPage', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
+        // GSAP no se carga en jsdom (matchMedia no existe): la animación no es
+        // objeto de estos specs.
+        { provide: GsapLoader, useValue: { cargar: () => Promise.resolve(null) } },
       ],
     });
   });

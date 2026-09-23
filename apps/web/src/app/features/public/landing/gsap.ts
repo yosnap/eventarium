@@ -22,18 +22,25 @@ export interface GsapCargado {
 @Injectable({ providedIn: 'root' })
 export class GsapLoader {
   private readonly enNavegador = isPlatformBrowser(inject(PLATFORM_ID));
-  private carga: Promise<GsapCargado> | null = null;
+  private carga: Promise<GsapCargado | null> | null = null;
 
   cargar(): Promise<GsapCargado | null> {
     if (!this.enNavegador) {
       return Promise.resolve(null);
     }
-    this.carga ??= Promise.all([import('gsap'), import('gsap/ScrollTrigger')]).then(
-      ([modulo, plugin]) => {
+    this.carga ??= Promise.all([import('gsap'), import('gsap/ScrollTrigger')])
+      .then(([modulo, plugin]) => {
         modulo.gsap.registerPlugin(plugin.ScrollTrigger);
         return { gsap: modulo.gsap, ScrollTrigger: plugin.ScrollTrigger };
-      },
-    );
+      })
+      .catch((): null => {
+        // Chunk desaparecido tras un despliegue (HTML viejo en caché) o
+        // registro fallido: la página no depende de GSAP, así que se sigue sin
+        // animar. No se cachea el fallo para poder reintentar en la siguiente
+        // navegación.
+        this.carga = null;
+        return null;
+      });
     return this.carga;
   }
 }

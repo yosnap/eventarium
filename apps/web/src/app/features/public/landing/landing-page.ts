@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   type OnInit,
   ViewEncapsulation,
   afterNextRender,
@@ -118,18 +119,20 @@ export class LandingPage implements OnInit {
 
   constructor() {
     const gsap = inject(GsapLoader).cargar();
+    const destroyRef = inject(DestroyRef);
     // Solo tras hidratar: el primer render del cliente debe coincidir con el
     // HTML servido (el servicio pinta el conjunto transferido hasta entonces).
     afterNextRender(() => {
       this.enDirecto.refrescar();
       const temporizador = setInterval(() => this.enDirecto.refrescar(), INTERVALO_EN_DIRECTO_MS);
+      // `afterNextRender` no ejecuta el valor devuelto como limpieza.
+      destroyRef.onDestroy(() => clearInterval(temporizador));
       // ScrollTrigger mide antes de que carguen las fuentes; sin este refresco
       // los disparadores quedan desplazados.
       void gsap.then((cargado) => {
         if (!cargado) return;
         void document.fonts.ready.then(() => cargado.ScrollTrigger.refresh());
       });
-      return () => clearInterval(temporizador);
     });
   }
 

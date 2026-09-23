@@ -1,12 +1,14 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
 
-import { Entrada, Parallax } from '../animaciones.directive';
+import { Reveal } from '../../../../shared/ui/reveal.directive';
+import { Parallax } from '../animaciones.directive';
+import { LandingIlustracion } from '../ilustraciones/ilustracion';
 
 @Component({
   selector: 'app-landing-quienes-somos',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Entrada, Parallax],
+  imports: [TranslocoDirective, Reveal, Parallax, LandingIlustracion],
   template: `
     <ng-container *transloco="let t">
       <section class="landing-seccion" aria-labelledby="landing-quienes-titulo">
@@ -19,7 +21,7 @@ import { Entrada, Parallax } from '../animaciones.directive';
             <p class="landing-parrafo">{{ t('publico.landing.quienesSomos.parrafo3') }}</p>
             <ul class="landing-cifras">
               @for (cifra of cifras; track cifra; let i = $index) {
-                <li class="landing-cifra" [appEntrada]="i * 0.08">
+                <li class="landing-cifra" appReveal [index]="i">
                   <span class="landing-cifra-valor">{{
                     t('publico.landing.quienesSomos.cifras.' + cifra + '.valor')
                   }}</span>
@@ -30,29 +32,7 @@ import { Entrada, Parallax } from '../animaciones.directive';
               }
             </ul>
           </div>
-          <div class="landing-ilustracion" aria-hidden="true" appParallax="0.15">
-            <div
-              class="landing-capa landing-capa--circulo landing-capa--suave"
-              style="inset: 8% auto auto 8%; width: 30%; aspect-ratio: 1"
-            ></div>
-            <div class="landing-capa" style="inset: 22% 10% 28% 30%"></div>
-            <div
-              class="landing-capa landing-capa--linea"
-              style="left: 36%; top: 34%; width: 40%"
-            ></div>
-            <div
-              class="landing-capa landing-capa--linea"
-              style="left: 36%; top: 44%; width: 28%"
-            ></div>
-            <div
-              class="landing-capa landing-capa--linea landing-capa--acento"
-              style="left: 36%; top: 56%; width: 20%"
-            ></div>
-            <div
-              class="landing-capa landing-capa--acento"
-              style="inset: auto 8% 10% auto; width: 26%; height: 16%"
-            ></div>
-          </div>
+          <app-landing-ilustracion tipo="quienes" appParallax="0.15" />
         </div>
       </section>
     </ng-container>

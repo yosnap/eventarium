@@ -1,14 +1,15 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
 
-import { Entrada, Parallax } from '../animaciones.directive';
+import { Reveal } from '../../../../shared/ui/reveal.directive';
+import { Parallax } from '../animaciones.directive';
 import { LandingIlustracion } from '../ilustraciones/ilustracion';
 import { FUNCIONALIDADES } from '../landing-contenido';
 
 @Component({
   selector: 'app-landing-funcionalidades',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Entrada, Parallax, LandingIlustracion],
+  imports: [TranslocoDirective, Reveal, Parallax, LandingIlustracion],
   template: `
     <ng-container *transloco="let t">
       <section class="landing-seccion" aria-labelledby="landing-funcionalidades-titulo">
@@ -23,7 +24,7 @@ import { FUNCIONALIDADES } from '../landing-contenido';
             [class.landing-dos-columnas--invertida]="i % 2 === 1"
             [attr.aria-labelledby]="'landing-funcionalidad-' + item.clave"
           >
-            <div appEntrada>
+            <div appReveal>
               <h3 [id]="'landing-funcionalidad-' + item.clave">
                 {{ t('publico.landing.funcionalidades.items.' + item.clave + '.titulo') }}
               </h3>

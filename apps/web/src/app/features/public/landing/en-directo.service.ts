@@ -26,9 +26,16 @@ export interface EventoEnDirecto {
   readonly city: string | null;
 }
 
+interface EstadoTransferido {
+  readonly eventos: EventoEnDirecto[];
+  /** Reloj del servidor con el que se filtró: el primer render en cliente
+   * usa exactamente este instante para pintar lo mismo que el HTML servido. */
+  readonly ahora: number;
+}
+
 /** Clave propia: `events-list-page.ts` usa `public-events-list` y la borra al
  * consumirla; compartirla dejaría a una de las dos páginas sin estado. */
-const CLAVE = makeStateKey<EventoEnDirecto[]>('public-events-landing');
+const CLAVE = makeStateKey<EstadoTransferido>('public-events-landing');
 
 export function estaEnDirecto(evento: EventoEnDirecto, ahora: number): boolean {
   return Date.parse(evento.starts_at) <= ahora && ahora <= Date.parse(evento.ends_at);
@@ -38,15 +45,16 @@ export function estaEnDirecto(evento: EventoEnDirecto, ahora: number): boolean {
  * Eventos cuya ventana `starts_at`–`ends_at` cubre el instante actual.
  *
  * `GET /public/events` devuelve todos los publicados sin filtro temporal, así
- * que el corte se hace aquí. En SSR la petición sale de la IP del contenedor
- * `web` y comparte el cubo del limitador con `/eventos`: un 429 (o cualquier
- * fallo) se trata como «sin eventos» sin romper el render, y el cliente vuelve
- * a pedir tras hidratar si no recibió estado transferido.
+ * que el corte se hace aquí sobre la lista completa; así `refrescar()` puede
+ * incorporar un evento que empieza mientras la página sigue abierta.
  *
- * Solo se transfiere el subconjunto en directo, y el primer render en cliente
- * pinta exactamente ese conjunto: recalcular con el reloj del cliente antes de
- * hidratar produciría un DOM distinto al servido (NG0500). `refrescar()` es lo
- * que recalcula después.
+ * En SSR la petición sale de la IP del contenedor `web` y comparte el cubo del
+ * limitador con `/eventos`: un 429 (o cualquier fallo) se trata como «sin
+ * eventos» sin romper el render, y **no** se transfiere nada, para que el
+ * cliente vuelva a pedir tras hidratar. Solo una respuesta correcta viaja en
+ * `TransferState`, junto con el reloj con el que se filtró: el primer render
+ * del cliente usa ese mismo instante (un DOM distinto al servido daría
+ * NG0500) y `refrescar()` pasa al reloj del cliente después de hidratar.
  */
 @Injectable({ providedIn: 'root' })
 export class EnDirectoService {
@@ -55,51 +63,54 @@ export class EnDirectoService {
   private readonly transferState = inject(TransferState);
   private readonly pendingTasks = inject(PendingTasks);
 
-  private todos: EventoEnDirecto[] = [];
-  private readonly ahora = signal<number | null>(null);
-  private readonly transferidos = signal<EventoEnDirecto[] | null>(null);
+  private readonly todos = signal<EventoEnDirecto[]>([]);
+  private readonly ahora = signal(0);
+  private peticion: Promise<void> | null = null;
 
   readonly cargando = signal(true);
-  readonly eventos = computed<EventoEnDirecto[]>(() => {
+  readonly eventos = computed(() => {
     const ahora = this.ahora();
-    if (ahora === null) {
-      return this.transferidos() ?? [];
-    }
-    return this.todos.filter((evento) => estaEnDirecto(evento, ahora));
+    return this.todos().filter((evento) => estaEnDirecto(evento, ahora));
   });
 
-  async cargar(): Promise<void> {
+  cargar(): Promise<void> {
     const transferido = this.transferState.get(CLAVE, null);
     if (transferido) {
       this.transferState.remove(CLAVE);
-      this.todos = transferido;
-      this.transferidos.set(transferido);
+      this.todos.set(transferido.eventos);
+      this.ahora.set(transferido.ahora);
       this.cargando.set(false);
-      return;
+      return Promise.resolve();
     }
+    // Servicio raíz: en una segunda visita por navegación SPA no hay estado
+    // transferido; se vuelve a pedir, sin duplicar una petición ya en vuelo.
+    this.peticion ??= this.pedir().finally(() => {
+      this.peticion = null;
+    });
+    return this.peticion;
+  }
 
+  private async pedir(): Promise<void> {
+    this.cargando.set(true);
     const finalizar = this.pendingTasks.add();
     try {
-      this.todos = await firstValueFrom(
+      const eventos = await firstValueFrom(
         this.http.get<EventoEnDirecto[]>(this.api.url('/public/events'), {
           headers: this.api.serverForwardHeaders(),
         }),
       );
+      const ahora = Date.now();
+      this.todos.set(eventos);
+      this.ahora.set(ahora);
+      if (this.api.isServer) {
+        this.transferState.set(CLAVE, { eventos, ahora });
+      }
     } catch {
-      // 429 del limitador compartido, red caída o API parada: la landing no
-      // se rompe por la franja; se queda vacía.
-      this.todos = [];
+      this.todos.set([]);
+      this.ahora.set(Date.now());
     } finally {
       finalizar();
       this.cargando.set(false);
-    }
-
-    const enDirecto = this.todos.filter((evento) => estaEnDirecto(evento, Date.now()));
-    if (this.api.isServer) {
-      this.transferState.set(CLAVE, enDirecto);
-      this.transferidos.set(enDirecto);
-    } else {
-      this.ahora.set(Date.now());
     }
   }
 
