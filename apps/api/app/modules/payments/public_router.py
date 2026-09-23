@@ -42,6 +42,7 @@ from app.modules.payments.schemas import (
     PaymentStatusResponse,
     PublicTicketTypeResponse,
 )
+from app.modules.policies import service as policies_service
 from app.modules.registrations import repository as registrations_repository
 from app.modules.registrations.schemas import RegistrationAnswerInput
 from app.shared.errors import NotFoundError, ValidationDomainError
@@ -140,11 +141,17 @@ async def start_checkout(
     evento: Annotated[Event, Depends(_obtener_evento_o_404)],
     datos: CheckoutStartRequest,
     request: Request,
+    session: SessionDep,
 ) -> CheckoutStartResponse:
     """`checkout_service.iniciar_compra` abre su propia sesión (T1 + T2, ver
     su docstring): no recibe la del `SessionDep` de la petición, que envuelve toda
     la petición en una única transacción y no admite un `commit` a mitad de
     camino."""
+    # Antes de Turnstile: su token es de un solo uso. Si las condiciones han
+    # cambiado, el formulario las recarga y reenvía con el mismo token; si ya
+    # se hubiera gastado, la reaceptación moriría como «bot». No revela nada:
+    # los ids vigentes son públicos. El servicio lo vuelve a comprobar.
+    await policies_service.comprobar_aceptacion(session, evento, datos.accepted_policy_version_ids)
     await require_turnstile(request, datos.turnstile_token)
 
     try:

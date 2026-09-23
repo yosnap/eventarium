@@ -472,5 +472,8 @@ async def guardar_aceptacion_de_politicas(
             data_processing_accepted_at=ahora,
         )
         session.add(consentimiento)
-    consentimiento.organizer_policies_accepted_at = ahora if politicas else None
-    consentimiento.accepted_policy_version_ids = politicas
+    # Sin textos vigentes ahora (el organizador los retiró) se conserva lo que
+    # se aceptó la primera vez: no hay nada nuevo que sustituya esa prueba.
+    if politicas:
+        consentimiento.organizer_policies_accepted_at = ahora
+        consentimiento.accepted_policy_version_ids = politicas

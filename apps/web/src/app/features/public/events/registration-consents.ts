@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
 
+import { ApiError } from '../../../core/api/error.interceptor';
 import {
   type PoliticasPublicas,
   PublicPoliciesService,
@@ -171,7 +172,14 @@ export class RegistrationConsents {
       this.politicas.set(await this.servicio.obtener(this.slug()));
       this.estado.set('listo');
       return true;
-    } catch {
+    } catch (error) {
+      // Una API anterior a esta funcionalidad no tiene el endpoint: equivale a
+      // un evento sin textos, y la inscripción no debe bloquearse por ello.
+      if (error instanceof ApiError && error.status === 404) {
+        this.politicas.set(null);
+        this.estado.set('listo');
+        return true;
+      }
       this.politicas.set(null);
       this.estado.set('error');
       return false;

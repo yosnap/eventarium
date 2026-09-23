@@ -429,6 +429,18 @@ describe('RegistrationPage', () => {
       politicas.dispatchEvent(new Event('change'));
     }
 
+    function rellenarSinPoliticas(nativeElement: HTMLElement): void {
+      const campoEmail = nativeElement.querySelector('input[type="email"]') as HTMLInputElement;
+      campoEmail.value = 'asistente@example.com';
+      campoEmail.dispatchEvent(new Event('input'));
+      const campoNombre = nativeElement.querySelectorAll('input')[1] as HTMLInputElement;
+      campoNombre.value = 'Asistente de Prueba';
+      campoNombre.dispatchEvent(new Event('input'));
+      const datos = nativeElement.querySelector('#insc-tratamiento-datos') as HTMLInputElement;
+      datos.checked = true;
+      datos.dispatchEvent(new Event('change'));
+    }
+
     async function enviar(fixture: ReturnType<typeof crearFixture>): Promise<void> {
       (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
         new Event('submit'),
@@ -492,6 +504,24 @@ describe('RegistrationPage', () => {
       await avanzar(fixture);
       fixture.detectChanges();
       expect(raiz.querySelector('#insc-politicas')).not.toBeNull();
+    });
+
+    it('si la API no tiene el endpoint (404), se inscribe como sin textos', async () => {
+      obtener.mockReset();
+      obtener.mockRejectedValue(new ApiError(404, 'No encontrado', { status: 404 }));
+      const fixture = crearFixture();
+      await avanzar(fixture);
+      fixture.detectChanges();
+      const raiz = fixture.nativeElement as HTMLElement;
+      expect(raiz.querySelector('#insc-politicas')).toBeNull();
+      expect(raiz.textContent).not.toContain('No se han podido cargar las condiciones');
+
+      rellenarSinPoliticas(raiz);
+      await enviar(fixture);
+      expect(submit).toHaveBeenCalledWith(
+        'iawic-2026',
+        expect.objectContaining({ acceptedPolicyVersionIds: [] }),
+      );
     });
 
     it('si cambiaron a mitad, recarga, desmarca y conserva lo escrito', async () => {

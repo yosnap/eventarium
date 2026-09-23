@@ -365,3 +365,120 @@ async def test_demasiados_ids_se_rechazan_antes_de_nada(
         _inscripcion("abuso"), json=_payload(accepted_policy_version_ids=ids)
     )
     assert respuesta.status_code == 422
+
+
+async def test_recorrido_completo_organizacion_evento_e_inscripcion(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """La organización escribe sus textos, el evento sustituye los reembolsos,
+    la página pública muestra la mezcla, y un cambio a mitad obliga a
+    reaceptar con los textos nuevos."""
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    event_id = await _crear_evento(organizacion, "recorrido")
+    await _escribir(cliente, cabeceras, "condiciones", "Condiciones de la organización")
+    await _escribir(cliente, cabeceras, "reembolsos", "Reembolsos de la organización")
+    propio = await cliente.put(
+        f"/api/v1/events/{event_id}/policies/reembolsos",
+        json={"content": "Reembolsos de este evento"},
+        headers=cabeceras,
+    )
+    assert propio.status_code == 200, propio.text
+
+    publicas = (await cliente.get(_publicas("recorrido"))).json()["policies"]
+    assert [(p["kind"], p["content"]) for p in publicas] == [
+        ("condiciones", "Condiciones de la organización"),
+        ("reembolsos", "Reembolsos de este evento"),
+    ]
+    vistos = [p["version_id"] for p in publicas]
+
+    # La organización cambia sus condiciones mientras alguien rellena el formulario.
+    await _escribir(cliente, cabeceras, "condiciones", "Condiciones nuevas")
+    tarde = await cliente.post(
+        _inscripcion("recorrido"), json=_payload(accepted_policy_version_ids=vistos)
+    )
+    assert tarde.status_code == 409
+    assert tarde.json()["code"] == "politicas_cambiadas"
+
+    nuevos = await _ids_vigentes(cliente, "recorrido")
+    assert nuevos != vistos
+    reaceptada = await cliente.post(
+        _inscripcion("recorrido"), json=_payload(accepted_policy_version_ids=nuevos)
+    )
+    assert reaceptada.status_code == 202, reaceptada.text
+    consentimiento = await _consentimiento("asistente@example.com")
+    assert consentimiento is not None
+    assert sorted(map(str, consentimiento.accepted_policy_version_ids)) == sorted(nuevos)
+
+
+async def test_un_409_de_politicas_no_gasta_el_token_antibots(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    monkeypatch: pytest.MonkeyPatch,
+    fake: FakeStripeClient,
+) -> None:
+    """El token de Turnstile es de un solo uso: si las condiciones no cuadran,
+    se responde 409 antes de validarlo, para que el formulario pueda reenviar
+    con el mismo token tras volver a aceptar."""
+    from app.modules.payments import public_router as pagos_router
+    from app.modules.registrations import public_router as inscripciones_router
+
+    validaciones: list[str] = []
+
+    async def turnstile_espia(_request: object, token: str) -> None:
+        validaciones.append(token)
+
+    monkeypatch.setattr(inscripciones_router, "require_turnstile", turnstile_espia)
+    monkeypatch.setattr(pagos_router, "require_turnstile", turnstile_espia)
+
+    evento, tipo = await _preparar_evento_de_pago(cliente, organizacion, monkeypatch, "token-pago")
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    await _crear_evento(organizacion, "token-gratis")
+    await _escribir(cliente, cabeceras, "condiciones", "Condiciones")
+
+    gratis = await cliente.post(_inscripcion("token-gratis"), json=_payload())
+    compra = await cliente.post(
+        _url_checkout(evento["slug"]),
+        json=_payload("compra@example.com", ticket_type_id=tipo["id"]),
+    )
+    assert gratis.status_code == compra.status_code == 409
+    assert validaciones == []
+
+
+async def test_reactivar_sin_textos_conserva_la_aceptacion_anterior(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    monkeypatch: pytest.MonkeyPatch,
+    fake: FakeStripeClient,
+) -> None:
+    evento, tipo = await _preparar_evento_de_pago(cliente, organizacion, monkeypatch, "retira")
+    fake.v1.checkout.sessions.create_async.return_value = _sesion_creada()
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    await _escribir(cliente, cabeceras, "reembolsos", "Versión 1")
+    aceptados = await _ids_vigentes(cliente, evento["slug"])
+    payload = _payload("retira@example.com", ticket_type_id=tipo["id"])
+    primera = await cliente.post(
+        _url_checkout(evento["slug"]), json={**payload, "accepted_policy_version_ids": aceptados}
+    )
+    assert primera.status_code == 200, primera.text
+
+    async with SessionMaintenance() as session:
+        registro = await session.scalar(
+            select(EventRegistration).where(EventRegistration.email == "retira@example.com")
+        )
+        assert registro is not None
+        pago = await session.scalar(
+            select(EventPayment).where(EventPayment.registration_id == registro.id)
+        )
+        assert pago is not None
+        registro.status = "cancelled"
+        pago.status = "pending"
+        await session.commit()
+
+    await _escribir(cliente, cabeceras, "reembolsos", "")  # el organizador lo retira
+    fake.v1.checkout.sessions.create_async.return_value = _sesion_creada("cs_test_2")
+    reactivada = await cliente.post(_url_checkout(evento["slug"]), json=payload)
+    assert reactivada.status_code == 200, reactivada.text
+    consentimiento = await _consentimiento("retira@example.com")
+    assert consentimiento is not None
+    assert [str(i) for i in consentimiento.accepted_policy_version_ids] == aceptados
+    assert consentimiento.organizer_policies_accepted_at is not None
