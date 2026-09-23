@@ -2,14 +2,13 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 
-import { HeroEscena } from '../animaciones.directive';
-import { LandingIlustracion } from '../ilustraciones/ilustracion';
+import { HeroEscena, Parallax } from '../animaciones.directive';
 import { ResaltarPipe } from '../resaltar.pipe';
 
 @Component({
   selector: 'app-landing-hero',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, HeroEscena, LandingIlustracion, ResaltarPipe],
+  imports: [TranslocoDirective, RouterLink, HeroEscena, Parallax, ResaltarPipe],
   template: `
     <ng-container *transloco="let t">
       <section class="landing-hero" aria-labelledby="landing-hero-titulo" appHeroEscena>
@@ -35,7 +34,16 @@ import { ResaltarPipe } from '../resaltar.pipe';
               </a>
             </div>
           </div>
-          <app-landing-ilustracion tipo="inscripciones" data-entrada />
+          <figure class="landing-foto landing-foto--hero" data-entrada appParallax="0.1">
+            <img
+              src="assets/landing/hero.webp"
+              alt=""
+              width="1600"
+              height="1168"
+              fetchpriority="high"
+              decoding="async"
+            />
+          </figure>
         </div>
       </section>
     </ng-container>

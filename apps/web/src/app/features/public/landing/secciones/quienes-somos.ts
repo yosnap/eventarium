@@ -3,13 +3,12 @@ import { TranslocoDirective } from '@jsverse/transloco';
 
 import { Reveal } from '../../../../shared/ui/reveal.directive';
 import { Parallax, TextoRevelado } from '../animaciones.directive';
-import { LandingIlustracion } from '../ilustraciones/ilustracion';
 import { ResaltarPipe } from '../resaltar.pipe';
 
 @Component({
   selector: 'app-landing-quienes-somos',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Reveal, Parallax, TextoRevelado, LandingIlustracion, ResaltarPipe],
+  imports: [TranslocoDirective, Reveal, Parallax, TextoRevelado, ResaltarPipe],
   template: `
     <ng-container *transloco="let t">
       <section class="landing-seccion" aria-labelledby="landing-quienes-titulo">
@@ -48,7 +47,16 @@ import { ResaltarPipe } from '../resaltar.pipe';
               }
             </ul>
           </div>
-          <app-landing-ilustracion tipo="quienes" appParallax="0.15" />
+          <figure class="landing-foto" appParallax="0.14">
+            <img
+              src="assets/landing/quienes-somos.webp"
+              alt=""
+              width="1600"
+              height="1168"
+              loading="lazy"
+              decoding="async"
+            />
+          </figure>
         </div>
       </section>
     </ng-container>

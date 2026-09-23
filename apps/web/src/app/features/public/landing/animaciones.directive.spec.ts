@@ -38,9 +38,7 @@ const loaderFalso = {
         <p data-entrada>dos</p>
       </div>
     </section>
-    <div class="landing-ilustracion">
-      <div id="capa" appParallax="0.5"></div>
-    </div>
+    <div id="capa" appParallax="0.5"></div>
     <div id="apilado" appApilado>
       <article class="landing-tarjeta" id="t1"></article>
       <article class="landing-tarjeta" id="t2"></article>
@@ -97,18 +95,17 @@ describe('animaciones de la landing', () => {
     expect(fixture.nativeElement.querySelector('#texto').children).toHaveLength(0);
   });
 
-  it('el parallax de una capa usa la ilustración como disparador y la velocidad indicada', async () => {
+  it('el parallax usa el propio elemento como disparador y la velocidad indicada', async () => {
     const fixture = await renderizar();
     ejecutarCallbacks();
     const capa = fixture.nativeElement.querySelector('#capa');
-    const ilustracion = fixture.nativeElement.querySelector('.landing-ilustracion');
     expect(gsapFalso.fromTo).toHaveBeenCalledWith(
       capa,
       { yPercent: 30 },
       expect.objectContaining({
         yPercent: -30,
         scrollTrigger: expect.objectContaining({
-          trigger: ilustracion,
+          trigger: capa,
           start: 'clamp(top bottom)',
         }),
       }),

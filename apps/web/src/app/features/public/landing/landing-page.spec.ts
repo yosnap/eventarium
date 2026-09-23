@@ -73,10 +73,15 @@ describe('LandingPage', () => {
     expect(TestBed.inject(Title).getTitle()).toBe(es.publico.landing.seo.titulo);
   });
 
-  it('las únicas imágenes son las capturas del panel (clara y oscura por funcionalidad) con alt', async () => {
+  it('las imágenes son las dos fotos (hero, quiénes somos) y las 16 capturas del panel', async () => {
     const { raiz } = await renderizar();
     expect(raiz.querySelectorAll('video, picture')).toHaveLength(0);
-    const capturas = Array.from(raiz.querySelectorAll<HTMLImageElement>('img'));
+    const fotos = Array.from(raiz.querySelectorAll<HTMLImageElement>('.landing-foto img'));
+    expect(fotos.map((img) => img.getAttribute('src'))).toEqual([
+      'assets/landing/hero.webp',
+      'assets/landing/quienes-somos.webp',
+    ]);
+    const capturas = Array.from(raiz.querySelectorAll<HTMLImageElement>('app-landing-captura img'));
     expect(capturas).toHaveLength(16);
     for (const img of capturas) {
       expect(img.getAttribute('src')).toMatch(
@@ -85,9 +90,6 @@ describe('LandingPage', () => {
       expect(img.getAttribute('alt')).toBeTruthy();
       expect(img.getAttribute('loading')).toBe('lazy');
     }
-    expect(
-      raiz.querySelectorAll('[aria-hidden="true"].landing-ilustracion').length,
-    ).toBeGreaterThan(0);
   });
 
   it.each(['light', 'dark'])('no tiene violaciones de accesibilidad en tema %s', async (tema) => {

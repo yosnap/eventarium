@@ -48,17 +48,14 @@ abstract class AnimacionConScroll {
 
 /**
  * Parallax ligado al scroll: el elemento se desplaza verticalmente a una
- * fracción de su recorrido por la ventana (`appParallax="0.3"` → 30 % de su
- * alto). Si está dentro de una ilustración (`.landing-ilustracion`), el
- * disparador es la ilustración entera, para que todas sus capas compartan el
- * mismo progreso y solo cambie la velocidad: eso es lo que da profundidad.
+ * fracción de su recorrido por la ventana (`appParallax="0.3"` → ±18 % de su
+ * alto entre que entra por abajo y sale por arriba).
  */
 @Directive({ selector: '[appParallax]' })
 export class Parallax extends AnimacionConScroll {
   readonly velocidad = input(0.25, { alias: 'appParallax', transform: numberAttribute });
 
   protected animar({ gsap }: GsapCargado): void {
-    const disparador = this.elemento.closest('.landing-ilustracion') ?? this.elemento;
     gsap.fromTo(
       this.elemento,
       { yPercent: this.velocidad() * 60 },
@@ -66,7 +63,7 @@ export class Parallax extends AnimacionConScroll {
         yPercent: -this.velocidad() * 60,
         ease: 'none',
         scrollTrigger: {
-          trigger: disparador,
+          trigger: this.elemento,
           // `clamp()`: lo que ya está en pantalla al cargar (el hero) empieza en
           // progreso 0 en vez de saltar al valor calculado para su posición.
           start: 'clamp(top bottom)',

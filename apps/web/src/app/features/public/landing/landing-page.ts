@@ -47,9 +47,9 @@ const INTERVALO_EN_DIRECTO_MS = 60_000;
   `,
   // Sin encapsulación a propósito: estas clases (prefijo `landing-`) las
   // comparten las secciones hijas. Van aquí y no en `styles.css` para que
-  // viajen en el chunk lazy de la landing y no en el bundle inicial (presupuesto
-  // `initial` de 500 kB); las ilustraciones tienen su propio bloque en
-  // `LandingIlustracion` para que ninguno pase del aviso de 4 kB.
+  // viajen en el chunk lazy de la landing y no en el bundle inicial; cada
+  // sección lleva además su propio bloque para que ninguno pase del aviso de
+  // 4 kB de `anyComponentStyle`.
   encapsulation: ViewEncapsulation.None,
   styles: `
     app-landing-page {
@@ -105,6 +105,21 @@ const INTERVALO_EN_DIRECTO_MS = 60_000;
     }
     .landing-palabra {
       will-change: opacity;
+    }
+    .landing-foto {
+      margin: 0;
+      overflow: hidden;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-lg);
+      background: var(--surface-2);
+    }
+    .landing-foto img {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
     }
     .landing-resaltado {
       font-weight: inherit;
