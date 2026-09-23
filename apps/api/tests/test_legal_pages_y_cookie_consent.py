@@ -72,6 +72,23 @@ async def test_la_pagina_de_cookies_declara_turnstile_como_necesario(
     assert "turnstile" in contenido
 
 
+async def test_las_plantillas_dejan_las_condiciones_de_cada_evento_a_su_organizacion(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """Cada organización fija sus propias políticas; la plataforma solo presta la
+    herramienta y trata los datos de inscripción por encargo de la organización."""
+    condiciones = (await cliente.get(f"{PUBLIC_LEGAL}/condiciones-de-inscripcion")).json()
+    assert "fija sus propias políticas y condiciones" in condiciones["content"]
+    assert "prevalecen las de la organización" in condiciones["content"]
+
+    privacidad = (await cliente.get(f"{PUBLIC_LEGAL}/privacidad")).json()
+    assert "es la responsable de los datos que aportas al inscribirte" in privacidad["content"]
+    assert "por su encargo" in privacidad["content"]
+
+    aviso = (await cliente.get(f"{PUBLIC_LEGAL}/aviso-legal")).json()
+    assert "no organiza los eventos que se publican en ella" in aviso["content"]
+
+
 async def test_editar_y_restaurar_una_pagina_legal(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
