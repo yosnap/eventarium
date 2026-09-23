@@ -442,8 +442,12 @@ resultado final.
 Una sola aplicación Angular 21 sirve la web pública y el panel.
 
 - **Público**: renderizado en servidor por petición (no prerenderizado), porque el
-  contenido depende del recurso (el evento de la URL), y la raíz (`/`) es el
-  directorio de eventos de toda la instalación (redirige a `/eventos`).
+  contenido depende del recurso (el evento de la URL). La raíz (`/`) es la landing
+  de la instalación (`features/public/landing`: presentación, franja de eventos en
+  directo, funcionalidades, cómo colaborar); el directorio de eventos de toda la
+  instalación sigue en `/eventos`. Las animaciones de la landing (GSAP) se cargan
+  solo en navegador y solo sin `prefers-reduced-motion`; el HTML servido no depende
+  de ellas.
 - **Panel**: solo cliente. Necesita la cookie de sesión, que el servidor no debe manejar.
 
 El theming son custom properties CSS que Tailwind consume: cambiar los colores en la
