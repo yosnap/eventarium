@@ -105,6 +105,23 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
           <app-button variant="terciario" [compacto]="true" (pulsado)="gestionarCookies()">
             {{ t('cookies.gestionar') }}
           </app-button>
+          <a
+            class="atribucion"
+            href="https://humanitek.org"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            <span>{{ t('publico.landing.pie.parteDe') }}</span>
+            <!-- SVG como <img>, nunca inline: es un fichero de terceros y así no
+                 puede ejecutar nada. Dimensiones fijas para evitar saltos de
+                 maquetación. -->
+            <img
+              src="assets/humanitek-logo.svg"
+              [alt]="t('publico.landing.pie.humanitek')"
+              width="96"
+              height="40"
+            />
+          </a>
         </div>
       </footer>
 
@@ -216,6 +233,20 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       list-style: none;
       margin: 0;
       padding: 0;
+    }
+    .atribucion {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-xs);
+      justify-self: start;
+      color: inherit;
+      text-decoration: none;
+      font-size: var(--fs-sm);
+    }
+    .atribucion img {
+      display: block;
+      height: 2.5rem;
+      width: auto;
     }
   `,
 })
