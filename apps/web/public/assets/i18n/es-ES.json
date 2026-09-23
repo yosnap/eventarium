@@ -290,6 +290,11 @@
             "texto": "Logo, colores, plantilla de página y redes sociales por organización. El público ve **tu evento**; Eventarium no aparece por ningún lado.",
             "captura": "Identidad visual de la organización: logotipo, redes sociales y elección de plantilla de página."
           },
+          "politicas": {
+            "titulo": "Tus condiciones, tus reglas",
+            "texto": "Cada organización escribe **sus propias condiciones**, reembolsos y privacidad, y puede adaptarlas a **cada evento**. Quien se inscribe las acepta y queda constancia de la versión exacta.",
+            "captura": "Políticas de la organización: condiciones del evento, política de reembolsos y privacidad, con editor y vista previa."
+          },
           "patrocinadores": {
             "titulo": "Patrocinadores por niveles",
             "texto": "Oro, plata, bronce o **los niveles que tú definas**. Cada patrocinador tiene su ficha, su logo en el sitio y su lugar en la agenda.",
