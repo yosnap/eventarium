@@ -38,10 +38,12 @@ const INTERVALO_EN_DIRECTO_MS = 60_000;
   ],
   template: `
     <app-landing-hero />
-    <app-landing-en-directo />
-    <app-landing-quienes-somos />
-    <app-landing-funcionalidades />
-    <app-landing-colaborar />
+    <div class="ancho-maximo">
+      <app-landing-en-directo />
+      <app-landing-quienes-somos />
+      <app-landing-funcionalidades />
+      <app-landing-colaborar />
+    </div>
   `,
   // Sin encapsulación a propósito: estas clases (prefijo `landing-`) las
   // comparten las secciones hijas. Van aquí y no en `styles.css` para que
@@ -95,6 +97,26 @@ const INTERVALO_EN_DIRECTO_MS = 60_000;
       margin: 0 0 var(--space-sm);
       max-width: 60ch;
       line-height: 1.6;
+    }
+    .landing-parrafo--grande {
+      font-size: var(--fs-h3);
+      line-height: 1.45;
+      max-width: 40ch;
+    }
+    .landing-palabra {
+      will-change: opacity;
+    }
+    .landing-resaltado {
+      font-weight: inherit;
+      color: var(--accent);
+    }
+    h1 .landing-resaltado,
+    h2 .landing-resaltado {
+      font-weight: inherit;
+      background: linear-gradient(90deg, var(--accent), var(--accent-hi));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
     }
     .landing-funcionalidad {
       padding: var(--sp-7) 0;
