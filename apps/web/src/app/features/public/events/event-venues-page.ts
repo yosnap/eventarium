@@ -21,7 +21,7 @@ import { firstValueFrom } from 'rxjs';
 import { temaDeEvento } from '../../../core/theming/tema-de-evento';
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
-import { SeoMetaService } from '../../../core/seo/meta.service';
+import { seoDePagina } from '../../../core/seo/meta.service';
 import { NotFoundStatusService } from '../../../core/ssr/not-found-status.service';
 import { Alert } from '../../../shared/ui/alert';
 import { Breadcrumb, type BreadcrumbItem } from '../../../shared/ui/breadcrumb';
@@ -402,7 +402,7 @@ export class EventVenuesPage implements OnInit {
   private readonly transferState = inject(TransferState);
   private readonly aplicarTema = temaDeEvento();
   private readonly tareasPendientes = inject(PendingTasks);
-  private readonly seo = inject(SeoMetaService);
+  private readonly seo = seoDePagina();
   private readonly notFound = inject(NotFoundStatusService);
   private readonly transloco = inject(TranslocoService);
   private readonly pestanas = viewChildren<ElementRef<HTMLButtonElement>>('pestana');

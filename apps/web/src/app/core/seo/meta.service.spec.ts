@@ -1,12 +1,17 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { provideZonelessChangeDetection } from '@angular/core';
+import { Component, provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { Meta } from '@angular/platform-browser';
+import { Meta, Title } from '@angular/platform-browser';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { IMAGEN_OG_POR_DEFECTO, SeoMetaService } from './meta.service';
+import { IMAGEN_OG_POR_DEFECTO, SeoMetaService, seoDePagina } from './meta.service';
+
+@Component({ selector: 'app-pagina-publica', template: '' })
+class PaginaPublica {
+  readonly seo = seoDePagina();
+}
 
 describe('SeoMetaService', () => {
   let seo: SeoMetaService;
@@ -40,5 +45,16 @@ describe('SeoMetaService', () => {
 
   it('la tarjeta por defecto existe en public/', () => {
     expect(existsSync(join(process.cwd(), 'public', IMAGEN_OG_POR_DEFECTO))).toBe(true);
+  });
+
+  it('una respuesta que llega con la página ya cerrada no pisa el título de la siguiente', () => {
+    const anterior = TestBed.createComponent(PaginaPublica);
+    anterior.destroy();
+    seo.set({ title: 'Sesión' });
+
+    anterior.componentInstance.seo.set({ title: 'Evento A' });
+
+    expect(TestBed.inject(Title).getTitle()).toBe('Sesión');
+    expect(contenido('property="og:title"')).toBe('Sesión');
   });
 });
