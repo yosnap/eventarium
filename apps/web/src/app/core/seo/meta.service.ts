@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { DOCUMENT, Injectable, inject } from '@angular/core';
 import { Meta, Title } from '@angular/platform-browser';
 
 /** Datos mínimos para las etiquetas Open Graph de una página pública. */
@@ -8,6 +8,13 @@ export interface DatosOg {
   readonly image?: string | null;
   readonly type?: string;
 }
+
+/**
+ * Tarjeta de la plataforma (1200×630) para las páginas sin imagen propia. Sin
+ * ella, un enlace a la landing, a una sesión o a un evento sin portada se
+ * comparte sin vista previa.
+ */
+export const IMAGEN_OG_POR_DEFECTO = 'assets/og/eventarium.jpg';
 
 /**
  * Envuelve `Meta`/`Title` de `@angular/platform-browser` para fijar OG tags de forma
@@ -20,6 +27,7 @@ export interface DatosOg {
 export class SeoMetaService {
   private readonly meta = inject(Meta);
   private readonly title = inject(Title);
+  private readonly documento = inject(DOCUMENT);
 
   set(datos: DatosOg): void {
     this.title.setTitle(datos.title);
@@ -30,8 +38,22 @@ export class SeoMetaService {
       this.meta.updateTag({ property: 'og:description', content: datos.description });
       this.meta.updateTag({ name: 'description', content: datos.description });
     }
-    if (datos.image) {
-      this.meta.updateTag({ property: 'og:image', content: datos.image });
-    }
+    // Siempre se fija: si solo se pusiera cuando hay imagen, al navegar desde
+    // un evento con portada a otra página se quedaría la portada anterior.
+    const imagen = this.absoluta(datos.image || IMAGEN_OG_POR_DEFECTO);
+    this.meta.updateTag({ property: 'og:image', content: imagen });
+    this.meta.updateTag({ name: 'twitter:card', content: 'summary_large_image' });
+    this.meta.updateTag({ name: 'twitter:image', content: imagen });
+  }
+
+  /**
+   * Los rastreadores no resuelven rutas relativas en `og:image`. En el SSR,
+   * `location` sale de la URL de la petición (con `x-forwarded-host`/`-proto`
+   * ya aplicados en `server.ts`), así que apunta al dominio público. Se
+   * resuelve contra el origen y no contra `baseURI`: domino no lo implementa y
+   * el `<base href="/">` de la app equivale a la raíz del origen.
+   */
+  private absoluta(url: string): string {
+    return new URL(url, `${this.documento.location.origin}/`).href;
   }
 }
