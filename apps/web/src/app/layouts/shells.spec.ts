@@ -173,7 +173,8 @@ describe('shells', () => {
     await fixture.whenStable();
 
     const raiz = fixture.nativeElement as HTMLElement;
-    expect(raiz.querySelector('img')).toBeNull();
+    // Solo la cabecera: el pie lleva siempre el logo de Humanitek.
+    expect(raiz.querySelector('header img')).toBeNull();
     // app-brand-mark ya pinta la "E" dentro de su caja: el texto no la repite,
     // pero juntos (caja + texto) siguen leyendo "Eventarium".
     expect(raiz.querySelector('.marca')?.textContent?.trim()).toBe('Eventarium');
