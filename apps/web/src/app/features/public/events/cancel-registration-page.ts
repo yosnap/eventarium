@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { ChangeDetectionStrategy, Component, PLATFORM_ID, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
@@ -58,18 +59,28 @@ export class CancelRegistrationPage {
   private readonly transloco = inject(TranslocoService);
   private readonly registrations = inject(RegistrationsService);
   private readonly ruta = inject(ActivatedRoute);
+  private readonly enNavegador = isPlatformBrowser(inject(PLATFORM_ID));
 
   protected readonly estado = signal<Estado>('comprobando');
   protected readonly mensaje = signal('');
 
   constructor() {
-    this.seo.set({ title: this.transloco.translate('cancelarInscripcion.titulo') });
+    // La URL lleva un token de un solo uso: que ningún buscador la guarde.
+    this.seo.set({
+      title: this.transloco.translate('cancelarInscripcion.titulo'),
+      noIndexar: true,
+    });
     const token = this.ruta.snapshot.queryParamMap.get('token');
     if (!token) {
       this.estado.set('error');
       return;
     }
-    void this.cancelar(token);
+    // El token es de un solo uso: el servidor pinta «comprobando» con su
+    // título y solo el navegador lo consume. Si lo gastara el servidor, la
+    // hidratación volvería a intentarlo y mostraría «enlace caducado».
+    if (this.enNavegador) {
+      void this.cancelar(token);
+    }
   }
 
   private async cancelar(token: string): Promise<void> {

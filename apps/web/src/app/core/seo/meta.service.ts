@@ -7,6 +7,8 @@ export interface DatosOg {
   readonly description?: string | null;
   readonly image?: string | null;
   readonly type?: string;
+  /** Para páginas que no deben indexarse (p. ej. enlaces con token). */
+  readonly noIndexar?: boolean;
 }
 
 /**
@@ -42,6 +44,12 @@ export class SeoMetaService {
       this.meta.removeTag('property="og:description"');
       this.meta.removeTag('name="description"');
     }
+    if (datos.noIndexar) {
+      this.meta.updateTag({ name: 'robots', content: 'noindex, nofollow' });
+    } else {
+      this.meta.removeTag('name="robots"');
+    }
+
     // Siempre se fija: si solo se pusiera cuando hay imagen, al navegar desde
     // un evento con portada a otra página se quedaría la portada anterior.
     const imagen = this.absoluta(datos.image || IMAGEN_OG_POR_DEFECTO);

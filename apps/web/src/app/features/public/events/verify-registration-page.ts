@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { ChangeDetectionStrategy, Component, PLATFORM_ID, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
@@ -93,6 +94,7 @@ export class VerifyRegistrationPage {
   private readonly transloco = inject(TranslocoService);
   private readonly registrations = inject(RegistrationsService);
   private readonly ruta = inject(ActivatedRoute);
+  private readonly enNavegador = isPlatformBrowser(inject(PLATFORM_ID));
 
   protected readonly estado = signal<Estado>('comprobando');
   protected readonly mensaje = signal('');
@@ -100,13 +102,22 @@ export class VerifyRegistrationPage {
   protected readonly tonoEstado = signal<ChipTone>('neutro');
 
   constructor() {
-    this.seo.set({ title: this.transloco.translate('verificarInscripcion.titulo') });
+    // La URL lleva un token de un solo uso: que ningún buscador la guarde.
+    this.seo.set({
+      title: this.transloco.translate('verificarInscripcion.titulo'),
+      noIndexar: true,
+    });
     const token = this.ruta.snapshot.queryParamMap.get('token');
     if (!token) {
       this.estado.set('error');
       return;
     }
-    void this.verificar(token);
+    // El token es de un solo uso: el servidor pinta «comprobando» con su
+    // título y solo el navegador lo consume. Si lo gastara el servidor, la
+    // hidratación volvería a intentarlo y mostraría «enlace caducado».
+    if (this.enNavegador) {
+      void this.verificar(token);
+    }
   }
 
   private async verificar(token: string): Promise<void> {

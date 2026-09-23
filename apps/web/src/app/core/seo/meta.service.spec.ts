@@ -65,4 +65,12 @@ describe('SeoMetaService', () => {
     expect(meta.getTag('property="og:description"')).toBeNull();
     expect(meta.getTag('name="description"')).toBeNull();
   });
+
+  it('marca noindex solo en la página que lo pide', () => {
+    seo.set({ title: 'Verificación', noIndexar: true });
+    expect(contenido('name="robots"')).toBe('noindex, nofollow');
+
+    seo.set({ title: 'Evento' });
+    expect(meta.getTag('name="robots"')).toBeNull();
+  });
 });

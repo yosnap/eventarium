@@ -1,4 +1,4 @@
-import { provideZonelessChangeDetection } from '@angular/core';
+import { PLATFORM_ID, provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
@@ -39,6 +39,21 @@ describe('VerifyRegistrationPage', () => {
 
   afterEach(() => {
     document.documentElement.removeAttribute('data-theme');
+  });
+
+  it('en el servidor no consume el token y pinta el estado de comprobación', () => {
+    const verify = vi.fn();
+    configurar({ verify }, rutaConToken('token-de-un-solo-uso'));
+    TestBed.overrideProvider(PLATFORM_ID, { useValue: 'server' });
+
+    const fixture = TestBed.createComponent(VerifyRegistrationPage);
+    fixture.detectChanges();
+
+    expect(verify).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('Comprobando el enlace');
+    expect(document.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe(
+      'noindex, nofollow',
+    );
   });
 
   it('sin token en la URL muestra el error y no tiene violaciones de accesibilidad', async () => {
