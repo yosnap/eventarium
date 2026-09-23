@@ -4896,6 +4896,265 @@
         }
       }
     },
+    "/api/v1/organizations/me/policies": {
+      "get": {
+        "tags": [
+          "políticas"
+        ],
+        "summary": "Textos por defecto de la organización",
+        "operationId": "list_organization_policies_api_v1_organizations_me_policies_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OrganizationPolicyItem"
+                  },
+                  "type": "array",
+                  "title": "Response List Organization Policies Api V1 Organizations Me Policies Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me/policies/{kind}": {
+      "put": {
+        "tags": [
+          "políticas"
+        ],
+        "summary": "Guardar un texto por defecto de la organización (vacío = retirar)",
+        "operationId": "save_organization_policy_api_v1_organizations_me_policies__kind__put",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "condiciones",
+                "reembolsos",
+                "privacidad",
+                "otras"
+              ],
+              "type": "string",
+              "title": "Kind"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrganizationPolicyItem"
+                  },
+                  "title": "Response Save Organization Policy Api V1 Organizations Me Policies  Kind  Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/policies": {
+      "get": {
+        "tags": [
+          "políticas"
+        ],
+        "summary": "Textos vigentes de un evento y de dónde salen",
+        "operationId": "list_event_policies_api_v1_events__event_id__policies_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EventPolicyItem"
+                  },
+                  "title": "Response List Event Policies Api V1 Events  Event Id  Policies Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/policies/{kind}": {
+      "put": {
+        "tags": [
+          "políticas"
+        ],
+        "summary": "Sustituir un texto en un evento (nulo = volver a heredar)",
+        "operationId": "save_event_policy_api_v1_events__event_id__policies__kind__put",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "condiciones",
+                "reembolsos",
+                "privacidad",
+                "otras"
+              ],
+              "type": "string",
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EventPolicyItem"
+                  },
+                  "title": "Response Save Event Policy Api V1 Events  Event Id  Policies  Kind  Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/policies/versions/{version_id}": {
+      "get": {
+        "tags": [
+          "políticas"
+        ],
+        "summary": "Contenido exacto de una versión (lo que aceptó una inscripción)",
+        "operationId": "get_policy_version_api_v1_events__event_id__policies_versions__version_id__get",
+        "parameters": [
+          {
+            "name": "version_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Version Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyVersionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/events/{event_id}/registrations": {
       "get": {
         "tags": [
@@ -12076,6 +12335,58 @@
         "title": "EventMemberResponse",
         "description": "Persona del roster de un evento, con los datos que hacen falta para\nmostrarla en el selector de participantes de una sesión."
       },
+      "EventPolicyItem": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "condiciones",
+              "reembolsos",
+              "privacidad",
+              "otras"
+            ],
+            "title": "Kind"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "evento",
+              "organizacion",
+              "ninguno"
+            ],
+            "title": "Origin"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PolicyVersionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "organization": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PolicyVersionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "origin",
+          "current",
+          "organization"
+        ],
+        "title": "EventPolicyItem",
+        "description": "Texto vigente de un evento para un tipo, y de dónde sale."
+      },
       "EventResponse": {
         "properties": {
           "id": {
@@ -15494,6 +15805,49 @@
         "title": "OrganizationMembershipResponse",
         "description": "Una organización a la que pertenece la persona, para el selector del panel.\n\nSin dominio por organización (fase 6 del plan «organización sin\ndominio»): ya no lleva `host`, campo que solo devolvía `NULL` desde que\n`organization_domains` se retiró.\n\n`role_name` puede ser `None`: `app_user_organizations` usa `LEFT JOIN\nroles` (plan «selector de espacio de trabajo»), así que un fallo de\nresolución del rol no hace desaparecer la organización de la lista."
       },
+      "OrganizationPolicyItem": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "condiciones",
+              "reembolsos",
+              "privacidad",
+              "otras"
+            ],
+            "title": "Kind"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PolicyVersionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "current",
+          "last_version"
+        ],
+        "title": "OrganizationPolicyItem",
+        "description": "Texto por defecto de la organización para un tipo."
+      },
       "OrganizationResponse": {
         "properties": {
           "id": {
@@ -17102,6 +17456,69 @@
         ],
         "title": "PlatformUserSummary",
         "description": "Una fila del listado — nunca incluye `password_hash`."
+      },
+      "PolicyUpdate": {
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "PolicyUpdate",
+        "description": "Guardar un texto nuevo.\n\nEn la organización, `content` es obligatorio (`\"\"` = retirar). En un\nevento, `None` = volver a heredar el de la organización."
+      },
+      "PolicyVersionOut": {
+        "properties": {
+          "version_id": {
+            "type": "string",
+            "title": "Version Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "condiciones",
+              "reembolsos",
+              "privacidad",
+              "otras"
+            ],
+            "title": "Kind"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version_id",
+          "kind",
+          "version",
+          "content",
+          "created_at"
+        ],
+        "title": "PolicyVersionOut",
+        "description": "Una versión concreta de un texto."
       },
       "ProfileFieldInput": {
         "properties": {

@@ -67,6 +67,7 @@ export type { EventInvitationCreate } from './models/event-invitation-create';
 export type { EventMemberCreate } from './models/event-member-create';
 export type { EventMemberResponse } from './models/event-member-response';
 export type { EventoDelEscritorioOut } from './models/evento-del-escritorio-out';
+export type { EventPolicyItem } from './models/event-policy-item';
 export type { EventResponse } from './models/event-response';
 export type { EventSessionCreate } from './models/event-session-create';
 export type { EventSessionResponse } from './models/event-session-response';
@@ -127,6 +128,7 @@ export type { OrganizationAiSettingsOut } from './models/organization-ai-setting
 export type { OrganizationAiSettingsUpdate } from './models/organization-ai-settings-update';
 export type { OrganizationCreate } from './models/organization-create';
 export type { OrganizationMembershipResponse } from './models/organization-membership-response';
+export type { OrganizationPolicyItem } from './models/organization-policy-item';
 export type { OrganizationResponse } from './models/organization-response';
 export type { OrganizationServiceOut } from './models/organization-service-out';
 export type { OrganizationServicesUpdate } from './models/organization-services-update';
@@ -160,6 +162,8 @@ export type { PlatformUserActionResult } from './models/platform-user-action-res
 export type { PlatformUserDetail } from './models/platform-user-detail';
 export type { PlatformUserOrganization } from './models/platform-user-organization';
 export type { PlatformUserSummary } from './models/platform-user-summary';
+export type { PolicyUpdate } from './models/policy-update';
+export type { PolicyVersionOut } from './models/policy-version-out';
 export type { ProfileFieldInput } from './models/profile-field-input';
 export type { ProfileFieldResponse } from './models/profile-field-response';
 export type { ProveedorDelCatalogoOut } from './models/proveedor-del-catalogo-out';
