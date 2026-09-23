@@ -349,6 +349,13 @@
         "privacidad": "Política de privacidad",
         "otras": "Otras condiciones"
       }
+    },
+    "compartir": {
+      "titulo": "Compartir",
+      "en": "Compartir en {{red}}",
+      "correo": "Enviar por correo",
+      "copiar": "Copiar enlace",
+      "copiado": "Enlace copiado"
     }
   },
   "registro": {

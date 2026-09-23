@@ -28,6 +28,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Breadcrumb, type BreadcrumbItem } from '../../../shared/ui/breadcrumb';
 import { Chip, type ChipTone } from '../../../shared/ui/chip';
 import { Reveal } from '../../../shared/ui/reveal.directive';
+import { ShareLinks } from '../../../shared/ui/share-links';
 import { VenueMap } from '../../../shared/ui/venue-map';
 import type { LocationMode, PublicEventDetail, RegistrationMode } from './event-page.types';
 import { type DiaDeAgenda, EventAgendaSection } from './sections/event-agenda-section';
@@ -86,6 +87,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
     Chip,
     VenueMap,
     Reveal,
+    ShareLinks,
     EventAgendaSection,
     EventSpeakersSection,
   ],
@@ -128,6 +130,11 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                 @if (evento.description) {
                   <p class="hero__descripcion">{{ evento.description }}</p>
                 }
+                <app-share-links
+                  class="hero__compartir"
+                  [url]="urlPublica(evento)"
+                  [titulo]="evento.title"
+                />
               </div>
 
               <div class="ficha">
@@ -411,6 +418,10 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
       margin-top: var(--sp-5);
       white-space: pre-line;
     }
+    .hero__compartir {
+      display: block;
+      margin-top: var(--sp-5);
+    }
     .ficha {
       display: grid;
       border: 1px solid var(--border);
@@ -661,6 +672,12 @@ export class EventPage implements OnInit, OnDestroy {
     }
     return [...vistos.values()];
   });
+
+  /** Absoluta y sin ancla ni query: es lo que se comparte. En el SSR,
+   * `location` ya es la URL pública de la petición. */
+  protected urlPublica(evento: PublicEventDetail): string {
+    return `${this.documento.location.origin}/eventos/${evento.slug}`;
+  }
 
   protected migasDePan(evento: PublicEventDetail): BreadcrumbItem[] {
     return [
