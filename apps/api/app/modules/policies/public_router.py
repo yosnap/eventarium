@@ -33,4 +33,5 @@ async def get_public_event_policies(slug: str, session: SessionDep) -> PublicEve
     return PublicEventPolicies(
         organization_name=organizacion.name if organizacion is not None else "",
         policies=[version_out(v.version) for v in vigentes if v.version is not None],
+        theme=await events_service.tema_publico_del_evento(session, evento),
     )
