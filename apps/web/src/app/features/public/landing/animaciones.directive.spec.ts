@@ -45,6 +45,10 @@ const loaderFalso = {
       <article class="landing-tarjeta" id="t3"></article>
     </div>
     <p id="texto" appTextoRevelado>Tres <strong>palabras</strong> aquí</p>
+    <div id="bloque" appTextoRevelado>
+      <p>Primero va</p>
+      <p>después esto</p>
+    </div>
   `,
 })
 class Anfitrion {}
@@ -84,7 +88,7 @@ describe('animaciones de la landing', () => {
 
   it('todas se registran solo bajo prefers-reduced-motion: no-preference y sin él no tocan el DOM', async () => {
     const fixture = await renderizar();
-    expect(gsapFalso.add).toHaveBeenCalledTimes(4);
+    expect(gsapFalso.add).toHaveBeenCalledTimes(5);
     for (const [consulta] of gsapFalso.add.mock.calls) {
       expect(consulta).toBe('(prefers-reduced-motion: no-preference)');
     }
@@ -162,6 +166,8 @@ describe('animaciones de la landing', () => {
         scrollTrigger: expect.objectContaining({ trigger: t2, scrub: true }),
       }),
     );
+    // Sin transparencia: la tarjeta que sube tapa del todo a la de detrás.
+    expect(llamadasApilado[0][1]).not.toHaveProperty('opacity');
   });
 
   it('el texto revelado envuelve cada palabra y las enciende con scrub', async () => {
@@ -182,9 +188,24 @@ describe('animaciones de la landing', () => {
     );
   });
 
+  it('en un bloque de varios párrafos, una sola animación en orden de lectura', async () => {
+    const fixture = await renderizar();
+    ejecutarCallbacks();
+    const bloque: HTMLElement = fixture.nativeElement.querySelector('#bloque');
+    const llamadas = gsapFalso.fromTo.mock.calls.filter(
+      ([objetivos]) => objetivos instanceof NodeList && bloque.contains(objetivos[0] as Node),
+    );
+    expect(llamadas).toHaveLength(1);
+    const palabras = Array.from(llamadas[0][0] as NodeListOf<Element>).map((p) => p.textContent);
+    expect(palabras).toEqual(['Primero', 'va', 'después', 'esto']);
+    expect(llamadas[0][2]).toEqual(
+      expect.objectContaining({ scrollTrigger: expect.objectContaining({ trigger: bloque }) }),
+    );
+  });
+
   it('revierte todas las animaciones al destruir el componente', async () => {
     const fixture = await renderizar();
     fixture.destroy();
-    expect(gsapFalso.revert).toHaveBeenCalledTimes(4);
+    expect(gsapFalso.revert).toHaveBeenCalledTimes(5);
   });
 });

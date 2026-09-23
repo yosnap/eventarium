@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
@@ -7,6 +10,7 @@ import { provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { FUNCIONALIDADES } from './landing-contenido';
 import es from '../../../../../public/assets/i18n/es-ES.json';
 import { GsapLoader } from './gsap';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../../testing/axe';
@@ -67,13 +71,13 @@ describe('LandingPage', () => {
     expect(titulos).toContain(es.publico.landing.quienesSomos.titulo.replaceAll('**', ''));
     expect(titulos).toContain(es.publico.landing.funcionalidades.titulo.replaceAll('**', ''));
     expect(titulos.some((t) => t?.startsWith(es.publico.landing.colaborar.titulo))).toBe(true);
-    expect(raiz.querySelectorAll('article')).toHaveLength(8);
+    expect(raiz.querySelectorAll('article')).toHaveLength(FUNCIONALIDADES.length);
     expect(raiz.querySelector('a[href="/crear-organizacion"]')).not.toBeNull();
     expect(raiz.querySelector('a[href="/eventos"]')).not.toBeNull();
     expect(TestBed.inject(Title).getTitle()).toBe(es.publico.landing.seo.titulo);
   });
 
-  it('las imágenes son las dos fotos (hero, quiénes somos) y las 16 capturas del panel', async () => {
+  it('las imágenes son las dos fotos (hero, quiénes somos) y dos capturas (claro y oscuro) por funcionalidad', async () => {
     const { raiz } = await renderizar();
     expect(raiz.querySelectorAll('video, picture')).toHaveLength(0);
     const fotos = Array.from(raiz.querySelectorAll<HTMLImageElement>('.landing-foto img'));
@@ -82,7 +86,7 @@ describe('LandingPage', () => {
       'assets/landing/quienes-somos.webp',
     ]);
     const capturas = Array.from(raiz.querySelectorAll<HTMLImageElement>('app-landing-captura img'));
-    expect(capturas).toHaveLength(16);
+    expect(capturas).toHaveLength(FUNCIONALIDADES.length * 2);
     for (const img of capturas) {
       expect(img.getAttribute('src')).toMatch(
         /^assets\/landing\/capturas\/[a-z]+-(claro|oscuro)\.webp$/,
@@ -96,5 +100,35 @@ describe('LandingPage', () => {
     document.documentElement.setAttribute('data-theme', tema);
     const { raiz } = await renderizar();
     await esperarSinViolacionesDeAccesibilidad(raiz);
+  });
+});
+
+describe('contenido de las funcionalidades', () => {
+  const capturas = join(
+    import.meta.dirname,
+    '..',
+    '..',
+    '..',
+    '..',
+    '..',
+    'public',
+    'assets',
+    'landing',
+    'capturas',
+  );
+
+  it('cada funcionalidad tiene sus tres textos y sus dos capturas', () => {
+    const items = es.publico.landing.funcionalidades.items as Record<
+      string,
+      { titulo?: string; texto?: string; captura?: string }
+    >;
+    for (const { clave } of FUNCIONALIDADES) {
+      expect(items[clave]?.titulo, clave).toBeTruthy();
+      expect(items[clave]?.texto, clave).toBeTruthy();
+      expect(items[clave]?.captura, clave).toBeTruthy();
+      for (const modo of ['claro', 'oscuro']) {
+        expect(existsSync(join(capturas, `${clave}-${modo}.webp`)), `${clave}-${modo}`).toBe(true);
+      }
+    }
   });
 });

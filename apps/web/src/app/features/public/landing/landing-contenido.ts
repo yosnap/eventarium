@@ -3,6 +3,7 @@ export type ClaveFuncionalidad =
   | 'inscripciones'
   | 'entradas'
   | 'marca'
+  | 'politicas'
   | 'patrocinadores'
   | 'contabilidad'
   | 'agenda'
@@ -26,6 +27,7 @@ export const FUNCIONALIDADES: readonly FuncionalidadLanding[] = [
   },
   { clave: 'entradas', ruta: '/dashboard/events/…/check-in' },
   { clave: 'marca', ruta: '/dashboard/branding' },
+  { clave: 'politicas', ruta: '/dashboard/politicas' },
   {
     clave: 'patrocinadores',
     ruta: '/dashboard/events/…/patrocinadores',

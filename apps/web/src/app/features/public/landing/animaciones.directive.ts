@@ -124,8 +124,10 @@ export class HeroEscena extends AnimacionConScroll {
 
 /**
  * Tarjetas apiladas (`.landing-tarjeta`, `position: sticky` por CSS): cuando
- * la siguiente tarjeta sube y se le monta encima, la anterior se encoge y se
- * atenúa en proporción al scroll, de modo que se ve cómo se van apilando.
+ * la siguiente tarjeta sube y se le monta encima, la anterior se encoge en
+ * proporción al scroll, de modo que se ve cómo se van apilando. Sin atenuarla:
+ * con opacidad, su contenido se transparentaba bajo la tarjeta que sube; la
+ * nueva la tapa del todo (su fondo es opaco).
  */
 @Directive({ selector: '[appApilado]' })
 export class Apilado extends AnimacionConScroll {
@@ -136,7 +138,6 @@ export class Apilado extends AnimacionConScroll {
       if (!siguiente) return;
       gsap.to(tarjeta, {
         scale: 0.9,
-        opacity: 0.3,
         yPercent: -6,
         ease: 'none',
         transformOrigin: 'center top',
@@ -153,7 +154,10 @@ export class Apilado extends AnimacionConScroll {
 
 /**
  * Texto que se «enciende» palabra a palabra con el scroll: cada palabra pasa de
- * atenuada a color pleno según el párrafo cruza la ventana. Las palabras se
+ * atenuada a color pleno según el bloque cruza la ventana. Puede aplicarse a
+ * un párrafo o a un contenedor con varios: en ese caso es una sola animación
+ * y las palabras se encienden en orden de lectura, de principio a fin, en vez
+ * de encenderse todos los párrafos a la vez. Las palabras se
  * envuelven en `<span>` solo aquí, ya hidratado, así que el HTML servido es
  * texto plano normal. Solo se tocan los nodos de texto: el marcado que ya
  * tenga el párrafo (el `<strong>` del resaltado) se conserva.

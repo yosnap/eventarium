@@ -63,7 +63,7 @@ import { ResaltarPipe } from '../resaltar.pipe';
       display: grid;
       gap: var(--space-lg);
       /* Cada tarjeta se queda pegada bajo la cabecera y la siguiente le pasa
-         por encima; la directiva appApilado encoge y atenúa la anterior. */
+         por encima; la directiva appApilado encoge la anterior (sin atenuarla). */
       --apilado-top: 5.5rem;
     }
     .landing-tarjeta {
@@ -86,7 +86,7 @@ import { ResaltarPipe } from '../resaltar.pipe';
         0 -1px 0 var(--surface-hi),
         0 -18px 48px -12px oklch(0% 0 0 / 0.45),
         var(--shadow-lg);
-      will-change: transform, opacity;
+      will-change: transform;
     }
     @media (min-width: 48rem) {
       .landing-tarjeta {

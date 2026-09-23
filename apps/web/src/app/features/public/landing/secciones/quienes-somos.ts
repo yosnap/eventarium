@@ -19,21 +19,22 @@ import { ResaltarPipe } from '../resaltar.pipe';
               id="landing-quienes-titulo"
               [innerHTML]="t('publico.landing.quienesSomos.titulo') | resaltar"
             ></h2>
-            <p
-              class="landing-parrafo landing-parrafo--grande"
-              appTextoRevelado
-              [innerHTML]="t('publico.landing.quienesSomos.parrafo1') | resaltar"
-            ></p>
-            <p
-              class="landing-parrafo landing-parrafo--grande"
-              appTextoRevelado
-              [innerHTML]="t('publico.landing.quienesSomos.parrafo2') | resaltar"
-            ></p>
-            <p
-              class="landing-parrafo landing-parrafo--grande"
-              appTextoRevelado
-              [innerHTML]="t('publico.landing.quienesSomos.parrafo3') | resaltar"
-            ></p>
+            <!-- Una sola animación para los tres párrafos: las palabras se
+                 encienden en orden de lectura, no los tres a la vez. -->
+            <div appTextoRevelado>
+              <p
+                class="landing-parrafo landing-parrafo--grande"
+                [innerHTML]="t('publico.landing.quienesSomos.parrafo1') | resaltar"
+              ></p>
+              <p
+                class="landing-parrafo landing-parrafo--grande"
+                [innerHTML]="t('publico.landing.quienesSomos.parrafo2') | resaltar"
+              ></p>
+              <p
+                class="landing-parrafo landing-parrafo--grande"
+                [innerHTML]="t('publico.landing.quienesSomos.parrafo3') | resaltar"
+              ></p>
+            </div>
             <ul class="landing-cifras">
               @for (cifra of cifras; track cifra; let i = $index) {
                 <li class="landing-cifra" appReveal [index]="i">

@@ -19,13 +19,19 @@ const app = express();
  * Hay que declararlas de forma explícita: Angular borra cualquier `x-forwarded-*` que
  * no esté en esta lista y, al hacerlo, degrada el renderizado a cliente **sin fallar**.
  * El valor por defecto no incluye `x-forwarded-for`, que Caddy envía siempre, así que
- * omitir esto rompería el SSR de forma silenciosa.
+ * omitir esto rompería el SSR de forma silenciosa. `x-forwarded-server` lo añade
+ * Traefik (el proxy de Dokploy, delante de Caddy en producción): sin él, todas las
+ * páginas de producción se servían sin renderizar.
  */
 const CABECERAS_DE_PROXY = [
   'x-forwarded-host',
   'x-forwarded-proto',
   'x-forwarded-for',
   'x-forwarded-port',
+  'x-forwarded-server',
+  // No lo envía nadie hoy; si Traefik añadiera un prefijo de ruta, sin esto
+  // volvería a caer todo el SSR sin error.
+  'x-forwarded-prefix',
 ];
 
 /**
