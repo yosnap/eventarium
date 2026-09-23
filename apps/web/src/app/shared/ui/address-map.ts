@@ -18,6 +18,7 @@ import { TranslocoDirective } from '@jsverse/transloco';
 import type { Map as LeafletMap, Marker as LeafletMarker } from 'leaflet';
 
 import { crearIcono } from './leaflet-icons';
+import { cargarLeaflet } from './leaflet-loader';
 
 /** Coordenadas geográficas, en el formato que ya expone el backend. */
 export interface Coordenadas {
@@ -312,7 +313,7 @@ export class AddressMap {
     contenedor: HTMLDivElement,
     punto: { lat: number; lng: number },
   ): Promise<void> {
-    const L = await import('leaflet');
+    const L = await cargarLeaflet();
     if (!this.mapa) {
       this.mapa = L.map(contenedor).setView([punto.lat, punto.lng], ZOOM_MARCADOR);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {

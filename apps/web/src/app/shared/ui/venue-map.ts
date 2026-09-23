@@ -13,6 +13,7 @@ import {
 import type { LayerGroup, Map as LeafletMap } from 'leaflet';
 
 import { crearIcono } from './leaflet-icons';
+import { cargarLeaflet } from './leaflet-loader';
 
 /** Un punto a marcar en el mapa, con etiqueta opcional (nombre de la sede) y
  * color opcional (para que coincida con `estiloDeSede()` en el programa
@@ -84,7 +85,7 @@ export class VenueMap {
     contenedor: HTMLDivElement,
     puntos: readonly MarcadorDeMapa[],
   ): Promise<void> {
-    const L = await import('leaflet');
+    const L = await cargarLeaflet();
     if (!this.mapa) {
       this.mapa = L.map(contenedor);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
