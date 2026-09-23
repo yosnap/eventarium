@@ -82,6 +82,7 @@ async def iniciar_compra(
     data_processing_accepted: bool,
     marketing_accepted: bool,
     recording_accepted: bool,
+    accepted_policy_version_ids: list[uuid.UUID],
     ticket_type_id: uuid.UUID,
     code: str | None,
 ) -> ResultadoCompra:
@@ -111,6 +112,7 @@ async def iniciar_compra(
                 data_processing_accepted=data_processing_accepted,
                 marketing_accepted=marketing_accepted,
                 recording_accepted=recording_accepted,
+                accepted_policy_version_ids=accepted_policy_version_ids,
             )
             if inscripcion is None or inscripcion.status not in (
                 "pending_payment",

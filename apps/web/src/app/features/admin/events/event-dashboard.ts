@@ -16,6 +16,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Card } from '../../../shared/ui/card';
 import { PageHeader } from '../../../shared/ui/page-header';
 import { Chip, ChipTone } from '../../../shared/ui/chip';
+import { EventPoliciesWarning } from '../policies/event-policies-warning';
 import { EventDetails } from './event-details';
 import { EventoMetricas, PiezaDelEvento } from './event-metrics.types';
 
@@ -44,7 +45,7 @@ interface Escalon {
 @Component({
   selector: 'app-event-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Card, Chip, EventDetails, PageHeader],
+  imports: [TranslocoDirective, Alert, Card, Chip, EventDetails, EventPoliciesWarning, PageHeader],
   template: `
     <ng-container *transloco="let t">
       <app-page-header [rotulo]="t('admin.events.metricas.rotulo')">
@@ -66,6 +67,8 @@ interface Escalon {
       @if (error(); as mensaje) {
         <app-alert tone="error">{{ t(mensaje) }}</app-alert>
       }
+
+      <app-event-policies-warning [eventId]="eventId()" />
 
       @if (metricas(); as m) {
         <div class="cifras">

@@ -96,12 +96,13 @@ describe('LegalPage', () => {
     // Regresión del hallazgo #3 del code-review: un `afterNextRender` de una
     // sola vez podía consumirse antes de que `cargar()` (asíncrono) resolviera
     // en una navegación SPA, dejando la página en texto plano para siempre.
-    // El `effect()` debe reaccionar cuando el contenido llega, no solo una vez.
+    // El saneado (un `computed` en `app-markdown-seguro`) debe reaccionar
+    // cuando el contenido llega, no solo una vez.
     const fixture = TestBed.createComponent(LegalPage);
     fixture.componentRef.setInput('page', 'cookies');
     fixture.detectChanges(); // primer render: la petición HTTP sigue en vuelo.
 
-    expect(fixture.nativeElement.querySelector('.contenido')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-markdown-seguro')).toBeNull();
 
     http
       .expectOne((peticion) => peticion.url === '/api/v1/public/legal/cookies')
@@ -110,8 +111,7 @@ describe('LegalPage', () => {
     await avanzar(fixture);
 
     const raiz = fixture.nativeElement as HTMLElement;
-    expect(raiz.querySelector('.contenido')).not.toBeNull();
-    expect(raiz.textContent).toContain('Cookies');
+    expect(raiz.querySelector('app-markdown-seguro strong')?.textContent).toBe('Cookies');
   });
 
   it('pide la ruta correcta para cada página pública', async () => {

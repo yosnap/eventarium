@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Annotated, Any, Literal
+from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
+
+from app.modules.policies.schemas import AcceptedPolicyOut
 
 RegistrationStatus = Literal[
     "pending_verification",
@@ -52,6 +55,16 @@ class SubmitRegistrationRequest(BaseModel):
     )
     marketing_accepted: bool = False
     recording_accepted: bool = False
+    accepted_policy_version_ids: list[UUID] = Field(
+        default_factory=list,
+        # Como mucho una por tipo (hay cuatro): el tope corta cuerpos abusivos
+        # antes de validar nada más.
+        max_length=10,
+        description=(
+            "Versiones de las políticas del organizador que se muestran y se "
+            "aceptan (las de `GET /public/events/{slug}/policies`)."
+        ),
+    )
     turnstile_token: str = Field(description="Token del widget de Turnstile")
 
 
@@ -166,6 +179,10 @@ class RegistrationConsentOut(BaseModel):
     data_processing_accepted_at: datetime
     marketing_accepted_at: datetime | None
     recording_accepted_at: datetime | None
+    #: Aceptación de las políticas propias del organizador (`None` si el
+    #: evento no tenía textos vigentes al inscribirse).
+    organizer_policies_accepted_at: datetime | None = None
+    accepted_policies: list[AcceptedPolicyOut] = Field(default_factory=list)
 
 
 class RegistrationListItem(BaseModel):

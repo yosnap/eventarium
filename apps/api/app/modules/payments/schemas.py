@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Annotated, Literal
+from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, model_validator
 
@@ -274,6 +275,16 @@ class CheckoutStartRequest(BaseModel):
     )
     marketing_accepted: bool = False
     recording_accepted: bool = False
+    accepted_policy_version_ids: list[UUID] = Field(
+        default_factory=list,
+        # Como mucho una por tipo (hay cuatro): el tope corta cuerpos abusivos
+        # antes de validar nada más.
+        max_length=10,
+        description=(
+            "Versiones de las políticas del organizador que se muestran y se "
+            "aceptan (las de `GET /public/events/{slug}/policies`)."
+        ),
+    )
     ticket_type_id: str
     code: Annotated[str, Field(max_length=60)] | None = None
     turnstile_token: str = Field(description="Token del widget de Turnstile")

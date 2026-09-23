@@ -30,6 +30,7 @@ from app.core.ratelimit import (
 from app.core.turnstile import require_turnstile
 from app.modules.events import service as events_service
 from app.modules.events.models import Event
+from app.modules.policies import service as policies_service
 from app.modules.registrations import repository, service
 from app.modules.registrations.schemas import (
     CancelRegistrationRequest,
@@ -111,6 +112,11 @@ async def create_registration(
         # descuento, así que dejarlo colar dejaría una inscripción sin pago
         # posible (fase 6 del PRD).
         raise ConflictError("Este evento requiere completar la compra de una entrada.")
+    # Antes de Turnstile: su token es de un solo uso. Si las condiciones han
+    # cambiado, el formulario las recarga y reenvía con el mismo token; si ya
+    # se hubiera gastado, la reaceptación moriría como «bot». No revela nada:
+    # los ids vigentes son públicos. El servicio lo vuelve a comprobar.
+    await policies_service.comprobar_aceptacion(session, evento, datos.accepted_policy_version_ids)
     await require_turnstile(request, datos.turnstile_token)
     await service.submit_registration(
         session,
@@ -121,6 +127,7 @@ async def create_registration(
         data_processing_accepted=datos.data_processing_accepted,
         marketing_accepted=datos.marketing_accepted,
         recording_accepted=datos.recording_accepted,
+        accepted_policy_version_ids=datos.accepted_policy_version_ids,
     )
     return RegistrationMessageResponse(
         message="Si los datos son correctos, en breve recibirás un correo con los siguientes pasos."

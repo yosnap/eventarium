@@ -2,12 +2,26 @@ import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 
 /**
- * Lista blanca explícita del contenido legal (fase 5 del PRD, decisión #2 del
- * plan): párrafos, negrita/cursiva, listas y enlaces. Nunca `<script>`,
- * `<iframe>` ni atributos `on*` — `ALLOWED_ATTR` ni siquiera los declara, así
- * que DOMPurify los descarta sin necesidad de una lista negra.
+ * Lista blanca explícita del contenido legal: párrafos, apartados (`h2`/`h3`:
+ * un documento legal se organiza por secciones; `h1` no, que es el título de
+ * la página), negrita/cursiva, listas y enlaces. Nunca `<script>`, `<iframe>`
+ * ni atributos `on*` — `ALLOWED_ATTR` ni siquiera los declara, así que
+ * DOMPurify los descarta sin necesidad de una lista negra.
  */
-const ETIQUETAS_PERMITIDAS = ['p', 'strong', 'em', 'b', 'i', 'ul', 'ol', 'li', 'a', 'br'];
+const ETIQUETAS_PERMITIDAS = [
+  'p',
+  'h2',
+  'h3',
+  'strong',
+  'em',
+  'b',
+  'i',
+  'ul',
+  'ol',
+  'li',
+  'a',
+  'br',
+];
 const ATRIBUTOS_PERMITIDOS = ['href'];
 
 marked.setOptions({ async: false, gfm: true, breaks: false });
@@ -24,12 +38,10 @@ marked.setOptions({ async: false, gfm: true, breaks: false });
  * de que esta función corra.
  */
 // INVARIANTE: nunca bindees `[innerHTML]` con texto de organización (contenido
-// legal, campos de perfil libres, lo que sea que edite alguien fuera del
-// equipo) sin pasarlo antes por `markdownToSafeHtml`. Hoy solo `legal-page.ts`
-// lo usa; si aparece un segundo punto de uso, entonces sí compensa envolver
-// esto en un `Pipe`/`Directive` reutilizable que fuerce la barrera en el
-// binding — con un único consumidor sería una capa de indirección sin nadie
-// que se beneficie de ella.
+// legal, políticas del organizador, campos libres, lo que sea que edite alguien
+// fuera del equipo). Se pinta siempre con `<app-markdown-seguro>`
+// (`markdown-seguro.ts`), el único consumidor de esta función; un test recorre
+// `src/app` para que no aparezca otro `[innerHTML]` con ese contenido.
 export function markdownToSafeHtml(markdown: string): string {
   const html = marked.parse(markdown, { async: false }) as string;
   return DOMPurify.sanitize(html, {

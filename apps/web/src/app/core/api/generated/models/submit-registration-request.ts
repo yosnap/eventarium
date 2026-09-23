@@ -7,6 +7,11 @@ import { RegistrationAnswerInput } from '../models/registration-answer-input';
  * Datos del formulario público de inscripción a un evento.
  */
 export interface SubmitRegistrationRequest {
+
+  /**
+   * Versiones de las políticas del organizador que se muestran y se aceptan (las de `GET /public/events/{slug}/policies`).
+   */
+  accepted_policy_version_ids?: Array<string>;
   answers?: Array<RegistrationAnswerInput>;
 
   /**

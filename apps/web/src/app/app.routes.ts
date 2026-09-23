@@ -187,6 +187,13 @@ export const routes: Routes = [
           import('./features/admin/branding/branding-page').then((m) => m.BrandingPage),
       },
       {
+        path: 'politicas',
+        loadComponent: () =>
+          import('./features/admin/policies/organization-policies-page').then(
+            (m) => m.OrganizationPoliciesPage,
+          ),
+      },
+      {
         path: 'roles',
         loadComponent: () => import('./features/admin/roles/roles-page').then((m) => m.RolesPage),
       },
@@ -290,6 +297,13 @@ export const routes: Routes = [
             path: 'ponentes',
             loadComponent: () =>
               import('./features/admin/events/event-speakers').then((m) => m.EventSpeakers),
+          },
+          {
+            path: 'politicas',
+            loadComponent: () =>
+              import('./features/admin/policies/event-policies-page').then(
+                (m) => m.EventPoliciesPage,
+              ),
           },
           {
             path: 'inscripciones',
@@ -448,6 +462,11 @@ export const routes: Routes = [
         path: 'eventos/:slug/patrocinadores/:sponsorId',
         loadComponent: () =>
           import('./features/public/events/sponsor-page').then((m) => m.SponsorPage),
+      },
+      {
+        path: 'eventos/:slug/politicas',
+        loadComponent: () =>
+          import('./features/public/events/public-policies-page').then((m) => m.PublicPoliciesPage),
       },
       {
         path: 'eventos/:slug/inscribirse',

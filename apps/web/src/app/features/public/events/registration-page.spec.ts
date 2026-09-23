@@ -4,7 +4,7 @@ import { PLATFORM_ID, Component, provideZonelessChangeDetection, output } from '
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { RegistrationPage } from './registration-page';
 import {
@@ -16,6 +16,11 @@ import {
   type RegistrationQuestion,
   RegistrationsService,
 } from '../../../core/registrations/registrations.service';
+import { ApiError } from '../../../core/api/error.interceptor';
+import {
+  type PoliticasPublicas,
+  PublicPoliciesService,
+} from '../../../core/policies/public-policies.service';
 import { TurnstileWidget } from '../../../shared/ui/turnstile-widget';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../../testing/axe';
 import es from '../../../../../public/assets/i18n/es-ES.json';
@@ -72,6 +77,7 @@ describe('RegistrationPage', () => {
     registrations: Partial<RegistrationsService>,
     checkout: Partial<PublicCheckoutService> = {},
     plataforma: 'browser' | 'server' = 'browser',
+    politicas: Partial<PublicPoliciesService> | null = null,
   ) {
     TestBed.configureTestingModule({
       imports: [
@@ -90,6 +96,13 @@ describe('RegistrationPage', () => {
         {
           provide: PublicCheckoutService,
           useValue: { getTicketTypes: vi.fn().mockResolvedValue([]), ...checkout },
+        },
+        {
+          provide: PublicPoliciesService,
+          // Por defecto, un evento sin textos propios del organizador.
+          useValue: politicas ?? {
+            obtener: vi.fn().mockResolvedValue({ organization_name: '', policies: [] }),
+          },
         },
       ],
     })
@@ -201,6 +214,8 @@ describe('RegistrationPage', () => {
           email: 'asistente@example.com',
           fullName: 'Asistente de Prueba',
           dataProcessingAccepted: true,
+          // Sin textos del organizador no se acepta nada.
+          acceptedPolicyVersionIds: [],
         }),
       );
       expect(fixture.nativeElement.textContent).toContain('Si los datos son correctos');
@@ -363,6 +378,243 @@ describe('RegistrationPage', () => {
 
       expect(startCheckout).toHaveBeenCalled();
       expect(asignacionDeUrl).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('con políticas del organizador', () => {
+    const POLITICAS: PoliticasPublicas = {
+      organization_name: 'IA Week',
+      policies: [
+        {
+          version_id: 'v-condiciones',
+          kind: 'condiciones',
+          version: 1,
+          content: 'Condiciones',
+          created_at: '2026-09-23T10:00:00Z',
+        },
+        {
+          version_id: 'v-privacidad',
+          kind: 'privacidad',
+          version: 2,
+          content: 'Privacidad',
+          created_at: '2026-09-23T10:00:00Z',
+        },
+      ],
+    };
+    let obtener: Mock<PublicPoliciesService['obtener']>;
+    let submit: Mock<RegistrationsService['submit']>;
+
+    beforeEach(() => {
+      obtener = vi.fn<PublicPoliciesService['obtener']>().mockResolvedValue(POLITICAS);
+      submit = vi
+        .fn<RegistrationsService['submit']>()
+        .mockResolvedValue('Si los datos son correctos, recibirás un correo.');
+      configurar({ getQuestions: vi.fn().mockResolvedValue([]), submit }, {}, 'browser', {
+        obtener,
+      });
+    });
+
+    function rellenar(nativeElement: HTMLElement, aceptarPoliticas: boolean): void {
+      const campoEmail = nativeElement.querySelector('input[type="email"]') as HTMLInputElement;
+      campoEmail.value = 'asistente@example.com';
+      campoEmail.dispatchEvent(new Event('input'));
+      const campoNombre = nativeElement.querySelectorAll('input')[1] as HTMLInputElement;
+      campoNombre.value = 'Asistente de Prueba';
+      campoNombre.dispatchEvent(new Event('input'));
+      const datos = nativeElement.querySelector('#insc-tratamiento-datos') as HTMLInputElement;
+      datos.checked = true;
+      datos.dispatchEvent(new Event('change'));
+      const politicas = nativeElement.querySelector('#insc-politicas') as HTMLInputElement;
+      politicas.checked = aceptarPoliticas;
+      politicas.dispatchEvent(new Event('change'));
+    }
+
+    function rellenarSinPoliticas(nativeElement: HTMLElement): void {
+      const campoEmail = nativeElement.querySelector('input[type="email"]') as HTMLInputElement;
+      campoEmail.value = 'asistente@example.com';
+      campoEmail.dispatchEvent(new Event('input'));
+      const campoNombre = nativeElement.querySelectorAll('input')[1] as HTMLInputElement;
+      campoNombre.value = 'Asistente de Prueba';
+      campoNombre.dispatchEvent(new Event('input'));
+      const datos = nativeElement.querySelector('#insc-tratamiento-datos') as HTMLInputElement;
+      datos.checked = true;
+      datos.dispatchEvent(new Event('change'));
+    }
+
+    async function enviar(fixture: ReturnType<typeof crearFixture>): Promise<void> {
+      (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
+        new Event('submit'),
+      );
+      await avanzar(fixture);
+    }
+
+    it('pinta la casilla con el nombre del organizador y enlaza sus textos', async () => {
+      const fixture = crearFixture();
+      await avanzar(fixture);
+      const raiz = fixture.nativeElement as HTMLElement;
+      expect(raiz.textContent).toContain('He leído y acepto las condiciones de IA Week.');
+      const enlaces = Array.from(raiz.querySelectorAll('a')).map((a) => a.getAttribute('href'));
+      expect(enlaces).toContain('/eventos/iawic-2026/politicas');
+      // Hay privacidad del organizador: la casilla de datos enlaza a ella.
+      expect(enlaces).toContain('/eventos/iawic-2026/politicas#privacidad');
+      await esperarSinViolacionesDeAccesibilidad(raiz);
+    });
+
+    it('sin marcar la casilla no se envía', async () => {
+      const fixture = crearFixture();
+      await avanzar(fixture);
+      rellenar(fixture.nativeElement, false);
+      await enviar(fixture);
+      expect(submit).not.toHaveBeenCalled();
+      expect(fixture.nativeElement.textContent).toContain(
+        'Debes aceptar las condiciones del organizador',
+      );
+    });
+
+    it('al marcarla envía las versiones que se muestran', async () => {
+      const fixture = crearFixture();
+      await avanzar(fixture);
+      rellenar(fixture.nativeElement, true);
+      await enviar(fixture);
+      expect(submit).toHaveBeenCalledWith(
+        'iawic-2026',
+        expect.objectContaining({
+          acceptedPolicyVersionIds: ['v-condiciones', 'v-privacidad'],
+        }),
+      );
+    });
+
+    it('si no se pueden cargar, avisa, no deja enviar y permite reintentar', async () => {
+      obtener.mockReset();
+      obtener.mockRejectedValueOnce(new Error('red')).mockResolvedValue(POLITICAS);
+      const fixture = crearFixture();
+      await avanzar(fixture);
+      fixture.detectChanges();
+      const raiz = fixture.nativeElement as HTMLElement;
+      expect(raiz.textContent).toContain('No se han podido cargar las condiciones');
+      expect(raiz.querySelector('#insc-politicas')).toBeNull();
+
+      await enviar(fixture);
+      expect(submit).not.toHaveBeenCalled();
+
+      const reintentar = Array.from(raiz.querySelectorAll('button')).find(
+        (boton) => boton.textContent?.trim() === 'Reintentar',
+      ) as HTMLButtonElement;
+      reintentar.click();
+      await avanzar(fixture);
+      fixture.detectChanges();
+      expect(raiz.querySelector('#insc-politicas')).not.toBeNull();
+    });
+
+    it('si la API no tiene el endpoint (404), se inscribe como sin textos', async () => {
+      obtener.mockReset();
+      obtener.mockRejectedValue(new ApiError(404, 'No encontrado', { status: 404 }));
+      const fixture = crearFixture();
+      await avanzar(fixture);
+      fixture.detectChanges();
+      const raiz = fixture.nativeElement as HTMLElement;
+      expect(raiz.querySelector('#insc-politicas')).toBeNull();
+      expect(raiz.textContent).not.toContain('No se han podido cargar las condiciones');
+
+      rellenarSinPoliticas(raiz);
+      await enviar(fixture);
+      expect(submit).toHaveBeenCalledWith(
+        'iawic-2026',
+        expect.objectContaining({ acceptedPolicyVersionIds: [] }),
+      );
+    });
+
+    it('si cambiaron a mitad, recarga, desmarca y conserva lo escrito', async () => {
+      submit.mockRejectedValueOnce(
+        new ApiError(409, 'Las condiciones han cambiado', {
+          status: 409,
+          code: 'politicas_cambiadas',
+        }),
+      );
+      const fixture = crearFixture();
+      await avanzar(fixture);
+      rellenar(fixture.nativeElement, true);
+      // Como en el navegador: tras el clic hay un ciclo de render antes de enviar.
+      await avanzar(fixture);
+      fixture.detectChanges();
+      await enviar(fixture);
+      await avanzar(fixture);
+      fixture.detectChanges();
+
+      const raiz = fixture.nativeElement as HTMLElement;
+      expect(obtener).toHaveBeenCalledTimes(2);
+      expect((raiz.querySelector('#insc-politicas') as HTMLInputElement).checked).toBe(false);
+      expect(raiz.textContent).toContain('han cambiado mientras rellenabas el formulario');
+      expect((raiz.querySelector('input[type="email"]') as HTMLInputElement).value).toBe(
+        'asistente@example.com',
+      );
+    });
+  });
+
+  describe('compra con políticas del organizador', () => {
+    it('envía las versiones al checkout y trata el 409 igual que la inscripción', async () => {
+      const startCheckout = vi.fn<PublicCheckoutService['startCheckout']>().mockRejectedValueOnce(
+        new ApiError(409, 'Las condiciones han cambiado', {
+          status: 409,
+          code: 'politicas_cambiadas',
+        }),
+      );
+      const obtener = vi.fn<PublicPoliciesService['obtener']>().mockResolvedValue({
+        organization_name: 'IA Week',
+        policies: [
+          {
+            version_id: 'v-reembolsos',
+            kind: 'reembolsos',
+            version: 1,
+            content: 'Sin reembolsos',
+            created_at: '2026-09-23T10:00:00Z',
+          },
+        ],
+      });
+      configurar(
+        { getQuestions: vi.fn().mockResolvedValue([]) },
+        {
+          getTicketTypes: vi.fn().mockResolvedValue(TIPOS_DE_ENTRADA),
+          quote: vi.fn().mockResolvedValue(PRESUPUESTO),
+          startCheckout,
+        },
+        'browser',
+        { obtener },
+      );
+      const fixture = crearFixture();
+      await avanzar(fixture);
+      fixture.detectChanges();
+      const raiz = fixture.nativeElement as HTMLElement;
+
+      (raiz.querySelector('input[name="tipo-entrada"]') as HTMLInputElement).dispatchEvent(
+        new Event('change'),
+      );
+      await avanzar(fixture);
+      const campoEmail = raiz.querySelector('input[type="email"]') as HTMLInputElement;
+      campoEmail.value = 'compra@example.com';
+      campoEmail.dispatchEvent(new Event('input'));
+      const campoNombre = raiz.querySelectorAll('input')[1] as HTMLInputElement;
+      campoNombre.value = 'Compradora';
+      campoNombre.dispatchEvent(new Event('input'));
+      for (const id of ['#insc-tratamiento-datos', '#insc-politicas']) {
+        const casilla = raiz.querySelector(id) as HTMLInputElement;
+        casilla.checked = true;
+        casilla.dispatchEvent(new Event('change'));
+      }
+      await avanzar(fixture);
+      fixture.detectChanges();
+
+      (raiz.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      await avanzar(fixture);
+      fixture.detectChanges();
+
+      expect(startCheckout).toHaveBeenCalledWith(
+        'iawic-2026',
+        expect.objectContaining({ acceptedPolicyVersionIds: ['v-reembolsos'] }),
+      );
+      expect(obtener).toHaveBeenCalledTimes(2);
+      expect((raiz.querySelector('#insc-politicas') as HTMLInputElement).checked).toBe(false);
+      expect(raiz.textContent).toContain('han cambiado mientras rellenabas el formulario');
     });
   });
 });

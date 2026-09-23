@@ -25,6 +25,8 @@ export interface SubmitRegistrationInput {
   readonly dataProcessingAccepted: boolean;
   readonly marketingAccepted: boolean;
   readonly recordingAccepted: boolean;
+  /** Versiones de las políticas del organizador aceptadas (vacía si no hay). */
+  readonly acceptedPolicyVersionIds: readonly string[];
   readonly turnstileToken: string;
 }
 
@@ -80,6 +82,7 @@ export class RegistrationsService {
         data_processing_accepted: datos.dataProcessingAccepted,
         marketing_accepted: datos.marketingAccepted,
         recording_accepted: datos.recordingAccepted,
+        accepted_policy_version_ids: datos.acceptedPolicyVersionIds,
         turnstile_token: datos.turnstileToken,
       }),
     );

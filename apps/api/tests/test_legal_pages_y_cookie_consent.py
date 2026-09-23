@@ -80,6 +80,7 @@ async def test_las_plantillas_dejan_las_condiciones_de_cada_evento_a_su_organiza
     condiciones = (await cliente.get(f"{PUBLIC_LEGAL}/condiciones-de-inscripcion")).json()
     assert "fija sus propias políticas y condiciones" in condiciones["content"]
     assert "prevalecen las de la organización" in condiciones["content"]
+    assert "página de políticas del evento" in condiciones["content"]
 
     privacidad = (await cliente.get(f"{PUBLIC_LEGAL}/privacidad")).json()
     assert "es la responsable de los datos que aportas al inscribirte" in privacidad["content"]

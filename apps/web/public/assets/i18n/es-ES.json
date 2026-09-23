@@ -329,6 +329,21 @@
         "parteDe": "Parte de",
         "humanitek": "Humanitek"
       }
+    },
+    "politicas": {
+      "titulo": "Políticas y condiciones",
+      "enlace": "Políticas y condiciones del evento",
+      "fecha": "Versión {{version}}, del {{fecha}}",
+      "sinTextos": "El organizador de este evento no ha publicado condiciones propias. Aplican las condiciones generales de la plataforma.",
+      "generales": "Ver las condiciones generales",
+      "pie": "Estas condiciones las fija {{organizacion}}, que es responsable de ellas.",
+      "error": "No se han podido cargar las condiciones del evento.",
+      "tipos": {
+        "condiciones": "Condiciones del evento",
+        "reembolsos": "Política de reembolsos",
+        "privacidad": "Política de privacidad",
+        "otras": "Otras condiciones"
+      }
     }
   },
   "registro": {
@@ -439,6 +454,16 @@
       "formularioAprobacion": "Solicita tu plaza: revisamos tu inscripción antes de confirmarla",
       "formularioPago": "Elige tu entrada y completa el pago",
       "enviado": "Ya casi está"
+    },
+    "politicas": {
+      "aceptar": "He leído y acepto las condiciones de {{organizacion}}.",
+      "leer": "Leer las condiciones del evento (se abren en otra pestaña)",
+      "leerPrivacidad": "Leer la política de privacidad (se abre en otra pestaña)",
+      "requerido": "Debes aceptar las condiciones del organizador para inscribirte.",
+      "cambiadas": "Las condiciones del organizador han cambiado mientras rellenabas el formulario. Revísalas y vuelve a aceptarlas; el resto de tus datos se conserva.",
+      "errorCarga": "No se han podido cargar las condiciones del organizador, y hacen falta para inscribirse.",
+      "reintentar": "Reintentar",
+      "sinCargar": "Espera a que se carguen las condiciones del organizador para enviar el formulario."
     }
   },
   "pago": {
@@ -1315,7 +1340,12 @@
           "consentimientoGrabacionNo": "Grabación: no aceptado",
           "sinConsentimientos": "No hay datos de consentimiento.",
           "error": "No hemos podido cargar la inscripción.",
-          "rotulo": "Inscripción"
+          "rotulo": "Inscripción",
+          "politicasAceptadas": "Condiciones del organizador aceptadas",
+          "politicasNoAplica": "El evento no tenía condiciones propias al inscribirse.",
+          "verVersion": "{{tipo}}, versión {{version}}",
+          "ocultarVersion": "Ocultar texto",
+          "errorVersion": "No se ha podido cargar esa versión."
         }
       },
       "registrationQuestions": {
@@ -2277,6 +2307,47 @@
         "respuesta_inesperada": "el proveedor ha respondido algo que no es una lista de modelos",
         "desconocido": "no se ha podido completar la comprobación"
       }
+    },
+    "politicas": {
+      "nav": "Políticas",
+      "rotulo": "Políticas y condiciones",
+      "tituloOrganizacion": "Las condiciones de tus eventos",
+      "responsabilidadTitulo": "Estos textos son tuyos",
+      "responsabilidad": "Estos textos son tuyos y tú eres responsable de su contenido. Eventarium no los revisa. Te recomendamos que los revise un profesional del derecho antes de publicarlos.",
+      "soloLectura": "Solo quien gestiona la organización puede cambiar estos textos.",
+      "errorCarga": "No se han podido cargar las políticas. Recarga la página.",
+      "errorGuardar": "No se ha podido guardar el texto.",
+      "escribir": "Escribir",
+      "vistaPrevia": "Vista previa",
+      "ayudaMarkdown": "Admite Markdown: apartados (## Título), **negrita**, *cursiva*, listas y enlaces.",
+      "contador": "{{usados}} de {{limite}} caracteres",
+      "demasiadoLargo": "El texto supera el máximo de caracteres.",
+      "vistaVacia": "Aquí verás el texto tal como lo leerá quien se inscriba.",
+      "guardando": "Guardando…",
+      "avisoEventoPublicado": "Si un evento publicado usa este texto, quien esté inscribiéndose en este momento tendrá que volver a aceptar las condiciones.",
+      "versionGuardada": "Versión {{version}} guardada.",
+      "retirado": "Retirado: tus eventos ya no lo muestran.",
+      "sinTexto": "Todavía sin escribir.",
+      "retirar": "Retirar",
+      "confirmarRetirar": "El texto dejará de mostrarse en tus eventos que no tengan uno propio. Las inscripciones anteriores conservan la versión que aceptaron. Puedes volver a escribirlo cuando quieras.",
+      "siRetirar": "Sí, retirar",
+      "tipos": {
+        "condiciones": "Condiciones del evento",
+        "reembolsos": "Política de reembolsos",
+        "privacidad": "Política de privacidad",
+        "otras": "Otras condiciones"
+      },
+      "ayudaEvento": "Por defecto, este evento usa los textos de tu organización. Puedes sustituir cualquiera por uno propio.",
+      "irAOrganizacion": "Ver los textos de la organización",
+      "origen": "Texto que se aplica en este evento",
+      "usarOrganizacion": "Usar el de la organización",
+      "textoPropio": "Texto propio de este evento",
+      "textoPropioVigente": "Este evento usa un texto propio:",
+      "heredado": "Se aplica el de la organización:",
+      "organizacionSinTexto": "La organización no tiene este texto.",
+      "pendientesTitulo": "Este evento no tiene condiciones propias",
+      "pendientes": "Quien se inscriba solo verá las condiciones generales de la plataforma. Puedes publicar igualmente.",
+      "irAPoliticas": "Escribir las condiciones"
     }
   },
   "miEntrada": {

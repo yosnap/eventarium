@@ -9,6 +9,11 @@ import { RegistrationAnswerInputPublic } from '../models/registration-answer-inp
  * del embudo, decisión de producto de la fase 6).
  */
 export interface CheckoutStartRequest {
+
+  /**
+   * Versiones de las políticas del organizador que se muestran y se aceptan (las de `GET /public/events/{slug}/policies`).
+   */
+  accepted_policy_version_ids?: Array<string>;
   answers?: Array<RegistrationAnswerInputPublic>;
   code?: (string | null);
 

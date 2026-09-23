@@ -28,8 +28,9 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+    text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -267,6 +268,17 @@ class EventRegistrationConsent(Base, TimestampMixin):
     )
     recording_accepted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    #: Aceptación de las políticas propias del organizador (`policies`). `None`
+    #: si el evento no tenía ningún texto vigente al inscribirse.
+    organizer_policies_accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    #: Versiones exactas aceptadas (`organization_policy_versions.id`). Sin FK
+    #: (un array no puede tenerla): las versiones nunca se borran salvo en
+    #: cascada con su evento u organización, que arrastran esta fila también.
+    accepted_policy_version_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(PgUUID(as_uuid=True)), nullable=False, default=list, server_default=text("'{}'")
     )
 
     registration: Mapped[EventRegistration] = relationship(back_populates="consent")

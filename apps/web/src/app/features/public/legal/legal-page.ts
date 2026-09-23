@@ -6,7 +6,6 @@ import {
   PendingTasks,
   TransferState,
   computed,
-  effect,
   inject,
   input,
   makeStateKey,
@@ -17,7 +16,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../../../core/api/api.service';
 import { SeoMetaService } from '../../../core/seo/meta.service';
-import { markdownToSafeHtml } from '../../../shared/legal/sanitize-markdown';
+import { MarkdownSeguro } from '../../../shared/legal/markdown-seguro';
 import { Alert } from '../../../shared/ui/alert';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 
@@ -43,22 +42,16 @@ interface LegalPageResponse {
  * inscripción.
  *
  * El contenido llega en SSR como Markdown restringido (mismo patrón
- * `TransferState` que `event-page.ts`) y se muestra primero como **texto
- * plano interpolado por Angular** — siempre escapado, nunca HTML — tanto en
- * SSR como antes de hidratar. Solo en el navegador se sustituye por el HTML
- * saneado con `marked` + `DOMPurify` (`sanitize-markdown.ts`), mediante un
- * `effect()` que reacciona a `contenidoBruto()` (nunca un `afterNextRender`
- * de una sola vez: `cargar()` es asíncrono y en una navegación cliente-cliente
- * el contenido puede llegar después del primer render, dejando la página en
- * texto plano para siempre si nadie reintenta el saneado). El `effect()` no
- * hace nada en el servidor (`this.api.isServer`): `DOMPurify` necesita un DOM
- * de navegador real. Un `<script>` guardado como contenido legal nunca llega
- * a ejecutarse en ninguna de las dos fases.
+ * `TransferState` que `event-page.ts`) y lo pinta `<app-markdown-seguro>`:
+ * texto plano escapado en SSR y antes de hidratar, HTML saneado solo en el
+ * navegador. Al ser un `computed` sobre la entrada, también se sanea cuando
+ * el contenido llega tarde en una navegación cliente-cliente. Un `<script>`
+ * guardado como contenido legal nunca llega a ejecutarse.
  */
 @Component({
   selector: 'app-legal-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Reveal],
+  imports: [TranslocoDirective, Alert, Reveal, MarkdownSeguro],
   template: `
     <ng-container *transloco="let t">
       <div class="ancho-maximo" appReveal>
@@ -68,10 +61,8 @@ interface LegalPageResponse {
           <p>{{ t('legal.cargando') }}</p>
         } @else if (error()) {
           <app-alert tone="error">{{ t('legal.error') }}</app-alert>
-        } @else if (htmlSeguro(); as html) {
-          <div class="contenido" [innerHTML]="html"></div>
         } @else {
-          <p class="contenido-plano">{{ contenidoBruto() }}</p>
+          <app-markdown-seguro [texto]="contenidoBruto() ?? ''" />
         }
       </div>
     </ng-container>
@@ -82,23 +73,6 @@ interface LegalPageResponse {
     }
     h1 {
       margin-top: 0;
-    }
-    /* Lectura larga: medida de línea acotada a ~68 caracteres (65-75ch es el
-       rango legible recomendado), no el ancho completo de .ancho-maximo. */
-    .contenido,
-    .contenido-plano {
-      max-width: 42rem;
-      white-space: pre-line;
-      line-height: 1.7;
-      font-size: var(--fs-body);
-    }
-    .contenido ::ng-deep ul,
-    .contenido ::ng-deep ol {
-      padding-inline-start: 1.5rem;
-    }
-    .contenido ::ng-deep h2,
-    .contenido ::ng-deep h3 {
-      margin-top: var(--space-lg);
     }
   `,
 })
@@ -113,26 +87,10 @@ export class LegalPage implements OnInit {
   private readonly transloco = inject(TranslocoService);
 
   protected readonly contenidoBruto = signal<string | null>(null);
-  protected readonly htmlSeguro = signal<string | null>(null);
   protected readonly cargando = signal(true);
   protected readonly error = signal(false);
 
   protected readonly tituloClave = computed(() => PAGINAS[this.page()].titulo);
-
-  constructor() {
-    // Reacciona a cada cambio de `contenidoBruto()`, no solo al primer
-    // render: en una navegación cliente-cliente `cargar()` puede resolver
-    // después de que el componente ya se haya pintado una vez. Nunca corre en
-    // el servidor: el saneado con DOMPurify necesita un DOM de navegador real
-    // (ver `sanitize-markdown.ts`).
-    effect(() => {
-      const bruto = this.contenidoBruto();
-      if (bruto === null || this.api.isServer) {
-        return;
-      }
-      this.htmlSeguro.set(markdownToSafeHtml(bruto));
-    });
-  }
 
   ngOnInit(): void {
     void this.tareasPendientes.run(() => this.cargar());

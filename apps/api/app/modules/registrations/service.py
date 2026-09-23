@@ -36,6 +36,7 @@ from app.modules.auth.verification import (
 from app.modules.events.models import Event
 from app.modules.payments import refunds_service as payments_refunds_service
 from app.modules.payments import repository as payments_repository
+from app.modules.policies import service as policies_service
 from app.modules.registrations import repository
 from app.modules.registrations.models import (
     EventRegistration,
@@ -411,6 +412,7 @@ async def submit_registration(
     data_processing_accepted: bool,
     marketing_accepted: bool,
     recording_accepted: bool,
+    accepted_policy_version_ids: list[uuid.UUID],
 ) -> EventRegistration | None:
     """Da de alta una inscripción, o reencola el correo si el email ya existía.
 
@@ -427,6 +429,10 @@ async def submit_registration(
     """
     if not data_processing_accepted:
         raise ValidationDomainError("Debes aceptar el tratamiento de datos para inscribirte.")
+    # Antes de buscar el email: la respuesta no puede depender de si ya estaba inscrito.
+    politicas = await policies_service.comprobar_aceptacion(
+        session, event, accepted_policy_version_ids
+    )
 
     email_normalizado = email.strip().lower()
     nombre = full_name.strip()
@@ -461,6 +467,7 @@ async def submit_registration(
             existente.status = nuevo_estado
             existente.cancelled_at = None
             existente.confirmed_at = ahora if nuevo_estado == "confirmed" else None
+            await repository.guardar_aceptacion_de_politicas(session, existente, politicas, ahora)
             await _enviar_email_por_estado(session, existente)
             return existente
 
@@ -531,6 +538,8 @@ async def submit_registration(
             data_processing_accepted_at=ahora,
             marketing_accepted_at=ahora if marketing_accepted else None,
             recording_accepted_at=ahora if recording_accepted else None,
+            organizer_policies_accepted_at=ahora if politicas else None,
+            accepted_policy_version_ids=politicas,
         )
     )
 
