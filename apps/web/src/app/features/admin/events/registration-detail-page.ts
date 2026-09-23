@@ -11,6 +11,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { PageHeader } from '../../../shared/ui/page-header';
+import { AcceptedPolicies } from '../policies/accepted-policies';
 import { claveDeEstado, type RegistrationDetail } from './registration-types';
 
 /**
@@ -21,7 +22,16 @@ import { claveDeEstado, type RegistrationDetail } from './registration-types';
 @Component({
   selector: 'app-registration-detail-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, DatePipe, Alert, Button, Card, PageHeader],
+  imports: [
+    TranslocoDirective,
+    RouterLink,
+    DatePipe,
+    Alert,
+    Button,
+    Card,
+    PageHeader,
+    AcceptedPolicies,
+  ],
   template: `
     <ng-container *transloco="let t">
       <app-page-header [rotulo]="t('admin.events.registrations.detalle.rotulo')">
@@ -183,6 +193,11 @@ import { claveDeEstado, type RegistrationDetail } from './registration-types';
                 }
               </div>
             </dl>
+            <app-accepted-policies
+              [eventId]="eventId()"
+              [aceptadasEl]="consentimiento.organizer_policies_accepted_at ?? null"
+              [versiones]="consentimiento.accepted_policies ?? []"
+            />
           } @else {
             <p>{{ t('admin.events.registrations.detalle.sinConsentimientos') }}</p>
           }

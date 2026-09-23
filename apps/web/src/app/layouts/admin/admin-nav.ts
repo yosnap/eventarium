@@ -18,6 +18,7 @@ export const ORGANIZATION_NAV_LINKS: readonly AdminNavLink[] = [
   { path: ['/dashboard'], labelKey: 'admin.escritorio', exact: true },
   { path: ['/dashboard/organization'], labelKey: 'admin.organizacion.titulo' },
   { path: ['/dashboard/branding'], labelKey: 'admin.identidadVisual' },
+  { path: ['/dashboard/politicas'], labelKey: 'admin.politicas.nav' },
   { path: ['/dashboard/roles'], labelKey: 'admin.rolesNav' },
   { path: ['/dashboard/members'], labelKey: 'admin.miembrosNav' },
   { path: ['/dashboard/events'], labelKey: 'admin.eventsNav' },
@@ -99,6 +100,10 @@ export function enlacesDeEvento(eventId: string, aceptaPagos: boolean): readonly
   enlaces.push({
     path: ['/dashboard/events', eventId, 'ponentes'],
     labelKey: 'admin.events.speakers.rotulo',
+  });
+  enlaces.push({
+    path: ['/dashboard/events', eventId, 'politicas'],
+    labelKey: 'admin.politicas.nav',
   });
   enlaces.push({
     path: ['/dashboard/events', eventId, 'inscripciones'],

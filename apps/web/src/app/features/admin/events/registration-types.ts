@@ -41,10 +41,19 @@ export interface RegistrationAnswerOut {
   readonly value: string | readonly string[] | null;
 }
 
+export interface AcceptedPolicyOut {
+  readonly version_id: string;
+  readonly kind: 'condiciones' | 'reembolsos' | 'privacidad' | 'otras';
+  readonly version: number;
+}
+
 export interface RegistrationConsentOut {
   readonly data_processing_accepted_at: string;
   readonly marketing_accepted_at: string | null;
   readonly recording_accepted_at: string | null;
+  /** Aceptación de las políticas del organizador (`null` si no había textos). */
+  readonly organizer_policies_accepted_at?: string | null;
+  readonly accepted_policies?: readonly AcceptedPolicyOut[];
 }
 
 export interface RegistrationDetail extends RegistrationListItem {
