@@ -1,7 +1,8 @@
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { PLATFORM_ID, Component, provideZonelessChangeDetection, output } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { Meta, Title } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@jsverse/transloco';
 import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -84,6 +85,7 @@ describe('RegistrationPage', () => {
         TranslocoTestingModule.forRoot({
           langs: { 'es-ES': es },
           translocoConfig: { availableLangs: ['es-ES'], defaultLang: 'es-ES' },
+          preloadLangs: true,
         }),
       ],
       providers: [
@@ -129,6 +131,36 @@ describe('RegistrationPage', () => {
 
     afterEach(() => {
       document.documentElement.removeAttribute('data-theme');
+    });
+
+    it('pone un título propio y, al llegar el evento, lo completa sin heredar nada', async () => {
+      const meta = TestBed.inject(Meta);
+      meta.updateTag({ property: 'og:description', content: 'Descripción del evento anterior' });
+      const fixture = crearFixture();
+      fixture.detectChanges();
+      const titulo = TestBed.inject(Title);
+      expect(titulo.getTitle()).toBe('Inscripción');
+
+      TestBed.inject(HttpTestingController)
+        .expectOne((peticion) => peticion.url.endsWith('/public/events/iawic-2026'))
+        .flush({ title: 'IA Week', summary: null, cover_url: null, theme: null });
+      await avanzar(fixture);
+
+      expect(titulo.getTitle()).toBe('Inscripción · IA Week');
+      expect(meta.getTag('property="og:description"')?.content).toBe(es.publico.eventos.sinResumen);
+    });
+
+    it('si falla la carga del evento, se queda con su título y no con el anterior', async () => {
+      TestBed.inject(Title).setTitle('Congreso anterior');
+      const fixture = crearFixture();
+      fixture.detectChanges();
+
+      TestBed.inject(HttpTestingController)
+        .expectOne((peticion) => peticion.url.endsWith('/public/events/iawic-2026'))
+        .flush(null, { status: 500, statusText: 'Error' });
+      await avanzar(fixture);
+
+      expect(TestBed.inject(Title).getTitle()).toBe('Inscripción');
     });
 
     it('renderiza el formulario en tema claro sin violaciones de accesibilidad', async () => {

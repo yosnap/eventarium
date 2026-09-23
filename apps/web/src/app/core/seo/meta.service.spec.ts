@@ -57,4 +57,12 @@ describe('SeoMetaService', () => {
     expect(TestBed.inject(Title).getTitle()).toBe('Sesión');
     expect(contenido('property="og:title"')).toBe('Sesión');
   });
+
+  it('una página sin descripción no hereda la de la anterior', () => {
+    seo.set({ title: 'Evento', description: 'Resumen del evento' });
+    seo.set({ title: 'Mi entrada' });
+
+    expect(meta.getTag('property="og:description"')).toBeNull();
+    expect(meta.getTag('name="description"')).toBeNull();
+  });
 });

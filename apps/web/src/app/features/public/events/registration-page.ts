@@ -15,6 +15,7 @@ import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
+import { seoDePagina } from '../../../core/seo/meta.service';
 import { temaDeEvento } from '../../../core/theming/tema-de-evento';
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
@@ -516,6 +517,7 @@ export class RegistrationPage implements OnInit {
   private readonly esNavegador = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly http = inject(HttpClient);
   private readonly aplicarTema = temaDeEvento();
+  private readonly seo = seoDePagina();
   private readonly api = inject(ApiService);
 
   protected readonly cargandoPreguntas = signal(true);
@@ -672,6 +674,10 @@ export class RegistrationPage implements OnInit {
   }
 
   private async cargarEvento(): Promise<void> {
+    // Antes de pedir el evento: si la petición falla, la página no debe
+    // quedarse con el título y las OG del evento del que se venía.
+    const titulo = this.transloco.translate('inscripcion.seoTitulo');
+    this.seo.set({ title: titulo });
     try {
       const evento = await firstValueFrom(
         this.http.get<PublicEventDetail>(this.api.url(`/public/events/${this.slug()}`), {
@@ -680,6 +686,11 @@ export class RegistrationPage implements OnInit {
       );
       this.evento.set(evento);
       this.aplicarTema(evento.theme);
+      this.seo.set({
+        title: `${titulo} · ${evento.title}`,
+        description: evento.summary ?? this.transloco.translate('publico.eventos.sinResumen'),
+        image: evento.cover_url,
+      });
     } catch {
       // Best-effort, igual que `cargarTiposDeEntrada`: sin resumen el
       // formulario se sigue pudiendo enviar.
