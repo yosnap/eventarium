@@ -3,7 +3,6 @@ import { HttpClient } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
-  type OnDestroy,
   type OnInit,
   PendingTasks,
   TransferState,
@@ -19,7 +18,7 @@ import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../../../core/api/api.service';
-import { applyTokensDeEvento } from '../../../core/theming/apply-tokens';
+import { temaDeEvento } from '../../../core/theming/tema-de-evento';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { SeoMetaService } from '../../../core/seo/meta.service';
 import { NotFoundStatusService } from '../../../core/ssr/not-found-status.service';
@@ -28,6 +27,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Breadcrumb, type BreadcrumbItem } from '../../../shared/ui/breadcrumb';
 import { Chip, type ChipTone } from '../../../shared/ui/chip';
 import { Reveal } from '../../../shared/ui/reveal.directive';
+import { ShareLinks } from '../../../shared/ui/share-links';
 import { VenueMap } from '../../../shared/ui/venue-map';
 import type { LocationMode, PublicEventDetail, RegistrationMode } from './event-page.types';
 import { type DiaDeAgenda, EventAgendaSection } from './sections/event-agenda-section';
@@ -86,6 +86,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
     Chip,
     VenueMap,
     Reveal,
+    ShareLinks,
     EventAgendaSection,
     EventSpeakersSection,
   ],
@@ -128,6 +129,11 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                 @if (evento.description) {
                   <p class="hero__descripcion">{{ evento.description }}</p>
                 }
+                <app-share-links
+                  class="hero__compartir"
+                  [url]="urlPublica(evento)"
+                  [titulo]="evento.title"
+                />
               </div>
 
               <div class="ficha">
@@ -411,6 +417,10 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
       margin-top: var(--sp-5);
       white-space: pre-line;
     }
+    .hero__compartir {
+      display: block;
+      margin-top: var(--sp-5);
+    }
     .ficha {
       display: grid;
       border: 1px solid var(--border);
@@ -587,13 +597,14 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
     }
   `,
 })
-export class EventPage implements OnInit, OnDestroy {
+export class EventPage implements OnInit {
   readonly slug = input.required<string>();
 
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly documento = inject(DOCUMENT);
   private readonly transferState = inject(TransferState);
+  private readonly aplicarTema = temaDeEvento();
   private readonly tareasPendientes = inject(PendingTasks);
   private readonly seo = inject(SeoMetaService);
   private readonly notFound = inject(NotFoundStatusService);
@@ -661,6 +672,12 @@ export class EventPage implements OnInit, OnDestroy {
     }
     return [...vistos.values()];
   });
+
+  /** Absoluta y sin ancla ni query: es lo que se comparte. En el SSR,
+   * `location` ya es la URL pública de la petición. */
+  protected urlPublica(evento: PublicEventDetail): string {
+    return `${this.documento.location.origin}/eventos/${evento.slug}`;
+  }
 
   protected migasDePan(evento: PublicEventDetail): BreadcrumbItem[] {
     return [
@@ -738,14 +755,6 @@ export class EventPage implements OnInit, OnDestroy {
     void this.tareasPendientes.run(() => this.cargar());
   }
 
-  /** `applyTokensDeEvento` marca `<body>` entero cuando el evento tiene
-   * plantilla propia (aplicación total, no solo su ficha) — `<body>`
-   * sobrevive a la navegación SPA, así que hay que limpiar el ámbito al
-   * salir de esta página o se quedaría pegado en el resto del sitio. */
-  ngOnDestroy(): void {
-    applyTokensDeEvento(null, this.documento);
-  }
-
   private async cargar(): Promise<void> {
     const clave = makeStateKey<PublicEventDetail>(`public-event:${this.slug()}`);
     const transferido = this.transferState.get(clave, null);
@@ -783,7 +792,7 @@ export class EventPage implements OnInit, OnDestroy {
     // La plantilla del evento se inyecta al llegar el dato, no al construir el
     // componente: en SSR el `document` no existe al construirlo, y quitarla
     // cuando no hay tema propio es lo que deja pasar la de la organización.
-    applyTokensDeEvento(evento.theme ? { theme: evento.theme } : null, this.documento);
+    this.aplicarTema(evento.theme);
     this.seo.set({
       title: evento.title,
       description: evento.summary ?? this.transloco.translate('publico.eventos.sinResumen'),

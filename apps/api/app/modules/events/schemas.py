@@ -11,7 +11,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator, model_validato
 
 from app.modules.organizations.schemas import SLUG_PATTERN
 from app.modules.sponsors.schemas import PublicSponsorTier
-from app.modules.theme_templates.schemas import validar_theme_overrides
+from app.modules.theme_templates.schemas import PublicTheme, validar_theme_overrides
 
 EventStatus = Literal["draft", "published", "archived"]
 EventVisibility = Literal["public", "hidden", "private"]
@@ -442,6 +442,9 @@ class PublicSessionDetail(PublicEventSession):
 
     event_slug: str
     event_title: str
+    # Plantilla del evento padre, ya resuelta: la página la aplica igual que la
+    # ficha del evento para no cambiar de aspecto al navegar dentro de él.
+    theme: PublicTheme | None = None
 
 
 class PublicVenue(BaseModel):
@@ -454,20 +457,6 @@ class PublicVenue(BaseModel):
     capacity: int | None
     latitude: float | None
     longitude: float | None
-
-
-class PublicTheme(BaseModel):
-    """Plantilla visual resuelta para una página pública.
-
-    Se sirve **ya resuelta**, con la herencia aplicada en el servidor (evento →
-    organización → por defecto del catálogo): el cliente no tiene que encadenar
-    tres niveles ni conocer el catálogo para pintar la página.
-    """
-
-    id: str
-    key: str
-    name: str
-    tokens: dict[str, Any]
 
 
 class PublicEventDetail(BaseModel):

@@ -293,9 +293,7 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
                         <input
                           type="color"
                           class="selector"
-                          [value]="
-                            hexParaSelector(formulario().tokens[modo][token] ?? '') ?? '#808080'
-                          "
+                          [value]="colorDelSelector(modo, token)"
                           (input)="elegirColor(modo, token, $event)"
                           [attr.aria-label]="
                             t('admin.superadmin.plantillas.selectorDe', { token: token })
@@ -654,9 +652,6 @@ export class ThemeTemplatesPage {
   }
 
   /** Las dos opciones del selector de modo por defecto, ya traducidas. */
-  /** Alias protegidos: las funciones importadas no son visibles a la plantilla. */
-  protected readonly hexParaSelector = hexParaSelector;
-
   protected readonly modosSelector = computed<readonly { valor: ModoDeTema; etiqueta: string }[]>(
     () => [
       {
@@ -792,6 +787,12 @@ export class ThemeTemplatesPage {
         light: { ...actual.tokens.light, ...base.tokens.light },
       },
     }));
+  }
+
+  /** El token puede no estar definido todavía en ese modo (el índice no lo
+   * refleja en el tipo): el selector nativo necesita siempre un hex válido. */
+  protected colorDelSelector(modo: ModoDeTema, token: string): string {
+    return hexParaSelector(this.formulario().tokens[modo][token] ?? '') ?? '#808080';
   }
 
   /**

@@ -18,6 +18,7 @@ import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
+import { temaDeEvento } from '../../../core/theming/tema-de-evento';
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { SeoMetaService } from '../../../core/seo/meta.service';
@@ -399,6 +400,7 @@ export class EventVenuesPage implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transferState = inject(TransferState);
+  private readonly aplicarTema = temaDeEvento();
   private readonly tareasPendientes = inject(PendingTasks);
   private readonly seo = inject(SeoMetaService);
   private readonly notFound = inject(NotFoundStatusService);
@@ -562,6 +564,7 @@ export class EventVenuesPage implements OnInit {
 
   private aplicar(evento: PublicEventDetail): void {
     this.evento.set(evento);
+    this.aplicarTema(evento.theme);
     this.sedesVisibles.set(evento.venues.map((sede) => sede.id));
     this.seo.set({
       title: `${evento.title} · ${this.traducir('publico.eventos.multisede.rotulo')}`,

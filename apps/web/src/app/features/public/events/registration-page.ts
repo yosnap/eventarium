@@ -15,6 +15,7 @@ import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
+import { temaDeEvento } from '../../../core/theming/tema-de-evento';
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
 import {
@@ -514,6 +515,7 @@ export class RegistrationPage implements OnInit {
   private readonly transloco = inject(TranslocoService);
   private readonly esNavegador = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly http = inject(HttpClient);
+  private readonly aplicarTema = temaDeEvento();
   private readonly api = inject(ApiService);
 
   protected readonly cargandoPreguntas = signal(true);
@@ -671,13 +673,13 @@ export class RegistrationPage implements OnInit {
 
   private async cargarEvento(): Promise<void> {
     try {
-      this.evento.set(
-        await firstValueFrom(
-          this.http.get<PublicEventDetail>(this.api.url(`/public/events/${this.slug()}`), {
-            headers: this.api.serverForwardHeaders(),
-          }),
-        ),
+      const evento = await firstValueFrom(
+        this.http.get<PublicEventDetail>(this.api.url(`/public/events/${this.slug()}`), {
+          headers: this.api.serverForwardHeaders(),
+        }),
       );
+      this.evento.set(evento);
+      this.aplicarTema(evento.theme);
     } catch {
       // Best-effort, igual que `cargarTiposDeEntrada`: sin resumen el
       // formulario se sigue pudiendo enviar.

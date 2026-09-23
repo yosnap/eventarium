@@ -85,6 +85,21 @@ describe('VenueMap', () => {
     expect(marker).toHaveBeenCalledTimes(2);
   });
 
+  it('pinta el nombre de la sede como texto, nunca como HTML', async () => {
+    const bindPopup = vi.fn();
+    const { marker } = await import('leaflet');
+    vi.mocked(marker).mockReturnValue({ bindPopup } as never);
+    const nombre = '<img src=x onerror="alert(1)">';
+    fixture.componentRef.setInput('marcadores', [{ lat: 39.47, lng: -0.376, label: nombre }]);
+    fixture.detectChanges();
+    await avanzarConMapaPintado(fixture);
+
+    const contenido = bindPopup.mock.calls[0][0] as HTMLElement;
+    expect(contenido).toBeInstanceOf(HTMLElement);
+    expect(contenido.textContent).toBe(nombre);
+    expect(contenido.querySelector('img')).toBeNull();
+  });
+
   it('lleva el aria-label pedido, sin depender de i18n', () => {
     fixture.componentRef.setInput('marcadores', []);
     fixture.detectChanges();

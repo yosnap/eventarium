@@ -259,3 +259,17 @@ class ContrasteInsuficienteDetalle(BaseModel):
     segundo: str
     modo: str
     ratio: float
+
+
+class PublicTheme(BaseModel):
+    """Plantilla visual resuelta para una página pública.
+
+    Se sirve **ya resuelta**, con la herencia aplicada en el servidor (evento →
+    organización → por defecto del catálogo): el cliente no tiene que encadenar
+    tres niveles ni conocer el catálogo para pintar la página.
+    """
+
+    id: str
+    key: str
+    name: str
+    tokens: dict[str, Any]

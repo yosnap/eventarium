@@ -7,6 +7,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
+from app.modules.theme_templates.schemas import PublicTheme
+
 #: Tope por texto. Es una barrera contra abusos, no una regla de negocio: un
 #: documento legal largo cabe de sobra y cambiarlo no toca el esquema.
 LIMITE_CARACTERES = 50_000
@@ -80,6 +82,9 @@ class PublicEventPolicies(BaseModel):
     #: Solo los tipos con texto vigente, en orden de muestra. Vacía si el
     #: evento no tiene ninguno (aplican las condiciones generales).
     policies: list[PolicyVersionOut]
+    # Plantilla del evento padre, ya resuelta: la página la aplica igual que la
+    # ficha del evento para no cambiar de aspecto al navegar dentro de él.
+    theme: PublicTheme | None = None
 
 
 class AcceptedPolicyOut(BaseModel):

@@ -333,6 +333,8 @@ describe('EventPage — plantilla propia del evento', () => {
     expect(document.body.getAttribute('data-ambito')).toBe('evento');
 
     fixture.destroy();
+    // La limpieza espera una microtarea por si se abre otra página del evento.
+    await new Promise((resolve) => queueMicrotask(() => resolve(undefined)));
 
     expect(document.body.hasAttribute('data-ambito')).toBe(false);
     expect(document.getElementById('tema-evento')).toBeNull();
