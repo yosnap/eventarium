@@ -31,6 +31,42 @@ export interface ChangelogVersion {
 
 export const CHANGELOG: readonly ChangelogVersion[] = [
   {
+    version: '0.21.14',
+    fecha: '2026-09-23',
+    secciones: [
+      {
+        categoria: 'agregado',
+        items: [
+          {
+            titulo: 'Imagen para compartir en redes',
+            descripcion:
+              'Las páginas públicas sin imagen propia (la portada de la plataforma, el listado, las sesiones o un evento sin portada) se comparten ahora con una tarjeta de Eventarium, en lugar de aparecer sin vista previa. Los eventos con portada siguen usando la suya.',
+          },
+          {
+            titulo: 'Compartir un evento',
+            descripcion:
+              'Debajo de la descripción del evento hay botones para compartirlo en X, LinkedIn, Facebook, WhatsApp, Telegram y Bluesky, enviarlo por correo o copiar el enlace. No cargan nada de las redes hasta que se pulsan.',
+          },
+        ],
+      },
+      {
+        categoria: 'corregido',
+        items: [
+          {
+            titulo: 'Las páginas de un evento conservan su diseño',
+            descripcion:
+              'La inscripción, el programa, las sesiones, los patrocinadores y las políticas de un evento se ven con la plantilla del evento, igual que su ficha, y ya no parpadea al pasar de una a otra.',
+          },
+          {
+            titulo: 'Mapas en producción',
+            descripcion:
+              'El mapa del lugar en la ficha del evento y el del editor de direcciones no llegaban a pintarse en la versión publicada.',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.21.13',
     fecha: '2026-09-15',
     secciones: [
