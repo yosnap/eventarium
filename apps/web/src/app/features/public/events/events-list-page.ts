@@ -17,7 +17,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
-import { SeoMetaService } from '../../../core/seo/meta.service';
+import { seoDePagina } from '../../../core/seo/meta.service';
 import { formatearPrecio } from '../../../shared/text/formatear-precio';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
@@ -463,7 +463,7 @@ export class EventsListPage implements OnInit {
   private readonly api = inject(ApiService);
   private readonly transferState = inject(TransferState);
   private readonly tareasPendientes = inject(PendingTasks);
-  private readonly seo = inject(SeoMetaService);
+  private readonly seo = seoDePagina();
   private readonly transloco = inject(TranslocoService);
 
   protected readonly eventos = signal<PublicEventSummary[]>([]);

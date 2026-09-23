@@ -19,7 +19,7 @@ import {
   type PoliticasPublicas,
   PublicPoliciesService,
 } from '../../../core/policies/public-policies.service';
-import { SeoMetaService } from '../../../core/seo/meta.service';
+import { seoDePagina } from '../../../core/seo/meta.service';
 import { MarkdownSeguro } from '../../../shared/legal/markdown-seguro';
 import { Alert } from '../../../shared/ui/alert';
 
@@ -112,7 +112,7 @@ export class PublicPoliciesPage implements OnInit {
   private readonly transferState = inject(TransferState);
   private readonly aplicarTema = temaDeEvento();
   private readonly tareasPendientes = inject(PendingTasks);
-  private readonly seo = inject(SeoMetaService);
+  private readonly seo = seoDePagina();
   private readonly transloco = inject(TranslocoService);
 
   protected readonly datos = signal<PoliticasPublicas | null>(null);

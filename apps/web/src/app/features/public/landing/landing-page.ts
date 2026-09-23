@@ -9,7 +9,7 @@ import {
 } from '@angular/core';
 import { TranslocoService } from '@jsverse/transloco';
 
-import { SeoMetaService } from '../../../core/seo/meta.service';
+import { seoDePagina } from '../../../core/seo/meta.service';
 import { EnDirectoService } from './en-directo.service';
 import { GsapLoader } from './gsap';
 import { LandingColaborar } from './secciones/colaborar';
@@ -150,7 +150,7 @@ const INTERVALO_EN_DIRECTO_MS = 60_000;
   `,
 })
 export class LandingPage implements OnInit {
-  private readonly seo = inject(SeoMetaService);
+  private readonly seo = seoDePagina();
   private readonly transloco = inject(TranslocoService);
   private readonly enDirecto = inject(EnDirectoService);
 

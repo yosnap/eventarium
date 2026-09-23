@@ -1,4 +1,4 @@
-import { DOCUMENT, Injectable, inject } from '@angular/core';
+import { DOCUMENT, DestroyRef, Injectable, inject } from '@angular/core';
 import { Meta, Title } from '@angular/platform-browser';
 
 /** Datos mínimos para las etiquetas Open Graph de una página pública. */
@@ -56,4 +56,26 @@ export class SeoMetaService {
   private absoluta(url: string): string {
     return new URL(url, `${this.documento.location.origin}/`).href;
   }
+}
+
+/**
+ * Lo que usan las páginas públicas en vez de inyectar `SeoMetaService`.
+ * Las peticiones de datos no se cancelan al salir de la página: si la
+ * respuesta llega con la página ya destruida, su título y sus OG pisarían los
+ * de la página a la que se ha navegado. Se llama en el constructor (contexto
+ * de inyección).
+ */
+export function seoDePagina(): Pick<SeoMetaService, 'set'> {
+  const seo = inject(SeoMetaService);
+  let viva = true;
+  inject(DestroyRef).onDestroy(() => {
+    viva = false;
+  });
+  return {
+    set: (datos) => {
+      if (viva) {
+        seo.set(datos);
+      }
+    },
+  };
 }
