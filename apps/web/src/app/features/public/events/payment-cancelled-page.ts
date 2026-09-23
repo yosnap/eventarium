@@ -50,11 +50,11 @@ import { Reveal } from '../../../shared/ui/reveal.directive';
 export class PaymentCancelledPage {
   private readonly seo = seoDePagina();
   private readonly transloco = inject(TranslocoService);
+  private readonly ruta = inject(ActivatedRoute);
+
+  protected readonly slug: string | null = this.ruta.snapshot.queryParamMap.get('slug');
 
   constructor() {
     this.seo.set({ title: this.transloco.translate('pago.cancelado.titulo') });
   }
-  private readonly ruta = inject(ActivatedRoute);
-
-  protected readonly slug: string | null = this.ruta.snapshot.queryParamMap.get('slug');
 }

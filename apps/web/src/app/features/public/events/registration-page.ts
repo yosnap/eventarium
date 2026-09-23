@@ -674,6 +674,10 @@ export class RegistrationPage implements OnInit {
   }
 
   private async cargarEvento(): Promise<void> {
+    // Antes de pedir el evento: si la petición falla, la página no debe
+    // quedarse con el título y las OG del evento del que se venía.
+    const titulo = this.transloco.translate('inscripcion.seoTitulo');
+    this.seo.set({ title: titulo });
     try {
       const evento = await firstValueFrom(
         this.http.get<PublicEventDetail>(this.api.url(`/public/events/${this.slug()}`), {
@@ -683,10 +687,8 @@ export class RegistrationPage implements OnInit {
       this.evento.set(evento);
       this.aplicarTema(evento.theme);
       this.seo.set({
-        title: `${this.transloco.translate(
-          RegistrationPage.CLAVE_TITULO_FORMULARIO_POR_MODO[evento.registration_mode],
-        )} · ${evento.title}`,
-        description: evento.summary,
+        title: `${titulo} · ${evento.title}`,
+        description: evento.summary ?? this.transloco.translate('publico.eventos.sinResumen'),
         image: evento.cover_url,
       });
     } catch {

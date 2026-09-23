@@ -476,7 +476,8 @@
       "errorCarga": "No se han podido cargar las condiciones del organizador, y hacen falta para inscribirse.",
       "reintentar": "Reintentar",
       "sinCargar": "Espera a que se carguen las condiciones del organizador para enviar el formulario."
-    }
+    },
+    "seoTitulo": "Inscripción"
   },
   "pago": {
     "retorno": {
