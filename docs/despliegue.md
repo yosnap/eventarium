@@ -208,6 +208,19 @@ docker compose --env-file infra/env/.env -f infra/docker-compose.prod.yml up -d
 
 Haz una copia de seguridad **antes** de una actualización con migraciones (abajo).
 
+**Si la versión cambia `infra/caddy/Caddyfile`, reinicia `caddy` después de desplegar.**
+El fichero se monta suelto (`./caddy/Caddyfile:/etc/caddy/Caddyfile:ro`) y el despliegue
+lo sustituye por uno nuevo: el contenedor sigue leyendo el antiguo, y `docker compose up`
+no lo recrea porque su imagen no ha cambiado. Ni `caddy reload` basta, porque relee ese
+mismo fichero antiguo. Se nota en que las rutas nuevas caen en la web (en 0.22.0, `/mcp`
+respondía `302` con `x-powered-by: Express`). En Dokploy está la tarea manual
+`eventarium-reiniciar-caddy` (tipo servidor, sin cron), que hace `docker restart` del
+contenedor y comprueba el fichero montado; con Docker Compose:
+
+```bash
+docker compose --env-file infra/env/.env -f infra/docker-compose.prod.yml restart caddy
+```
+
 ## Rollback
 
 En EasyPanel: vuelve a poner la etiqueta anterior en `api`, `worker`, `scheduler` y `web`
