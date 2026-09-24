@@ -16,9 +16,11 @@ import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
+import { temaDeEvento } from '../../../core/theming/tema-de-evento';
+import type { PlantillaDeTema } from '../../../core/theming/theme-template.model';
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
-import { SeoMetaService } from '../../../core/seo/meta.service';
+import { seoDePagina } from '../../../core/seo/meta.service';
 import { NotFoundStatusService } from '../../../core/ssr/not-found-status.service';
 import { iniciales } from '../../../shared/text/iniciales';
 import { Alert } from '../../../shared/ui/alert';
@@ -47,6 +49,7 @@ interface PublicSessionDetail {
   readonly participants: readonly PublicParticipant[];
   readonly event_slug: string;
   readonly event_title: string;
+  readonly theme?: PlantillaDeTema | null;
 }
 
 /** Clave de `localStorage` de «Guardar en mi agenda» (`ficha-sesion.html:288`):
@@ -405,8 +408,9 @@ export class SessionPage implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transferState = inject(TransferState);
+  private readonly aplicarTema = temaDeEvento();
   private readonly tareasPendientes = inject(PendingTasks);
-  private readonly seo = inject(SeoMetaService);
+  private readonly seo = seoDePagina();
   private readonly notFound = inject(NotFoundStatusService);
   private readonly transloco = inject(TranslocoService);
   private readonly sanitizer = inject(DomSanitizer);
@@ -556,6 +560,7 @@ export class SessionPage implements OnInit {
 
   private aplicar(sesion: PublicSessionDetail): void {
     this.sesion.set(sesion);
+    this.aplicarTema(sesion.theme);
     this.embed.set(
       resolveVideoEmbed(sesion.video_platform, sesion.video_url, this.api.currentHost()),
     );

@@ -68,7 +68,11 @@ function claveDeEstado(valor: string): string {
                     <a [routerLink]="['/eventos', fila.event_slug]">{{ fila.event_title }}</a>
                     <span class="detalle">
                       {{ fila.starts_at | date: 'd MMM y, HH:mm' }} · {{ fila.organization_name }} ·
-                      {{ t('publico.misEventos.estado.' + claveDeEstado(fila.status)) }}
+                      @if (fila.event_cancelled) {
+                        {{ t('publico.misEventos.eventoCancelado') }}
+                      } @else {
+                        {{ t('publico.misEventos.estado.' + claveDeEstado(fila.status)) }}
+                      }
                     </span>
                   </li>
                 }

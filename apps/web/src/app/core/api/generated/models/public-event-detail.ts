@@ -8,8 +8,13 @@ import { PublicVenue } from '../models/public-venue';
 
 /**
  * Evento publicado con su agenda completa, para la página pública de detalle.
+ *
+ * También sirve a un evento cancelado, que sigue visible con su aviso:
+ * `cancelled` lo indica y `cancellation_reason` lleva el motivo público.
  */
 export interface PublicEventDetail {
+  cancellation_reason?: (string | null);
+  cancelled?: boolean;
   capacity: (number | null);
   cover_url: (string | null);
   description: (string | null);

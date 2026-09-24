@@ -15,9 +15,11 @@ import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
+import { temaDeEvento } from '../../../core/theming/tema-de-evento';
+import type { PlantillaDeTema } from '../../../core/theming/theme-template.model';
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
-import { SeoMetaService } from '../../../core/seo/meta.service';
+import { seoDePagina } from '../../../core/seo/meta.service';
 import { NotFoundStatusService } from '../../../core/ssr/not-found-status.service';
 import { iniciales } from '../../../shared/text/iniciales';
 import { Alert } from '../../../shared/ui/alert';
@@ -46,6 +48,7 @@ interface PublicSponsorDetail {
   readonly event_slug: string;
   readonly event_title: string;
   readonly history: readonly PublicSponsorHistoryItem[];
+  readonly theme?: PlantillaDeTema | null;
 }
 
 const CLAVE_TIPO_APORTACION: Record<ContributionType, string> = {
@@ -337,8 +340,9 @@ export class SponsorPage implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transferState = inject(TransferState);
+  private readonly aplicarTema = temaDeEvento();
   private readonly tareasPendientes = inject(PendingTasks);
-  private readonly seo = inject(SeoMetaService);
+  private readonly seo = seoDePagina();
   private readonly notFound = inject(NotFoundStatusService);
   private readonly transloco = inject(TranslocoService);
 
@@ -408,6 +412,7 @@ export class SponsorPage implements OnInit {
 
   private aplicar(patrocinador: PublicSponsorDetail): void {
     this.patrocinador.set(patrocinador);
+    this.aplicarTema(patrocinador.theme);
     this.seo.set({
       title: `${patrocinador.name} · ${patrocinador.event_title}`,
       description: this.transloco.translate('publico.patrocinador.rotulo'),

@@ -185,7 +185,7 @@ export class MemberForm {
   protected readonly lastName = signal('');
   protected readonly roleId = signal('');
   protected readonly roles = signal<RoleOption[]>([]);
-  protected readonly valoresDePerfil = signal<Record<string, string | boolean>>({});
+  protected readonly valoresDePerfil = signal<Partial<Record<string, string | boolean>>>({});
 
   protected readonly rolElegido = computed(() =>
     this.roles().find((rol) => rol.id === this.roleId()),
@@ -197,7 +197,7 @@ export class MemberForm {
     lastName: null,
     roleId: null,
   });
-  protected readonly erroresDePerfil = signal<Record<string, string | null>>({});
+  protected readonly erroresDePerfil = signal<Partial<Record<string, string | null>>>({});
 
   protected readonly resumenDeErrores = computed<ResumenDeError[]>(() => {
     const base = this.erroresBase();

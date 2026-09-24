@@ -33,7 +33,9 @@ from app.modules.media.models import Media
 from app.modules.organizations import repository as organizations_repository
 from app.modules.payments import repository as payments_repository
 from app.modules.payments import service as payments_service
+from app.modules.theme_templates.accent_palette import fusionar_overrides
 from app.modules.theme_templates.models import ThemeTemplate
+from app.modules.theme_templates.schemas import PublicTheme
 from app.shared.errors import ConflictError, NotFoundError, ValidationDomainError
 
 
@@ -179,6 +181,8 @@ async def create_event(
 def _validar_transicion_de_estado(actual: str, nuevo: str) -> None:
     if actual == "archived" and nuevo != "archived":
         raise ValidationDomainError("Un evento archivado no puede volver a editarse.")
+    if nuevo == "cancelled":  # pragma: no cover - el schema de entrada ya lo impide
+        raise ValidationDomainError("Para cancelar un evento usa la acción «Cancelar evento».")
 
 
 async def _resolver_plantilla_del_evento(
@@ -210,6 +214,8 @@ async def update_event(
     evento = await repository.get_event(session, organization_id, event_id)
     if evento is None:
         raise NotFoundError("El evento no existe.")
+    if evento.status == "cancelled":
+        raise ValidationDomainError("Un evento cancelado no puede volver a editarse.")
 
     nuevo_slug = datos.get("slug")
     if nuevo_slug is not None and nuevo_slug != evento.slug:
@@ -590,7 +596,15 @@ async def delete_venue(
     await session.flush()
 
 
-async def resolve_public_event_by_slug(session: AsyncSession, slug: str) -> Event:
+_RESOLVER_PARA_INSCRIBIR = text("SELECT id, organization_id FROM app_resolve_public_event(:slug)")
+_RESOLVER_PARA_MOSTRAR = text(
+    "SELECT id, organization_id FROM app_resolve_public_event_display(:slug)"
+)
+
+
+async def resolve_public_event_by_slug(
+    session: AsyncSession, slug: str, *, para_mostrar: bool = False
+) -> Event:
     """Resuelve un evento público por su slug, sin ningún contexto RLS previo.
 
     Sin dominio por organización, la organización de una página pública sale
@@ -607,9 +621,14 @@ async def resolve_public_event_by_slug(session: AsyncSession, slug: str) -> Even
     públicos, nunca desde uno autenticado: sobrescribiría la organización
     activa y el usuario de la sesión en curso.
     """
+    # `para_mostrar=True` admite también eventos cancelados (su ficha sigue
+    # visible con el aviso). Todo lo que inscribe, vende o cobra usa el valor
+    # por defecto, que solo resuelve eventos publicados: así un evento
+    # cancelado nunca vuelve a abrir la inscripción ni la compra.
+    consulta = _RESOLVER_PARA_MOSTRAR if para_mostrar else _RESOLVER_PARA_INSCRIBIR
     fila = (
         await session.execute(
-            text("SELECT id, organization_id FROM app_resolve_public_event(:slug)"),
+            consulta,
             {"slug": slug},
         )
     ).first()
@@ -690,3 +709,50 @@ async def list_public_events_across_organizations(
 
     resultado.sort(key=lambda item: item[0].starts_at)
     return resultado
+
+
+async def tema_publico_del_evento(session: AsyncSession, evento: Event) -> PublicTheme | None:
+    """La plantilla del evento, con la herencia ya resuelta.
+
+    Cuatro niveles, y el orden importa: la del evento si la eligió, si no la de
+    su organización, si no la aplicada a la plataforma («Usar en la
+    plataforma»), y si tampoco la marcada por defecto en el catálogo. Se resuelve
+    aquí y no en el cliente porque encadenar tres consultas desde el navegador
+    para pintar una página pública sería absurdo, y porque el catálogo es una
+    tabla de instalación que el visitante no tiene por qué conocer.
+
+    Único punto de fusión de `theme_overrides` en el backend (fase 1 del plan
+    «diseño del evento»): el panel de organizador calcula su propia vista
+    previa en el cliente, no hay un segundo resolutor de tokens en el
+    servidor. `fusionar_overrides` copia `tokens` antes de tocarlo — el dict
+    de esta fila ya es nuevo en cada petición (deserializado por el driver a
+    partir de `text(...)`, no el mismo objeto que el mapa de identidad del
+    ORM que usa el catálogo de `organizations/router.py`), pero se copia
+    igual, sin depender de esa garantía implícita.
+    """
+    fila = (
+        await session.execute(
+            text(
+                "SELECT t.id, t.key, t.name, t.tokens "
+                "FROM events e "
+                "LEFT JOIN organization_branding b ON b.organization_id = e.organization_id "
+                "LEFT JOIN platform_branding pb ON pb.singleton = 'default' "
+                "LEFT JOIN theme_templates t ON t.id = COALESCE("
+                "    e.theme_template_id, "
+                "    b.theme_template_id, "
+                "    pb.theme_template_id, "
+                "    (SELECT id FROM theme_templates WHERE is_default IS TRUE LIMIT 1)"
+                ") "
+                "WHERE e.id = :id"
+            ),
+            {"id": evento.id},
+        )
+    ).first()
+
+    if fila is None or fila[0] is None:
+        return None
+
+    tokens = fila[3]
+    if evento.theme_overrides:
+        tokens = fusionar_overrides(tokens, evento.theme_overrides)
+    return PublicTheme(id=str(fila[0]), key=fila[1], name=fila[2], tokens=tokens)

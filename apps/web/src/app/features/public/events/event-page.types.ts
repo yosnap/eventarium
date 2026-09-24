@@ -65,6 +65,9 @@ export interface PublicEventDetail {
   /** Plantilla propia del evento; `null` es que hereda la de su organización. */
   readonly theme?: PlantillaDeTema | null;
   readonly slug: string;
+  /** El evento está cancelado: la ficha sigue visible con el aviso. */
+  readonly cancelled?: boolean;
+  readonly cancellation_reason?: string | null;
   readonly title: string;
   readonly summary: string | null;
   readonly description: string | null;

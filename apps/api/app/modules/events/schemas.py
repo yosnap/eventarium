@@ -11,9 +11,13 @@ from pydantic import BaseModel, EmailStr, Field, field_validator, model_validato
 
 from app.modules.organizations.schemas import SLUG_PATTERN
 from app.modules.sponsors.schemas import PublicSponsorTier
-from app.modules.theme_templates.schemas import validar_theme_overrides
+from app.modules.theme_templates.schemas import PublicTheme, validar_theme_overrides
 
-EventStatus = Literal["draft", "published", "archived"]
+EventStatus = Literal["draft", "published", "archived", "cancelled"]
+# Lo que se acepta al crear o editar: `cancelled` no está porque solo se llega
+# con `cancelar_evento`, que además cancela inscripciones, reembolsa y avisa.
+# Con un PATCH se cancelaría el evento sin nada de eso.
+EventStatusInput = Literal["draft", "published", "archived"]
 EventVisibility = Literal["public", "hidden", "private"]
 LocationMode = Literal["in_person", "online", "hybrid"]
 RegistrationMode = Literal["free", "approval", "paid"]
@@ -69,7 +73,7 @@ class EventCreate(BaseModel):
     title: Annotated[str, Field(min_length=1, max_length=200)]
     summary: str | None = None
     description: str | None = None
-    status: EventStatus = "draft"
+    status: EventStatusInput = "draft"
     visibility: EventVisibility = "public"
     timezone: Annotated[str, Field(min_length=1, max_length=60)] = "Europe/Madrid"
     starts_at: datetime
@@ -103,7 +107,7 @@ class EventUpdate(BaseModel):
     title: Annotated[str, Field(min_length=1, max_length=200)] | None = None
     summary: str | None = None
     description: str | None = None
-    status: EventStatus | None = None
+    status: EventStatusInput | None = None
     visibility: EventVisibility | None = None
     timezone: Annotated[str, Field(min_length=1, max_length=60)] | None = None
     starts_at: datetime | None = None
@@ -172,6 +176,8 @@ class EventResponse(BaseModel):
     description: str | None
     cover_url: str | None
     status: EventStatus
+    cancelled_at: datetime | None = None
+    cancellation_reason: str | None = None
     visibility: EventVisibility
     timezone: str
     starts_at: datetime
@@ -442,6 +448,9 @@ class PublicSessionDetail(PublicEventSession):
 
     event_slug: str
     event_title: str
+    # Plantilla del evento padre, ya resuelta: la página la aplica igual que la
+    # ficha del evento para no cambiar de aspecto al navegar dentro de él.
+    theme: PublicTheme | None = None
 
 
 class PublicVenue(BaseModel):
@@ -456,24 +465,16 @@ class PublicVenue(BaseModel):
     longitude: float | None
 
 
-class PublicTheme(BaseModel):
-    """Plantilla visual resuelta para una página pública.
+class PublicEventDetail(BaseModel):
+    """Evento publicado con su agenda completa, para la página pública de detalle.
 
-    Se sirve **ya resuelta**, con la herencia aplicada en el servidor (evento →
-    organización → por defecto del catálogo): el cliente no tiene que encadenar
-    tres niveles ni conocer el catálogo para pintar la página.
+    También sirve a un evento cancelado, que sigue visible con su aviso:
+    `cancelled` lo indica y `cancellation_reason` lleva el motivo público.
     """
 
-    id: str
-    key: str
-    name: str
-    tokens: dict[str, Any]
-
-
-class PublicEventDetail(BaseModel):
-    """Evento publicado con su agenda completa, para la página pública de detalle."""
-
     slug: str
+    cancelled: bool = False
+    cancellation_reason: str | None = None
     title: str
     summary: str | None
     description: str | None

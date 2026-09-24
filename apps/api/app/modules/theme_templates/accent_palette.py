@@ -132,7 +132,7 @@ def fusionar_overrides(
     tokens: dict[str, dict[str, str]], overrides: dict[str, Any]
 ) -> dict[str, dict[str, str]]:
     """Fusiona `theme_overrides` SOBRE una copia de `tokens` (nunca in-situ:
-    ver docstring de `_tema_del_evento`, que es quien llama a esto).
+    ver docstring de `events.service.tema_publico_del_evento`, que es quien llama a esto).
 
     Si la derivación del acento falla (dato corrupto en BD que se saltó el
     validador de escritura), se ignora el override de acento y se

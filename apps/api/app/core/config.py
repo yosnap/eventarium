@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import ipaddress
 from functools import lru_cache
 from pathlib import Path
@@ -112,6 +114,12 @@ class Settings(BaseSettings):
     # absorbe cierres tardíos y desajustes de reloj (decisión #4 del plan).
     ticket_qr_expiry_margin_hours: int = 48
 
+    # Tokens OAuth del servidor MCP. Secreto propio, distinto de `jwt_secret`:
+    # un token del MCP no debe poder validarse como sesión web ni al revés.
+    # Si no se configura, se deriva de `jwt_secret` con una etiqueta de
+    # propósito (`mcp_jwt_secret_efectivo`), que ya es otra clave.
+    mcp_jwt_secret: str = ""
+
     # Pagos con Stripe Connect (fase 6 del PRD). Con valor por defecto vacío:
     # una instalación que no vende nada, y el CI
     # que escribe su propio `.env`, no deben dejar de arrancar por dos
@@ -191,7 +199,7 @@ class Settings(BaseSettings):
             raise ValueError("El secreto debe tener al menos 32 caracteres")
         return valor
 
-    @field_validator("stripe_secret_key", "stripe_webhook_secret")
+    @field_validator("stripe_secret_key", "stripe_webhook_secret", "mcp_jwt_secret")
     @classmethod
     def _validar_secreto_de_stripe_si_informado(cls, valor: str) -> str:
         """Mismo mínimo que `_validar_secreto`, pero solo si hay valor: estos
@@ -250,6 +258,14 @@ class Settings(BaseSettings):
     @property
     def is_development(self) -> bool:
         return self.app_env == "development"
+
+    @property
+    def mcp_jwt_secret_efectivo(self) -> str:
+        if self.mcp_jwt_secret:
+            return self.mcp_jwt_secret
+        return hmac.new(
+            self.jwt_secret.encode(), b"eventarium:mcp:oauth:v1", hashlib.sha256
+        ).hexdigest()
 
     @property
     def payments_enabled(self) -> bool:

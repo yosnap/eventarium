@@ -413,6 +413,50 @@ async def send_registration_cancelled_email(
 
 
 @broker.task(retry_on_error=True, max_retries=5)
+async def send_event_cancelled_email(
+    to_email: str,
+    organization_id: str,
+    titulo: str,
+    motivo: str | None,
+    con_reembolso: bool,
+) -> None:
+    """La organización ha cancelado el evento. Lo encola el barrido de
+    `events/cancelacion.py`, una vez por inscripción cancelada con el evento."""
+    cuerpo = f"Hola,\n\nLa organización ha cancelado el evento «{titulo}»."
+    if motivo:
+        cuerpo += f"\n\nMotivo:\n{motivo}"
+    cuerpo += "\n\nTu inscripción queda cancelada y tu entrada deja de ser válida."
+    if con_reembolso:
+        cuerpo += (
+            "\n\nTe devolvemos el importe íntegro de tu pago; lo recibirás en los "
+            "próximos días en el mismo medio de pago."
+        )
+    await get_email_provider().send(
+        to=to_email,
+        subject=f"Evento cancelado: {titulo}",
+        body=cuerpo,
+    )
+
+
+@broker.task(retry_on_error=True, max_retries=5)
+async def sweep_event_cancellation_task(organization_id: str, event_id: str) -> None:
+    """Barrido de una cancelación recién confirmada: cancela inscripciones,
+    pide reembolsos y avisa, por lotes. Lo encola el router tras el `commit`."""
+    from app.modules.events.cancelacion import barrer_cancelacion
+
+    await barrer_cancelacion(uuid.UUID(organization_id), uuid.UUID(event_id))
+
+
+@broker.task(schedule=[{"cron": "*/10 * * * *"}])
+async def resume_event_cancellations_task() -> None:
+    """Cada 10 minutos: retoma las cancelaciones de evento con trabajo
+    pendiente, por si el barrido encolado murió a medias."""
+    from app.modules.events.cancelacion import reanudar_cancelaciones_pendientes
+
+    await reanudar_cancelaciones_pendientes()
+
+
+@broker.task(retry_on_error=True, max_retries=5)
 async def send_registration_payment_link_email(
     to_email: str, organization_id: str, checkout_url: str, cancel_token: str, expira_el: str
 ) -> None:

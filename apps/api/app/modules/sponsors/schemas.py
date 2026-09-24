@@ -15,6 +15,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.modules.theme_templates.schemas import PublicTheme
+
 LogoSize = Literal["large", "medium", "small"]
 ContributionType = Literal["monetaria", "en_especie"]
 
@@ -195,3 +197,6 @@ class PublicSponsorDetail(BaseModel):
     event_slug: str
     event_title: str
     history: list[PublicSponsorHistoryItem]
+    # Plantilla del evento padre, ya resuelta: la página la aplica igual que la
+    # ficha del evento para no cambiar de aspecto al navegar dentro de él.
+    theme: PublicTheme | None = None

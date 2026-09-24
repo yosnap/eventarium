@@ -27,10 +27,11 @@ router = APIRouter(prefix="/public", tags=["público"])
     dependencies=[limit_per_ip("politicas-publicas", PUBLICO_POR_IP)],
 )
 async def get_public_event_policies(slug: str, session: SessionDep) -> PublicEventPolicies:
-    evento = await events_service.resolve_public_event_by_slug(session, slug)
+    evento = await events_service.resolve_public_event_by_slug(session, slug, para_mostrar=True)
     organizacion = await session.get(Organization, evento.organization_id)
     vigentes = await service.vigentes_de_evento(session, evento.organization_id, evento.id)
     return PublicEventPolicies(
         organization_name=organizacion.name if organizacion is not None else "",
         policies=[version_out(v.version) for v in vigentes if v.version is not None],
+        theme=await events_service.tema_publico_del_evento(session, evento),
     )

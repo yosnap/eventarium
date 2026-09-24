@@ -458,6 +458,7 @@ export class DashboardPage implements OnInit {
       published: 'ok',
       draft: 'espera',
       archived: 'apagado',
+      cancelled: 'apagado',
     };
     return tonos[estado] ?? 'neutro';
   }

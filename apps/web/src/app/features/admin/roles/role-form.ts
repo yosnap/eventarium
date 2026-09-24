@@ -27,6 +27,8 @@ const PERMISOS = [
   'members:read',
   'members:write',
   'users:read',
+  // Conectar asistentes por MCP: lo tiene el dueño y lo da a los roles que quiera.
+  'mcp:connect',
 ] as const;
 
 interface CampoDeFormulario {

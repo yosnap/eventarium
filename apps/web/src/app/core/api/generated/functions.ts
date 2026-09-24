@@ -231,6 +231,12 @@ export type { DeleteVenueApiV1EventsEventIdVenuesVenueIdDelete$Params as DeleteV
 export { deleteVenueApiV1EventsEventIdVenuesVenueIdDelete as deleteVenueApiV1EventsEventIdVenuesVenueIdDelete } from './fn/eventos/delete-venue-api-v-1-events-event-id-venues-venue-id-delete';
 export type { UpdateVenueApiV1EventsEventIdVenuesVenueIdPatch$Params as UpdateVenueApiV1EventsEventIdVenuesVenueIdPatch$Params } from './fn/eventos/update-venue-api-v-1-events-event-id-venues-venue-id-patch';
 export { updateVenueApiV1EventsEventIdVenuesVenueIdPatch as updateVenueApiV1EventsEventIdVenuesVenueIdPatch } from './fn/eventos/update-venue-api-v-1-events-event-id-venues-venue-id-patch';
+export type { PreviewCancelEventApiV1EventsEventIdCancelPreviewGet$Params as PreviewCancelEventApiV1EventsEventIdCancelPreviewGet$Params } from './fn/eventos/preview-cancel-event-api-v-1-events-event-id-cancel-preview-get';
+export { previewCancelEventApiV1EventsEventIdCancelPreviewGet as previewCancelEventApiV1EventsEventIdCancelPreviewGet } from './fn/eventos/preview-cancel-event-api-v-1-events-event-id-cancel-preview-get';
+export type { CancelEventApiV1EventsEventIdCancelPost$Params as CancelEventApiV1EventsEventIdCancelPost$Params } from './fn/eventos/cancel-event-api-v-1-events-event-id-cancel-post';
+export { cancelEventApiV1EventsEventIdCancelPost as cancelEventApiV1EventsEventIdCancelPost } from './fn/eventos/cancel-event-api-v-1-events-event-id-cancel-post';
+export type { CancelProgressApiV1EventsEventIdCancelProgressGet$Params as CancelProgressApiV1EventsEventIdCancelProgressGet$Params } from './fn/eventos/cancel-progress-api-v-1-events-event-id-cancel-progress-get';
+export { cancelProgressApiV1EventsEventIdCancelProgressGet as cancelProgressApiV1EventsEventIdCancelProgressGet } from './fn/eventos/cancel-progress-api-v-1-events-event-id-cancel-progress-get';
 export type { ListPublicEventsApiV1PublicEventsGet$Params as ListPublicEventsApiV1PublicEventsGet$Params } from './fn/publico/list-public-events-api-v-1-public-events-get';
 export { listPublicEventsApiV1PublicEventsGet as listPublicEventsApiV1PublicEventsGet } from './fn/publico/list-public-events-api-v-1-public-events-get';
 export type { GetPublicEventApiV1PublicEventsSlugGet$Params as GetPublicEventApiV1PublicEventsSlugGet$Params } from './fn/publico/get-public-event-api-v-1-public-events-slug-get';

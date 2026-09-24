@@ -11,6 +11,7 @@ transacción externa envolvente lo haría imposible.
 
 from __future__ import annotations
 
+import asyncio
 import os
 import subprocess
 import sys
@@ -476,3 +477,32 @@ __all__ = [
     "iniciar_sesion_con",
     "set_organization_context",
 ]
+
+
+# --- Servidor MCP ------------------------------------------------------------
+from app.modules.mcp import server as _servidor_mcp  # noqa: E402
+
+
+@pytest.fixture
+async def cliente_mcp() -> AsyncIterator[AsyncClient]:
+    """El gestor de sesiones corre en su propia tarea: anyio exige entrar y
+    salir de su `run()` desde la misma, y pytest-asyncio no garantiza que el
+    montaje y el desmontaje del fixture compartan tarea."""
+    _servidor_mcp.crear_servidor.cache_clear()
+    aplicacion = create_app()
+    listo, parar = asyncio.Event(), asyncio.Event()
+
+    async def correr() -> None:
+        async with _servidor_mcp.crear_servidor().session_manager.run():
+            listo.set()
+            await parar.wait()
+
+    tarea = asyncio.create_task(correr())
+    await listo.wait()
+    async with AsyncClient(
+        transport=ASGITransport(app=aplicacion), base_url="http://sin-organizacion.test"
+    ) as http:
+        yield http
+    parar.set()
+    await tarea
+    _servidor_mcp.crear_servidor.cache_clear()

@@ -6,6 +6,7 @@
  * Una inscripción tal como la ve el listado de «Mis eventos».
  */
 export interface MyRegistrationItem {
+  event_cancelled?: boolean;
   event_slug: string;
   event_title: string;
   organization_name: string;

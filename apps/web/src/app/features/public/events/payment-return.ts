@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, type OnDestroy, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { TranslocoDirective } from '@jsverse/transloco';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
+import { seoDePagina } from '../../../core/seo/meta.service';
 import { PublicCheckoutService } from '../../../core/payments/public-checkout.service';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
@@ -97,6 +98,8 @@ const ESPERAS_REINTENTO_AUTOMATICO_MS = [2000, 4000, 8000, 8000, 8000] as const;
   `,
 })
 export class PaymentReturnPage implements OnDestroy {
+  private readonly seo = seoDePagina();
+  private readonly transloco = inject(TranslocoService);
   private readonly ruta = inject(ActivatedRoute);
   private readonly checkout = inject(PublicCheckoutService);
 
@@ -109,6 +112,7 @@ export class PaymentReturnPage implements OnDestroy {
   private temporizador: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
+    this.seo.set({ title: this.transloco.translate('pago.retorno.titulo') });
     const parametros = this.ruta.snapshot.queryParamMap;
     this.slug = parametros.get('slug');
     this.registrationId = parametros.get('registration_id');

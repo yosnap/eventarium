@@ -13,12 +13,13 @@ import {
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
+import { temaDeEvento } from '../../../core/theming/tema-de-evento';
 import { ApiService } from '../../../core/api/api.service';
 import {
   type PoliticasPublicas,
   PublicPoliciesService,
 } from '../../../core/policies/public-policies.service';
-import { SeoMetaService } from '../../../core/seo/meta.service';
+import { seoDePagina } from '../../../core/seo/meta.service';
 import { MarkdownSeguro } from '../../../shared/legal/markdown-seguro';
 import { Alert } from '../../../shared/ui/alert';
 
@@ -109,8 +110,9 @@ export class PublicPoliciesPage implements OnInit {
   private readonly servicio = inject(PublicPoliciesService);
   private readonly api = inject(ApiService);
   private readonly transferState = inject(TransferState);
+  private readonly aplicarTema = temaDeEvento();
   private readonly tareasPendientes = inject(PendingTasks);
-  private readonly seo = inject(SeoMetaService);
+  private readonly seo = seoDePagina();
   private readonly transloco = inject(TranslocoService);
 
   protected readonly datos = signal<PoliticasPublicas | null>(null);
@@ -132,6 +134,7 @@ export class PublicPoliciesPage implements OnInit {
         this.transferState.set(clave, datos);
       }
       this.datos.set(datos);
+      this.aplicarTema(datos.theme);
       this.seo.set({ title: this.transloco.translate('publico.politicas.titulo') });
     } catch {
       this.error.set(true);

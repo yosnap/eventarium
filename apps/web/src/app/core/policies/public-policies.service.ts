@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
+import type { PlantillaDeTema } from '../theming/theme-template.model';
 import { ApiService } from '../api/api.service';
 
 export type TipoDePolitica = 'condiciones' | 'reembolsos' | 'privacidad' | 'otras';
@@ -19,6 +20,8 @@ export interface PoliticasPublicas {
   readonly organization_name: string;
   /** Solo los textos vigentes; vacía si el evento no tiene ninguno. */
   readonly policies: readonly PoliticaPublica[];
+  /** Plantilla del evento, para que la página conserve su aspecto. */
+  readonly theme?: PlantillaDeTema | null;
 }
 
 /** Código del 409 cuando lo aceptado no cuadra con los textos vigentes. */

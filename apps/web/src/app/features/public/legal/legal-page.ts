@@ -15,7 +15,7 @@ import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../../../core/api/api.service';
-import { SeoMetaService } from '../../../core/seo/meta.service';
+import { seoDePagina } from '../../../core/seo/meta.service';
 import { MarkdownSeguro } from '../../../shared/legal/markdown-seguro';
 import { Alert } from '../../../shared/ui/alert';
 import { Reveal } from '../../../shared/ui/reveal.directive';
@@ -83,7 +83,7 @@ export class LegalPage implements OnInit {
   private readonly api = inject(ApiService);
   private readonly transferState = inject(TransferState);
   private readonly tareasPendientes = inject(PendingTasks);
-  private readonly seo = inject(SeoMetaService);
+  private readonly seo = seoDePagina();
   private readonly transloco = inject(TranslocoService);
 
   protected readonly contenidoBruto = signal<string | null>(null);

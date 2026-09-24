@@ -45,6 +45,11 @@ class Permission(StrEnum):
     ACCOUNTING_READ = "accounting:read"
     ACCOUNTING_WRITE = "accounting:write"
     INVITATIONS_MANAGE = "invitations:manage"
+    # Conectar asistentes por MCP con la cuenta de la persona. Lo hereda
+    # `OWNER` (tiene el catálogo entero) y ningún otro rol de sistema: el dueño
+    # decide a qué roles se lo da. Tener un rol con permisos de eventos no
+    # basta para que un asistente actúe en su nombre.
+    MCP_CONNECT = "mcp:connect"
 
 
 ALL_PERMISSIONS: frozenset[Permission] = frozenset(Permission)

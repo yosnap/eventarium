@@ -31,6 +31,109 @@ export interface ChangelogVersion {
 
 export const CHANGELOG: readonly ChangelogVersion[] = [
   {
+    version: '0.23.0',
+    fecha: '2026-09-24',
+    secciones: [
+      {
+        categoria: 'agregado',
+        items: [
+          {
+            titulo: 'Conectar Hermes por MCP',
+            descripcion:
+              'La pantalla «Asistentes (MCP)» explica cómo conectar Hermes Agent: el bloque de configuración para ~/.hermes/config.yaml con la URL de la instalación, un botón para copiarlo entero y la alternativa por inicio de sesión (auth: oauth). Lo que Hermes puede hacer —crear y editar eventos, publicar, cancelar…— depende de los ámbitos y eventos elegidos al crear la clave de API.',
+          },
+        ],
+      },
+      {
+        categoria: 'corregido',
+        items: [
+          {
+            titulo: 'Tokens MCP filtrados',
+            descripcion:
+              'Si alguien presenta un token de renovación ya usado desde otro asistente, la conexión se revoca entera, igual que cuando lo presenta el mismo asistente.',
+          },
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.22.0',
+    fecha: '2026-09-24',
+    secciones: [
+      {
+        categoria: 'agregado',
+        items: [
+          {
+            titulo: 'Asistentes conectados por MCP',
+            descripcion:
+              'Claude, ChatGPT, Cursor o cualquier cliente MCP pueden conectarse a Eventarium en eventarium.org/mcp, iniciando sesión o con una clave de API de 90 días. Cada persona elige qué puede hacer la conexión (leer, editar, publicar, patrocinadores, cifras de inscripción, cancelar) y sobre qué eventos. Lo que crea el asistente queda en borrador, nunca ve datos personales de los asistentes y todo lo que hace queda en la auditoría.',
+          },
+          {
+            titulo: 'Permiso «Conectar asistentes por MCP»',
+            descripcion:
+              'Solo el dueño de la organización lo tiene de entrada y decide a qué roles se lo da. Cada persona gestiona sus conexiones en «Asistentes (MCP)» y el dueño ve y revoca las de todos los miembros.',
+          },
+          {
+            titulo: 'Eventos cancelados',
+            descripcion:
+              'Cancelar un evento es definitivo: se reembolsa íntegramente a quien pagó, se avisa a los inscritos, la página pública sigue visible con un aviso y el evento desaparece de los listados.',
+          },
+        ],
+      },
+      {
+        categoria: 'corregido',
+        items: [
+          {
+            titulo: 'Títulos en todas las páginas',
+            descripcion:
+              'La inscripción, la entrada, el pago y el resto de páginas que se quedaban sin título lo tienen ya, y una respuesta tardía no pisa el título de la página siguiente.',
+          },
+          {
+            titulo: 'Enlaces de un solo uso fuera de los buscadores',
+            descripcion:
+              'Las páginas a las que se llega con un enlace personal (confirmar, gestionar la inscripción) se generan en el servidor y piden a los buscadores que no las indexen.',
+          },
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.21.14',
+    fecha: '2026-09-23',
+    secciones: [
+      {
+        categoria: 'agregado',
+        items: [
+          {
+            titulo: 'Imagen para compartir en redes',
+            descripcion:
+              'Las páginas públicas sin imagen propia (la portada de la plataforma, el listado, las sesiones o un evento sin portada) se comparten ahora con una tarjeta de Eventarium, en lugar de aparecer sin vista previa. Los eventos con portada siguen usando la suya.',
+          },
+          {
+            titulo: 'Compartir un evento',
+            descripcion:
+              'Debajo de la descripción del evento hay botones para compartirlo en X, LinkedIn, Facebook, WhatsApp, Telegram y Bluesky, enviarlo por correo o copiar el enlace. No cargan nada de las redes hasta que se pulsan.',
+          },
+        ],
+      },
+      {
+        categoria: 'corregido',
+        items: [
+          {
+            titulo: 'Las páginas de un evento conservan su diseño',
+            descripcion:
+              'La inscripción, el programa, las sesiones, los patrocinadores y las políticas de un evento se ven con la plantilla del evento, igual que su ficha, y ya no parpadea al pasar de una a otra.',
+          },
+          {
+            titulo: 'Mapas en producción',
+            descripcion:
+              'El mapa del lugar en la ficha del evento y el del editor de direcciones no llegaban a pintarse en la versión publicada.',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.21.13',
     fecha: '2026-09-15',
     secciones: [

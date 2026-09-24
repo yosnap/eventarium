@@ -22,6 +22,7 @@ from app.modules.registrations.models import (
     EventRegistrationQuestion,
 )
 from app.modules.tickets.models import EventTicket
+from app.shared.errors import ConflictError
 
 
 async def get_questions(
@@ -52,13 +53,23 @@ async def get_registration_by_event_and_email(
 
 
 async def lock_event_for_capacity(
-    session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID
+    session: AsyncSession,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    *,
+    exigir_no_cancelado: bool = True,
 ) -> Event:
     """Bloquea la fila del evento para serializar la evaluación de aforo.
 
     Sin este `SELECT ... FOR UPDATE`, dos altas o verificaciones simultáneas
     contra el último hueco de aforo podrían confirmar a más personas de las
     que `capacity` permite.
+
+    Con el bloqueo tomado vuelve a mirar el estado: un alta que resolvió el
+    evento como publicado justo antes de que se cancelara no puede acabar
+    confirmada en un evento cancelado (`cancelar_evento` cambia el estado con
+    este mismo bloqueo). Solo la cancelación de una inscripción pasa
+    `exigir_no_cancelado=False`, porque ahí se trata de liberar, no de ocupar.
     """
     evento = await session.scalar(
         select(Event)
@@ -70,6 +81,8 @@ async def lock_event_for_capacity(
         # llegar aquí. Si pasa, es un error de programación del llamador, no
         # una condición esperable del negocio.
         raise RuntimeError(f"Evento {event_id} no encontrado al bloquear su fila de aforo.")
+    if exigir_no_cancelado and evento.status == "cancelled":
+        raise ConflictError("El evento se ha cancelado.")
     return evento
 
 

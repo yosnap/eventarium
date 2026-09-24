@@ -103,9 +103,10 @@ describe('RoleForm — crear', () => {
     const casillas = Array.from(
       fixture.nativeElement.querySelectorAll('.permiso input[type="checkbox"]'),
     ) as HTMLInputElement[];
-    // La persona actora tiene 3 de los 8 permisos: el resto debe quedar deshabilitado.
+    // La persona actora tiene 3 de los 9 permisos (el noveno es `mcp:connect`):
+    // el resto debe quedar deshabilitado.
     const deshabilitadas = casillas.filter((casilla) => casilla.disabled);
-    expect(deshabilitadas.length).toBe(5);
+    expect(deshabilitadas.length).toBe(6);
   });
 
   it('crea el rol con los datos del formulario', async () => {

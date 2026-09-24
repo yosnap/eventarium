@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { TranslocoDirective } from '@jsverse/transloco';
+import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
+import { seoDePagina } from '../../../core/seo/meta.service';
 import { RegistrationsService } from '../../../core/registrations/registrations.service';
 import { AuthFrame } from '../../../layouts/public/auth-frame';
 import { Alert } from '../../../shared/ui/alert';
@@ -117,6 +118,8 @@ const CLAVE_POR_ESTADO: Record<string, string> = {
   `,
 })
 export class MyTicketPage {
+  private readonly seo = seoDePagina();
+  private readonly transloco = inject(TranslocoService);
   private readonly registrations = inject(RegistrationsService);
   private readonly ruta = inject(ActivatedRoute);
 
@@ -126,6 +129,7 @@ export class MyTicketPage {
   protected readonly qrUrl = signal('');
 
   constructor() {
+    this.seo.set({ title: this.transloco.translate('miEntrada.titulo') });
     const token = this.ruta.snapshot.queryParamMap.get('token');
     if (!token) {
       this.estado.set('error');

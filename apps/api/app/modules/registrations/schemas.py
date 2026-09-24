@@ -156,6 +156,9 @@ class MyRegistrationItem(BaseModel):
     starts_at: datetime
     organization_name: str
     status: RegistrationStatus
+    # La organización canceló el evento (no confundir con una cancelación de
+    # la propia persona).
+    event_cancelled: bool = False
 
 
 class MyRegistrationsResponse(BaseModel):

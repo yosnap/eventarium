@@ -50,6 +50,7 @@ plans/        Planes de implementación por fase
 | [`docs/modelo-de-datos.md`](docs/modelo-de-datos.md) | Esquema y RLS |
 | [`docs/accesibilidad.md`](docs/accesibilidad.md) | Checklist WCAG 2.1 AA |
 | [`docs/despliegue.md`](docs/despliegue.md) | Despliegue, backups y rollback |
+| [`docs/mcp.md`](docs/mcp.md) | Servidor MCP para asistentes: ámbitos, conexión y revocación |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Flujo de ramas, versionado y checklist de PR |
 
 ## Estado
