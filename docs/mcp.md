@@ -56,6 +56,10 @@ registro de auditoría con la conexión que la hizo, igual que las de la web.
    - **Claude**: *Ajustes → Conectores → Añadir conector personalizado*.
    - **ChatGPT**: *Ajustes → Aplicaciones → Modo desarrollador → Crear*.
    - **Cursor**: en `mcp.json`, `{"mcpServers": {"eventarium": {"url": "https://eventarium.org/mcp"}}}`.
+   - **Hermes**: en `~/.hermes/config.yaml`, bajo `mcp_servers`, una entrada
+     `eventarium` con `url: "https://eventarium.org/mcp"` y `auth: oauth`;
+     recarga con `/reload-mcp`. Si Hermes corre sin navegador (bot de Telegram,
+     servidor), usa una clave de API en `headers.Authorization` (ver abajo).
 2. El asistente abre Eventarium. Inicia sesión si hace falta.
 3. En la pantalla de consentimiento comprueba quién lo pide y adónde volverá
    (un cliente «no verificado» se ha registrado solo y su nombre lo pone él),
@@ -78,6 +82,19 @@ curl -X POST https://eventarium.org/mcp \
   -H "Accept: application/json, text/event-stream" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
+
+En Hermes (`~/.hermes/config.yaml`; la variable se lee de `~/.hermes/.env`):
+
+```yaml
+mcp_servers:
+  eventarium:
+    url: "https://eventarium.org/mcp"
+    headers:
+      Authorization: "Bearer ${EVENTARIUM_MCP_KEY}"
+```
+
+Lo que Hermes puede hacer (crear o editar eventos, publicar, cancelar…) lo
+deciden los ámbitos y eventos elegidos al crear la clave.
 
 ## Revocar
 

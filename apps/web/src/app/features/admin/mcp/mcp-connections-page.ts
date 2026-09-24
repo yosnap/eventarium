@@ -32,7 +32,7 @@ const MIAS = '/users/me/mcp-connections';
 const DE_LA_ORGANIZACION = '/organizations/me/mcp-connections';
 
 /**
- * Conectar asistentes (Claude, ChatGPT, Cursor, bots) por MCP con la cuenta
+ * Conectar asistentes (Claude, ChatGPT, Cursor, Hermes, bots) por MCP con la cuenta
  * de la persona. Sin estado de permisos en el cliente: si la API responde 403
  * a «mis conexiones», falta `mcp:connect` y se explica cómo pedirlo; si lo
  * responde al listado de la organización, no es el dueño y ese bloque no sale.
@@ -57,7 +57,14 @@ const DE_LA_ORGANIZACION = '/organizations/me/mcp-connections';
             <li>{{ t('clienteClaude') }}</li>
             <li>{{ t('clienteChatgpt') }}</li>
             <li>{{ t('clienteCursor') }}</li>
+            <li>{{ t('clienteHermes') }}</li>
           </ul>
+          <div class="config">
+            <pre><code>{{ configHermes }}</code></pre>
+            <app-button type="button" variant="secundario" (pulsado)="copiarConfig()">
+              {{ configCopiada() ? t('configCopiada') : t('copiarConfig') }}
+            </app-button>
+          </div>
         </app-card>
 
         <app-mcp-key-form (creadaUna)="cargarMias()" />
@@ -163,6 +170,24 @@ const DE_LA_ORGANIZACION = '/organizations/me/mcp-connections';
       font-family: var(--font-mono);
       word-break: break-all;
     }
+    .config {
+      display: grid;
+      gap: var(--sp-2);
+      justify-items: start;
+    }
+    .config pre {
+      justify-self: stretch;
+    }
+    pre {
+      margin: 0;
+      padding: var(--sp-3);
+      overflow-x: auto;
+      background: var(--surface-2);
+      border-radius: var(--radius-sm);
+    }
+    pre code {
+      word-break: normal;
+    }
   `,
 })
 export class McpConnectionsPage implements OnInit {
@@ -171,11 +196,19 @@ export class McpConnectionsPage implements OnInit {
   private readonly transloco = inject(TranslocoService);
 
   protected readonly urlMcp = `${globalThis.location?.origin ?? ''}/mcp`;
+  protected readonly configHermes = [
+    'mcp_servers:',
+    '  eventarium:',
+    `    url: "${this.urlMcp}"`,
+    '    headers:',
+    '      Authorization: "Bearer ${EVENTARIUM_MCP_KEY}"',
+  ].join('\n');
   protected readonly mias = signal<readonly ConexionMcp[]>([]);
   protected readonly deLaOrganizacion = signal<readonly ConexionMcp[]>([]);
   protected readonly sinPermiso = signal(false);
   protected readonly esDueno = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly configCopiada = signal(false);
 
   ngOnInit(): void {
     void this.cargarMias();
@@ -203,6 +236,15 @@ export class McpConnectionsPage implements OnInit {
     } catch {
       // 403 = no es el dueño: ese bloque no se enseña.
       this.esDueno.set(false);
+    }
+  }
+
+  protected async copiarConfig(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(this.configHermes);
+      this.configCopiada.set(true);
+    } catch {
+      // Sin portapapeles (contexto no seguro): el bloque sigue a la vista.
     }
   }
 

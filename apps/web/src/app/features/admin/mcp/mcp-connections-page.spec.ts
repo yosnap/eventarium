@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { provideZonelessChangeDetection } from '@angular/core';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@jsverse/transloco';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import es from '../../../../../public/assets/i18n/es-ES.json';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../../testing/axe';
@@ -80,6 +80,19 @@ describe('McpConnectionsPage', () => {
     const { fixture, raiz } = await montar({ permiso: true, dueno: false });
 
     expect(raiz.textContent).toContain('Claude de Ana');
+    expect(raiz.textContent).toContain('~/.hermes/config.yaml');
+    expect(raiz.querySelector('pre')?.textContent).toContain(
+      'Authorization: "Bearer ${EVENTARIUM_MCP_KEY}"',
+    );
+    const escribir = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText: escribir } });
+    const copiar = [...raiz.querySelectorAll('button')].find(
+      (boton) => boton.textContent?.trim() === 'Copiar configuración',
+    );
+    copiar!.click();
+    await avanzar(fixture);
+    expect(escribir).toHaveBeenCalledWith(raiz.querySelector('pre')?.textContent);
+    expect(raiz.textContent).toContain('Configuración copiada');
     expect(raiz.textContent).not.toContain('Conexiones de la organización');
     const revocar = [...raiz.querySelectorAll('button')].find(
       (boton) => boton.textContent?.replace(/\s+/g, ' ').trim() === 'Revocar Claude de Ana',
