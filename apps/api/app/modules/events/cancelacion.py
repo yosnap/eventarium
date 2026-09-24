@@ -222,7 +222,12 @@ async def _cancelar_lote(organization_id: uuid.UUID, event_id: uuid.UUID) -> int
     if hubo_reembolso:
         from app.core.tasks import process_refunds_task
 
-        await process_refunds_task.kiq()
+        # El cron de reembolsos lo recoge igualmente cada 2 minutos: si encolar
+        # falla, no se reprocesa el lote ya confirmado.
+        try:
+            await process_refunds_task.kiq()
+        except Exception:  # pragma: no cover - Redis caído
+            logger.exception("No se pudo encolar el procesado de reembolsos")
     return len(lote)
 
 
@@ -263,19 +268,24 @@ async def _avisar_lote(organization_id: uuid.UUID, event_id: uuid.UUID) -> int:
             )
         )
         ahora = datetime.now(UTC)
-        # Se marca avisada antes de encolar y se confirma después: si el
-        # proceso muere entre el encolado y el `commit`, alguien puede recibir
-        # el aviso dos veces, pero nunca se queda sin él.
+        avisos = []
         for inscripcion in lote:
             inscripcion.event_cancellation_notified_at = ahora
-            await send_event_cancelled_email.kiq(
-                inscripcion.email,
-                str(organization_id),
-                evento.title,
-                evento.cancellation_reason,
-                inscripcion.id in con_reembolso,
-            )
+            avisos.append((inscripcion.email, inscripcion.id in con_reembolso))
+        titulo, motivo = evento.title, evento.cancellation_reason
         await session.commit()
+
+    # Encolado fuera de la transacción: nunca una llamada de red con las filas
+    # bloqueadas. Si el proceso muere entre el `commit` y aquí, esas personas
+    # se quedan sin aviso: es el precio de no mandarlo dos veces ni retener
+    # bloqueos, y se ve en el log.
+    for email, con_reembolso_propio in avisos:
+        try:
+            await send_event_cancelled_email.kiq(
+                email, str(organization_id), titulo, motivo, con_reembolso_propio
+            )
+        except Exception:  # pragma: no cover - Redis caído
+            logger.exception("No se pudo encolar el aviso de cancelación del evento %s", event_id)
     return len(lote)
 
 

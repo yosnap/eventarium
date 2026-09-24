@@ -262,7 +262,9 @@ class TestBarrido:
     ) -> None:
         _, cabeceras = await iniciar_sesion(cliente, organizacion)
         evento = await _evento_publicado(cliente, cabeceras, "pago-tardio")
-        inscripcion = await _inscripcion(organizacion, evento, "tarde@example.com", "pending_payment")
+        inscripcion = await _inscripcion(
+            organizacion, evento, "tarde@example.com", "pending_payment"
+        )
         pago_id = await _pago_cobrado(organizacion, evento, inscripcion, status="pending")
         await _cancelar(cliente, cabeceras, evento, await _resumen(cliente, cabeceras, evento))
         await barrer_cancelacion(organizacion.id, uuid.UUID(evento["id"]))
@@ -323,3 +325,33 @@ class TestWebPublica:
             ("mis-eventos-cancelado", "cancelled")
         ]
 
+    async def test_un_pago_antes_del_barrido_no_confirma_ni_emite_entrada(
+        self, cliente: AsyncClient, organizacion: OrganizacionDePrueba
+    ) -> None:
+        _, cabeceras = await iniciar_sesion(cliente, organizacion)
+        evento = await _evento_publicado(cliente, cabeceras, "pago-antes-del-barrido")
+        inscripcion = await _inscripcion(
+            organizacion, evento, "rapida@example.com", "pending_payment"
+        )
+        pago_id = await _pago_cobrado(organizacion, evento, inscripcion, status="pending")
+        # Cancelado, pero el barrido todavía no ha pasado por esta inscripción.
+        await _cancelar(cliente, cabeceras, evento, await _resumen(cliente, cabeceras, evento))
+
+        async with SessionMaintenance() as session:
+            pago = await session.get(EventPayment, pago_id)
+            fila = await session.get(EventRegistration, inscripcion)
+            resultado = await checkout_service.confirmar_pago_y_registro(
+                session, pago, fila, stripe_payment_intent_id="pi_rapido"
+            )
+            await session.commit()
+            reembolsos = list(
+                await session.scalars(
+                    select(EventPaymentRefund).where(EventPaymentRefund.payment_id == pago_id)
+                )
+            )
+
+        assert resultado == "processed"
+        assert fila.status == "cancelled"
+        assert fila.cancelled_with_event is True
+        assert fila.confirmed_at is None
+        assert [(r.reason, r.amount_cents) for r in reembolsos] == [("event_cancelled", 2500)]

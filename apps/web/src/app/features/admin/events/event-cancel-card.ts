@@ -37,6 +37,8 @@ interface Progreso {
 }
 
 const INTERVALO_PROGRESO_MS = 3000;
+/** Fallos seguidos al leer el progreso antes de dejar de intentarlo. */
+const FALLOS_MAXIMOS = 3;
 
 /**
  * Cancelar un evento publicado (definitivo) y seguir su progreso.
@@ -144,6 +146,7 @@ export class EventCancelCard implements OnInit {
   protected readonly errorDialogo = signal<string | null>(null);
 
   private temporizador: ReturnType<typeof setInterval> | null = null;
+  private fallosSeguidos = 0;
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.pararSeguimiento());
@@ -227,12 +230,19 @@ export class EventCancelCard implements OnInit {
       const progreso = await firstValueFrom(
         this.http.get<Progreso>(this.api.url(`/events/${this.eventId()}/cancel/progress`)),
       );
+      this.fallosSeguidos = 0;
+      this.error.set(null);
       this.progreso.set(progreso);
       if (progreso.por_cancelar === 0 && progreso.por_avisar === 0) {
         this.pararSeguimiento();
       }
-    } catch {
-      this.pararSeguimiento();
+    } catch (error) {
+      // Un corte puntual no detiene el seguimiento; varios seguidos sí, y se dice.
+      this.fallosSeguidos++;
+      if (this.fallosSeguidos >= FALLOS_MAXIMOS) {
+        this.pararSeguimiento();
+        this.error.set(this.mensaje(error));
+      }
     }
   }
 
