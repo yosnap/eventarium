@@ -2442,7 +2442,9 @@
           "eventos_publicar": "Publicar un evento lo abre a inscripciones.",
           "patrocinadores_editar": "Alta de patrocinadores en tus eventos.",
           "eventos_cancelar": "Definitivo: cancela inscripciones y reembolsa pagos. Márcalo solo si lo necesitas."
-        }
+        },
+        "eventosError": "No hemos podido cargar los eventos. Puedes conectar para todos o volver a intentarlo más tarde.",
+        "eventosTruncados": "Se muestran los {{n}} primeros eventos. Si falta el que buscas, conecta para todos los eventos."
       }
     }
   },
@@ -2553,6 +2555,24 @@
       "subida": "Subida",
       "copiarUrl": "Copiar URL",
       "urlCopiada": "¡Copiada!"
+    }
+  },
+  "oauth": {
+    "consentimiento": {
+      "titulo": "Conectar un asistente",
+      "cargando": "Cargando la solicitud…",
+      "sinNombre": "Asistente sin nombre",
+      "noVerificado": "Cliente no verificado",
+      "identificador": "Identificador",
+      "volveraA": "Volverá a",
+      "organizacion": "Organización",
+      "explicacion": "Este asistente podrá actuar en Eventarium con tu cuenta, solo con los permisos que marques. Todo lo que cree quedará en borrador. Puedes revocar la conexión cuando quieras desde «Asistentes (MCP)».",
+      "permitir": "Permitir",
+      "denegar": "No permitir",
+      "sinSolicitud": "Falta la solicitud. Vuelve a conectar el asistente.",
+      "sinPermiso": "Tu rol no permite conectar asistentes. Pide al dueño de la organización el permiso «Conectar asistentes por MCP».",
+      "error": "No hemos podido completar la operación.",
+      "pide": "El asistente pide:"
     }
   }
 }

@@ -1,4 +1,4 @@
-"""Verificación de las credenciales del MCP (fase de claves de API).
+"""Verificación de las credenciales del MCP: claves de API y tokens OAuth.
 
 Una sola puerta para todo lo que llega a `/mcp`: resuelve la conexión, exige
 que la cuenta siga activa, que la persona siga siendo miembro y tenga
@@ -18,24 +18,31 @@ from app.core.database import SessionApp, set_organization_context
 from app.core.permissions import Permission
 from app.modules.mcp import service
 from app.modules.mcp.models import McpConnection
+from app.modules.mcp.oauth import tokens
 from app.modules.mcp.scopes import ambitos_efectivos
 
 
 class VerificadorEventarium(TokenVerifier):
     async def verify_token(self, token: str) -> AccessToken | None:
-        if not token.startswith(service.PREFIJO_CLAVE):
-            return None
+        if token.startswith(service.PREFIJO_CLAVE):
+            consulta = text(
+                "SELECT connection_id, organization_id, user_id, user_active "
+                "FROM app_resolve_mcp_key(:valor)"
+            )
+            valor: object = service.huella(token)
+        else:
+            # Token OAuth: firma, tipo y audiencia propios del MCP.
+            connection_id = tokens.verificar_acceso(token)
+            if connection_id is None:
+                return None
+            consulta = text(
+                "SELECT connection_id, organization_id, user_id, user_active "
+                "FROM app_resolve_mcp_connection(:valor)"
+            )
+            valor = connection_id
         async with SessionApp() as session:
             async with session.begin():
-                fila = (
-                    await session.execute(
-                        text(
-                            "SELECT connection_id, organization_id, user_id, user_active "
-                            "FROM app_resolve_mcp_key(:hash)"
-                        ),
-                        {"hash": service.huella(token)},
-                    )
-                ).first()
+                fila = (await session.execute(consulta, {"valor": valor})).first()
                 if fila is None or not fila.user_active:
                     return None
                 await set_organization_context(session, fila.organization_id, fila.user_id)
@@ -57,6 +64,8 @@ class VerificadorEventarium(TokenVerifier):
             token=token,
             client_id=str(conexion.id),
             scopes=sorted(ambitos),
+            # Un token OAuth caduca antes que su conexión (15 min); una clave
+            # de API, con ella.
             expires_at=int(conexion.expires_at.timestamp()),
             subject=str(conexion.user_id),
             claims={

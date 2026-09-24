@@ -2,7 +2,6 @@ import { HttpClient } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
-  type OnInit,
   computed,
   inject,
   output,
@@ -16,25 +15,10 @@ import { ApiError } from '../../../core/api/error.interceptor';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
-import { Checkbox } from '../../../shared/ui/checkbox';
 import { Input } from '../../../shared/ui/input';
+import { AMBITOS, type Ambito, McpPermisosSelector } from './mcp-permisos-selector';
 
-/** Ámbitos en el mismo orden que la API (`modules/mcp/scopes.py`). */
-export const AMBITOS = [
-  'eventos:leer',
-  'inscripciones:cifras',
-  'eventos:editar',
-  'eventos:publicar',
-  'patrocinadores:editar',
-  'eventos:cancelar',
-] as const;
-type Ambito = (typeof AMBITOS)[number];
 const POR_DEFECTO: readonly Ambito[] = ['eventos:leer', 'inscripciones:cifras'];
-
-interface EventoOpcion {
-  readonly id: string;
-  readonly title: string;
-}
 
 interface ClaveCreada {
   readonly api_key: string;
@@ -49,7 +33,7 @@ interface ClaveCreada {
 @Component({
   selector: 'app-mcp-key-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Checkbox, Input],
+  imports: [TranslocoDirective, Alert, Button, Card, Input, McpPermisosSelector],
   template: `
     <ng-container *transloco="let t; read: 'admin.mcp.nueva'">
       <app-card [heading]="t('titulo')">
@@ -74,35 +58,11 @@ interface ClaveCreada {
               [(value)]="nombre"
             />
 
-            <fieldset>
-              <legend>{{ t('permisos') }}</legend>
-              @for (ambito of ambitos; track ambito) {
-                <app-checkbox
-                  [label]="t('ambito.' + clave(ambito))"
-                  [hint]="t('ambitoAyuda.' + clave(ambito))"
-                  [checked]="marcados().has(ambito)"
-                  (checkedChange)="alternar(ambito, $event)"
-                />
-              }
-            </fieldset>
-
-            <fieldset>
-              <legend>{{ t('eventos') }}</legend>
-              <app-checkbox
-                [label]="t('todosLosEventos')"
-                [checked]="todosLosEventos()"
-                (checkedChange)="todosLosEventos.set($event)"
-              />
-              @if (!todosLosEventos()) {
-                @for (evento of eventos(); track evento.id) {
-                  <app-checkbox
-                    [label]="evento.title"
-                    [checked]="eventosElegidos().has(evento.id)"
-                    (checkedChange)="alternarEvento(evento.id, $event)"
-                  />
-                }
-              }
-            </fieldset>
+            <app-mcp-permisos-selector
+              [(marcados)]="marcados"
+              [(todosLosEventos)]="todosLosEventos"
+              [(eventosElegidos)]="eventosElegidos"
+            />
 
             <app-input [label]="t('dias')" [hint]="t('diasAyuda')" [(value)]="dias" />
 
@@ -118,16 +78,9 @@ interface ClaveCreada {
     </ng-container>
   `,
   styles: `
-    form,
-    fieldset {
+    form {
       display: grid;
       gap: var(--sp-3);
-    }
-    fieldset {
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      padding: var(--sp-4);
-      margin: 0;
     }
     .clave {
       display: flex;
@@ -141,19 +94,17 @@ interface ClaveCreada {
     }
   `,
 })
-export class McpKeyForm implements OnInit {
+export class McpKeyForm {
   readonly creadaUna = output<void>();
 
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
 
-  protected readonly ambitos = AMBITOS;
   protected readonly nombre = signal('');
   protected readonly dias = signal('90');
   protected readonly marcados = signal<ReadonlySet<Ambito>>(new Set(POR_DEFECTO));
   protected readonly todosLosEventos = signal(true);
-  protected readonly eventos = signal<readonly EventoOpcion[]>([]);
   protected readonly eventosElegidos = signal<ReadonlySet<string>>(new Set());
   protected readonly creada = signal<ClaveCreada | null>(null);
   protected readonly copiada = signal(false);
@@ -166,28 +117,6 @@ export class McpKeyForm implements OnInit {
       this.marcados().size > 0 &&
       (this.todosLosEventos() || this.eventosElegidos().size > 0),
   );
-
-  ngOnInit(): void {
-    void this.cargarEventos();
-  }
-
-  protected clave(ambito: Ambito): string {
-    return ambito.replace(':', '_');
-  }
-
-  protected alternar(ambito: Ambito, marcado: boolean): void {
-    const siguiente = new Set(this.marcados());
-    if (marcado) siguiente.add(ambito);
-    else siguiente.delete(ambito);
-    this.marcados.set(siguiente);
-  }
-
-  protected alternarEvento(id: string, marcado: boolean): void {
-    const siguiente = new Set(this.eventosElegidos());
-    if (marcado) siguiente.add(id);
-    else siguiente.delete(id);
-    this.eventosElegidos.set(siguiente);
-  }
 
   protected async crear(): Promise<void> {
     if (!this.valido()) return;
@@ -226,16 +155,5 @@ export class McpKeyForm implements OnInit {
     this.creada.set(null);
     this.copiada.set(false);
     this.nombre.set('');
-  }
-
-  private async cargarEventos(): Promise<void> {
-    try {
-      const pagina = await firstValueFrom(
-        this.http.get<{ items: readonly EventoOpcion[] }>(this.api.url('/events')),
-      );
-      this.eventos.set(pagina.items);
-    } catch {
-      // Sin listado se puede crear igualmente una conexión para todos.
-    }
   }
 }

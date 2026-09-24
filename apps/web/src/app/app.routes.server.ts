@@ -34,6 +34,8 @@ export const serverRoutes: ServerRoute[] = [
   // cargaría.
   { path: 'acceder', renderMode: RenderMode.Client },
   { path: 'espacio-de-trabajo', renderMode: RenderMode.Client },
+  // Necesita la sesión, que el servidor no maneja.
+  { path: 'oauth/consentimiento', renderMode: RenderMode.Client },
   { path: 'admin', renderMode: RenderMode.Client },
   { path: 'admin/**', renderMode: RenderMode.Client },
   { path: 'dashboard', renderMode: RenderMode.Client },

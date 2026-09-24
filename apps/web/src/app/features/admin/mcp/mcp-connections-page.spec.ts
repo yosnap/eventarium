@@ -62,7 +62,9 @@ describe('McpConnectionsPage', () => {
     else org.flush({ detail: 'Solo el dueño' }, { status: 403, statusText: 'Forbidden' });
     await avanzar(fixture);
     // El formulario de clave pide los eventos si hay permiso.
-    http.match('/api/v1/events').forEach((peticion) => peticion.flush({ items: [] }));
+    http
+      .match((r) => r.url === '/api/v1/events')
+      .forEach((peticion) => peticion.flush({ items: [] }));
     await avanzar(fixture);
     return { fixture, raiz: fixture.nativeElement as HTMLElement };
   }

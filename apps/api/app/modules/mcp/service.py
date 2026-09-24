@@ -135,6 +135,36 @@ async def crear_clave(
     return ClaveCreada(conexion=conexion, clave=clave)
 
 
+async def crear_conexion_oauth(
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    user_id: uuid.UUID,
+    nombre: str,
+    client_id: str,
+    ambitos: list[str],
+    event_ids: list[uuid.UUID] | None,
+) -> McpConnection:
+    """Conexión creada al aprobar el consentimiento OAuth. Mismas
+    validaciones que una clave de API; caduca como ellas, y el cliente la
+    renueva con su token de renovación mientras tanto."""
+    concedidos = await _validar_ambitos(session, organization_id, user_id, ambitos)
+    eventos = await _validar_eventos(session, organization_id, event_ids)
+    conexion = McpConnection(
+        organization_id=organization_id,
+        user_id=user_id,
+        name=nombre.strip()[:120] or "Asistente",
+        method="oauth",
+        oauth_client_id=client_id,
+        scopes=concedidos,
+        event_ids=eventos,
+        expires_at=datetime.now(UTC) + timedelta(days=DIAS_POR_DEFECTO),
+    )
+    session.add(conexion)
+    await session.flush()
+    return conexion
+
+
 async def listar_de_persona(
     session: AsyncSession, *, organization_id: uuid.UUID, user_id: uuid.UUID
 ) -> list[McpConnection]:

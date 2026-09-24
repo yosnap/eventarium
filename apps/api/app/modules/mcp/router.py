@@ -15,7 +15,7 @@ from app.core.permissions import Permission
 from app.modules.mcp import service
 from app.modules.mcp.models import McpConnection
 from app.modules.mcp.scopes import AMBITOS_POR_DEFECTO, Ambito
-from app.modules.mcp.server import url_del_recurso
+from app.modules.mcp.server_urls import url_del_recurso
 
 router = APIRouter(prefix="/users/me/mcp-connections", tags=["mcp"])
 # Solo el dueño: revocar la conexión de otra persona. `members:write` no basta,

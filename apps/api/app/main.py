@@ -35,11 +35,16 @@ from app.modules.events.router import router as events_router
 from app.modules.health.router import router as health_router
 from app.modules.legal.router import router_cookie_consent as cookie_consent_router
 from app.modules.legal.router import router_public as legal_public_router
+from app.modules.mcp.oauth.consentimiento import router as mcp_consentimiento_router
 from app.modules.mcp.router import router as mcp_router
 from app.modules.mcp.router import router_organizacion as mcp_organizacion_router
 from app.modules.mcp.server import crear_app as crear_app_mcp
+from app.modules.mcp.server import (
+    crear_app_oauth,
+    metadatos_del_recurso,
+    metadatos_del_servidor_de_autorizacion,
+)
 from app.modules.mcp.server import crear_servidor as crear_servidor_mcp
-from app.modules.mcp.server import metadatos_del_recurso
 from app.modules.media.router import folders_router as media_folders_router
 from app.modules.media.router import router as media_router
 from app.modules.metrics.router import router as metrics_router
@@ -179,6 +184,7 @@ def create_app() -> FastAPI:
     api.include_router(events_cancel_router)
     api.include_router(mcp_router)
     api.include_router(mcp_organizacion_router)
+    api.include_router(mcp_consentimiento_router)
     api.include_router(events_public_router)
     api.include_router(policies_organization_router)
     api.include_router(policies_event_router)
@@ -210,7 +216,15 @@ def create_app() -> FastAPI:
     # pública `…/mcp`) y sus metadatos de recurso protegido (RFC 9728), en la
     # raíz y en la ruta específica del recurso, que es donde los busca cada
     # cliente según la versión de la especificación que implemente.
+    # `/mcp/oauth` antes que `/mcp`: Starlette monta por orden, y el MCP
+    # (montado en `/mcp`) se quedaría con las rutas del servidor de
+    # autorización.
+    app.mount("/mcp/oauth", crear_app_oauth())
     app.mount("/mcp", crear_app_mcp())
+
+    @app.get("/.well-known/oauth-authorization-server/mcp/oauth", include_in_schema=False)
+    async def servidor_de_autorizacion_mcp() -> dict[str, object]:
+        return metadatos_del_servidor_de_autorizacion()
 
     @app.get("/.well-known/oauth-protected-resource", include_in_schema=False)
     @app.get("/.well-known/oauth-protected-resource/mcp", include_in_schema=False)
