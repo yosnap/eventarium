@@ -326,6 +326,21 @@ implementación para SeaweedFS. Dos invariantes:
 Los objetos públicos se sirven por `/media/*` en Caddy, no por bucket policy: en
 SeaweedFS 3.97 `PutBucketPolicy` existe pero rechaza políticas estándar de AWS.
 
+## Servidor MCP para asistentes
+
+Uso, ámbitos y herramientas en [`mcp.md`](mcp.md). Lo que condiciona el diseño:
+
+- **Una sola puerta**: `VerificadorEventarium` resuelve la conexión (clave
+  `evtm_` o JWT OAuth) con funciones `SECURITY DEFINER` y, en cada petición,
+  recalcula ámbitos = concedidos ∩ permisos del rol. Las herramientas trabajan
+  después con el contexto RLS de la persona, como la web.
+- **Sin datos personales**: los modelos de salida tienen campos cerrados y
+  las inscripciones solo salen como cifras.
+- **Tokens separados**: el JWT del MCP lleva otro tipo, otra audiencia y otro
+  secreto; ninguno de los dos verificadores acepta el token del otro.
+- **Borrador por defecto**: `crear_evento` nunca publica; publicar y cancelar
+  son ámbitos aparte, y cancelar exige confirmar con un código de un solo uso.
+
 ## Tareas asíncronas
 
 Taskiq sobre `RedisStreamBroker`, no sobre una lista: Redis Streams confirma los
