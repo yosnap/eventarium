@@ -31,6 +31,22 @@ export interface ChangelogVersion {
 
 export const CHANGELOG: readonly ChangelogVersion[] = [
   {
+    version: '0.23.0',
+    fecha: '2026-09-24',
+    secciones: [
+      {
+        categoria: 'agregado',
+        items: [
+          {
+            titulo: 'Conectar Hermes por MCP',
+            descripcion:
+              'La pantalla «Asistentes (MCP)» explica cómo conectar Hermes Agent: el bloque de configuración para ~/.hermes/config.yaml con la URL de la instalación, un botón para copiarlo entero y la alternativa por inicio de sesión (auth: oauth). Lo que Hermes puede hacer —crear y editar eventos, publicar, cancelar…— depende de los ámbitos y eventos elegidos al crear la clave de API.',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.22.0',
     fecha: '2026-09-24',
     secciones: [
