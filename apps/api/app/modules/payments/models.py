@@ -306,7 +306,8 @@ class EventPaymentRefund(Base, TimestampMixin):
         ),
         UniqueConstraint("stripe_refund_id", name="uq_event_payment_refunds_stripe_refund_id"),
         CheckConstraint(
-            "reason IN ('cancellation', 'manual')", name="ck_event_payment_refunds_reason"
+            "reason IN ('cancellation', 'manual', 'event_cancelled')",
+            name="ck_event_payment_refunds_reason",
         ),
         CheckConstraint(
             "status IN ('pending', 'submitted', 'succeeded', 'failed')",

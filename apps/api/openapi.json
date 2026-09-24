@@ -3581,7 +3581,8 @@
                   "enum": [
                     "draft",
                     "published",
-                    "archived"
+                    "archived",
+                    "cancelled"
                   ],
                   "type": "string"
                 },
@@ -4669,6 +4670,146 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/cancel/preview": {
+      "get": {
+        "tags": [
+          "eventos"
+        ],
+        "summary": "Resumen de lo que implica cancelar un evento",
+        "operationId": "preview_cancel_event_api_v1_events__event_id__cancel_preview_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResumenCancelacionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/cancel": {
+      "post": {
+        "tags": [
+          "eventos"
+        ],
+        "summary": "Cancelar un evento publicado",
+        "description": "Definitivo. Cancela todas las inscripciones vivas, reembolsa íntegramente lo cobrado y avisa a cada inscrito, en segundo plano. Las cifras del cuerpo deben coincidir con las del resumen.",
+        "operationId": "cancel_event_api_v1_events__event_id__cancel_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelarEventoIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgresoCancelacionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/cancel/progress": {
+      "get": {
+        "tags": [
+          "eventos"
+        ],
+        "summary": "Progreso de la cancelación de un evento",
+        "operationId": "cancel_progress_api_v1_events__event_id__cancel_progress_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgresoCancelacionOut"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -11057,6 +11198,36 @@
         "title": "CancelRegistrationResponse",
         "description": "Resultado de cancelar una inscripción por autocancelación."
       },
+      "CancelarEventoIn": {
+        "properties": {
+          "motivo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo"
+          },
+          "inscripciones_afectadas": {
+            "type": "integer",
+            "title": "Inscripciones Afectadas"
+          },
+          "importe_a_reembolsar_cents": {
+            "type": "integer",
+            "title": "Importe A Reembolsar Cents"
+          }
+        },
+        "type": "object",
+        "required": [
+          "inscripciones_afectadas",
+          "importe_a_reembolsar_cents"
+        ],
+        "title": "CancelarEventoIn"
+      },
       "CeldaDeConsentimientos": {
         "properties": {
           "semana": {
@@ -12527,9 +12698,33 @@
             "enum": [
               "draft",
               "published",
-              "archived"
+              "archived",
+              "cancelled"
             ],
             "title": "Status"
+          },
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled At"
+          },
+          "cancellation_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancellation Reason"
           },
           "visibility": {
             "type": "string",
@@ -15508,6 +15703,11 @@
               "waitlisted"
             ],
             "title": "Status"
+          },
+          "event_cancelled": {
+            "type": "boolean",
+            "title": "Event Cancelled",
+            "default": false
           }
         },
         "type": "object",
@@ -17744,6 +17944,29 @@
         "title": "ProfileFieldResponse",
         "description": "Campo de perfil tal y como se devuelve."
       },
+      "ProgresoCancelacionOut": {
+        "properties": {
+          "por_cancelar": {
+            "type": "integer",
+            "title": "Por Cancelar"
+          },
+          "por_avisar": {
+            "type": "integer",
+            "title": "Por Avisar"
+          },
+          "reembolsos_fallidos": {
+            "type": "integer",
+            "title": "Reembolsos Fallidos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "por_cancelar",
+          "por_avisar",
+          "reembolsos_fallidos"
+        ],
+        "title": "ProgresoCancelacionOut"
+      },
       "ProveedorDelCatalogoOut": {
         "properties": {
           "clave": {
@@ -17890,6 +18113,22 @@
           "slug": {
             "type": "string",
             "title": "Slug"
+          },
+          "cancelled": {
+            "type": "boolean",
+            "title": "Cancelled",
+            "default": false
+          },
+          "cancellation_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancellation Reason"
           },
           "title": {
             "type": "string",
@@ -18126,7 +18365,7 @@
           "sessions"
         ],
         "title": "PublicEventDetail",
-        "description": "Evento publicado con su agenda completa, para la página pública de detalle."
+        "description": "Evento publicado con su agenda completa, para la página pública de detalle.\n\nTambién sirve a un evento cancelado, que sigue visible con su aviso:\n`cancelled` lo indica y `cancellation_reason` lleva el motivo público."
       },
       "PublicEventPolicies": {
         "properties": {
@@ -18140,6 +18379,16 @@
             },
             "type": "array",
             "title": "Policies"
+          },
+          "theme": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicTheme"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -18676,6 +18925,16 @@
           "event_title": {
             "type": "string",
             "title": "Event Title"
+          },
+          "theme": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicTheme"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -18923,6 +19182,16 @@
             },
             "type": "array",
             "title": "History"
+          },
+          "theme": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicTheme"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -20034,6 +20303,46 @@
         ],
         "title": "ResolvedTheme",
         "description": "La plantilla de tema de la plataforma, ya resuelta.\n\nResolución: `COALESCE(platform_branding.theme_template_id, la que tiene\nis_default)`. `None` si por lo que sea no hubiera ninguna plantilla en el\ncatálogo — defensa para que el cliente se quede con la base de\n`tokens.css` en vez de romper."
+      },
+      "ResumenCancelacionOut": {
+        "properties": {
+          "inscripciones_afectadas": {
+            "type": "integer",
+            "title": "Inscripciones Afectadas"
+          },
+          "pagos_a_reembolsar": {
+            "type": "integer",
+            "title": "Pagos A Reembolsar"
+          },
+          "importe_a_reembolsar_cents": {
+            "type": "integer",
+            "title": "Importe A Reembolsar Cents"
+          },
+          "moneda": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moneda"
+          },
+          "requiere_permiso_de_pagos": {
+            "type": "boolean",
+            "title": "Requiere Permiso De Pagos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "inscripciones_afectadas",
+          "pagos_a_reembolsar",
+          "importe_a_reembolsar_cents",
+          "moneda",
+          "requiere_permiso_de_pagos"
+        ],
+        "title": "ResumenCancelacionOut"
       },
       "RgpdExportRequest": {
         "properties": {

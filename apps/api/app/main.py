@@ -25,6 +25,7 @@ from app.modules.admin.users_router import router as admin_users_router
 from app.modules.ai_gateway.router import catalogo_router as ai_catalog_router
 from app.modules.ai_gateway.router import router as ai_gateway_router
 from app.modules.auth.router import router as auth_router
+from app.modules.events.cancel_router import router as events_cancel_router
 from app.modules.events.public_router import router as events_public_router
 from app.modules.events.router import router as events_router
 from app.modules.health.router import router as health_router
@@ -131,6 +132,7 @@ def create_app() -> FastAPI:
     api.include_router(admin_platform_router)
     api.include_router(admin_impersonation_router)
     api.include_router(events_router)
+    api.include_router(events_cancel_router)
     api.include_router(events_public_router)
     api.include_router(policies_organization_router)
     api.include_router(policies_event_router)

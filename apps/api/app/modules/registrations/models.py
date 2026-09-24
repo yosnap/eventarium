@@ -179,6 +179,15 @@ class EventRegistration(Base, TimestampMixin):
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # La canceló la cancelación del evento (no la persona ni el organizador).
+    # Junto con `event_cancellation_notified_at` permite reanudar el barrido
+    # que avisa y reembolsa sin repetir correos.
+    cancelled_with_event: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+    event_cancellation_notified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     answers: Mapped[list[EventRegistrationAnswer]] = relationship(

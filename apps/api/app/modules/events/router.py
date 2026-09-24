@@ -75,6 +75,8 @@ async def _event_response(session: AsyncSession, evento: Event) -> EventResponse
         description=evento.description,
         cover_url=cover_url,
         status=evento.status,  # type: ignore[arg-type]
+        cancelled_at=evento.cancelled_at,
+        cancellation_reason=evento.cancellation_reason,
         visibility=evento.visibility,  # type: ignore[arg-type]
         timezone=evento.timezone,
         starts_at=evento.starts_at,

@@ -8,6 +8,8 @@
 export interface EventResponse {
   accounting_currency: string;
   budget_approved_at: (string | null);
+  cancellation_reason?: (string | null);
+  cancelled_at?: (string | null);
   capacity: (number | null);
   city: (string | null);
   contingency_fund_cents: (number | null);
@@ -28,7 +30,7 @@ export interface EventResponse {
   registration_opens_at: (string | null);
   slug: string;
   starts_at: string;
-  status: 'draft' | 'published' | 'archived';
+  status: 'draft' | 'published' | 'archived' | 'cancelled';
   summary: (string | null);
   theme_overrides: ({
 [key: string]: any;

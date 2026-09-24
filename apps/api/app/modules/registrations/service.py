@@ -397,8 +397,13 @@ async def _cancelar_inscripcion(
         await process_refunds_task.kiq()
 
     if liberaba_una_plaza:
-        evento = await repository.lock_event_for_capacity(session, organization_id, event_id)
-        await _promote_next_waitlisted(session, evento)
+        evento = await repository.lock_event_for_capacity(
+            session, organization_id, event_id, exigir_no_cancelado=False
+        )
+        # En un evento cancelado no se promociona a nadie: su lista de espera
+        # la cancela el barrido de la cancelación del evento.
+        if evento.status != "cancelled":
+            await _promote_next_waitlisted(session, evento)
     return True
 
 
@@ -767,6 +772,8 @@ async def confirm_waitlist_promotion(session: AsyncSession, *, token: str) -> Ev
         raise RuntimeError(
             f"Evento {inscripcion.event_id} no encontrado al confirmar una promoción."
         )
+    if evento.status == "cancelled":
+        raise ConflictError("El evento se ha cancelado.")
 
     inscripcion.status = await _estado_confirmable(session, evento, inscripcion.id)
     inscripcion.confirmed_at = ahora if inscripcion.status == "confirmed" else None
@@ -787,7 +794,13 @@ async def expire_waitlist_promotions() -> None:
     async with maintenance_session() as session:
         eventos = await repository.events_with_expired_waitlist_promotions(session)
         for organization_id, event_id in eventos:
-            evento = await repository.lock_event_for_capacity(session, organization_id, event_id)
+            evento = await repository.lock_event_for_capacity(
+                session, organization_id, event_id, exigir_no_cancelado=False
+            )
+            # Un evento cancelado no promociona a nadie: su lista de espera la
+            # cancela el barrido de la cancelación.
+            if evento.status == "cancelled":
+                continue
             caducadas = await repository.get_expired_waitlist_promotions(
                 session, organization_id, event_id
             )
@@ -994,6 +1007,7 @@ async def list_mis_eventos(session: AsyncSession, *, token: str) -> list[MyRegis
             starts_at=fila.starts_at,
             organization_name=fila.organization_name,
             status=fila.status,
+            event_cancelled=fila.event_status == "cancelled",
         )
         for fila in filas
     ]

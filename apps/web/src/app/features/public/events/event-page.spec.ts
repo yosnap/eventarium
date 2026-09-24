@@ -234,6 +234,25 @@ describe('EventPage', () => {
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
+  it('un evento cancelado enseña el aviso y no ofrece inscribirse ni compartir', async () => {
+    const fixture = TestBed.createComponent(EventPage);
+    fixture.componentRef.setInput('slug', 'iawic-2026');
+    fixture.detectChanges();
+    http
+      .expectOne((peticion) => peticion.url === '/api/v1/public/events/iawic-2026')
+      .flush({ ...eventoDetalle(), cancelled: true, cancellation_reason: 'Temporal' });
+    await avanzar(fixture);
+    const raiz: HTMLElement = fixture.nativeElement;
+
+    expect(raiz.textContent).toContain('Este evento se ha cancelado');
+    expect(raiz.textContent).toContain('Temporal');
+    expect(raiz.querySelector('.ficha__inscribirse')).toBeNull();
+    expect(raiz.querySelector('app-share-links')).toBeNull();
+    // La agenda sigue visible.
+    expect(raiz.querySelector('#agenda-h2')).not.toBeNull();
+    await esperarSinViolacionesDeAccesibilidad(raiz);
+  });
+
   it('marca "no encontrado" cuando la API responde 404', async () => {
     const fixture = TestBed.createComponent(EventPage);
     fixture.componentRef.setInput('slug', 'no-existe');

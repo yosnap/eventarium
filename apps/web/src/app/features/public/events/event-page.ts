@@ -117,8 +117,17 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                       · {{ evento.location_name }}
                     }
                   </span>
-                  <app-chip [tone]="registro().tono">{{ t(registro().clave) }}</app-chip>
+                  @if (evento.cancelled) {
+                    <app-chip tone="apagado">{{ t('publico.eventos.cancelado.chip') }}</app-chip>
+                  } @else {
+                    <app-chip [tone]="registro().tono">{{ t(registro().clave) }}</app-chip>
+                  }
                 </div>
+                @if (evento.cancelled) {
+                  <app-alert tone="error" [title]="t('publico.eventos.cancelado.titulo')">
+                    {{ evento.cancellation_reason || t('publico.eventos.cancelado.sinMotivo') }}
+                  </app-alert>
+                }
                 @if (evento.cover_url) {
                   <img class="portada" [src]="evento.cover_url" [alt]="evento.title" />
                 }
@@ -129,11 +138,13 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                 @if (evento.description) {
                   <p class="hero__descripcion">{{ evento.description }}</p>
                 }
-                <app-share-links
-                  class="hero__compartir"
-                  [url]="urlPublica(evento)"
-                  [titulo]="evento.title"
-                />
+                @if (!evento.cancelled) {
+                  <app-share-links
+                    class="hero__compartir"
+                    [url]="urlPublica(evento)"
+                    [titulo]="evento.title"
+                  />
+                }
               </div>
 
               <div class="ficha">
@@ -211,13 +222,15 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                       </p>
                     </div>
                   }
-                  <a
-                    class="ficha__inscribirse"
-                    [routerLink]="['/eventos', evento.slug, 'inscribirse']"
-                  >
-                    {{ t('publico.eventos.inscribirse') }}
-                  </a>
-                  <p class="ficha__nota">{{ t('publico.eventos.ficha.sinCuenta') }}</p>
+                  @if (!evento.cancelled) {
+                    <a
+                      class="ficha__inscribirse"
+                      [routerLink]="['/eventos', evento.slug, 'inscribirse']"
+                    >
+                      {{ t('publico.eventos.inscribirse') }}
+                    </a>
+                    <p class="ficha__nota">{{ t('publico.eventos.ficha.sinCuenta') }}</p>
+                  }
                   <p class="ficha__nota">
                     <a [routerLink]="['/eventos', evento.slug, 'politicas']">
                       {{ t('publico.politicas.enlace') }}

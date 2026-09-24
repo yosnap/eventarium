@@ -18,8 +18,9 @@ import { Card } from '../../../shared/ui/card';
 import { MediaElegida, MediaPicker } from '../../../shared/ui/media-picker';
 import { capitalizarClaveDeTraduccion } from '../../../shared/text/capitalizar-clave-de-traduccion';
 import { PORTADA_ACEPTADOS } from '../../../shared/uploads/image-upload-constraints';
+import { EventCancelCard } from './event-cancel-card';
 
-type EventStatus = 'draft' | 'published' | 'archived';
+type EventStatus = 'draft' | 'published' | 'archived' | 'cancelled';
 
 interface EventoResumen {
   readonly cover_url: string | null;
@@ -42,7 +43,7 @@ interface EventoResumen {
 @Component({
   selector: 'app-event-details',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, MediaPicker],
+  imports: [TranslocoDirective, Alert, Button, Card, MediaPicker, EventCancelCard],
   template: `
     <ng-container *transloco="let t">
       @if (cargando()) {
@@ -79,7 +80,7 @@ interface EventoResumen {
                   {{ t('admin.events.formulario.publicar') }}
                 </app-button>
               }
-              @if (estadoActual() !== 'archived') {
+              @if (estadoActual() !== 'archived' && estadoActual() !== 'cancelled') {
                 <app-button
                   type="button"
                   variant="peligro"
@@ -94,6 +95,14 @@ interface EventoResumen {
               <app-alert tone="error">{{ mensaje }}</app-alert>
             }
           </app-card>
+
+          @if (estadoActual() === 'published' || estadoActual() === 'cancelled') {
+            <app-event-cancel-card
+              [eventId]="eventId()"
+              [yaCancelado]="estadoActual() === 'cancelled'"
+              (cancelacionConfirmada)="estadoActual.set('cancelled')"
+            />
+          }
         </div>
       }
     </ng-container>

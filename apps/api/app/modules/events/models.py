@@ -55,6 +55,10 @@ class Event(Base, TimestampMixin):
         # añade siempre 60s de margen técnico, así que 1439 es el máximo que
         # no se pasa de las 24h.
         CheckConstraint(
+            "status IN ('draft', 'published', 'archived', 'cancelled')",
+            name="ck_events_status",
+        ),
+        CheckConstraint(
             "payment_checkout_window_minutes BETWEEN 30 AND 1439",
             name="ck_events_payment_checkout_window_minutes_rango",
         ),
@@ -84,8 +88,12 @@ class Event(Base, TimestampMixin):
     # por la biblioteca, reemplazarla no borra el objeto (puede reutilizarse
     # en otro sitio).
     cover_media_id: Mapped[uuid.UUID | None] = mapped_column(PgUUID(as_uuid=True), nullable=True)
-    # draft | published | archived
+    # draft | published | archived | cancelled (`cancelled` y `archived` son
+    # terminales; solo se llega a `cancelled` con `cancelar_evento`).
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Texto opcional que ve el público en la ficha del evento cancelado.
+    cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     # public | hidden | private
     visibility: Mapped[str] = mapped_column(String(20), nullable=False, default="public")
     timezone: Mapped[str] = mapped_column(String(60), nullable=False, default="Europe/Madrid")

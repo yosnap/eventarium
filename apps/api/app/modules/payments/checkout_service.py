@@ -34,7 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import SessionApp, maintenance_session, set_organization_context
 from app.core.tenant import base_url_de_organizacion
 from app.modules.events.models import Event
-from app.modules.payments import repository
+from app.modules.payments import refunds_service, repository
 from app.modules.payments import service as payments_service
 from app.modules.payments import stripe_client as stripe_gateway
 from app.modules.payments.models import EventPayment, OrganizationStripeAccount
@@ -349,6 +349,24 @@ async def confirmar_pago_y_registro(
     los reutilice sin traducir nada.
     """
     if pago.status == "paid" and inscripcion.status == "confirmed":
+        return "processed"
+    if (
+        pago.status == "expired"
+        and inscripcion.status == "cancelled"
+        and inscripcion.cancelled_with_event
+    ):
+        # Pagó en una sesión de Checkout que seguía abierta cuando la
+        # organización canceló el evento: el dinero ya está cobrado. Se
+        # registra el cobro y se pide su reembolso íntegro; lo ejecuta el cron
+        # de reembolsos como cualquier otro.
+        pago.status = "paid"
+        pago.paid_at = datetime.now(UTC)
+        if stripe_payment_intent_id is not None:
+            pago.stripe_payment_intent_id = stripe_payment_intent_id
+        await session.flush()
+        await refunds_service.preparar_reembolso_por_cancelacion_de_evento(
+            session, organization_id=pago.organization_id, registration_id=inscripcion.id
+        )
         return "processed"
     if pago.status != "pending" or inscripcion.status != "pending_payment":
         logger.warning(
