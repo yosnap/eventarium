@@ -8,10 +8,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.core.config import get_settings
 from app.core.deps import bloquear_escritura_si_impersona
+from app.core.ratelimit import consumir_mcp_por_ip
 from app.core.redis_client import close_redis
 from app.core.storage import get_storage
 from app.modules.accounting.drafts_router import router as accounting_drafts_router
@@ -33,6 +36,7 @@ from app.modules.health.router import router as health_router
 from app.modules.legal.router import router_cookie_consent as cookie_consent_router
 from app.modules.legal.router import router_public as legal_public_router
 from app.modules.mcp.router import router as mcp_router
+from app.modules.mcp.router import router_organizacion as mcp_organizacion_router
 from app.modules.mcp.server import crear_app as crear_app_mcp
 from app.modules.mcp.server import crear_servidor as crear_servidor_mcp
 from app.modules.mcp.server import metadatos_del_recurso
@@ -62,21 +66,39 @@ from app.modules.tenant.router import router as tenant_router
 from app.modules.tickets.public_router import router as tickets_public_router
 from app.modules.tickets.router import router as tickets_router
 from app.modules.users.router import router as users_router
-from app.shared.errors import register_exception_handlers
+from app.shared.errors import DomainError, register_exception_handlers
 
 API_PREFIX = "/api/v1"
 
 
-class _McpSinBarraFinal:
-    """`/mcp` → `/mcp/` antes del router: Starlette respondería con una
-    redirección, y los clientes MCP no la siguen en un POST."""
+class _EntradaMcp:
+    """Delante del servidor MCP montado, que queda fuera de las dependencias
+    de FastAPI:
+
+    - límite por IP **antes** de autenticar (`consumir_mcp_por_ip`), para que
+      nadie pueda probar claves sin tope;
+    - `/mcp` → `/mcp/`: Starlette respondería con una redirección, y los
+      clientes MCP no la siguen en un POST.
+    """
 
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] == "http" and scope["path"] == "/mcp":
-            scope = {**scope, "path": "/mcp/", "raw_path": b"/mcp/"}
+        ruta = scope.get("path", "")
+        if scope["type"] == "http" and (ruta == "/mcp" or ruta.startswith("/mcp/")):
+            try:
+                await consumir_mcp_por_ip(Request(scope))
+            except DomainError as exc:
+                respuesta = JSONResponse(
+                    exc.to_problem(ruta),
+                    status_code=exc.status_code,
+                    media_type="application/problem+json",
+                )
+                await respuesta(scope, receive, send)
+                return
+            if ruta == "/mcp":
+                scope = {**scope, "path": "/mcp/", "raw_path": b"/mcp/"}
         await self.app(scope, receive, send)
 
 
@@ -156,6 +178,7 @@ def create_app() -> FastAPI:
     api.include_router(events_router)
     api.include_router(events_cancel_router)
     api.include_router(mcp_router)
+    api.include_router(mcp_organizacion_router)
     api.include_router(events_public_router)
     api.include_router(policies_organization_router)
     api.include_router(policies_event_router)
@@ -194,7 +217,7 @@ def create_app() -> FastAPI:
     async def recurso_protegido_mcp() -> dict[str, object]:
         return metadatos_del_recurso()
 
-    app.add_middleware(_McpSinBarraFinal)
+    app.add_middleware(_EntradaMcp)
 
     return app
 

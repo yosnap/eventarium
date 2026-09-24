@@ -130,6 +130,10 @@ MIS_EVENTOS_VER_POR_IP = 20
 # llamadas). Holgado para un asistente que prepara un evento completo, corto
 # para uno que ha entrado en bucle.
 MCP_HERRAMIENTAS_POR_CONEXION = 120
+# Y por IP antes de autenticar, para que nadie pueda probar claves sin tope.
+# Holgado a propósito: Claude y ChatGPT conectan desde las IP de su nube,
+# compartidas por muchas personas; el límite fino es el de cada conexión.
+MCP_POR_IP = 600
 
 VENTANA_SEGUNDOS = 60
 
@@ -190,4 +194,11 @@ def limit_per_ip(nombre: str, veces: int, segundos: int = VENTANA_SEGUNDOS) -> A
 
 async def consumir_por_conexion_mcp(connection_id: str) -> None:
     """Límite por conexión MCP, llamado por cada uso de herramienta."""
-    await _consumir(f"rl:mcp:{connection_id}", MCP_HERRAMIENTAS_POR_CONEXION, VENTANA_SEGUNDOS)
+    await _consumir(
+        f"ratelimit:mcp:conexion:{connection_id}", MCP_HERRAMIENTAS_POR_CONEXION, VENTANA_SEGUNDOS
+    )
+
+
+async def consumir_mcp_por_ip(request: Request) -> None:
+    """Límite por IP de `/mcp`, antes de autenticar (ver `main.py`)."""
+    await _consumir(f"ratelimit:mcp:{identify_by_ip(request)}", MCP_POR_IP, VENTANA_SEGUNDOS)

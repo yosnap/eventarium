@@ -10,8 +10,9 @@ recuperan con `contexto_actual()` y **deben** pasar por:
   conexión. Fuera de la lista se comporta como inexistente (mismo error que
   un evento que no existe), para no revelar qué eventos hay.
 
-Un test de contrato recorre las herramientas registradas y comprueba que
-todas usan `herramienta(...)`, que aplica el límite por conexión.
+Toda herramienta empieza con `preparar()` (`herramientas_lectura.py`), que
+aplica además el límite por conexión; un test de contrato recorre las
+herramientas registradas y falla si alguna no lo llama.
 """
 
 from __future__ import annotations

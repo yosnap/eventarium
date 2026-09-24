@@ -27,6 +27,7 @@ export const ORGANIZATION_NAV_LINKS: readonly AdminNavLink[] = [
   // Sin `soloSuperadmin`: es una pantalla del panel de organización, y quien no
   // sea propietario ve el aviso de solo lectura que devuelve el backend.
   { path: ['/dashboard/ia'], labelKey: 'admin.ia.organizacion.titulo' },
+  { path: ['/dashboard/mcp'], labelKey: 'admin.mcp.nav' },
 ];
 
 export const PLATFORM_NAV_LINKS: readonly AdminNavLink[] = [

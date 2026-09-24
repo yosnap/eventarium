@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
+import re
 import time
 import uuid
 from datetime import datetime
@@ -49,12 +51,14 @@ from app.modules.mcp.scopes import Ambito
 from app.modules.registrations.models import EventRegistration
 from app.modules.sponsors import service as sponsors_service
 from app.modules.sponsors.models import SponsorTier
-from app.modules.sponsors.schemas import SponsorCreate
+from app.modules.sponsors.schemas import SponsorCreate, SponsorUpdate
 
 ESCRITURA = ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=False)
 DELICADA = ToolAnnotations(
     readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False
 )
+ACCIONES_DE_LA_WEB = {"cancelar_evento": "events.cancelled"}
+logger = logging.getLogger(__name__)
 LECTURA_NIVELES = ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=False)
 # Vida del código de confirmación de `cancelar_evento`, en ventanas de 5 min:
 # vale la ventana actual y la anterior (entre 5 y 10 minutos).
@@ -74,17 +78,30 @@ def _validar(modelo: type, datos: dict[str, Any]) -> Any:  # type: ignore[type-a
 async def _auditar(
     contexto: ContextoMcp, herramienta: str, entidad: str, entidad_id: str, detalle: dict
 ) -> None:
-    """Tras el `commit` de la escritura: `audit_log` solo lo escribe
-    `app_maintainer` (`core/audit.py`)."""
-    async with maintenance_session() as auditoria:
-        await registrar_auditoria(
-            auditoria,
-            actor_user_id=contexto.user_id,
-            organization_id=contexto.organization_id,
-            action=f"mcp.{herramienta}",
-            entity_type=entidad,
-            entity_id=entidad_id,
-            detail={"via": "mcp", "connection_id": str(contexto.connection_id), **detalle},
+    """Tras el `commit` de la escritura (`audit_log` solo lo escribe
+    `app_maintainer`, `core/audit.py`). Si falla, se registra en el log y la
+    herramienta responde igual: la escritura ya está hecha, y devolver un error
+    haría que el asistente la repitiera (duplicando una sesión o una sede).
+    Mismo criterio que el panel, que audita en una tarea tras la respuesta.
+
+    `action` es el de la web cuando existe (`events.cancelled`); el resto de
+    escrituras no se auditan en el panel, y van con `mcp.<herramienta>`.
+    `detail.via = "mcp"` distingue siempre el origen.
+    """
+    try:
+        async with maintenance_session() as auditoria:
+            await registrar_auditoria(
+                auditoria,
+                actor_user_id=contexto.user_id,
+                organization_id=contexto.organization_id,
+                action=ACCIONES_DE_LA_WEB.get(herramienta, f"mcp.{herramienta}"),
+                entity_type=entidad,
+                entity_id=entidad_id,
+                detail={"via": "mcp", "connection_id": str(contexto.connection_id), **detalle},
+            )
+    except Exception:
+        logger.exception(
+            "No se pudo auditar %s de la conexión %s", herramienta, contexto.connection_id
         )
 
 
@@ -100,11 +117,33 @@ def _codigo_de_cancelacion(
 ) -> str:
     """Sin estado: el código ata la conexión, el evento, las cifras que se han
     enseñado y una ventana de tiempo. Si cambian las cifras, deja de valer."""
+    # Etiqueta de propósito: la clave (`jwt_secret`) también firma otras cosas.
     mensaje = (
-        f"{contexto.connection_id}:{event_id}:{resumen.inscripciones_afectadas}:"
-        f"{resumen.importe_a_reembolsar_cents}:{ventana}"
+        f"mcp:cancelar_evento:v1:{contexto.connection_id}:{event_id}:"
+        f"{resumen.inscripciones_afectadas}:{resumen.importe_a_reembolsar_cents}:{ventana}"
     ).encode()
     return hmac.new(get_settings().jwt_secret.encode(), mensaje, hashlib.sha256).hexdigest()[:16]
+
+
+_FORMATO_CODIGO = re.compile(r"[0-9a-f]{16}")
+
+
+def _enlace_panel(event_id: uuid.UUID | str, seccion: str = "") -> str:
+    base = get_settings().web_base_url.rstrip("/")
+    return f"{base}/dashboard/events/{event_id}{seccion}"
+
+
+def _sesion_out(sesion_agenda: Any) -> schemas.Sesion:  # noqa: ANN401 - EventSession
+    return schemas.Sesion(
+        id=str(sesion_agenda.id),
+        titulo=sesion_agenda.title,
+        tipo=sesion_agenda.session_type,
+        inicio=sesion_agenda.starts_at,
+        fin=sesion_agenda.ends_at,
+        sala=sesion_agenda.room,
+        sede_id=str(sesion_agenda.venue_id) if sesion_agenda.venue_id else None,
+        enlace_panel=_enlace_panel(sesion_agenda.event_id, "/agenda"),
+    )
 
 
 def registrar(mcp: MCPServer) -> None:
@@ -243,15 +282,7 @@ def registrar(mcp: MCPServer) -> None:
             nueva = await events_service.create_session(
                 session, organization_id=contexto.organization_id, event_id=evento.id, datos=datos
             )
-            respuesta = schemas.Sesion(
-                id=str(nueva.id),
-                titulo=nueva.title,
-                tipo=nueva.session_type,
-                inicio=nueva.starts_at,
-                fin=nueva.ends_at,
-                sala=nueva.room,
-                sede_id=str(nueva.venue_id) if nueva.venue_id else None,
-            )
+            respuesta = _sesion_out(nueva)
         await _auditar(
             contexto, "anadir_sesion", "event_session", respuesta.id, {"event_id": event_id}
         )
@@ -293,15 +324,7 @@ def registrar(mcp: MCPServer) -> None:
                 session_id=_uuid(session_id),
                 datos=datos,
             )
-            respuesta = schemas.Sesion(
-                id=str(cambiada.id),
-                titulo=cambiada.title,
-                tipo=cambiada.session_type,
-                inicio=cambiada.starts_at,
-                fin=cambiada.ends_at,
-                sala=cambiada.room,
-                sede_id=str(cambiada.venue_id) if cambiada.venue_id else None,
-            )
+            respuesta = _sesion_out(cambiada)
         await _auditar(
             contexto, "editar_sesion", "event_session", respuesta.id, {"event_id": event_id}
         )
@@ -340,14 +363,21 @@ def registrar(mcp: MCPServer) -> None:
             sede = await events_service.create_venue(
                 session, organization_id=contexto.organization_id, event_id=evento.id, datos=datos
             )
-            respuesta = schemas.Sede(id=str(sede.id), nombre=sede.name, direccion=sede.address)
+            respuesta = schemas.Sede(
+                id=str(sede.id),
+                nombre=sede.name,
+                direccion=sede.address,
+                enlace_panel=_enlace_panel(evento.id, "/sedes"),
+            )
         await _auditar(contexto, "anadir_sede", "event_venue", respuesta.id, {"event_id": event_id})
         return respuesta
 
     @mcp.tool(annotations=LECTURA_NIVELES)
     async def listar_niveles_de_patrocinio() -> list[dict[str, str]]:
         """Niveles de patrocinio de la organización (Oro, Plata…), para usar
-        su `id` en `anadir_patrocinador`."""
+        su `id` en `anadir_patrocinador`. Son de la organización, no de un
+        evento: una conexión limitada a eventos concretos también los ve (solo
+        nombres, nada sensible)."""
         contexto = await preparar()
         contexto.exigir_ambito(Ambito.PATROCINADORES_EDITAR)
         async with sesion(contexto) as session:
@@ -397,9 +427,60 @@ def registrar(mcp: MCPServer) -> None:
                 nivel=nivel.name if nivel else None,
                 web=patrocinador.website,
                 tipo_aportacion=patrocinador.contribution_type,
+                enlace_panel=_enlace_panel(evento.id, "/patrocinadores"),
             )
         await _auditar(
             contexto, "anadir_patrocinador", "sponsor", respuesta.id, {"event_id": event_id}
+        )
+        return respuesta
+
+    @mcp.tool(annotations=ESCRITURA)
+    async def editar_patrocinador(
+        event_id: str,
+        patrocinador_id: str,
+        nombre: str | None = None,
+        nivel_id: str | None = None,
+        tipo_aportacion: str | None = None,
+        descripcion_aportacion: str | None = None,
+        importe: float | None = None,
+        web: str | None = None,
+    ) -> schemas.Patrocinador:
+        """Cambia un patrocinador del evento indicado."""
+        contexto = await preparar()
+        contexto.exigir_ambito(Ambito.PATROCINADORES_EDITAR)
+        cambios = _sin_nulos(
+            tier_id=nivel_id,
+            name=nombre,
+            website=web,
+            contribution_type=tipo_aportacion,
+            contribution_amount=importe,
+            contribution_description=descripcion_aportacion,
+        )
+        if not cambios:
+            raise ErrorDeHerramienta("Indica al menos un dato que cambiar.")
+        datos = _validar(SponsorUpdate, cambios).model_dump(exclude_unset=True)
+        if "tier_id" in datos:
+            datos["tier_id"] = _uuid(datos["tier_id"])
+        async with sesion(contexto) as session:
+            evento = await _evento_permitido(session, contexto, event_id)
+            patrocinador = await sponsors_service.update_sponsor(
+                session,
+                organization_id=contexto.organization_id,
+                event_id=evento.id,
+                sponsor_id=_uuid(patrocinador_id),
+                datos=datos,
+            )
+            nivel = await session.get(SponsorTier, patrocinador.tier_id)
+            respuesta = schemas.Patrocinador(
+                id=str(patrocinador.id),
+                nombre=patrocinador.name,
+                nivel=nivel.name if nivel else None,
+                web=patrocinador.website,
+                tipo_aportacion=patrocinador.contribution_type,
+                enlace_panel=_enlace_panel(evento.id, "/patrocinadores"),
+            )
+        await _auditar(
+            contexto, "editar_patrocinador", "sponsor", respuesta.id, {"event_id": event_id}
         )
         return respuesta
 
@@ -454,7 +535,7 @@ def registrar(mcp: MCPServer) -> None:
     @mcp.tool(annotations=DELICADA)
     async def cancelar_evento(
         event_id: str, codigo_de_confirmacion: str | None = None, motivo: str | None = None
-    ) -> dict[str, Any]:
+    ) -> schemas.ConfirmacionDeCancelacion | schemas.CancelacionHecha:
         """Cancela un evento publicado. **Definitivo**: cancela todas las
         inscripciones, reembolsa íntegramente lo cobrado y avisa a cada
         inscrito. Dos pasos: llámala primero sin `codigo_de_confirmacion` para
@@ -475,17 +556,19 @@ def registrar(mcp: MCPServer) -> None:
                 )
             ventana = int(time.time()) // _VENTANA_CONFIRMACION
             if codigo_de_confirmacion is None:
-                return {
-                    "confirmacion_pendiente": True,
-                    "inscripciones_afectadas": resumen.inscripciones_afectadas,
-                    "pagos_a_reembolsar": resumen.pagos_a_reembolsar,
-                    "importe_a_reembolsar_cents": resumen.importe_a_reembolsar_cents,
-                    "moneda": resumen.moneda,
-                    "codigo_de_confirmacion": _codigo_de_cancelacion(
+                return schemas.ConfirmacionDeCancelacion(
+                    inscripciones_afectadas=resumen.inscripciones_afectadas,
+                    pagos_a_reembolsar=resumen.pagos_a_reembolsar,
+                    importe_a_reembolsar_cents=resumen.importe_a_reembolsar_cents,
+                    moneda=resumen.moneda,
+                    codigo_de_confirmacion=_codigo_de_cancelacion(
                         contexto, evento.id, resumen, ventana
                     ),
-                    "aviso": "Confirma con la persona antes de volver a llamar con el código.",
-                }
+                    aviso="Confirma con la persona antes de volver a llamar con el código.",
+                )
+            # `compare_digest` falla con texto no ASCII: se filtra el formato antes.
+            if not _FORMATO_CODIGO.fullmatch(codigo_de_confirmacion):
+                raise ErrorDeHerramienta("El código no es válido. Vuelve a pedir el resumen.")
             validos = {
                 _codigo_de_cancelacion(contexto, evento.id, resumen, v)
                 for v in (ventana, ventana - 1)
@@ -512,9 +595,8 @@ def registrar(mcp: MCPServer) -> None:
             event_id,
             {"inscripciones_afectadas": resumen.inscripciones_afectadas},
         )
-        return {
-            "cancelado": True,
-            "inscripciones_afectadas": resumen.inscripciones_afectadas,
-            "pagos_a_reembolsar": resumen.pagos_a_reembolsar,
-            "enlace_panel": _resumen(evento).enlace_panel,
-        }
+        return schemas.CancelacionHecha(
+            inscripciones_afectadas=resumen.inscripciones_afectadas,
+            pagos_a_reembolsar=resumen.pagos_a_reembolsar,
+            enlace_panel=_enlace_panel(evento.id),
+        )

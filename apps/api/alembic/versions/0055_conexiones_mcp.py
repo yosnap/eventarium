@@ -109,14 +109,15 @@ def upgrade() -> None:
             "(method = 'api_key') = (key_hash IS NOT NULL)",
             name="ck_mcp_connections_clave_solo_api_key",
         ),
-        sa.ForeignKeyConstraint(
-            ["organization_id"], ["organizations.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["revoked_by"], ["users.id"], ondelete="SET NULL"),
     )
     op.create_index(
-        "uq_mcp_connections_key_hash", _TABLA, ["key_hash"], unique=True,
+        "uq_mcp_connections_key_hash",
+        _TABLA,
+        ["key_hash"],
+        unique=True,
         postgresql_where=sa.text("key_hash IS NOT NULL"),
     )
     op.create_index("ix_mcp_connections_org_user", _TABLA, ["organization_id", "user_id"])
@@ -139,6 +140,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # Quita `mcp:connect` de **todos** los roles, también de los que el dueño
+    # se lo dio a mano: el permiso deja de existir, así que no es reversible.
     op.execute("DELETE FROM role_permissions WHERE permission = 'mcp:connect'")
     for nombre in _FUNCIONES:
         op.execute(f"DROP FUNCTION IF EXISTS {nombre}")

@@ -32,7 +32,10 @@ async def _herramienta(cliente: AsyncClient, clave: str, nombre: str, **argument
 
 
 def _datos(resultado: dict):  # type: ignore[no-untyped-def]
+    """Contenido de una respuesta correcta. Toda respuesta de herramienta que
+    pasa por aquí se comprueba además contra datos personales: ningún correo."""
     assert not resultado.get("isError"), resultado
+    assert "@" not in json.dumps(resultado), resultado
     estructurado = resultado.get("structuredContent")
     if estructurado is not None:
         return estructurado.get("result", estructurado)

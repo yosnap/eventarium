@@ -5,12 +5,12 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, status
 from pydantic import BaseModel, Field
 
-from app.core.deps import CurrentUserDep, DbDep, require_permission
+from app.core.deps import CurrentUserDep, DbDep, OrgOwnerDep, require_permission
 from app.core.permissions import Permission
 from app.modules.mcp import service
 from app.modules.mcp.models import McpConnection
@@ -18,6 +18,9 @@ from app.modules.mcp.scopes import AMBITOS_POR_DEFECTO, Ambito
 from app.modules.mcp.server import url_del_recurso
 
 router = APIRouter(prefix="/users/me/mcp-connections", tags=["mcp"])
+# Solo el dueño: revocar la conexión de otra persona. `members:write` no basta,
+# porque también lo tiene el organizador y podría revocar la del propio dueño.
+router_organizacion = APIRouter(prefix="/organizations/me/mcp-connections", tags=["mcp"])
 
 
 class ConexionOut(BaseModel):
@@ -117,3 +120,79 @@ async def revoke_my_connection(
         actor_user_id=usuario.id,
         solo_propia=True,
     )
+
+
+class ConexionDeOrganizacionOut(ConexionOut):
+    user_email: str
+
+
+class AccionOut(BaseModel):
+    action: str
+    entity_type: str
+    entity_id: str | None
+    created_at: datetime
+    detail: dict[str, Any]
+
+
+@router.get(
+    "/{connection_id}/history",
+    summary="Historial de una conexión propia",
+    response_model=list[AccionOut],
+    dependencies=[require_permission(Permission.MCP_CONNECT)],
+)
+async def my_connection_history(
+    connection_id: uuid.UUID, usuario: CurrentUserDep, session: DbDep
+) -> list[AccionOut]:
+    acciones = await service.historial(
+        session,
+        organization_id=usuario.organization_id,
+        connection_id=connection_id,
+        solo_de=usuario.id,
+    )
+    return [AccionOut(**a) for a in acciones]
+
+
+@router_organizacion.get(
+    "",
+    summary="Conexiones MCP de todos los miembros (solo el dueño)",
+    response_model=list[ConexionDeOrganizacionOut],
+)
+async def list_organization_connections(
+    dueno: OrgOwnerDep, session: DbDep
+) -> list[ConexionDeOrganizacionOut]:
+    filas = await service.listar_de_organizacion(session, organization_id=dueno.organization_id)
+    return [
+        ConexionDeOrganizacionOut(**conexion_out(conexion).model_dump(), user_email=email)
+        for conexion, email in filas
+    ]
+
+
+@router_organizacion.delete(
+    "/{connection_id}",
+    summary="Revocar la conexión de un miembro (solo el dueño)",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def revoke_organization_connection(
+    connection_id: uuid.UUID, dueno: OrgOwnerDep, session: DbDep
+) -> None:
+    await service.revocar(
+        session,
+        organization_id=dueno.organization_id,
+        connection_id=connection_id,
+        actor_user_id=dueno.id,
+        solo_propia=False,
+    )
+
+
+@router_organizacion.get(
+    "/{connection_id}/history",
+    summary="Historial de la conexión de un miembro (solo el dueño)",
+    response_model=list[AccionOut],
+)
+async def organization_connection_history(
+    connection_id: uuid.UUID, dueno: OrgOwnerDep, session: DbDep
+) -> list[AccionOut]:
+    acciones = await service.historial(
+        session, organization_id=dueno.organization_id, connection_id=connection_id, solo_de=None
+    )
+    return [AccionOut(**a) for a in acciones]

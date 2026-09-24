@@ -3,8 +3,8 @@
 No se reutilizan los schemas de la web a propósito: los del panel llevan
 correos de miembros y participantes (`events/schemas.py`) e importes de
 patrocinio, y todo lo que se devuelve aquí acaba en el historial de un
-asistente de terceros. Un test serializa cada respuesta y falla si aparece un
-correo o un teléfono.
+asistente de terceros. Los tests del MCP comprueban que ninguna respuesta
+lleva correos ni teléfonos.
 """
 
 from __future__ import annotations
@@ -34,6 +34,8 @@ class Sede(BaseModel):
     id: str
     nombre: str
     direccion: str | None
+    # Solo en las respuestas de escritura: dónde revisar el cambio en el panel.
+    enlace_panel: str | None = None
 
 
 class Sesion(BaseModel):
@@ -44,6 +46,7 @@ class Sesion(BaseModel):
     fin: datetime
     sala: str | None
     sede_id: str | None
+    enlace_panel: str | None = None
 
 
 class Patrocinador(BaseModel):
@@ -52,6 +55,7 @@ class Patrocinador(BaseModel):
     nivel: str | None
     web: str | None
     tipo_aportacion: str
+    enlace_panel: str | None = None
 
 
 class EventoDetalle(EventoResumen):
@@ -79,3 +83,24 @@ class CifrasDeInscripcion(BaseModel):
     plazas_reservadas: int
     aforo: int | None
     plazas_libres: int | None
+
+
+class ConfirmacionDeCancelacion(BaseModel):
+    """Primer paso de `cancelar_evento`: lo que implica, para confirmarlo con
+    la persona. El importe es el total a devolver del propio evento, nunca de
+    una persona concreta."""
+
+    confirmacion_pendiente: bool = True
+    inscripciones_afectadas: int
+    pagos_a_reembolsar: int
+    importe_a_reembolsar_cents: int
+    moneda: str | None
+    codigo_de_confirmacion: str
+    aviso: str
+
+
+class CancelacionHecha(BaseModel):
+    cancelado: bool = True
+    inscripciones_afectadas: int
+    pagos_a_reembolsar: int
+    enlace_panel: str

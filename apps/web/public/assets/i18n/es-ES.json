@@ -1023,7 +1023,8 @@
         "roles:write": "Crear y editar roles",
         "members:read": "Ver los miembros",
         "members:write": "Añadir miembros",
-        "users:read": "Ver los datos de los usuarios"
+        "users:read": "Ver los datos de los usuarios",
+        "mcp:connect": "Conectar asistentes por MCP"
       },
       "cabeceraInicio": "Los roles definen",
       "cabeceraMarca": "lo que cada persona puede hacer",
@@ -2386,6 +2387,63 @@
       "pendientesTitulo": "Este evento no tiene condiciones propias",
       "pendientes": "Quien se inscriba solo verá las condiciones generales de la plataforma. Puedes publicar igualmente.",
       "irAPoliticas": "Escribir las condiciones"
+    },
+    "mcp": {
+      "nav": "Asistentes (MCP)",
+      "rotulo": "Asistentes",
+      "titulo": "Conecta tus asistentes a Eventarium",
+      "sinPermisoTitulo": "Tu rol no permite conectar asistentes",
+      "sinPermiso": "Pide al dueño de la organización que dé el permiso «Conectar asistentes por MCP» a tu rol.",
+      "comoConectar": "Cómo conectar un asistente",
+      "comoConectarTexto": "Añade este servidor MCP en tu asistente e inicia sesión con tu cuenta, o usa una clave de API en la cabecera Authorization: Bearer.",
+      "clienteClaude": "Claude: Ajustes → Conectores → Añadir conector personalizado, con esta URL.",
+      "clienteChatgpt": "ChatGPT: Ajustes → Aplicaciones → Modo desarrollador → Crear, con esta URL.",
+      "clienteCursor": "Cursor: añade el servidor en la configuración de MCP con esta URL y la clave en la cabecera Authorization.",
+      "mias": "Mis conexiones",
+      "sinConexiones": "Todavía no hay ninguna conexión.",
+      "revocada": "Revocada",
+      "todos": "todos los eventos",
+      "eventosConcretos": "{{n}} eventos concretos",
+      "caduca": "Caduca el",
+      "ultimoUso": "Último uso:",
+      "sinUso": "Sin usar todavía",
+      "revocar": "Revocar",
+      "deLaOrganizacion": "Conexiones de la organización",
+      "deLaOrganizacionTexto": "Como dueño ves las conexiones de todos los miembros y puedes revocar cualquiera.",
+      "error": "No hemos podido completar la operación.",
+      "nueva": {
+        "titulo": "Nueva clave de API",
+        "nombre": "Nombre",
+        "nombreAyuda": "Para reconocerla, por ejemplo «Claude de Ana».",
+        "permisos": "Qué puede hacer",
+        "eventos": "Sobre qué eventos",
+        "todosLosEventos": "Todos los eventos de la organización",
+        "dias": "Caducidad (días)",
+        "diasAyuda": "Entre 1 y 365. Por defecto, 90.",
+        "crear": "Crear clave",
+        "creadaTitulo": "Clave creada",
+        "creadaAviso": "Cópiala ahora: no volverás a verla. Si la pierdes, revócala y crea otra.",
+        "copiar": "Copiar",
+        "copiada": "Copiada",
+        "url": "URL del servidor:",
+        "otra": "Crear otra",
+        "ambito": {
+          "eventos_leer": "Ver eventos",
+          "inscripciones_cifras": "Ver cifras de inscripción",
+          "eventos_editar": "Crear y editar eventos (siempre en borrador)",
+          "eventos_publicar": "Publicar y despublicar eventos",
+          "patrocinadores_editar": "Añadir patrocinadores",
+          "eventos_cancelar": "Cancelar eventos"
+        },
+        "ambitoAyuda": {
+          "eventos_leer": "Datos, agenda, sedes y patrocinadores, sin importes.",
+          "inscripciones_cifras": "Solo cifras: nunca datos de las personas inscritas.",
+          "eventos_editar": "Todo lo que cree queda en borrador para que lo revises.",
+          "eventos_publicar": "Publicar un evento lo abre a inscripciones.",
+          "patrocinadores_editar": "Alta de patrocinadores en tus eventos.",
+          "eventos_cancelar": "Definitivo: cancela inscripciones y reembolsa pagos. Márcalo solo si lo necesitas."
+        }
+      }
     }
   },
   "miEntrada": {

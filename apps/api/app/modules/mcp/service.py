@@ -13,14 +13,18 @@ import secrets
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit_redaction import redactar_importes
+from app.core.database import maintenance_session
 from app.core.permissions import Permission
 from app.modules.events.models import Event
 from app.modules.mcp.models import McpConnection
 from app.modules.mcp.scopes import PERMISO_REQUERIDO, Ambito
+from app.modules.users.models import User
 from app.shared.errors import NotFoundError, PermissionDeniedError, ValidationDomainError
 
 PREFIJO_CLAVE = "evtm_"
@@ -190,3 +194,63 @@ async def registrar_uso(session: AsyncSession, connection_id: uuid.UUID) -> None
         )
         .values(last_used_at=ahora)
     )
+
+
+async def listar_de_organizacion(
+    session: AsyncSession, *, organization_id: uuid.UUID
+) -> list[tuple[McpConnection, str]]:
+    """Para el dueño: todas las conexiones de la organización con el correo
+    de su persona."""
+    filas = await session.execute(
+        select(McpConnection, User.email)
+        .join(User, User.id == McpConnection.user_id)
+        .where(McpConnection.organization_id == organization_id)
+        .order_by(McpConnection.created_at.desc())
+    )
+    return [(conexion, email) for conexion, email in filas.all()]
+
+
+async def historial(
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    connection_id: uuid.UUID,
+    solo_de: uuid.UUID | None,
+    limite: int = 50,
+) -> list[dict[str, Any]]:
+    """Últimas acciones de una conexión, desde la auditoría.
+
+    `audit_log` no tiene RLS y solo la lee `app_maintainer`, así que primero se
+    comprueba **bajo RLS** que la conexión es de esta organización (y de la
+    persona, si `solo_de`): así nunca se consulta la auditoría con un
+    identificador de otra organización. Solo se devuelven unos pocos campos,
+    con los importes redactados.
+    """
+    consulta = select(McpConnection.id).where(
+        McpConnection.organization_id == organization_id, McpConnection.id == connection_id
+    )
+    if solo_de is not None:
+        consulta = consulta.where(McpConnection.user_id == solo_de)
+    if await session.scalar(consulta) is None:
+        raise NotFoundError("La conexión no existe.")
+    async with maintenance_session() as auditoria:
+        filas = await auditoria.execute(
+            text(
+                "SELECT action, entity_type, entity_id, created_at, detail FROM audit_log "
+                "WHERE organization_id = :org AND detail->>'connection_id' = :cid "
+                "ORDER BY created_at DESC LIMIT :limite"
+            ),
+            {"org": organization_id, "cid": str(connection_id), "limite": limite},
+        )
+        return [
+            {
+                "action": fila.action,
+                "entity_type": fila.entity_type,
+                "entity_id": fila.entity_id,
+                "created_at": fila.created_at,
+                "detail": redactar_importes(
+                    {k: v for k, v in (fila.detail or {}).items() if k != "connection_id"}
+                ),
+            }
+            for fila in filas
+        ]

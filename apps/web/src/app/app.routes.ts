@@ -337,6 +337,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/admin/account/account-page').then((m) => m.AccountPage),
       },
+      {
+        // Asistentes por MCP: sin guard propio, como `ia`. Sin `mcp:connect`
+        // la API responde 403 y la página explica cómo pedirlo.
+        path: 'mcp',
+        loadComponent: () =>
+          import('./features/admin/mcp/mcp-connections-page').then((m) => m.McpConnectionsPage),
+      },
     ],
   },
 
