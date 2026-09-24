@@ -47,6 +47,7 @@ from app.modules.auth.verification import (
     consume_token,
     generate_token,
 )
+from app.modules.mcp import service as mcp_service
 from app.shared.errors import (
     AuthenticationError,
     ConflictError,
@@ -602,6 +603,8 @@ async def change_email_confirm(session: AsyncSession, *, token: str) -> uuid.UUI
         # `users.email` es la única fuente de verdad ante esa carrera estrecha.
         raise ConflictError("Ese correo ya está en uso.") from exc
     await revoke_all_families(user_id)
+    # Igual que las sesiones web: las conexiones MCP de la persona dejan de valer.
+    await mcp_service.revocar_todas_de_persona(session, user_id)
     return user_id
 
 
@@ -631,6 +634,8 @@ async def change_password(
         {"hash": hash_password(new_password), "id": user_id},
     )
     await revoke_all_families(user_id, except_family=keep_family)
+    # Igual que las sesiones web: las conexiones MCP de la persona dejan de valer.
+    await mcp_service.revocar_todas_de_persona(session, user_id)
 
 
 async def forgot_password(session: AsyncSession, *, email: str) -> None:
@@ -670,3 +675,5 @@ async def reset_password(session: AsyncSession, *, token: str, new_password: str
     )
     await session.execute(text("SELECT app_verify_user_email(:id)"), {"id": user_id})
     await revoke_all_families(user_id)
+    # Igual que las sesiones web: las conexiones MCP de la persona dejan de valer.
+    await mcp_service.revocar_todas_de_persona(session, user_id)

@@ -58,6 +58,18 @@
 		reverse_proxy api:8000
 	}
 
+	# Servidor MCP y sus metadatos OAuth (RFC 9728 y 8414): los sirve la API,
+	# no el SSR. Sin esto, `/mcp` y `/.well-known/oauth-*` caerían en el `handle`
+	# final de la web y los clientes MCP recibirían HTML. `flush_interval -1`
+	# para que Caddy no retenga respuestas que el protocolo puede enviar por
+	# partes.
+	@mcp path /mcp /mcp/* /.well-known/oauth-protected-resource /.well-known/oauth-protected-resource/* /.well-known/oauth-authorization-server /.well-known/oauth-authorization-server/*
+	handle @mcp {
+		reverse_proxy api:8000 {
+			flush_interval -1
+		}
+	}
+
 	# Justificantes de gasto: NUNCA se sirven por esta ruta pública. Son facturas y
 	# tickets con datos fiscales y personales, y el único camino a ellos es
 	# `GET /api/v1/accounting/receipts/{clave}`, que exige sesión con

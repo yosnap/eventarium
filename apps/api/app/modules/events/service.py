@@ -35,6 +35,7 @@ from app.modules.payments import repository as payments_repository
 from app.modules.payments import service as payments_service
 from app.modules.theme_templates.accent_palette import fusionar_overrides
 from app.modules.theme_templates.models import ThemeTemplate
+from app.modules.theme_templates.schemas import PublicTheme
 from app.shared.errors import ConflictError, NotFoundError, ValidationDomainError
 
 
@@ -710,9 +711,7 @@ async def list_public_events_across_organizations(
     return resultado
 
 
-async def tema_publico_del_evento(
-    session: AsyncSession, evento: Event
-) -> events_schemas.PublicTheme | None:
+async def tema_publico_del_evento(session: AsyncSession, evento: Event) -> PublicTheme | None:
     """La plantilla del evento, con la herencia ya resuelta.
 
     Cuatro niveles, y el orden importa: la del evento si la eligió, si no la de
@@ -756,4 +755,4 @@ async def tema_publico_del_evento(
     tokens = fila[3]
     if evento.theme_overrides:
         tokens = fusionar_overrides(tokens, evento.theme_overrides)
-    return events_schemas.PublicTheme(id=str(fila[0]), key=fila[1], name=fila[2], tokens=tokens)
+    return PublicTheme(id=str(fila[0]), key=fila[1], name=fila[2], tokens=tokens)

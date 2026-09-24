@@ -31,6 +31,47 @@ export interface ChangelogVersion {
 
 export const CHANGELOG: readonly ChangelogVersion[] = [
   {
+    version: '0.22.0',
+    fecha: '2026-09-24',
+    secciones: [
+      {
+        categoria: 'agregado',
+        items: [
+          {
+            titulo: 'Asistentes conectados por MCP',
+            descripcion:
+              'Claude, ChatGPT, Cursor o cualquier cliente MCP pueden conectarse a Eventarium en eventarium.org/mcp, iniciando sesión o con una clave de API de 90 días. Cada persona elige qué puede hacer la conexión (leer, editar, publicar, patrocinadores, cifras de inscripción, cancelar) y sobre qué eventos. Lo que crea el asistente queda en borrador, nunca ve datos personales de los asistentes y todo lo que hace queda en la auditoría.',
+          },
+          {
+            titulo: 'Permiso «Conectar asistentes por MCP»',
+            descripcion:
+              'Solo el dueño de la organización lo tiene de entrada y decide a qué roles se lo da. Cada persona gestiona sus conexiones en «Asistentes (MCP)» y el dueño ve y revoca las de todos los miembros.',
+          },
+          {
+            titulo: 'Eventos cancelados',
+            descripcion:
+              'Cancelar un evento es definitivo: se reembolsa íntegramente a quien pagó, se avisa a los inscritos, la página pública sigue visible con un aviso y el evento desaparece de los listados.',
+          },
+        ],
+      },
+      {
+        categoria: 'corregido',
+        items: [
+          {
+            titulo: 'Títulos en todas las páginas',
+            descripcion:
+              'La inscripción, la entrada, el pago y el resto de páginas que se quedaban sin título lo tienen ya, y una respuesta tardía no pisa el título de la página siguiente.',
+          },
+          {
+            titulo: 'Enlaces de un solo uso fuera de los buscadores',
+            descripcion:
+              'Las páginas a las que se llega con un enlace personal (confirmar, gestionar la inscripción) se generan en el servidor y piden a los buscadores que no las indexen.',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.21.14',
     fecha: '2026-09-23',
     secciones: [

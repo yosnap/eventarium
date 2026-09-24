@@ -9,7 +9,7 @@ se ha inscrito o ha pagado), se rechaza para que la persona vuelva a mirar.
 from __future__ import annotations
 
 import uuid
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks
 from pydantic import BaseModel, Field
@@ -57,7 +57,10 @@ def _resumen_out(resumen: cancelacion.ResumenCancelacion) -> ResumenCancelacionO
 
 
 async def _auditar_cancelacion(
-    actor_user_id: uuid.UUID, organization_id: uuid.UUID, event_id: uuid.UUID, detalle: dict
+    actor_user_id: uuid.UUID,
+    organization_id: uuid.UUID,
+    event_id: uuid.UUID,
+    detalle: dict[str, Any],
 ) -> None:
     # `audit_log` solo lo escribe `app_maintainer` (`core/audit.py`).
     async with maintenance_session() as auditoria:

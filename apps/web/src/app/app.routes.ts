@@ -12,6 +12,14 @@ export const routes: Routes = [
     canActivate: [guestGuard],
   },
   {
+    // Consentimiento OAuth del MCP: un asistente pide conectarse con la cuenta
+    // de la persona. Con sesión (`authGuard` conserva la vuelta tras el login).
+    path: 'oauth/consentimiento',
+    loadComponent: () =>
+      import('./features/public/oauth/consentimiento-page').then((m) => m.ConsentimientoPage),
+    canActivate: [authGuard],
+  },
+  {
     path: 'espacio-de-trabajo',
     loadComponent: () =>
       import('./features/admin/workspace-selector/workspace-selector-page').then(
@@ -336,6 +344,13 @@ export const routes: Routes = [
         path: 'account',
         loadComponent: () =>
           import('./features/admin/account/account-page').then((m) => m.AccountPage),
+      },
+      {
+        // Asistentes por MCP: sin guard propio, como `ia`. Sin `mcp:connect`
+        // la API responde 403 y la página explica cómo pedirlo.
+        path: 'mcp',
+        loadComponent: () =>
+          import('./features/admin/mcp/mcp-connections-page').then((m) => m.McpConnectionsPage),
       },
     ],
   },
