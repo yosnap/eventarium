@@ -21,7 +21,7 @@ from pydantic import AnyHttpUrl
 from starlette.applications import Starlette
 
 from app.core.config import get_settings
-from app.modules.mcp import herramientas_lectura
+from app.modules.mcp import herramientas_escritura, herramientas_lectura
 from app.modules.mcp.auth import VerificadorEventarium
 from app.modules.mcp.scopes import Ambito
 
@@ -55,6 +55,7 @@ def crear_servidor() -> MCPServer:
         ),
     )
     herramientas_lectura.registrar(servidor)
+    herramientas_escritura.registrar(servidor)
     return servidor
 
 
