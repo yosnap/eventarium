@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.core.config import get_settings
 from app.core.deps import bloquear_escritura_si_impersona
@@ -31,6 +32,10 @@ from app.modules.events.router import router as events_router
 from app.modules.health.router import router as health_router
 from app.modules.legal.router import router_cookie_consent as cookie_consent_router
 from app.modules.legal.router import router_public as legal_public_router
+from app.modules.mcp.router import router as mcp_router
+from app.modules.mcp.server import crear_app as crear_app_mcp
+from app.modules.mcp.server import crear_servidor as crear_servidor_mcp
+from app.modules.mcp.server import metadatos_del_recurso
 from app.modules.media.router import folders_router as media_folders_router
 from app.modules.media.router import router as media_router
 from app.modules.metrics.router import router as metrics_router
@@ -61,6 +66,20 @@ from app.shared.errors import register_exception_handlers
 
 API_PREFIX = "/api/v1"
 
+
+class _McpSinBarraFinal:
+    """`/mcp` → `/mcp/` antes del router: Starlette respondería con una
+    redirección, y los clientes MCP no la siguen en un POST."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and scope["path"] == "/mcp":
+            scope = {**scope, "path": "/mcp/", "raw_path": b"/mcp/"}
+        await self.app(scope, receive, send)
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -73,7 +92,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await get_storage().ensure_bucket()
     logger.info("API lista en entorno %s", settings.app_env)
     try:
-        yield
+        # El gestor de sesiones del MCP tiene que vivir en el lifespan de la
+        # app principal: el de una app montada no se ejecuta.
+        async with crear_servidor_mcp().session_manager.run():
+            yield
     finally:
         await close_redis()
         await close_ga4()
@@ -133,6 +155,7 @@ def create_app() -> FastAPI:
     api.include_router(admin_impersonation_router)
     api.include_router(events_router)
     api.include_router(events_cancel_router)
+    api.include_router(mcp_router)
     api.include_router(events_public_router)
     api.include_router(policies_organization_router)
     api.include_router(policies_event_router)
@@ -159,6 +182,19 @@ def create_app() -> FastAPI:
     api.include_router(ai_gateway_router)
     api.include_router(ai_catalog_router)
     app.include_router(api)
+
+    # Servidor MCP (fuera de `/api/v1`: los clientes lo conocen por su URL
+    # pública `…/mcp`) y sus metadatos de recurso protegido (RFC 9728), en la
+    # raíz y en la ruta específica del recurso, que es donde los busca cada
+    # cliente según la versión de la especificación que implemente.
+    app.mount("/mcp", crear_app_mcp())
+
+    @app.get("/.well-known/oauth-protected-resource", include_in_schema=False)
+    @app.get("/.well-known/oauth-protected-resource/mcp", include_in_schema=False)
+    async def recurso_protegido_mcp() -> dict[str, object]:
+        return metadatos_del_recurso()
+
+    app.add_middleware(_McpSinBarraFinal)
 
     return app
 

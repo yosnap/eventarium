@@ -13,6 +13,7 @@ import uuid
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.mcp import service as mcp_service
 from app.modules.organizations.models import Organization, OrganizationMember
 from app.modules.registrations.models import EventRegistration
 from app.modules.roles.models import Role
@@ -129,6 +130,8 @@ async def desactivar_usuario(
         raise NotFoundError("El usuario no existe.")
 
     usuario.is_active = False
+    # Una cuenta desactivada no puede seguir actuando por MCP.
+    await mcp_service.revocar_todas_de_persona(session, user_id)
     usuario.first_name = None
     usuario.last_name = None
     usuario.avatar_object_key = None

@@ -73,6 +73,7 @@ dependencies = [
     # criterio de la fase. Solo se usa para convertir páginas a mapa de bits:
     # el adaptador de OCR nunca recibe un PDF.
     "pypdfium2>=5.0,<6.0",
+    "mcp==2.2.0",
 ]
 
 [dependency-groups]

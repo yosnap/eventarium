@@ -125,6 +125,12 @@ MIS_EVENTOS_SOLICITAR_POR_IP = FORGOT_PASSWORD_POR_IP
 # necesita su propio tope por ser público, igual que verify-email.
 MIS_EVENTOS_VER_POR_IP = 20
 
+# Servidor MCP: se cuenta **cada uso de herramienta** de una conexión, no
+# cada petición HTTP (una sola petición Streamable HTTP puede llevar varias
+# llamadas). Holgado para un asistente que prepara un evento completo, corto
+# para uno que ha entrado en bucle.
+MCP_HERRAMIENTAS_POR_CONEXION = 120
+
 VENTANA_SEGUNDOS = 60
 
 
@@ -180,3 +186,8 @@ def _limite(
 def limit_per_ip(nombre: str, veces: int, segundos: int = VENTANA_SEGUNDOS) -> Any:
     """Límite por IP de origen."""
     return Depends(_limite(nombre, identify_by_ip, veces, segundos))
+
+
+async def consumir_por_conexion_mcp(connection_id: str) -> None:
+    """Límite por conexión MCP, llamado por cada uso de herramienta."""
+    await _consumir(f"rl:mcp:{connection_id}", MCP_HERRAMIENTAS_POR_CONEXION, VENTANA_SEGUNDOS)
