@@ -6,8 +6,10 @@
 # bloquea los justificantes de gasto en `/media` vive en el repo y no depende del panel.
 # Ver docs/despliegue.md.
 #
-# Las imágenes se referencian por SHA (IMAGE_TAG), nunca por `latest`: un rollback
-# debe volver exactamente al artefacto que estaba corriendo.
+# IMAGE_TAG vale `latest` en el día a día: cada push a `main` publica `latest` y
+# `pull_policy: always` hace que cada despliegue la descargue de nuevo, sin tocar el
+# entorno. Para un rollback se fija `sha-<commit>` del artefacto bueno (cada imagen
+# se publica también con esa etiqueta, que no se mueve). Ver docs/despliegue.md.
 #
 # `migrate` es un servicio de un solo uso que corre antes que `api` y `worker`. Ni la
 # API ni el worker migran por su cuenta: con varias réplicas, dos migraciones
@@ -16,6 +18,7 @@ name: eventarium
 
 x-imagen-api: &imagen-api
   image: ghcr.io/${GITHUB_REPOSITORY:-yosnap/eventarium}/api:${IMAGE_TAG:?falta IMAGE_TAG}
+  pull_policy: always
 
 # `env_file: ./env/.env` requeriría ese fichero *dentro del checkout* que hace el
 # orquestador (Dokploy, o cualquier CI que clona el repo y construye ahí mismo):
@@ -202,6 +205,7 @@ services:
 
   web:
     image: ghcr.io/${GITHUB_REPOSITORY:-yosnap/eventarium}/web:${IMAGE_TAG:?falta IMAGE_TAG}
+    pull_policy: always
     restart: unless-stopped
     depends_on:
       api:

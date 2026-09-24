@@ -12,8 +12,11 @@ panel. `infra/caddy/Caddyfile.dev` es el equivalente para desarrollo local.
 
 ## Principios
 
-- **Imágenes por SHA.** `IMAGE_TAG` referencia `sha-<commit>`, nunca `latest`. Un
-  rollback debe volver al artefacto exacto que estaba corriendo, y `latest` se mueve.
+- **`latest` para desplegar, SHA para volver atrás.** Cada push a `main` publica la
+  imagen como `latest` y como `sha-<commit>`. Con Docker Compose, `IMAGE_TAG=latest` se
+  queda fijo y `pull_policy: always` descarga la imagen en cada despliegue, así que
+  desplegar no exige tocar el entorno. Un rollback fija `sha-<commit>` del artefacto
+  bueno, porque esa etiqueta no se mueve y `latest` sí.
 - **Un único servicio migra.** `migrate` es de un solo uso y corre antes que `api` y
   `worker`, que esperan a que termine. Ni la API ni el worker migran por su cuenta: con
   varias réplicas, dos migraciones simultáneas competirían por el mismo esquema.
@@ -190,11 +193,13 @@ En EasyPanel: cambia la etiqueta de imagen de `api`, `worker`, `scheduler` y `we
 `sha-<commit-nuevo>` y despliega. El *pre-deploy command* de `api` ejecuta la migración
 antes de levantar la versión nueva.
 
-Con Docker Compose:
+Con Docker Compose, `IMAGE_TAG=latest` no cambia entre despliegues. En Dokploy basta
+con esperar a que termine «Publicar imágenes» del commit de `main` y pulsar **Deploy**
+(o `compose-deploy`): `pull_policy: always` trae la `latest` recién publicada. A mano:
 
 ```bash
-# 1. Fijar la nueva imagen
-sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=sha-<commit-nuevo>/' infra/env/.env
+# 1. Comprobar que IMAGE_TAG=latest (si vienes de un rollback, vuelve a ponerlo)
+grep '^IMAGE_TAG=' infra/env/.env
 
 # 2. Descargar antes de parar nada
 docker compose --env-file infra/env/.env -f infra/docker-compose.prod.yml pull
@@ -224,7 +229,9 @@ docker compose --env-file infra/env/.env -f infra/docker-compose.prod.yml restar
 ## Rollback
 
 En EasyPanel: vuelve a poner la etiqueta anterior en `api`, `worker`, `scheduler` y `web`
-y despliega. Con Compose:
+y despliega. Con Compose (en Dokploy, cambiando `IMAGE_TAG` en *Environment* y pulsando
+**Deploy**), fija el SHA del último commit bueno de `main` y, cuando el arreglo esté
+publicado, vuelve a `IMAGE_TAG=latest`:
 
 ```bash
 sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=sha-<commit-anterior>/' infra/env/.env
@@ -410,7 +417,7 @@ Todas están documentadas en `infra/env/.env.example`. Las que solo aplican a pr
 
 | Variable | Para qué |
 |---|---|
-| `IMAGE_TAG` | Imagen a desplegar (`sha-<commit>`), solo con Docker Compose |
+| `IMAGE_TAG` | Imagen a desplegar, solo con Docker Compose: `latest` normalmente, `sha-<commit>` durante un rollback |
 | `NG_ALLOWED_HOSTS` | Hosts que acepta el SSR; vacío = cualquiera |
 | `API_INTERNAL_URL` | URL de la API en la red interna, para el SSR |
 | `GITHUB_REPOSITORY` | Origen de las imágenes en GHCR |
