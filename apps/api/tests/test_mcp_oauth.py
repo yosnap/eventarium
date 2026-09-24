@@ -263,6 +263,23 @@ async def test_un_reintento_de_renovacion_no_revoca_la_conexion(
     assert siguiente.status_code == 200
 
 
+async def test_un_token_rotado_desde_otro_cliente_revoca_la_conexion(
+    cliente: AsyncClient, cliente_mcp: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    client_id, tokens = await _conectar(cliente, cliente_mcp, organizacion)
+    renovada = await _renovar(cliente_mcp, client_id, tokens["refresh_token"])
+    assert renovada.status_code == 200, renovada.text
+
+    # Un tercero con el token filtrado lo presenta desde su propio cliente, aun
+    # dentro del margen de reintento del legítimo.
+    otro_cliente = await _registrar(cliente_mcp)
+    robada = await _renovar(cliente_mcp, otro_cliente, tokens["refresh_token"])
+
+    assert robada.status_code == 400
+    tras_el_robo = await _rpc(cliente_mcp, renovada.json()["access_token"], "tools/list")
+    assert tras_el_robo.status_code == 401
+
+
 async def test_revocar_el_token_de_acceso_corta_la_conexion(
     cliente: AsyncClient, cliente_mcp: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:

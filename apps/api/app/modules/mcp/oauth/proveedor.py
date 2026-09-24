@@ -226,10 +226,15 @@ class ProveedorOAuth(
                 conexion = await session.scalar(
                     select(McpConnection).where(McpConnection.id == fila.connection_id)
                 )
-                if conexion is None or conexion.oauth_client_id != client.client_id:
+                if conexion is None:
                     return None
+                otro_cliente = conexion.oauth_client_id != client.client_id
+                # La reutilización se mira antes que el cliente: un token rotado
+                # presentado desde otro cliente es una filtración igual.
                 if fila.es_anterior:
-                    if await get_redis().exists(_ROTADO + tokens.huella(refresh_token)):
+                    if not otro_cliente and await get_redis().exists(
+                        _ROTADO + tokens.huella(refresh_token)
+                    ):
                         # Recién rotado: se toma por reintento, no por filtración.
                         logger.warning(
                             "Renovación MCP con token recién rotado (conexión %s, cliente %s)",
@@ -240,6 +245,8 @@ class ProveedorOAuth(
                     # Alguien ha presentado un token ya rotado: se ha filtrado.
                     # Se revoca la conexión entera, también para quien la tenía.
                     conexion.revoked_at = datetime.now(UTC)
+                    return None
+                if otro_cliente:
                     return None
                 return RefreshToken(
                     token=refresh_token,
