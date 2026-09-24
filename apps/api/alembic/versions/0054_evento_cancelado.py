@@ -93,9 +93,7 @@ def upgrade() -> None:
 
     op.add_column(
         "event_registrations",
-        sa.Column(
-            "cancelled_with_event", sa.Boolean(), nullable=False, server_default=sa.false()
-        ),
+        sa.Column("cancelled_with_event", sa.Boolean(), nullable=False, server_default=sa.false()),
     )
     op.add_column(
         "event_registrations",
@@ -107,9 +105,7 @@ def upgrade() -> None:
         "ix_event_registrations_aviso_cancelacion",
         "event_registrations",
         ["organization_id", "event_id"],
-        postgresql_where=sa.text(
-            "cancelled_with_event AND event_cancellation_notified_at IS NULL"
-        ),
+        postgresql_where=sa.text("cancelled_with_event AND event_cancellation_notified_at IS NULL"),
     )
 
     op.drop_constraint("ck_event_payment_refunds_reason", "event_payment_refunds", type_="check")
