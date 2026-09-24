@@ -51,6 +51,8 @@ export interface MyRegistrationItem {
   readonly starts_at: string;
   readonly organization_name: string;
   readonly status: string;
+  /** La organización canceló el evento (no la persona). */
+  readonly event_cancelled?: boolean;
 }
 
 /**

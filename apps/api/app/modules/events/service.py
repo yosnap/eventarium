@@ -180,6 +180,8 @@ async def create_event(
 def _validar_transicion_de_estado(actual: str, nuevo: str) -> None:
     if actual == "archived" and nuevo != "archived":
         raise ValidationDomainError("Un evento archivado no puede volver a editarse.")
+    if nuevo == "cancelled":  # pragma: no cover - el schema de entrada ya lo impide
+        raise ValidationDomainError("Para cancelar un evento usa la acción «Cancelar evento».")
 
 
 async def _resolver_plantilla_del_evento(
@@ -211,6 +213,8 @@ async def update_event(
     evento = await repository.get_event(session, organization_id, event_id)
     if evento is None:
         raise NotFoundError("El evento no existe.")
+    if evento.status == "cancelled":
+        raise ValidationDomainError("Un evento cancelado no puede volver a editarse.")
 
     nuevo_slug = datos.get("slug")
     if nuevo_slug is not None and nuevo_slug != evento.slug:
@@ -591,7 +595,15 @@ async def delete_venue(
     await session.flush()
 
 
-async def resolve_public_event_by_slug(session: AsyncSession, slug: str) -> Event:
+_RESOLVER_PARA_INSCRIBIR = text("SELECT id, organization_id FROM app_resolve_public_event(:slug)")
+_RESOLVER_PARA_MOSTRAR = text(
+    "SELECT id, organization_id FROM app_resolve_public_event_display(:slug)"
+)
+
+
+async def resolve_public_event_by_slug(
+    session: AsyncSession, slug: str, *, para_mostrar: bool = False
+) -> Event:
     """Resuelve un evento público por su slug, sin ningún contexto RLS previo.
 
     Sin dominio por organización, la organización de una página pública sale
@@ -608,9 +620,14 @@ async def resolve_public_event_by_slug(session: AsyncSession, slug: str) -> Even
     públicos, nunca desde uno autenticado: sobrescribiría la organización
     activa y el usuario de la sesión en curso.
     """
+    # `para_mostrar=True` admite también eventos cancelados (su ficha sigue
+    # visible con el aviso). Todo lo que inscribe, vende o cobra usa el valor
+    # por defecto, que solo resuelve eventos publicados: así un evento
+    # cancelado nunca vuelve a abrir la inscripción ni la compra.
+    consulta = _RESOLVER_PARA_MOSTRAR if para_mostrar else _RESOLVER_PARA_INSCRIBIR
     fila = (
         await session.execute(
-            text("SELECT id, organization_id FROM app_resolve_public_event(:slug)"),
+            consulta,
             {"slug": slug},
         )
     ).first()

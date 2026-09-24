@@ -10,7 +10,7 @@ import { RequestBuilder } from '../../request-builder';
 import { PageEventResponse } from '../../models/page-event-response';
 
 export interface ListEventsApiV1EventsGet$Params {
-  status?: ('draft' | 'published' | 'archived' | null);
+  status?: ('draft' | 'published' | 'archived' | 'cancelled' | null);
 
 /**
  * Elementos por página

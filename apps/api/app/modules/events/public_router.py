@@ -221,7 +221,9 @@ async def list_public_events(session: SessionDep) -> list[PublicEventSummary]:
 
 
 async def _obtener_evento_publico_o_404(session: SessionDep, slug: str) -> Event:
-    return await service.resolve_public_event_by_slug(session, slug)
+    # Solo lectura: la ficha, sus sesiones y patrocinadores siguen visibles en
+    # un evento cancelado.
+    return await service.resolve_public_event_by_slug(session, slug, para_mostrar=True)
 
 
 async def _sponsor_tiers_publicos(
@@ -283,6 +285,8 @@ async def get_public_event(
         precio = precios.get(evento.id)
     return PublicEventDetail(
         slug=evento.slug,
+        cancelled=evento.status == "cancelled",
+        cancellation_reason=evento.cancellation_reason,
         title=evento.title,
         summary=evento.summary,
         description=evento.description,

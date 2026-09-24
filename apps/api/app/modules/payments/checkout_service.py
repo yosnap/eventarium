@@ -34,7 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import SessionApp, maintenance_session, set_organization_context
 from app.core.tenant import base_url_de_organizacion
 from app.modules.events.models import Event
-from app.modules.payments import repository
+from app.modules.payments import refunds_service, repository
 from app.modules.payments import service as payments_service
 from app.modules.payments import stripe_client as stripe_gateway
 from app.modules.payments.models import EventPayment, OrganizationStripeAccount
@@ -244,10 +244,14 @@ async def crear_sesion_de_pago(session: AsyncSession, *, payment_id: uuid.UUID) 
     if cuenta is None:  # pragma: no cover - la cuenta que cobró siempre queda persistida
         raise ExternalServiceError("La cuenta de Stripe de esta compra ya no está disponible.")
 
+    evento = await session.get(Event, pago.event_id)
+    # Un evento cancelado no vende: el barrido de la cancelación caducará este
+    # pago, pero entre medias no debe salir un enlace de pago nuevo.
+    if evento is not None and evento.status != "published":
+        return None
     tipo = await repository.get_ticket_type(
         session, pago.organization_id, pago.event_id, pago.ticket_type_id
     )
-    evento = await session.get(Event, pago.event_id)
     ventana_minutos = evento.payment_checkout_window_minutes if evento is not None else 30
     # `evento` siempre existe en la práctica (la FK de `event_payments` a
     # `events` no admite huérfanos); el `else ""` es solo defensivo, igual que
@@ -349,6 +353,33 @@ async def confirmar_pago_y_registro(
     los reutilice sin traducir nada.
     """
     if pago.status == "paid" and inscripcion.status == "confirmed":
+        return "processed"
+    evento = await session.get(Event, pago.event_id)
+    if (
+        evento is not None
+        and evento.status == "cancelled"
+        and pago.status in ("pending", "expired")
+        and (inscripcion.status == "pending_payment" or inscripcion.cancelled_with_event)
+    ):
+        # Pagó en una sesión de Checkout que seguía abierta cuando la
+        # organización canceló el evento, antes o después de que el barrido
+        # llegara a su inscripción. El dinero ya está cobrado: se registra el
+        # cobro, la inscripción queda cancelada con el evento (nunca
+        # confirmada, sin entrada) y se pide su reembolso íntegro, que ejecuta
+        # el cron de reembolsos como cualquier otro. El barrido le mandará el
+        # aviso de cancelación.
+        pago.status = "paid"
+        pago.paid_at = datetime.now(UTC)
+        if stripe_payment_intent_id is not None:
+            pago.stripe_payment_intent_id = stripe_payment_intent_id
+        if inscripcion.status != "cancelled":
+            inscripcion.status = "cancelled"
+            inscripcion.cancelled_at = datetime.now(UTC)
+        inscripcion.cancelled_with_event = True
+        await session.flush()
+        await refunds_service.preparar_reembolso_por_cancelacion_de_evento(
+            session, organization_id=pago.organization_id, registration_id=inscripcion.id
+        )
         return "processed"
     if pago.status != "pending" or inscripcion.status != "pending_payment":
         logger.warning(

@@ -104,6 +104,10 @@ function precioEnEuros(cents: number): string {
           <div>
             @if (cargandoPreguntas()) {
               <p>{{ t('comun.cargando') }}</p>
+            } @else if (evento()?.cancelled) {
+              <app-alert tone="error" [title]="t('publico.eventos.cancelado.titulo')">
+                {{ t('publico.eventos.cancelado.inscripcion') }}
+              </app-alert>
             } @else if (noEncontrado()) {
               <app-alert tone="error">{{ t('publico.eventos.noEncontrado') }}</app-alert>
             } @else {

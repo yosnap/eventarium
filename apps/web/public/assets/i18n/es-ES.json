@@ -50,7 +50,8 @@
         "Rejected": "Rechazada",
         "Cancelled": "Cancelada",
         "Waitlisted": "Lista de espera"
-      }
+      },
+      "eventoCancelado": "Evento cancelado por la organización"
     },
     "eventos": {
       "listadoTitulo": "Eventos",
@@ -193,6 +194,12 @@
         "gratis": "Gratis",
         "pago": "De pago",
         "desde": "Desde {{precio}}"
+      },
+      "cancelado": {
+        "chip": "Cancelado",
+        "titulo": "Este evento se ha cancelado",
+        "sinMotivo": "La organización ha cancelado el evento. Si tenías inscripción, te hemos avisado por correo y, si pagaste, te devolvemos el importe.",
+        "inscripcion": "Este evento se ha cancelado y ya no admite inscripciones."
       }
     },
     "accesoMenu": {
@@ -877,7 +884,8 @@
       "estadoEvento": {
         "draft": "Borrador",
         "published": "Publicado",
-        "archived": "Archivado"
+        "archived": "Archivado",
+        "cancelled": "Cancelado"
       },
       "rotulo": "Escritorio",
       "cabeceraPendienteInicio": "Hay",
@@ -1140,6 +1148,7 @@
       "estadoDraft": "Borrador",
       "estadoPublished": "Publicado",
       "estadoArchived": "Archivado",
+      "estadoCancelled": "Cancelado",
       "sinEventos": "Todavía no hay eventos.",
       "columnaTitulo": "Título",
       "columnaEstado": "Estado",
@@ -1895,7 +1904,23 @@
       },
       "rotulo": "Eventos",
       "cabeceraInicio": "Toda la programación de la organización,",
-      "cabeceraMarca": "de borrador a publicado"
+      "cabeceraMarca": "de borrador a publicado",
+      "cancelar": {
+        "titulo": "Cancelar el evento",
+        "explicacion": "Cancela todas las inscripciones, devuelve íntegramente lo cobrado y avisa por correo a cada inscrito. La ficha pública seguirá visible con un aviso. No se puede deshacer.",
+        "boton": "Cancelar evento",
+        "dialogoTitulo": "¿Cancelar este evento?",
+        "afectadas": "Se cancelarán {{n}} inscripciones y cada persona recibirá un aviso por correo.",
+        "reembolsos": "Se devolverán {{n}} pagos, {{importe}} en total, aunque falte poco para el evento.",
+        "definitivo": "Es definitivo: un evento cancelado no se puede volver a publicar ni editar.",
+        "motivo": "Motivo (opcional)",
+        "motivoAyuda": "Aparece en la ficha pública y en el correo a los inscritos.",
+        "volver": "Volver",
+        "confirmar": "Sí, cancelar el evento",
+        "enCurso": "Cancelación en curso: quedan {{cancelar}} inscripciones por cancelar y {{avisar}} avisos por enviar.",
+        "completada": "Evento cancelado. Todas las inscripciones están canceladas y avisadas.",
+        "reembolsosFallidos": "{{n}} reembolsos han fallado tras varios intentos. Revísalos en los pagos del evento."
+      }
     },
     "sponsorTiersNav": "Niveles de patrocinio",
     "stripeNav": "Pagos con Stripe",

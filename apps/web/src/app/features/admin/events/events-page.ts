@@ -13,7 +13,7 @@ import { Chip, ChipTone } from '../../../shared/ui/chip';
 import { DataTable, DataTableColumn } from '../../../shared/ui/data-table';
 import { PageHeader } from '../../../shared/ui/page-header';
 
-type EventStatus = 'draft' | 'published' | 'archived';
+type EventStatus = 'draft' | 'published' | 'archived' | 'cancelled';
 
 interface EventSummary {
   readonly id: string;
@@ -51,6 +51,7 @@ interface Page<T> {
           <option value="draft">{{ t('admin.events.estadoDraft') }}</option>
           <option value="published">{{ t('admin.events.estadoPublished') }}</option>
           <option value="archived">{{ t('admin.events.estadoArchived') }}</option>
+          <option value="cancelled">{{ t('admin.events.estadoCancelled') }}</option>
         </select>
       </div>
 
@@ -131,6 +132,8 @@ export class EventsPage {
         return 'espera';
       case 'archived':
         return 'neutro';
+      case 'cancelled':
+        return 'apagado';
     }
   }
 

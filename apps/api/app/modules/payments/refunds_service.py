@@ -138,6 +138,41 @@ async def preparar_reembolso_por_cancelacion(
     return "en_curso"
 
 
+async def preparar_reembolso_por_cancelacion_de_evento(
+    session: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    registration_id: uuid.UUID,
+) -> bool:
+    """Reembolso íntegro de lo pendiente cuando **la organización cancela el
+    evento**. A diferencia de `preparar_reembolso_por_cancelacion`, no aplica
+    la política de plazo: da igual que falten menos de
+    `payment_refund_cutoff_hours`, que el evento haya empezado o que la
+    entrada se haya usado — quien cancela es la organización, no la persona.
+
+    Mismo outbox que el resto (nunca llama a Stripe) y misma idempotencia: lo
+    ya reembolsado y lo que está en curso se descuentan, así que un reintento
+    del barrido no vuelve a pedir el mismo importe. Devuelve si ha creado una
+    intención nueva.
+    """
+    pago = await repository.get_payment_by_registration(session, organization_id, registration_id)
+    if pago is None or pago.status not in ESTADOS_REEMBOLSABLES:
+        return False
+    en_curso = await repository.suma_reembolsos_en_curso(session, organization_id, pago.id)
+    pendiente = pago.amount_cents - pago.refunded_cents - en_curso
+    if pendiente <= 0:
+        return False
+    await repository.crear_intencion_reembolso(
+        session,
+        organization_id=organization_id,
+        payment_id=pago.id,
+        amount_cents=pendiente,
+        reason="event_cancelled",
+        revoke_ticket=True,
+    )
+    return True
+
+
 async def solicitar_reembolso_manual(
     session: AsyncSession,
     *,
