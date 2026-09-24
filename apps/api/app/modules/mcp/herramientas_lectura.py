@@ -24,7 +24,7 @@ from app.modules.registrations import repository as registrations_repository
 from app.modules.sponsors import repository as sponsors_repository
 from app.modules.sponsors.models import SponsorTier
 
-LECTURA = ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=False)
+LECTURA = ToolAnnotations(read_only_hint=True, destructive_hint=False, open_world_hint=False)
 LIMITE_LISTADO = 50
 
 

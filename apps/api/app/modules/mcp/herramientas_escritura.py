@@ -53,19 +53,21 @@ from app.modules.sponsors import service as sponsors_service
 from app.modules.sponsors.models import SponsorTier
 from app.modules.sponsors.schemas import SponsorCreate, SponsorUpdate
 
-ESCRITURA = ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=False)
+ESCRITURA = ToolAnnotations(read_only_hint=False, destructive_hint=False, open_world_hint=False)
 DELICADA = ToolAnnotations(
-    readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False
+    read_only_hint=False, destructive_hint=True, idempotent_hint=False, open_world_hint=False
 )
 ACCIONES_DE_LA_WEB = {"cancelar_evento": "events.cancelled"}
 logger = logging.getLogger(__name__)
-LECTURA_NIVELES = ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=False)
+LECTURA_NIVELES = ToolAnnotations(
+    read_only_hint=True, destructive_hint=False, open_world_hint=False
+)
 # Vida del código de confirmación de `cancelar_evento`, en ventanas de 5 min:
 # vale la ventana actual y la anterior (entre 5 y 10 minutos).
 _VENTANA_CONFIRMACION = 300
 
 
-def _validar(modelo: type, datos: dict[str, Any]) -> Any:  # type: ignore[type-arg]
+def _validar(modelo: type, datos: dict[str, Any]) -> Any:
     try:
         return modelo(**datos)
     except ValidationError as exc:
@@ -76,7 +78,7 @@ def _validar(modelo: type, datos: dict[str, Any]) -> Any:  # type: ignore[type-a
 
 
 async def _auditar(
-    contexto: ContextoMcp, herramienta: str, entidad: str, entidad_id: str, detalle: dict
+    contexto: ContextoMcp, herramienta: str, entidad: str, entidad_id: str, detalle: dict[str, Any]
 ) -> None:
     """Tras el `commit` de la escritura (`audit_log` solo lo escribe
     `app_maintainer`, `core/audit.py`). Si falla, se registra en el log y la
