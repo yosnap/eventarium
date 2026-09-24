@@ -44,6 +44,16 @@ export const CHANGELOG: readonly ChangelogVersion[] = [
           },
         ],
       },
+      {
+        categoria: 'corregido',
+        items: [
+          {
+            titulo: 'Tokens MCP filtrados',
+            descripcion:
+              'Si alguien presenta un token de renovación ya usado desde otro asistente, la conexión se revoca entera, igual que cuando lo presenta el mismo asistente.',
+          },
+        ],
+      },
     ],
   },
   {
