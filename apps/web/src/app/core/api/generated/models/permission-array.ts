@@ -27,5 +27,6 @@ export const PERMISSION: Permission[] = [
   'payments:write',
   'accounting:read',
   'accounting:write',
-  'invitations:manage'
+  'invitations:manage',
+  'mcp:connect'
 ];

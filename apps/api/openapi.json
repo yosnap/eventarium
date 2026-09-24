@@ -4824,6 +4824,397 @@
         }
       }
     },
+    "/api/v1/users/me/mcp-connections": {
+      "get": {
+        "tags": [
+          "mcp"
+        ],
+        "summary": "Mis conexiones MCP en la organización activa",
+        "operationId": "list_my_connections_api_v1_users_me_mcp_connections_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ConexionOut"
+                  },
+                  "type": "array",
+                  "title": "Response List My Connections Api V1 Users Me Mcp Connections Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "mcp"
+        ],
+        "summary": "Crear una clave de API para conectar un asistente",
+        "operationId": "create_api_key_api_v1_users_me_mcp_connections_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearClaveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaveCreadaOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/mcp-connections/{connection_id}": {
+      "delete": {
+        "tags": [
+          "mcp"
+        ],
+        "summary": "Revocar una conexión propia",
+        "operationId": "revoke_my_connection_api_v1_users_me_mcp_connections__connection_id__delete",
+        "parameters": [
+          {
+            "name": "connection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Connection Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/mcp-connections/{connection_id}/history": {
+      "get": {
+        "tags": [
+          "mcp"
+        ],
+        "summary": "Historial de una conexión propia",
+        "operationId": "my_connection_history_api_v1_users_me_mcp_connections__connection_id__history_get",
+        "parameters": [
+          {
+            "name": "connection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Connection Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AccionOut"
+                  },
+                  "title": "Response My Connection History Api V1 Users Me Mcp Connections  Connection Id  History Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me/mcp-connections": {
+      "get": {
+        "tags": [
+          "mcp"
+        ],
+        "summary": "Conexiones MCP de todos los miembros (solo el dueño)",
+        "operationId": "list_organization_connections_api_v1_organizations_me_mcp_connections_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ConexionDeOrganizacionOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Organization Connections Api V1 Organizations Me Mcp Connections Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me/mcp-connections/{connection_id}": {
+      "delete": {
+        "tags": [
+          "mcp"
+        ],
+        "summary": "Revocar la conexión de un miembro (solo el dueño)",
+        "operationId": "revoke_organization_connection_api_v1_organizations_me_mcp_connections__connection_id__delete",
+        "parameters": [
+          {
+            "name": "connection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Connection Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/me/mcp-connections/{connection_id}/history": {
+      "get": {
+        "tags": [
+          "mcp"
+        ],
+        "summary": "Historial de la conexión de un miembro (solo el dueño)",
+        "operationId": "organization_connection_history_api_v1_organizations_me_mcp_connections__connection_id__history_get",
+        "parameters": [
+          {
+            "name": "connection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Connection Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AccionOut"
+                  },
+                  "title": "Response Organization Connection History Api V1 Organizations Me Mcp Connections  Connection Id  History Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/oauth/solicitudes/{solicitud_id}": {
+      "get": {
+        "tags": [
+          "mcp"
+        ],
+        "summary": "Solicitud de conexión OAuth pendiente",
+        "operationId": "ver_solicitud_api_v1_oauth_solicitudes__solicitud_id__get",
+        "parameters": [
+          {
+            "name": "solicitud_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Solicitud Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SolicitudOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/oauth/solicitudes/{solicitud_id}/aprobar": {
+      "post": {
+        "tags": [
+          "mcp"
+        ],
+        "summary": "Aprobar la conexión y volver al asistente",
+        "operationId": "aprobar_api_v1_oauth_solicitudes__solicitud_id__aprobar_post",
+        "parameters": [
+          {
+            "name": "solicitud_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Solicitud Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AprobarIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RedireccionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/oauth/solicitudes/{solicitud_id}/denegar": {
+      "post": {
+        "tags": [
+          "mcp"
+        ],
+        "summary": "Denegar la conexión y volver al asistente",
+        "operationId": "denegar_api_v1_oauth_solicitudes__solicitud_id__denegar_post",
+        "parameters": [
+          {
+            "name": "solicitud_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Solicitud Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RedireccionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/public/events": {
       "get": {
         "tags": [
@@ -9861,6 +10252,48 @@
         "title": "AcceptedPolicyOut",
         "description": "Una versión aceptada por una inscripción (sin el contenido: se consulta\naparte con el endpoint de versión del evento)."
       },
+      "AccionOut": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "entity_type": {
+            "type": "string",
+            "title": "Entity Type"
+          },
+          "entity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "detail": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action",
+          "entity_type",
+          "entity_id",
+          "created_at",
+          "detail"
+        ],
+        "title": "AccionOut"
+      },
       "AccountingIncomeCreate": {
         "properties": {
           "origin": {
@@ -10380,6 +10813,18 @@
         "title": "AiUsageRecordOut",
         "description": "Una llamada del histórico, tal y como la pinta el panel."
       },
+      "Ambito": {
+        "type": "string",
+        "enum": [
+          "eventos:leer",
+          "eventos:editar",
+          "eventos:publicar",
+          "eventos:cancelar",
+          "patrocinadores:editar",
+          "inscripciones:cifras"
+        ],
+        "title": "Ambito"
+      },
       "AnalyticsPublicResponse": {
         "properties": {
           "ga4_measurement_id": {
@@ -10542,6 +10987,38 @@
         "type": "object",
         "title": "AnalyticsSettingsUpdate",
         "description": "Reemplazo completo de los identificadores: un `PUT` envía los tres\nvalores (cada uno puede ser `null` para dejar el proveedor sin usar)."
+      },
+      "AprobarIn": {
+        "properties": {
+          "scopes": {
+            "items": {
+              "$ref": "#/components/schemas/Ambito"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Scopes"
+          },
+          "event_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scopes"
+        ],
+        "title": "AprobarIn"
       },
       "AuditLogEntry": {
         "properties": {
@@ -11636,6 +12113,225 @@
         "title": "CifrasOut",
         "description": "Los conteos por estado de inscripción, y la lista de espera."
       },
+      "ClaveCreadaOut": {
+        "properties": {
+          "connection": {
+            "$ref": "#/components/schemas/ConexionOut"
+          },
+          "api_key": {
+            "type": "string",
+            "title": "Api Key"
+          },
+          "mcp_url": {
+            "type": "string",
+            "title": "Mcp Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "connection",
+          "api_key",
+          "mcp_url"
+        ],
+        "title": "ClaveCreadaOut"
+      },
+      "ConexionDeOrganizacionOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "method": {
+            "type": "string",
+            "title": "Method"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Scopes"
+          },
+          "event_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Ids"
+          },
+          "key_prefix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Prefix"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "user_email": {
+            "type": "string",
+            "title": "User Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "method",
+          "scopes",
+          "event_ids",
+          "key_prefix",
+          "created_at",
+          "expires_at",
+          "last_used_at",
+          "revoked_at",
+          "user_email"
+        ],
+        "title": "ConexionDeOrganizacionOut"
+      },
+      "ConexionOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "method": {
+            "type": "string",
+            "title": "Method"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Scopes"
+          },
+          "event_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Ids"
+          },
+          "key_prefix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Prefix"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "method",
+          "scopes",
+          "event_ids",
+          "key_prefix",
+          "created_at",
+          "expires_at",
+          "last_used_at",
+          "revoked_at"
+        ],
+        "title": "ConexionOut"
+      },
       "ConfirmWaitlistPromotionRequest": {
         "properties": {
           "token": {
@@ -11739,6 +12435,50 @@
         ],
         "title": "CookieConsentCreate",
         "description": "Decisión del banner de cookies a registrar."
+      },
+      "CrearClaveIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "scopes": {
+            "items": {
+              "$ref": "#/components/schemas/Ambito"
+            },
+            "type": "array",
+            "title": "Scopes"
+          },
+          "event_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Ids"
+          },
+          "days": {
+            "type": "integer",
+            "maximum": 365.0,
+            "minimum": 1.0,
+            "title": "Days",
+            "default": 90
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "CrearClaveIn"
       },
       "CurrentUserResponse": {
         "properties": {
@@ -16798,7 +17538,8 @@
           "payments:write",
           "accounting:read",
           "accounting:write",
-          "invitations:manage"
+          "invitations:manage",
+          "mcp:connect"
         ],
         "title": "Permission",
         "description": "Permisos disponibles en la fase 0."
@@ -19411,6 +20152,19 @@
         "title": "PublicVenue",
         "description": "Sede tal y como se muestra en la página pública del evento, sin campos\nde auditoría (`display_order`/`geocoded_at` son detalle interno)."
       },
+      "RedireccionOut": {
+        "properties": {
+          "redirect_to": {
+            "type": "string",
+            "title": "Redirect To"
+          }
+        },
+        "type": "object",
+        "required": [
+          "redirect_to"
+        ],
+        "title": "RedireccionOut"
+      },
       "RefundAcceptedResponse": {
         "properties": {
           "status": {
@@ -20916,6 +21670,70 @@
         ],
         "title": "SocialLinkUpdate",
         "description": "Enlace social del perfil de una persona."
+      },
+      "SolicitudOut": {
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "title": "Client Id"
+          },
+          "client_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Name"
+          },
+          "no_verificado": {
+            "type": "boolean",
+            "title": "No Verificado"
+          },
+          "redirect_uri": {
+            "type": "string",
+            "title": "Redirect Uri"
+          },
+          "organization_name": {
+            "type": "string",
+            "title": "Organization Name"
+          },
+          "ambitos_pedidos": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ambitos Pedidos"
+          },
+          "ambitos_permitidos": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ambitos Permitidos"
+          },
+          "ambitos_por_defecto": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ambitos Por Defecto"
+          }
+        },
+        "type": "object",
+        "required": [
+          "client_id",
+          "client_name",
+          "no_verificado",
+          "redirect_uri",
+          "organization_name",
+          "ambitos_pedidos",
+          "ambitos_permitidos",
+          "ambitos_por_defecto"
+        ],
+        "title": "SolicitudOut"
       },
       "SpeakerCompletitudOut": {
         "properties": {
