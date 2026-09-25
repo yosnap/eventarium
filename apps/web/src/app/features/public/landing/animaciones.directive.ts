@@ -24,8 +24,6 @@ const SIN_REDUCIR_MOVIMIENTO = '(prefers-reduced-motion: no-preference)';
  */
 abstract class AnimacionConScroll {
   protected readonly elemento: HTMLElement = inject(ElementRef).nativeElement;
-  /** Cuándo se anima. Una directiva puede restringirlo (p. ej. solo en pantallas anchas). */
-  protected readonly consulta: string = SIN_REDUCIR_MOVIMIENTO;
 
   constructor() {
     const destroyRef = inject(DestroyRef);
@@ -40,7 +38,7 @@ abstract class AnimacionConScroll {
       void carga.then((gsap) => {
         if (!gsap || destruido) return;
         contexto = gsap.gsap.matchMedia();
-        contexto.add(this.consulta, () => this.animar(gsap));
+        contexto.add(SIN_REDUCIR_MOVIMIENTO, () => this.animar(gsap));
       });
     });
   }
@@ -133,13 +131,6 @@ export class HeroEscena extends AnimacionConScroll {
  */
 @Directive({ selector: '[appApilado]' })
 export class Apilado extends AnimacionConScroll {
-  /**
-   * Solo desde 48rem, igual que el `sticky` de las tarjetas: en móvil cada
-   * tarjeta (texto y captura en columna) es más alta que la pantalla, y
-   * apilarla hacía que la siguiente tapase la captura antes de verse.
-   */
-  protected override readonly consulta = `${SIN_REDUCIR_MOVIMIENTO} and (min-width: 48rem)`;
-
   protected animar({ gsap }: GsapCargado): void {
     const tarjetas = Array.from(this.elemento.querySelectorAll<HTMLElement>('.landing-tarjeta'));
     tarjetas.forEach((tarjeta, indice) => {
