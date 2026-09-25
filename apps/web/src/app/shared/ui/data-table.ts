@@ -54,6 +54,14 @@ export interface DataTableColumn {
     </app-panel>
   `,
   styles: `
+    /* \`contain: inline-size\`: el ancho de la tabla no se propaga a quien la
+       contiene. Sin esto, en móvil la rejilla del padre crecía hasta el ancho
+       completo de la tabla (900 px) y la página entera se ensanchaba, en vez
+       de desplazarse solo la tabla dentro de su ranura. */
+    :host {
+      display: block;
+      contain: inline-size;
+    }
     /* Solo el comportamiento de scroll: el fondo/borde/radio de la referencia los
        aporta <app-panel>, que envuelve esta ranura. La tabla de dentro es
        transparente, así que no hace falta recortar esquinas aquí. */

@@ -162,7 +162,7 @@ let contadorDeEditores = 0;
         display: flex;
       }
       .columnas {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
       }
       .columnas:not(.muestra-vista) .vista,
       .columnas.muestra-vista .escribir {

@@ -39,19 +39,33 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
          de espaciado exacto en nuestra escala (--space-md es 16px, --space-lg 32px). */
       padding: 1.5rem;
       display: grid;
+      /* Sin columna explícita la rejilla medía lo que su contenido (una tabla,
+         una fila de cifras) y la tarjeta se salía de la pantalla en móvil. */
+      grid-template-columns: minmax(0, 1fr);
       gap: var(--space-md);
+    }
+    /* En móvil el relleno de escritorio se come un tercio del ancho útil. */
+    @media (max-width: 30rem) {
+      section {
+        padding: 1rem;
+      }
     }
     .cabecera {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: var(--space-md);
+      gap: var(--space-sm) var(--space-md);
+    }
+    .cabecera > :first-child {
+      min-width: 0;
     }
     .acciones:empty {
       display: none;
     }
     .acciones {
       display: flex;
+      flex-wrap: wrap;
       gap: var(--space-sm);
       flex-shrink: 0;
     }

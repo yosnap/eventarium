@@ -374,7 +374,7 @@ function precioEnEuros(cents: number): string {
     }
     @media (max-width: 56.25rem) {
       .layout {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
       }
       .resumen {
         position: static;

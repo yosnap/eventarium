@@ -25,6 +25,7 @@ from app.core.database import Base
 # fase 2 del PRD nunca las añadió); se completan ahora de paso.
 from app.modules.accounting import models as accounting_models  # noqa: F401
 from app.modules.ai_gateway import models as ai_gateway_models  # noqa: F401
+from app.modules.email_settings import models as email_settings_models  # noqa: F401
 from app.modules.events import models as event_models  # noqa: F401
 from app.modules.legal import models as legal_models  # noqa: F401
 from app.modules.media import models as media_models  # noqa: F401

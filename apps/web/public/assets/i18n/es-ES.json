@@ -2449,6 +2449,55 @@
         "eventosError": "No hemos podido cargar los eventos. Puedes conectar para todos o volver a intentarlo más tarde.",
         "eventosTruncados": "Se muestran los {{n}} primeros eventos. Si falta el que buscas, conecta para todos los eventos."
       }
+    },
+    "correo": {
+      "titulo": "Correo de la plataforma",
+      "descripcion": "El proveedor que envía los correos de la instalación: verificación de cuenta, recuperación de contraseña, invitaciones y entradas.",
+      "origenEntorno": "Ahora se envía con las variables SMTP_* del servidor. Al guardar aquí, esta configuración pasa a mandar sobre ellas.",
+      "origenGuardado": "Se envía con la configuración guardada aquí, que anula las variables SMTP_* del servidor.",
+      "configuracion": "Proveedor",
+      "proveedor": "Servicio",
+      "proveedores": {
+        "resend": "Resend",
+        "acumbamail": "Acumbamail",
+        "ses": "Amazon SES",
+        "custom": "SMTP personalizado"
+      },
+      "region": "Región de Amazon SES",
+      "host": "Servidor SMTP",
+      "puerto": "Puerto",
+      "puertoAyuda": "465 cifra la conexión desde el principio; 587 usa STARTTLS. El modo se elige solo según el puerto.",
+      "usuario": "Usuario SMTP",
+      "password": "Contraseña o API key",
+      "passwordResend": "API key de Resend",
+      "passwordAyudaGuardada": "Hay una guardada que termina en «{{pista}}». Déjalo vacío para conservarla.",
+      "passwordAyudaSes": "Son las credenciales SMTP que genera la consola de SES, no las claves de IAM.",
+      "remitente": "Remitente",
+      "remitenteAyuda": "Tiene que ser de un dominio verificado en el proveedor; si no, rechazará los envíos. Compruébalo con el correo de prueba.",
+      "sinCifrar": "Enviar sin cifrar (solo desarrollo, p. ej. Mailpit)",
+      "probar": "Enviar correo de prueba",
+      "probarAyuda": "Se envía a tu propia dirección ({{correo}}) con los datos del formulario, sin guardarlos.",
+      "pruebaOk": "El servidor ha aceptado el correo de prueba enviado a {{correo}}. Revisa tu bandeja (y el spam) antes de guardar.",
+      "pruebaFallo": {
+        "autenticacion": "El proveedor ha rechazado el usuario o la API key.",
+        "remitente_rechazado": "El proveedor ha rechazado el remitente o el destinatario. Revisa que el dominio del remitente esté verificado.",
+        "sin_conexion": "No se ha podido conectar con el servidor SMTP. Revisa el servidor y el puerto.",
+        "error": "El servidor SMTP ha devuelto un error. Revisa la configuración.",
+        "tls": "Ha fallado el cifrado de la conexión. Revisa que el puerto sea el que indica el proveedor (465 o 587)."
+      },
+      "guardado": "Se ha guardado la configuración de correo. Los envíos la usan en menos de un minuto.",
+      "volverAlEntorno": "Volver a las variables del servidor",
+      "vueltoAlEntorno": "Se ha borrado la configuración guardada. Los envíos vuelven a usar las variables SMTP_* del servidor.",
+      "faltaPassword": "Escribe la contraseña o API key.",
+      "puertoInvalido": "El puerto tiene que ser un número.",
+      "errorCarga": "No se ha podido cargar la configuración de correo.",
+      "errorGuardar": "No se ha podido guardar la configuración de correo.",
+      "errorPrueba": "No se ha podido enviar el correo de prueba.",
+      "nav": "Correo",
+      "remitenteInvalido": "Escribe un remitente con formato de correo, por ejemplo no-responder@tudominio.com.",
+      "faltaHost": "Escribe el servidor SMTP.",
+      "faltaUsuario": "Escribe el usuario SMTP.",
+      "guardadoSinProbar": "Se ha guardado, pero sin un correo de prueba aceptado con estos mismos datos. Envía uno ahora: si falla, la plataforma se queda sin correo."
     }
   },
   "miEntrada": {

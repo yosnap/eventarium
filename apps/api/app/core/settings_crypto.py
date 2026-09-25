@@ -1,6 +1,8 @@
-"""Cifrado en reposo de las claves de proveedor de IA.
+"""Cifrado en reposo de las credenciales de configuración de plataforma.
 
-Único punto del proyecto que toca el texto plano de una clave de proveedor.
+Lo comparten la pasarela de IA (claves de proveedor) y el proveedor de correo
+(contraseña o API key SMTP). Único punto del proyecto que toca el texto plano
+de esas credenciales.
 Fernet (AES-128-CBC + HMAC-SHA256, con marca de tiempo) de `cryptography`:
 autenticado, con formato estable y sin parámetros que elegir mal.
 
@@ -12,9 +14,10 @@ que no usa IA arranca igual y solo falla al intentar guardar una clave, con
 
 Riesgo aceptado y documentado (hallazgo #2 de la sesión 1 de red-team): es
 una única clave de aplicación, como `jwt_secret`; si se filtra, descifra las
-credenciales de todas las organizaciones. No se diseña cifrado por sobre
-(envelope) por organización en esta entrega. **Rotarla exige re-cifrar todas
-las filas**: procedimiento en `app/cli.py rotate-ai-encryption-key`.
+credenciales de todas las organizaciones y la del correo. No se diseña
+cifrado por sobre (envelope) por organización en esta entrega. **Rotarla
+exige re-cifrar todas las filas** (IA y correo): procedimiento en
+`app/cli.py rotate-ai-encryption-key`.
 """
 
 from __future__ import annotations

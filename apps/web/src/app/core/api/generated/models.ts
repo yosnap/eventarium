@@ -68,6 +68,9 @@ export type { DiscountCodeCreate } from './models/discount-code-create';
 export type { DiscountCodeResponse } from './models/discount-code-response';
 export type { DiscountCodeUpdate } from './models/discount-code-update';
 export type { EligibleMembershipResponse } from './models/eligible-membership-response';
+export type { EmailSettingsIn } from './models/email-settings-in';
+export type { EmailSettingsOut } from './models/email-settings-out';
+export type { EmailTestOut } from './models/email-test-out';
 export type { EmbudoOut } from './models/embudo-out';
 export type { EstadoDeStripeOut } from './models/estado-de-stripe-out';
 export type { EstructuraOut } from './models/estructura-out';
@@ -175,6 +178,7 @@ export type { PlatformUserOrganization } from './models/platform-user-organizati
 export type { PlatformUserSummary } from './models/platform-user-summary';
 export type { PolicyUpdate } from './models/policy-update';
 export type { PolicyVersionOut } from './models/policy-version-out';
+export type { PresetOut } from './models/preset-out';
 export type { ProfileFieldInput } from './models/profile-field-input';
 export type { ProfileFieldResponse } from './models/profile-field-response';
 export type { ProgresoCancelacionOut } from './models/progreso-cancelacion-out';

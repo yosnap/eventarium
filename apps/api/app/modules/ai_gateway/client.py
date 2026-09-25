@@ -44,6 +44,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import SessionApp, set_organization_context
+from app.core.settings_crypto import descifrar_clave
 from app.modules.ai_gateway import (
     errores,
     litellm_runtime,
@@ -52,7 +53,6 @@ from app.modules.ai_gateway import (
     service,
     servicios,
 )
-from app.modules.ai_gateway.crypto import descifrar_clave
 from app.modules.ai_gateway.errores import (
     ErrorDeProveedor,
     LimiteDeGastoSuperado,

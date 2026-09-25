@@ -45,8 +45,8 @@ from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.core.database import SessionMaintenance
+from app.core.settings_crypto import cifrar_clave, pista_de_clave
 from app.modules.ai_gateway import descubrimiento, validacion
-from app.modules.ai_gateway.crypto import cifrar_clave, pista_de_clave
 from app.modules.ai_gateway.models import (
     ID_FILA_DE_PLATAFORMA,
     OrganizationAiSettings,

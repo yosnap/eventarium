@@ -162,7 +162,7 @@ interface DiaDeAgenda {
     }
     @media (max-width: 56rem) {
       .fila-superior {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
       }
     }
     h3 {

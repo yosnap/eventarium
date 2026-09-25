@@ -31,6 +31,37 @@ export interface ChangelogVersion {
 
 export const CHANGELOG: readonly ChangelogVersion[] = [
   {
+    version: '0.23.1',
+    fecha: '2026-09-25',
+    secciones: [
+      {
+        categoria: 'agregado',
+        items: [
+          {
+            titulo: 'Proveedor de correo configurable',
+            descripcion:
+              'Nueva pantalla «Correo» en el panel de la plataforma para elegir con qué servicio salen los correos (Resend, Acumbamail, Amazon SES o SMTP personalizado). La clave se guarda cifrada y nunca se vuelve a mostrar, y un correo de prueba a tu propia dirección confirma que funciona antes de guardar.',
+          },
+        ],
+      },
+      {
+        categoria: 'corregido',
+        items: [
+          {
+            titulo: 'Los correos de verificación no llegaban',
+            descripcion:
+              'Con el puerto 587 el envío intentaba cifrar la conexión de la forma equivocada y el servidor la rechazaba, así que no salía ningún correo. Sin la verificación, quien se registraba veía «No se pudieron cargar los datos de tu organización». Ahora el cifrado se elige según el puerto.',
+          },
+          {
+            titulo: 'Vistas en móvil',
+            descripcion:
+              'En Android la web pública se veía alejada y descuadrada porque la cabecera y el pie eran más anchos que la pantalla. Las funcionalidades de la portada ya no se apilan en móvil, y el panel del organizador tiene una cabecera compacta, pestañas del evento deslizables y tablas y filtros que se desplazan dentro de su caja.',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.23.0',
     fecha: '2026-09-24',
     secciones: [

@@ -67,13 +67,13 @@ import { ResaltarPipe } from '../resaltar.pipe';
       --apilado-top: 5.5rem;
     }
     .landing-tarjeta {
-      position: sticky;
-      top: calc(var(--apilado-top) + var(--indice) * 0.75rem);
       display: grid;
+      /* minmax(0, …): sin él la captura fijaba el ancho mínimo de la columna
+         y la tarjeta medía 384 px en un móvil de 360. */
+      grid-template-columns: minmax(0, 1fr);
       gap: var(--space-lg);
       align-items: center;
-      min-height: min(70vh, 34rem);
-      padding: var(--space-lg);
+      padding: var(--space-md);
       border: 1px solid var(--border-strong);
       border-radius: var(--radius-lg);
       /* Opaco a propósito: --surface lleva alfa y, apiladas, la tarjeta de
@@ -86,12 +86,18 @@ import { ResaltarPipe } from '../resaltar.pipe';
         0 -1px 0 var(--surface-hi),
         0 -18px 48px -12px oklch(0% 0 0 / 0.45),
         var(--shadow-lg);
-      will-change: transform;
     }
+    /* El apilado (sticky + la directiva appApilado) solo en pantallas anchas:
+       en móvil la tarjeta en columna mide más que la pantalla y la siguiente
+       taparía la captura antes de verse. Ahí es una lista normal. */
     @media (min-width: 48rem) {
       .landing-tarjeta {
-        grid-template-columns: 1fr 1fr;
+        position: sticky;
+        top: calc(var(--apilado-top) + var(--indice) * 0.75rem);
+        min-height: min(70svh, 34rem);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         padding: var(--sp-7);
+        will-change: transform;
       }
       .landing-tarjeta--invertida > :first-child {
         order: 2;

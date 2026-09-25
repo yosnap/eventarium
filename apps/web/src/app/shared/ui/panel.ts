@@ -48,6 +48,13 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
     .panel__head:empty {
       display: none;
     }
+    /* Lo proyectado en la cabecera (rótulo, barra de búsqueda y filtros) no
+       puede ser más ancho que ella: en móvil la barra de filtros medía 450 px
+       y ensanchaba la página. Proyectado, solo se alcanza con ::ng-deep. */
+    :host ::ng-deep .panel__head > * {
+      max-width: 100%;
+      min-width: 0;
+    }
     /* .tot (contabilidad-evento.html:56-58): pie de totales. */
     .panel__pie {
       display: flex;
