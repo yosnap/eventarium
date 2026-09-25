@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  ElementRef,
+  afterNextRender,
+  inject,
+  viewChild,
+} from '@angular/core';
 import { RouterLink, RouterOutlet } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 
@@ -32,7 +40,7 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
     <ng-container *transloco="let t">
       <a class="skip-link" href="#contenido">{{ t('comun.saltarAlContenido') }}</a>
 
-      <header>
+      <header #cabecera>
         <div class="ancho-maximo header-en">
           <a routerLink="/" class="marca">
             <app-brand-lockup />
@@ -313,6 +321,31 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
 export class PublicShell {
   protected readonly theming = inject(ThemingService);
   private readonly consentimiento = inject(CookieConsentService);
+  private readonly cabecera = viewChild.required<ElementRef<HTMLElement>>('cabecera');
+
+  constructor() {
+    // Publica el alto real de la cabecera fija en `--alto-cabecera-publica`
+    // para lo que se pega debajo de ella (el apilado de la home). En móvil
+    // ocupa dos filas, o tres si los enlaces se parten: un valor fijo en CSS
+    // dejaría el contenido pegado tapado por la cabecera. Solo en el
+    // navegador; en el servidor manda el valor por defecto del CSS.
+    const destroyRef = inject(DestroyRef);
+    afterNextRender(() => {
+      const cabecera = this.cabecera().nativeElement;
+      const publicar = (): void =>
+        document.documentElement.style.setProperty(
+          '--alto-cabecera-publica',
+          `${cabecera.getBoundingClientRect().height}px`,
+        );
+      publicar();
+      if (typeof ResizeObserver === 'undefined') {
+        return;
+      }
+      const observador = new ResizeObserver(publicar);
+      observador.observe(cabecera);
+      destroyRef.onDestroy(() => observador.disconnect());
+    });
+  }
 
   protected gestionarCookies(): void {
     this.consentimiento.abrirGestionDeCookies();

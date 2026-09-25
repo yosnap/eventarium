@@ -42,12 +42,29 @@ test.describe('Páginas públicas en un móvil de 360 px', () => {
     await esperarSinDesborde(page, ponente!);
   });
 
-  test('las funcionalidades de la home no se apilan en móvil', async ({ page }) => {
-    await page.goto('/');
-    const tarjeta = page.locator('.landing-tarjeta').first();
-    await tarjeta.scrollIntoViewIfNeeded();
-    await expect(tarjeta).toHaveCSS('position', 'static');
-    // Sin el encogido de la directiva de apilado.
-    await expect(tarjeta).toHaveCSS('transform', 'none');
-  });
+  for (const ancho of [360, 768]) {
+    test(`las funcionalidades de la home se apilan bajo la cabecera y caben a ${ancho} px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: ancho, height: 780 });
+      await page.goto('/');
+      const tarjetas = page.locator('.landing-tarjeta');
+      await expect(tarjetas.first()).toBeVisible();
+      await expect(tarjetas.first()).toHaveCSS('position', 'sticky');
+      await page.evaluate(() => document.fonts.ready);
+      const { cabecera, medidas } = await page.evaluate(() => ({
+        cabecera: document.querySelector('header')!.getBoundingClientRect().height,
+        medidas: [...document.querySelectorAll('.landing-tarjeta')].map((el) => ({
+          top: parseFloat(getComputedStyle(el).top),
+          alto: el.getBoundingClientRect().height,
+        })),
+      }));
+      // Pegada a su `top`, la tarjeta queda por debajo de la cabecera y se
+      // ve entera: si no, la cabecera o la siguiente tarjeta la tapan.
+      for (const { top, alto } of medidas) {
+        expect(top).toBeGreaterThanOrEqual(cabecera);
+        expect(top + alto).toBeLessThanOrEqual(780);
+      }
+    });
+  }
 });

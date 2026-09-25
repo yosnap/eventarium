@@ -31,6 +31,22 @@ export interface ChangelogVersion {
 
 export const CHANGELOG: readonly ChangelogVersion[] = [
   {
+    version: '0.23.2',
+    fecha: '2026-09-26',
+    secciones: [
+      {
+        categoria: 'corregido',
+        items: [
+          {
+            titulo: 'Vuelve el apilado de la portada en móvil',
+            descripcion:
+              'Las tarjetas de funcionalidades de la portada vuelven a apilarse al hacer scroll también en móvil y tablet (en la 0.23.1 se habían quitado por error). Ahora cada tarjeta cabe entera bajo la cabecera, sea cual sea el alto de la pantalla.',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.23.1',
     fecha: '2026-09-25',
     secciones: [
