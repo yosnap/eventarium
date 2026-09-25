@@ -456,7 +456,7 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
     }
     @media (max-width: 48rem) {
       .tipografia {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
       }
     }
     .previsualizacion {
@@ -476,11 +476,11 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
       }
       @media (max-width: 48rem) {
         .tipografia {
-          grid-template-columns: 1fr;
+          grid-template-columns: minmax(0, 1fr);
         }
       }
       .previsualizacion {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
       }
     }
     form {
@@ -533,7 +533,7 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
     @media (max-width: 48rem) {
       .token-cabecera,
       .token-fila {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
       }
       .token-nombre {
         border-bottom: 1px dashed var(--border);

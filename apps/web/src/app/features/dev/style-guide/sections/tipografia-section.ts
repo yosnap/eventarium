@@ -125,7 +125,7 @@ import { TranslocoDirective } from '@jsverse/transloco';
     }
     @media (max-width: 860px) {
       .escala__item {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
       }
       .escala__item .rotulo-seccion {
         text-align: left;

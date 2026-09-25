@@ -122,13 +122,20 @@ import { TranslocoDirective } from '@jsverse/transloco';
     </ng-container>
   `,
   styles: `
+    /* Puede encoger dentro de la cabecera móvil: el correo se recorta. */
+    :host {
+      min-width: 0;
+    }
     .selector {
       position: relative;
+      min-width: 0;
+      max-width: 100%;
     }
     .disparador {
       display: flex;
       align-items: center;
       gap: 8px;
+      max-width: 100%;
       min-height: 2.25rem;
       padding: 0 10px;
       border: 1px solid var(--border-strong);
@@ -143,6 +150,7 @@ import { TranslocoDirective } from '@jsverse/transloco';
       background-color: var(--surface-hi);
     }
     .email {
+      min-width: 0;
       max-width: 12rem;
       overflow: hidden;
       text-overflow: ellipsis;

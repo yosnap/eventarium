@@ -48,3 +48,7 @@ Thumbs.db
 # es lo que hace que `plans/` aparezca también en cada worktree nuevo, ya que
 # git solo recrea lo versionado. El contenido sigue fuera del repo.
 !/plans
+
+# Resultados de las pruebas e2e (Playwright)
+apps/web/test-results/
+apps/web/playwright-report/

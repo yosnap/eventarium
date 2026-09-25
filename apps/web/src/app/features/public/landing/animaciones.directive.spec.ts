@@ -89,9 +89,13 @@ describe('animaciones de la landing', () => {
   it('todas se registran solo bajo prefers-reduced-motion: no-preference y sin él no tocan el DOM', async () => {
     const fixture = await renderizar();
     expect(gsapFalso.add).toHaveBeenCalledTimes(5);
-    for (const [consulta] of gsapFalso.add.mock.calls) {
-      expect(consulta).toBe('(prefers-reduced-motion: no-preference)');
+    const consultas = gsapFalso.add.mock.calls.map(([consulta]) => consulta as string);
+    for (const consulta of consultas) {
+      expect(consulta.startsWith('(prefers-reduced-motion: no-preference)')).toBe(true);
     }
+    // El apilado, además, solo en pantallas anchas: en móvil las tarjetas son
+    // más altas que la pantalla y la siguiente taparía la captura.
+    expect(consultas.filter((c) => c.includes('(min-width: 48rem)'))).toHaveLength(1);
     expect(gsapFalso.to).not.toHaveBeenCalled();
     expect(gsapFalso.from).not.toHaveBeenCalled();
     expect(gsapFalso.fromTo).not.toHaveBeenCalled();

@@ -55,17 +55,30 @@ import { EventScope } from './event-scope';
 
       <nav class="pestanas" [attr.aria-label]="t('admin.nav.pestanasDeEvento')">
         <a
+          #resumen
           [routerLink]="['/dashboard/events', eventId()]"
           routerLinkActive="activa"
           [routerLinkActiveOptions]="{ exact: true }"
+          (isActiveChange)="alActivar($event, resumen)"
         >
           {{ t('admin.nav.resumenEvento') }}
         </a>
-        <a [routerLink]="['/dashboard/events', eventId(), 'editar']" routerLinkActive="activa">
+        <a
+          #editar
+          [routerLink]="['/dashboard/events', eventId(), 'editar']"
+          routerLinkActive="activa"
+          (isActiveChange)="alActivar($event, editar)"
+        >
           {{ t('admin.nav.editarEvento') }}
         </a>
         @for (enlace of enlaces(); track enlace.path.join('/')) {
-          <a [routerLink]="enlace.path" routerLinkActive="activa">{{ t(enlace.labelKey) }}</a>
+          <a
+            #pestana
+            [routerLink]="enlace.path"
+            routerLinkActive="activa"
+            (isActiveChange)="alActivar($event, pestana)"
+            >{{ t(enlace.labelKey) }}</a
+          >
         }
       </nav>
 
@@ -114,6 +127,20 @@ import { EventScope } from './event-scope';
       gap: var(--space-xs);
       border-bottom: 1px solid var(--border);
     }
+    /* Móvil: una sola fila desplazable en vez de cuatro filas de pestañas
+       antes del contenido. La activa se desplaza a la vista (alActivar). */
+    @media (max-width: 48rem) {
+      .pestanas {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+        margin-inline: calc(-1 * var(--space-md));
+        padding-inline: var(--space-md);
+      }
+      .pestanas a {
+        flex-shrink: 0;
+      }
+    }
     .pestanas a {
       padding: var(--space-sm) var(--space-md);
       border-bottom: 2px solid transparent;
@@ -140,4 +167,11 @@ export class EventShell {
   protected readonly enlaces = computed(() =>
     enlacesDeEvento(this.eventId(), this.eventScope.registrationMode() === 'paid'),
   );
+
+  /** En móvil la fila de pestañas se desplaza: que la activa no quede fuera de la vista. */
+  protected alActivar(activa: boolean, pestana: HTMLElement): void {
+    if (activa) {
+      pestana.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    }
+  }
 }

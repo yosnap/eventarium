@@ -448,9 +448,12 @@ function normalizarCiudad(ciudad: string): string {
         grid-template-columns: 74px minmax(0, 1fr);
         gap: var(--sp-4);
       }
+      /* Con wrap: precio y chip en una línea no cabían en 360 px. */
       .ev-lado {
         grid-column: 2;
         flex-direction: row;
+        flex-wrap: wrap;
+        min-width: 0;
         align-items: center;
         justify-content: flex-start;
         text-align: left;

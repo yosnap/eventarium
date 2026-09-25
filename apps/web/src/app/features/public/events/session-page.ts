@@ -245,7 +245,7 @@ const CLAVE_AGENDA = 'eventarium-agenda';
     }
     @media (max-width: 53.75rem) {
       .top {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
       }
     }
     h1 {
