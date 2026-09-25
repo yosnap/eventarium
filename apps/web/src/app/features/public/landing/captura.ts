@@ -79,7 +79,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
     /* En móvil la tarjeta apilada tiene que caber entera en la pantalla: la
        captura se recorta por abajo (como una ventana con scroll) en vez de
        empujar la tarjeta más allá del borde inferior. */
-    @media (max-width: 40rem) {
+    @media (max-width: 47.99rem) {
       .captura {
         max-height: 25svh;
         object-fit: cover;

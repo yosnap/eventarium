@@ -63,14 +63,19 @@ import { ResaltarPipe } from '../resaltar.pipe';
       display: grid;
       gap: var(--space-lg);
       /* Cada tarjeta se queda pegada bajo la cabecera y la siguiente le pasa
-         por encima; la directiva appApilado encoge la anterior (sin atenuarla). */
-      --apilado-top: 5.5rem;
+         por encima; la directiva appApilado encoge la anterior (sin atenuarla).
+         El alto real de la cabecera lo publica PublicShell; el valor por
+         defecto es el de escritorio (64 px). */
+      --apilado-top: calc(var(--alto-cabecera-publica, 4rem) + 1.5rem);
+      --apilado-paso: 0.75rem;
     }
-    /* En móvil la cabecera pública ocupa dos filas: las tarjetas se pegan
-       debajo de ella, no debajo de donde acabaría la de escritorio. */
-    @media (max-width: 40rem) {
+    /* Hasta 48rem la tarjeta va en una columna (texto y captura) y tiene que
+       caber entera bajo la cabecera, o la siguiente taparía la captura:
+       menos margen bajo la cabecera, paso de apilado menor y menos hueco
+       interno (la captura se limita en captura.ts, mismo corte). */
+    @media (max-width: 47.99rem) {
       .landing-apilado {
-        --apilado-top: 6.75rem;
+        --apilado-top: calc(var(--alto-cabecera-publica, 6rem) + 0.5rem);
         --apilado-paso: 0.25rem;
       }
       .landing-apilado .landing-tarjeta {
@@ -81,7 +86,7 @@ import { ResaltarPipe } from '../resaltar.pipe';
       position: sticky;
       /* Cada tarjeta asoma un poco por debajo de la anterior; en móvil el
          paso es menor para que la última no empiece demasiado abajo. */
-      top: calc(var(--apilado-top) + var(--indice) * var(--apilado-paso, 0.75rem));
+      top: calc(var(--apilado-top) + var(--indice) * var(--apilado-paso));
       display: grid;
       /* minmax(0, …): sin él la captura fijaba el ancho mínimo de la columna
          y la tarjeta medía 384 px en un móvil de 360. */
@@ -101,11 +106,11 @@ import { ResaltarPipe } from '../resaltar.pipe';
         0 -1px 0 var(--surface-hi),
         0 -18px 48px -12px oklch(0% 0 0 / 0.45),
         var(--shadow-lg);
-      will-change: transform;
     }
     @media (min-width: 48rem) {
       .landing-tarjeta {
         min-height: min(70svh, 34rem);
+        will-change: transform;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         padding: var(--sp-7);
       }

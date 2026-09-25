@@ -42,23 +42,29 @@ test.describe('Páginas públicas en un móvil de 360 px', () => {
     await esperarSinDesborde(page, ponente!);
   });
 
-  test('las funcionalidades de la home se apilan y cada tarjeta cabe en la pantalla', async ({
-    page,
-  }) => {
-    await page.goto('/');
-    const tarjetas = page.locator('.landing-tarjeta');
-    await expect(tarjetas.first()).toHaveCSS('position', 'sticky');
-    const alto = page.viewportSize()!.height;
-    const medidas = await tarjetas.evaluateAll((els) =>
-      els.map((el) => ({
-        top: parseFloat(getComputedStyle(el).top),
-        alto: el.getBoundingClientRect().height,
-      })),
-    );
-    // Pegada a su `top`, la tarjeta entera tiene que verse: si no, la
-    // siguiente la tapa antes de que se vea su captura.
-    for (const { top, alto: altoTarjeta } of medidas) {
-      expect(top + altoTarjeta).toBeLessThanOrEqual(alto);
-    }
-  });
+  for (const ancho of [360, 768]) {
+    test(`las funcionalidades de la home se apilan bajo la cabecera y caben a ${ancho} px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: ancho, height: 780 });
+      await page.goto('/');
+      const tarjetas = page.locator('.landing-tarjeta');
+      await expect(tarjetas.first()).toBeVisible();
+      await expect(tarjetas.first()).toHaveCSS('position', 'sticky');
+      await page.evaluate(() => document.fonts.ready);
+      const { cabecera, medidas } = await page.evaluate(() => ({
+        cabecera: document.querySelector('header')!.getBoundingClientRect().height,
+        medidas: [...document.querySelectorAll('.landing-tarjeta')].map((el) => ({
+          top: parseFloat(getComputedStyle(el).top),
+          alto: el.getBoundingClientRect().height,
+        })),
+      }));
+      // Pegada a su `top`, la tarjeta queda por debajo de la cabecera y se
+      // ve entera: si no, la cabecera o la siguiente tarjeta la tapan.
+      for (const { top, alto } of medidas) {
+        expect(top).toBeGreaterThanOrEqual(cabecera);
+        expect(top + alto).toBeLessThanOrEqual(780);
+      }
+    });
+  }
 });
