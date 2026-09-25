@@ -59,6 +59,7 @@ export const PLATFORM_NAV_LINKS: readonly AdminNavLink[] = [
   // igual que el guard de sus rutas.
   { path: ['/admin/ia'], labelKey: 'admin.ia.plataforma.titulo', soloSuperadmin: true },
   { path: ['/admin/servicios'], labelKey: 'admin.ia.servicios.titulo', soloSuperadmin: true },
+  { path: ['/admin/correo'], labelKey: 'admin.correo.nav', soloSuperadmin: true },
   { path: ['/admin/suplantar'], labelKey: 'admin.plataforma.impersonar.titulo' },
   { path: ['/admin/usuarios'], labelKey: 'admin.plataforma.usuarios.titulo' },
   // La caja de piezas con la que se construyen la landing y la presentación del

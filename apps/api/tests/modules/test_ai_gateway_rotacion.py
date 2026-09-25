@@ -13,7 +13,7 @@ from sqlalchemy import select
 
 from app.cli import recifrar_claves_de_ia
 from app.core.database import SessionMaintenance
-from app.modules.ai_gateway.crypto import cifrar_clave, descifrar_clave
+from app.core.settings_crypto import cifrar_clave, descifrar_clave
 from app.modules.ai_gateway.errores import CredencialIlegible
 from app.modules.ai_gateway.models import (
     ID_FILA_DE_PLATAFORMA,
@@ -70,3 +70,33 @@ async def test_la_rotacion_recifra_todas_las_filas_con_la_clave_nueva(
         # Y ya no descifran con la antigua: la rotación escribió de verdad.
         with pytest.raises(CredencialIlegible):
             descifrar_clave(cifrada, clave_de_cifrado=antigua)
+
+
+async def test_la_rotacion_recifra_tambien_la_contrasena_del_correo() -> None:
+    """Comparten clave: rotar solo la IA dejaría el correo sin poder salir."""
+    from app.modules.email_settings.models import PlatformEmailSettings
+
+    antigua = Fernet.generate_key().decode()
+    nueva = Fernet.generate_key().decode()
+    async with SessionMaintenance() as session:
+        session.add(
+            PlatformEmailSettings(
+                id=1,
+                provider="resend",
+                host="smtp.resend.com",
+                port=465,
+                tls_mode="implicit",
+                username="resend",
+                password_encrypted=cifrar_clave("re_clave_1234", clave_de_cifrado=antigua),
+                password_hint="1234",
+                from_address="hola@eventarium.org",
+            )
+        )
+        await session.commit()
+
+    assert await recifrar_claves_de_ia(clave_antigua=antigua, clave_nueva=nueva) == 1
+
+    async with SessionMaintenance() as session:
+        fila = await session.scalar(select(PlatformEmailSettings))
+    assert fila is not None
+    assert descifrar_clave(fila.password_encrypted, clave_de_cifrado=nueva) == "re_clave_1234"

@@ -24,9 +24,9 @@ from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.settings_crypto import cifrar_clave, descifrar_clave, pista_de_clave
 from app.modules.ai_gateway import cache_modelos, descubrimiento, repository, servicios
 from app.modules.ai_gateway import proveedores as catalogo
-from app.modules.ai_gateway.crypto import cifrar_clave, descifrar_clave, pista_de_clave
 from app.modules.ai_gateway.descubrimiento import ListadoNoDisponible
 from app.modules.ai_gateway.errores import (
     ApiBaseNoPermitido,

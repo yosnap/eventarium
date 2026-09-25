@@ -2838,6 +2838,122 @@
         }
       }
     },
+    "/api/v1/admin/email-settings": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Proveedor de correo de la plataforma",
+        "description": "La configuración guardada (`source=database`) o, si no hay, la de las variables `SMTP_*` (`source=environment`). **Nunca** devuelve la contraseña: solo si existe y su pista. Incluye el catálogo de proveedores para el formulario.",
+        "operationId": "get_email_settings_api_v1_admin_email_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailSettingsOut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Configurar el proveedor de correo de la plataforma",
+        "description": "Guarda la conexión y la cifra en reposo con `AI_SETTINGS_ENCRYPTION_KEY` (503 si no está configurada). Desde ese momento anula las variables `SMTP_*`; los procesos que envían lo notan en menos de un minuto. El modo TLS se deriva del puerto.",
+        "operationId": "put_email_settings_api_v1_admin_email_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailSettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailSettingsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Volver a las variables de entorno SMTP_*",
+        "operationId": "delete_email_settings_api_v1_admin_email_settings_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/email-settings/test": {
+      "post": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Enviar un correo de prueba sin guardar",
+        "description": "Envía un correo real **al propio superadmin** con la configuración del formulario (la contraseña puede omitirse para usar la guardada, si el proveedor no cambia). Responde 200 con `ok`: un `false` y su `motivo` son el resultado de la prueba. «Aceptado» significa que el servidor SMTP lo aceptó, no que haya llegado a la bandeja.",
+        "operationId": "post_email_test_api_v1_admin_email_settings_test_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailSettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailTestOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/identity": {
       "get": {
         "tags": [
@@ -12938,6 +13054,313 @@
         "title": "EligibleMembershipResponse",
         "description": "Membresía propia cuyo rol declara al menos un campo publicable."
       },
+      "EmailSettingsIn": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "resend",
+              "acumbamail",
+              "ses",
+              "custom"
+            ],
+            "title": "Provider"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 65535.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 30
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 400,
+                "minLength": 4,
+                "format": "password",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "from_address": {
+            "type": "string",
+            "format": "email",
+            "title": "From Address"
+          },
+          "tls_mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "implicit",
+                  "starttls",
+                  "none"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tls Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "from_address"
+        ],
+        "title": "EmailSettingsIn",
+        "description": "Configuración a guardar o probar.\n\n`host` solo lo usa `custom`; `region` solo `ses`; el resto lo fija el\npreset. `tls_mode` solo se atiende si es `none` (custom y fuera de\nproducción): el modo cifrado se deriva del puerto. `password` puede\nomitirse para reutilizar la ya guardada si el proveedor no cambia."
+      },
+      "EmailSettingsOut": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "database",
+              "environment"
+            ],
+            "title": "Source"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "resend",
+                  "acumbamail",
+                  "ses",
+                  "custom"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "tls_mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "implicit",
+                  "starttls",
+                  "none"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tls Mode"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "from_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Address"
+          },
+          "has_password": {
+            "type": "boolean",
+            "title": "Has Password"
+          },
+          "password_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password Hint"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "presets": {
+            "items": {
+              "$ref": "#/components/schemas/PresetOut"
+            },
+            "type": "array",
+            "title": "Presets"
+          },
+          "ses_regions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ses Regions"
+          },
+          "allow_insecure": {
+            "type": "boolean",
+            "title": "Allow Insecure"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "provider",
+          "host",
+          "port",
+          "tls_mode",
+          "username",
+          "region",
+          "from_address",
+          "has_password",
+          "password_hint",
+          "updated_at",
+          "presets",
+          "ses_regions",
+          "allow_insecure"
+        ],
+        "title": "EmailSettingsOut",
+        "description": "Estado de la configuración. **Nunca** la contraseña: solo su pista."
+      },
+      "EmailTestOut": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "sent_to": {
+            "type": "string",
+            "title": "Sent To"
+          },
+          "motivo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "autenticacion",
+                  "remitente_rechazado",
+                  "tls",
+                  "sin_conexion",
+                  "error"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "sent_to"
+        ],
+        "title": "EmailTestOut",
+        "description": "Resultado de la prueba. `ok=false` es un resultado, no un error HTTP."
+      },
       "EmbudoOut": {
         "properties": {
           "formulario": {
@@ -18570,6 +18993,54 @@
         ],
         "title": "PolicyVersionOut",
         "description": "Una versión concreta de un texto."
+      },
+      "PresetOut": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "resend",
+              "acumbamail",
+              "ses",
+              "custom"
+            ],
+            "title": "Provider"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
+          },
+          "port": {
+            "type": "integer",
+            "title": "Port"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "host",
+          "port",
+          "username"
+        ],
+        "title": "PresetOut"
       },
       "ProfileFieldInput": {
         "properties": {

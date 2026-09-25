@@ -421,7 +421,7 @@ Todas están documentadas en `infra/env/.env.example`. Las que solo aplican a pr
 | `NG_ALLOWED_HOSTS` | Hosts que acepta el SSR; vacío = cualquiera |
 | `API_INTERNAL_URL` | URL de la API en la red interna, para el SSR |
 | `GITHUB_REPOSITORY` | Origen de las imágenes en GHCR |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_USE_TLS`, `SMTP_FROM` | Proveedor de correo real para la verificación de cuentas. Mailpit solo existe en desarrollo |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_USE_TLS`, `SMTP_FROM` | Solo respaldo: en producción el proveedor de correo se configura en `/admin/correo` (se guarda cifrado con `AI_SETTINGS_ENCRYPTION_KEY` y anula estas variables). `SMTP_USE_TLS=true` exige cifrado y el modo sale del puerto (465 TLS implícito, 587 STARTTLS). Mailpit solo existe en desarrollo |
 | `TURNSTILE_ENABLED`, `TURNSTILE_SECRET_KEY` | Anti-bot en el registro, el reenvío de verificación y el alta de organización. **`TURNSTILE_ENABLED` no puede ser `false` en producción**: el arranque de la API falla si lo es |
 | `AI_SETTINGS_ENCRYPTION_KEY` | Clave Fernet con la que se cifran en reposo las claves de los proveedores de IA. Opcional: sin ella la instalación arranca y funciona, pero no se puede guardar ninguna configuración de IA. Ver abajo |
 

@@ -10,7 +10,7 @@ from cryptography.fernet import Fernet
 from pydantic import ValidationError
 
 from app.core.config import Settings, get_settings
-from app.modules.ai_gateway.crypto import (
+from app.core.settings_crypto import (
     cifrado_disponible,
     cifrar_clave,
     descifrar_clave,

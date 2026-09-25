@@ -33,6 +33,7 @@ import { TranslocoService } from '@jsverse/transloco';
           [value]="value()"
           [disabled]="disabled()"
           [attr.autocomplete]="autocomplete()"
+          [attr.inputmode]="inputmode()"
           [attr.required]="required() ? '' : null"
           [attr.aria-invalid]="error() ? 'true' : null"
           [attr.aria-describedby]="descripcionId()"
@@ -189,6 +190,8 @@ export class Input {
   readonly etiquetaOculta = input(false);
   readonly type = input<'text' | 'email' | 'password' | 'url' | 'date' | 'datetime-local'>('text');
   readonly autocomplete = input<string | null>(null);
+  /** Teclado del móvil (p. ej. `numeric` para un puerto) sin cambiar el tipo del campo. */
+  readonly inputmode = input<'text' | 'numeric' | 'decimal' | 'email' | 'tel' | 'url' | null>(null);
   readonly required = input(false);
   /** Campo de solo lectura (p. ej. `soporte` consulta la configuración de
    * plataforma pero no puede guardarla): disabled nativo + estilo tenue. */
