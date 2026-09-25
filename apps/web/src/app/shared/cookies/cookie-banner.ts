@@ -145,7 +145,7 @@ import { Toggle } from '../ui/toggle';
     }
     @media (max-width: 760px) {
       .cookies {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
         gap: var(--sp-4);
       }
     }

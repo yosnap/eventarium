@@ -46,13 +46,18 @@ ng test
 
 ## Running end-to-end tests
 
-For end-to-end (e2e) testing, run:
+Las pruebas e2e (Playwright, `e2e/`) recorren las páginas públicas y el panel
+del organizador en un móvil de 360 px y fallan si algo obliga a desplazarse en
+horizontal o queda cortado. La del panel hace además el alta completa
+(registro, verificación por Mailpit, crear organización).
+
+Necesitan el entorno de desarrollo levantado (`make dev` y `make db-seed`):
 
 ```bash
-ng e2e
+pnpm e2e
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+Contra otro servidor (por ejemplo el build de producción): `E2E_BASE_URL=http://localhost:4300 pnpm e2e`.
 
 ## Additional Resources
 

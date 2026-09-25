@@ -276,7 +276,7 @@ type AccionDePersonalizacion =
     }
     @media (max-width: 52rem) {
       .personalizar {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
       }
     }
     .campos {
@@ -320,7 +320,7 @@ type AccionDePersonalizacion =
     }
     @media (max-width: 30rem) {
       .previews {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
       }
     }
     .etiqueta {

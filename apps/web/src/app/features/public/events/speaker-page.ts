@@ -253,7 +253,7 @@ function etiquetaEnlace(kind: string, traducir: (clave: string) => string): stri
     }
     @media (max-width: 53.75rem) {
       .top {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
       }
       .who {
         flex-direction: column;

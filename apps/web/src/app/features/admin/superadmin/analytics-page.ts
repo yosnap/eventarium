@@ -254,7 +254,7 @@ function hoyIso(): string {
     }
     @media (max-width: 640px) {
       .metricas {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
       }
     }
   `,

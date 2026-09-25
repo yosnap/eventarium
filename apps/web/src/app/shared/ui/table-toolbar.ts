@@ -28,6 +28,11 @@ import { ChangeDetectionStrategy, Component, input, model } from '@angular/core'
     </div>
   `,
   styles: `
+    :host {
+      display: block;
+      max-width: 100%;
+      min-width: 0;
+    }
     /* .toolbar (panel-organizador.html:31): el grupo entero se pega a la
        derecha cuando comparte fila con el rótulo del panel. */
     .toolbar {
@@ -40,7 +45,7 @@ import { ChangeDetectionStrategy, Component, input, model } from '@angular/core'
     /* .search (panel-organizador.html:32-34): 36px, fondo --bg, borde fuerte. */
     .busqueda {
       min-height: 36px;
-      max-width: 230px;
+      max-width: min(230px, 100%);
       padding: 0 12px;
       background-color: var(--bg);
       border: 1px solid var(--border-strong);
@@ -55,6 +60,8 @@ import { ChangeDetectionStrategy, Component, input, model } from '@angular/core'
     .resto {
       display: flex;
       flex-wrap: wrap;
+      max-width: 100%;
+      min-width: 0;
       gap: var(--sp-3);
       align-items: center;
     }

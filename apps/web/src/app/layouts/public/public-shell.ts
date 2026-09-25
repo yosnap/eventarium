@@ -219,6 +219,52 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       color: var(--fg);
       border-bottom-color: var(--accent);
     }
+    /* Móvil: el bloque derecho no cabe en una línea (en 360 px medía 362 y
+       empujaba el menú de acceso fuera de la pantalla, con scroll lateral en
+       todo el sitio). Dos filas que siguen el orden del marcado (y del foco):
+       marca + enlaces arriba; «Crear evento», tema y acceso debajo, a la
+       derecha. \`display: contents\` deja a los hijos de los dos grupos
+       colocarse en la rejilla sin tocar el marcado. */
+    @media (max-width: 40rem) {
+      .header-en {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto auto;
+        grid-template-areas:
+          'marca nav nav nav'
+          '. crear tema acceso';
+        column-gap: 0.5rem;
+        row-gap: 0.25rem;
+        padding-block: 0.5rem;
+        min-height: 0;
+      }
+      .bloque-derecho,
+      .controles-usuario {
+        display: contents;
+      }
+      .marca {
+        grid-area: marca;
+      }
+      header nav {
+        grid-area: nav;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 0 1rem;
+        min-width: 0;
+      }
+      header nav a {
+        white-space: nowrap;
+      }
+      .crear-evento {
+        grid-area: crear;
+        justify-self: end;
+      }
+      app-theme-toggle {
+        grid-area: tema;
+      }
+      app-access-menu {
+        grid-area: acceso;
+      }
+    }
     /* Sin padding propio: cada página gestiona su spacing vertical, y el ancho
        horizontal lo impone siempre .ancho-maximo dentro de la página, nunca
        este contenedor — así una sección puede seguir siendo a sangre completa
@@ -238,9 +284,12 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       display: grid;
       gap: var(--space-sm);
     }
+    /* Con wrap: los cuatro enlaces legales en una línea medían 519 px y, en
+       un móvil de 360, ensanchaban y alejaban todas las páginas públicas. */
     footer ul {
       display: flex;
-      gap: var(--space-md);
+      flex-wrap: wrap;
+      gap: var(--space-xs) var(--space-md);
       list-style: none;
       margin: 0;
       padding: 0;

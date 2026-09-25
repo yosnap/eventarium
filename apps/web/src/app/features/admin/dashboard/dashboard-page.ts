@@ -85,7 +85,7 @@ interface KpiVisible {
 
       @if (metricas(); as m) {
         @if (pendientes().length > 0) {
-          <app-card [heading]="t('admin.escritorioPagina.pendiente')">
+          <app-card class="bloque" [heading]="t('admin.escritorioPagina.pendiente')">
             <ul class="pendientes">
               @for (p of pendientes(); track p.clave) {
                 <li>
@@ -264,16 +264,24 @@ interface KpiVisible {
     }
     .lista {
       display: grid;
+      grid-template-columns: minmax(0, 1fr);
       gap: var(--space-sm);
       margin: 0;
     }
+    /* Con wrap: rótulo y cifra en una línea no cabían en móvil. */
     .lista > div {
       display: flex;
+      flex-wrap: wrap;
       justify-content: space-between;
-      gap: var(--space-md);
+      gap: 0 var(--space-md);
     }
     .lista dt {
       color: var(--muted);
+    }
+    .lista dt,
+    .lista dd {
+      min-width: 0;
+      overflow-wrap: anywhere;
     }
     .lista dd {
       margin: 0;

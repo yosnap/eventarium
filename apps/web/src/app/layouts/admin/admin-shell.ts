@@ -73,6 +73,18 @@ import { PanelScope } from './panel-scope';
           aria-controls="panel-navegacion-admin"
           (click)="alternarNavegacion()"
         >
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+            @if (navegacionAbierta()) {
+              <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" fill="none" />
+            } @else {
+              <path
+                d="M4 7h16M4 12h16M4 17h16"
+                stroke="currentColor"
+                stroke-width="2"
+                fill="none"
+              />
+            }
+          </svg>
           {{
             navegacionAbierta() ? t('admin.nav.cerrarNavegacion') : t('admin.nav.abrirNavegacion')
           }}
@@ -167,11 +179,61 @@ import { PanelScope } from './panel-scope';
       padding: var(--sp-6) var(--sp-6) var(--sp-8);
     }
     @media (max-width: 48rem) {
+      /* Cabecera compacta: logo, tema y cuenta en una fila; el nombre de la
+         organización debajo, en una línea. Antes ocupaba casi 200 px. */
+      .header-en {
+        display: grid;
+        /* El logo nunca encoge; lo que sobra lo cede la cuenta (el correo
+           se recorta con puntos suspensivos). */
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-areas:
+          'logo sesion'
+          'contexto contexto';
+        gap: var(--space-xs) var(--space-sm);
+        padding: var(--space-sm) var(--space-md);
+        min-height: 0;
+      }
+      .marca {
+        display: contents;
+      }
+      .enlace-marca {
+        grid-area: logo;
+      }
+      .sesion {
+        grid-area: sesion;
+        justify-content: flex-end;
+        min-width: 0;
+        gap: var(--space-sm);
+      }
+      .contexto {
+        grid-area: contexto;
+        padding-left: 0;
+        border-left: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
       .cuerpo {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
       }
       .boton-navegacion {
         display: inline-flex;
+        align-items: center;
+        gap: var(--space-sm);
+        min-height: 44px;
+        margin: var(--space-sm) var(--space-md) 0;
+        padding: 0 var(--space-md);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        background-color: var(--surface);
+        color: var(--fg);
+        font: inherit;
+        font-size: var(--fs-sm);
+        font-weight: 500;
+        cursor: pointer;
+      }
+      main {
+        padding: var(--space-md) var(--space-md) var(--sp-8);
       }
       .panel-navegacion:not(.abierta) {
         display: none;
