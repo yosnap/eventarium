@@ -26,8 +26,6 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
     </div>
   `,
   styles: `
-    /* En móvil el grupo entero no cabe (400-430 px con 3-4 opciones): se
-       desplaza dentro de sí mismo en vez de ensanchar la página. */
     :host {
       display: block;
       max-width: 100%;
@@ -36,9 +34,6 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
     .filtros {
       display: flex;
       gap: 4px;
-      max-width: 100%;
-      overflow-x: auto;
-      scrollbar-width: none;
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       padding: 3px;
@@ -62,6 +57,19 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
     button:hover {
       background-color: var(--surface-hi);
       color: var(--fg);
+    }
+    /* En móvil el grupo entero no cabe (400-430 px con 3-4 opciones): se
+       desplaza dentro de sí mismo en vez de ensanchar la página. El foco se
+       dibuja por dentro para que el contenedor de scroll no lo recorte. */
+    @media (max-width: 48rem) {
+      .filtros {
+        max-width: 100%;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      button:focus-visible {
+        outline-offset: -2px;
+      }
     }
     button[aria-pressed='true'] {
       background-color: var(--accent);

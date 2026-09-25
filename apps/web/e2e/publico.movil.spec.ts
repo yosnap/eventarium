@@ -37,10 +37,9 @@ test.describe('Páginas públicas en un móvil de 360 px', () => {
     await page.goto(sesion!);
     await esperarSinDesborde(page, sesion!);
     const ponente = await page.locator('a[href^="/ponentes/"]').first().getAttribute('href');
-    for (const ruta of [ponente].filter((r): r is string => !!r)) {
-      await page.goto(ruta);
-      await esperarSinDesborde(page, ruta);
-    }
+    expect(ponente, 'la sesión de la semilla enlaza algún ponente').toBeTruthy();
+    await page.goto(ponente!);
+    await esperarSinDesborde(page, ponente!);
   });
 
   test('las funcionalidades de la home no se apilan en móvil', async ({ page }) => {
@@ -48,7 +47,7 @@ test.describe('Páginas públicas en un móvil de 360 px', () => {
     const tarjeta = page.locator('.landing-tarjeta').first();
     await tarjeta.scrollIntoViewIfNeeded();
     await expect(tarjeta).toHaveCSS('position', 'static');
-    // Sin el encogido de la directiva: la tarjeta conserva su tamaño.
-    await expect(tarjeta).not.toHaveCSS('transform', /matrix\(0\.9/);
+    // Sin el encogido de la directiva de apilado.
+    await expect(tarjeta).toHaveCSS('transform', 'none');
   });
 });

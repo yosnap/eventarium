@@ -221,18 +221,19 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
     }
     /* Móvil: el bloque derecho no cabe en una línea (en 360 px medía 362 y
        empujaba el menú de acceso fuera de la pantalla, con scroll lateral en
-       todo el sitio). Dos filas: marca + tema + acceso arriba, y los enlaces
-       con «Crear evento» debajo. \`display: contents\` deja a los hijos de
-       los dos grupos colocarse en la rejilla sin tocar el marcado. */
+       todo el sitio). Dos filas que siguen el orden del marcado (y del foco):
+       marca + enlaces arriba; «Crear evento», tema y acceso debajo, a la
+       derecha. \`display: contents\` deja a los hijos de los dos grupos
+       colocarse en la rejilla sin tocar el marcado. */
     @media (max-width: 40rem) {
       .header-en {
         display: grid;
-        grid-template-columns: 1fr auto auto;
+        grid-template-columns: auto minmax(0, 1fr) auto auto;
         grid-template-areas:
-          'marca tema acceso'
-          'nav nav crear';
+          'marca nav nav nav'
+          '. crear tema acceso';
         column-gap: 0.5rem;
-        row-gap: 0;
+        row-gap: 0.25rem;
         padding-block: 0.5rem;
         min-height: 0;
       }
@@ -242,17 +243,12 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       }
       .marca {
         grid-area: marca;
-        min-width: 0;
       }
-      app-theme-toggle {
-        grid-area: tema;
-      }
-      app-access-menu {
-        grid-area: acceso;
-      }
-      nav {
+      header nav {
         grid-area: nav;
-        gap: 1rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 0 1rem;
         min-width: 0;
       }
       header nav a {
@@ -260,6 +256,13 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       }
       .crear-evento {
         grid-area: crear;
+        justify-self: end;
+      }
+      app-theme-toggle {
+        grid-area: tema;
+      }
+      app-access-menu {
+        grid-area: acceso;
       }
     }
     /* Sin padding propio: cada página gestiona su spacing vertical, y el ancho

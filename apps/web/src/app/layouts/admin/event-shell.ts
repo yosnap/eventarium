@@ -134,8 +134,6 @@ import { EventScope } from './event-scope';
         flex-wrap: nowrap;
         overflow-x: auto;
         scrollbar-width: none;
-        margin-inline: calc(-1 * var(--space-md));
-        padding-inline: var(--space-md);
       }
       .pestanas a {
         flex-shrink: 0;
@@ -168,10 +166,21 @@ export class EventShell {
     enlacesDeEvento(this.eventId(), this.eventScope.registrationMode() === 'paid'),
   );
 
-  /** En móvil la fila de pestañas se desplaza: que la activa no quede fuera de la vista. */
+  /**
+   * En móvil la fila de pestañas se desplaza: que la activa no quede fuera de
+   * la vista. Solo mueve la propia fila, en horizontal (`scrollIntoView`
+   * desplazaría también la página, y bajo la cabecera fija). Sin efecto si la
+   * fila no desborda (escritorio) ni en el servidor.
+   */
   protected alActivar(activa: boolean, pestana: HTMLElement): void {
-    if (activa) {
-      pestana.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    const fila = pestana.parentElement;
+    if (!activa || !fila || fila.scrollWidth <= fila.clientWidth) {
+      return;
+    }
+    const caja = pestana.getBoundingClientRect();
+    const marco = fila.getBoundingClientRect();
+    if (caja.left < marco.left || caja.right > marco.right) {
+      fila.scrollLeft += caja.left - marco.left - (marco.width - caja.width) / 2;
     }
   }
 }

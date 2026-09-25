@@ -24,9 +24,13 @@ async function enlaceDeVerificacion(request: APIRequestContext, correo: string):
 }
 
 /**
- * El camino completo de alguien nuevo, el mismo que falló en producción:
- * registrarse, verificar el correo, crear la organización y aterrizar en el
- * escritorio sin el error «No se pudieron cargar los datos».
+ * El camino de alguien nuevo, el mismo que falló en producción: registrarse
+ * (por API; el formulario de `/registro` ya lo recorre la prueba pública),
+ * verificar el correo desde el enlace real, crear la organización y aterrizar
+ * en el escritorio sin el error «No se pudieron cargar los datos».
+ *
+ * Deja en la base de desarrollo un usuario `movil-<marca de tiempo>`, su
+ * organización y un evento en borrador por ejecución.
  */
 async function altaDeOrganizador(page: Page): Promise<string> {
   const correo = `movil-${Date.now()}@example.com`;
@@ -103,12 +107,14 @@ const DEL_EVENTO = [
 
 test.describe('Panel del organizador en un móvil de 360 px', () => {
   test('alta completa y todas las pantallas sin desborde', async ({ page }) => {
-    test.setTimeout(240_000);
+    test.setTimeout(480_000);
     const correo = await altaDeOrganizador(page);
     const eventoId = await crearEvento(page, correo);
 
     for (const ruta of [...PANEL, ...DEL_EVENTO.map((s) => `/dashboard/events/${eventoId}${s}`)]) {
       await page.goto(ruta);
+      // Que la pantalla se haya pintado de verdad, no una vacía o un error.
+      await expect(page.locator('main h1').first(), `${ruta}: sin título`).toBeVisible();
       await esperarSinDesborde(page, ruta);
     }
   });

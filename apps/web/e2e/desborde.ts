@@ -8,10 +8,12 @@ interface Desborde {
 
 /**
  * Espera a que la página esté quieta y comprueba que no hay nada que obligue
- * a desplazarse en horizontal ni quede cortado por el borde derecho.
+ * a desplazarse en horizontal ni quede fuera por los bordes de la pantalla.
  *
- * Mira las dos cosas porque `overflow-x: hidden` en un ancestro esconde el
- * scroll pero no arregla el contenido: lo corta.
+ * Se ignora lo que está dentro de un contenedor que recorta o desplaza a
+ * propósito (una tabla con scroll, un mapa). Para que eso no sirva de tapadera,
+ * también falla si `html` o `body` recortan en horizontal: un
+ * `overflow-x: hidden` global escondería el scroll sin arreglar el contenido.
  */
 export async function esperarSinDesborde(page: Page, ruta: string): Promise<void> {
   // Con límite: el captcha (Turnstile) mantiene la red ocupada y la red en
@@ -55,18 +57,26 @@ export async function esperarSinDesborde(page: Page, ruta: string): Promise<void
         padre !== null &&
         padre !== document.body &&
         padre.getBoundingClientRect().right > ancho + 1;
-      if (caja.right > ancho + 1 && !padreDesborda && !conScrollPropio(el)) {
+      // Por la izquierda solo cuenta lo que asoma en parte: lo que está entero
+      // fuera (el enlace «Saltar al contenido») está escondido a propósito.
+      const fuera = caja.right > ancho + 1 || (caja.left < -1 && caja.right > 0);
+      if (fuera && !padreDesborda && !conScrollPropio(el)) {
         desbordes.push({ selector: describir(el), derecha: Math.round(caja.right) });
       }
     }
+    const recortaGlobal = [document.documentElement, document.body].some(
+      (el) => getComputedStyle(el).overflowX !== 'visible',
+    );
     return {
       ancho,
+      recortaGlobal,
       anchoDocumento: document.documentElement.scrollWidth,
       // Solo los más externos (sus hijos repetirían el mismo problema).
       desbordes: desbordes.slice(0, 8),
     };
   }, ancho);
 
+  expect.soft(resultado.recortaGlobal, `${ruta}: html o body recortan en horizontal`).toBe(false);
   expect
     .soft(resultado.anchoDocumento, `${ruta}: la página se desplaza en horizontal`)
     .toBeLessThanOrEqual(resultado.ancho + 1);
