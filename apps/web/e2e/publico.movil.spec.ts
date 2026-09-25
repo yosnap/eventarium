@@ -42,12 +42,23 @@ test.describe('Páginas públicas en un móvil de 360 px', () => {
     await esperarSinDesborde(page, ponente!);
   });
 
-  test('las funcionalidades de la home no se apilan en móvil', async ({ page }) => {
+  test('las funcionalidades de la home se apilan y cada tarjeta cabe en la pantalla', async ({
+    page,
+  }) => {
     await page.goto('/');
-    const tarjeta = page.locator('.landing-tarjeta').first();
-    await tarjeta.scrollIntoViewIfNeeded();
-    await expect(tarjeta).toHaveCSS('position', 'static');
-    // Sin el encogido de la directiva de apilado.
-    await expect(tarjeta).toHaveCSS('transform', 'none');
+    const tarjetas = page.locator('.landing-tarjeta');
+    await expect(tarjetas.first()).toHaveCSS('position', 'sticky');
+    const alto = page.viewportSize()!.height;
+    const medidas = await tarjetas.evaluateAll((els) =>
+      els.map((el) => ({
+        top: parseFloat(getComputedStyle(el).top),
+        alto: el.getBoundingClientRect().height,
+      })),
+    );
+    // Pegada a su `top`, la tarjeta entera tiene que verse: si no, la
+    // siguiente la tapa antes de que se vea su captura.
+    for (const { top, alto: altoTarjeta } of medidas) {
+      expect(top + altoTarjeta).toBeLessThanOrEqual(alto);
+    }
   });
 });
