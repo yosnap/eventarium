@@ -110,6 +110,10 @@ AI_MODELOS_EN_VIVO_POR_IP = 30
 # host que escribe quien la pide. Tope bajo, del orden de `IMPERSONATION`:
 # pulsar «Probar conexión» es una acción manual, no un bucle.
 AI_TEST_CONNECTION_POR_IP = 10
+# Prueba del proveedor de correo: cada una es un correo real saliente. Más
+# bajo que el de IA: basta para corregir una credencial, no para usar la
+# instalación de relay.
+EMAIL_TEST_POR_IP = 3
 # Cambio de organización activa (fase 1 del plan de organización sin
 # dominio): emite un token nuevo tras comprobar pertenencia, mismo orden de
 # magnitud que el propio login — no hay ningún motivo legítimo para cambiar

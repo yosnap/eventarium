@@ -77,6 +77,7 @@ from app.core.database import (  # noqa: E402
     engine_maintenance,
     set_organization_context,
 )
+from app.core.email import invalidar_configuracion_en_cache  # noqa: E402
 from app.core.permissions import Permission  # noqa: E402
 from app.core.redis_client import close_redis, get_redis  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
@@ -140,6 +141,8 @@ TABLAS = (
     "organization_services",
     "platform_ai_settings",
     "platform_services",
+    # Proveedor de correo de la plataforma: de instalación, mismo criterio.
+    "platform_email_settings",
     # Fase 2: uso y mutex de periodo. Cascadean desde `organizations`, pero
     # se listan por el mismo criterio que el resto.
     "ai_usage_records",
@@ -193,6 +196,9 @@ async def limpiar_datos(servicios_sembrados: tuple[str, ...]) -> AsyncIterator[N
             )
         await session.commit()
     await get_redis().flushdb()
+    # La caché del proveedor de correo vive en el proceso: sin vaciarla, la
+    # configuración de un test se usaría en el siguiente.
+    invalidar_configuracion_en_cache()
     yield
 
 

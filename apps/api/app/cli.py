@@ -189,7 +189,12 @@ def purge_orphaned_media(
 
 
 async def recifrar_claves_de_ia(*, clave_antigua: str, clave_nueva: str) -> int:
-    """Re-cifra todas las claves de proveedor de IA con una clave nueva.
+    """Re-cifra todas las credenciales cifradas con una clave nueva.
+
+    Claves de proveedor de IA y contraseña del proveedor de correo: comparten
+    `AI_SETTINGS_ENCRYPTION_KEY`, y rotar solo unas dejaría las otras
+    ilegibles (el correo dejaría de salir sin avisar hasta el primer envío).
+    Todo en una transacción: si una fila no descifra, no se escribe ninguna.
 
     En una función de módulo (no anidada en el comando Typer) para poder
     probarla directamente sin `asyncio.run`, igual que
@@ -199,8 +204,9 @@ async def recifrar_claves_de_ia(*, clave_antigua: str, clave_nueva: str) -> int:
     plataforma (que `app_user` no puede escribir) y las de todas las
     organizaciones (protegidas por RLS).
     """
-    from app.modules.ai_gateway.crypto import cifrar_clave, descifrar_clave
+    from app.core.settings_crypto import cifrar_clave, descifrar_clave
     from app.modules.ai_gateway.models import OrganizationAiSettings, PlatformAiSettings
+    from app.modules.email_settings.models import PlatformEmailSettings
 
     total = 0
     async with maintenance_session() as session:
@@ -214,6 +220,12 @@ async def recifrar_claves_de_ia(*, clave_antigua: str, clave_nueva: str) -> int:
         for fila in filas:
             en_claro = descifrar_clave(fila.api_key_encrypted, clave_de_cifrado=clave_antigua)
             fila.api_key_encrypted = cifrar_clave(en_claro, clave_de_cifrado=clave_nueva)
+            total += 1
+
+        correo = await session.scalar(select(PlatformEmailSettings))
+        if correo is not None:
+            en_claro = descifrar_clave(correo.password_encrypted, clave_de_cifrado=clave_antigua)
+            correo.password_encrypted = cifrar_clave(en_claro, clave_de_cifrado=clave_nueva)
             total += 1
     return total
 

@@ -405,6 +405,14 @@ export const routes: Routes = [
           import('./features/admin/superadmin/ai-settings-page').then((m) => m.AiSettingsPage),
       },
       {
+        path: 'correo',
+        canActivate: [superadminGuard],
+        loadComponent: () =>
+          import('./features/admin/superadmin/email-settings-page').then(
+            (m) => m.EmailSettingsPage,
+          ),
+      },
+      {
         path: 'servicios',
         canActivate: [superadminGuard],
         loadComponent: () =>

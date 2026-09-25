@@ -21,6 +21,7 @@ from app.modules.accounting.drafts_router import router as accounting_drafts_rou
 from app.modules.accounting.router import router as accounting_router
 from app.modules.admin.ai_router import router as admin_ai_router
 from app.modules.admin.analytics_router import router as admin_analytics_router
+from app.modules.admin.email_router import router as admin_email_router
 from app.modules.admin.ga4_client import close_ga4
 from app.modules.admin.impersonation_router import router as admin_impersonation_router
 from app.modules.admin.platform_router import router as admin_platform_router
@@ -178,6 +179,7 @@ def create_app() -> FastAPI:
     api.include_router(admin_users_router)
     api.include_router(admin_analytics_router)
     api.include_router(admin_ai_router)
+    api.include_router(admin_email_router)
     api.include_router(admin_platform_router)
     api.include_router(admin_impersonation_router)
     api.include_router(events_router)

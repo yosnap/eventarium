@@ -34,9 +34,9 @@ from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.settings_crypto import descifrar_clave
 from app.modules.ai_gateway import cache_modelos, descubrimiento, service
 from app.modules.ai_gateway import proveedores as catalogo
-from app.modules.ai_gateway.crypto import descifrar_clave
 from app.modules.ai_gateway.descubrimiento import ListadoNoDisponible
 from app.modules.ai_gateway.errores import (
     CredencialIlegible,
