@@ -91,6 +91,37 @@ async def generate_token(proposito: str, payload: str, *, ttl: timedelta = TTL_T
     return token
 
 
+_CLAVE_VIGENTE = "verify:{proposito}:vigente:{sujeto}"
+
+
+async def generate_single_token(
+    proposito: str, sujeto: str, payload: str, *, ttl: timedelta = TTL_TOKEN
+) -> str:
+    """Como `generate_token`, pero anulando el enlace anterior del mismo sujeto.
+
+    Para los enlaces que se pueden pedir otra vez (verificación de correo):
+    solo el último correo enviado sirve. La huella del token vigente se guarda
+    en Redis junto al propio token —no hace falta columna en la BD, como sí
+    la tiene `organization_invitations.token_hash`— con el mismo TTL, así que
+    caduca a la vez que él.
+    """
+    token = await generate_token(proposito, payload, ttl=ttl)
+    redis = await require_redis()
+    # `SET ... GET` es atómico: cada generación revoca exactamente la huella que
+    # desplaza. Con un GET y un SET separados, dos reenvíos simultáneos leían la
+    # misma anterior y el enlace del perdedor quedaba válido y sin referencia.
+    # El sujeto va con huella para que ningún valor suyo altere la clave.
+    anterior = await redis.set(
+        _CLAVE_VIGENTE.format(proposito=proposito, sujeto=_huella(sujeto)),
+        _huella(token),
+        ex=ttl,
+        get=True,
+    )
+    if anterior is not None:
+        await revoke_by_fingerprint(proposito, str(anterior))
+    return token
+
+
 async def consume_token(proposito: str, token: str) -> str | None:
     """Consume el token si existe y no ha caducado. `None` si no es válido."""
     redis = await require_redis()

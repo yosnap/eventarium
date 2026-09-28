@@ -10,6 +10,8 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy import delete, select, text
 from sqlalchemy.exc import IntegrityError
 
+from app.core.audit import registrar_auditoria
+from app.core.database import maintenance_session
 from app.core.deps import CurrentUserDep, DbDep, PermissionsDep, SessionDep, get_token_claims
 from app.core.permissions import Permission
 from app.core.ratelimit import (
@@ -99,6 +101,19 @@ async def resend_my_verification(
     # Solo límite por cuenta, tras autenticar: uno por IP antes de validar el
     # token dejaría que peticiones basura agotasen el botón a toda una oficina.
     await consumir_reenvio_verificacion_por_cuenta(str(claims.user_id), camino="propio")
+    # `audit_log` solo admite escritura bajo `app_maintainer`: sesión propia,
+    # igual que el resto de puntos que auditan desde una sesión normal. Antes
+    # de encolar: si la auditoría falla no sale ningún correo sin rastro.
+    async with maintenance_session() as auditoria:
+        await registrar_auditoria(
+            auditoria,
+            actor_user_id=claims.user_id,
+            organization_id=None,
+            action="user.email.resend_verification",
+            entity_type="user",
+            entity_id=str(claims.user_id),
+            subject_user_id=claims.user_id,
+        )
     await auth_service.enqueue_verification_email(claims.user_id, email)
     return VerificationStatusResponse(email=email, email_verified=False)
 

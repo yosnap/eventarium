@@ -481,6 +481,38 @@ async def test_la_persona_ve_su_estado_y_pide_el_reenvio(
     correo_verificacion.assert_awaited_once()
     assert correo_verificacion.call_args.args[0] == objetivo.email
 
+    async with SessionMaintenance() as session:
+        acciones = (
+            await session.scalars(
+                select(AuditLog.action).where(
+                    AuditLog.subject_user_id == objetivo.user_id,
+                    AuditLog.actor_user_id == objetivo.user_id,
+                )
+            )
+        ).all()
+    assert "user.email.resend_verification" in acciones
+
+
+async def test_cada_reenvio_anula_el_enlace_anterior(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, correo_verificacion: AsyncMock
+) -> None:
+    objetivo = await crear_miembro(organizacion, "organizer")
+    await _fijar_verificacion(objetivo.user_id, verificado=False)
+    cabeceras = await _superadmin_headers(cliente, organizacion)
+
+    for _ in range(2):
+        respuesta = await cliente.post(
+            f"{ADMIN_USERS}/{objetivo.user_id}/resend-verification", headers=cabeceras
+        )
+        assert respuesta.status_code == 202, respuesta.text
+    token_viejo = correo_verificacion.await_args_list[0].args[1]
+    token_nuevo = correo_verificacion.await_args_list[1].args[1]
+
+    viejo = await cliente.get("/api/v1/auth/verify-email", params={"token": token_viejo})
+    assert viejo.status_code == 422, viejo.text
+    nuevo = await cliente.get("/api/v1/auth/verify-email", params={"token": token_nuevo})
+    assert nuevo.status_code == 200, nuevo.text
+
 
 async def test_reenvio_propio_rechaza_cuenta_ya_verificada(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba, correo_verificacion: AsyncMock
