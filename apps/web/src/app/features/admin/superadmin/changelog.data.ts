@@ -31,6 +31,37 @@ export interface ChangelogVersion {
 
 export const CHANGELOG: readonly ChangelogVersion[] = [
   {
+    version: '0.23.3',
+    fecha: '2026-09-28',
+    secciones: [
+      {
+        categoria: 'agregado',
+        items: [
+          {
+            titulo: 'Aviso de cuenta sin verificar',
+            descripcion:
+              'Quien entra al panel sin haber verificado su correo ve un aviso que le explica que su cuenta está limitada, con un botón para que le reenviemos el enlace sin volver a escribir su correo.',
+          },
+          {
+            titulo: 'Verificar o reenviar la verificación desde Usuarios',
+            descripcion:
+              'El listado de usuarios muestra si cada cuenta tiene el correo verificado. En las que no, el superadmin puede verificarlo a mano o reenviar el correo de verificación desde la propia fila. Ambas acciones quedan en la auditoría.',
+          },
+        ],
+      },
+      {
+        categoria: 'modificado',
+        items: [
+          {
+            titulo: 'Solo vale el último enlace de verificación',
+            descripcion:
+              'Cada vez que se envía un enlace de verificación nuevo, los anteriores dejan de funcionar. Los reenvíos que pide la propia persona también quedan registrados en la auditoría.',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.23.2',
     fecha: '2026-09-26',
     secciones: [
