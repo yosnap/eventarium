@@ -10,11 +10,17 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, patch
 
+import pytest
 from httpx import AsyncClient
 from sqlalchemy import select, update
 
+from app.core.audit import AuditLog
 from app.core.database import SessionMaintenance
+from app.core.ratelimit import REENVIO_VERIFICACION_POR_CUENTA_HORA
+from app.core.security import hash_password
+from app.core.tasks import send_verification_email
 from app.modules.auth.router import COOKIE_NOMBRE
 from app.modules.events.models import Event
 from app.modules.registrations.models import EventRegistration
@@ -340,3 +346,248 @@ async def test_soporte_recien_asignado_accede_sin_volver_a_iniciar_sesion(
 
     respuesta = await cliente.get(ADMIN_USERS, headers=cabeceras_objetivo)
     assert respuesta.status_code == 200, respuesta.text
+
+
+# --- Verificación de correo --------------------------------------------------
+
+
+async def _fijar_verificacion(user_id: uuid.UUID, *, verificado: bool) -> None:
+    """Las fixtures de `conftest` crean cuentas sin verificar: cada test fija
+    el estado que necesita en vez de depender de ese detalle."""
+    async with SessionMaintenance() as session:
+        await session.execute(
+            update(User)
+            .where(User.id == user_id)
+            .values(email_verified_at=datetime.now(UTC) if verificado else None)
+        )
+        await session.commit()
+
+
+@pytest.fixture
+def correo_verificacion():
+    """Solo se comprueba que se encola; el worker de Taskiq no corre en tests."""
+    with patch.object(send_verification_email, "kiq", new_callable=AsyncMock) as tarea:
+        yield tarea
+
+
+async def test_listado_y_detalle_indican_si_el_correo_esta_verificado(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    objetivo = await crear_miembro(organizacion, "organizer")
+    await _fijar_verificacion(objetivo.user_id, verificado=False)
+    await _fijar_verificacion(organizacion.owner_id, verificado=True)
+    cabeceras = await _superadmin_headers(cliente, organizacion)
+
+    listado = await cliente.get(ADMIN_USERS, headers=cabeceras)
+    por_id = {fila["id"]: fila for fila in listado.json()["items"]}
+    assert por_id[str(objetivo.user_id)]["email_verified"] is False
+    assert por_id[str(organizacion.owner_id)]["email_verified"] is True
+
+    detalle = await cliente.get(f"{ADMIN_USERS}/{objetivo.user_id}", headers=cabeceras)
+    assert detalle.json()["email_verified"] is False
+
+
+async def test_superadmin_verifica_a_mano_y_queda_auditado(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    objetivo = await crear_miembro(organizacion, "organizer")
+    await _fijar_verificacion(objetivo.user_id, verificado=False)
+    cabeceras = await _superadmin_headers(cliente, organizacion)
+
+    respuesta = await cliente.post(
+        f"{ADMIN_USERS}/{objetivo.user_id}/verify-email", headers=cabeceras
+    )
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["email_verified"] is True
+
+    async with SessionMaintenance() as session:
+        usuario = await session.get(User, objetivo.user_id)
+        assert usuario is not None and usuario.email_verified_at is not None
+        acciones = (
+            await session.scalars(
+                select(AuditLog.action).where(AuditLog.subject_user_id == objetivo.user_id)
+            )
+        ).all()
+    assert "user.email.verify" in acciones
+
+    # Ya verificado: una segunda vez es un 409, no un no-op silencioso.
+    otra = await cliente.post(f"{ADMIN_USERS}/{objetivo.user_id}/verify-email", headers=cabeceras)
+    assert otra.status_code == 409, otra.text
+
+
+async def test_superadmin_reenvia_la_verificacion(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, correo_verificacion: AsyncMock
+) -> None:
+    objetivo = await crear_miembro(organizacion, "organizer")
+    await _fijar_verificacion(objetivo.user_id, verificado=False)
+    cabeceras = await _superadmin_headers(cliente, organizacion)
+
+    respuesta = await cliente.post(
+        f"{ADMIN_USERS}/{objetivo.user_id}/resend-verification", headers=cabeceras
+    )
+    assert respuesta.status_code == 202, respuesta.text
+    correo_verificacion.assert_awaited_once()
+    assert correo_verificacion.call_args.args[0] == objetivo.email
+
+
+async def test_no_se_reenvia_a_quien_ya_esta_verificado(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, correo_verificacion: AsyncMock
+) -> None:
+    objetivo = await crear_miembro(organizacion, "organizer")
+    await _fijar_verificacion(objetivo.user_id, verificado=True)
+    cabeceras = await _superadmin_headers(cliente, organizacion)
+
+    respuesta = await cliente.post(
+        f"{ADMIN_USERS}/{objetivo.user_id}/resend-verification", headers=cabeceras
+    )
+    assert respuesta.status_code == 409, respuesta.text
+    correo_verificacion.assert_not_awaited()
+
+
+async def test_soporte_no_puede_verificar_ni_reenviar(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, correo_verificacion: AsyncMock
+) -> None:
+    objetivo = await crear_miembro(organizacion, "organizer")
+    await _fijar_verificacion(objetivo.user_id, verificado=False)
+    await _hacer_soporte(organizacion.owner_email)
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+    for accion in ("verify-email", "resend-verification"):
+        respuesta = await cliente.post(
+            f"{ADMIN_USERS}/{objetivo.user_id}/{accion}", headers=cabeceras
+        )
+        assert respuesta.status_code == 403, respuesta.text
+    correo_verificacion.assert_not_awaited()
+
+
+# --- Estado y reenvío desde el propio panel -----------------------------------
+
+
+async def test_la_persona_ve_su_estado_y_pide_el_reenvio(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, correo_verificacion: AsyncMock
+) -> None:
+    objetivo = await crear_miembro(organizacion, "organizer")
+    await _fijar_verificacion(objetivo.user_id, verificado=False)
+    _, cabeceras = await iniciar_sesion_con(
+        cliente, organizacion, objetivo.email, objetivo.password
+    )
+
+    estado = await cliente.get("/api/v1/users/me/verification", headers=cabeceras)
+    assert estado.status_code == 200, estado.text
+    assert estado.json() == {"email": objetivo.email, "email_verified": False}
+
+    reenvio = await cliente.post("/api/v1/users/me/resend-verification", headers=cabeceras)
+    assert reenvio.status_code == 202, reenvio.text
+    correo_verificacion.assert_awaited_once()
+    assert correo_verificacion.call_args.args[0] == objetivo.email
+
+
+async def test_reenvio_propio_rechaza_cuenta_ya_verificada(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, correo_verificacion: AsyncMock
+) -> None:
+    await _fijar_verificacion(organizacion.owner_id, verificado=True)
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+    estado = await cliente.get("/api/v1/users/me/verification", headers=cabeceras)
+    assert estado.json()["email_verified"] is True
+
+    reenvio = await cliente.post("/api/v1/users/me/resend-verification", headers=cabeceras)
+    assert reenvio.status_code == 409, reenvio.text
+    correo_verificacion.assert_not_awaited()
+
+
+async def test_la_persona_sin_organizacion_ve_su_estado_y_pide_el_reenvio(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, correo_verificacion: AsyncMock
+) -> None:
+    """El caso para el que existen estos endpoints: una cuenta recién
+    registrada, sin verificar y sin ninguna organización (token sin `org`)."""
+    async with SessionMaintenance() as session:
+        usuario = User(
+            email="recien@ejemplo.com",
+            password_hash=hash_password("contraseña-de-prueba-larga"),
+            is_active=True,
+        )
+        session.add(usuario)
+        await session.commit()
+    login = await cliente.post(
+        "/api/v1/auth/login",
+        json={"email": "recien@ejemplo.com", "password": "contraseña-de-prueba-larga"},
+    )
+    assert login.status_code == 200, login.text
+    cabeceras = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    estado = await cliente.get("/api/v1/users/me/verification", headers=cabeceras)
+    assert estado.status_code == 200, estado.text
+    assert estado.json()["email_verified"] is False
+
+    reenvio = await cliente.post("/api/v1/users/me/resend-verification", headers=cabeceras)
+    assert reenvio.status_code == 202, reenvio.text
+    correo_verificacion.assert_awaited_once()
+
+
+async def test_reenvio_propio_rechazado_durante_una_suplantacion(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, correo_verificacion: AsyncMock
+) -> None:
+    objetivo = await crear_miembro(organizacion, "organizer")
+    await _fijar_verificacion(objetivo.user_id, verificado=False)
+    cabeceras_admin = await _superadmin_headers(cliente, organizacion)
+    suplantacion = await cliente.post(
+        "/api/v1/admin/impersonate",
+        headers=cabeceras_admin,
+        json={
+            "user_id": str(objetivo.user_id),
+            "organization_id": str(organizacion.id),
+            "reason": "Reproducir una incidencia",
+            "password": organizacion.owner_password,
+        },
+    )
+    assert suplantacion.status_code == 201, suplantacion.text
+    cabeceras = {"Authorization": f"Bearer {suplantacion.json()['access_token']}"}
+
+    reenvio = await cliente.post("/api/v1/users/me/resend-verification", headers=cabeceras)
+    assert reenvio.status_code == 403, reenvio.text
+    correo_verificacion.assert_not_awaited()
+
+
+async def test_el_superadmin_conserva_su_cupo_aunque_la_persona_agote_el_suyo(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, correo_verificacion: AsyncMock
+) -> None:
+    objetivo = await crear_miembro(organizacion, "organizer")
+    await _fijar_verificacion(objetivo.user_id, verificado=False)
+    _, cabeceras_propias = await iniciar_sesion_con(
+        cliente, organizacion, objetivo.email, objetivo.password
+    )
+
+    propios = [
+        (
+            await cliente.post("/api/v1/users/me/resend-verification", headers=cabeceras_propias)
+        ).status_code
+        for _ in range(REENVIO_VERIFICACION_POR_CUENTA_HORA + 1)
+    ]
+    assert propios[:-1] == [202] * REENVIO_VERIFICACION_POR_CUENTA_HORA
+    assert propios[-1] == 429
+
+    cabeceras_admin = await _superadmin_headers(cliente, organizacion)
+    admin = await cliente.post(
+        f"{ADMIN_USERS}/{objetivo.user_id}/resend-verification", headers=cabeceras_admin
+    )
+    assert admin.status_code == 202, admin.text
+
+
+async def test_reenvio_del_superadmin_limitado_por_cuenta(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, correo_verificacion: AsyncMock
+) -> None:
+    objetivo = await crear_miembro(organizacion, "organizer")
+    await _fijar_verificacion(objetivo.user_id, verificado=False)
+    cabeceras = await _superadmin_headers(cliente, organizacion)
+
+    codigos = [
+        (
+            await cliente.post(
+                f"{ADMIN_USERS}/{objetivo.user_id}/resend-verification", headers=cabeceras
+            )
+        ).status_code
+        for _ in range(REENVIO_VERIFICACION_POR_CUENTA_HORA + 1)
+    ]
+    assert codigos[:-1] == [202] * REENVIO_VERIFICACION_POR_CUENTA_HORA
+    assert codigos[-1] == 429

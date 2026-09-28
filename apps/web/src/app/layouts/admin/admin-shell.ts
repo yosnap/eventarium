@@ -17,6 +17,7 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
 import { AccountMenu } from './account-menu';
 import { AdminNav } from './admin-nav';
 import { PanelScope } from './panel-scope';
+import { VerificationNotice } from './verification-notice';
 
 /**
  * Estructura del panel de administración: cabecera con marca, menú de
@@ -34,6 +35,7 @@ import { PanelScope } from './panel-scope';
     AdminNav,
     BrandLockup,
     AccountMenu,
+    VerificationNotice,
   ],
   template: `
     <ng-container *transloco="let t">
@@ -103,6 +105,7 @@ import { PanelScope } from './panel-scope';
         </nav>
 
         <main id="contenido-admin" tabindex="-1">
+          <app-verification-notice />
           <router-outlet />
         </main>
       </div>

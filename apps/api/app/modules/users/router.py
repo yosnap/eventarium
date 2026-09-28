@@ -4,14 +4,20 @@ from __future__ import annotations
 
 import re
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy import delete, select, text
 from sqlalchemy.exc import IntegrityError
 
-from app.core.deps import CurrentUserDep, DbDep, PermissionsDep, SessionDep
+from app.core.deps import CurrentUserDep, DbDep, PermissionsDep, SessionDep, get_token_claims
 from app.core.permissions import Permission
-from app.core.ratelimit import CHECK_SLUG_POR_IP, limit_per_ip
+from app.core.ratelimit import (
+    CHECK_SLUG_POR_IP,
+    consumir_reenvio_verificacion_por_cuenta,
+    limit_per_ip,
+)
+from app.core.security import AccessTokenClaims
 from app.modules.auth import service as auth_service
 from app.modules.events.models import SpeakerPublicProfile
 from app.modules.organizations.models import OrganizationMember
@@ -34,12 +40,67 @@ from app.modules.users.schemas import (
     SocialLinkResponse,
     SocialLinkUpdate,
     UserMeUpdate,
+    VerificationStatusResponse,
 )
-from app.shared.errors import ConflictError, DomainError, ValidationDomainError
+from app.shared.errors import (
+    AuthenticationError,
+    ConflictError,
+    DomainError,
+    PermissionDeniedError,
+    ValidationDomainError,
+)
 
 router = APIRouter(prefix="/users", tags=["usuarios"])
 
 _SLUG_RE = re.compile(SLUG_PATTERN)
+
+ClaimsDep = Annotated[AccessTokenClaims, Depends(get_token_claims)]
+
+
+@router.get(
+    "/me/verification",
+    summary="Estado de verificación del correo de la persona autenticada",
+    description=(
+        "No exige organización activa: quien aún no ha verificado su correo "
+        "casi nunca tiene una. El panel lo usa para avisar de que la cuenta "
+        "está limitada hasta verificar."
+    ),
+    response_model=VerificationStatusResponse,
+)
+async def get_my_verification(claims: ClaimsDep, session: SessionDep) -> VerificationStatusResponse:
+    estado = await auth_service.verification_status(session, user_id=claims.user_id)
+    if estado is None:
+        raise AuthenticationError("El usuario ya no existe o está desactivado.")
+    email, verificado = estado
+    return VerificationStatusResponse(email=email, email_verified=verificado)
+
+
+@router.post(
+    "/me/resend-verification",
+    summary="Reenviarme el correo de verificación",
+    description=(
+        "Para el aviso del panel: la persona ya ha iniciado sesión, así que no "
+        "hace falta Turnstile ni escribir el correo. 409 si ya está verificada."
+    ),
+    response_model=VerificationStatusResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def resend_my_verification(
+    claims: ClaimsDep, session: SessionDep
+) -> VerificationStatusResponse:
+    if claims.impersonated_by is not None:
+        raise PermissionDeniedError("La suplantación es de solo lectura.")
+    estado = await auth_service.verification_status(session, user_id=claims.user_id)
+    if estado is None:
+        raise AuthenticationError("El usuario ya no existe o está desactivado.")
+    email, verificado = estado
+    if verificado:
+        raise ConflictError("Tu correo ya está verificado.")
+    # Solo límite por cuenta, tras autenticar: uno por IP antes de validar el
+    # token dejaría que peticiones basura agotasen el botón a toda una oficina.
+    await consumir_reenvio_verificacion_por_cuenta(str(claims.user_id), camino="propio")
+    await auth_service.enqueue_verification_email(claims.user_id, email)
+    return VerificationStatusResponse(email=email, email_verified=False)
 
 
 @router.get(

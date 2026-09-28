@@ -274,6 +274,7 @@ export type { TokenResponse } from './models/token-response';
 export type { UserMeUpdate } from './models/user-me-update';
 export type { UserSummary } from './models/user-summary';
 export type { ValidationError } from './models/validation-error';
+export type { VerificationStatusResponse } from './models/verification-status-response';
 export type { VerifyEmailResponse } from './models/verify-email-response';
 export type { VerifyRegistrationRequest } from './models/verify-registration-request';
 export type { VerifyRegistrationResponse } from './models/verify-registration-response';

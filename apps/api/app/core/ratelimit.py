@@ -15,7 +15,7 @@ lugar de dejar pasar la petición sin control.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import Depends, Request
 
@@ -31,6 +31,11 @@ PUBLICO_POR_IP = 120
 REGISTRO_POR_IP = 10
 # El reenvío es reutilizable y encola correo: más estricto, además de exigir Turnstile.
 REENVIO_VERIFICACION_POR_IP = 3
+# Reenvío pedido desde el banner del panel o por el superadmin: tope por cuenta
+# destinataria (por hora), para que nadie convierta el botón en un buzón de spam.
+# Cada camino tiene su propio cubo: si la persona agota el suyo pulsando el
+# banner, el superadmin sigue pudiendo reenviárselo cuando le pida ayuda.
+REENVIO_VERIFICACION_POR_CUENTA_HORA = 5
 # El token tiene 256 bits de entropía (no es adivinable), pero el endpoint sigue
 # necesitando un tope propio para no quedar como el único público sin ninguno.
 VERIFICACION_CORREO_POR_IP = 20
@@ -194,6 +199,17 @@ def _limite(
 def limit_per_ip(nombre: str, veces: int, segundos: int = VENTANA_SEGUNDOS) -> Any:
     """Límite por IP de origen."""
     return Depends(_limite(nombre, identify_by_ip, veces, segundos))
+
+
+async def consumir_reenvio_verificacion_por_cuenta(
+    user_id: str, *, camino: Literal["propio", "admin"]
+) -> None:
+    """Límite por cuenta destinataria del reenvío de verificación."""
+    await _consumir(
+        f"ratelimit:reenvio-verificacion:{camino}:{user_id}",
+        REENVIO_VERIFICACION_POR_CUENTA_HORA,
+        3600,
+    )
 
 
 async def consumir_por_conexion_mcp(connection_id: str) -> None:

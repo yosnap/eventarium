@@ -524,8 +524,38 @@ async def resend_verification(session: AsyncSession, *, email: str) -> None:
         )
     ).first()
     if fila is not None and fila[1] is None:
-        token = await generate_token(PROPOSITO_VERIFICACION_CORREO, str(fila[0]))
-        await send_verification_email.kiq(email, token)
+        await enqueue_verification_email(fila[0], email)
+
+
+async def enqueue_verification_email(user_id: uuid.UUID, email: str) -> None:
+    """Genera un enlace de verificación nuevo y encola su envío.
+
+    Sin comprobaciones propias: quien llama ya sabe que la cuenta existe y no
+    está verificada (reenvío público, banner del propio usuario o
+    `/admin/usuarios`).
+    """
+    token = await generate_token(PROPOSITO_VERIFICACION_CORREO, str(user_id))
+    await send_verification_email.kiq(email, token)
+
+
+async def verification_status(
+    session: AsyncSession, *, user_id: uuid.UUID
+) -> tuple[str, bool] | None:
+    """`(email, verificado)` de la persona, o `None` si no existe o está desactivada.
+
+    Usa `app_find_user_by_id` (`SECURITY DEFINER`) igual que
+    `require_verified_user`: una cuenta sin verificar casi nunca tiene
+    organización activa, así que no hay contexto RLS desde el que leer `users`.
+    """
+    fila = (
+        await session.execute(
+            text("SELECT email, email_verified_at, is_active FROM app_find_user_by_id(:id)"),
+            {"id": user_id},
+        )
+    ).first()
+    if fila is None or not fila[2]:
+        return None
+    return fila[0], fila[1] is not None
 
 
 async def change_email_request(

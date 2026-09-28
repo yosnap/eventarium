@@ -19,6 +19,7 @@ class PlatformUserSummary(BaseModel):
     first_name: str | None
     last_name: str | None
     is_active: bool
+    email_verified: bool
     platform_role: str | None
     created_at: datetime
     organization_names: str
@@ -40,6 +41,7 @@ class PlatformUserDetail(BaseModel):
     first_name: str | None
     last_name: str | None
     is_active: bool
+    email_verified: bool
     platform_role: str | None
     notify_similar_events: bool
     created_at: datetime
@@ -68,3 +70,4 @@ class PlatformUserActionResult(BaseModel):
     last_name: str | None
     is_active: bool
     platform_role: str | None
+    email_verified: bool
