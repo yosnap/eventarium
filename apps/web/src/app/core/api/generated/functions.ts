@@ -69,6 +69,10 @@ export type { GetInvitationApiV1PublicInvitationsTokenGet$Params as GetInvitatio
 export { getInvitationApiV1PublicInvitationsTokenGet as getInvitationApiV1PublicInvitationsTokenGet } from './fn/invitaciones/get-invitation-api-v-1-public-invitations-token-get';
 export type { AcceptInvitationApiV1PublicInvitationsTokenAcceptPost$Params as AcceptInvitationApiV1PublicInvitationsTokenAcceptPost$Params } from './fn/invitaciones/accept-invitation-api-v-1-public-invitations-token-accept-post';
 export { acceptInvitationApiV1PublicInvitationsTokenAcceptPost as acceptInvitationApiV1PublicInvitationsTokenAcceptPost } from './fn/invitaciones/accept-invitation-api-v-1-public-invitations-token-accept-post';
+export type { GetMyVerificationApiV1UsersMeVerificationGet$Params as GetMyVerificationApiV1UsersMeVerificationGet$Params } from './fn/usuarios/get-my-verification-api-v-1-users-me-verification-get';
+export { getMyVerificationApiV1UsersMeVerificationGet as getMyVerificationApiV1UsersMeVerificationGet } from './fn/usuarios/get-my-verification-api-v-1-users-me-verification-get';
+export type { ResendMyVerificationApiV1UsersMeResendVerificationPost$Params as ResendMyVerificationApiV1UsersMeResendVerificationPost$Params } from './fn/usuarios/resend-my-verification-api-v-1-users-me-resend-verification-post';
+export { resendMyVerificationApiV1UsersMeResendVerificationPost as resendMyVerificationApiV1UsersMeResendVerificationPost } from './fn/usuarios/resend-my-verification-api-v-1-users-me-resend-verification-post';
 export type { GetMeApiV1UsersMeGet$Params as GetMeApiV1UsersMeGet$Params } from './fn/usuarios/get-me-api-v-1-users-me-get';
 export { getMeApiV1UsersMeGet as getMeApiV1UsersMeGet } from './fn/usuarios/get-me-api-v-1-users-me-get';
 export type { UpdateMeApiV1UsersMePatch$Params as UpdateMeApiV1UsersMePatch$Params } from './fn/usuarios/update-me-api-v-1-users-me-patch';
@@ -129,6 +133,10 @@ export type { DeactivateUserApiV1AdminUsersUserIdDeactivatePost$Params as Deacti
 export { deactivateUserApiV1AdminUsersUserIdDeactivatePost as deactivateUserApiV1AdminUsersUserIdDeactivatePost } from './fn/administracion/deactivate-user-api-v-1-admin-users-user-id-deactivate-post';
 export type { UpdatePlatformRoleApiV1AdminUsersUserIdPlatformRolePut$Params as UpdatePlatformRoleApiV1AdminUsersUserIdPlatformRolePut$Params } from './fn/administracion/update-platform-role-api-v-1-admin-users-user-id-platform-role-put';
 export { updatePlatformRoleApiV1AdminUsersUserIdPlatformRolePut as updatePlatformRoleApiV1AdminUsersUserIdPlatformRolePut } from './fn/administracion/update-platform-role-api-v-1-admin-users-user-id-platform-role-put';
+export type { VerifyUserEmailApiV1AdminUsersUserIdVerifyEmailPost$Params as VerifyUserEmailApiV1AdminUsersUserIdVerifyEmailPost$Params } from './fn/administracion/verify-user-email-api-v-1-admin-users-user-id-verify-email-post';
+export { verifyUserEmailApiV1AdminUsersUserIdVerifyEmailPost as verifyUserEmailApiV1AdminUsersUserIdVerifyEmailPost } from './fn/administracion/verify-user-email-api-v-1-admin-users-user-id-verify-email-post';
+export type { ResendUserVerificationApiV1AdminUsersUserIdResendVerificationPost$Params as ResendUserVerificationApiV1AdminUsersUserIdResendVerificationPost$Params } from './fn/administracion/resend-user-verification-api-v-1-admin-users-user-id-resend-verification-post';
+export { resendUserVerificationApiV1AdminUsersUserIdResendVerificationPost as resendUserVerificationApiV1AdminUsersUserIdResendVerificationPost } from './fn/administracion/resend-user-verification-api-v-1-admin-users-user-id-resend-verification-post';
 export type { GetAnalyticsSettingsApiV1AdminAnalyticsSettingsGet$Params as GetAnalyticsSettingsApiV1AdminAnalyticsSettingsGet$Params } from './fn/administracion/get-analytics-settings-api-v-1-admin-analytics-settings-get';
 export { getAnalyticsSettingsApiV1AdminAnalyticsSettingsGet as getAnalyticsSettingsApiV1AdminAnalyticsSettingsGet } from './fn/administracion/get-analytics-settings-api-v-1-admin-analytics-settings-get';
 export type { UpdateAnalyticsSettingsApiV1AdminAnalyticsSettingsPut$Params as UpdateAnalyticsSettingsApiV1AdminAnalyticsSettingsPut$Params } from './fn/administracion/update-analytics-settings-api-v-1-admin-analytics-settings-put';

@@ -600,6 +600,13 @@
   "admin": {
     "titulo": "Panel de la organización",
     "navegacion": "Navegación del panel",
+    "verificacionPendiente": {
+      "titulo": "Tu cuenta aún no está verificada",
+      "texto": "Hasta que confirmes tu correo ({{ correo }}) la cuenta está limitada: no podrás crear tu organización ni acceder a sus datos. Abre el enlace que te enviamos (revisa también la carpeta de spam) o pide uno nuevo.",
+      "reenviar": "Reenviar el correo de verificación",
+      "reenviado": "Te hemos enviado un enlace nuevo. Puede tardar unos minutos en llegar.",
+      "error": "No hemos podido reenviar el correo. Inténtalo de nuevo en unos minutos."
+    },
     "nav": {
       "grupoOrganizacion": "Organización",
       "grupoPlataforma": "Plataforma",
@@ -2129,7 +2136,19 @@
         "errorLista": "No hemos podido cargar el directorio de usuarios.",
         "errorDetalle": "No hemos podido cargar el detalle de este usuario.",
         "errorRol": "No hemos podido guardar el rol de plataforma.",
-        "errorDesactivar": "No hemos podido desactivar a este usuario."
+        "errorDesactivar": "No hemos podido desactivar a este usuario.",
+        "columnaVerificacion": "Correo",
+        "verificado": "Verificado",
+        "sinVerificar": "Sin verificar",
+        "columnaAcciones": "Acciones",
+        "verificarAMano": "Verificar",
+        "verificarAManoAria": "Verificar a mano el correo de {{ correo }}",
+        "reenviarVerificacion": "Reenviar correo",
+        "reenviarVerificacionAria": "Reenviar correo de verificación a {{ correo }}",
+        "verificacionReenviada": "Hemos reenviado el correo de verificación a {{ correo }}.",
+        "correoVerificado": "El correo de {{ correo }} ya está verificado.",
+        "errorVerificar": "No hemos podido verificar este correo.",
+        "errorReenviar": "No hemos podido reenviar el correo de verificación."
       }
     },
     "superadmin": {

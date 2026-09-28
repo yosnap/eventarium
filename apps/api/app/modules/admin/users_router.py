@@ -22,6 +22,7 @@ from app.core.deps import (
     require_platform_staff,
     require_superadmin,
 )
+from app.core.ratelimit import consumir_reenvio_verificacion_por_cuenta
 from app.modules.admin import users_service
 from app.modules.admin.users_schemas import (
     PlatformRoleUpdate,
@@ -30,7 +31,8 @@ from app.modules.admin.users_schemas import (
     PlatformUserOrganization,
     PlatformUserSummary,
 )
-from app.modules.auth.service import revoke_all_families
+from app.modules.auth.service import enqueue_verification_email, revoke_all_families
+from app.modules.users.models import User
 from app.shared.errors import NotFoundError
 from app.shared.pagination import Page, PageParams, page_params
 
@@ -39,6 +41,18 @@ router = APIRouter(prefix="/admin/users", tags=["administración"])
 MaintenanceDb = Annotated[AsyncSession, Depends(get_maintenance_db, scope=SCOPE_SESION)]
 PlatformStaff = Annotated[CurrentUser, Depends(require_platform_staff)]
 Superadmin = Annotated[CurrentUser, Depends(require_superadmin)]
+
+
+def _resultado(usuario: User) -> PlatformUserActionResult:
+    return PlatformUserActionResult(
+        id=str(usuario.id),
+        email=usuario.email,
+        first_name=usuario.first_name,
+        last_name=usuario.last_name,
+        is_active=usuario.is_active,
+        platform_role=usuario.platform_role,
+        email_verified=usuario.email_verified_at is not None,
+    )
 
 
 @router.get(
@@ -76,6 +90,7 @@ async def list_users(
                 first_name=usuario.first_name,
                 last_name=usuario.last_name,
                 is_active=usuario.is_active,
+                email_verified=usuario.email_verified_at is not None,
                 platform_role=usuario.platform_role,
                 created_at=usuario.created_at,
                 organization_names=nombres_organizaciones,
@@ -113,6 +128,7 @@ async def get_user(
         first_name=usuario.first_name,
         last_name=usuario.last_name,
         is_active=usuario.is_active,
+        email_verified=usuario.email_verified_at is not None,
         platform_role=usuario.platform_role,
         notify_similar_events=usuario.notify_similar_events,
         created_at=usuario.created_at,
@@ -156,14 +172,7 @@ async def deactivate_user(
         entity_id=str(usuario.id),
         subject_user_id=usuario.id,
     )
-    return PlatformUserActionResult(
-        id=str(usuario.id),
-        email=usuario.email,
-        first_name=usuario.first_name,
-        last_name=usuario.last_name,
-        is_active=usuario.is_active,
-        platform_role=usuario.platform_role,
-    )
+    return _resultado(usuario)
 
 
 @router.put(
@@ -194,11 +203,61 @@ async def update_platform_role(
         subject_user_id=usuario.id,
         detail={"before": rol_anterior, "after": datos.platform_role},
     )
-    return PlatformUserActionResult(
-        id=str(usuario.id),
-        email=usuario.email,
-        first_name=usuario.first_name,
-        last_name=usuario.last_name,
-        is_active=usuario.is_active,
-        platform_role=usuario.platform_role,
+    return _resultado(usuario)
+
+
+@router.post(
+    "/{user_id}/verify-email",
+    summary="Verificar el correo de un usuario a mano",
+    description=(
+        "Marca el correo como verificado sin el enlace, para cuando el correo "
+        "no llega. Exclusivo de `superadmin`; 409 si ya estaba verificado o la "
+        "cuenta está desactivada."
+    ),
+)
+async def verify_user_email(
+    user_id: uuid.UUID,
+    superadmin: Superadmin,
+    session: MaintenanceDb,
+) -> PlatformUserActionResult:
+    usuario = await users_service.verificar_correo_a_mano(session, user_id=user_id)
+    await registrar_auditoria(
+        session,
+        actor_user_id=superadmin.id,
+        organization_id=None,
+        action="user.email.verify",
+        entity_type="user",
+        entity_id=str(usuario.id),
+        subject_user_id=usuario.id,
     )
+    return _resultado(usuario)
+
+
+@router.post(
+    "/{user_id}/resend-verification",
+    summary="Reenviar el correo de verificación a un usuario",
+    description=(
+        "Encola un enlace de verificación nuevo al correo de la cuenta. "
+        "Exclusivo de `superadmin`; 409 si ya estaba verificada o está "
+        "desactivada. Limitado por cuenta destinataria."
+    ),
+    status_code=202,
+)
+async def resend_user_verification(
+    user_id: uuid.UUID,
+    superadmin: Superadmin,
+    session: MaintenanceDb,
+) -> PlatformUserActionResult:
+    usuario = await users_service.usuario_pendiente_de_verificar(session, user_id=user_id)
+    await consumir_reenvio_verificacion_por_cuenta(str(usuario.id), camino="admin")
+    await enqueue_verification_email(usuario.id, usuario.email)
+    await registrar_auditoria(
+        session,
+        actor_user_id=superadmin.id,
+        organization_id=None,
+        action="user.email.resend_verification",
+        entity_type="user",
+        entity_id=str(usuario.id),
+        subject_user_id=usuario.id,
+    )
+    return _resultado(usuario)

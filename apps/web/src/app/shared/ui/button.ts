@@ -22,6 +22,7 @@ export type ButtonVariant = 'primario' | 'secundario' | 'terciario' | 'peligro';
       [attr.form]="form()"
       [disabled]="disabled() || loading()"
       [attr.aria-busy]="loading() ? 'true' : null"
+      [attr.aria-label]="ariaLabel()"
       [class]="clases()"
       (click)="pulsado.emit()"
     >
@@ -134,6 +135,11 @@ export class Button {
   readonly bloque = input(false);
   /** Reduce el padding horizontal; no afecta a la altura mínima táctil. */
   readonly compacto = input(false);
+  /** Nombre accesible del `<button>` interno cuando el texto visible no basta
+   * (p. ej. el mismo «Verificar» en cada fila de una tabla). Debe **contener**
+   * el texto visible (WCAG 2.5.3). Un `[attr.aria-label]` sobre `<app-button>`
+   * se quedaría en el host y nunca llegaría al botón. */
+  readonly ariaLabel = input<string | null>(null);
   readonly pulsado = output<void>();
 
   protected clases(): string {
