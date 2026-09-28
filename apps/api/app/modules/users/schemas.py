@@ -49,6 +49,13 @@ class CurrentUserResponse(BaseModel):
     notify_similar_events: bool
 
 
+class VerificationStatusResponse(BaseModel):
+    """Si la persona autenticada ha verificado ya su correo."""
+
+    email: EmailStr
+    email_verified: bool
+
+
 class UserMeUpdate(BaseModel):
     """Campos editables directamente, sin flujo propio (nombre, locale,
     preferencia de notificaciones).

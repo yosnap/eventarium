@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -9,7 +10,12 @@ from httpx import AsyncClient
 from sqlalchemy import text
 
 from app.core.tasks import send_verification_email
-from app.modules.auth.verification import PROPOSITO_VERIFICACION_CORREO, generate_token
+from app.modules.auth.verification import (
+    PROPOSITO_VERIFICACION_CORREO,
+    generate_single_token,
+    generate_token,
+    peek_token,
+)
 from app.shared.errors import ServiceUnavailableError
 from tests.conftest import OrganizacionDePrueba
 
@@ -183,3 +189,18 @@ async def test_turnstile_caido_devuelve_503(
         settings_falso.return_value.turnstile_enabled = True
         respuesta = await cliente.post(REGISTER, json=DATOS_REGISTRO)
     assert respuesta.status_code == 503
+
+
+async def test_enlace_unico_revoca_el_anterior_aunque_se_intercalen(
+    organizacion: OrganizacionDePrueba,
+) -> None:
+    """Dos generaciones seguidas para el mismo sujeto: solo la última sigue viva,
+    y una tercera revoca la segunda (no la primera, ya revocada)."""
+    sujeto = str(uuid.uuid4())
+    primero = await generate_single_token(PROPOSITO_VERIFICACION_CORREO, sujeto, sujeto)
+    segundo = await generate_single_token(PROPOSITO_VERIFICACION_CORREO, sujeto, sujeto)
+    tercero = await generate_single_token(PROPOSITO_VERIFICACION_CORREO, sujeto, sujeto)
+
+    assert await peek_token(PROPOSITO_VERIFICACION_CORREO, primero) is None
+    assert await peek_token(PROPOSITO_VERIFICACION_CORREO, segundo) is None
+    assert await peek_token(PROPOSITO_VERIFICACION_CORREO, tercero) == sujeto

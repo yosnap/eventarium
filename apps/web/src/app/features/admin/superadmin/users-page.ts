@@ -13,6 +13,7 @@ import { PlatformUserSummary } from '../../../core/api/generated/models/platform
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
+import { Chip } from '../../../shared/ui/chip';
 import { DataTable, DataTableColumn } from '../../../shared/ui/data-table';
 import { Input } from '../../../shared/ui/input';
 import { PageHeader } from '../../../shared/ui/page-header';
@@ -29,11 +30,15 @@ const LIMITE = 20;
  * para quien no es superadmin -`soporte` solo ve, nunca escribe- y para la
  * propia cuenta, mismo patrón de confirmación en dos pasos que ya usa
  * `roles-page.ts` para no dejar un botón destructivo a un solo clic.
+ *
+ * Verificar a mano y reenviar la verificación viven en la propia fila (no
+ * solo en el detalle): es la acción que más se repite cuando el correo no
+ * llega, y abrir el detalle por cada cuenta pendiente sobraba.
  */
 @Component({
   selector: 'app-users-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, DataTable, Input, PageHeader, Select],
+  imports: [TranslocoDirective, Alert, Button, Card, Chip, DataTable, Input, PageHeader, Select],
   template: `
     <ng-container *transloco="let t">
       <app-page-header [rotulo]="t('admin.plataforma.usuarios.titulo')">
@@ -66,6 +71,9 @@ const LIMITE = 20;
       @if (error(); as mensaje) {
         <app-alert tone="error">{{ mensaje }}</app-alert>
       }
+      @if (aviso(); as mensaje) {
+        <app-alert tone="exito">{{ mensaje }}</app-alert>
+      }
 
       @if (cargando()) {
         <p>{{ t('comun.cargando') }}</p>
@@ -88,10 +96,57 @@ const LIMITE = 20;
                     : t('admin.plataforma.usuarios.inactivo')
                 }}
               </td>
+              <td>
+                @if (usuario.email_verified) {
+                  <app-chip tone="ok">{{ t('admin.plataforma.usuarios.verificado') }}</app-chip>
+                } @else {
+                  <app-chip tone="espera">{{
+                    t('admin.plataforma.usuarios.sinVerificar')
+                  }}</app-chip>
+                }
+              </td>
               <td>{{ usuario.platform_role ?? t('admin.plataforma.usuarios.sinRol') }}</td>
               <td>
                 {{ usuario.organization_names || t('admin.plataforma.usuarios.sinOrganizaciones') }}
               </td>
+              @if (esSuperadmin()) {
+                <td>
+                  @if (!usuario.email_verified && usuario.is_active) {
+                    <div class="acciones-fila">
+                      <app-button
+                        type="button"
+                        variant="secundario"
+                        [compacto]="true"
+                        [loading]="accionEnCurso() === usuario.id + ':verificar'"
+                        [disabled]="accionEnCurso() !== null"
+                        [ariaLabel]="
+                          t('admin.plataforma.usuarios.verificarAManoAria', {
+                            correo: usuario.email,
+                          })
+                        "
+                        (pulsado)="verificarAMano(usuario)"
+                      >
+                        {{ t('admin.plataforma.usuarios.verificarAMano') }}
+                      </app-button>
+                      <app-button
+                        type="button"
+                        variant="terciario"
+                        [compacto]="true"
+                        [loading]="accionEnCurso() === usuario.id + ':reenviar'"
+                        [disabled]="accionEnCurso() !== null"
+                        [ariaLabel]="
+                          t('admin.plataforma.usuarios.reenviarVerificacionAria', {
+                            correo: usuario.email,
+                          })
+                        "
+                        (pulsado)="reenviarVerificacion(usuario)"
+                      >
+                        {{ t('admin.plataforma.usuarios.reenviarVerificacion') }}
+                      </app-button>
+                    </div>
+                  }
+                </td>
+              }
             </tr>
           }
         </app-data-table>
@@ -130,6 +185,14 @@ const LIMITE = 20;
           <dl class="detalle-datos">
             <dt>{{ t('admin.plataforma.usuarios.buscar') }}</dt>
             <dd>{{ usuario.email }}</dd>
+            <dt>{{ t('admin.plataforma.usuarios.columnaVerificacion') }}</dt>
+            <dd>
+              {{
+                usuario.email_verified
+                  ? t('admin.plataforma.usuarios.verificado')
+                  : t('admin.plataforma.usuarios.sinVerificar')
+              }}
+            </dd>
             <dt>{{ t('admin.plataforma.usuarios.organizacion') }}</dt>
             <dd>
               @if (usuario.organizations.length === 0) {
@@ -250,6 +313,11 @@ const LIMITE = 20;
       margin: 0;
       padding-left: 1.2em;
     }
+    .acciones-fila {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-xs);
+    }
     .acciones-detalle {
       display: flex;
       flex-wrap: wrap;
@@ -283,6 +351,10 @@ export class UsersPage {
   protected readonly guardandoRol = signal(false);
   protected readonly pendienteDeDesactivar = signal(false);
   protected readonly desactivando = signal(false);
+  /** `"<id>:verificar"` o `"<id>:reenviar"` mientras una acción de fila está
+   * en vuelo; bloquea el resto para no encadenar clics sobre datos viejos. */
+  protected readonly accionEnCurso = signal<string | null>(null);
+  protected readonly aviso = signal<string | null>(null);
 
   protected readonly esSuperadmin = computed(() => this.auth.currentUser()?.is_superadmin ?? false);
   protected readonly miPropioId = computed(() => this.auth.currentUser()?.id ?? null);
@@ -300,8 +372,13 @@ export class UsersPage {
       { key: 'nombre', label: t('admin.plataforma.usuarios.columnaNombre') },
       { key: 'correo', label: t('admin.plataforma.usuarios.columnaCorreo') },
       { key: 'estado', label: t('admin.plataforma.usuarios.columnaEstado') },
+      { key: 'verificacion', label: t('admin.plataforma.usuarios.columnaVerificacion') },
       { key: 'rol', label: t('admin.plataforma.usuarios.rolDePlataforma') },
       { key: 'organizaciones', label: t('admin.plataforma.usuarios.columnaOrganizaciones') },
+      // `soporte` solo lee: sin columna de acciones, no una columna vacía.
+      ...(this.esSuperadmin()
+        ? [{ key: 'acciones', label: t('admin.plataforma.usuarios.columnaAcciones') }]
+        : []),
     ];
   });
 
@@ -441,6 +518,45 @@ export class UsersPage {
     } finally {
       this.desactivando.set(false);
       this.pendienteDeDesactivar.set(false);
+    }
+  }
+
+  protected async verificarAMano(usuario: PlatformUserSummary): Promise<void> {
+    await this.accionDeVerificacion(usuario, 'verificar', 'verify-email', {
+      exito: 'admin.plataforma.usuarios.correoVerificado',
+      error: 'admin.plataforma.usuarios.errorVerificar',
+    });
+  }
+
+  protected async reenviarVerificacion(usuario: PlatformUserSummary): Promise<void> {
+    await this.accionDeVerificacion(usuario, 'reenviar', 'resend-verification', {
+      exito: 'admin.plataforma.usuarios.verificacionReenviada',
+      error: 'admin.plataforma.usuarios.errorReenviar',
+    });
+  }
+
+  private async accionDeVerificacion(
+    usuario: PlatformUserSummary,
+    accion: 'verificar' | 'reenviar',
+    ruta: 'verify-email' | 'resend-verification',
+    claves: { readonly exito: string; readonly error: string },
+  ): Promise<void> {
+    this.error.set(null);
+    this.aviso.set(null);
+    this.accionEnCurso.set(`${usuario.id}:${accion}`);
+    try {
+      await firstValueFrom(this.http.post(this.api.url(`/admin/users/${usuario.id}/${ruta}`), {}));
+      this.aviso.set(this.transloco.translate(claves.exito, { correo: usuario.email }));
+      if (accion === 'verificar') {
+        await this.cargar();
+        if (this.usuarioSeleccionadoId() === usuario.id) await this.seleccionar(usuario.id);
+      }
+    } catch (error) {
+      this.error.set(
+        error instanceof ApiError ? error.message : this.transloco.translate(claves.error),
+      );
+    } finally {
+      this.accionEnCurso.set(null);
     }
   }
 }

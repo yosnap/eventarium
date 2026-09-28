@@ -8,6 +8,7 @@
 export interface PlatformUserSummary {
   created_at: string;
   email: string;
+  email_verified: boolean;
   first_name: (string | null);
   id: string;
   is_active: boolean;

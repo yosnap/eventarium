@@ -1105,6 +1105,50 @@
         }
       }
     },
+    "/api/v1/users/me/verification": {
+      "get": {
+        "tags": [
+          "usuarios"
+        ],
+        "summary": "Estado de verificación del correo de la persona autenticada",
+        "description": "No exige organización activa: quien aún no ha verificado su correo casi nunca tiene una. El panel lo usa para avisar de que la cuenta está limitada hasta verificar.",
+        "operationId": "get_my_verification_api_v1_users_me_verification_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/resend-verification": {
+      "post": {
+        "tags": [
+          "usuarios"
+        ],
+        "summary": "Reenviarme el correo de verificación",
+        "description": "Para el aviso del panel: la persona ya ha iniciado sesión, así que no hace falta Turnstile ni escribir el correo. 409 si ya está verificada.",
+        "operationId": "resend_my_verification_api_v1_users_me_resend_verification_post",
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users/me": {
       "get": {
         "tags": [
@@ -2389,6 +2433,94 @@
         },
         "responses": {
           "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformUserActionResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/verify-email": {
+      "post": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Verificar el correo de un usuario a mano",
+        "description": "Marca el correo como verificado sin el enlace, para cuando el correo no llega. Exclusivo de `superadmin`; 409 si ya estaba verificado o la cuenta está desactivada.",
+        "operationId": "verify_user_email_api_v1_admin_users__user_id__verify_email_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformUserActionResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/resend-verification": {
+      "post": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Reenviar el correo de verificación a un usuario",
+        "description": "Encola un enlace de verificación nuevo al correo de la cuenta. Exclusivo de `superadmin`; 409 si ya estaba verificada o está desactivada. Limitado por cuenta destinataria.",
+        "operationId": "resend_user_verification_api_v1_admin_users__user_id__resend_verification_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
             "description": "Successful Response",
             "content": {
               "application/json": {
@@ -18738,6 +18870,10 @@
               }
             ],
             "title": "Platform Role"
+          },
+          "email_verified": {
+            "type": "boolean",
+            "title": "Email Verified"
           }
         },
         "type": "object",
@@ -18747,7 +18883,8 @@
           "first_name",
           "last_name",
           "is_active",
-          "platform_role"
+          "platform_role",
+          "email_verified"
         ],
         "title": "PlatformUserActionResult",
         "description": "Confirmación de `deactivate`/`platform-role` — sin `organization_names`\n(esos dos endpoints no lo calculan; no vale la pena una consulta extra\nsolo para una respuesta de confirmación)."
@@ -18788,6 +18925,10 @@
             "type": "boolean",
             "title": "Is Active"
           },
+          "email_verified": {
+            "type": "boolean",
+            "title": "Email Verified"
+          },
           "platform_role": {
             "anyOf": [
               {
@@ -18827,6 +18968,7 @@
           "first_name",
           "last_name",
           "is_active",
+          "email_verified",
           "platform_role",
           "notify_similar_events",
           "created_at",
@@ -18896,6 +19038,10 @@
             "type": "boolean",
             "title": "Is Active"
           },
+          "email_verified": {
+            "type": "boolean",
+            "title": "Email Verified"
+          },
           "platform_role": {
             "anyOf": [
               {
@@ -18924,6 +19070,7 @@
           "first_name",
           "last_name",
           "is_active",
+          "email_verified",
           "platform_role",
           "created_at",
           "organization_names"
@@ -23961,6 +24108,26 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VerificationStatusResponse": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "email_verified": {
+            "type": "boolean",
+            "title": "Email Verified"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "email_verified"
+        ],
+        "title": "VerificationStatusResponse",
+        "description": "Si la persona autenticada ha verificado ya su correo."
       },
       "VerifyEmailResponse": {
         "properties": {

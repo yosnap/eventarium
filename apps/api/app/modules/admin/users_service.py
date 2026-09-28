@@ -9,6 +9,7 @@ organizaciones, no una regresión de RLS (Goals del plan).
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +19,7 @@ from app.modules.organizations.models import Organization, OrganizationMember
 from app.modules.registrations.models import EventRegistration
 from app.modules.roles.models import Role
 from app.modules.users.models import User
-from app.shared.errors import NotFoundError, PermissionDeniedError
+from app.shared.errors import ConflictError, NotFoundError, PermissionDeniedError
 
 
 async def listar_usuarios(
@@ -156,3 +157,35 @@ async def actualizar_rol_de_plataforma(
     usuario.platform_role = nuevo_rol
     await session.flush()
     return usuario, rol_anterior
+
+
+async def _pendiente_de_verificar(session: AsyncSession, user_id: uuid.UUID) -> User:
+    """El usuario si sigue activo y sin verificar; 404/409 en otro caso.
+
+    Desactivada → 409: verificar o reenviar no reactiva a nadie.
+    """
+    usuario = await session.get(User, user_id)
+    if usuario is None:
+        raise NotFoundError("El usuario no existe.")
+    if not usuario.is_active:
+        raise ConflictError("La cuenta está desactivada.")
+    if usuario.email_verified_at is not None:
+        raise ConflictError("El correo ya está verificado.")
+    return usuario
+
+
+async def verificar_correo_a_mano(session: AsyncSession, *, user_id: uuid.UUID) -> User:
+    """Marca el correo como verificado sin que la persona pulse el enlace.
+
+    Para cuando el correo no llega (proveedor caído, buzón que lo filtra) y el
+    superadmin ya ha comprobado la identidad por otra vía.
+    """
+    usuario = await _pendiente_de_verificar(session, user_id)
+    usuario.email_verified_at = datetime.now(UTC)
+    await session.flush()
+    return usuario
+
+
+async def usuario_pendiente_de_verificar(session: AsyncSession, *, user_id: uuid.UUID) -> User:
+    """El usuario al que reenviar la verificación."""
+    return await _pendiente_de_verificar(session, user_id)

@@ -19,9 +19,20 @@ const USUARIO_RESUMEN = {
   first_name: 'Ana',
   last_name: 'Pérez',
   is_active: true,
+  email_verified: true,
   platform_role: null,
   created_at: '2026-09-01T10:00:00Z',
   organization_names: 'IA Week',
+};
+
+const USUARIO_SIN_VERIFICAR = {
+  ...USUARIO_RESUMEN,
+  id: 'u2',
+  email: 'luis@ejemplo.com',
+  first_name: 'Luis',
+  last_name: null,
+  email_verified: false,
+  organization_names: '',
 };
 
 const USUARIO_DETALLE = {
@@ -30,6 +41,7 @@ const USUARIO_DETALLE = {
   first_name: 'Ana',
   last_name: 'Pérez',
   is_active: true,
+  email_verified: true,
   platform_role: null,
   notify_similar_events: false,
   created_at: '2026-09-01T10:00:00Z',
@@ -79,8 +91,8 @@ describe('UsersPage', () => {
     http
       .expectOne((r) => r.url === LISTA_URL)
       .flush({
-        items: [USUARIO_RESUMEN],
-        total: 1,
+        items: [USUARIO_RESUMEN, USUARIO_SIN_VERIFICAR],
+        total: 2,
         limit: 20,
         offset: 0,
       });
@@ -88,6 +100,7 @@ describe('UsersPage', () => {
 
     const raiz = fixture.nativeElement as HTMLElement;
     expect(raiz.textContent).toContain('ana@ejemplo.com');
+    expect(raiz.textContent).toContain('Sin verificar');
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
@@ -207,5 +220,80 @@ describe('UsersPage', () => {
     await avanzar(fixture);
     http.expectOne((r) => r.url === LISTA_URL).flush({ items: [], total: 0, limit: 20, offset: 0 });
     await avanzar(fixture);
+  });
+
+  async function listadoConPendiente(esSuperadmin: boolean): Promise<{
+    fixture: ComponentFixture<UsersPage>;
+    raiz: HTMLElement;
+  }> {
+    configurar(esSuperadmin);
+    http = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(UsersPage);
+    await avanzar(fixture);
+    http.expectOne(ORGS_URL).flush([]);
+    http
+      .expectOne((r) => r.url === LISTA_URL)
+      .flush({ items: [USUARIO_RESUMEN, USUARIO_SIN_VERIFICAR], total: 2, limit: 20, offset: 0 });
+    await avanzar(fixture);
+    return { fixture, raiz: fixture.nativeElement as HTMLElement };
+  }
+
+  const botonDeFila = (raiz: HTMLElement, texto: string): HTMLButtonElement | undefined =>
+    Array.from(raiz.querySelectorAll<HTMLButtonElement>('.acciones-fila button')).find((b) =>
+      b.textContent?.includes(texto),
+    );
+
+  it('solo las cuentas sin verificar tienen los botones de verificar y reenviar', async () => {
+    const { raiz } = await listadoConPendiente(true);
+
+    // Una sola fila con acciones: la verificada no las muestra.
+    expect(raiz.querySelectorAll('.acciones-fila')).toHaveLength(1);
+    // El nombre accesible llega al <button> real y contiene el texto visible.
+    expect(botonDeFila(raiz, 'Verificar')?.getAttribute('aria-label')).toBe(
+      'Verificar a mano el correo de luis@ejemplo.com',
+    );
+    expect(botonDeFila(raiz, 'Reenviar correo')?.getAttribute('aria-label')).toBe(
+      'Reenviar correo de verificación a luis@ejemplo.com',
+    );
+  });
+
+  it('reenviar la verificación llama al endpoint y avisa', async () => {
+    const { fixture, raiz } = await listadoConPendiente(true);
+
+    botonDeFila(raiz, 'Reenviar correo')?.dispatchEvent(new Event('click'));
+    await avanzar(fixture);
+    const peticion = http.expectOne(`${LISTA_URL}/u2/resend-verification`);
+    expect(peticion.request.method).toBe('POST');
+    peticion.flush({ ...USUARIO_SIN_VERIFICAR });
+    await avanzar(fixture);
+
+    expect(raiz.querySelector('[role="status"]')?.textContent).toContain('luis@ejemplo.com');
+  });
+
+  it('verificar a mano llama al endpoint y recarga el listado', async () => {
+    const { fixture, raiz } = await listadoConPendiente(true);
+
+    botonDeFila(raiz, 'Verificar')?.dispatchEvent(new Event('click'));
+    await avanzar(fixture);
+    http.expectOne(`${LISTA_URL}/u2/verify-email`).flush({ ...USUARIO_SIN_VERIFICAR });
+    await avanzar(fixture);
+    http
+      .expectOne((r) => r.url === LISTA_URL)
+      .flush({
+        items: [USUARIO_RESUMEN, { ...USUARIO_SIN_VERIFICAR, email_verified: true }],
+        total: 2,
+        limit: 20,
+        offset: 0,
+      });
+    await avanzar(fixture);
+
+    expect(raiz.querySelectorAll('.acciones-fila')).toHaveLength(0);
+  });
+
+  it('soporte no ve la columna de acciones', async () => {
+    const { raiz } = await listadoConPendiente(false);
+
+    expect(raiz.querySelectorAll('.acciones-fila')).toHaveLength(0);
+    expect(raiz.textContent).not.toContain('Acciones');
   });
 });
