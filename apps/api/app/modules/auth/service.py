@@ -45,6 +45,7 @@ from app.modules.auth.verification import (
     PROPOSITO_RECUPERAR_CONTRASENA,
     PROPOSITO_VERIFICACION_CORREO,
     consume_token,
+    generate_single_token,
     generate_token,
 )
 from app.modules.mcp import service as mcp_service
@@ -493,8 +494,7 @@ async def register_user(session: AsyncSession, *, email: str, password: str) -> 
         # `UNIQUE` de la base de datos es la única fuente de verdad. Misma respuesta.
         return
 
-    token = await generate_token(PROPOSITO_VERIFICACION_CORREO, str(user_id))
-    await send_verification_email.kiq(email, token)
+    await enqueue_verification_email(user_id, email)
 
 
 async def verify_email(session: AsyncSession, *, token: str) -> uuid.UUID:
@@ -531,10 +531,11 @@ async def enqueue_verification_email(user_id: uuid.UUID, email: str) -> None:
     """Genera un enlace de verificación nuevo y encola su envío.
 
     Sin comprobaciones propias: quien llama ya sabe que la cuenta existe y no
-    está verificada (reenvío público, banner del propio usuario o
-    `/admin/usuarios`).
+    está verificada (registro, reenvío público, banner del propio usuario o
+    `/admin/usuarios`). Cada enlace nuevo anula el anterior: solo sirve el del
+    último correo recibido.
     """
-    token = await generate_token(PROPOSITO_VERIFICACION_CORREO, str(user_id))
+    token = await generate_single_token(PROPOSITO_VERIFICACION_CORREO, str(user_id), str(user_id))
     await send_verification_email.kiq(email, token)
 
 
