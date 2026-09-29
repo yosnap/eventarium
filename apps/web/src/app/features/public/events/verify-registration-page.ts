@@ -6,10 +6,12 @@ import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { seoDePagina } from '../../../core/seo/meta.service';
 import { RegistrationsService } from '../../../core/registrations/registrations.service';
 import { AuthFrame } from '../../../layouts/public/auth-frame';
+import { AddToCalendar } from '../../../shared/ui/add-to-calendar';
 import { Alert } from '../../../shared/ui/alert';
 import { Card } from '../../../shared/ui/card';
 import { Chip, type ChipTone } from '../../../shared/ui/chip';
 import { Reveal } from '../../../shared/ui/reveal.directive';
+import type { EventoParaCalendario } from '../../../shared/calendar/calendar-links';
 
 type Estado = 'comprobando' | 'exito' | 'error';
 
@@ -46,7 +48,7 @@ const TONO_POR_ESTADO: Record<string, ChipTone> = {
 @Component({
   selector: 'app-verify-registration-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, AuthFrame, Alert, Card, Chip, Reveal],
+  imports: [TranslocoDirective, AuthFrame, AddToCalendar, Alert, Card, Chip, Reveal],
   template: `
     <ng-container *transloco="let t">
       <app-auth-frame [titulo]="t('verificarInscripcion.titulo')">
@@ -74,6 +76,11 @@ const TONO_POR_ESTADO: Record<string, ChipTone> = {
                 }
               }
             </div>
+            <!-- Solo llega con la plaza confirmada; pendiente de aprobación, de pago o
+                 en lista de espera no hay nada que proponer. Fuera del aria-live. -->
+            @if (evento(); as e) {
+              <app-add-to-calendar [evento]="e" />
+            }
           </app-card>
         </div>
       </app-auth-frame>
@@ -100,6 +107,7 @@ export class VerifyRegistrationPage {
   protected readonly mensaje = signal('');
   protected readonly claveEstado = signal<string | null>(null);
   protected readonly tonoEstado = signal<ChipTone>('neutro');
+  protected readonly evento = signal<EventoParaCalendario | null>(null);
 
   constructor() {
     // La URL lleva un token de un solo uso: que ningún buscador la guarde.
@@ -126,6 +134,7 @@ export class VerifyRegistrationPage {
       this.mensaje.set(resultado.message);
       this.claveEstado.set(CLAVE_POR_ESTADO[resultado.status] ?? null);
       this.tonoEstado.set(TONO_POR_ESTADO[resultado.status] ?? 'neutro');
+      this.evento.set(resultado.event ?? null);
       this.estado.set('exito');
     } catch {
       this.estado.set('error');

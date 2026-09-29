@@ -4,10 +4,12 @@ import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
 import { seoDePagina } from '../../../core/seo/meta.service';
 import { PublicCheckoutService } from '../../../core/payments/public-checkout.service';
+import { AddToCalendar } from '../../../shared/ui/add-to-calendar';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Reveal } from '../../../shared/ui/reveal.directive';
+import type { EventoParaCalendario } from '../../../shared/calendar/calendar-links';
 
 type Estado = 'comprobando' | 'confirmado' | 'pendiente' | 'fallido' | 'error';
 
@@ -35,7 +37,7 @@ const ESPERAS_REINTENTO_AUTOMATICO_MS = [2000, 4000, 8000, 8000, 8000] as const;
 @Component({
   selector: 'app-payment-return',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, Reveal],
+  imports: [TranslocoDirective, RouterLink, AddToCalendar, Alert, Button, Card, Reveal],
   template: `
     <ng-container *transloco="let t">
       <div class="pagina">
@@ -74,6 +76,12 @@ const ESPERAS_REINTENTO_AUTOMATICO_MS = [2000, 4000, 8000, 8000, 8000] as const;
             }
           </div>
 
+          <!-- El webhook ya confirmó el pago: solo entonces el backend entrega el
+               evento. Fuera del aria-live, para que no se lea como parte del aviso. -->
+          @if (estado() === 'confirmado' && evento(); as e) {
+            <app-add-to-calendar [evento]="e" />
+          }
+
           @if (slug) {
             <p>
               <a [routerLink]="['/eventos', slug]">{{ t('pago.retorno.volverAlEvento') }}</a>
@@ -106,6 +114,7 @@ export class PaymentReturnPage implements OnDestroy {
   protected readonly estado = signal<Estado>('comprobando');
   protected readonly reintentando = signal(false);
   protected readonly slug: string | null;
+  protected readonly evento = signal<EventoParaCalendario | null>(null);
 
   private readonly registrationId: string | null;
   private intentosAutomaticos = 0;
@@ -142,6 +151,7 @@ export class PaymentReturnPage implements OnDestroy {
     try {
       const resultado = await this.checkout.getStatus(this.slug, this.registrationId);
       if (resultado.registration_status === 'confirmed') {
+        this.evento.set(resultado.event ?? null);
         this.estado.set('confirmado');
         return;
       }

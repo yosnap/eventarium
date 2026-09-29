@@ -32,6 +32,7 @@ from app.modules.events import service as events_service
 from app.modules.events.models import Event
 from app.modules.policies import service as policies_service
 from app.modules.registrations import repository, service
+from app.modules.registrations.calendar import calendario_de_inscripcion
 from app.modules.registrations.schemas import (
     CancelRegistrationRequest,
     CancelRegistrationResponse,
@@ -148,6 +149,7 @@ async def verify_registration(
     return VerifyRegistrationResponse(
         message=_MENSAJES_POR_ESTADO.get(inscripcion.status, "Inscripción verificada."),
         status=inscripcion.status,
+        event=await calendario_de_inscripcion(session, inscripcion),
     )
 
 
@@ -164,8 +166,11 @@ async def verify_registration(
 async def confirm_waitlist_promotion(
     datos: ConfirmWaitlistPromotionRequest, session: SessionDep
 ) -> ConfirmWaitlistPromotionResponse:
-    await service.confirm_waitlist_promotion(session, token=datos.token)
-    return ConfirmWaitlistPromotionResponse(message="Tu plaza está confirmada.")
+    inscripcion = await service.confirm_waitlist_promotion(session, token=datos.token)
+    return ConfirmWaitlistPromotionResponse(
+        message="Tu plaza está confirmada.",
+        event=await calendario_de_inscripcion(session, inscripcion),
+    )
 
 
 @router.post(

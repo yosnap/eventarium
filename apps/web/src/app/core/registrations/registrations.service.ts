@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../api/api.service';
+import type { EventoParaCalendario } from '../../shared/calendar/calendar-links';
 
 export interface RegistrationQuestion {
   readonly id: string;
@@ -37,12 +38,22 @@ interface RespuestaGenerica {
 interface RespuestaVerificacion {
   readonly message: string;
   readonly status: string;
+  /** Solo con la plaza confirmada: lo necesario para «añadir al calendario». */
+  readonly event: EventoParaCalendario | null;
+}
+
+interface RespuestaPromocion {
+  readonly message: string;
+  /** Solo si la plaza queda confirmada (un evento de pago pasa a pendiente de pago). */
+  readonly event: EventoParaCalendario | null;
 }
 
 export interface MyTicketInfo {
   readonly status: string;
   readonly full_name: string;
   readonly has_qr: boolean;
+  /** Solo con la plaza confirmada: lo necesario para «añadir al calendario». */
+  readonly event: EventoParaCalendario | null;
 }
 
 export interface MyRegistrationItem {
@@ -99,9 +110,9 @@ export class RegistrationsService {
     );
   }
 
-  async confirmWaitlistPromotion(token: string): Promise<RespuestaGenerica> {
+  async confirmWaitlistPromotion(token: string): Promise<RespuestaPromocion> {
     return firstValueFrom(
-      this.http.post<RespuestaGenerica>(
+      this.http.post<RespuestaPromocion>(
         this.api.url('/public/registrations/confirm-waitlist-promotion'),
         { token },
       ),

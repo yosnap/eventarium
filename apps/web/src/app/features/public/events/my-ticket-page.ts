@@ -5,10 +5,12 @@ import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { seoDePagina } from '../../../core/seo/meta.service';
 import { RegistrationsService } from '../../../core/registrations/registrations.service';
 import { AuthFrame } from '../../../layouts/public/auth-frame';
+import { AddToCalendar } from '../../../shared/ui/add-to-calendar';
 import { Alert } from '../../../shared/ui/alert';
 import { Card } from '../../../shared/ui/card';
 import { Chip } from '../../../shared/ui/chip';
 import { Reveal } from '../../../shared/ui/reveal.directive';
+import type { EventoParaCalendario } from '../../../shared/calendar/calendar-links';
 
 type Estado = 'comprobando' | 'con-qr' | 'sin-qr' | 'error';
 
@@ -37,7 +39,7 @@ const CLAVE_POR_ESTADO: Record<string, string> = {
 @Component({
   selector: 'app-my-ticket-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, AuthFrame, Alert, Card, Chip, Reveal],
+  imports: [TranslocoDirective, AuthFrame, AddToCalendar, Alert, Card, Chip, Reveal],
   template: `
     <ng-container *transloco="let t">
       <app-auth-frame [titulo]="t('miEntrada.titulo')">
@@ -76,6 +78,11 @@ const CLAVE_POR_ESTADO: Record<string, string> = {
                 }
               }
             </div>
+            <!-- Quien llega desde el correo de confirmación o de aprobación (que enlaza
+                 aquí) lo ve a la vez que su entrada. Solo con la plaza confirmada. -->
+            @if (evento(); as e) {
+              <app-add-to-calendar [evento]="e" />
+            }
           </app-card>
         </div>
       </app-auth-frame>
@@ -127,6 +134,7 @@ export class MyTicketPage {
   protected readonly nombre = signal('');
   protected readonly claveEstado = signal('confirmada');
   protected readonly qrUrl = signal('');
+  protected readonly evento = signal<EventoParaCalendario | null>(null);
 
   constructor() {
     this.seo.set({ title: this.transloco.translate('miEntrada.titulo') });
@@ -142,6 +150,7 @@ export class MyTicketPage {
     try {
       const info = await this.registrations.getMyTicket(token);
       this.nombre.set(info.full_name);
+      this.evento.set(info.event ?? null);
       this.claveEstado.set(CLAVE_POR_ESTADO[info.status] ?? info.status);
       if (info.has_qr) {
         this.qrUrl.set(this.registrations.myTicketQrUrl(token));

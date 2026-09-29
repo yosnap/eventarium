@@ -71,7 +71,11 @@ async def _crear_y_publicar_evento(
     return publicacion.json()
 
 
-async def _inscribir_y_confirmar(cliente: AsyncClient, evento: dict, email: str) -> str:
+async def _inscribir_y_verificar(
+    cliente: AsyncClient, evento: dict, email: str
+) -> tuple[str, dict]:
+    """Inscribe y consume el enlace de verificación: devuelve el id de la
+    inscripción y la respuesta de `/registrations/verify` (el estado que salga)."""
     payload = {
         "email": email,
         "full_name": "Asistente de Prueba",
@@ -95,8 +99,13 @@ async def _inscribir_y_confirmar(cliente: AsyncClient, evento: dict, email: str)
     token = await generate_token(PROPOSITO_VERIFICACION_INSCRIPCION, str(registration_id))
     verificacion = await cliente.post(VERIFY, json={"token": token})
     assert verificacion.status_code == 200, verificacion.text
-    assert verificacion.json()["status"] == "confirmed"
-    return str(registration_id)
+    return str(registration_id), verificacion.json()
+
+
+async def _inscribir_y_confirmar(cliente: AsyncClient, evento: dict, email: str) -> str:
+    registration_id, verificacion = await _inscribir_y_verificar(cliente, evento, email)
+    assert verificacion["status"] == "confirmed"
+    return registration_id
 
 
 async def test_confirmar_encola_email_con_qr_adjunto(
@@ -240,6 +249,80 @@ async def test_mi_entrada_cancelada_no_muestra_qr(
 
     imagen = await cliente.get(MY_TICKET_QR, params={"token": cancel_token})
     assert imagen.status_code == 422
+
+
+async def test_mi_entrada_confirmada_ofrece_los_datos_para_el_calendario(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento = await _crear_y_publicar_evento(
+        cliente,
+        cabeceras,
+        "mi-entrada-calendario",
+        capacity=5,
+        location_name="Palacio de Congresos",
+        location_address="Calle Mayor 1, Madrid",
+    )
+    await _inscribir_y_confirmar(cliente, evento, "asistente@example.com")
+    _, _, cancel_token, _ = send_registration_confirmed_email.kiq.call_args.args
+
+    respuesta = await cliente.get(MY_TICKET, params={"token": cancel_token})
+
+    assert respuesta.status_code == 200, respuesta.text
+    datos = respuesta.json()["event"]
+    assert datos["slug"] == "mi-entrada-calendario"
+    assert datos["title"] == "Evento mi-entrada-calendario"
+    assert datos["timezone"] == evento["timezone"]
+    assert datos["location"] == "Palacio de Congresos, Calle Mayor 1, Madrid"
+    assert datetime.fromisoformat(datos["starts_at"]) == datetime.fromisoformat(evento["starts_at"])
+    assert datetime.fromisoformat(datos["ends_at"]) == datetime.fromisoformat(evento["ends_at"])
+
+
+async def test_mi_entrada_cancelada_no_ofrece_calendario(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """Sin plaza confirmada no se propone ponerlo en el calendario."""
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento = await _crear_y_publicar_evento(cliente, cabeceras, "mi-entrada-sin-cal", capacity=5)
+    registration_id = await _inscribir_y_confirmar(cliente, evento, "asistente@example.com")
+    _, _, cancel_token, _ = send_registration_confirmed_email.kiq.call_args.args
+    cancelacion = await cliente.post(
+        f"{EVENTS}/{evento['id']}/registrations/{registration_id}/cancel", headers=cabeceras
+    )
+    assert cancelacion.status_code == 200, cancelacion.text
+
+    respuesta = await cliente.get(MY_TICKET, params={"token": cancel_token})
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["event"] is None
+
+
+async def test_verificar_confirmada_devuelve_el_evento_para_el_calendario(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento = await _crear_y_publicar_evento(cliente, cabeceras, "verificar-calendario", capacity=5)
+
+    _, verificacion = await _inscribir_y_verificar(cliente, evento, "asistente@example.com")
+
+    assert verificacion["status"] == "confirmed"
+    assert verificacion["event"]["slug"] == "verificar-calendario"
+    assert verificacion["event"]["location"] is None  # el evento no declara lugar
+
+
+async def test_verificar_pendiente_de_aprobacion_no_ofrece_calendario(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """Mientras no esté aprobada, la plaza no es segura: nada que proponer."""
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento = await _crear_y_publicar_evento(
+        cliente, cabeceras, "verificar-pendiente", registration_mode="approval", capacity=5
+    )
+
+    _, verificacion = await _inscribir_y_verificar(cliente, evento, "asistente@example.com")
+
+    assert verificacion["status"] == "pending_approval"
+    assert verificacion["event"] is None
 
 
 async def test_mi_entrada_con_token_invalido_falla(

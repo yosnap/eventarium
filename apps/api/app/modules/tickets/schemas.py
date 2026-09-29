@@ -8,6 +8,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.modules.registrations.schemas import EventCalendarInfo
+
 TicketScanResult = Literal[
     "valid", "duplicate", "expired", "invalid_signature", "revoked", "not_found", "manual"
 ]
@@ -78,3 +80,6 @@ class MyTicketResponse(BaseModel):
     status: str
     full_name: str
     has_qr: bool
+    # Solo con la plaza `confirmed`: cubre a quien llega desde el correo de
+    # aprobación (que enlaza aquí) sin obligarle a haber pasado por otra pantalla.
+    event: EventCalendarInfo | None = None

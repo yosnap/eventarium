@@ -44,6 +44,7 @@ from app.modules.payments.schemas import (
 )
 from app.modules.policies import service as policies_service
 from app.modules.registrations import repository as registrations_repository
+from app.modules.registrations.calendar import calendario_de_evento
 from app.modules.registrations.schemas import RegistrationAnswerInput
 from app.shared.errors import NotFoundError, ValidationDomainError
 
@@ -209,4 +210,5 @@ async def get_checkout_status(
     return PaymentStatusResponse(
         registration_status=inscripcion.status,
         payment_status=pago.status if pago is not None else None,
+        event=calendario_de_evento(evento, estado_inscripcion=inscripcion.status),
     )

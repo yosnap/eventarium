@@ -74,6 +74,7 @@ export type { EmailTestOut } from './models/email-test-out';
 export type { EmbudoOut } from './models/embudo-out';
 export type { EstadoDeStripeOut } from './models/estado-de-stripe-out';
 export type { EstructuraOut } from './models/estructura-out';
+export type { EventCalendarInfo } from './models/event-calendar-info';
 export type { EventCreate } from './models/event-create';
 export type { EventInvitationCreate } from './models/event-invitation-create';
 export type { EventMemberCreate } from './models/event-member-create';
