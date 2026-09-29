@@ -56,6 +56,11 @@ def test_sin_plaza_confirmada_no_se_ofrece(estado: str) -> None:
     assert calendario_de_evento(_evento(), estado_inscripcion=estado) is None
 
 
+def test_un_evento_cancelado_no_se_ofrece_aunque_la_inscripcion_siga_confirmada() -> None:
+    """Las inscripciones se cancelan por lotes tras cancelar el evento."""
+    assert calendario_de_evento(_evento(status="cancelled"), estado_inscripcion="confirmed") is None
+
+
 @pytest.mark.parametrize(
     ("campos", "esperado"),
     [

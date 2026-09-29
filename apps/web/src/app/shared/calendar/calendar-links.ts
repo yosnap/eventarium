@@ -48,16 +48,19 @@ export function urlGoogleCalendar(evento: EventoParaCalendario, urlEvento: strin
 }
 
 export function urlOutlook(evento: EventoParaCalendario, urlEvento: string): string {
-  const parametros = new URLSearchParams({
-    path: '/calendar/action/compose',
-    rru: 'addevent',
-    subject: evento.title,
-    startdt: isoSinMilisegundos(new Date(evento.starts_at)),
-    enddt: isoSinMilisegundos(new Date(evento.ends_at)),
-    body: urlEvento,
-  });
-  if (evento.location) parametros.set('location', evento.location);
-  return `https://outlook.live.com/calendar/0/deeplink/compose?${parametros.toString()}`;
+  // Con `encodeURIComponent` (espacios como %20) y no con `URLSearchParams`
+  // (que los escribe como «+»): Outlook no interpreta el «+» y lo muestra literal.
+  const parametros: [string, string][] = [
+    ['path', '/calendar/action/compose'],
+    ['rru', 'addevent'],
+    ['subject', evento.title],
+    ['startdt', isoSinMilisegundos(new Date(evento.starts_at))],
+    ['enddt', isoSinMilisegundos(new Date(evento.ends_at))],
+    ['body', urlEvento],
+  ];
+  if (evento.location) parametros.push(['location', evento.location]);
+  const consulta = parametros.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+  return `https://outlook.live.com/calendar/0/deeplink/compose?${consulta}`;
 }
 
 /** Escapa un valor de texto de iCalendar (RFC 5545 §3.3.11). */

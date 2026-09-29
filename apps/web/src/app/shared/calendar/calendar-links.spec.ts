@@ -59,6 +59,14 @@ describe('urlOutlook', () => {
     expect(url.searchParams.get('location')).toBe('Palacio de Congresos, Calle Mayor 1');
   });
 
+  it('codifica los espacios como %20, no como «+» (Outlook no interpreta el «+»)', () => {
+    const enlace = urlOutlook({ ...EVENTO, title: 'Semana de la IA' }, URL_EVENTO);
+
+    expect(enlace).toContain('subject=Semana%20de%20la%20IA');
+    expect(enlace).toContain('location=Palacio%20de%20Congresos%2C%20Calle%20Mayor%201');
+    expect(enlace).not.toContain('+');
+  });
+
   it('omite el lugar cuando el evento no lo tiene', () => {
     const url = new URL(urlOutlook({ ...EVENTO, location: null }, URL_EVENTO));
     expect(url.searchParams.has('location')).toBe(false);

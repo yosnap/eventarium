@@ -30,8 +30,13 @@ def _ubicacion(evento: Event) -> str | None:
 
 
 def calendario_de_evento(evento: Event, *, estado_inscripcion: str) -> EventCalendarInfo | None:
-    """Parte pura, para quien ya tiene el `Event` cargado (p. ej. la vuelta de pago)."""
-    if estado_inscripcion != "confirmed":
+    """Parte pura, para quien ya tiene el `Event` cargado (p. ej. la vuelta de pago).
+
+    Un evento cancelado tampoco se ofrece: `cancelar_evento` lo marca al
+    instante, pero cancela las inscripciones después, por lotes, en una tarea
+    aparte — mientras tanto siguen `confirmed`.
+    """
+    if estado_inscripcion != "confirmed" or evento.status == "cancelled":
         return None
     return EventCalendarInfo(
         slug=evento.slug,
