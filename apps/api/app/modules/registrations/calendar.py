@@ -16,6 +16,8 @@ from __future__ import annotations
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.events.models import Event
+from app.modules.organizations import service as organizations_service
+from app.modules.organizations.schemas import PublicOrganizationRef
 from app.modules.registrations.models import EventRegistration
 from app.modules.registrations.schemas import EventCalendarInfo
 
@@ -29,7 +31,9 @@ def _ubicacion(evento: Event) -> str | None:
     return evento.online_url
 
 
-def calendario_de_evento(evento: Event, *, estado_inscripcion: str) -> EventCalendarInfo | None:
+def calendario_de_evento(
+    evento: Event, organizacion: PublicOrganizationRef, *, estado_inscripcion: str
+) -> EventCalendarInfo | None:
     """Parte pura, para quien ya tiene el `Event` cargado (p. ej. la vuelta de pago).
 
     Un evento cancelado tampoco se ofrece: `cancelar_evento` lo marca al
@@ -40,6 +44,7 @@ def calendario_de_evento(evento: Event, *, estado_inscripcion: str) -> EventCale
         return None
     return EventCalendarInfo(
         slug=evento.slug,
+        organization=organizacion,
         title=evento.title,
         starts_at=evento.starts_at,
         ends_at=evento.ends_at,
@@ -56,4 +61,5 @@ async def calendario_de_inscripcion(
     evento = await session.get(Event, inscripcion.event_id)
     if evento is None:  # pragma: no cover - la FK compuesta lo hace imposible
         return None
-    return calendario_de_evento(evento, estado_inscripcion=inscripcion.status)
+    organizacion = await organizations_service.public_ref(session, inscripcion.organization_id)
+    return calendario_de_evento(evento, organizacion, estado_inscripcion=inscripcion.status)

@@ -14,9 +14,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.organizations.models import Organization, OrganizationBranding
+from app.modules.organizations.schemas import RESERVED_SLUGS, PublicOrganizationRef
 from app.modules.roles.models import Role, RolePermission, RoleProfileField
 from app.modules.roles.system_roles import SYSTEM_ROLE_TEMPLATES
-from app.shared.errors import ConflictError
+from app.shared.errors import ConflictError, NotFoundError
 
 
 async def clone_system_roles(session: AsyncSession, organization_id: uuid.UUID) -> dict[str, Role]:
@@ -77,6 +78,8 @@ async def create_organization(
     crea ninguna fila en `organization_domains`, retirada del esquema.
     """
     slug_limpio = slug.strip().lower()
+    if slug_limpio in RESERVED_SLUGS:
+        raise ConflictError(f"El identificador «{slug_limpio}» está reservado.")
 
     existente = await session.scalar(select(Organization).where(Organization.slug == slug_limpio))
     if existente is not None:
@@ -101,3 +104,14 @@ async def create_organization(
     await clone_system_roles(session, organizacion.id)
     await session.flush()
     return organizacion
+
+
+async def public_ref(session: AsyncSession, organization_id: uuid.UUID) -> PublicOrganizationRef:
+    """La organización tal y como aparece en un contrato público.
+
+    Lee bajo el contexto RLS ya fijado por la resolución pública del evento.
+    """
+    organizacion = await session.get(Organization, organization_id)
+    if organizacion is None:
+        raise NotFoundError("La organización no existe.")
+    return PublicOrganizationRef(slug=organizacion.slug, name=organizacion.name)

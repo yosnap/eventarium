@@ -44,10 +44,9 @@ class Event(Base, TimestampMixin):
 
     __tablename__ = "events"
     __table_args__ = (
-        # Sin dominio por organización, el slug es la única forma de resolver
-        # un evento en una URL pública: tiene que ser único en toda la
-        # instalación, no solo dentro de su organización.
-        UniqueConstraint("slug", name="uq_events_slug"),
+        # La organización forma parte de la URL pública (`/{org}/{evento}`):
+        # el slug solo tiene que ser único dentro de su organización.
+        UniqueConstraint("organization_id", "slug", name="uq_events_organization_id_slug"),
         # Objetivo de las FK compuestas de las tablas hijas (event_sessions, event_members).
         UniqueConstraint("id", "organization_id", name="uq_events_id_organization_id"),
         # Stripe admite un `expires_at` de Checkout Session entre 30 minutos y

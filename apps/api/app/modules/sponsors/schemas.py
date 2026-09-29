@@ -15,6 +15,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.modules.organizations.schemas import PublicOrganizationRef
 from app.modules.theme_templates.schemas import PublicTheme
 
 LogoSize = Literal["large", "medium", "small"]
@@ -179,6 +180,7 @@ class PublicSponsorHistoryItem(BaseModel):
 
     event_slug: str
     event_title: str
+    organization: PublicOrganizationRef
     starts_at: datetime
     tier_name: str
 
@@ -196,6 +198,7 @@ class PublicSponsorDetail(BaseModel):
     tier_benefits: str | None
     event_slug: str
     event_title: str
+    organization: PublicOrganizationRef
     history: list[PublicSponsorHistoryItem]
     # Plantilla del evento padre, ya resuelta: la página la aplica igual que la
     # ficha del evento para no cambiar de aspecto al navegar dentro de él.

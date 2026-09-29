@@ -7,6 +7,7 @@ válidas (`archived` es terminal).
 
 from __future__ import annotations
 
+import secrets
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -31,6 +32,8 @@ from app.modules.events.models import (
 )
 from app.modules.media.models import Media
 from app.modules.organizations import repository as organizations_repository
+from app.modules.organizations import service as organizations_service
+from app.modules.organizations.schemas import PublicOrganizationRef
 from app.modules.payments import repository as payments_repository
 from app.modules.payments import service as payments_service
 from app.modules.theme_templates.accent_palette import fusionar_overrides
@@ -38,13 +41,33 @@ from app.modules.theme_templates.models import ThemeTemplate
 from app.modules.theme_templates.schemas import PublicTheme
 from app.shared.errors import ConflictError, NotFoundError, ValidationDomainError
 
+_INTENTOS_DE_SUGERENCIA = 50
+
+
+async def _slug_repetido(session: AsyncSession, organization_id: uuid.UUID, slug: str) -> Exception:
+    """Conflicto de slug con el primer libre de la forma `slug-2`, `slug-3`… como sugerencia."""
+    candidato = ""
+    for numero in range(2, _INTENTOS_DE_SUGERENCIA + 2):
+        sufijo = f"-{numero}"
+        candidato = f"{slug[: 160 - len(sufijo)]}{sufijo}"
+        if await repository.get_event_by_slug(session, organization_id, candidato) is None:
+            break
+    else:
+        # Todos los cercanos están ocupados: un sufijo aleatorio evita seguir consultando.
+        sufijo = f"-{secrets.token_hex(3)}"
+        candidato = f"{slug[: 160 - len(sufijo)]}{sufijo}"
+    return ConflictError(
+        f"Ya existe un evento con el identificador «{slug}» en tu organización.",
+        extra={"suggested_slug": candidato},
+    )
+
 
 async def _asegurar_slug_disponible(
     session: AsyncSession, organization_id: uuid.UUID, slug: str
 ) -> None:
     existente = await repository.get_event_by_slug(session, organization_id, slug)
     if existente is not None:
-        raise ConflictError(f"Ya existe un evento con el identificador «{slug}».")
+        raise await _slug_repetido(session, organization_id, slug)
 
 
 async def _asegurar_venta_posible(
@@ -142,17 +165,16 @@ async def create_event(
     await _asegurar_slug_disponible(session, organization_id, datos["slug"])
 
     evento = Event(organization_id=organization_id, **datos)
-    session.add(evento)
     try:
-        await session.flush()
+        # Punto de guardado: tras un `IntegrityError` la transacción sigue
+        # utilizable y se puede calcular la sugerencia de slug.
+        async with session.begin_nested():
+            session.add(evento)
+            await session.flush()
     except IntegrityError as exc:
-        # El slug es único en toda la instalación (`UNIQUE(slug)`), no solo
-        # dentro de la organización: la comprobación de arriba solo ve, bajo
-        # RLS, los eventos de la propia organización, así que una colisión con
-        # el slug de OTRA organización es un flujo normal que solo se detecta
-        # aquí, en el `flush` — no únicamente la carrera entre dos altas
-        # simultáneas dentro de la misma organización.
-        raise ConflictError(f"Ya existe un evento con el identificador «{datos['slug']}».") from exc
+        # La comprobación de arriba ya cubre el caso normal; esto es la carrera
+        # entre dos altas simultáneas con el mismo slug dentro de la organización.
+        raise await _slug_repetido(session, organization_id, datos["slug"]) from exc
 
     # `event_id=evento.id` tras el `flush` (no antes de crearlo, como hacía
     # esta llamada originalmente): sin él, un alta directa con
@@ -596,42 +618,55 @@ async def delete_venue(
     await session.flush()
 
 
-_RESOLVER_PARA_INSCRIBIR = text("SELECT id, organization_id FROM app_resolve_public_event(:slug)")
+_RESOLVER_PARA_INSCRIBIR = text(
+    "SELECT id, organization_id FROM app_resolve_public_event(:org_slug, :slug)"
+)
 _RESOLVER_PARA_MOSTRAR = text(
-    "SELECT id, organization_id FROM app_resolve_public_event_display(:slug)"
+    "SELECT id, organization_id FROM app_resolve_public_event_display(:org_slug, :slug)"
+)
+_RESOLVER_ENLACE_ANTIGUO = text(
+    "SELECT id, organization_id, organization_slug, slug "
+    "FROM app_resolve_legacy_event(:slug, :mostrar)"
 )
 
 
 async def resolve_public_event_by_slug(
-    session: AsyncSession, slug: str, *, para_mostrar: bool = False
+    session: AsyncSession,
+    slug: str,
+    *,
+    org_slug: str | None = None,
+    para_mostrar: bool = False,
 ) -> Event:
-    """Resuelve un evento público por su slug, sin ningún contexto RLS previo.
+    """Resuelve un evento público, sin ningún contexto RLS previo.
 
-    Sin dominio por organización, la organización de una página pública sale
-    del propio evento, no de ningún host (fase 2 del plan de organización sin
-    dominio). `app_resolve_public_event` es `SECURITY DEFINER` de alcance
-    mínimo: solo devuelve `(id, organization_id)`, y solo si el evento ya
-    cumple las condiciones de "publicable" (`published` + `public`) — la
-    comprobación de visibilidad va dentro de la función, no después, para que
-    un evento no publicable no revele ni que existe (mismo fail-closed que
-    usaba antes la resolución por host para un host desconocido).
+    Con `org_slug` (la URL `/{org}/{evento}`) el par organización + slug es
+    único. Sin él (enlace antiguo `/eventos/{slug}`) el slug ya no identifica
+    un evento por sí solo: se resuelve únicamente por `legacy_event_slugs`, la
+    tabla congelada al migrar, de modo que un slug que otra organización
+    reutilice después nunca secuestra un enlace antiguo.
+
+    Las dos funciones `SECURITY DEFINER` son de alcance mínimo: solo devuelven
+    `(id, organization_id)`, y solo si el evento ya cumple las condiciones de
+    «publicable» y su organización sigue activa. La comprobación va dentro de
+    la función, no después, para que un evento no publicable no revele ni que
+    existe.
 
     Fija el contexto RLS de `session` (organización **y** vacía `app.user_id`
     — solo para caminos sin autenticar). Solo debe llamarse desde routers
     públicos, nunca desde uno autenticado: sobrescribiría la organización
     activa y el usuario de la sesión en curso.
+
+    `para_mostrar=True` admite también eventos cancelados (su ficha sigue
+    visible con el aviso). Todo lo que inscribe, vende o cobra usa el valor
+    por defecto, que solo resuelve eventos publicados: así un evento
+    cancelado nunca vuelve a abrir la inscripción ni la compra.
     """
-    # `para_mostrar=True` admite también eventos cancelados (su ficha sigue
-    # visible con el aviso). Todo lo que inscribe, vende o cobra usa el valor
-    # por defecto, que solo resuelve eventos publicados: así un evento
-    # cancelado nunca vuelve a abrir la inscripción ni la compra.
-    consulta = _RESOLVER_PARA_MOSTRAR if para_mostrar else _RESOLVER_PARA_INSCRIBIR
-    fila = (
-        await session.execute(
-            consulta,
-            {"slug": slug},
-        )
-    ).first()
+    if org_slug is None:
+        consulta, parametros = _RESOLVER_ENLACE_ANTIGUO, {"slug": slug, "mostrar": para_mostrar}
+    else:
+        consulta = _RESOLVER_PARA_MOSTRAR if para_mostrar else _RESOLVER_PARA_INSCRIBIR
+        parametros = {"org_slug": org_slug, "slug": slug}
+    fila = (await session.execute(consulta, parametros)).first()
     if fila is None:
         raise NotFoundError("El evento no existe.")
 
@@ -641,6 +676,16 @@ async def resolve_public_event_by_slug(
         raise NotFoundError("El evento no existe.")
 
     return evento
+
+
+async def canonical_of_legacy_slug(session: AsyncSession, slug: str) -> tuple[str, str]:
+    """`(slug de organización, slug actual)` de un enlace antiguo `/eventos/{slug}`."""
+    fila = (
+        await session.execute(_RESOLVER_ENLACE_ANTIGUO, {"slug": slug, "mostrar": True})
+    ).first()
+    if fila is None:
+        raise NotFoundError("El evento no existe.")
+    return fila[2], fila[3]
 
 
 async def _resolver_cover_url(session: AsyncSession, evento: Event) -> str | None:
@@ -662,7 +707,9 @@ async def _resolver_cover_url(session: AsyncSession, evento: Event) -> str | Non
 
 async def list_public_events_across_organizations(
     session: AsyncSession,
-) -> list[tuple[Event, int, payments_service.PrecioPublico | None, str | None]]:
+) -> list[
+    tuple[Event, int, payments_service.PrecioPublico | None, str | None, PublicOrganizationRef]
+]:
     """Eventos publicados de **toda la instalación**, sin organización activa.
 
     Fase 6 del plan de organización sin dominio: `GET /public/events` (el
@@ -691,9 +738,12 @@ async def list_public_events_across_organizations(
         )
     ).all()
 
-    resultado: list[tuple[Event, int, payments_service.PrecioPublico | None, str | None]] = []
+    resultado: list[
+        tuple[Event, int, payments_service.PrecioPublico | None, str | None, PublicOrganizationRef]
+    ] = []
     for (organization_id,) in organizaciones:
         await set_organization_context(session, organization_id)
+        organizacion = await organizations_service.public_ref(session, organization_id)
         filas = (
             await session.execute(
                 repository.public_events_with_confirmed_count_query(organization_id)
@@ -705,7 +755,7 @@ async def list_public_events_across_organizations(
         )
         for evento, reservadas in filas:
             cover_url = await _resolver_cover_url(session, evento)
-            resultado.append((evento, reservadas, precios.get(evento.id), cover_url))
+            resultado.append((evento, reservadas, precios.get(evento.id), cover_url, organizacion))
 
     resultado.sort(key=lambda item: item[0].starts_at)
     return resultado

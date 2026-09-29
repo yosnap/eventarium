@@ -34,6 +34,7 @@ from app.modules.auth.verification import (
     generate_token,
 )
 from app.modules.events.models import Event
+from app.modules.organizations.schemas import PublicOrganizationRef
 from app.modules.payments import refunds_service as payments_refunds_service
 from app.modules.payments import repository as payments_repository
 from app.modules.policies import service as policies_service
@@ -1006,6 +1007,9 @@ async def list_mis_eventos(session: AsyncSession, *, token: str) -> list[MyRegis
             event_title=fila.event_title,
             starts_at=fila.starts_at,
             organization_name=fila.organization_name,
+            organization=PublicOrganizationRef(
+                slug=fila.organization_slug, name=fila.organization_name
+            ),
             status=fila.status,
             event_cancelled=fila.event_status == "cancelled",
         )

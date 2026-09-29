@@ -72,7 +72,7 @@ async def test_el_slug_es_unico_dentro_de_la_misma_organizacion(
     assert repetido.status_code == 409
 
 
-async def test_el_slug_es_unico_entre_organizaciones_distintas(
+async def test_el_mismo_slug_puede_usarse_en_organizaciones_distintas(
     cliente: AsyncClient,
     organizacion: OrganizacionDePrueba,
     otra_organizacion: OrganizacionDePrueba,
@@ -82,7 +82,7 @@ async def test_el_slug_es_unico_entre_organizaciones_distintas(
     await _crear_evento(cliente, cabeceras_a)
 
     repetido = await cliente.post(EVENTS, headers=cabeceras_b, json=_payload_evento())
-    assert repetido.status_code == 409
+    assert repetido.status_code == 201, repetido.text
 
 
 async def test_un_evento_archivado_no_puede_volver_a_publicarse(

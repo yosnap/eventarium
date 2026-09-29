@@ -94,7 +94,9 @@ async def _inscribir(cliente: AsyncClient, slug: str, **overrides: object):
         "turnstile_token": "token-de-prueba",
     }
     payload.update(overrides)
-    return await cliente.post(f"/api/v1/public/events/{slug}/registrations", json=payload)
+    return await cliente.post(
+        f"/api/v1/public/organizations/acme/events/{slug}/registrations", json=payload
+    )
 
 
 async def _crear_inscripcion(

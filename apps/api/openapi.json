@@ -5463,6 +5463,49 @@
         }
       }
     },
+    "/api/v1/public/events/{slug}/canonical": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Resolver un enlace antiguo de evento a su URL actual",
+        "description": "Solo resuelve slugs que existían antes de que el slug pasara a ser único por organización: un slug reutilizado después por otra organización no cambia el destino. 404 si el evento ya no es público.",
+        "operationId": "get_canonical_event_link_api_v1_public_events__slug__canonical_get",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanonicalEventLink"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/public/events": {
       "get": {
         "tags": [
@@ -5488,24 +5531,13 @@
         }
       }
     },
-    "/api/v1/public/events/{slug}": {
+    "/api/v1/public/organizations/{org_slug}/events/{slug}": {
       "get": {
         "tags": [
           "público"
         ],
         "summary": "Ver el detalle de un evento publicado",
-        "operationId": "get_public_event_api_v1_public_events__slug__get",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Slug"
-            }
-          }
-        ],
+        "operationId": "get_public_event_api_v1_public_organizations__org_slug__events__slug__get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -5516,28 +5548,68 @@
                 }
               }
             }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
           },
-          "422": {
-            "description": "Validation Error",
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/public/events/{slug}": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Ver el detalle de un evento publicado",
+        "operationId": "get_public_event_api_v1_public_events__slug__get",
+        "deprecated": true,
+        "responses": {
+          "200": {
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/PublicEventDetail"
                 }
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
       }
     },
-    "/api/v1/public/events/{slug}/sponsors/{sponsor_id}": {
+    "/api/v1/public/organizations/{org_slug}/events/{slug}/sponsors/{sponsor_id}": {
       "get": {
         "tags": [
           "público"
         ],
         "summary": "Ver la ficha pública de un patrocinador",
         "description": "Anidado bajo el evento, mismo criterio que la sesión: exige `published` + `public` además de que el patrocinador pertenezca a este evento. Nunca lleva el importe de la aportación (ver `PublicSponsor`).",
-        "operationId": "get_public_sponsor_api_v1_public_events__slug__sponsors__sponsor_id__get",
+        "operationId": "get_public_sponsor_api_v1_public_organizations__org_slug__events__slug__sponsors__sponsor_id__get",
         "parameters": [
           {
             "name": "sponsor_id",
@@ -5549,12 +5621,19 @@
             }
           },
           {
+            "name": "org_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "slug",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "title": "Slug"
+              "type": "string"
             }
           }
         ],
@@ -5582,6 +5661,117 @@
         }
       }
     },
+    "/api/v1/public/events/{slug}/sponsors/{sponsor_id}": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Ver la ficha pública de un patrocinador",
+        "description": "Anidado bajo el evento, mismo criterio que la sesión: exige `published` + `public` además de que el patrocinador pertenezca a este evento. Nunca lleva el importe de la aportación (ver `PublicSponsor`).",
+        "operationId": "get_public_sponsor_api_v1_public_events__slug__sponsors__sponsor_id__get",
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "sponsor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sponsor Id"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSponsorDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/organizations/{org_slug}/events/{slug}/sessions/{session_id}": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Ver el detalle de una sesión publicada",
+        "description": "Anidado bajo el evento: exige que el evento sea `published` + `public` además de que la propia sesión le pertenezca. Sin este anidamiento, un `id` de sesión (UUIDv7, con entropía reducida frente a un v4 dentro de una ventana de tiempo conocida) sería enumerable y filtraría agendas de eventos sin publicar.",
+        "operationId": "get_public_session_api_v1_public_organizations__org_slug__events__slug__sessions__session_id__get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "org_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSessionDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/public/events/{slug}/sessions/{session_id}": {
       "get": {
         "tags": [
@@ -5590,6 +5780,7 @@
         "summary": "Ver el detalle de una sesión publicada",
         "description": "Anidado bajo el evento: exige que el evento sea `published` + `public` además de que la propia sesión le pertenezca. Sin este anidamiento, un `id` de sesión (UUIDv7, con entropía reducida frente a un v4 dentro de una ventana de tiempo conocida) sería enumerable y filtraría agendas de eventos sin publicar.",
         "operationId": "get_public_session_api_v1_public_events__slug__sessions__session_id__get",
+        "deprecated": true,
         "parameters": [
           {
             "name": "session_id",
@@ -5605,8 +5796,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "title": "Slug"
+              "type": "string"
             }
           }
         ],
@@ -5919,24 +6109,13 @@
         }
       }
     },
-    "/api/v1/public/events/{slug}/policies": {
+    "/api/v1/public/organizations/{org_slug}/events/{slug}/policies": {
       "get": {
         "tags": [
           "público"
         ],
         "summary": "Políticas y condiciones vigentes de un evento",
-        "operationId": "get_public_event_policies_api_v1_public_events__slug__policies_get",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Slug"
-            }
-          }
-        ],
+        "operationId": "get_public_event_policies_api_v1_public_organizations__org_slug__events__slug__policies_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -5947,18 +6126,58 @@
                 }
               }
             }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
           },
-          "422": {
-            "description": "Validation Error",
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/public/events/{slug}/policies": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Políticas y condiciones vigentes de un evento",
+        "operationId": "get_public_event_policies_api_v1_public_events__slug__policies_get",
+        "deprecated": true,
+        "responses": {
+          "200": {
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/PublicEventPolicies"
                 }
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
       }
     },
     "/api/v1/events/{event_id}/registrations": {
@@ -6563,6 +6782,49 @@
         }
       }
     },
+    "/api/v1/public/organizations/{org_slug}/events/{slug}/registration-questions": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Listar las preguntas personalizadas de inscripción de un evento",
+        "operationId": "list_registration_questions_api_v1_public_organizations__org_slug__events__slug__registration_questions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RegistrationQuestionPublic"
+                  },
+                  "title": "Response List Registration Questions Api V1 Public Organizations  Org Slug  Events  Slug  Registration Questions Get"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
     "/api/v1/public/events/{slug}/registration-questions": {
       "get": {
         "tags": [
@@ -6570,17 +6832,7 @@
         ],
         "summary": "Listar las preguntas personalizadas de inscripción de un evento",
         "operationId": "list_registration_questions_api_v1_public_events__slug__registration_questions_get",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Slug"
-            }
-          }
-        ],
+        "deprecated": true,
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -6595,39 +6847,28 @@
                 }
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
-        }
-      }
-    },
-    "/api/v1/public/events/{slug}/registrations": {
-      "post": {
-        "tags": [
-          "público"
-        ],
-        "summary": "Inscribirse a un evento",
-        "description": "Da de alta una inscripción, o reencola el correo pendiente si el email ya estaba inscrito. Responde siempre igual, para no filtrar si un correo ya está inscrito.",
-        "operationId": "create_registration_api_v1_public_events__slug__registrations_post",
+        },
         "parameters": [
           {
             "name": "slug",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "title": "Slug"
+              "type": "string"
             }
           }
+        ]
+      }
+    },
+    "/api/v1/public/organizations/{org_slug}/events/{slug}/registrations": {
+      "post": {
+        "tags": [
+          "público"
         ],
+        "summary": "Inscribirse a un evento",
+        "description": "Da de alta una inscripción, o reencola el correo pendiente si el email ya estaba inscrito. Responde siempre igual, para no filtrar si un correo ya está inscrito.",
+        "operationId": "create_registration_api_v1_public_organizations__org_slug__events__slug__registrations_post",
         "requestBody": {
           "required": true,
           "content": {
@@ -6659,7 +6900,78 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "org_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/public/events/{slug}/registrations": {
+      "post": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Inscribirse a un evento",
+        "description": "Da de alta una inscripción, o reencola el correo pendiente si el email ya estaba inscrito. Responde siempre igual, para no filtrar si un correo ya está inscrito.",
+        "operationId": "create_registration_api_v1_public_events__slug__registrations_post",
+        "deprecated": true,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitRegistrationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationMessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
       }
     },
     "/api/v1/public/registrations/verify": {
@@ -8730,6 +9042,50 @@
         }
       }
     },
+    "/api/v1/public/organizations/{org_slug}/events/{slug}/ticket-types": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Listar los tipos de entrada vendibles ahora mismo",
+        "description": "Solo los tipos vigentes en este instante (activos y dentro de su ventana de venta): el paso de compra del formulario público los usa para ofrecer la selección antes de pedir un presupuesto. Sin Turnstile: no hay nada que enumerar, es la misma información que ya expone el propio evento publicado.",
+        "operationId": "list_public_ticket_types_api_v1_public_organizations__org_slug__events__slug__ticket_types_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublicTicketTypeResponse"
+                  },
+                  "title": "Response List Public Ticket Types Api V1 Public Organizations  Org Slug  Events  Slug  Ticket Types Get"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
     "/api/v1/public/events/{slug}/ticket-types": {
       "get": {
         "tags": [
@@ -8738,17 +9094,7 @@
         "summary": "Listar los tipos de entrada vendibles ahora mismo",
         "description": "Solo los tipos vigentes en este instante (activos y dentro de su ventana de venta): el paso de compra del formulario público los usa para ofrecer la selección antes de pedir un presupuesto. Sin Turnstile: no hay nada que enumerar, es la misma información que ya expone el propio evento publicado.",
         "operationId": "list_public_ticket_types_api_v1_public_events__slug__ticket_types_get",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Slug"
-            }
-          }
-        ],
+        "deprecated": true,
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -8763,39 +9109,28 @@
                 }
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
-        }
-      }
-    },
-    "/api/v1/public/events/{slug}/checkout/quote": {
-      "post": {
-        "tags": [
-          "público"
-        ],
-        "summary": "Presupuesto de compra de una entrada",
-        "description": "Calcula el precio final de un tipo de entrada, con o sin código de descuento. Nunca reserva cupo ni consume el uso de un código: es puramente informativo.",
-        "operationId": "quote_checkout_api_v1_public_events__slug__checkout_quote_post",
+        },
         "parameters": [
           {
             "name": "slug",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "title": "Slug"
+              "type": "string"
             }
           }
+        ]
+      }
+    },
+    "/api/v1/public/organizations/{org_slug}/events/{slug}/checkout/quote": {
+      "post": {
+        "tags": [
+          "público"
         ],
+        "summary": "Presupuesto de compra de una entrada",
+        "description": "Calcula el precio final de un tipo de entrada, con o sin código de descuento. Nunca reserva cupo ni consume el uso de un código: es puramente informativo.",
+        "operationId": "quote_checkout_api_v1_public_organizations__org_slug__events__slug__checkout_quote_post",
         "requestBody": {
           "required": true,
           "content": {
@@ -8827,28 +9162,88 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "org_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
       }
     },
-    "/api/v1/public/events/{slug}/checkout": {
+    "/api/v1/public/events/{slug}/checkout/quote": {
       "post": {
         "tags": [
           "público"
         ],
-        "summary": "Comprar una entrada de un evento de pago",
-        "description": "Inscripción + selección de tipo de entrada y código de descuento en una sola petición. Dos transacciones internas (T1 con bloqueos, sin red; T2 con red, sin bloqueos): nunca una llamada a Stripe con filas bloqueadas. Respuesta siempre con la misma forma, para no revelar si el email ya estaba inscrito.",
-        "operationId": "start_checkout_api_v1_public_events__slug__checkout_post",
+        "summary": "Presupuesto de compra de una entrada",
+        "description": "Calcula el precio final de un tipo de entrada, con o sin código de descuento. Nunca reserva cupo ni consume el uso de un código: es puramente informativo.",
+        "operationId": "quote_checkout_api_v1_public_events__slug__checkout_quote_post",
+        "deprecated": true,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutQuoteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutQuoteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "name": "slug",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "title": "Slug"
+              "type": "string"
             }
           }
+        ]
+      }
+    },
+    "/api/v1/public/organizations/{org_slug}/events/{slug}/checkout": {
+      "post": {
+        "tags": [
+          "público"
         ],
+        "summary": "Comprar una entrada de un evento de pago",
+        "description": "Inscripción + selección de tipo de entrada y código de descuento en una sola petición. Dos transacciones internas (T1 con bloqueos, sin red; T2 con red, sin bloqueos): nunca una llamada a Stripe con filas bloqueadas. Respuesta siempre con la misma forma, para no revelar si el email ya estaba inscrito.",
+        "operationId": "start_checkout_api_v1_public_organizations__org_slug__events__slug__checkout_post",
         "requestBody": {
           "required": true,
           "content": {
@@ -8880,6 +9275,136 @@
               }
             }
           }
+        },
+        "parameters": [
+          {
+            "name": "org_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/public/events/{slug}/checkout": {
+      "post": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Comprar una entrada de un evento de pago",
+        "description": "Inscripción + selección de tipo de entrada y código de descuento en una sola petición. Dos transacciones internas (T1 con bloqueos, sin red; T2 con red, sin bloqueos): nunca una llamada a Stripe con filas bloqueadas. Respuesta siempre con la misma forma, para no revelar si el email ya estaba inscrito.",
+        "operationId": "start_checkout_api_v1_public_events__slug__checkout_post",
+        "deprecated": true,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutStartRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutStartResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/public/organizations/{org_slug}/events/{slug}/checkout/{registration_id}/status": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Estado real de un pago, para la pantalla de retorno",
+        "description": "Consulta lo persistido, nunca da el pago por confirmado por el mero retorno desde Stripe: el webhook es la única fuente de verdad.",
+        "operationId": "get_checkout_status_api_v1_public_organizations__org_slug__events__slug__checkout__registration_id__status_get",
+        "parameters": [
+          {
+            "name": "registration_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Registration Id"
+            }
+          },
+          {
+            "name": "org_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -8891,6 +9416,7 @@
         "summary": "Estado real de un pago, para la pantalla de retorno",
         "description": "Consulta lo persistido, nunca da el pago por confirmado por el mero retorno desde Stripe: el webhook es la única fuente de verdad.",
         "operationId": "get_checkout_status_api_v1_public_events__slug__checkout__registration_id__status_get",
+        "deprecated": true,
         "parameters": [
           {
             "name": "registration_id",
@@ -8906,8 +9432,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "title": "Slug"
+              "type": "string"
             }
           }
         ],
@@ -11953,6 +12478,25 @@
         ],
         "title": "CancelarEventoIn"
       },
+      "CanonicalEventLink": {
+        "properties": {
+          "organization_slug": {
+            "type": "string",
+            "title": "Organization Slug"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          }
+        },
+        "type": "object",
+        "required": [
+          "organization_slug",
+          "slug"
+        ],
+        "title": "CanonicalEventLink",
+        "description": "Dónde vive hoy un enlace antiguo `/eventos/{slug}`."
+      },
       "CeldaDeConsentimientos": {
         "properties": {
           "semana": {
@@ -13596,6 +14140,9 @@
             "type": "string",
             "title": "Slug"
           },
+          "organization": {
+            "$ref": "#/components/schemas/PublicOrganizationRef"
+          },
           "title": {
             "type": "string",
             "title": "Title"
@@ -13629,6 +14176,7 @@
         "type": "object",
         "required": [
           "slug",
+          "organization",
           "title",
           "starts_at",
           "ends_at",
@@ -17044,6 +17592,9 @@
             "type": "string",
             "title": "Organization Name"
           },
+          "organization": {
+            "$ref": "#/components/schemas/PublicOrganizationRef"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -17069,6 +17620,7 @@
           "event_title",
           "starts_at",
           "organization_name",
+          "organization",
           "status"
         ],
         "title": "MyRegistrationItem",
@@ -19551,6 +20103,9 @@
             "type": "string",
             "title": "Slug"
           },
+          "organization": {
+            "$ref": "#/components/schemas/PublicOrganizationRef"
+          },
           "cancelled": {
             "type": "boolean",
             "title": "Cancelled",
@@ -19779,6 +20334,7 @@
         "type": "object",
         "required": [
           "slug",
+          "organization",
           "title",
           "summary",
           "description",
@@ -19967,6 +20523,9 @@
             "type": "string",
             "title": "Slug"
           },
+          "organization": {
+            "$ref": "#/components/schemas/PublicOrganizationRef"
+          },
           "title": {
             "type": "string",
             "title": "Title"
@@ -20104,6 +20663,7 @@
         "type": "object",
         "required": [
           "slug",
+          "organization",
           "title",
           "summary",
           "cover_url",
@@ -20123,6 +20683,30 @@
         ],
         "title": "PublicEventSummary",
         "description": "Evento tal y como aparece en el listado público.\n\n`reserved_count` es el número de plazas realmente reservadas: `confirmed` +\n`pending_payment` dentro de su ventana de pago + promociones de lista de\nespera dentro de su ventana de confirmación — misma regla que\n`registrations.repository.count_reserved_registrations`. Nunca se expone el\ndetalle de qué estado concreto ocupa cada plaza, solo el agregado."
+      },
+      "PublicOrganizationRef": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "page_public": {
+            "type": "boolean",
+            "title": "Page Public",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "name"
+        ],
+        "title": "PublicOrganizationRef",
+        "description": "Organización tal y como aparece en un contrato público (URL y miga).\n\n`page_public` indica si la organización tiene página pública propia; la\nmiga enlaza a `/{slug}` solo cuando es `true`."
       },
       "PublicParticipant": {
         "properties": {
@@ -20363,6 +20947,9 @@
             "type": "string",
             "title": "Event Title"
           },
+          "organization": {
+            "$ref": "#/components/schemas/PublicOrganizationRef"
+          },
           "theme": {
             "anyOf": [
               {
@@ -20389,7 +20976,8 @@
           "materials",
           "participants",
           "event_slug",
-          "event_title"
+          "event_title",
+          "organization"
         ],
         "title": "PublicSessionDetail",
         "description": "La misma sesión, con el enlace a su evento padre para la página propia."
@@ -20403,6 +20991,9 @@
           "event_title": {
             "type": "string",
             "title": "Event Title"
+          },
+          "organization": {
+            "$ref": "#/components/schemas/PublicOrganizationRef"
           },
           "session_id": {
             "type": "string",
@@ -20426,6 +21017,7 @@
         "required": [
           "event_slug",
           "event_title",
+          "organization",
           "session_id",
           "session_title",
           "starts_at",
@@ -20613,6 +21205,9 @@
             "type": "string",
             "title": "Event Title"
           },
+          "organization": {
+            "$ref": "#/components/schemas/PublicOrganizationRef"
+          },
           "history": {
             "items": {
               "$ref": "#/components/schemas/PublicSponsorHistoryItem"
@@ -20643,6 +21238,7 @@
           "tier_benefits",
           "event_slug",
           "event_title",
+          "organization",
           "history"
         ],
         "title": "PublicSponsorDetail",
@@ -20658,6 +21254,9 @@
             "type": "string",
             "title": "Event Title"
           },
+          "organization": {
+            "$ref": "#/components/schemas/PublicOrganizationRef"
+          },
           "starts_at": {
             "type": "string",
             "format": "date-time",
@@ -20672,6 +21271,7 @@
         "required": [
           "event_slug",
           "event_title",
+          "organization",
           "starts_at",
           "tier_name"
         ],

@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
-from app.modules.organizations.schemas import SLUG_PATTERN
+from app.modules.organizations.schemas import SLUG_PATTERN, PublicOrganizationRef
 from app.modules.sponsors.schemas import PublicSponsorTier
 from app.modules.theme_templates.schemas import PublicTheme, validar_theme_overrides
 
@@ -385,6 +385,13 @@ class PublicParticipant(BaseModel):
     public_slug: str | None
 
 
+class CanonicalEventLink(BaseModel):
+    """Dónde vive hoy un enlace antiguo `/eventos/{slug}`."""
+
+    organization_slug: str
+    slug: str
+
+
 class PublicEventSummary(BaseModel):
     """Evento tal y como aparece en el listado público.
 
@@ -396,6 +403,7 @@ class PublicEventSummary(BaseModel):
     """
 
     slug: str
+    organization: PublicOrganizationRef
     title: str
     summary: str | None
     cover_url: str | None
@@ -448,6 +456,7 @@ class PublicSessionDetail(PublicEventSession):
 
     event_slug: str
     event_title: str
+    organization: PublicOrganizationRef
     # Plantilla del evento padre, ya resuelta: la página la aplica igual que la
     # ficha del evento para no cambiar de aspecto al navegar dentro de él.
     theme: PublicTheme | None = None
@@ -473,6 +482,7 @@ class PublicEventDetail(BaseModel):
     """
 
     slug: str
+    organization: PublicOrganizationRef
     cancelled: bool = False
     cancellation_reason: str | None = None
     title: str

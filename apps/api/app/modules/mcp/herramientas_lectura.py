@@ -20,6 +20,7 @@ from app.modules.events.models import Event
 from app.modules.mcp import schemas
 from app.modules.mcp.contexto import ContextoMcp, ErrorDeHerramienta, contexto_actual, sesion
 from app.modules.mcp.scopes import Ambito
+from app.modules.organizations import service as organizations_service
 from app.modules.registrations import repository as registrations_repository
 from app.modules.sponsors import repository as sponsors_repository
 from app.modules.sponsors.models import SponsorTier
@@ -122,12 +123,13 @@ def registrar(mcp: MCPServer) -> None:
                 )
             }
             base = get_settings().web_base_url.rstrip("/")
+            organizacion = await organizations_service.public_ref(session, contexto.organization_id)
             return schemas.EventoDetalle(
                 **_resumen(evento).model_dump(),
                 resumen=evento.summary,
                 descripcion=evento.description,
                 zona_horaria=evento.timezone,
-                enlace_publico=f"{base}/eventos/{evento.slug}",
+                enlace_publico=f"{base}/{organizacion.slug}/{evento.slug}",
                 motivo_cancelacion=evento.cancellation_reason,
                 sedes=[
                     schemas.Sede(id=str(s.id), nombre=s.name, direccion=s.address) for s in sedes

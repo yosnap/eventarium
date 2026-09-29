@@ -48,7 +48,9 @@ from app.modules.events.models import (
     EventSessionParticipant,
     SpeakerPublicProfile,
 )
+from app.modules.events.public_deps import EVENTO_PARA_MOSTRAR, ruta_de_evento
 from app.modules.events.schemas import (
+    CanonicalEventLink,
     PublicEventDetail,
     PublicEventSession,
     PublicEventSummary,
@@ -57,6 +59,7 @@ from app.modules.events.schemas import (
     PublicVenue,
 )
 from app.modules.media.models import Media
+from app.modules.organizations import service as organizations_service
 from app.modules.organizations.models import OrganizationMember
 from app.modules.payments import service as payments_service
 from app.modules.registrations import repository as registrations_repository
@@ -189,6 +192,22 @@ async def _sedes_publicas(
 
 
 @router.get(
+    "/events/{slug}/canonical",
+    summary="Resolver un enlace antiguo de evento a su URL actual",
+    description=(
+        "Solo resuelve slugs que existían antes de que el slug pasara a ser único "
+        "por organización: un slug reutilizado después por otra organización no "
+        "cambia el destino. 404 si el evento ya no es público."
+    ),
+    response_model=CanonicalEventLink,
+    dependencies=[limit_per_ip("public-event-canonical", PUBLICO_POR_IP)],
+)
+async def get_canonical_event_link(slug: str, session: SessionDep) -> CanonicalEventLink:
+    organizacion, slug_actual = await service.canonical_of_legacy_slug(session, slug)
+    return CanonicalEventLink(organization_slug=organizacion, slug=slug_actual)
+
+
+@router.get(
     "/events",
     summary="Listar eventos publicados",
     response_model=list[PublicEventSummary],
@@ -199,6 +218,7 @@ async def list_public_events(session: SessionDep) -> list[PublicEventSummary]:
     return [
         PublicEventSummary(
             slug=evento.slug,
+            organization=organizacion,
             title=evento.title,
             summary=evento.summary,
             cover_url=cover_url,
@@ -216,14 +236,8 @@ async def list_public_events(session: SessionDep) -> list[PublicEventSummary]:
             price_currency=precio.tipo.currency if precio else None,
             price_multiple=precio.varios_precios if precio else False,
         )
-        for evento, reservadas, precio, cover_url in filas
+        for evento, reservadas, precio, cover_url, organizacion in filas
     ]
-
-
-async def _obtener_evento_publico_o_404(session: SessionDep, slug: str) -> Event:
-    # Solo lectura: la ficha, sus sesiones y patrocinadores siguen visibles en
-    # un evento cancelado.
-    return await service.resolve_public_event_by_slug(session, slug, para_mostrar=True)
 
 
 async def _sponsor_tiers_publicos(
@@ -259,14 +273,16 @@ async def _sponsor_tiers_publicos(
     return [grupos[tier_id] for tier_id in orden]
 
 
-@router.get(
-    "/events/{slug}",
+@ruta_de_evento(
+    router,
+    "get",
+    "",
     summary="Ver el detalle de un evento publicado",
     response_model=PublicEventDetail,
-    dependencies=[limit_per_ip("public-event-detail", PUBLICO_POR_IP)],
+    limite=("public-event-detail", PUBLICO_POR_IP),
 )
 async def get_public_event(
-    evento: Annotated[Event, Depends(_obtener_evento_publico_o_404)], session: SessionDep
+    evento: Annotated[Event, Depends(EVENTO_PARA_MOSTRAR)], session: SessionDep
 ) -> PublicEventDetail:
     sesiones = await _sesiones_publicas(session, evento.organization_id, evento.id)
     sedes = await _sedes_publicas(session, evento.organization_id, evento.id)
@@ -285,6 +301,7 @@ async def get_public_event(
         precio = precios.get(evento.id)
     return PublicEventDetail(
         slug=evento.slug,
+        organization=await organizations_service.public_ref(session, evento.organization_id),
         cancelled=evento.status == "cancelled",
         cancellation_reason=evento.cancellation_reason,
         title=evento.title,
@@ -314,8 +331,10 @@ async def get_public_event(
     )
 
 
-@router.get(
-    "/events/{slug}/sponsors/{sponsor_id}",
+@ruta_de_evento(
+    router,
+    "get",
+    "/sponsors/{sponsor_id}",
     summary="Ver la ficha pública de un patrocinador",
     description=(
         "Anidado bajo el evento, mismo criterio que la sesión: exige "
@@ -324,10 +343,10 @@ async def get_public_event(
         "`PublicSponsor`)."
     ),
     response_model=PublicSponsorDetail,
-    dependencies=[limit_per_ip("public-sponsor-detail", PUBLICO_POR_IP)],
+    limite=("public-sponsor-detail", PUBLICO_POR_IP),
 )
 async def get_public_sponsor(
-    evento: Annotated[Event, Depends(_obtener_evento_publico_o_404)],
+    evento: Annotated[Event, Depends(EVENTO_PARA_MOSTRAR)],
     session: SessionDep,
     sponsor_id: str,
 ) -> PublicSponsorDetail:
@@ -348,6 +367,7 @@ async def get_public_sponsor(
     if nivel is None:
         raise NotFoundError("El patrocinador no existe.")
 
+    organizacion = await organizations_service.public_ref(session, evento.organization_id)
     filas_historial = (
         await session.execute(
             sponsors_repository.public_sponsor_history_query(
@@ -367,9 +387,11 @@ async def get_public_sponsor(
         tier_benefits=nivel.benefits,
         event_slug=evento.slug,
         event_title=evento.title,
+        organization=organizacion,
         history=[
             PublicSponsorHistoryItem(
                 event_slug=otro_evento.slug,
+                organization=organizacion,
                 event_title=otro_evento.title,
                 starts_at=otro_evento.starts_at,
                 tier_name=otro_nivel.name,
@@ -380,8 +402,10 @@ async def get_public_sponsor(
     )
 
 
-@router.get(
-    "/events/{slug}/sessions/{session_id}",
+@ruta_de_evento(
+    router,
+    "get",
+    "/sessions/{session_id}",
     summary="Ver el detalle de una sesión publicada",
     description=(
         "Anidado bajo el evento: exige que el evento sea `published` + `public` "
@@ -391,10 +415,10 @@ async def get_public_sponsor(
         "eventos sin publicar."
     ),
     response_model=PublicSessionDetail,
-    dependencies=[limit_per_ip("public-session-detail", PUBLICO_POR_IP)],
+    limite=("public-session-detail", PUBLICO_POR_IP),
 )
 async def get_public_session(
-    evento: Annotated[Event, Depends(_obtener_evento_publico_o_404)],
+    evento: Annotated[Event, Depends(EVENTO_PARA_MOSTRAR)],
     session: SessionDep,
     session_id: str,
 ) -> PublicSessionDetail:
@@ -439,6 +463,7 @@ async def get_public_session(
         participants=participantes,
         event_slug=evento.slug,
         event_title=evento.title,
+        organization=await organizations_service.public_ref(session, evento.organization_id),
         theme=await service.tema_publico_del_evento(session, evento),
     )
 
@@ -486,6 +511,7 @@ async def get_public_speaker(public_slug: str, session: SessionDep) -> PublicSpe
         session, organization_id, perfil.user_id, only_published_public=True
     )
 
+    organizacion = await organizations_service.public_ref(session, organization_id)
     return PublicSpeakerProfile(
         display_name=_display_name(persona),
         public_slug=perfil.public_slug,
@@ -495,6 +521,7 @@ async def get_public_speaker(public_slug: str, session: SessionDep) -> PublicSpe
             PublicSpeakerHistoryItem(
                 event_slug=evento.slug,
                 event_title=evento.title,
+                organization=organizacion,
                 session_id=str(sesion.id),
                 session_title=sesion.title,
                 starts_at=sesion.starts_at,

@@ -11,27 +11,75 @@ from app.core.security import password_meets_complexity
 
 SLUG_PATTERN = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
 
-# Identificadores que no puede reclamar el autoservicio: colisionarían con la propia
-# instalación o con nombres que alguien podría dar por hecho que están reservados al
-# operador. Se aplica igual en `check-slug` que en la creación: la comprobación previa
-# no puede prometer disponibilidad que la creación real luego rechace.
-RESERVED_SLUGS = frozenset(
+
+class PublicOrganizationRef(BaseModel):
+    """Organización tal y como aparece en un contrato público (URL y miga).
+
+    `page_public` indica si la organización tiene página pública propia; la
+    miga enlaza a `/{slug}` solo cuando es `true`.
+    """
+
+    slug: str
+    name: str
+    # Siempre `false` hasta que la página pública de organización exista.
+    page_public: bool = False
+
+
+_RUTAS_DE_LA_APLICACION = frozenset(
     {
-        "www",
-        "api",
-        "admin",
-        "mail",
-        "app",
-        "media",
-        "static",
-        "assets",
-        "docs",
-        "status",
-        "support",
-        "help",
-        "blog",
-        "cdn",
+        "acceder", "account", "admin", "agenda", "analitica-externa", "branding",
+        "cancelar-inscripcion", "check-in", "confirmar-promocion", "contabilidad",
+        "correo", "crear-organizacion", "cuenta", "dashboard", "descuentos", "diseno",
+        "editar", "entradas", "espacio-de-trabajo", "estilo", "eventos", "events", "ia",
+        "identidad", "inscripciones", "invitacion", "legal", "legales", "mcp", "members",
+        "mi-entrada", "mis-eventos", "oauth", "organization", "pago", "patrocinadores",
+        "payments", "plantillas", "politicas", "ponentes", "recuperar-contrasena",
+        "registrations", "registro", "roles", "servicios", "sponsor-tiers", "stripe",
+        "suplantar", "usuarios", "verificar-correo", "verificar-inscripcion",
     }
+)  # fmt: skip
+_RUTAS_DEL_PROXY = frozenset({"healthz", ".well-known", "media"})
+_TERMINOS_DE_CONFIANZA = frozenset(
+    {
+        "organizaciones", "organizations", "organizador", "organizadores", "plataforma",
+        "platform", "eventarium", "oficial", "official", "soporte", "ayuda", "seguridad",
+        "security", "privacidad", "privacy", "terminos", "terms", "cookies", "pagos",
+        "facturacion", "billing", "login", "logout", "signup", "staff", "equipo", "team",
+        "root", "administrador", "administrator", "moderador", "moderator", "noreply",
+        "postmaster", "abuse", "contacto", "contact", "about", "acerca", "tickets",
+        "categorias", "categorias-de-eventos", "etiquetas", "tags", "search", "buscar",
+    }
+)  # fmt: skip
+
+# Identificadores que no puede reclamar una organización: colisionarían con una
+# ruta de la aplicación (la organización pasa a ser el primer segmento de la URL
+# pública, `/{org}/{evento}`), con el proxy inverso, con la propia instalación o
+# con nombres que alguien podría dar por hecho que son de la plataforma. Se
+# aplica igual en `check-slug`, en la creación por autoservicio y en el alta por
+# superadmin o CLI: la comprobación previa no puede prometer disponibilidad que
+# la creación real luego rechace.
+RESERVED_SLUGS = (
+    frozenset(
+        {
+            "www",
+            "api",
+            "admin",
+            "mail",
+            "app",
+            "media",
+            "static",
+            "assets",
+            "docs",
+            "status",
+            "support",
+            "help",
+            "blog",
+            "cdn",
+        }
+    )  # fmt: skip
+    | _RUTAS_DE_LA_APLICACION
+    | _RUTAS_DEL_PROXY
+    | _TERMINOS_DE_CONFIANZA
 )
 
 
