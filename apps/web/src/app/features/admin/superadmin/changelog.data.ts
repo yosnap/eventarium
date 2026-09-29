@@ -31,6 +31,42 @@ export interface ChangelogVersion {
 
 export const CHANGELOG: readonly ChangelogVersion[] = [
   {
+    version: '0.23.4',
+    fecha: '2026-09-29',
+    secciones: [
+      {
+        categoria: 'agregado',
+        items: [
+          {
+            titulo: 'Añadir el evento al calendario',
+            descripcion:
+              'Cuando una plaza queda confirmada (al verificar el correo, al aprobarla el organizador, al confirmar desde la lista de espera o al pagar), la persona puede guardar el evento en Google Calendar, Outlook o Apple Calendar. Mientras la plaza esté pendiente de aprobación, de pago o en lista de espera, o si el evento se cancela, no se le propone.',
+          },
+          {
+            titulo: 'Zona horaria con buscador',
+            descripcion:
+              'Al editar un evento, la zona horaria se elige escribiendo: la lista se filtra mientras tecleas (sin importar tildes ni mayúsculas) en lugar de obligar a recorrer cientos de opciones.',
+          },
+        ],
+      },
+      {
+        categoria: 'modificado',
+        items: [
+          {
+            titulo: 'Selector de fecha y hora del evento',
+            descripcion:
+              'La fecha se elige en un calendario y la hora se puede escribir directamente (9, 935 o 9:35) o ajustar con las flechas del teclado y con saltos de una hora o cinco minutos.',
+          },
+          {
+            titulo: 'Formulario de edición del evento más despejado',
+            descripcion:
+              'Inicio, fin y ciudad quedan en una misma fila, con modalidad y zona horaria debajo, y el formulario es más ancho para que ningún campo se pise con otro.',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.23.3',
     fecha: '2026-09-28',
     secciones: [
