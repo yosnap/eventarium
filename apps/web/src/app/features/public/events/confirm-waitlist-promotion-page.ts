@@ -6,9 +6,11 @@ import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { seoDePagina } from '../../../core/seo/meta.service';
 import { RegistrationsService } from '../../../core/registrations/registrations.service';
 import { AuthFrame } from '../../../layouts/public/auth-frame';
+import { AddToCalendar } from '../../../shared/ui/add-to-calendar';
 import { Alert } from '../../../shared/ui/alert';
 import { Card } from '../../../shared/ui/card';
 import { Reveal } from '../../../shared/ui/reveal.directive';
+import type { EventoParaCalendario } from '../../../shared/calendar/calendar-links';
 
 type Estado = 'comprobando' | 'exito' | 'error';
 
@@ -21,7 +23,7 @@ type Estado = 'comprobando' | 'exito' | 'error';
 @Component({
   selector: 'app-confirm-waitlist-promotion-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, AuthFrame, Alert, Card, Reveal],
+  imports: [TranslocoDirective, AuthFrame, AddToCalendar, Alert, Card, Reveal],
   template: `
     <ng-container *transloco="let t">
       <app-auth-frame [titulo]="t('confirmarPromocion.titulo')">
@@ -44,6 +46,10 @@ type Estado = 'comprobando' | 'exito' | 'error';
                 }
               }
             </div>
+            <!-- Fuera del aria-live: el lector anuncia el resultado, no los tres enlaces. -->
+            @if (evento(); as e) {
+              <app-add-to-calendar [evento]="e" />
+            }
           </app-card>
         </div>
       </app-auth-frame>
@@ -64,6 +70,7 @@ export class ConfirmWaitlistPromotionPage {
 
   protected readonly estado = signal<Estado>('comprobando');
   protected readonly mensaje = signal('');
+  protected readonly evento = signal<EventoParaCalendario | null>(null);
 
   constructor() {
     // La URL lleva un token de un solo uso: que ningún buscador la guarde.
@@ -85,6 +92,7 @@ export class ConfirmWaitlistPromotionPage {
     try {
       const resultado = await this.registrations.confirmWaitlistPromotion(token);
       this.mensaje.set(resultado.message);
+      this.evento.set(resultado.event ?? null);
       this.estado.set('exito');
     } catch {
       this.estado.set('error');

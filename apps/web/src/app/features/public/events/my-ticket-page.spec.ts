@@ -18,6 +18,15 @@ function rutaConToken(token: string | null) {
   return { snapshot: { queryParamMap: convertToParamMap(token ? { token } : {}) } };
 }
 
+const EVENTO = {
+  slug: 'congreso',
+  title: 'Congreso de IA',
+  starts_at: '2026-10-01T07:00:00Z',
+  ends_at: '2026-10-01T16:30:00Z',
+  timezone: 'Europe/Madrid',
+  location: 'Palacio de Congresos',
+};
+
 describe('MyTicketPage', () => {
   function configurar(registrations: Partial<RegistrationsService>, ruta: unknown) {
     TestBed.configureTestingModule({
@@ -64,6 +73,41 @@ describe('MyTicketPage', () => {
     const imagen = fixture.nativeElement.querySelector('img') as HTMLImageElement;
     expect(imagen.src).toContain('/my-ticket/qr');
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('una inscripción confirmada ofrece añadir el evento al calendario', async () => {
+    const getMyTicket = vi.fn().mockResolvedValue({
+      status: 'confirmed',
+      full_name: 'Persona de Prueba',
+      has_qr: true,
+      event: EVENTO,
+    });
+    const myTicketQrUrl = vi.fn().mockReturnValue('/api/v1/x/qr?token=abc');
+    configurar({ getMyTicket, myTicketQrUrl }, rutaConToken('token-valido'));
+
+    const fixture = TestBed.createComponent(MyTicketPage);
+    await fixture.whenStable();
+
+    const texto = fixture.nativeElement.textContent as string;
+    expect(texto).toContain('Google Calendar');
+    expect(texto).toContain('Outlook');
+    expect(texto).toContain('Apple Calendar');
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('una inscripción cancelada no ofrece el calendario', async () => {
+    const getMyTicket = vi.fn().mockResolvedValue({
+      status: 'cancelled',
+      full_name: 'Persona de Prueba',
+      has_qr: false,
+      event: null,
+    });
+    configurar({ getMyTicket }, rutaConToken('token-valido'));
+
+    const fixture = TestBed.createComponent(MyTicketPage);
+    await fixture.whenStable();
+
+    expect(fixture.nativeElement.querySelector('app-add-to-calendar')).toBeNull();
   });
 
   it('una inscripción cancelada muestra el estado sin QR', async () => {

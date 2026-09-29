@@ -12599,6 +12599,16 @@
           "message": {
             "type": "string",
             "title": "Message"
+          },
+          "event": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventCalendarInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -13579,6 +13589,54 @@
         ],
         "title": "EstructuraOut",
         "description": "Cuántas personas y roles tiene la organización, y cuántos patrocinadores."
+      },
+      "EventCalendarInfo": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Starts At"
+          },
+          "ends_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ends At"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "title",
+          "starts_at",
+          "ends_at",
+          "timezone",
+          "location"
+        ],
+        "title": "EventCalendarInfo",
+        "description": "Lo mínimo del evento para que la persona lo añada a su calendario.\n\nSolo viaja cuando la inscripción está `confirmed` (ver\n`registrations.calendar`): no es dato interno, es lo que ya se enseña en la\nficha pública del evento, entregado junto a la respuesta para no obligar al\nfrontend a pedir el evento aparte con un slug que no siempre conoce."
       },
       "EventCreate": {
         "properties": {
@@ -17046,6 +17104,16 @@
           "has_qr": {
             "type": "boolean",
             "title": "Has Qr"
+          },
+          "event": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventCalendarInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -18060,6 +18128,16 @@
               }
             ],
             "title": "Payment Status"
+          },
+          "event": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventCalendarInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -24176,6 +24254,16 @@
           "status": {
             "type": "string",
             "title": "Status"
+          },
+          "event": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventCalendarInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",

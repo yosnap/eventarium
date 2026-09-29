@@ -13,6 +13,15 @@ function rutaCon(parametros: Record<string, string>) {
   return { snapshot: { queryParamMap: convertToParamMap(parametros) } };
 }
 
+const EVENTO = {
+  slug: 'congreso',
+  title: 'Congreso de IA',
+  starts_at: '2026-10-01T07:00:00Z',
+  ends_at: '2026-10-01T16:30:00Z',
+  timezone: 'Europe/Madrid',
+  location: 'Palacio de Congresos',
+};
+
 describe('PaymentReturnPage', () => {
   function configurar(checkout: Partial<PublicCheckoutService>, ruta: unknown) {
     TestBed.configureTestingModule({
@@ -48,6 +57,35 @@ describe('PaymentReturnPage', () => {
 
     expect(fixture.nativeElement.textContent).toContain('¡Pago confirmado!');
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('con el pago confirmado ofrece añadir el evento al calendario', async () => {
+    const getStatus = vi.fn().mockResolvedValue({
+      registration_status: 'confirmed',
+      payment_status: 'paid',
+      event: EVENTO,
+    });
+    configurar({ getStatus }, rutaCon({ registration_id: 'reg-1', slug: 'iawic-2026' }));
+
+    const fixture = TestBed.createComponent(PaymentReturnPage);
+    await fixture.whenStable();
+
+    expect(fixture.nativeElement.querySelector('app-add-to-calendar')).not.toBeNull();
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('con el pago aún pendiente no ofrece el calendario', async () => {
+    const getStatus = vi.fn().mockResolvedValue({
+      registration_status: 'pending_payment',
+      payment_status: 'pending',
+      event: null,
+    });
+    configurar({ getStatus }, rutaCon({ registration_id: 'reg-1', slug: 'iawic-2026' }));
+
+    const fixture = TestBed.createComponent(PaymentReturnPage);
+    await fixture.whenStable();
+
+    expect(fixture.nativeElement.querySelector('app-add-to-calendar')).toBeNull();
   });
 
   it('sin `registration_id` ni `slug` en la URL muestra un error, sin consultar nada', async () => {

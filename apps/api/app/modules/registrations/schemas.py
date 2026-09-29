@@ -93,12 +93,31 @@ class VerifyRegistrationRequest(BaseModel):
     token: str
 
 
+class EventCalendarInfo(BaseModel):
+    """Lo mínimo del evento para que la persona lo añada a su calendario.
+
+    Solo viaja cuando la inscripción está `confirmed` (ver
+    `registrations.calendar`): no es dato interno, es lo que ya se enseña en la
+    ficha pública del evento, entregado junto a la respuesta para no obligar al
+    frontend a pedir el evento aparte con un slug que no siempre conoce.
+    """
+
+    slug: str
+    title: str
+    starts_at: datetime
+    ends_at: datetime
+    timezone: str
+    location: str | None
+
+
 class VerifyRegistrationResponse(BaseModel):
     """Resultado de verificar una inscripción."""
 
     message: str
     # confirmed | pending_approval | waitlisted
     status: str
+    # Solo con `status == "confirmed"`.
+    event: EventCalendarInfo | None = None
 
 
 class ConfirmWaitlistPromotionRequest(BaseModel):
@@ -111,6 +130,8 @@ class ConfirmWaitlistPromotionResponse(BaseModel):
     """Resultado de confirmar una promoción de lista de espera."""
 
     message: str
+    # Solo si la plaza queda `confirmed` (un evento de pago pasa a `pending_payment`).
+    event: EventCalendarInfo | None = None
 
 
 class CancelRegistrationRequest(BaseModel):

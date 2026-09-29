@@ -23,7 +23,9 @@ from app.core.database import set_organization_context
 from app.modules.auth.verification import PROPOSITO_CANCELACION_INSCRIPCION, peek_token
 from app.modules.events.models import Event
 from app.modules.registrations import repository as registrations_repository
+from app.modules.registrations.calendar import calendario_de_inscripcion
 from app.modules.registrations.models import EventRegistration
+from app.modules.registrations.schemas import EventCalendarInfo
 from app.modules.tickets import repository
 from app.modules.tickets.models import EventTicket
 from app.shared.errors import ValidationDomainError
@@ -138,6 +140,7 @@ class MiEntrada:
     status: str
     full_name: str
     tiene_qr: bool
+    evento: EventCalendarInfo | None = None
 
 
 async def _resolver_mi_entrada(
@@ -179,7 +182,10 @@ async def _resolver_mi_entrada(
 async def get_my_ticket_info(session: AsyncSession, *, token: str) -> MiEntrada:
     inscripcion, ticket = await _resolver_mi_entrada(session, token)
     return MiEntrada(
-        status=inscripcion.status, full_name=inscripcion.full_name, tiene_qr=ticket is not None
+        status=inscripcion.status,
+        full_name=inscripcion.full_name,
+        tiene_qr=ticket is not None,
+        evento=await calendario_de_inscripcion(session, inscripcion),
     )
 
 

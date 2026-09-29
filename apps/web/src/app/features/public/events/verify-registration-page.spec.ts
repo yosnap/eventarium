@@ -18,6 +18,15 @@ function rutaConToken(token: string | null) {
   return { snapshot: { queryParamMap: convertToParamMap(token ? { token } : {}) } };
 }
 
+const EVENTO = {
+  slug: 'congreso',
+  title: 'Congreso de IA',
+  starts_at: '2026-10-01T07:00:00Z',
+  ends_at: '2026-10-01T16:30:00Z',
+  timezone: 'Europe/Madrid',
+  location: 'Palacio de Congresos',
+};
+
 describe('VerifyRegistrationPage', () => {
   function configurar(registrations: Partial<RegistrationsService>, ruta: unknown) {
     TestBed.configureTestingModule({
@@ -103,6 +112,40 @@ describe('VerifyRegistrationPage', () => {
 
     expect(fixture.nativeElement.textContent).toContain('Pendiente de aprobación');
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('con la plaza confirmada ofrece añadir el evento al calendario, fuera del aria-live', async () => {
+    const verify = vi.fn().mockResolvedValue({
+      message: 'Tu inscripción está confirmada.',
+      status: 'confirmed',
+      event: EVENTO,
+    });
+    configurar({ verify }, rutaConToken('token-valido'));
+
+    const fixture = TestBed.createComponent(VerifyRegistrationPage);
+    await fixture.whenStable();
+
+    const texto = fixture.nativeElement.textContent as string;
+    expect(texto).toContain('Google Calendar');
+    expect(texto).toContain('Outlook');
+    expect(texto).toContain('Apple Calendar');
+    const zonaAnuncio = fixture.nativeElement.querySelector('[aria-live="assertive"]');
+    expect(zonaAnuncio?.textContent).not.toContain('Google Calendar');
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('pendiente de aprobación no propone el calendario: la plaza aún no es segura', async () => {
+    const verify = vi.fn().mockResolvedValue({
+      message: 'Tu inscripción está pendiente de aprobación.',
+      status: 'pending_approval',
+      event: null,
+    });
+    configurar({ verify }, rutaConToken('token-valido'));
+
+    const fixture = TestBed.createComponent(VerifyRegistrationPage);
+    await fixture.whenStable();
+
+    expect(fixture.nativeElement.querySelector('app-add-to-calendar')).toBeNull();
   });
 
   it('con un token caducado muestra el error genérico', async () => {

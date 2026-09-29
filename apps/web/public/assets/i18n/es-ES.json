@@ -34,6 +34,14 @@
     },
     "sinResultados": "Sin coincidencias"
   },
+  "calendario": {
+    "titulo": "Añade el evento a tu calendario",
+    "google": "Google Calendar",
+    "outlook": "Outlook",
+    "apple": "Apple Calendar",
+    "nuevaPestana": "(se abre en una pestaña nueva)",
+    "descargaIcs": "(descarga un archivo .ics)"
+  },
   "errores": {
     "sitioNoDisponible": "Sitio no disponible",
     "sitioNoDisponibleDetalle": "No hemos podido cargar la configuración de este sitio. Vuelve a intentarlo en unos minutos.",

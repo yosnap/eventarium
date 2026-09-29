@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../api/api.service';
+import type { EventoParaCalendario } from '../../shared/calendar/calendar-links';
 import type { RegistrationAnswerInput } from '../registrations/registrations.service';
 
 export interface PublicTicketType {
@@ -42,6 +43,8 @@ interface CheckoutStartResponse {
 export interface PaymentStatus {
   readonly registration_status: string;
   readonly payment_status: string | null;
+  /** Solo con la inscripción confirmada: lo necesario para «añadir al calendario». */
+  readonly event: EventoParaCalendario | null;
 }
 
 /**
