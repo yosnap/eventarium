@@ -420,7 +420,7 @@ EVENTOS: list[dict[str, Any]] = [
         ],
         # Agenda densa a propósito: 3 sedes × 3 días con varias sesiones cada
         # una (mañana y tarde), para que la parrilla del programa multisede
-        # (`/eventos/demo-multisede-tres/programa`) tenga contenido real en
+        # (`/{org}/demo-multisede-tres/programa`) tenga contenido real en
         # casi cada franja y sea el caso de prueba que demuestra el tablero
         # dinámico completo, no solo su esqueleto.
         "sesiones": [

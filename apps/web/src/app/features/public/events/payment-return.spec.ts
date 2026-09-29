@@ -98,6 +98,19 @@ describe('PaymentReturnPage', () => {
     expect(fixture.nativeElement.querySelector('app-add-to-calendar')).toBeNull();
   });
 
+  it('un slug con forma de ruta en la URL se descarta: no se consulta nada', async () => {
+    const getStatus = vi.fn();
+    configurar(
+      { getStatus },
+      rutaCon({ registration_id: 'reg-1', org: 'acme', slug: '../../admin' }),
+    );
+
+    const fixture = TestBed.createComponent(PaymentReturnPage);
+    await fixture.whenStable();
+
+    expect(getStatus).not.toHaveBeenCalled();
+  });
+
   it('sin `registration_id` ni `slug` en la URL muestra un error, sin consultar nada', async () => {
     const getStatus = vi.fn();
     configurar({ getStatus }, rutaCon({}));

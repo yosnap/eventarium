@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, type OnDestroy, inject, signal } fr
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
-import { rutaDeVueltaAlEvento } from '../../../core/routing/rutas-publicas';
+import { rutaDeVueltaAlEvento, slugValido } from '../../../core/routing/rutas-publicas';
 import { seoDePagina } from '../../../core/seo/meta.service';
 import { PublicCheckoutService } from '../../../core/payments/public-checkout.service';
 import { AddToCalendar } from '../../../shared/ui/add-to-calendar';
@@ -128,8 +128,8 @@ export class PaymentReturnPage implements OnDestroy {
     const parametros = this.ruta.snapshot.queryParamMap;
     // `org` falta en los pagos iniciados antes de que la organización entrara
     // en la URL: se resuelven por el slug antiguo.
-    this.org = parametros.get('org');
-    this.slug = parametros.get('slug');
+    this.org = slugValido(parametros.get('org'));
+    this.slug = slugValido(parametros.get('slug'));
     this.registrationId = parametros.get('registration_id');
     if (!this.slug || !this.registrationId) {
       this.estado.set('error');

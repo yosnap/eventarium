@@ -1,7 +1,7 @@
 import { type Route, type UrlMatcher, UrlSegment, type UrlSegmentGroup } from '@angular/router';
 import { describe, expect, it } from 'vitest';
 
-import { apiEvento, coincideConEvento, rutaEvento, urlEvento } from './rutas-publicas';
+import { apiEvento, coincideConEvento, rutaEvento, slugValido, urlEvento } from './rutas-publicas';
 
 const aplicar = (matcher: UrlMatcher, ...partes: string[]) =>
   matcher(
@@ -18,6 +18,14 @@ describe('rutas-publicas', () => {
     expect(apiEvento('acme', 'iawic', '/policies')).toBe(
       '/public/organizations/acme/events/iawic/policies',
     );
+  });
+
+  it('slugValido devuelve el valor solo si es un slug', () => {
+    expect(slugValido('acme')).toBe('acme');
+    expect(slugValido(null)).toBeNull();
+    expect(slugValido('../../admin')).toBeNull();
+    expect(slugValido('Acme')).toBeNull();
+    expect(slugValido('')).toBeNull();
   });
 
   it('el matcher toma organización y evento, y los parámetros del resto', () => {

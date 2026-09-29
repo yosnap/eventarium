@@ -31,6 +31,52 @@ export interface ChangelogVersion {
 
 export const CHANGELOG: readonly ChangelogVersion[] = [
   {
+    version: '0.24.0',
+    fecha: '2026-09-30',
+    secciones: [
+      {
+        categoria: 'agregado',
+        items: [
+          {
+            titulo: 'La organización, en la dirección del evento',
+            descripcion:
+              'Los eventos pasan a vivir en /{organización}/{evento}, y la ficha, el programa, las sesiones, los patrocinadores, las políticas y la inscripción muestran una miga «Inicio › Organización › Evento». Los enlaces antiguos (/eventos/{evento}) siguen funcionando: redirigen a la dirección nueva conservando el resto de la ruta. El identificador de un evento solo tiene que ser único dentro de su organización.',
+          },
+          {
+            titulo: 'Página pública de la organización',
+            descripcion:
+              'Cada organización puede publicar su propia página en /{organización}, con su logotipo, descripción, web, dirección, redes y sus eventos próximos y pasados. Está desactivada por defecto: se activa en «Organización», donde se ve la lista exacta de datos que se harán públicos (la razón social y el correo de contacto nunca se publican). Sin ella, los eventos siguen siendo públicos y la organización aparece en la miga como texto.',
+          },
+          {
+            titulo: 'Dirección de la organización',
+            descripcion:
+              'La organización puede indicar una dirección postal, que solo se hace pública si activa su página.',
+          },
+        ],
+      },
+      {
+        categoria: 'modificado',
+        items: [
+          {
+            titulo: 'Identificadores reservados',
+            descripcion:
+              'Al crear una organización ya no se pueden usar nombres que coincidan con secciones de la plataforma (eventos, legal, admin…), porque el identificador de la organización es ahora el primer tramo de la dirección.',
+          },
+          {
+            titulo: 'Sitio web con http:// o https://',
+            descripcion:
+              'El sitio web de la organización debe empezar por http:// o https://. Los que estaban guardados sin ello se corrigen solos al instalar esta versión.',
+          },
+          {
+            titulo: 'Directorio de eventos con la organización',
+            descripcion:
+              'Cada evento del directorio muestra el nombre de la organización que lo publica, y «Mis eventos» enlaza a la dirección nueva.',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.23.4',
     fecha: '2026-09-29',
     secciones: [

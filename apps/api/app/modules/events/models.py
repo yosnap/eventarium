@@ -393,8 +393,9 @@ class SpeakerPublicProfile(Base, TimestampMixin):
         UniqueConstraint(
             "organization_id", "user_id", name="uq_speaker_public_profiles_organization_id_user_id"
         ),
-        # Igual que `events.slug`: sin dominio por organización, único en toda
-        # la instalación.
+        # A diferencia de `events.slug` (único por organización), el slug público
+        # del ponente sigue siendo único en toda la instalación: `/ponentes/{slug}`
+        # no lleva la organización en la URL.
         UniqueConstraint("public_slug", name="uq_speaker_public_profiles_public_slug"),
         # Compuesta contra `(id, organization_id)` de `organization_members`: la
         # membresía de origen de la biografía debe pertenecer a esta misma

@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
-import { rutaDeVueltaAlEvento } from '../../../core/routing/rutas-publicas';
+import { rutaDeVueltaAlEvento, slugValido } from '../../../core/routing/rutas-publicas';
 import { seoDePagina } from '../../../core/seo/meta.service';
 import { Alert } from '../../../shared/ui/alert';
 import { Card } from '../../../shared/ui/card';
@@ -55,8 +55,8 @@ export class PaymentCancelledPage {
   private readonly transloco = inject(TranslocoService);
   private readonly ruta = inject(ActivatedRoute);
 
-  protected readonly org: string | null = this.ruta.snapshot.queryParamMap.get('org');
-  protected readonly slug: string | null = this.ruta.snapshot.queryParamMap.get('slug');
+  protected readonly org: string | null = slugValido(this.ruta.snapshot.queryParamMap.get('org'));
+  protected readonly slug: string | null = slugValido(this.ruta.snapshot.queryParamMap.get('slug'));
   protected readonly volverAlEvento = rutaDeVueltaAlEvento;
 
   constructor() {

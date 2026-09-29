@@ -23,6 +23,11 @@ export const coincideConOrganizacion: UrlMatcher = (segmentos: UrlSegment[]) => 
   return { consumed: [limpio], posParams: { org: limpio } };
 };
 
+/** El valor si es un slug válido; `null` si falta o no lo es (viene de la URL, no se fía). */
+export function slugValido(valor: string | null): string | null {
+  return valor !== null && PATRON_SLUG.test(valor) ? valor : null;
+}
+
 /** Ruta de Angular hacia una página del evento: `rutaEvento('acme', 'iawic', 'programa')`. */
 export function rutaEvento(org: string, slug: string, ...resto: (string | number)[]): string[] {
   return ['/', org, slug, ...resto.map(String)];
@@ -38,9 +43,9 @@ export function rutaDeVueltaAlEvento(org: string | null, slug: string): string[]
 }
 
 /**
- * Ruta de Angular hacia la página pública de una organización. Aún no existe
- * la ruta `/:org`: solo se enlaza cuando `page_public` es `true`, y eso ocurre
- * a partir de la página pública de organización.
+ * Ruta de Angular hacia la página pública de una organización. Solo se enlaza
+ * cuando `page_public` es `true` (la organización activó su página); la ruta
+ * `/:org` la resuelve `coincideConOrganizacion`.
  */
 export function rutaOrganizacion(org: string): string[] {
   return ['/', org];

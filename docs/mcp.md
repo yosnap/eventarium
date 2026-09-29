@@ -37,7 +37,8 @@ eventos concretos; en ese caso no puede crear eventos nuevos.
 ## Herramientas
 
 - Lectura: `listar_eventos`, `ver_evento`, `cifras_de_inscripcion`,
-  `listar_niveles_de_patrocinio`.
+  `listar_niveles_de_patrocinio`. `ver_evento` devuelve `enlace_publico` con la
+  URL pública del evento, `/{organización}/{evento}`.
 - Escritura: `crear_evento`, `editar_evento`, `anadir_sesion`,
   `editar_sesion`, `quitar_sesion`, `anadir_sede`, `anadir_patrocinador`,
   `editar_patrocinador`.
