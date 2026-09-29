@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import delete, select, text
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -705,6 +705,29 @@ async def _resolver_cover_url(session: AsyncSession, evento: Event) -> str | Non
     return None
 
 
+async def _resolver_portadas(session: AsyncSession, eventos: list[Event]) -> dict[uuid.UUID, str]:
+    """Portada de cada evento de la página con una sola consulta a `Media`.
+
+    Mismo criterio que `_resolver_cover_url`, sin una consulta por evento. Vale
+    cuando todos los eventos comparten el contexto RLS ya fijado.
+    """
+    ids_de_medios = {e.cover_media_id for e in eventos if e.cover_media_id is not None}
+    medios: dict[uuid.UUID, Media] = {}
+    if ids_de_medios:
+        filas = await session.scalars(select(Media).where(Media.id.in_(ids_de_medios)))
+        medios = {medio.id: medio for medio in filas}
+    almacen = get_storage()
+    portadas: dict[uuid.UUID, str] = {}
+    for evento in eventos:
+        if evento.cover_media_id is not None:
+            medio = medios.get(evento.cover_media_id)
+            if medio is not None:
+                portadas[evento.id] = public_url_versionada(medio.object_key, medio.updated_at)
+        elif evento.cover_object_key:
+            portadas[evento.id] = almacen.public_url(evento.cover_object_key)
+    return portadas
+
+
 async def list_public_events_across_organizations(
     session: AsyncSession,
 ) -> list[
@@ -806,3 +829,52 @@ async def tema_publico_del_evento(session: AsyncSession, evento: Event) -> Publi
     if evento.theme_overrides:
         tokens = fusionar_overrides(tokens, evento.theme_overrides)
     return PublicTheme(id=str(fila[0]), key=fila[1], name=fila[2], tokens=tokens)
+
+
+async def list_public_events_of_organization(
+    session: AsyncSession,
+    organization_id: uuid.UUID,
+    *,
+    upcoming: bool,
+    limit: int,
+    offset: int,
+) -> tuple[list[tuple[Event, int, payments_service.PrecioPublico | None, str | None]], int]:
+    """Eventos publicados de **una** organización, próximos o pasados, paginados.
+
+    Fija el contexto RLS de esa organización y no recorre las demás. Los
+    próximos son los que aún no han terminado, del más cercano al más lejano;
+    los pasados, del más reciente al más antiguo. Reutiliza la misma consulta
+    que el listado de toda la instalación, con el filtro de publicación
+    explícito. Devuelve las filas de la página y el total.
+    """
+    await set_organization_context(session, organization_id)
+    ahora = func.now()
+    if upcoming:
+        condicion = Event.ends_at >= ahora
+        orden = (Event.starts_at.asc(), Event.id.asc())
+    else:
+        condicion = Event.ends_at < ahora
+        orden = (Event.starts_at.desc(), Event.id.desc())
+
+    base = repository.public_events_with_confirmed_count_query(organization_id)
+    total = await session.scalar(
+        select(func.count()).select_from(
+            repository.public_events_query(organization_id).where(condicion).subquery()
+        )
+    )
+    filas = (
+        await session.execute(
+            base.where(condicion).order_by(None).order_by(*orden).limit(limit).offset(offset)
+        )
+    ).all()
+
+    ids_de_pago = [evento.id for evento, _ in filas if evento.registration_mode == "paid"]
+    precios = await payments_service.get_min_public_prices(
+        session, organization_id=organization_id, event_ids=ids_de_pago
+    )
+    portadas = await _resolver_portadas(session, [evento for evento, _ in filas])
+    resultado = [
+        (evento, reservadas, precios.get(evento.id), portadas.get(evento.id))
+        for evento, reservadas in filas
+    ]
+    return resultado, int(total or 0)

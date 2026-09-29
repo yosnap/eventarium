@@ -10,6 +10,19 @@ import { type UrlMatcher, type UrlMatchResult, UrlSegment } from '@angular/route
  * `/foo.php` o `/.env` nunca se traten como una organización. */
 export const PATRON_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
+/**
+ * Matcher de `/:org` (página pública de una organización): un solo segmento que
+ * cumpla `PATRON_SLUG`. Sin parámetros matriz, por la misma razón que el del
+ * evento.
+ */
+export const coincideConOrganizacion: UrlMatcher = (segmentos: UrlSegment[]) => {
+  if (segmentos.length !== 1 || !PATRON_SLUG.test(segmentos[0].path)) {
+    return null;
+  }
+  const limpio = new UrlSegment(segmentos[0].path, {});
+  return { consumed: [limpio], posParams: { org: limpio } };
+};
+
 /** Ruta de Angular hacia una página del evento: `rutaEvento('acme', 'iawic', 'programa')`. */
 export function rutaEvento(org: string, slug: string, ...resto: (string | number)[]): string[] {
   return ['/', org, slug, ...resto.map(String)];

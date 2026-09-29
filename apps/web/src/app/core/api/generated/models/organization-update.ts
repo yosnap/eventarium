@@ -6,9 +6,11 @@
  * Campos editables de la organización.
  */
 export interface OrganizationUpdate {
+  address?: (string | null);
   contact_email?: (string | null);
   description?: (string | null);
   legal_name?: (string | null);
   name?: (string | null);
+  public_page_enabled?: (boolean | null);
   website?: (string | null);
 }

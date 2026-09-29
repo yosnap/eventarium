@@ -979,6 +979,129 @@
         }
       }
     },
+    "/api/v1/public/organizations/{org_slug}": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Perfil público de una organización",
+        "description": "404 si la organización no existe, está inactiva o no activó su página pública.",
+        "operationId": "get_public_organization_api_v1_public_organizations__org_slug__get",
+        "parameters": [
+          {
+            "name": "org_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Org Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicOrganizationProfile"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/organizations/{org_slug}/events": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Eventos públicos de una organización",
+        "description": "Próximos (los que aún no han terminado, del más cercano al más lejano) o pasados (del más reciente al más antiguo), paginados. Solo `published` + `public`. Mismo 404 que el perfil si la página no está activa.",
+        "operationId": "list_public_organization_events_api_v1_public_organizations__org_slug__events_get",
+        "parameters": [
+          {
+            "name": "org_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Org Slug"
+            }
+          },
+          {
+            "name": "when",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "upcoming",
+                "past"
+              ],
+              "type": "string",
+              "default": "upcoming",
+              "title": "When"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 12,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_PublicEventSummary_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/public/invitations/{token}": {
       "get": {
         "tags": [
@@ -18131,6 +18254,21 @@
             ],
             "title": "Contact Email"
           },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "public_page_enabled": {
+            "type": "boolean",
+            "title": "Public Page Enabled"
+          },
           "is_active": {
             "type": "boolean",
             "title": "Is Active"
@@ -18141,6 +18279,7 @@
           "id",
           "slug",
           "name",
+          "public_page_enabled",
           "is_active"
         ],
         "title": "OrganizationResponse",
@@ -18241,7 +18380,8 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 300
+                "maxLength": 300,
+                "pattern": "^https?://\\S+$"
               },
               {
                 "type": "null"
@@ -18260,6 +18400,29 @@
               }
             ],
             "title": "Contact Email"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "public_page_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Page Enabled"
           }
         },
         "type": "object",
@@ -18420,6 +18583,37 @@
           "offset"
         ],
         "title": "Page[PlatformUserSummary]"
+      },
+      "Page_PublicEventSummary_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PublicEventSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[PublicEventSummary]"
       },
       "Page_RegistrationListItem_": {
         "properties": {
@@ -20684,6 +20878,81 @@
         "title": "PublicEventSummary",
         "description": "Evento tal y como aparece en el listado público.\n\n`reserved_count` es el número de plazas realmente reservadas: `confirmed` +\n`pending_payment` dentro de su ventana de pago + promociones de lista de\nespera dentro de su ventana de confirmación — misma regla que\n`registrations.repository.count_reserved_registrations`. Nunca se expone el\ndetalle de qué estado concreto ocupa cada plaza, solo el agregado."
       },
+      "PublicOrganizationProfile": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "website": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Website"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "logo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Url"
+          },
+          "social_links": {
+            "items": {
+              "$ref": "#/components/schemas/PublicSocialLink"
+            },
+            "type": "array",
+            "title": "Social Links"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "name",
+          "description",
+          "website",
+          "address",
+          "logo_url",
+          "social_links"
+        ],
+        "title": "PublicOrganizationProfile",
+        "description": "Lo único que una organización hace público con su página `/{slug}`.\n\nEsquema explícito, sin `from_attributes` y sin reutilizar\n`OrganizationResponse`: un campo nuevo en el modelo no llega aquí por\naccidente. Nunca `legal_name` ni `contact_email`."
+      },
       "PublicOrganizationRef": {
         "properties": {
           "slug": {
@@ -20981,6 +21250,24 @@
         ],
         "title": "PublicSessionDetail",
         "description": "La misma sesión, con el enlace a su evento padre para la página propia."
+      },
+      "PublicSocialLink": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "url"
+        ],
+        "title": "PublicSocialLink"
       },
       "PublicSpeakerHistoryItem": {
         "properties": {

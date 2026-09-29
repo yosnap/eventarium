@@ -21,7 +21,8 @@ class PublicOrganizationRef(BaseModel):
 
     slug: str
     name: str
-    # Siempre `false` hasta que la página pública de organización exista.
+    # `true` si la organización activó su página pública (`/{slug}`): la miga
+    # solo enlaza a ella en ese caso.
     page_public: bool = False
 
 
@@ -96,6 +97,10 @@ class OrganizationResponse(BaseModel):
     website: str | None = None
     # str, no EmailStr: misma razón que MemberResponse.email.
     contact_email: str | None = None
+    address: str | None = None
+    # Sin valor por defecto: un constructor que se olvide de pasarlo falla en
+    # tipos en vez de devolver un `false` falso.
+    public_page_enabled: bool
     is_active: bool
 
 
@@ -105,8 +110,25 @@ class OrganizationUpdate(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=160)] | None = None
     legal_name: Annotated[str, Field(max_length=200)] | None = None
     description: str | None = None
-    website: Annotated[str, Field(max_length=300)] | None = None
+    website: Annotated[str, Field(max_length=300, pattern=r"^https?://\S+$")] | None = None
     contact_email: EmailStr | None = None
+    address: Annotated[str, Field(max_length=300)] | None = None
+    public_page_enabled: bool | None = None
+
+    @field_validator("address")
+    @classmethod
+    def _direccion_sin_blancos(cls, valor: str | None) -> str | None:
+        # Una dirección de solo espacios se guarda como «sin dirección».
+        return (valor.strip() or None) if valor is not None else None
+
+    @field_validator("public_page_enabled")
+    @classmethod
+    def _sin_null_en_el_interruptor(cls, valor: bool | None) -> bool | None:
+        # Columna `NOT NULL`: un `null` explícito no significa «sin cambios»
+        # (eso ya lo cubre `exclude_unset`), significa un valor inválido.
+        if valor is None:
+            raise ValueError("`public_page_enabled` no admite `null`.")
+        return valor
 
 
 class SocialLinkInput(BaseModel):
@@ -317,3 +339,25 @@ class CheckSlugResponse(BaseModel):
     """Disponibilidad de un identificador de organización."""
 
     available: bool
+
+
+class PublicSocialLink(BaseModel):
+    kind: str
+    url: str
+
+
+class PublicOrganizationProfile(BaseModel):
+    """Lo único que una organización hace público con su página `/{slug}`.
+
+    Esquema explícito, sin `from_attributes` y sin reutilizar
+    `OrganizationResponse`: un campo nuevo en el modelo no llega aquí por
+    accidente. Nunca `legal_name` ni `contact_email`.
+    """
+
+    slug: str
+    name: str
+    description: str | None
+    website: str | None
+    address: str | None
+    logo_url: str | None
+    social_links: list[PublicSocialLink]

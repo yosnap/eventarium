@@ -1008,7 +1008,9 @@ async def list_mis_eventos(session: AsyncSession, *, token: str) -> list[MyRegis
             starts_at=fila.starts_at,
             organization_name=fila.organization_name,
             organization=PublicOrganizationRef(
-                slug=fila.organization_slug, name=fila.organization_name
+                slug=fila.organization_slug,
+                name=fila.organization_name,
+                page_public=fila.organization_page_public,
             ),
             status=fila.status,
             event_cancelled=fila.event_status == "cancelled",

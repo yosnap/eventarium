@@ -2,6 +2,7 @@ import { type Route, UrlSegment, type UrlSegmentGroup } from '@angular/router';
 import { describe, expect, it } from 'vitest';
 
 import { routes } from './app.routes';
+import { coincideConOrganizacion } from './core/routing/rutas-publicas';
 
 /**
  * Resuelve una URL contra el árbol público como lo haría el router: primer
@@ -33,7 +34,9 @@ function ruta(url: string): Route | undefined {
 
 const esComodin = (r: Route | undefined) => r?.path === '**';
 const esEnlaceAntiguo = (r: Route | undefined) => !!r?.matcher && !!r.canActivate;
-const esEventoDeOrganizacion = (r: Route | undefined) => !!r?.matcher && !r.canActivate;
+const esEventoDeOrganizacion = (r: Route | undefined) =>
+  !!r?.matcher && !r.canActivate && r.matcher !== coincideConOrganizacion;
+const esPaginaDeOrganizacion = (r: Route | undefined) => r?.matcher === coincideConOrganizacion;
 
 describe('rutas públicas', () => {
   it.each([
@@ -69,6 +72,15 @@ describe('rutas públicas', () => {
     'acme/iawic/patrocinadores/p1',
   ])('/%s es una página de evento de organización', (url) => {
     expect(esEventoDeOrganizacion(ruta(url))).toBe(true);
+  });
+
+  it.each(['acme', 'mi-organizacion'])('/%s es la página pública de una organización', (url) => {
+    expect(esPaginaDeOrganizacion(ruta(url))).toBe(true);
+  });
+
+  it('/eventos sigue siendo el directorio, no una organización llamada «eventos»', () => {
+    expect(esPaginaDeOrganizacion(ruta('eventos'))).toBe(false);
+    expect(ruta('eventos')?.path).toBe('eventos');
   });
 
   it.each(['foo.php', '.env', 'acme/index.html', 'wp-admin/setup.php', 'Acme/Iawic', 'a/b/c/d/e'])(

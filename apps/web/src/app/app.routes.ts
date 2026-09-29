@@ -4,7 +4,7 @@ import { authGuard } from './core/auth/auth.guard';
 import { guestGuard } from './core/auth/guest.guard';
 import { personalPlataformaGuard } from './core/auth/personal-plataforma.guard';
 import { superadminGuard } from './core/auth/superadmin.guard';
-import { coincideConEvento } from './core/routing/rutas-publicas';
+import { coincideConEvento, coincideConOrganizacion } from './core/routing/rutas-publicas';
 import { coincideConEnlaceAntiguo, enlaceAntiguo } from './features/public/events/enlace-antiguo';
 
 export const routes: Routes = [
@@ -560,6 +560,16 @@ export const routes: Routes = [
         matcher: coincideConEvento('inscribirse'),
         loadComponent: () =>
           import('./features/public/events/registration-page').then((m) => m.RegistrationPage),
+      },
+      // `/{org}`: página pública de la organización (opt-in). Detrás de todo lo
+      // estático y de las rutas de evento; si la organización no activó su
+      // página, la propia página responde 404.
+      {
+        matcher: coincideConOrganizacion,
+        loadComponent: () =>
+          import('./features/public/organization/organization-public-page').then(
+            (m) => m.OrganizationPublicPage,
+          ),
       },
       // Cualquier otra cosa: 404 real dentro de la cabecera y el pie públicos.
       {

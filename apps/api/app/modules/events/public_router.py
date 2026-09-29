@@ -49,6 +49,7 @@ from app.modules.events.models import (
     SpeakerPublicProfile,
 )
 from app.modules.events.public_deps import EVENTO_PARA_MOSTRAR, ruta_de_evento
+from app.modules.events.public_summary import resumen_publico
 from app.modules.events.schemas import (
     CanonicalEventLink,
     PublicEventDetail,
@@ -216,26 +217,7 @@ async def get_canonical_event_link(slug: str, session: SessionDep) -> CanonicalE
 async def list_public_events(session: SessionDep) -> list[PublicEventSummary]:
     filas = await service.list_public_events_across_organizations(session)
     return [
-        PublicEventSummary(
-            slug=evento.slug,
-            organization=organizacion,
-            title=evento.title,
-            summary=evento.summary,
-            cover_url=cover_url,
-            timezone=evento.timezone,
-            starts_at=evento.starts_at,
-            ends_at=evento.ends_at,
-            location_mode=evento.location_mode,  # type: ignore[arg-type]
-            location_name=evento.location_name,
-            city=evento.city,
-            registration_mode=evento.registration_mode,  # type: ignore[arg-type]
-            registration_opens_at=evento.registration_opens_at,
-            capacity=evento.capacity,
-            reserved_count=reservadas,
-            price_from_cents=precio.tipo.price_cents if precio else None,
-            price_currency=precio.tipo.currency if precio else None,
-            price_multiple=precio.varios_precios if precio else False,
-        )
+        resumen_publico(evento, reservadas, precio, cover_url, organizacion)
         for evento, reservadas, precio, cover_url, organizacion in filas
     ]
 

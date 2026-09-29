@@ -78,6 +78,17 @@
       },
       "eventoCancelado": "Evento cancelado por la organización"
     },
+    "organizacion": {
+      "rotulo": "Organización",
+      "proximos": "Próximos eventos",
+      "pasados": "Eventos pasados",
+      "sinProximos": "Ahora mismo no hay eventos próximos.",
+      "sinPasados": "Todavía no hay eventos pasados.",
+      "verMas": "Ver más",
+      "noEncontrada": "Esta organización no tiene página pública.",
+      "verEventos": "Ver todos los eventos",
+      "descripcionPorDefecto": "Eventos de {{nombre}}."
+    },
     "noEncontrada": {
       "mensaje": "No hemos encontrado esa página.",
       "temporal": "No hemos podido comprobar ese enlace ahora mismo. Inténtalo de nuevo en unos minutos.",
@@ -946,6 +957,25 @@
       "correoContacto": "Correo de contacto",
       "nombreRequerido": "Escribe el nombre de la organización.",
       "correoInvalido": "Escribe un correo electrónico válido.",
+      "webInvalida": "Escribe una dirección que empiece por http:// o https://.",
+      "direccion": "Dirección",
+      "paginaPublica": {
+        "titulo": "Página pública",
+        "activar": "Publicar la página de la organización",
+        "pista": "Desactivada por defecto. Sin ella, tus eventos siguen siendo públicos; solo desaparece tu página propia.",
+        "seHaraPublico": "Al activarla se harán públicos exactamente estos datos:",
+        "campos": {
+          "nombre": "El nombre",
+          "descripcion": "La descripción",
+          "web": "El sitio web",
+          "direccion": "La dirección",
+          "logo": "El logotipo",
+          "redes": "Las redes sociales de la marca",
+          "eventos": "Tus eventos públicos, próximos y pasados"
+        },
+        "noSePublica": "La razón social y el correo de contacto nunca se publican.",
+        "ver": "Ver mi página"
+      },
       "guardando": "Guardando…",
       "guardado": "Cambios guardados.",
       "error": "No hemos podido guardar los cambios.",
