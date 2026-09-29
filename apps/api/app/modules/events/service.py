@@ -831,6 +831,11 @@ async def tema_publico_del_evento(session: AsyncSession, evento: Event) -> Publi
     return PublicTheme(id=str(fila[0]), key=fila[1], name=fila[2], tokens=tokens)
 
 
+# Los cancelados siguen visibles en la página de la organización, marcados como
+# cancelados: no desaparecen de su historial.
+_ESTADOS_EN_LA_PAGINA_DE_ORGANIZACION = ("published", "cancelled")
+
+
 async def list_public_events_of_organization(
     session: AsyncSession,
     organization_id: uuid.UUID,
@@ -856,10 +861,14 @@ async def list_public_events_of_organization(
         condicion = Event.ends_at < ahora
         orden = (Event.starts_at.desc(), Event.id.desc())
 
-    base = repository.public_events_with_confirmed_count_query(organization_id)
+    base = repository.public_events_with_confirmed_count_query(
+        organization_id, _ESTADOS_EN_LA_PAGINA_DE_ORGANIZACION
+    )
     total = await session.scalar(
         select(func.count()).select_from(
-            repository.public_events_query(organization_id).where(condicion).subquery()
+            repository.public_events_query(organization_id, _ESTADOS_EN_LA_PAGINA_DE_ORGANIZACION)
+            .where(condicion)
+            .subquery()
         )
     )
     filas = (

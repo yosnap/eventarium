@@ -20,9 +20,10 @@ const PERFIL = {
   social_links: [{ kind: 'linkedin', url: 'https://linkedin.com/company/acme' }],
 };
 
-function evento(slug: string, titulo: string) {
+function evento(slug: string, titulo: string, cancelado = false) {
   return {
     slug,
+    cancelled: cancelado,
     organization: { slug: 'acme' },
     title: titulo,
     summary: null,
@@ -97,6 +98,20 @@ describe('OrganizationPublicPage', () => {
       (a as HTMLAnchorElement).getAttribute('href'),
     );
     expect(enlaces).toEqual(['/acme/proximo', '/acme/viejo']);
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('un evento cancelado sigue en la lista, marcado como cancelado', async () => {
+    const fixture = abrir();
+    fixture.detectChanges();
+    responder([evento('a', 'Vigente'), evento('b', 'Suspendido', true)], []);
+    await avanzar(fixture);
+
+    const tarjetas = [...fixture.nativeElement.querySelectorAll('a.ev')] as HTMLElement[];
+    expect(tarjetas).toHaveLength(2);
+    expect(tarjetas[0].textContent).not.toContain('Cancelado');
+    expect(tarjetas[1].textContent).toContain('Suspendido');
+    expect(tarjetas[1].textContent).toContain('Cancelado');
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 

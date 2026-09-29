@@ -13,6 +13,7 @@ import { PublicOrganizationRef } from '../models/public-organization-ref';
  * detalle de qué estado concreto ocupa cada plaza, solo el agregado.
  */
 export interface PublicEventSummary {
+  cancelled?: boolean;
   capacity: (number | null);
   city: (string | null);
   cover_url: (string | null);

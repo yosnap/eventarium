@@ -21,6 +21,7 @@ import { seoDePagina } from '../../../core/seo/meta.service';
 import { NotFoundStatusService } from '../../../core/ssr/not-found-status.service';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
+import { Chip } from '../../../shared/ui/chip';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 
 interface PerfilPublico {
@@ -35,6 +36,7 @@ interface PerfilPublico {
 
 interface EventoDeLaOrganizacion {
   readonly slug: string;
+  readonly cancelled?: boolean;
   readonly organization: { readonly slug: string };
   readonly title: string;
   readonly summary: string | null;
@@ -84,7 +86,7 @@ interface EstadoTransferido {
 @Component({
   selector: 'app-organization-public-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, DatePipe, RouterLink, Alert, Button, Reveal],
+  imports: [TranslocoDirective, DatePipe, RouterLink, Alert, Button, Chip, Reveal],
   template: `
     <ng-container *transloco="let t">
       @if (cargando()) {
@@ -168,7 +170,14 @@ interface EstadoTransferido {
                         }}</span>
                       </span>
                       <span class="ev-cuerpo">
-                        <h3>{{ evento.title }}</h3>
+                        <h3>
+                          {{ evento.title }}
+                          @if (evento.cancelled) {
+                            <app-chip tone="apagado">{{
+                              t('publico.organizacion.cancelado')
+                            }}</app-chip>
+                          }
+                        </h3>
                         @if (evento.location_name || evento.city) {
                           <span class="ev-meta">
                             {{ evento.location_name

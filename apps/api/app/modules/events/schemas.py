@@ -404,6 +404,9 @@ class PublicEventSummary(BaseModel):
 
     slug: str
     organization: PublicOrganizationRef
+    # El evento está cancelado: en la página de su organización sigue apareciendo,
+    # marcado. El directorio general no lista los cancelados.
+    cancelled: bool = False
     title: str
     summary: str | None
     cover_url: str | None

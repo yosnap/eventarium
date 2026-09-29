@@ -20720,6 +20720,11 @@
           "organization": {
             "$ref": "#/components/schemas/PublicOrganizationRef"
           },
+          "cancelled": {
+            "type": "boolean",
+            "title": "Cancelled",
+            "default": false
+          },
           "title": {
             "type": "string",
             "title": "Title"

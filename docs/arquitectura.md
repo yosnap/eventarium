@@ -140,7 +140,10 @@ organización activó `public_page_enabled` (desactivado por defecto).
 página activada y la organización activa: apagada, inactiva o inexistente dan
 el mismo 404. El perfil (`PublicOrganizationProfile`) se construye campo a
 campo: nombre, descripción, web, dirección, logotipo y redes; nunca la razón
-social ni el correo de contacto. `organization.page_public` viaja en todos los
+social ni el correo de contacto. Sus eventos son los públicos, publicados o
+cancelados: un evento cancelado sigue apareciendo, marcado como cancelado, y no
+desaparece del historial (el directorio general `/public/events` no lista los
+cancelados). `organization.page_public` viaja en todos los
 contratos públicos y es lo que decide si la miga enlaza a la organización o la
 muestra como texto. Los identificadores reservados (`RESERVED_SLUGS`) cubren
 las rutas del frontend y del proxy, porque el slug de organización es el

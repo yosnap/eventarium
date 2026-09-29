@@ -18,6 +18,7 @@ def resumen_publico(
     return PublicEventSummary(
         slug=evento.slug,
         organization=organizacion,
+        cancelled=evento.status == "cancelled",
         title=evento.title,
         summary=evento.summary,
         cover_url=cover_url,

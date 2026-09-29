@@ -288,3 +288,39 @@ async def test_la_migracion_antepone_el_esquema_a_las_webs_heredadas_sin_esquema
             await session.execute(text(migracion._QUITAR_WEB_VACIA))
             await session.commit()
         assert await web_de_la_organizacion() == despues, antes
+
+
+async def test_los_cancelados_siguen_en_la_pagina_de_la_organizacion_marcados_como_cancelados(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    await _activar(cliente, cabeceras)
+    proximo = await _crear_evento(cliente, cabeceras, slug="cancelado-proximo", **_fechas(3))
+    pasado = await _crear_evento(cliente, cabeceras, slug="cancelado-pasado", **_fechas(-10))
+    normal = await _crear_evento(cliente, cabeceras, slug="normal", **_fechas(5))
+    oculto = await _crear_evento(cliente, cabeceras, slug="cancelado-oculto", **_fechas(6))
+    for evento in (proximo, pasado, normal):
+        await _publicar(cliente, cabeceras, evento["id"])
+    await _publicar(cliente, cabeceras, oculto["id"], visibility="hidden")
+    async with SessionMaintenance() as session:
+        await session.execute(
+            text(
+                "UPDATE events SET status = 'cancelled', cancelled_at = now() "
+                "WHERE slug IN ('cancelado-proximo', 'cancelado-pasado', 'cancelado-oculto')"
+            )
+        )
+        await session.commit()
+
+    proximos = (await cliente.get(f"{PUBLICO}/{organizacion.slug}/events")).json()
+    pasados = (
+        await cliente.get(f"{PUBLICO}/{organizacion.slug}/events", params={"when": "past"})
+    ).json()
+
+    assert [(e["slug"], e["cancelled"]) for e in proximos["items"]] == [
+        ("cancelado-proximo", True),
+        ("normal", False),
+    ]
+    assert [(e["slug"], e["cancelled"]) for e in pasados["items"]] == [("cancelado-pasado", True)]
+    # El directorio general sigue sin listar cancelados; el oculto no sale en ningún sitio.
+    general = [e["slug"] for e in (await cliente.get("/api/v1/public/events")).json()]
+    assert general == ["normal"]

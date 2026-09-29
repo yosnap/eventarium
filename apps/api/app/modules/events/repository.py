@@ -37,7 +37,9 @@ def events_query(organization_id: uuid.UUID, *, status: str | None = None) -> Se
     return consulta
 
 
-def public_events_query(organization_id: uuid.UUID) -> Select[tuple[Event]]:
+def public_events_query(
+    organization_id: uuid.UUID, estados: tuple[str, ...] = ("published",)
+) -> Select[tuple[Event]]:
     """Eventos `published` + `public`, para el listado sin autenticar.
 
     El filtro de publicación va explícito aquí, nunca delegado a RLS: RLS aísla
@@ -49,7 +51,7 @@ def public_events_query(organization_id: uuid.UUID) -> Select[tuple[Event]]:
         select(Event)
         .where(
             Event.organization_id == organization_id,
-            Event.status == "published",
+            Event.status.in_(estados),
             Event.visibility == "public",
         )
         .order_by(Event.starts_at)
@@ -57,7 +59,7 @@ def public_events_query(organization_id: uuid.UUID) -> Select[tuple[Event]]:
 
 
 def public_events_with_confirmed_count_query(
-    organization_id: uuid.UUID,
+    organization_id: uuid.UUID, estados: tuple[str, ...] = ("published",)
 ) -> Select[tuple[Event, int]]:
     """Igual que `public_events_query`, más el nº de plazas realmente reservadas
     de cada evento — el aforo ya ocupado que necesita el listado público.
@@ -103,7 +105,7 @@ def public_events_with_confirmed_count_query(
         .outerjoin(conteo_reservadas, conteo_reservadas.c.event_id == Event.id)
         .where(
             Event.organization_id == organization_id,
-            Event.status == "published",
+            Event.status.in_(estados),
             Event.visibility == "public",
         )
         .order_by(Event.starts_at)

@@ -45,7 +45,7 @@ export const CHANGELOG: readonly ChangelogVersion[] = [
           {
             titulo: 'Página pública de la organización',
             descripcion:
-              'Cada organización puede publicar su propia página en /{organización}, con su logotipo, descripción, web, dirección, redes y sus eventos próximos y pasados. Está desactivada por defecto: se activa en «Organización», donde se ve la lista exacta de datos que se harán públicos (la razón social y el correo de contacto nunca se publican). Sin ella, los eventos siguen siendo públicos y la organización aparece en la miga como texto.',
+              'Cada organización puede publicar su propia página en /{organización}, con su logotipo, descripción, web, dirección, redes y sus eventos próximos y pasados. Está desactivada por defecto: se activa en «Organización», donde se ve la lista exacta de datos que se harán públicos (la razón social y el correo de contacto nunca se publican). Los eventos cancelados siguen apareciendo en ella, marcados como cancelados. Sin la página, los eventos siguen siendo públicos y la organización aparece en la miga como texto.',
           },
           {
             titulo: 'Dirección de la organización',

@@ -85,6 +85,7 @@
       "sinProximos": "Ahora mismo no hay eventos próximos.",
       "sinPasados": "Todavía no hay eventos pasados.",
       "verMas": "Ver más",
+      "cancelado": "Cancelado",
       "noEncontrada": "Esta organización no tiene página pública.",
       "verEventos": "Ver todos los eventos",
       "descripcionPorDefecto": "Eventos de {{nombre}}."
