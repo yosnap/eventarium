@@ -16,7 +16,23 @@
       "activarClaro": "Activar el tema claro"
     },
     "si": "Sí",
-    "no": "No"
+    "no": "No",
+    "datetime": {
+      "elegirFecha": "Elegir fecha",
+      "elegirHora": "Elegir hora",
+      "mesAnterior": "Mes anterior",
+      "mesSiguiente": "Mes siguiente",
+      "hora": "Hora",
+      "minuto": "Minuto",
+      "hoy": "Hoy",
+      "ahora": "Ahora",
+      "listo": "Listo",
+      "menosUnaHora": "Restar una hora",
+      "menosCincoMinutos": "Restar cinco minutos",
+      "masCincoMinutos": "Sumar cinco minutos",
+      "masUnaHora": "Sumar una hora"
+    },
+    "sinResultados": "Sin coincidencias"
   },
   "errores": {
     "sitioNoDisponible": "Sitio no disponible",

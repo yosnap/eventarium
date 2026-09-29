@@ -9,6 +9,7 @@ import { ApiError } from '../../../core/api/error.interceptor';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
+import { DatetimePicker } from '../../../shared/ui/datetime-picker';
 import { ErrorSummary, ResumenDeError } from '../../../shared/ui/error-summary';
 import { Input } from '../../../shared/ui/input';
 import { AddressMap } from '../../../shared/ui/address-map';
@@ -86,6 +87,7 @@ function zonasHorariasDisponibles(): readonly string[] {
     Alert,
     Button,
     Card,
+    DatetimePicker,
     ErrorSummary,
     Input,
     AddressMap,
@@ -130,29 +132,26 @@ function zonasHorariasDisponibles(): readonly string[] {
                 (blurred)="validar('slug')"
               />
 
-              <app-input
+              <app-datetime-picker
                 fieldId="evento-inicio"
-                type="datetime-local"
                 [label]="t('admin.events.formulario.inicio')"
                 [required]="true"
                 [error]="errores().startsAt"
                 [(value)]="startsAt"
                 (blurred)="validar('startsAt')"
               />
-              <app-input
+              <app-datetime-picker
                 fieldId="evento-fin"
-                type="datetime-local"
                 [label]="t('admin.events.formulario.fin')"
                 [required]="true"
                 [error]="errores().endsAt"
                 [(value)]="endsAt"
                 (blurred)="validar('endsAt')"
               />
-              <app-select
-                fieldId="evento-zona-horaria"
-                [label]="t('admin.events.formulario.zonaHoraria')"
-                [options]="opcionesDeZonaHoraria()"
-                [(value)]="timezone"
+              <app-input
+                fieldId="evento-ciudad"
+                [label]="t('admin.events.formulario.ciudad')"
+                [(value)]="city"
               />
 
               <div class="campo-select">
@@ -167,10 +166,12 @@ function zonasHorariasDisponibles(): readonly string[] {
                   <option value="hybrid">{{ t('admin.events.formulario.hibrido') }}</option>
                 </select>
               </div>
-              <app-input
-                fieldId="evento-ciudad"
-                [label]="t('admin.events.formulario.ciudad')"
-                [(value)]="city"
+              <app-select
+                fieldId="evento-zona-horaria"
+                [label]="t('admin.events.formulario.zonaHoraria')"
+                [options]="opcionesDeZonaHoraria()"
+                [buscable]="true"
+                [(value)]="timezone"
               />
 
               @if (locationMode() !== 'online') {
@@ -267,17 +268,27 @@ function zonasHorariasDisponibles(): readonly string[] {
     form {
       display: grid;
       gap: var(--space-lg);
-      max-width: 52rem;
+      /* 64rem: tres columnas de campo con aire (inicio, fin y ciudad caben en
+       * una fila sin pisarse) sin que el título ni la dirección se estiren
+       * hasta líneas interminables. */
+      max-width: 64rem;
     }
     /* Campos cortos (fechas, zona horaria, modalidad, ciudad, ventana de
-     * pago) en dos columnas cuando hay sitio; título, slug y dirección
+     * pago) en columnas cuando hay sitio; título, slug y dirección
      * ocupan la rejilla entera con \`.campo-ancho\`, en vez de la única
      * columna a todo el ancho que tenía el formulario antes. */
     .rejilla {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
       gap: var(--space-lg) var(--space-md);
       align-items: start;
+    }
+    /* Los pickers traen dos controles (fecha + caja de hora) que no pueden
+     * encoger bajo su contenido: sin esto, la columna de grid los dejaba
+     * desbordar y pisaban al campo vecino (Ciudad). */
+    .rejilla > app-datetime-picker,
+    .rejilla > app-input {
+      min-width: 0;
     }
     .campo-ancho {
       grid-column: 1 / -1;
@@ -297,7 +308,11 @@ function zonasHorariasDisponibles(): readonly string[] {
       background-color: var(--surface);
       color: var(--fg);
       font: inherit;
-      min-height: 2.75rem;
+      /* 46px (2.875rem), la altura de .sel__btn: modalidad, zona horaria y
+       * ventana de pago —los controles de esta fila con rótulo externo—
+       * quedan alineados entre sí en la misma base. Los campos de la fila de
+       * arriba (inicio, fin, ciudad) van a 3.25rem por su etiqueta flotante. */
+      min-height: 2.875rem;
     }
     .campo-numero input {
       max-width: 12rem;
