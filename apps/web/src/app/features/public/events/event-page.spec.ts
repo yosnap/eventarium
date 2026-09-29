@@ -13,6 +13,7 @@ import type { PublicEventDetail } from './event-page.types';
 
 function eventoDetalle() {
   return {
+    organization: { slug: 'acme', name: 'Acme', page_public: false },
     slug: 'iawic-2026',
     title: 'IA Week in Cascais 2026',
     summary: 'El evento del año.',
@@ -93,16 +94,19 @@ describe('EventPage', () => {
     // hidratación SSR real, no la navegación SPA que sí dispara la petición
     // HTTP) la ficha se quedaba en «Cargando…» para siempre aunque el dato ya
     // estuviera disponible.
-    const clave = makeStateKey<PublicEventDetail>('public-event:iawic-2026');
+    const clave = makeStateKey<PublicEventDetail>('public-event:acme:iawic-2026');
     const transferState = TestBed.inject(TransferState);
     transferState.set(clave, eventoDetalle() as PublicEventDetail);
 
     const fixture = TestBed.createComponent(EventPage);
+    fixture.componentRef.setInput('org', 'acme');
     fixture.componentRef.setInput('slug', 'iawic-2026');
     fixture.detectChanges();
     await avanzar(fixture);
 
-    http.expectNone((peticion) => peticion.url === '/api/v1/public/events/iawic-2026');
+    http.expectNone(
+      (peticion) => peticion.url === '/api/v1/public/organizations/acme/events/iawic-2026',
+    );
     expect(fixture.nativeElement.textContent).toContain('IA Week in Cascais 2026');
     expect(fixture.nativeElement.textContent).not.toContain('Cargando');
   });
@@ -110,10 +114,13 @@ describe('EventPage', () => {
   it('muestra el evento en tema claro sin violaciones de accesibilidad', async () => {
     document.documentElement.setAttribute('data-theme', 'light');
     const fixture = TestBed.createComponent(EventPage);
+    fixture.componentRef.setInput('org', 'acme');
     fixture.componentRef.setInput('slug', 'iawic-2026');
     fixture.detectChanges();
     http
-      .expectOne((peticion) => peticion.url === '/api/v1/public/events/iawic-2026')
+      .expectOne(
+        (peticion) => peticion.url === '/api/v1/public/organizations/acme/events/iawic-2026',
+      )
       .flush(eventoDetalle());
     await avanzar(fixture);
 
@@ -123,13 +130,16 @@ describe('EventPage', () => {
 
   it('muestra el evento, su agenda y participantes, sin violaciones de accesibilidad', async () => {
     const fixture = TestBed.createComponent(EventPage);
+    fixture.componentRef.setInput('org', 'acme');
     fixture.componentRef.setInput('slug', 'iawic-2026');
     // `ngOnInit` registra la carga como `PendingTasks`: `whenStable()` esperaría a
     // que termine, así que hay que disparar `ngOnInit` (con `detectChanges()`, sin
     // esperar estabilidad todavía) antes de responder la petición simulada.
     fixture.detectChanges();
     http
-      .expectOne((peticion) => peticion.url === '/api/v1/public/events/iawic-2026')
+      .expectOne(
+        (peticion) => peticion.url === '/api/v1/public/organizations/acme/events/iawic-2026',
+      )
       .flush(eventoDetalle());
     await avanzar(fixture);
 
@@ -143,10 +153,13 @@ describe('EventPage', () => {
 
   it('agrupa los patrocinadores por nivel, sin violaciones de accesibilidad', async () => {
     const fixture = TestBed.createComponent(EventPage);
+    fixture.componentRef.setInput('org', 'acme');
     fixture.componentRef.setInput('slug', 'iawic-2026');
     fixture.detectChanges();
     http
-      .expectOne((peticion) => peticion.url === '/api/v1/public/events/iawic-2026')
+      .expectOne(
+        (peticion) => peticion.url === '/api/v1/public/organizations/acme/events/iawic-2026',
+      )
       .flush({
         ...eventoDetalle(),
         sponsor_tiers: [
@@ -174,10 +187,13 @@ describe('EventPage', () => {
 
   it('muestra el aforo, el chip de inscripción y los ponentes derivados de la agenda', async () => {
     const fixture = TestBed.createComponent(EventPage);
+    fixture.componentRef.setInput('org', 'acme');
     fixture.componentRef.setInput('slug', 'iawic-2026');
     fixture.detectChanges();
     http
-      .expectOne((peticion) => peticion.url === '/api/v1/public/events/iawic-2026')
+      .expectOne(
+        (peticion) => peticion.url === '/api/v1/public/organizations/acme/events/iawic-2026',
+      )
       .flush({ ...eventoDetalle(), capacity: 120, registration_mode: 'approval' });
     await avanzar(fixture);
 
@@ -193,10 +209,13 @@ describe('EventPage', () => {
 
   it('cambia de día de agenda con las flechas del teclado en las pestañas', async () => {
     const fixture = TestBed.createComponent(EventPage);
+    fixture.componentRef.setInput('org', 'acme');
     fixture.componentRef.setInput('slug', 'iawic-2026');
     fixture.detectChanges();
     http
-      .expectOne((peticion) => peticion.url === '/api/v1/public/events/iawic-2026')
+      .expectOne(
+        (peticion) => peticion.url === '/api/v1/public/organizations/acme/events/iawic-2026',
+      )
       .flush({
         ...eventoDetalle(),
         sessions: [
@@ -236,10 +255,13 @@ describe('EventPage', () => {
 
   it('un evento cancelado enseña el aviso y no ofrece inscribirse ni compartir', async () => {
     const fixture = TestBed.createComponent(EventPage);
+    fixture.componentRef.setInput('org', 'acme');
     fixture.componentRef.setInput('slug', 'iawic-2026');
     fixture.detectChanges();
     http
-      .expectOne((peticion) => peticion.url === '/api/v1/public/events/iawic-2026')
+      .expectOne(
+        (peticion) => peticion.url === '/api/v1/public/organizations/acme/events/iawic-2026',
+      )
       .flush({ ...eventoDetalle(), cancelled: true, cancellation_reason: 'Temporal' });
     await avanzar(fixture);
     const raiz: HTMLElement = fixture.nativeElement;
@@ -255,10 +277,13 @@ describe('EventPage', () => {
 
   it('marca "no encontrado" cuando la API responde 404', async () => {
     const fixture = TestBed.createComponent(EventPage);
+    fixture.componentRef.setInput('org', 'acme');
     fixture.componentRef.setInput('slug', 'no-existe');
     fixture.detectChanges();
     http
-      .expectOne((peticion) => peticion.url === '/api/v1/public/events/no-existe')
+      .expectOne(
+        (peticion) => peticion.url === '/api/v1/public/organizations/acme/events/no-existe',
+      )
       .flush({ detail: 'El evento no existe.' }, { status: 404, statusText: 'Not Found' });
     await avanzar(fixture);
 
@@ -296,12 +321,13 @@ describe('EventPage — plantilla propia del evento', () => {
 
   async function montarCon(tema: Record<string, unknown> | null) {
     const fixture = TestBed.createComponent(EventPage);
+    fixture.componentRef.setInput('org', 'acme');
     fixture.componentRef.setInput('slug', 'iawic-2026');
     // `ngOnInit` registra la carga como `PendingTasks`: `whenStable()` esperaría
     // a que termine, así que hay que disparar el ciclo antes de responder.
     fixture.detectChanges();
     http
-      .expectOne((p) => p.url === '/api/v1/public/events/iawic-2026')
+      .expectOne((p) => p.url === '/api/v1/public/organizations/acme/events/iawic-2026')
       .flush({ ...eventoDetalle(), theme: tema });
     await fixture.whenStable();
     fixture.detectChanges();

@@ -9,6 +9,7 @@ import type { EventoParaCalendario } from '../calendar/calendar-links';
 import { AddToCalendar } from './add-to-calendar';
 
 const EVENTO: EventoParaCalendario = {
+  organization: { slug: 'acme' },
   slug: 'congreso',
   title: 'Congreso de IA',
   starts_at: '2026-10-01T07:00:00Z',
@@ -69,7 +70,7 @@ describe('AddToCalendar', () => {
       expect(enlace.target).toBe('_blank');
       expect(enlace.rel).toContain('noopener');
       // El enlace de la ficha pública va dentro, para volver al evento desde el calendario.
-      expect(decodeURIComponent(enlace.href)).toContain('/eventos/congreso');
+      expect(decodeURIComponent(enlace.href)).toContain('/acme/congreso');
     }
   });
 

@@ -9,6 +9,8 @@ export interface DatosOg {
   readonly type?: string;
   /** Para páginas que no deben indexarse (p. ej. enlaces con token). */
   readonly noIndexar?: boolean;
+  /** Ruta canónica de la página (`/acme/iawic`); se publica como `rel=canonical` absoluta. */
+  readonly canonica?: string;
 }
 
 /**
@@ -50,12 +52,30 @@ export class SeoMetaService {
       this.meta.removeTag('name="robots"');
     }
 
+    this.fijarCanonica(datos.canonica);
+
     // Siempre se fija: si solo se pusiera cuando hay imagen, al navegar desde
     // un evento con portada a otra página se quedaría la portada anterior.
     const imagen = this.absoluta(datos.image || IMAGEN_OG_POR_DEFECTO);
     this.meta.updateTag({ property: 'og:image', content: imagen });
     this.meta.updateTag({ name: 'twitter:card', content: 'summary_large_image' });
     this.meta.updateTag({ name: 'twitter:image', content: imagen });
+  }
+
+  /** `<link rel="canonical">`: se crea, se actualiza o se quita según la página. */
+  private fijarCanonica(ruta: string | undefined): void {
+    const cabecera = this.documento.head;
+    const existente = cabecera.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (!ruta) {
+      existente?.remove();
+      return;
+    }
+    const enlace = existente ?? this.documento.createElement('link');
+    enlace.setAttribute('rel', 'canonical');
+    enlace.setAttribute('href', this.absoluta(ruta));
+    if (!existente) {
+      cabecera.appendChild(enlace);
+    }
   }
 
   /**

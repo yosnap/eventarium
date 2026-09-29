@@ -16,6 +16,7 @@ export type ModoDeUbicacion = 'in_person' | 'online' | 'hybrid';
 
 /** Subconjunto de `PublicEventSummary` que necesita la franja «en directo». */
 export interface EventoEnDirecto {
+  readonly organization: { readonly slug: string };
   readonly slug: string;
   readonly title: string;
   readonly cover_url: string | null;

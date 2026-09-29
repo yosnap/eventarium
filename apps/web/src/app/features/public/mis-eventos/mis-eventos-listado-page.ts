@@ -9,6 +9,7 @@ import {
 } from '../../../core/registrations/registrations.service';
 import { Alert } from '../../../shared/ui/alert';
 import { Reveal } from '../../../shared/ui/reveal.directive';
+import { rutaEvento } from '../../../core/routing/rutas-publicas';
 
 type Estado = 'comprobando' | 'conInscripciones' | 'sinInscripciones' | 'tokenInvalido';
 
@@ -63,11 +64,16 @@ function claveDeEstado(valor: string): string {
             }
             @case ('conInscripciones') {
               <ul class="listado">
-                @for (fila of inscripciones(); track fila.event_slug + fila.status) {
+                @for (
+                  fila of inscripciones();
+                  track fila.organization.slug + fila.event_slug + fila.status
+                ) {
                   <li>
-                    <a [routerLink]="['/eventos', fila.event_slug]">{{ fila.event_title }}</a>
+                    <a [routerLink]="rutaEvento(fila.organization.slug, fila.event_slug)">{{
+                      fila.event_title
+                    }}</a>
                     <span class="detalle">
-                      {{ fila.starts_at | date: 'd MMM y, HH:mm' }} · {{ fila.organization_name }} ·
+                      {{ fila.starts_at | date: 'd MMM y, HH:mm' }} · {{ fila.organization.name }} ·
                       @if (fila.event_cancelled) {
                         {{ t('publico.misEventos.eventoCancelado') }}
                       } @else {
@@ -108,6 +114,7 @@ function claveDeEstado(valor: string): string {
   `,
 })
 export class MisEventosListadoPage {
+  protected readonly rutaEvento = rutaEvento;
   private readonly registrations = inject(RegistrationsService);
   private readonly ruta = inject(ActivatedRoute);
 

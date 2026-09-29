@@ -21,11 +21,13 @@ import { ApiService } from '../../../core/api/api.service';
 import { temaDeEvento } from '../../../core/theming/tema-de-evento';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { seoDePagina } from '../../../core/seo/meta.service';
+import { apiEvento, rutaEvento, urlEvento } from '../../../core/routing/rutas-publicas';
 import { NotFoundStatusService } from '../../../core/ssr/not-found-status.service';
 import { formatearPrecio } from '../../../shared/text/formatear-precio';
 import { Alert } from '../../../shared/ui/alert';
 import { Breadcrumb, type BreadcrumbItem } from '../../../shared/ui/breadcrumb';
 import { Chip, type ChipTone } from '../../../shared/ui/chip';
+import { migasDeEvento } from '../../../shared/ui/migas-de-evento';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 import { ShareLinks } from '../../../shared/ui/share-links';
 import { VenueMap } from '../../../shared/ui/venue-map';
@@ -223,16 +225,13 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                     </div>
                   }
                   @if (!evento.cancelled) {
-                    <a
-                      class="ficha__inscribirse"
-                      [routerLink]="['/eventos', evento.slug, 'inscribirse']"
-                    >
+                    <a class="ficha__inscribirse" [routerLink]="ruta('inscribirse')">
                       {{ t('publico.eventos.inscribirse') }}
                     </a>
                     <p class="ficha__nota">{{ t('publico.eventos.ficha.sinCuenta') }}</p>
                   }
                   <p class="ficha__nota">
-                    <a [routerLink]="['/eventos', evento.slug, 'politicas']">
+                    <a [routerLink]="ruta('politicas')">
                       {{ t('publico.politicas.enlace') }}
                     </a>
                   </p>
@@ -252,7 +251,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                   @if (evento.venues.length > 1) {
                     <p class="hint">
                       {{ t('publico.eventos.multisede.pregunta') }}
-                      <a class="mark" [routerLink]="['/eventos', evento.slug, 'programa']">
+                      <a class="mark" [routerLink]="ruta('programa')">
                         {{ t('publico.eventos.multisede.enlace') }}
                       </a>
                     </p>
@@ -264,6 +263,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
               } @else {
                 <app-event-agenda-section
                   [dias]="dias()"
+                  [org]="org()"
                   [eventSlug]="evento.slug"
                   [eventTimezone]="evento.timezone"
                 />
@@ -309,14 +309,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                     <ul class="tier__logos" [class]="'tamano-' + nivel.logo_size">
                       @for (patrocinador of nivel.sponsors; track $index + patrocinador.name) {
                         <li>
-                          <a
-                            [routerLink]="[
-                              '/eventos',
-                              evento.slug,
-                              'patrocinadores',
-                              patrocinador.id,
-                            ]"
-                          >
+                          <a [routerLink]="ruta('patrocinadores', patrocinador.id)">
                             @if (patrocinador.logo_url) {
                               <img [src]="patrocinador.logo_url" [alt]="patrocinador.name" />
                             } @else {
@@ -611,6 +604,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
   `,
 })
 export class EventPage implements OnInit {
+  readonly org = input.required<string>();
   readonly slug = input.required<string>();
 
   private readonly http = inject(HttpClient);
@@ -689,17 +683,21 @@ export class EventPage implements OnInit {
   /** Absoluta y sin ancla ni query: es lo que se comparte. En el SSR,
    * `location` ya es la URL pública de la petición. */
   protected urlPublica(evento: PublicEventDetail): string {
-    return `${this.documento.location.origin}/eventos/${evento.slug}`;
+    return `${this.documento.location.origin}${urlEvento(evento.organization.slug, evento.slug)}`;
   }
 
   protected migasDePan(evento: PublicEventDetail): BreadcrumbItem[] {
-    return [
-      {
-        label: this.transloco.translate('publico.eventos.listadoTitulo'),
-        routerLink: ['/eventos'],
-      },
-      { label: evento.title },
-    ];
+    return migasDeEvento({
+      inicio: this.transloco.translate('comun.inicio'),
+      organizacion: evento.organization,
+      eventoSlug: evento.slug,
+      eventoTitulo: evento.title,
+    });
+  }
+
+  /** Ruta hacia otra página de este mismo evento. */
+  protected ruta(...resto: string[]): string[] {
+    return rutaEvento(this.org(), this.slug(), ...resto);
   }
 
   protected readonly formato = computed(() => {
@@ -769,7 +767,7 @@ export class EventPage implements OnInit {
   }
 
   private async cargar(): Promise<void> {
-    const clave = makeStateKey<PublicEventDetail>(`public-event:${this.slug()}`);
+    const clave = makeStateKey<PublicEventDetail>(`public-event:${this.org()}:${this.slug()}`);
     const transferido = this.transferState.get(clave, null);
     if (transferido) {
       this.transferState.remove(clave);
@@ -780,7 +778,7 @@ export class EventPage implements OnInit {
 
     try {
       const evento = await firstValueFrom(
-        this.http.get<PublicEventDetail>(this.api.url(`/public/events/${this.slug()}`), {
+        this.http.get<PublicEventDetail>(this.api.url(apiEvento(this.org(), this.slug())), {
           headers: this.api.serverForwardHeaders(),
         }),
       );
@@ -810,6 +808,7 @@ export class EventPage implements OnInit {
       title: evento.title,
       description: evento.summary ?? this.transloco.translate('publico.eventos.sinResumen'),
       image: evento.cover_url,
+      canonica: urlEvento(evento.organization.slug, evento.slug),
     });
   }
 }

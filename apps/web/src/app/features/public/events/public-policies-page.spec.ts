@@ -31,6 +31,7 @@ async function montar(datos: PoliticasPublicas): Promise<ComponentFixture<Public
     ],
   });
   const fixture = TestBed.createComponent(PublicPoliciesPage);
+  fixture.componentRef.setInput('org', 'acme');
   fixture.componentRef.setInput('slug', 'iawic-2026');
   fixture.detectChanges();
   await fixture.whenStable();

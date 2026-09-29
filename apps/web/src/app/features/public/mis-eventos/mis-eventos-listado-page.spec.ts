@@ -49,6 +49,7 @@ describe('MisEventosListadoPage', () => {
   it('token válido con inscripciones las lista', async () => {
     const getMyRegistrations = vi.fn().mockResolvedValue([
       {
+        organization: { slug: 'acme', name: 'Humanitek', page_public: false },
         event_slug: 'ia-week',
         event_title: 'IA Week',
         starts_at: '2026-10-01T10:00:00Z',

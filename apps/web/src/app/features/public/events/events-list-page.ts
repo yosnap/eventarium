@@ -15,6 +15,8 @@ import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
+import { rutaEvento } from '../../../core/routing/rutas-publicas';
+import type { OrganizacionPublica } from '../../../shared/ui/migas-de-evento';
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { seoDePagina } from '../../../core/seo/meta.service';
@@ -31,6 +33,7 @@ type RegistrationMode = 'free' | 'approval' | 'paid';
 type FiltroRegistro = 'todos' | RegistrationMode;
 
 interface PublicEventSummary {
+  readonly organization: OrganizacionPublica;
   readonly slug: string;
   readonly title: string;
   readonly summary: string | null;
@@ -210,8 +213,17 @@ function normalizarCiudad(ciudad: string): string {
               <p class="vacio">{{ t('publico.eventos.sinResultados') }}</p>
             } @else {
               <div class="lista">
-                @for (evento of eventosFiltrados(); track evento.slug; let indice = $index) {
-                  <a class="ev" [routerLink]="['/eventos', evento.slug]" appReveal [index]="indice">
+                @for (
+                  evento of eventosFiltrados();
+                  track evento.organization.slug + '/' + evento.slug;
+                  let indice = $index
+                ) {
+                  <a
+                    class="ev"
+                    [routerLink]="rutaEvento(evento.organization.slug, evento.slug)"
+                    appReveal
+                    [index]="indice"
+                  >
                     <span class="ev-fecha">
                       <span class="ev-dia">{{
                         evento.starts_at | date: 'dd' : evento.timezone
@@ -223,6 +235,8 @@ function normalizarCiudad(ciudad: string): string {
                     <span class="ev-cuerpo">
                       <h3>{{ evento.title }}</h3>
                       <span class="ev-meta">
+                        <!-- Texto, no enlace: la tarjeta entera ya es un enlace al evento. -->
+                        <span class="ev-org">{{ evento.organization.name }}</span>
                         <span>
                           @if (evento.location_name || evento.city) {
                             {{ evento.location_name
@@ -469,6 +483,7 @@ export class EventsListPage implements OnInit {
   private readonly seo = seoDePagina();
   private readonly transloco = inject(TranslocoService);
 
+  protected readonly rutaEvento = rutaEvento;
   protected readonly eventos = signal<PublicEventSummary[]>([]);
   protected readonly cargando = signal(true);
   protected readonly error = signal<string | null>(null);

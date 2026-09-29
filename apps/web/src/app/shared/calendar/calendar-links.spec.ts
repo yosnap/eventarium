@@ -11,6 +11,7 @@ import {
 const URL_EVENTO = 'https://eventarium.test/eventos/congreso';
 
 const EVENTO: EventoParaCalendario = {
+  organization: { slug: 'acme' },
   slug: 'congreso',
   title: 'Congreso de IA',
   starts_at: '2026-10-01T07:00:00Z',

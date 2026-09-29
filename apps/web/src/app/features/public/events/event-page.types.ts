@@ -1,3 +1,4 @@
+import type { OrganizacionPublica } from '../../../shared/ui/migas-de-evento';
 import type { PlantillaDeTema } from '../../../core/theming/theme-template.model';
 
 /**
@@ -62,6 +63,7 @@ export interface PublicVenue {
 }
 
 export interface PublicEventDetail {
+  readonly organization: OrganizacionPublica;
   /** Plantilla propia del evento; `null` es que hereda la de su organización. */
   readonly theme?: PlantillaDeTema | null;
   readonly slug: string;

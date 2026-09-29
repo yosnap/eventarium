@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, type OnDestroy, inject, signal } fr
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
+import { rutaDeVueltaAlEvento } from '../../../core/routing/rutas-publicas';
 import { seoDePagina } from '../../../core/seo/meta.service';
 import { PublicCheckoutService } from '../../../core/payments/public-checkout.service';
 import { AddToCalendar } from '../../../shared/ui/add-to-calendar';
@@ -84,7 +85,7 @@ const ESPERAS_REINTENTO_AUTOMATICO_MS = [2000, 4000, 8000, 8000, 8000] as const;
 
           @if (slug) {
             <p>
-              <a [routerLink]="['/eventos', slug]">{{ t('pago.retorno.volverAlEvento') }}</a>
+              <a [routerLink]="volverAlEvento(org, slug)">{{ t('pago.retorno.volverAlEvento') }}</a>
             </p>
           }
         </app-card>
@@ -113,7 +114,9 @@ export class PaymentReturnPage implements OnDestroy {
 
   protected readonly estado = signal<Estado>('comprobando');
   protected readonly reintentando = signal(false);
+  protected readonly org: string | null;
   protected readonly slug: string | null;
+  protected readonly volverAlEvento = rutaDeVueltaAlEvento;
   protected readonly evento = signal<EventoParaCalendario | null>(null);
 
   private readonly registrationId: string | null;
@@ -123,6 +126,9 @@ export class PaymentReturnPage implements OnDestroy {
   constructor() {
     this.seo.set({ title: this.transloco.translate('pago.retorno.titulo') });
     const parametros = this.ruta.snapshot.queryParamMap;
+    // `org` falta en los pagos iniciados antes de que la organización entrara
+    // en la URL: se resuelven por el slug antiguo.
+    this.org = parametros.get('org');
     this.slug = parametros.get('slug');
     this.registrationId = parametros.get('registration_id');
     if (!this.slug || !this.registrationId) {
@@ -149,7 +155,7 @@ export class PaymentReturnPage implements OnDestroy {
       return;
     }
     try {
-      const resultado = await this.checkout.getStatus(this.slug, this.registrationId);
+      const resultado = await this.checkout.getStatus(this.org, this.slug, this.registrationId);
       if (resultado.registration_status === 'confirmed') {
         this.evento.set(resultado.event ?? null);
         this.estado.set('confirmado');

@@ -2,6 +2,7 @@ import { DatePipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   type OnInit,
   PendingTasks,
   TransferState,
@@ -14,6 +15,7 @@ import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
 import { temaDeEvento } from '../../../core/theming/tema-de-evento';
+import { rutaEvento } from '../../../core/routing/rutas-publicas';
 import { ApiService } from '../../../core/api/api.service';
 import {
   type PoliticasPublicas,
@@ -40,7 +42,7 @@ import { Alert } from '../../../shared/ui/alert';
     <ng-container *transloco="let t">
       <div class="ancho-maximo">
         <p class="volver">
-          <a [routerLink]="['/eventos', slug()]">← {{ t('comun.volver') }}</a>
+          <a [routerLink]="rutaAlEvento()">← {{ t('comun.volver') }}</a>
         </p>
         <h1>{{ t('publico.politicas.titulo') }}</h1>
 
@@ -105,6 +107,7 @@ import { Alert } from '../../../shared/ui/alert';
   `,
 })
 export class PublicPoliciesPage implements OnInit {
+  readonly org = input.required<string>();
   readonly slug = input.required<string>();
 
   private readonly servicio = inject(PublicPoliciesService);
@@ -115,6 +118,7 @@ export class PublicPoliciesPage implements OnInit {
   private readonly seo = seoDePagina();
   private readonly transloco = inject(TranslocoService);
 
+  protected readonly rutaAlEvento = computed(() => rutaEvento(this.org(), this.slug()));
   protected readonly datos = signal<PoliticasPublicas | null>(null);
   protected readonly cargando = signal(true);
   protected readonly error = signal(false);
@@ -124,10 +128,10 @@ export class PublicPoliciesPage implements OnInit {
   }
 
   private async cargar(): Promise<void> {
-    const clave = makeStateKey<PoliticasPublicas>(`politicas-evento:${this.slug()}`);
+    const clave = makeStateKey<PoliticasPublicas>(`politicas-evento:${this.org()}:${this.slug()}`);
     const transferido = this.transferState.get(clave, null);
     try {
-      const datos = transferido ?? (await this.servicio.obtener(this.slug()));
+      const datos = transferido ?? (await this.servicio.obtener(this.org(), this.slug()));
       if (transferido) {
         this.transferState.remove(clave);
       } else if (this.api.isServer) {

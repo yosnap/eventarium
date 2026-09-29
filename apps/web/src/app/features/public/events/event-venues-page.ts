@@ -19,12 +19,14 @@ import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
 import { temaDeEvento } from '../../../core/theming/tema-de-evento';
+import { apiEvento, rutaEvento, urlEvento } from '../../../core/routing/rutas-publicas';
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { seoDePagina } from '../../../core/seo/meta.service';
 import { NotFoundStatusService } from '../../../core/ssr/not-found-status.service';
 import { Alert } from '../../../shared/ui/alert';
 import { Breadcrumb, type BreadcrumbItem } from '../../../shared/ui/breadcrumb';
+import { migasDeEvento } from '../../../shared/ui/migas-de-evento';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 import { type MarcadorDeMapa, VenueMap } from '../../../shared/ui/venue-map';
 import type { PublicEventDetail, PublicEventSession, PublicVenue } from './event-page.types';
@@ -222,9 +224,7 @@ function fechaEnZona(iso: string, zona: string): string {
                 />
               }
               <p>
-                <a [routerLink]="['/eventos', evento.slug]">
-                  {{ t('publico.eventos.agenda') }} →
-                </a>
+                <a [routerLink]="ruta()"> {{ t('publico.eventos.agenda') }} → </a>
               </p>
             </div>
           </section>
@@ -395,6 +395,7 @@ function fechaEnZona(iso: string, zona: string): string {
   `,
 })
 export class EventVenuesPage implements OnInit {
+  readonly org = input.required<string>();
   readonly slug = input.required<string>();
 
   private readonly http = inject(HttpClient);
@@ -418,14 +419,18 @@ export class EventVenuesPage implements OnInit {
   protected readonly sedes = computed<readonly PublicVenue[]>(() => this.evento()?.venues ?? []);
 
   protected migasDePan(evento: PublicEventDetail): BreadcrumbItem[] {
-    return [
-      {
-        label: this.transloco.translate('publico.eventos.listadoTitulo'),
-        routerLink: ['/eventos'],
-      },
-      { label: evento.title, routerLink: ['/eventos', evento.slug] },
-      { label: this.transloco.translate('publico.eventos.multisede.rotulo') },
-    ];
+    return migasDeEvento({
+      inicio: this.transloco.translate('comun.inicio'),
+      organizacion: evento.organization,
+      eventoSlug: evento.slug,
+      eventoTitulo: evento.title,
+      cola: [{ label: this.transloco.translate('publico.eventos.multisede.rotulo') }],
+    });
+  }
+
+  /** Ruta hacia otra página de este mismo evento. */
+  protected ruta(...resto: string[]): string[] {
+    return rutaEvento(this.org(), this.slug(), ...resto);
   }
 
   /** Sedes visibles con coordenadas conocidas, listas para `app-venue-map`. Si
@@ -533,7 +538,7 @@ export class EventVenuesPage implements OnInit {
   }
 
   private async cargar(): Promise<void> {
-    const clave = makeStateKey<PublicEventDetail>(`public-event:${this.slug()}`);
+    const clave = makeStateKey<PublicEventDetail>(`public-event:${this.org()}:${this.slug()}`);
     const transferido = this.transferState.get(clave, null);
     if (transferido) {
       this.transferState.remove(clave);
@@ -544,7 +549,7 @@ export class EventVenuesPage implements OnInit {
 
     try {
       const evento = await firstValueFrom(
-        this.http.get<PublicEventDetail>(this.api.url(`/public/events/${this.slug()}`), {
+        this.http.get<PublicEventDetail>(this.api.url(apiEvento(this.org(), this.slug())), {
           headers: this.api.serverForwardHeaders(),
         }),
       );
@@ -570,6 +575,7 @@ export class EventVenuesPage implements OnInit {
       title: `${evento.title} · ${this.traducir('publico.eventos.multisede.rotulo')}`,
       description: evento.summary ?? this.traducir('publico.eventos.sinResumen'),
       image: evento.cover_url,
+      canonica: urlEvento(evento.organization.slug, evento.slug, 'programa'),
     });
   }
 }

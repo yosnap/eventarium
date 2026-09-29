@@ -49,6 +49,7 @@ describe('EventsListPage', () => {
       .expectOne((peticion) => peticion.url === '/api/v1/public/events')
       .flush([
         {
+          organization: { slug: 'acme', name: 'Acme', page_public: false },
           slug: 'iawic-2026',
           title: 'IA Week in Cascais 2026',
           summary: 'El evento del año.',
@@ -76,6 +77,7 @@ describe('EventsListPage', () => {
       .expectOne((peticion) => peticion.url === '/api/v1/public/events')
       .flush([
         {
+          organization: { slug: 'acme', name: 'Acme', page_public: false },
           slug: 'iawic-2026',
           title: 'IA Week in Cascais 2026',
           summary: 'El evento del año.',
@@ -114,6 +116,7 @@ describe('EventsListPage', () => {
       .expectOne((peticion) => peticion.url === '/api/v1/public/events')
       .flush([
         {
+          organization: { slug: 'acme', name: 'Acme', page_public: false },
           slug: 'iawic-2026',
           title: 'IA Week in Cascais 2026',
           summary: 'El evento del año.',
@@ -129,6 +132,7 @@ describe('EventsListPage', () => {
           reserved_count: 0,
         },
         {
+          organization: { slug: 'acme', name: 'Acme', page_public: false },
           slug: 'meetup-comunidad',
           title: 'Meetup de la comunidad',
           summary: null,
@@ -170,6 +174,7 @@ describe('EventsListPage', () => {
       .expectOne((peticion) => peticion.url === '/api/v1/public/events')
       .flush([
         {
+          organization: { slug: 'acme', name: 'Acme', page_public: false },
           slug: 'iawic-2026',
           title: 'IA Week in Cascais 2026',
           summary: null,
@@ -185,6 +190,7 @@ describe('EventsListPage', () => {
           reserved_count: 0,
         },
         {
+          organization: { slug: 'acme', name: 'Acme', page_public: false },
           slug: 'meetup-comunidad',
           title: 'Meetup de la comunidad',
           summary: null,
@@ -221,6 +227,7 @@ describe('EventsListPage', () => {
       .expectOne((peticion) => peticion.url === '/api/v1/public/events')
       .flush([
         {
+          organization: { slug: 'acme', name: 'Acme', page_public: false },
           slug: 'iawic-2026',
           title: 'IA Week in Cascais 2026',
           summary: null,
@@ -236,6 +243,7 @@ describe('EventsListPage', () => {
           reserved_count: 0,
         },
         {
+          organization: { slug: 'acme', name: 'Acme', page_public: false },
           slug: 'meetup-comunidad',
           title: 'Meetup de la comunidad',
           summary: null,

@@ -9,6 +9,7 @@ import {
   urlOutlook,
   type EventoParaCalendario,
 } from '../calendar/calendar-links';
+import { urlEvento } from '../../core/routing/rutas-publicas';
 
 /** Milisegundos que se espera antes de liberar el objeto del `.ics`: Safari
  * necesita que el enlace siga vivo un instante después del clic. */
@@ -124,7 +125,8 @@ export class AddToCalendar {
   /** Ficha pública del evento. Vacío el origen en servidor: solo importa en el
    * navegador, donde las URL se abren; el enlace resultante nunca se usa en SSR. */
   private readonly urlEvento = computed(
-    () => `${this.documento.defaultView?.location.origin ?? ''}/eventos/${this.evento().slug}`,
+    () =>
+      `${this.documento.defaultView?.location.origin ?? ''}${urlEvento(this.evento().organization.slug, this.evento().slug)}`,
   );
 
   protected readonly enlaceGoogle = computed(() =>

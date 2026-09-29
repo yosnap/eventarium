@@ -17,6 +17,7 @@ const HORA = 60 * 60 * 1000;
 function evento(slug: string, desdeMs: number, hastaMs: number): EventoEnDirecto {
   const ahora = Date.now();
   return {
+    organization: { slug: 'acme' },
     slug,
     title: `Evento ${slug}`,
     cover_url: null,
@@ -84,7 +85,7 @@ describe('LandingEnDirecto', () => {
     const enlaces = Array.from(
       (fixture.nativeElement as HTMLElement).querySelectorAll('a.landing-directo-tarjeta'),
     );
-    expect(enlaces.map((a) => a.getAttribute('href'))).toEqual(['/eventos/en-curso']);
+    expect(enlaces.map((a) => a.getAttribute('href'))).toEqual(['/acme/en-curso']);
     expect(fixture.nativeElement.textContent).toContain(es.publico.eventos.formato.online);
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });

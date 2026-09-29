@@ -4,6 +4,7 @@
     "cargando": "Cargando…",
     "cerrar": "Cerrar",
     "volver": "Volver",
+    "inicio": "Inicio",
     "guardar": "Guardar",
     "guardado": "Guardado",
     "error": "Se ha producido un error",
@@ -76,6 +77,11 @@
         "Waitlisted": "Lista de espera"
       },
       "eventoCancelado": "Evento cancelado por la organización"
+    },
+    "noEncontrada": {
+      "mensaje": "No hemos encontrado esa página.",
+      "temporal": "No hemos podido comprobar ese enlace ahora mismo. Inténtalo de nuevo en unos minutos.",
+      "volver": "Volver al inicio"
     },
     "eventos": {
       "listadoTitulo": "Eventos",
