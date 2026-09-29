@@ -393,6 +393,50 @@ describe('Select', () => {
       expect(fixture.componentInstance.value()).toBe('UTC');
     });
 
+    it('Escape cierra, limpia el filtro y la caja vuelve a la opción elegida', async () => {
+      await montarBuscable({ value: 'UTC' });
+      await escribir('madrid');
+
+      caja.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+      );
+      await fixture.whenStable();
+
+      expect(caja.getAttribute('aria-expanded')).toBe('false');
+      expect(caja.value).toBe('UTC');
+    });
+
+    it('el espacio escribe en la caja en vez de confirmar la opción activa', async () => {
+      await montarBuscable({ value: 'Europe/Madrid' });
+      await escribir('europe');
+      const antes = fixture.componentInstance.value();
+
+      caja.dispatchEvent(
+        new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }),
+      );
+      await fixture.whenStable();
+
+      // Ni confirma ni cierra: el espacio tiene que llegar al input como texto.
+      expect(fixture.componentInstance.value()).toBe(antes);
+      expect(caja.getAttribute('aria-expanded')).toBe('true');
+    });
+
+    it('hover y Enter sobre la lista filtrada eligen la opción resaltada', async () => {
+      await montarBuscable();
+      await escribir('lon');
+      const visibles = opcionesVisibles();
+      expect(visibles.length).toBe(1);
+
+      visibles[0]!.dispatchEvent(new Event('mousemove', { bubbles: true }));
+      await fixture.whenStable();
+      caja.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+      );
+      await fixture.whenStable();
+
+      expect(fixture.componentInstance.value()).toBe('Europe/London');
+    });
+
     it('no violaciones de accesibilidad con el panel abierto y filtro activo', async () => {
       await montarBuscable({ value: 'Europe/Madrid' });
       await escribir('europe');

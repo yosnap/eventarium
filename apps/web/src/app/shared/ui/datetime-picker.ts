@@ -10,6 +10,7 @@ import {
   model,
   output,
   signal,
+  untracked,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { TranslocoService } from '@jsverse/transloco';
@@ -825,12 +826,15 @@ export class DatetimePicker {
 
   constructor() {
     // Al abrir cada panel, lo elegido (u hoy) entra en el foco y en la vista:
-    // es donde sigue la conversación después de pulsar el botón.
+    // es donde sigue la conversación después de pulsar el botón. Solo se
+    // dispara con el cambio de panel: los días se leen con `untracked` para
+    // que hojear meses con el teclado (foco en las flechas) no relance el
+    // efecto y robe el foco en cada salto.
     effect(() => {
       const panel = this.panelAbierto();
       const anfitrion = this.elementoAnfitrion.nativeElement;
       if (panel === 'fecha') {
-        const dias = this.dias();
+        const dias = untracked(this.dias);
         const elegido = dias.findIndex((celda) => celda.esSeleccionado);
         const hoyIdx = dias.findIndex((celda) => celda.esHoy);
         const indice = elegido >= 0 ? elegido : hoyIdx >= 0 ? hoyIdx : 0;

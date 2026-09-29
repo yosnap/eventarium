@@ -299,7 +299,6 @@ function zonasHorariasDisponibles(): readonly string[] {
       gap: var(--space-sm);
     }
     .campo-select select,
-    .campo-select input,
     .campo-numero input {
       width: 100%;
       box-sizing: border-box;
@@ -309,9 +308,10 @@ function zonasHorariasDisponibles(): readonly string[] {
       background-color: var(--surface);
       color: var(--fg);
       font: inherit;
-      /* 46px, la altura de .sel__btn y .dt__btn: los cuatro tipos de
-       * control corto de esta rejilla (select nativo, input de texto, select
-       * y selector de fecha) quedan alineados en la misma base. */
+      /* 46px (2.875rem), la altura de .sel__btn: modalidad, zona horaria y
+       * ventana de pago —los controles de esta fila con rótulo externo—
+       * quedan alineados entre sí en la misma base. Los campos de la fila de
+       * arriba (inicio, fin, ciudad) van a 3.25rem por su etiqueta flotante. */
       min-height: 2.875rem;
     }
     .campo-numero input {

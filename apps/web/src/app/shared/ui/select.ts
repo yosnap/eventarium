@@ -407,9 +407,16 @@ export class Select {
   /** Texto tecleado en la caja del modo buscable: filtra la lista pero no
    * compromete el valor hasta elegir una opción. */
   protected readonly textoBusqueda = signal('');
-  /** Lo que muestra la caja: lo tecleado mientras se busca, y la opción
+  /** La caja está en edición (foco activo y tecleando): mientras lo esté
+   * muestra lo tecleado — incluso vacío — y no la opción elegida, o Angular
+   * reescribiría el value del input y el caret saltaría al final al borrar
+   * el último carácter del filtro. */
+  protected readonly editandoCaja = signal(false);
+  /** Lo que muestra la caja: lo tecleado mientras se edita, y la opción
    * elegida (o el marcador) en reposo. */
-  protected readonly textoEnCaja = computed(() => this.textoBusqueda() || this.etiquetaVisible());
+  protected readonly textoEnCaja = computed(() =>
+    this.editandoCaja() ? this.textoBusqueda() : this.etiquetaVisible(),
+  );
   /** La lista que se pinta: toda, o la que pasa el filtro del buscador. */
   protected readonly opcionesFiltradas = computed<readonly OpcionInterna[]>(() => {
     const texto = this.textoBusqueda().trim().toLowerCase();
@@ -483,6 +490,7 @@ export class Select {
 
   protected alEscribirBusqueda(evento: Event): void {
     this.textoBusqueda.set((evento.target as HTMLInputElement).value);
+    this.editandoCaja.set(true);
     if (!this.abierto()) this.abrir();
     this.indiceActivo.set(this.primeraSeleccionable());
   }
@@ -491,11 +499,14 @@ export class Select {
    * era solo filtro, y no se confirma nada sin elegir. */
   protected alPerderFocoDeCaja(): void {
     this.textoBusqueda.set('');
+    this.editandoCaja.set(false);
     this.blurred.emit();
   }
 
   protected alPasarRaton(indice: number): void {
-    const opcion = this.opcionesEfectivas()[indice];
+    // El índice viene de la lista filtrada (la que se pinta): consultarlo
+    // sobre la lista completa desincronizaría el resalte y el Enter.
+    const opcion = this.opcionesFiltradas()[indice];
     if (opcion && !opcion.deshabilitada) this.indiceActivo.set(indice);
   }
 
@@ -529,7 +540,17 @@ export class Select {
         this.indiceActivo.set(this.ultimaSeleccionable());
         return;
       case 'Enter':
+        evento.preventDefault();
+        if (!this.abierto()) {
+          this.abrir();
+          return;
+        }
+        this.confirmarSeleccion(this.indiceActivo());
+        return;
       case ' ':
+        // En el modo buscable el espacio es escritura («New York»), no
+        // confirmación: se deja pasar a la caja.
+        if (this.buscable()) return;
         evento.preventDefault();
         if (!this.abierto()) {
           this.abrir();
@@ -568,6 +589,10 @@ export class Select {
 
   private cerrar(devolverFoco: boolean): void {
     this.abierto.set(false);
+    // Cerrar (Escape, Tab, clic fuera) también recoge la caja: el filtro era
+    // transitorio y la opción elegida tiene que volver a la pantalla.
+    this.textoBusqueda.set('');
+    this.editandoCaja.set(false);
     if (devolverFoco) this.botonRef()?.nativeElement.focus();
   }
 
