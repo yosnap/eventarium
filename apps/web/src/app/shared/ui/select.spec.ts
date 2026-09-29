@@ -1,9 +1,11 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { TranslocoTestingModule } from '@jsverse/transloco';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Select, type SelectOption } from './select';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../testing/axe';
+import es from '../../../../public/assets/i18n/es-ES.json';
 
 const OPCIONES: readonly SelectOption[] = [
   { value: 'valencia', label: 'Valencia' },
@@ -37,7 +39,13 @@ describe('Select', () => {
   async function montar(entradas: Record<string, unknown> = {}): Promise<void> {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      imports: [Select],
+      imports: [
+        Select,
+        TranslocoTestingModule.forRoot({
+          langs: { 'es-ES': es },
+          translocoConfig: { availableLangs: ['es-ES'], defaultLang: 'es-ES' },
+        }),
+      ],
       providers: [provideZonelessChangeDetection()],
     });
     fixture = TestBed.createComponent(Select);
@@ -297,5 +305,98 @@ describe('Select', () => {
       await fixture.whenStable();
       await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
     }
+  });
+
+  describe('modo buscable', () => {
+    let caja: HTMLInputElement;
+
+    const ZONAS: readonly SelectOption[] = [
+      { value: 'Europe/Madrid', label: 'Europe/Madrid' },
+      { value: 'Europe/London', label: 'Europe/London' },
+      { value: 'America/New_York', label: 'America/New_York' },
+      { value: 'UTC', label: 'UTC' },
+    ];
+
+    async function montarBuscable(entradas: Record<string, unknown> = {}): Promise<void> {
+      await montar({ options: ZONAS, buscable: true, placeholder: 'Zona horaria', ...entradas });
+      caja = fixture.nativeElement.querySelector('.sel__caja') as HTMLInputElement;
+    }
+
+    async function escribir(texto: string): Promise<void> {
+      caja.value = texto;
+      caja.dispatchEvent(new Event('input', { bubbles: true }));
+      await fixture.whenStable();
+    }
+
+    function opcionesVisibles(): HTMLLIElement[] {
+      return Array.from(
+        (fixture.nativeElement.querySelector('.sel__list') as HTMLElement).querySelectorAll(
+          '.sel__o:not(.sel__vacio)',
+        ),
+      );
+    }
+
+    it('muestra la opción elegida en la caja y el nativo guarda el valor', async () => {
+      await montarBuscable({ value: 'Europe/Madrid' });
+      expect(caja.value).toBe('Europe/Madrid');
+      expect(nativo.value).toBe('Europe/Madrid');
+    });
+
+    it('escribir filtra la lista sin comprometer el valor', async () => {
+      await montarBuscable({ value: 'Europe/Madrid' });
+      await escribir('lon');
+      expect(caja.getAttribute('aria-expanded')).toBe('true');
+      expect(opcionesVisibles().map((o) => o.textContent?.trim())).toEqual(['Europe/London']);
+      // Mientras se busca, la caja enseña el filtro y el valor no cambia.
+      expect(fixture.componentInstance.value()).toBe('Europe/Madrid');
+    });
+
+    it('el filtro ignora acentos y mayúsculas', async () => {
+      await montarBuscable();
+      await escribir('AMERICA');
+      expect(opcionesVisibles().map((o) => o.textContent?.trim())).toEqual(['America/New_York']);
+    });
+
+    it('Intro elige la primera coincidencia y la caja pasa a mostrarla', async () => {
+      await montarBuscable();
+      await escribir('europe');
+      caja.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+      );
+      await fixture.whenStable();
+
+      expect(fixture.componentInstance.value()).toBe('Europe/Madrid');
+      expect(nativo.value).toBe('Europe/Madrid');
+      expect(caja.value).toBe('Europe/Madrid');
+      expect(caja.getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('sin coincidencias muestra el aviso y no deja elegir nada', async () => {
+      await montarBuscable();
+      await escribir('oceanía/atlantis');
+      const lista = fixture.nativeElement.querySelector('.sel__list') as HTMLElement;
+      expect(lista.textContent).toContain('Sin coincidencias');
+      caja.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+      );
+      await fixture.whenStable();
+      expect(fixture.componentInstance.value()).toBe('');
+    });
+
+    it('al perder el foco sin elegir, la caja vuelve a la opción elegida', async () => {
+      await montarBuscable({ value: 'UTC' });
+      await escribir('madrid');
+      caja.dispatchEvent(new Event('blur', { bubbles: true }));
+      await fixture.whenStable();
+
+      expect(caja.value).toBe('UTC');
+      expect(fixture.componentInstance.value()).toBe('UTC');
+    });
+
+    it('no violaciones de accesibilidad con el panel abierto y filtro activo', async () => {
+      await montarBuscable({ value: 'Europe/Madrid' });
+      await escribir('europe');
+      await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+    });
   });
 });
