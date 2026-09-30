@@ -13,8 +13,7 @@
 #
 # Pasos: comprueba que el destino es la 18 y está vacío → compara codificación y
 # ordenación → crea los roles con `roles.sql` → copia con pg_dump | pg_restore en una
-# sola transacción y abortando al primer error → reaplica roles y privilegios →
-# ANALYZE → compara tabla a tabla y termina con error si algo no coincide.
+# sola transacción y abortando al primer error → ANALYZE → compara tabla a tabla y termina con error si algo no coincide.
 #
 # Variables (las del propio contenedor, salvo las marcadas):
 #   POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB     del contenedor nuevo
@@ -96,8 +95,9 @@ trap 'rm -f "$VOLCADO"; exit 130' INT TERM HUP
 PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -w -h "$ORIGEN_HOST" -U "$POSTGRES_USER" -d "$BASE" -Fc -f "$VOLCADO"
 pg_restore -w -U "$POSTGRES_USER" -d "$BASE" --exit-on-error --single-transaction "$VOLCADO"
 
-echo "→ Reaplicando roles y privilegios sobre las tablas ya creadas"
-aplicar_roles
+# NO se reaplica roles.sql tras restaurar: su `GRANT ... ON ALL TABLES TO app_user` devolvería
+# permisos de escritura a tablas a las que las migraciones se los quitaron a propósito
+# (catálogos, auditoría). Los privilegios de tablas viajan en el volcado tal cual estaban.
 
 echo "→ ANALYZE (el volcado no trae las estadísticas del planificador)"
 destino -q -c "ANALYZE"
@@ -136,6 +136,11 @@ comparar "atributos de los roles" "select string_agg(rolname||':'||rolsuper::int
 comparar "propietario del esquema public" "select nspowner::regrole::text from pg_namespace where nspname = 'public'"
 comparar "privilegios de la base" "select coalesce(datacl::text, 'sin-acl') from pg_database where datname = current_database()"
 comparar "privilegios por defecto" "select count(*) from pg_default_acl"
+# PostgreSQL 17 añadió el privilegio MAINTAIN (letra `m`): el propietario lo recibe en la 18 y no
+# en la 16. Se ignora esa letra; el resto de privilegios tiene que coincidir exactamente.
+comparar "privilegios de tablas y secuencias" "select md5(coalesce(string_agg(c.relname || ':' || coalesce((select string_agg(regexp_replace(x::text, '=([A-Za-z*]*)m([A-Za-z*]*)/', '=\\1\\2/'), ',' order by x::text) from unnest(c.relacl) x), '-'), '|' order by c.relname), '')) from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind in ('r','S','v','m','p')"
+comparar "privilegios de funciones" "select md5(coalesce(string_agg(p.proname || ':' || coalesce((select string_agg(x::text, ',' order by x::text) from unnest(p.proacl) x), '-'), '|' order by p.proname, p.oid::text), '')) from pg_proc p where p.pronamespace = 'public'::regnamespace"
+comparar "app_user puede escribir en event_categories" "select has_table_privilege('app_user', 'public.event_categories', 'INSERT')::text" 
 comparar "propietarios de tablas" "select string_agg(distinct tableowner, ',') from pg_tables where schemaname = 'public'"
 
 if [ "$fallos" -ne 0 ]; then
