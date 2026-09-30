@@ -557,12 +557,8 @@ con el mismo patrón que `app_resolve_organization` y las funciones de la fase a
 ### Slug de evento por organización y página pública: tablas y funciones
 
 - `events` es único por `(organization_id, slug)` (`uq_events_organization_id_slug`);
-  la unicidad global de la migración `0030` se revirtió en la `0058`. El slug de
+  la unicidad global de la migración `0030` se revirtió en la `0058`. La tabla de enlaces antiguos que creó la `0058` se eliminó en la `0062`. El slug de
   evento y el de organización son inmutables.
-- `legacy_event_slugs (slug PK, event_id FK ON DELETE CASCADE, organization_id FK)`:
-  los slugs que existían al migrar, congelados. Solo la leen las funciones
-  `SECURITY DEFINER`; lleva RLS forzada y sin política, más un `REVOKE` a
-  `app_user` (el `REVOKE` lo deshace `roles.sql` al reaplicarse, la RLS no).
 - `event_categories (id, slug UK, name, display_order, is_active)` (migración `0061`): catálogo de
   **instalación** (sin `organization_id` ni RLS), mismo patrón que `theme_templates`: `app_user`
   solo lee (`REVOKE` que `roles.sql` deshace al reaplicarse; no hay endpoint que escriba con esa
@@ -584,7 +580,6 @@ con el mismo patrón que `app_resolve_organization` y las funciones de la fase a
 | Función | Uso |
 |---|---|
 | `app_resolve_public_event(org_slug, slug)` / `app_resolve_public_event_display(org_slug, slug)` | Resolver un evento publicable (o cancelado, para mostrarlo) por organización y slug, con organización activa |
-| `app_resolve_legacy_event(slug, para_mostrar)` | Resolver un enlace antiguo solo por `legacy_event_slugs`; devuelve también el slug de la organización |
 | `app_resolve_public_organization(org_slug)` | El `id` de una organización solo si su página pública está activada y la organización está activa |
 | `app_list_registrations_by_email(email)` | Ahora devuelve también `organization_slug` y `organization_page_public` |
 

@@ -2,7 +2,7 @@ import type { OrganizacionPublica } from '../../../shared/ui/migas-de-evento';
 import type { PlantillaDeTema } from '../../../core/theming/theme-template.model';
 
 /**
- * Formas de datos de `GET /public/events/{slug}`, compartidas entre
+ * Formas de datos de `GET /public/organizations/{org}/events/{slug}`, compartidas entre
  * `event-page.ts` y sus secciones extraídas (`sections/`).
  *
  * Refleja `PublicEventDetail` (`apps/api/app/modules/events/schemas.py:312-329`)

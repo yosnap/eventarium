@@ -446,13 +446,6 @@ class PublicParticipant(BaseModel):
     public_slug: str | None
 
 
-class CanonicalEventLink(BaseModel):
-    """Dónde vive hoy un enlace antiguo `/eventos/{slug}`."""
-
-    organization_slug: str
-    slug: str
-
-
 class PublicEventSummary(BaseModel):
     """Evento tal y como aparece en el listado público.
 

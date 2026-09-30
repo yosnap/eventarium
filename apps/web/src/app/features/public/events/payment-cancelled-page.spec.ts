@@ -44,7 +44,7 @@ describe('PaymentCancelledPage', () => {
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
-  it('muestra el aviso de cancelación y un enlace de vuelta al evento, sin violaciones de accesibilidad', async () => {
+  it('sin organización en la URL el enlace de vuelta lleva a la portada, sin violaciones de accesibilidad', async () => {
     configurar(rutaCon({ slug: 'iawic-2026' }));
 
     const fixture = TestBed.createComponent(PaymentCancelledPage);
@@ -52,7 +52,7 @@ describe('PaymentCancelledPage', () => {
 
     expect(fixture.nativeElement.textContent).toContain('Pago cancelado');
     const enlace = fixture.nativeElement.querySelector('a');
-    expect(enlace?.getAttribute('href')).toContain('/eventos/iawic-2026');
+    expect(enlace?.getAttribute('href')).toBe('/');
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 

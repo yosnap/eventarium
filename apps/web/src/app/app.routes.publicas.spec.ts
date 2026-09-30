@@ -33,9 +33,9 @@ function ruta(url: string): Route | undefined {
 }
 
 const esComodin = (r: Route | undefined) => r?.path === '**';
-const esEnlaceAntiguo = (r: Route | undefined) => !!r?.matcher && !!r.canActivate;
+const esEnlaceAntiguo = (r: Route | undefined) => !!r?.matcher && r.redirectTo === '/';
 const esEventoDeOrganizacion = (r: Route | undefined) =>
-  !!r?.matcher && !r.canActivate && r.matcher !== coincideConOrganizacion;
+  !!r?.matcher && !r.redirectTo && r.matcher !== coincideConOrganizacion;
 const esPaginaDeOrganizacion = (r: Route | undefined) => r?.matcher === coincideConOrganizacion;
 
 describe('rutas públicas', () => {
@@ -57,7 +57,7 @@ describe('rutas públicas', () => {
   });
 
   it.each(['eventos/iawic', 'eventos/iawic/programa', 'eventos/iawic/sesiones/s1'])(
-    'el enlace antiguo %s pasa por el guard de redirección',
+    'el enlace antiguo %s se redirige a la portada',
     (url) => {
       expect(esEnlaceAntiguo(ruta(url))).toBe(true);
     },

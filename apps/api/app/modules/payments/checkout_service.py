@@ -302,7 +302,7 @@ async def crear_sesion_de_pago(session: AsyncSession, *, payment_id: uuid.UUID) 
             product_name=tipo.name if tipo is not None else "Entrada",
         ),
         # `slug` viaja en la URL porque el endpoint de estado
-        # (`GET /public/events/{slug}/checkout/{registration_id}/status`) está
+        # (`GET /public/organizations/{org}/events/{slug}/checkout/{registration_id}/status`) está
         # anidado bajo el evento, no solo bajo la inscripción: sin él, la
         # pantalla de retorno no podría ni siquiera preguntar por el estado
         # real del pago.

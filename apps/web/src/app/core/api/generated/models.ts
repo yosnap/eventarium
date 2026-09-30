@@ -38,7 +38,6 @@ export type { BudgetSummaryOut } from './models/budget-summary-out';
 export type { CancelarEventoIn } from './models/cancelar-evento-in';
 export type { CancelRegistrationRequest } from './models/cancel-registration-request';
 export type { CancelRegistrationResponse } from './models/cancel-registration-response';
-export type { CanonicalEventLink } from './models/canonical-event-link';
 export type { CeldaDeConsentimientos } from './models/celda-de-consentimientos';
 export type { ChangeEmailConfirmRequest } from './models/change-email-confirm-request';
 export type { ChangeEmailRequest } from './models/change-email-request';

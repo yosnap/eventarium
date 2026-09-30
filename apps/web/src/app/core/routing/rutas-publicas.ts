@@ -34,12 +34,12 @@ export function rutaEvento(org: string, slug: string, ...resto: (string | number
 }
 
 /**
- * Vuelta al evento desde las pantallas de pago. Un pago iniciado antes de que
- * la organización entrara en la URL solo trae el slug: se enlaza al formato
- * antiguo, que redirige a la URL actual.
+ * Vuelta al evento desde las pantallas de pago. Sin organización en la URL de
+ * retorno (un pago iniciado con la dirección anterior) no hay a dónde volver
+ * y se lleva a la portada.
  */
 export function rutaDeVueltaAlEvento(org: string | null, slug: string): string[] {
-  return org ? rutaEvento(org, slug) : ['/eventos', slug];
+  return org ? rutaEvento(org, slug) : ['/'];
 }
 
 /**

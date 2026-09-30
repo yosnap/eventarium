@@ -51,7 +51,6 @@ from app.modules.events.models import (
 from app.modules.events.public_deps import EVENTO_PARA_MOSTRAR, ruta_de_evento
 from app.modules.events.public_summary import categoria_publica, resumen_publico
 from app.modules.events.schemas import (
-    CanonicalEventLink,
     PublicCategoryRef,
     PublicEventDetail,
     PublicEventSession,
@@ -192,22 +191,6 @@ async def _sedes_publicas(
         )
         for sede in filas
     ]
-
-
-@router.get(
-    "/events/{slug}/canonical",
-    summary="Resolver un enlace antiguo de evento a su URL actual",
-    description=(
-        "Solo resuelve slugs que existían antes de que el slug pasara a ser único "
-        "por organización: un slug reutilizado después por otra organización no "
-        "cambia el destino. 404 si el evento ya no es público."
-    ),
-    response_model=CanonicalEventLink,
-    dependencies=[limit_per_ip("public-event-canonical", PUBLICO_POR_IP)],
-)
-async def get_canonical_event_link(slug: str, session: SessionDep) -> CanonicalEventLink:
-    organizacion, slug_actual = await service.canonical_of_legacy_slug(session, slug)
-    return CanonicalEventLink(organization_slug=organizacion, slug=slug_actual)
 
 
 @router.get(

@@ -66,7 +66,7 @@ export const CHANGELOG: readonly ChangelogVersion[] = [
           {
             titulo: 'La organización, en la dirección del evento',
             descripcion:
-              'Los eventos pasan a vivir en /{organización}/{evento}, y la ficha, el programa, las sesiones, los patrocinadores, las políticas y la inscripción muestran una miga «Inicio › Organización › Evento». Los enlaces antiguos (/eventos/{evento}) siguen funcionando: redirigen a la dirección nueva conservando el resto de la ruta. El identificador de un evento solo tiene que ser único dentro de su organización.',
+              'Los eventos pasan a vivir en /{organización}/{evento}, y la ficha, el programa, las sesiones, los patrocinadores, las políticas y la inscripción muestran una miga «Inicio › Organización › Evento». Los enlaces antiguos (/eventos/{evento}) eran de prueba y ya no funcionan: llevan a la portada. El identificador de un evento solo tiene que ser único dentro de su organización.',
           },
           {
             titulo: 'Página pública de la organización',

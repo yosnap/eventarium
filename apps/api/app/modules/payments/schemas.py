@@ -284,7 +284,7 @@ class CheckoutStartRequest(BaseModel):
         max_length=10,
         description=(
             "Versiones de las políticas del organizador que se muestran y se "
-            "aceptan (las de `GET /public/events/{slug}/policies`)."
+            "aceptan (las de `GET /public/organizations/{org}/events/{slug}/policies`)."
         ),
     )
     ticket_type_id: str

@@ -29,7 +29,7 @@ const ESPERAS_REINTENTO_AUTOMATICO_MS = [2000, 4000, 8000, 8000, 8000] as const;
  * `checkout.session.completed` es la única fuente de verdad (ver
  * `phase-04-checkout-webhooks-y-confirmacion.md`); esta pantalla solo
  * pregunta al backend por el estado ya persistido
- * (`GET /public/events/{slug}/checkout/{registration_id}/status`) y refleja
+ * (`GET /public/organizations/{org}/events/{slug}/checkout/{registration_id}/status`) y refleja
  * lo que encuentra. Si todavía no ha llegado (carrera normal entre el
  * navegador volviendo y el webhook procesándose), reintenta automáticamente
  * un número acotado de veces con espera creciente y, agotadas, deja un botón
@@ -57,9 +57,11 @@ const ESPERAS_REINTENTO_AUTOMATICO_MS = [2000, 4000, 8000, 8000, 8000] as const;
                 <app-alert tone="info" [title]="t('pago.retorno.pendienteTitulo')">
                   {{ t('pago.retorno.pendienteDetalle') }}
                 </app-alert>
-                <app-button type="button" [loading]="reintentando()" (click)="reintentar()">
-                  {{ t('pago.retorno.reintentar') }}
-                </app-button>
+                @if (org) {
+                  <app-button type="button" [loading]="reintentando()" (click)="reintentar()">
+                    {{ t('pago.retorno.reintentar') }}
+                  </app-button>
+                }
               }
               @case ('fallido') {
                 <app-alert tone="error" [title]="t('pago.retorno.fallidoTitulo')">
@@ -83,7 +85,7 @@ const ESPERAS_REINTENTO_AUTOMATICO_MS = [2000, 4000, 8000, 8000, 8000] as const;
             <app-add-to-calendar [evento]="e" />
           }
 
-          @if (slug) {
+          @if (slug && org) {
             <p>
               <a [routerLink]="volverAlEvento(org, slug)">{{ t('pago.retorno.volverAlEvento') }}</a>
             </p>
@@ -126,12 +128,10 @@ export class PaymentReturnPage implements OnDestroy {
   constructor() {
     this.seo.set({ title: this.transloco.translate('pago.retorno.titulo') });
     const parametros = this.ruta.snapshot.queryParamMap;
-    // `org` falta en los pagos iniciados antes de que la organización entrara
-    // en la URL: se resuelven por el slug antiguo.
     this.org = slugValido(parametros.get('org'));
     this.slug = slugValido(parametros.get('slug'));
     this.registrationId = parametros.get('registration_id');
-    if (!this.slug || !this.registrationId) {
+    if (!this.org || !this.slug || !this.registrationId) {
       this.estado.set('error');
       return;
     }
@@ -150,7 +150,7 @@ export class PaymentReturnPage implements OnDestroy {
   }
 
   private async comprobar(): Promise<void> {
-    if (!this.slug || !this.registrationId) {
+    if (!this.org || !this.slug || !this.registrationId) {
       this.estado.set('error');
       return;
     }

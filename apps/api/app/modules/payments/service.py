@@ -407,7 +407,7 @@ async def delete_discount_code(
         ) from exc
 
 
-# --- Presupuesto público (`POST /public/events/{slug}/checkout/quote`) ------
+# --- Presupuesto público (`POST /public/organizations/{org}/events/{slug}/checkout/quote`) ------
 
 
 class PresupuestoDeCompra:

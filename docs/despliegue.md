@@ -200,7 +200,12 @@ sirviendo, durante los segundos hasta que arranca el nuevo las rutas públicas d
 (ficha, políticas, entradas, inscripción, estado del pago) del contenedor antiguo responden
 500. El orden correcto es migrar → API → web (una web nueva con una API vieja daría 404 en
 las rutas anidadas). Conviene desplegarla fuera de horas de venta de entradas; los retornos
-de Stripe en vuelo reintentan durante unos 30 s y casi siempre se recuperan.
+de Stripe en vuelo reintentan durante unos 30 s y casi siempre se recuperan. Un retorno
+de pago iniciado con la dirección anterior (sin `org` en la URL) ya no resuelve: hacerlo
+cuando no haya pagos pendientes. Las rutas públicas planas `/public/events/{slug}/…` ya no
+existen: un navegador con el bundle anterior en caché del service worker recibe 404 en la
+ficha pública hasta que se actualiza (recargar dos veces). Aceptado porque los enlaces
+anteriores eran de prueba.
 
 Con Docker Compose, `IMAGE_TAG=latest` no cambia entre despliegues. En Dokploy basta
 con esperar a que termine «Publicar imágenes» del commit de `main` y pulsar **Deploy**
