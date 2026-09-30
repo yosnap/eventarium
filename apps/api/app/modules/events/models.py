@@ -30,13 +30,32 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, TimestampMixin
 from app.shared.identifiers import new_uuid7
+
+
+class EventCategory(Base, TimestampMixin):
+    """Una categoría del catálogo de instalación (una por evento).
+
+    Tabla de instalación, sin `organization_id` y por tanto sin RLS. `app_user`
+    solo tiene `SELECT` (revocado el resto en `0061_categorias_etiquetas`);
+    solo la superadministración escribe, con la sesión de mantenimiento. No se
+    borra: se desactiva (`is_active`), y un evento que ya la tiene la conserva.
+    """
+
+    __tablename__ = "event_categories"
+
+    id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=new_uuid7)
+    slug: Mapped[str] = mapped_column(String(40), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(80), nullable=False)
+    display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
 
 class Event(Base, TimestampMixin):
@@ -78,6 +97,16 @@ class Event(Base, TimestampMixin):
         index=True,
     )
     slug: Mapped[str] = mapped_column(String(160), nullable=False)
+    # Una categoría del catálogo de instalación (`ON DELETE RESTRICT`: una
+    # categoría en uso no se borra, se desactiva). `NULL` = sin categoría.
+    category_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("event_categories.id", ondelete="RESTRICT"), nullable=True
+    )
+    category: Mapped[EventCategory | None] = relationship(lazy="selectin")
+    # Etiquetas libres, normalizadas en minúsculas (máx. 5; ver `normalizar_etiquetas`).
+    tags: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, default=list, server_default=text("'{}'")
+    )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)

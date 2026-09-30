@@ -22,6 +22,7 @@ from app.modules.accounting.router import router as accounting_router
 from app.modules.admin.ai_router import router as admin_ai_router
 from app.modules.admin.analytics_router import router as admin_analytics_router
 from app.modules.admin.email_router import router as admin_email_router
+from app.modules.admin.event_categories_router import router as admin_event_categories_router
 from app.modules.admin.ga4_client import close_ga4
 from app.modules.admin.impersonation_router import router as admin_impersonation_router
 from app.modules.admin.platform_router import router as admin_platform_router
@@ -31,6 +32,7 @@ from app.modules.ai_gateway.router import catalogo_router as ai_catalog_router
 from app.modules.ai_gateway.router import router as ai_gateway_router
 from app.modules.auth.router import router as auth_router
 from app.modules.events.cancel_router import router as events_cancel_router
+from app.modules.events.categories_router import router as event_categories_router
 from app.modules.events.public_router import router as events_public_router
 from app.modules.events.router import router as events_router
 from app.modules.health.router import router as health_router
@@ -178,6 +180,8 @@ def create_app() -> FastAPI:
     api.include_router(users_router)
     api.include_router(roles_router)
     api.include_router(admin_router)
+    api.include_router(admin_event_categories_router)
+    api.include_router(event_categories_router)
     api.include_router(admin_users_router)
     api.include_router(admin_analytics_router)
     api.include_router(admin_ai_router)

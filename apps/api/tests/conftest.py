@@ -150,6 +150,8 @@ TABLAS = (
     # Políticas propias del organizador. Cascadean desde `organizations` y
     # `events`, pero se listan por el mismo criterio que el resto.
     "organization_policy_versions",
+    # Catálogo de instalación sin semilla en migración: cada test parte de cero.
+    "event_categories",
 )
 
 

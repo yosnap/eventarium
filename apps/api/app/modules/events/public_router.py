@@ -33,7 +33,7 @@ import uuid
 from collections import defaultdict
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,7 +41,7 @@ from app.core.database import set_organization_context
 from app.core.deps import SessionDep
 from app.core.ratelimit import PUBLICO_POR_IP, limit_per_ip
 from app.core.storage import get_storage, public_url_versionada
-from app.modules.events import repository, service, speakers_repository
+from app.modules.events import categories, repository, service, speakers_repository
 from app.modules.events.models import (
     Event,
     EventMember,
@@ -49,9 +49,10 @@ from app.modules.events.models import (
     SpeakerPublicProfile,
 )
 from app.modules.events.public_deps import EVENTO_PARA_MOSTRAR, ruta_de_evento
-from app.modules.events.public_summary import resumen_publico
+from app.modules.events.public_summary import categoria_publica, resumen_publico
 from app.modules.events.schemas import (
     CanonicalEventLink,
+    PublicCategoryRef,
     PublicEventDetail,
     PublicEventSession,
     PublicEventSummary,
@@ -62,6 +63,7 @@ from app.modules.events.schemas import (
 from app.modules.media.models import Media
 from app.modules.organizations import service as organizations_service
 from app.modules.organizations.models import OrganizationMember
+from app.modules.organizations.schemas import SLUG_PATTERN
 from app.modules.payments import service as payments_service
 from app.modules.registrations import repository as registrations_repository
 from app.modules.sponsors import repository as sponsors_repository
@@ -79,7 +81,7 @@ from app.modules.users.schemas import (
     SocialLinkResponse,
     filter_public_profile_fields,
 )
-from app.shared.errors import NotFoundError
+from app.shared.errors import NotFoundError, ValidationDomainError
 
 router = APIRouter(prefix="/public", tags=["público"])
 
@@ -209,13 +211,47 @@ async def get_canonical_event_link(slug: str, session: SessionDep) -> CanonicalE
 
 
 @router.get(
+    "/event-categories",
+    summary="Categorías activas del catálogo",
+    description="Para el filtro del directorio. Solo las activas, en el orden del catálogo.",
+    response_model=list[PublicCategoryRef],
+    dependencies=[limit_per_ip("public-event-categories", PUBLICO_POR_IP)],
+)
+async def list_public_event_categories(session: SessionDep) -> list[PublicCategoryRef]:
+    return [
+        PublicCategoryRef(slug=c.slug, name=c.name)
+        for c in await categories.list_categories(session, solo_activas=True)
+    ]
+
+
+@router.get(
     "/events",
     summary="Listar eventos publicados",
     response_model=list[PublicEventSummary],
     dependencies=[limit_per_ip("public-events", PUBLICO_POR_IP)],
 )
-async def list_public_events(session: SessionDep) -> list[PublicEventSummary]:
-    filas = await service.list_public_events_across_organizations(session)
+async def list_public_events(
+    session: SessionDep,
+    response: Response,
+    categoria: Annotated[
+        str | None, Query(max_length=40, pattern=SLUG_PATTERN, description="Slug de la categoría")
+    ] = None,
+    etiqueta: Annotated[
+        list[str],
+        Query(max_length=categories.MAX_ETIQUETAS_EN_UN_FILTRO, description="Etiqueta (varias: y)"),
+    ] = [],  # noqa: B006 - FastAPI copia el valor por defecto en cada petición
+    limit: Annotated[int | None, Query(ge=1, le=100, description="Sin `limit`: todos")] = None,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> list[PublicEventSummary]:
+    try:
+        etiquetas = tuple(categories.normalizar_etiquetas(etiqueta))
+    except ValueError as exc:
+        raise ValidationDomainError(str(exc)) from exc
+    filas, total = await service.list_public_events_across_organizations(
+        session, category_slug=categoria, tags=etiquetas, limit=limit, offset=offset
+    )
+    # El total que cumple los filtros, para paginar sin cambiar la forma de la respuesta.
+    response.headers["X-Total-Count"] = str(total)
     return [
         resumen_publico(evento, reservadas, precio, cover_url, organizacion)
         for evento, reservadas, precio, cover_url, organizacion in filas
@@ -283,6 +319,8 @@ async def get_public_event(
         precio = precios.get(evento.id)
     return PublicEventDetail(
         slug=evento.slug,
+        category=categoria_publica(evento),
+        tags=list(evento.tags),
         organization=await organizations_service.public_ref(session, evento.organization_id),
         cancelled=evento.status == "cancelled",
         cancellation_reason=evento.cancellation_reason,

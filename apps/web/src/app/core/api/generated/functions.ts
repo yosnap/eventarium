@@ -71,6 +71,8 @@ export type { ListPublicOrganizationEventsApiV1PublicOrganizationsOrgSlugEventsG
 export { listPublicOrganizationEventsApiV1PublicOrganizationsOrgSlugEventsGet as listPublicOrganizationEventsApiV1PublicOrganizationsOrgSlugEventsGet } from './fn/publico/list-public-organization-events-api-v-1-public-organizations-org-slug-events-get';
 export type { GetCanonicalEventLinkApiV1PublicEventsSlugCanonicalGet$Params as GetCanonicalEventLinkApiV1PublicEventsSlugCanonicalGet$Params } from './fn/publico/get-canonical-event-link-api-v-1-public-events-slug-canonical-get';
 export { getCanonicalEventLinkApiV1PublicEventsSlugCanonicalGet as getCanonicalEventLinkApiV1PublicEventsSlugCanonicalGet } from './fn/publico/get-canonical-event-link-api-v-1-public-events-slug-canonical-get';
+export type { ListPublicEventCategoriesApiV1PublicEventCategoriesGet$Params as ListPublicEventCategoriesApiV1PublicEventCategoriesGet$Params } from './fn/publico/list-public-event-categories-api-v-1-public-event-categories-get';
+export { listPublicEventCategoriesApiV1PublicEventCategoriesGet as listPublicEventCategoriesApiV1PublicEventCategoriesGet } from './fn/publico/list-public-event-categories-api-v-1-public-event-categories-get';
 export type { ListPublicEventsApiV1PublicEventsGet$Params as ListPublicEventsApiV1PublicEventsGet$Params } from './fn/publico/list-public-events-api-v-1-public-events-get';
 export { listPublicEventsApiV1PublicEventsGet as listPublicEventsApiV1PublicEventsGet } from './fn/publico/list-public-events-api-v-1-public-events-get';
 export type { GetPublicEventApiV1PublicOrganizationsOrgSlugEventsSlugGet$Params as GetPublicEventApiV1PublicOrganizationsOrgSlugEventsSlugGet$Params } from './fn/publico/get-public-event-api-v-1-public-organizations-org-slug-events-slug-get';
@@ -195,6 +197,12 @@ export type { UpdateThemeTemplateApiV1AdminThemeTemplatesTemplateIdPatch$Params 
 export { updateThemeTemplateApiV1AdminThemeTemplatesTemplateIdPatch as updateThemeTemplateApiV1AdminThemeTemplatesTemplateIdPatch } from './fn/administracion/update-theme-template-api-v-1-admin-theme-templates-template-id-patch';
 export type { GetPlatformMetricsApiV1AdminMetricsGet$Params as GetPlatformMetricsApiV1AdminMetricsGet$Params } from './fn/administracion/get-platform-metrics-api-v-1-admin-metrics-get';
 export { getPlatformMetricsApiV1AdminMetricsGet as getPlatformMetricsApiV1AdminMetricsGet } from './fn/administracion/get-platform-metrics-api-v-1-admin-metrics-get';
+export type { ListEventCategoriesApiV1AdminEventCategoriesGet$Params as ListEventCategoriesApiV1AdminEventCategoriesGet$Params } from './fn/administracion/list-event-categories-api-v-1-admin-event-categories-get';
+export { listEventCategoriesApiV1AdminEventCategoriesGet as listEventCategoriesApiV1AdminEventCategoriesGet } from './fn/administracion/list-event-categories-api-v-1-admin-event-categories-get';
+export type { CreateEventCategoryApiV1AdminEventCategoriesPost$Params as CreateEventCategoryApiV1AdminEventCategoriesPost$Params } from './fn/administracion/create-event-category-api-v-1-admin-event-categories-post';
+export { createEventCategoryApiV1AdminEventCategoriesPost as createEventCategoryApiV1AdminEventCategoriesPost } from './fn/administracion/create-event-category-api-v-1-admin-event-categories-post';
+export type { UpdateEventCategoryApiV1AdminEventCategoriesCategoryIdPatch$Params as UpdateEventCategoryApiV1AdminEventCategoriesCategoryIdPatch$Params } from './fn/administracion/update-event-category-api-v-1-admin-event-categories-category-id-patch';
+export { updateEventCategoryApiV1AdminEventCategoriesCategoryIdPatch as updateEventCategoryApiV1AdminEventCategoriesCategoryIdPatch } from './fn/administracion/update-event-category-api-v-1-admin-event-categories-category-id-patch';
 export type { ListUsersApiV1AdminUsersGet$Params as ListUsersApiV1AdminUsersGet$Params } from './fn/administracion/list-users-api-v-1-admin-users-get';
 export { listUsersApiV1AdminUsersGet as listUsersApiV1AdminUsersGet } from './fn/administracion/list-users-api-v-1-admin-users-get';
 export type { GetUserApiV1AdminUsersUserIdGet$Params as GetUserApiV1AdminUsersUserIdGet$Params } from './fn/administracion/get-user-api-v-1-admin-users-user-id-get';
@@ -273,12 +281,16 @@ export type { StopImpersonatingApiV1AdminImpersonateStopPost$Params as StopImper
 export { stopImpersonatingApiV1AdminImpersonateStopPost as stopImpersonatingApiV1AdminImpersonateStopPost } from './fn/administracion/stop-impersonating-api-v-1-admin-impersonate-stop-post';
 export type { ListImpersonableMembersApiV1AdminOrganizationsOrganizationIdMembersGet$Params as ListImpersonableMembersApiV1AdminOrganizationsOrganizationIdMembersGet$Params } from './fn/administracion/list-impersonable-members-api-v-1-admin-organizations-organization-id-members-get';
 export { listImpersonableMembersApiV1AdminOrganizationsOrganizationIdMembersGet as listImpersonableMembersApiV1AdminOrganizationsOrganizationIdMembersGet } from './fn/administracion/list-impersonable-members-api-v-1-admin-organizations-organization-id-members-get';
+export type { ListAssignableCategoriesApiV1EventCategoriesGet$Params as ListAssignableCategoriesApiV1EventCategoriesGet$Params } from './fn/eventos/list-assignable-categories-api-v-1-event-categories-get';
+export { listAssignableCategoriesApiV1EventCategoriesGet as listAssignableCategoriesApiV1EventCategoriesGet } from './fn/eventos/list-assignable-categories-api-v-1-event-categories-get';
 export type { ListEventsApiV1EventsGet$Params as ListEventsApiV1EventsGet$Params } from './fn/eventos/list-events-api-v-1-events-get';
 export { listEventsApiV1EventsGet as listEventsApiV1EventsGet } from './fn/eventos/list-events-api-v-1-events-get';
 export type { CreateEventApiV1EventsPost$Params as CreateEventApiV1EventsPost$Params } from './fn/eventos/create-event-api-v-1-events-post';
 export { createEventApiV1EventsPost as createEventApiV1EventsPost } from './fn/eventos/create-event-api-v-1-events-post';
 export type { GetEventApiV1EventsEventIdGet$Params as GetEventApiV1EventsEventIdGet$Params } from './fn/eventos/get-event-api-v-1-events-event-id-get';
 export { getEventApiV1EventsEventIdGet as getEventApiV1EventsEventIdGet } from './fn/eventos/get-event-api-v-1-events-event-id-get';
+export type { DeleteEventApiV1EventsEventIdDelete$Params as DeleteEventApiV1EventsEventIdDelete$Params } from './fn/eventos/delete-event-api-v-1-events-event-id-delete';
+export { deleteEventApiV1EventsEventIdDelete as deleteEventApiV1EventsEventIdDelete } from './fn/eventos/delete-event-api-v-1-events-event-id-delete';
 export type { UpdateEventApiV1EventsEventIdPatch$Params as UpdateEventApiV1EventsEventIdPatch$Params } from './fn/eventos/update-event-api-v-1-events-event-id-patch';
 export { updateEventApiV1EventsEventIdPatch as updateEventApiV1EventsEventIdPatch } from './fn/eventos/update-event-api-v-1-events-event-id-patch';
 export type { UploadCoverApiV1EventsEventIdCoverPut$Params as UploadCoverApiV1EventsEventIdCoverPut$Params } from './fn/eventos/upload-cover-api-v-1-events-event-id-cover-put';

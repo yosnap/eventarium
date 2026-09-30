@@ -3,9 +3,17 @@
 from __future__ import annotations
 
 from app.modules.events.models import Event
-from app.modules.events.schemas import PublicEventSummary
+from app.modules.events.schemas import PublicCategoryRef, PublicEventSummary
 from app.modules.organizations.schemas import PublicOrganizationRef
 from app.modules.payments import service as payments_service
+
+
+def categoria_publica(evento: Event) -> PublicCategoryRef | None:
+    """Solo se muestra una categoría activa: una desactivada deja de aparecer."""
+    categoria = evento.category
+    if categoria is None or not categoria.is_active:
+        return None
+    return PublicCategoryRef(slug=categoria.slug, name=categoria.name)
 
 
 def resumen_publico(
@@ -18,6 +26,8 @@ def resumen_publico(
     return PublicEventSummary(
         slug=evento.slug,
         organization=organizacion,
+        category=categoria_publica(evento),
+        tags=list(evento.tags),
         cancelled=evento.status == "cancelled",
         title=evento.title,
         summary=evento.summary,

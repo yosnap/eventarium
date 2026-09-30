@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.database import set_organization_context
 from app.core.storage import get_storage, public_url_versionada
-from app.modules.events import repository
+from app.modules.events import categories, repository
 from app.modules.events import schemas as events_schemas
 from app.modules.events.geocoding import geocode_address
 from app.modules.events.models import (
@@ -163,6 +163,13 @@ async def create_event(
     session: AsyncSession, *, organization_id: uuid.UUID, datos: dict[str, Any]
 ) -> Event:
     await _asegurar_slug_disponible(session, organization_id, datos["slug"])
+    if "category_id" in datos:
+        datos = {
+            **datos,
+            "category_id": await categories.resolver_categoria_del_evento(
+                session, datos["category_id"]
+            ),
+        }
 
     evento = Event(organization_id=organization_id, **datos)
     try:
@@ -197,6 +204,7 @@ async def create_event(
         direccion_anterior=None,
     )
     await session.flush()
+    await session.refresh(evento, ["category"])
     return evento
 
 
@@ -292,6 +300,13 @@ async def update_event(
             session, datos.pop("theme_template_id")
         )
 
+    if "category_id" in datos:
+        # `null` quita; ausencia no cambia (por eso solo se mira si viene). La
+        # categoría que el evento ya tiene siempre es válida, esté o no activa.
+        datos["category_id"] = await categories.resolver_categoria_del_evento(
+            session, datos["category_id"], actual=evento.category_id
+        )
+
     for campo, valor in datos.items():
         setattr(evento, campo, valor)
 
@@ -306,6 +321,7 @@ async def update_event(
         await session.flush()
     except IntegrityError as exc:
         raise ConflictError(f"Ya existe un evento con el identificador «{nuevo_slug}».") from exc
+    await session.refresh(evento, ["category"])
     return evento
 
 
@@ -730,8 +746,16 @@ async def _resolver_portadas(session: AsyncSession, eventos: list[Event]) -> dic
 
 async def list_public_events_across_organizations(
     session: AsyncSession,
-) -> list[
-    tuple[Event, int, payments_service.PrecioPublico | None, str | None, PublicOrganizationRef]
+    *,
+    category_slug: str | None = None,
+    tags: tuple[str, ...] = (),
+    limit: int | None = None,
+    offset: int = 0,
+) -> tuple[
+    list[
+        tuple[Event, int, payments_service.PrecioPublico | None, str | None, PublicOrganizationRef]
+    ],
+    int,
 ]:
     """Eventos publicados de **toda la instalación**, sin organización activa.
 
@@ -754,6 +778,12 @@ async def list_public_events_across_organizations(
     de organizaciones de una instalación es pequeño (no es una consulta por
     evento, es una por organización), así que el coste es aceptable para un
     endpoint ya limitado por IP.
+
+    Los filtros (categoría, etiquetas) van en la consulta de cada organización.
+    Con `limit`, cada organización trae como mucho `offset + limit` filas
+    (ordenadas) y el conjunto mezclado se corta después: la página global es la
+    correcta sin traer todos los eventos. Devuelve también el total que
+    cumple los filtros, para paginar.
     """
     organizaciones = (
         await session.execute(
@@ -764,24 +794,38 @@ async def list_public_events_across_organizations(
     resultado: list[
         tuple[Event, int, payments_service.PrecioPublico | None, str | None, PublicOrganizationRef]
     ] = []
+    total = 0
     for (organization_id,) in organizaciones:
         await set_organization_context(session, organization_id)
         organizacion = await organizations_service.public_ref(session, organization_id)
-        filas = (
-            await session.execute(
-                repository.public_events_with_confirmed_count_query(organization_id)
+        consulta = repository.public_events_with_confirmed_count_query(
+            organization_id, category_slug=category_slug, tags=tags
+        )
+        total += int(
+            await session.scalar(
+                select(func.count()).select_from(consulta.order_by(None).subquery())
             )
-        ).all()
+            or 0
+        )
+        if limit is not None:
+            consulta = consulta.limit(offset + limit)
+        filas = (await session.execute(consulta)).all()
         ids_de_pago = [evento.id for evento, _ in filas if evento.registration_mode == "paid"]
         precios = await payments_service.get_min_public_prices(
             session, organization_id=organization_id, event_ids=ids_de_pago
         )
+        # Las portadas se resuelven aquí, dentro del contexto RLS de esta
+        # organización (`Media` tiene RLS), y en una sola consulta.
+        portadas = await _resolver_portadas(session, [evento for evento, _ in filas])
         for evento, reservadas in filas:
-            cover_url = await _resolver_cover_url(session, evento)
-            resultado.append((evento, reservadas, precios.get(evento.id), cover_url, organizacion))
+            resultado.append(
+                (evento, reservadas, precios.get(evento.id), portadas.get(evento.id), organizacion)
+            )
 
-    resultado.sort(key=lambda item: item[0].starts_at)
-    return resultado
+    resultado.sort(key=lambda item: (item[0].starts_at, item[0].id))
+    if limit is not None:
+        resultado = resultado[offset : offset + limit]
+    return resultado, total
 
 
 async def tema_publico_del_evento(session: AsyncSession, evento: Event) -> PublicTheme | None:

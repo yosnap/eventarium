@@ -109,6 +109,24 @@ PERSONAS: list[dict[str, Any]] = [
 # Catálogo de eventos de demostración
 # ---------------------------------------------------------------------------
 
+# Categoría (slug del catálogo de `seed_demo`) y etiquetas de algunos eventos,
+# para probar el filtro del directorio y los chips. Los que no salen aquí
+# quedan sin categoría ni etiquetas, que también es una rama que probar.
+CATEGORIAS_Y_ETIQUETAS: dict[str, tuple[str, list[str]]] = {
+    "demo-completo-presencial": ("conferencia", ["ia", "congreso", "valencia"]),
+    "demo-online-directo": ("meetup", ["ia", "online"]),
+    "demo-hibrido-aprobacion": ("conferencia", ["ia", "híbrido"]),
+    "demo-multisede-dos": ("conferencia", ["ia", "multisede"]),
+    "demo-multisede-tres": ("conferencia", ["ia", "multisede", "congreso"]),
+    "demo-una-sede": ("taller", ["python", "práctica"]),
+    "demo-patrocinadores-sin-portada": ("networking", ["empresas"]),
+    "demo-aforo-completo": ("taller", ["ia", "práctica"]),
+    "demo-multidia-largo": ("hackathon", ["ia", "equipos", "premios"]),
+    "demo-varias-salas-un-dia": ("formacion", ["ia", "formación"]),
+    "demo-lista-espera": ("meetup", ["comunidad"]),
+    "demo-muchas-sesiones": ("conferencia", ["ia", "datos", "cloud"]),
+}
+
 # Cada entrada es una rama de la ficha. `sedes: []` = ubicación simple.
 EVENTOS: list[dict[str, Any]] = [
     {

@@ -2326,6 +2326,150 @@
         }
       }
     },
+    "/api/v1/admin/event-categories": {
+      "get": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Listar el catálogo de categorías de eventos",
+        "operationId": "list_event_categories_api_v1_admin_event_categories_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EventCategoryOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Event Categories Api V1 Admin Event Categories Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Crear una categoría de eventos",
+        "operationId": "create_event_category_api_v1_admin_event_categories_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventCategoryCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventCategoryOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/event-categories/{category_id}": {
+      "patch": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Editar una categoría de eventos",
+        "description": "Edita `name`, `display_order` e `is_active`. El identificador no cambia y no hay borrado: se desactiva. Desactivar una categoría no toca los eventos que ya la tienen, pero deja de poder asignarse y de mostrarse en público.",
+        "operationId": "update_event_category_api_v1_admin_event_categories__category_id__patch",
+        "parameters": [
+          {
+            "name": "category_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Category Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventCategoryUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventCategoryOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/event-categories": {
+      "get": {
+        "tags": [
+          "eventos"
+        ],
+        "summary": "Categorías que se pueden asignar a un evento",
+        "description": "Solo las activas. El panel añade además la categoría actual del evento aunque esté desactivada (viene en el propio evento).",
+        "operationId": "list_assignable_categories_api_v1_event_categories_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EventCategoryOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Assignable Categories Api V1 Event Categories Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/users": {
       "get": {
         "tags": [
@@ -4145,6 +4289,41 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "eventos"
+        ],
+        "summary": "Eliminar un evento cancelado",
+        "description": "Solo un evento **cancelado** se puede eliminar; uno activo hay que cancelarlo antes. La eliminación es lógica: el evento desaparece del panel y del público, pero sus inscripciones, cobros y contabilidad se conservan. Se rechaza mientras la cancelación siga en marcha o queden reembolsos sin completar.",
+        "operationId": "delete_event_api_v1_events__event_id__delete",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/events/{event_id}/cover": {
@@ -5629,13 +5808,14 @@
         }
       }
     },
-    "/api/v1/public/events": {
+    "/api/v1/public/event-categories": {
       "get": {
         "tags": [
           "público"
         ],
-        "summary": "Listar eventos publicados",
-        "operationId": "list_public_events_api_v1_public_events_get",
+        "summary": "Categorías activas del catálogo",
+        "description": "Para el filtro del directorio. Solo las activas, en el orden del catálogo.",
+        "operationId": "list_public_event_categories_api_v1_public_event_categories_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -5643,10 +5823,114 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/PublicEventSummary"
+                    "$ref": "#/components/schemas/PublicCategoryRef"
                   },
                   "type": "array",
+                  "title": "Response List Public Event Categories Api V1 Public Event Categories Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/events": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Listar eventos publicados",
+        "operationId": "list_public_events_api_v1_public_events_get",
+        "parameters": [
+          {
+            "name": "categoria",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Slug de la categoría",
+              "title": "Categoria"
+            },
+            "description": "Slug de la categoría"
+          },
+          {
+            "name": "etiqueta",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 3,
+              "description": "Etiqueta (varias: y)",
+              "default": [],
+              "title": "Etiqueta"
+            },
+            "description": "Etiqueta (varias: y)"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 100,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Sin `limit`: todos",
+              "title": "Limit"
+            },
+            "description": "Sin `limit`: todos"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublicEventSummary"
+                  },
                   "title": "Response List Public Events Api V1 Public Events Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -14309,6 +14593,119 @@
         "title": "EventCalendarInfo",
         "description": "Lo mínimo del evento para que la persona lo añada a su calendario.\n\nSolo viaja cuando la inscripción está `confirmed` (ver\n`registrations.calendar`): no es dato interno, es lo que ya se enseña en la\nficha pública del evento, entregado junto a la respuesta para no obligar al\nfrontend a pedir el evento aparte con un slug que no siempre conoce."
       },
+      "EventCategoryCreate": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 2,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "title": "Slug"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "display_order": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Display Order",
+            "default": 0
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "name"
+        ],
+        "title": "EventCategoryCreate"
+      },
+      "EventCategoryOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "display_order": {
+            "type": "integer",
+            "title": "Display Order"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "display_order",
+          "is_active"
+        ],
+        "title": "EventCategoryOut",
+        "description": "Categoría del catálogo de instalación, tal y como la ve el panel."
+      },
+      "EventCategoryUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "display_order": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Order"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "title": "EventCategoryUpdate",
+        "description": "El identificador (`slug`) no se cambia: forma parte de las URLs de filtro."
+      },
       "EventCreate": {
         "properties": {
           "slug": {
@@ -14345,6 +14742,24 @@
               }
             ],
             "title": "Description"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
           },
           "status": {
             "type": "string",
@@ -14679,6 +15094,23 @@
           "slug": {
             "type": "string",
             "title": "Slug"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventCategoryOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
           },
           "title": {
             "type": "string",
@@ -15430,6 +15862,31 @@
               }
             ],
             "title": "Description"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
           },
           "status": {
             "anyOf": [
@@ -20291,6 +20748,25 @@
         "title": "PruebaDeConexionOut",
         "description": "Resultado de la prueba. Nunca lleva la clave ni el texto del proveedor.\n\nLos modelos que devuelve son los que el proveedor declaró con **esa**\ncredencial: el panel rellena con ellos el desplegable, que es la única\nforma de elegir modelo antes de guardar la clave."
       },
+      "PublicCategoryRef": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "name"
+        ],
+        "title": "PublicCategoryRef",
+        "description": "La categoría de un evento en los contratos públicos."
+      },
       "PublicEventDetail": {
         "properties": {
           "slug": {
@@ -20299,6 +20775,23 @@
           },
           "organization": {
             "$ref": "#/components/schemas/PublicOrganizationRef"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicCategoryRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
           },
           "cancelled": {
             "type": "boolean",
@@ -20719,6 +21212,23 @@
           },
           "organization": {
             "$ref": "#/components/schemas/PublicOrganizationRef"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicCategoryRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
           },
           "cancelled": {
             "type": "boolean",

@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.events.models import (
     Event,
+    EventCategory,
     EventMember,
     EventSession,
     EventSessionParticipant,
@@ -59,8 +60,34 @@ def public_events_query(
     )
 
 
+def filtrar_por_categoria_y_etiquetas[T: tuple[Any, ...]](
+    consulta: Select[T], category_slug: str | None, tags: tuple[str, ...]
+) -> Select[T]:
+    """Los filtros del directorio, **en la propia consulta** (no en memoria).
+
+    La categoría solo cuenta si está activa: una desactivada deja de filtrar y
+    de mostrarse. Varias etiquetas se combinan con «y»: el evento tiene todas
+    (`tags @> ARRAY[...]`, apoyado en el índice GIN).
+    """
+    if category_slug is not None:
+        consulta = consulta.where(
+            Event.category_id.in_(
+                select(EventCategory.id).where(
+                    EventCategory.slug == category_slug, EventCategory.is_active.is_(True)
+                )
+            )
+        )
+    if tags:
+        consulta = consulta.where(Event.tags.contains(list(tags)))
+    return consulta
+
+
 def public_events_with_confirmed_count_query(
-    organization_id: uuid.UUID, estados: tuple[str, ...] = ("published",)
+    organization_id: uuid.UUID,
+    estados: tuple[str, ...] = ("published",),
+    *,
+    category_slug: str | None = None,
+    tags: tuple[str, ...] = (),
 ) -> Select[tuple[Event, int]]:
     """Igual que `public_events_query`, más el nº de plazas realmente reservadas
     de cada evento — el aforo ya ocupado que necesita el listado público.
@@ -101,7 +128,7 @@ def public_events_with_confirmed_count_query(
         .group_by(EventRegistration.event_id)
         .subquery()
     )
-    return (
+    consulta = (
         select(Event, func.coalesce(conteo_reservadas.c.reserved_count, 0))
         .outerjoin(conteo_reservadas, conteo_reservadas.c.event_id == Event.id)
         .where(
@@ -110,8 +137,9 @@ def public_events_with_confirmed_count_query(
             Event.visibility == "public",
             Event.deleted_at.is_(None),
         )
-        .order_by(Event.starts_at)
+        .order_by(Event.starts_at, Event.id)
     )
+    return filtrar_por_categoria_y_etiquetas(consulta, category_slug, tags)
 
 
 async def get_public_event_by_slug(

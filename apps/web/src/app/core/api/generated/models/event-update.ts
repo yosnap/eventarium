@@ -7,6 +7,7 @@
  */
 export interface EventUpdate {
   capacity?: (number | null);
+  category_id?: (string | null);
   city?: (string | null);
   contingency_fund_percent?: (number | string | null);
   description?: (string | null);
@@ -22,6 +23,7 @@ export interface EventUpdate {
   starts_at?: (string | null);
   status?: ('draft' | 'published' | 'archived' | null);
   summary?: (string | null);
+  tags?: (Array<string> | null);
   theme_overrides?: ({
 [key: string]: any;
 } | null);
