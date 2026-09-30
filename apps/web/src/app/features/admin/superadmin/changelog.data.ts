@@ -31,6 +31,32 @@ export interface ChangelogVersion {
 
 export const CHANGELOG: readonly ChangelogVersion[] = [
   {
+    version: '0.25.0',
+    fecha: '2026-09-30',
+    secciones: [
+      {
+        categoria: 'agregado',
+        items: [
+          {
+            titulo: 'Categorías y etiquetas de los eventos',
+            descripcion:
+              'Cada evento puede llevar una categoría (de una lista única para toda la plataforma) y hasta 5 etiquetas. Se ven en la tarjeta y en la ficha del evento, y el directorio /eventos permite filtrar por categoría y por etiqueta. La lista de categorías se gestiona desde «Categorías» en el panel de plataforma; una categoría en uso no se borra, se desactiva.',
+          },
+          {
+            titulo: 'Eliminar un evento cancelado',
+            descripcion:
+              'Un evento cancelado, cuando ya ha terminado el reembolso de sus inscripciones, se puede eliminar desde su panel. Un evento activo nunca se elimina: primero se cancela. Las inscripciones, los cobros y la contabilidad se conservan.',
+          },
+          {
+            titulo: 'Asistentes (MCP) con categoría y etiquetas',
+            descripcion:
+              'Los asistentes conectados por MCP pueden asignar categoría y etiquetas al crear o editar un evento, consultar las categorías disponibles y filtrar el listado por categoría y etiquetas.',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.24.0',
     fecha: '2026-09-30',
     secciones: [
