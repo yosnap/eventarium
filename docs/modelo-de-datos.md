@@ -563,6 +563,13 @@ con el mismo patrón que `app_resolve_organization` y las funciones de la fase a
   los slugs que existían al migrar, congelados. Solo la leen las funciones
   `SECURITY DEFINER`; lleva RLS forzada y sin política, más un `REVOKE` a
   `app_user` (el `REVOKE` lo deshace `roles.sql` al reaplicarse, la RLS no).
+- `events.deleted_at` (migración `0060`): eliminación lógica de un evento **ya cancelado**
+  (cancelar y eliminar son dos acciones; uno activo no se elimina). No se borra ninguna fila:
+  inscripciones, cobros, reembolsos y contabilidad se conservan. El evento desaparece del
+  panel (`get_event`, `events_query`), del público y de las funciones `SECURITY DEFINER` que
+  lo resuelven o lo listan; el `slug` sigue reservado. `DELETE /events/{id}` se rechaza
+  (409) si no está cancelado, mientras el barrido de la cancelación siga en marcha o si hay
+  reembolsos sin completar.
 - `organizations.address` y `organizations.public_page_enabled` (`NOT NULL DEFAULT false`),
   migración `0059`, que además antepone `https://` a las webs guardadas sin esquema.
 

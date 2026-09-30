@@ -1988,7 +1988,14 @@
         "confirmar": "Sí, cancelar el evento",
         "enCurso": "Cancelación en curso: quedan {{cancelar}} inscripciones por cancelar y {{avisar}} avisos por enviar.",
         "completada": "Evento cancelado. Todas las inscripciones están canceladas y avisadas.",
-        "reembolsosFallidos": "{{n}} reembolsos han fallado tras varios intentos. Revísalos en los pagos del evento."
+        "reembolsosFallidos": "{{n}} reembolsos han fallado tras varios intentos. Revísalos en los pagos del evento.",
+        "eliminarTitulo": "Eliminar el evento",
+        "eliminarExplicacion": "Un evento cancelado se puede eliminar. Desaparece del panel y de la web pública; las inscripciones, los cobros y la contabilidad se conservan. Un evento que no está cancelado no se puede eliminar: primero hay que cancelarlo.",
+        "eliminarEspera": "Podrás eliminarlo cuando termine la cancelación: todas las inscripciones canceladas y avisadas y ningún reembolso pendiente.",
+        "eliminarBoton": "Eliminar evento",
+        "eliminarDialogoTitulo": "¿Eliminar este evento?",
+        "eliminarDialogoTexto": "Dejará de aparecer en el panel y en la web pública. Los registros de inscripciones, cobros y contabilidad se conservan. El identificador del evento seguirá reservado.",
+        "eliminarConfirmar": "Sí, eliminar el evento"
       }
     },
     "sponsorTiersNav": "Niveles de patrocinio",

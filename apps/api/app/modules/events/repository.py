@@ -29,7 +29,7 @@ from app.modules.users.models import User
 def events_query(organization_id: uuid.UUID, *, status: str | None = None) -> Select[tuple[Event]]:
     consulta = (
         select(Event)
-        .where(Event.organization_id == organization_id)
+        .where(Event.organization_id == organization_id, Event.deleted_at.is_(None))
         .order_by(Event.starts_at.desc())
     )
     if status is not None:
@@ -53,6 +53,7 @@ def public_events_query(
             Event.organization_id == organization_id,
             Event.status.in_(estados),
             Event.visibility == "public",
+            Event.deleted_at.is_(None),
         )
         .order_by(Event.starts_at)
     )
@@ -107,6 +108,7 @@ def public_events_with_confirmed_count_query(
             Event.organization_id == organization_id,
             Event.status.in_(estados),
             Event.visibility == "public",
+            Event.deleted_at.is_(None),
         )
         .order_by(Event.starts_at)
     )
@@ -123,6 +125,7 @@ async def get_public_event_by_slug(
             Event.slug == slug,
             Event.status == "published",
             Event.visibility == "public",
+            Event.deleted_at.is_(None),
         )
     )
     return resultado
@@ -132,7 +135,11 @@ async def get_event(
     session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID
 ) -> Event | None:
     resultado: Event | None = await session.scalar(
-        select(Event).where(Event.id == event_id, Event.organization_id == organization_id)
+        select(Event).where(
+            Event.id == event_id,
+            Event.organization_id == organization_id,
+            Event.deleted_at.is_(None),
+        )
     )
     return resultado
 

@@ -104,7 +104,7 @@ async def _actividad(session: AsyncSession) -> list[ActividadDeOrganizacionOut]:
     sub_eventos = (
         select(func.count())
         .select_from(Event)
-        .where(Event.organization_id == Organization.id)
+        .where(Event.organization_id == Organization.id, Event.deleted_at.is_(None))
         .scalar_subquery()
     )
     sub_publicados = (

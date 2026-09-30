@@ -7,6 +7,7 @@ import {
   input,
   signal,
 } from '@angular/core';
+import { Router } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
@@ -101,6 +102,7 @@ interface EventoResumen {
               [eventId]="eventId()"
               [yaCancelado]="estadoActual() === 'cancelled'"
               (cancelacionConfirmada)="estadoActual.set('cancelled')"
+              (eliminado)="alEliminar()"
             />
           }
         </div>
@@ -133,6 +135,7 @@ export class EventDetails implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
+  private readonly router = inject(Router);
 
   protected readonly cargando = signal(true);
   protected readonly cambiandoEstado = signal(false);
@@ -212,5 +215,10 @@ export class EventDetails implements OnInit {
           : this.transloco.translate('admin.events.formulario.error'),
       );
     }
+  }
+
+  /** El evento acaba de eliminarse: ya no existe en el panel, se vuelve al listado. */
+  protected alEliminar(): void {
+    void this.router.navigate(['/dashboard/events']);
   }
 }

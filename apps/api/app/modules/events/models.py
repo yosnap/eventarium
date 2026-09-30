@@ -91,6 +91,10 @@ class Event(Base, TimestampMixin):
     # terminales; solo se llega a `cancelled` con `cancelar_evento`).
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Eliminado (solo se puede eliminar un evento cancelado). Eliminación lógica: el
+    # evento desaparece del panel y del público, pero no se borra ninguna fila —
+    # inscripciones, cobros y contabilidad se conservan.
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Texto opcional que ve el público en la ficha del evento cancelado.
     cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     # public | hidden | private
