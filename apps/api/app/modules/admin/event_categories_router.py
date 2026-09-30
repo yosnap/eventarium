@@ -12,6 +12,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import registrar_auditoria
@@ -70,7 +71,13 @@ async def create_event_category(
         is_active=datos.is_active,
     )
     session.add(categoria)
-    await session.flush()
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        # Dos superadmins creando el mismo identificador a la vez.
+        raise ConflictError(
+            f"Ya existe una categoría con el identificador «{datos.slug}»."
+        ) from exc
     await registrar_auditoria(
         session,
         actor_user_id=superadmin.id,

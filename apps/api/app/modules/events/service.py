@@ -300,7 +300,8 @@ async def update_event(
             session, datos.pop("theme_template_id")
         )
 
-    if "category_id" in datos:
+    categoria_cambiada = "category_id" in datos
+    if categoria_cambiada:
         # `null` quita; ausencia no cambia (por eso solo se mira si viene). La
         # categoría que el evento ya tiene siempre es válida, esté o no activa.
         datos["category_id"] = await categories.resolver_categoria_del_evento(
@@ -321,7 +322,8 @@ async def update_event(
         await session.flush()
     except IntegrityError as exc:
         raise ConflictError(f"Ya existe un evento con el identificador «{nuevo_slug}».") from exc
-    await session.refresh(evento, ["category"])
+    if categoria_cambiada:
+        await session.refresh(evento, ["category"])
     return evento
 
 
@@ -704,27 +706,10 @@ async def canonical_of_legacy_slug(session: AsyncSession, slug: str) -> tuple[st
     return fila[2], fila[3]
 
 
-async def _resolver_cover_url(session: AsyncSession, evento: Event) -> str | None:
-    """Misma lógica que `events/public_router.py::_cover_url`, pero
-    invocada DENTRO del bucle por organización de
-    `list_public_events_across_organizations` — llamarla después de que el
-    bucle termine resolvería `Media` con el contexto RLS de la ÚLTIMA
-    organización iterada, y la portada de cualquier otro evento con
-    `cover_media_id` saldría `None` en silencio (`Media` tiene `FORCE ROW
-    LEVEL SECURITY`, hallazgo de code-review)."""
-    almacen = get_storage()
-    if evento.cover_media_id is not None:
-        media = await session.get(Media, evento.cover_media_id)
-        return public_url_versionada(media.object_key, media.updated_at) if media else None
-    if evento.cover_object_key:
-        return almacen.public_url(evento.cover_object_key)
-    return None
-
-
 async def _resolver_portadas(session: AsyncSession, eventos: list[Event]) -> dict[uuid.UUID, str]:
     """Portada de cada evento de la página con una sola consulta a `Media`.
 
-    Mismo criterio que `_resolver_cover_url`, sin una consulta por evento. Vale
+    Sin una consulta por evento (una sola a `Media` por página). Vale
     cuando todos los eventos comparten el contexto RLS ya fijado.
     """
     ids_de_medios = {e.cover_media_id for e in eventos if e.cover_media_id is not None}
@@ -801,13 +786,14 @@ async def list_public_events_across_organizations(
         consulta = repository.public_events_with_confirmed_count_query(
             organization_id, category_slug=category_slug, tags=tags
         )
-        total += int(
-            await session.scalar(
-                select(func.count()).select_from(consulta.order_by(None).subquery())
-            )
-            or 0
-        )
         if limit is not None:
+            # El total solo hace falta para paginar; sin `limit` es `len(resultado)`.
+            total += int(
+                await session.scalar(
+                    select(func.count()).select_from(consulta.order_by(None).subquery())
+                )
+                or 0
+            )
             consulta = consulta.limit(offset + limit)
         filas = (await session.execute(consulta)).all()
         ids_de_pago = [evento.id for evento, _ in filas if evento.registration_mode == "paid"]
@@ -823,9 +809,9 @@ async def list_public_events_across_organizations(
             )
 
     resultado.sort(key=lambda item: (item[0].starts_at, item[0].id))
-    if limit is not None:
-        resultado = resultado[offset : offset + limit]
-    return resultado, total
+    if limit is None:
+        return resultado, len(resultado)
+    return resultado[offset : offset + limit], total
 
 
 async def tema_publico_del_evento(session: AsyncSession, evento: Event) -> PublicTheme | None:

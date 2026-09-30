@@ -158,6 +158,9 @@ def create_app() -> FastAPI:
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
+            # El total del listado público viaja en una cabecera propia; sin
+            # exponerla el navegador (otro origen en desarrollo) no puede leerla.
+            expose_headers=["X-Total-Count"],
         )
 
     register_exception_handlers(app)

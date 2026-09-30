@@ -241,7 +241,7 @@ async def list_public_events(
         Query(max_length=categories.MAX_ETIQUETAS_EN_UN_FILTRO, description="Etiqueta (varias: y)"),
     ] = [],  # noqa: B006 - FastAPI copia el valor por defecto en cada petición
     limit: Annotated[int | None, Query(ge=1, le=100, description="Sin `limit`: todos")] = None,
-    offset: Annotated[int, Query(ge=0)] = 0,
+    offset: Annotated[int, Query(ge=0, le=10000)] = 0,
 ) -> list[PublicEventSummary]:
     try:
         etiquetas = tuple(categories.normalizar_etiquetas(etiqueta))

@@ -399,6 +399,16 @@ export const routes: Routes = [
           import('./features/admin/superadmin/analytics-page').then((m) => m.AnalyticsPage),
       },
       {
+        // Catálogo de categorías de eventos: solo superadmin (escribe una tabla
+        // de instalación), no el rol `soporte`.
+        path: 'categorias',
+        canActivate: [superadminGuard],
+        loadComponent: () =>
+          import('./features/admin/superadmin/event-categories-page').then(
+            (m) => m.EventCategoriesPage,
+          ),
+      },
+      {
         // Credencial del proveedor de IA e interruptores de servicio: solo
         // superadmin, no el rol `soporte` que sí entra al resto de `/admin`.
         path: 'ia',

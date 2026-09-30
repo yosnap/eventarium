@@ -37,6 +37,8 @@ interface PerfilPublico {
 interface EventoDeLaOrganizacion {
   readonly slug: string;
   readonly cancelled?: boolean;
+  readonly category?: { readonly slug: string; readonly name: string } | null;
+  readonly tags?: readonly string[];
   readonly organization: { readonly slug: string };
   readonly title: string;
   readonly summary: string | null;
@@ -187,6 +189,16 @@ interface EstadoTransferido {
                         }
                         @if (evento.summary) {
                           <span class="ev-resumen">{{ evento.summary }}</span>
+                        }
+                        @if (evento.category || (evento.tags && evento.tags.length > 0)) {
+                          <span class="ev-resumen">
+                            @if (evento.category) {
+                              <strong>{{ evento.category.name }}</strong>
+                            }
+                            @for (etiqueta of evento.tags ?? []; track etiqueta) {
+                              #{{ etiqueta }}
+                            }
+                          </span>
                         }
                       </span>
                     </a>

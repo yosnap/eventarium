@@ -275,6 +275,32 @@ describe('EventPage', () => {
     await esperarSinViolacionesDeAccesibilidad(raiz);
   });
 
+  it('la categoría y las etiquetas son enlaces que filtran el directorio', async () => {
+    const fixture = TestBed.createComponent(EventPage);
+    fixture.componentRef.setInput('org', 'acme');
+    fixture.componentRef.setInput('slug', 'iawic-2026');
+    fixture.detectChanges();
+    http
+      .expectOne((p) => p.url === '/api/v1/public/organizations/acme/events/iawic-2026')
+      .flush({
+        ...eventoDetalle(),
+        category: { slug: 'taller', name: 'Taller' },
+        tags: ['ia', 'datos'],
+      });
+    await avanzar(fixture);
+
+    const enlaces = [
+      ...fixture.nativeElement.querySelectorAll('.clasificacion a'),
+    ] as HTMLAnchorElement[];
+    expect(enlaces.map((a) => a.textContent?.trim())).toEqual(['Taller', '#ia', '#datos']);
+    expect(enlaces.map((a) => a.getAttribute('href'))).toEqual([
+      '/eventos?categoria=taller',
+      '/eventos?etiqueta=ia',
+      '/eventos?etiqueta=datos',
+    ]);
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
   it('marca "no encontrado" cuando la API responde 404', async () => {
     const fixture = TestBed.createComponent(EventPage);
     fixture.componentRef.setInput('org', 'acme');

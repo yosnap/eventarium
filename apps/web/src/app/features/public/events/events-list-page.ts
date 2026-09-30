@@ -1,8 +1,9 @@
 import { DatePipe } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, type HttpResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   type OnInit,
   PendingTasks,
   TransferState,
@@ -11,11 +12,13 @@ import {
   makeStateKey,
   signal,
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
-import { rutaEvento } from '../../../core/routing/rutas-publicas';
+import { analizarEtiquetas } from '../../../core/eventos/etiquetas';
+import { PATRON_SLUG, rutaEvento } from '../../../core/routing/rutas-publicas';
 import type { OrganizacionPublica } from '../../../shared/ui/migas-de-evento';
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
@@ -32,8 +35,15 @@ type FiltroModo = 'todos' | LocationMode;
 type RegistrationMode = 'free' | 'approval' | 'paid';
 type FiltroRegistro = 'todos' | RegistrationMode;
 
+interface CategoriaPublica {
+  readonly slug: string;
+  readonly name: string;
+}
+
 interface PublicEventSummary {
   readonly organization: OrganizacionPublica;
+  readonly category?: CategoriaPublica | null;
+  readonly tags?: readonly string[];
   readonly slug: string;
   readonly title: string;
   readonly summary: string | null;
@@ -60,7 +70,16 @@ interface PublicEventSummary {
   readonly price_multiple: boolean;
 }
 
-const CLAVE = makeStateKey<PublicEventSummary[]>('public-events-list');
+/** Eventos por página del directorio; «Ver más» pide la siguiente. */
+const TAMANO_DE_PAGINA = 24;
+/** Etiquetas que se pueden combinar en un filtro (el API rechaza más). */
+const MAX_ETIQUETAS_EN_FILTRO = 3;
+
+interface EstadoTransferido {
+  readonly eventos: PublicEventSummary[];
+  readonly total: number;
+  readonly categorias: CategoriaPublica[];
+}
 
 const CLAVE_FORMATO: Record<LocationMode, string> = {
   in_person: 'publico.eventos.formato.presencial',
@@ -137,6 +156,53 @@ function normalizarCiudad(ciudad: string): string {
           <p class="rotulo-seccion etiqueta-acento">{{ t('publico.eventos.rotulo') }}</p>
           <h1>{{ t('publico.eventos.listadoTitulo') }}</h1>
 
+          @if (categorias().length > 0 || hayFiltros()) {
+            <div class="filtros-servidor">
+              <div
+                class="tags"
+                role="group"
+                [attr.aria-label]="t('publico.eventos.categoriasRotulo')"
+              >
+                <button
+                  type="button"
+                  class="tag"
+                  [attr.aria-pressed]="categoriaActiva() === null"
+                  (click)="filtrarCategoria(null)"
+                >
+                  {{ t('publico.eventos.categoriasTodas') }}
+                </button>
+                @for (categoria of categorias(); track categoria.slug) {
+                  <button
+                    type="button"
+                    class="tag"
+                    [attr.aria-pressed]="categoriaActiva() === categoria.slug"
+                    (click)="filtrarCategoria(categoria.slug)"
+                  >
+                    {{ categoria.name }}
+                  </button>
+                }
+              </div>
+              @if (etiquetasActivas().length > 0) {
+                <div
+                  class="tags"
+                  role="group"
+                  [attr.aria-label]="t('publico.eventos.etiquetasActivas')"
+                >
+                  @for (etiqueta of etiquetasActivas(); track etiqueta) {
+                    <button
+                      type="button"
+                      class="tag"
+                      [attr.aria-label]="t('publico.eventos.quitarEtiqueta', { etiqueta })"
+                      (click)="quitarEtiqueta(etiqueta)"
+                    >
+                      #{{ etiqueta }} ✕
+                    </button>
+                  }
+                </div>
+              }
+            </div>
+          }
+
           @if (!cargando() && eventos().length > 0) {
             <form class="searchbar" role="search" (submit)="alEnviarBusqueda($event)">
               <label class="sr-only" for="q">{{ t('publico.eventos.buscarEtiqueta') }}</label>
@@ -172,7 +238,16 @@ function normalizarCiudad(ciudad: string): string {
           @if (cargando()) {
             <p>{{ t('comun.cargando') }}</p>
           } @else if (eventos().length === 0) {
-            <p class="vacio">{{ t('publico.eventos.sinEventos') }}</p>
+            @if (hayFiltros()) {
+              <p class="vacio">
+                {{ t('publico.eventos.sinEventosConFiltros') }}
+                <button type="button" class="enlace" (click)="quitarFiltros()">
+                  {{ t('publico.eventos.quitarFiltros') }}
+                </button>
+              </p>
+            } @else {
+              <p class="vacio">{{ t('publico.eventos.sinEventos') }}</p>
+            }
           } @else {
             <div class="toolbar">
               <span class="rotulo-seccion">{{ t('publico.eventos.filtrarRotulo') }}</span>
@@ -206,6 +281,9 @@ function normalizarCiudad(ciudad: string): string {
               </div>
               <span class="hint" role="status" aria-live="polite">
                 {{ t('publico.eventos.contador', { n: eventosFiltrados().length }) }}
+                @if (eventos().length < total()) {
+                  · {{ t('publico.eventos.filtrosSobreCargados') }}
+                }
               </span>
             </div>
 
@@ -237,6 +315,9 @@ function normalizarCiudad(ciudad: string): string {
                       <span class="ev-meta">
                         <!-- Texto, no enlace: la tarjeta entera ya es un enlace al evento. -->
                         <span class="ev-org">{{ evento.organization.name }}</span>
+                        @if (evento.category) {
+                          <span class="ev-categoria">{{ evento.category.name }}</span>
+                        }
                         <span>
                           @if (evento.location_name || evento.city) {
                             {{ evento.location_name
@@ -256,6 +337,13 @@ function normalizarCiudad(ciudad: string): string {
                       @if (evento.summary) {
                         <span class="ev-resumen">{{ evento.summary }}</span>
                       }
+                      @if (evento.tags && evento.tags.length > 0) {
+                        <span class="ev-etiquetas">
+                          @for (etiqueta of evento.tags; track etiqueta) {
+                            <span class="ev-etiqueta">#{{ etiqueta }}</span>
+                          }
+                        </span>
+                      }
                     </span>
                     <span class="ev-lado">
                       <span class="precio">{{ precioTexto(evento, t) }}</span>
@@ -265,6 +353,22 @@ function normalizarCiudad(ciudad: string): string {
                     </span>
                   </a>
                 }
+              </div>
+            }
+            @if (eventos().length < total()) {
+              <div class="ver-mas">
+                <app-button
+                  type="button"
+                  variant="secundario"
+                  [loading]="cargandoMas()"
+                  (pulsado)="verMas()"
+                >
+                  {{
+                    totalExacto()
+                      ? t('publico.eventos.verMas', { n: eventos().length, total: total() })
+                      : t('publico.eventos.verMasSinTotal')
+                  }}
+                </app-button>
               </div>
             }
           }
@@ -445,6 +549,42 @@ function normalizarCiudad(ciudad: string): string {
     }
     /* .ev__side (descubrir-eventos.html:34): precio arriba, chip de
        disponibilidad debajo, ambos alineados a la derecha. */
+    .filtros-servidor {
+      display: grid;
+      gap: var(--sp-3);
+      margin-top: var(--sp-5);
+    }
+    .ev-categoria {
+      font-family: var(--font-mono);
+      font-size: var(--fs-label);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .ev-etiquetas {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--sp-2);
+      margin-top: var(--sp-2);
+    }
+    .ev-etiqueta {
+      font-size: var(--fs-sm);
+      color: var(--muted);
+    }
+    .ver-mas {
+      display: flex;
+      justify-content: center;
+      margin-top: var(--sp-6);
+    }
+    .enlace {
+      padding: 0;
+      border: 0;
+      background: none;
+      font: inherit;
+      color: var(--accent);
+      text-decoration: underline;
+      cursor: pointer;
+    }
     .ev-lado {
       display: flex;
       flex-direction: column;
@@ -485,6 +625,19 @@ export class EventsListPage implements OnInit {
 
   protected readonly rutaEvento = rutaEvento;
   protected readonly eventos = signal<PublicEventSummary[]>([]);
+  protected readonly total = signal(0);
+  protected readonly categorias = signal<CategoriaPublica[]>([]);
+  protected readonly cargandoMas = signal(false);
+  /** Si el total es exacto (cabecera `X-Total-Count` legible) o solo una estimación. */
+  protected readonly totalExacto = signal(true);
+  /** Identifica la carga vigente: una respuesta de una carga anterior se descarta. */
+  private generacion = 0;
+  /** Filtros del servidor, tal como están en la URL (`?categoria=…&etiqueta=…`). */
+  protected readonly categoriaActiva = signal<string | null>(null);
+  protected readonly etiquetasActivas = signal<readonly string[]>([]);
+  protected readonly hayFiltros = computed(
+    () => this.categoriaActiva() !== null || this.etiquetasActivas().length > 0,
+  );
   protected readonly cargando = signal(true);
   protected readonly error = signal<string | null>(null);
 
@@ -541,8 +694,52 @@ export class EventsListPage implements OnInit {
     });
   });
 
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+
   ngOnInit(): void {
-    void this.tareasPendientes.run(() => this.cargar());
+    // Cada cambio de filtro en la URL recarga el listado desde la primera página.
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((parametros) => {
+      // Lo que llega por la URL no se fía: un filtro con forma inválida se descarta
+      // en vez de romper el listado con un 422.
+      const categoria = parametros.get('categoria');
+      this.categoriaActiva.set(
+        categoria !== null && PATRON_SLUG.test(categoria) ? categoria : null,
+      );
+      const etiquetas = parametros
+        .getAll('etiqueta')
+        .map((e) => analizarEtiquetas(e))
+        .filter((analisis) => !analisis.error && analisis.etiquetas.length === 1)
+        .map((analisis) => analisis.etiquetas[0]);
+      this.etiquetasActivas.set([...new Set(etiquetas)].slice(0, MAX_ETIQUETAS_EN_FILTRO));
+      this.cargando.set(true);
+      this.cargandoMas.set(false);
+      const generacion = ++this.generacion;
+      void this.tareasPendientes.run(() => this.cargar(generacion));
+    });
+  }
+
+  private navegarConFiltros(categoria: string | null, etiquetas: readonly string[]): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { categoria: categoria ?? null, etiqueta: etiquetas.length ? etiquetas : null },
+    });
+  }
+
+  protected filtrarCategoria(slug: string | null): void {
+    this.navegarConFiltros(slug, this.etiquetasActivas());
+  }
+
+  protected quitarEtiqueta(etiqueta: string): void {
+    this.navegarConFiltros(
+      this.categoriaActiva(),
+      this.etiquetasActivas().filter((e) => e !== etiqueta),
+    );
+  }
+
+  protected quitarFiltros(): void {
+    this.navegarConFiltros(null, []);
   }
 
   protected alBuscar(evento: Event): void {
@@ -654,35 +851,117 @@ export class EventsListPage implements OnInit {
     return Math.max(0, evento.capacity - evento.reserved_count);
   }
 
-  private async cargar(): Promise<void> {
-    this.seo.set({ title: this.transloco.translate('publico.eventos.listadoTitulo') });
+  /** Parámetros de la petición al API para los filtros y la página pedida. */
+  private parametros(offset: number): Record<string, string | string[]> {
+    const parametros: Record<string, string | string[]> = {
+      limit: String(TAMANO_DE_PAGINA),
+      offset: String(offset),
+    };
+    const categoria = this.categoriaActiva();
+    if (categoria) parametros['categoria'] = categoria;
+    if (this.etiquetasActivas().length > 0) parametros['etiqueta'] = [...this.etiquetasActivas()];
+    return parametros;
+  }
 
-    const transferido = this.transferState.get(CLAVE, null);
+  private clave() {
+    const filtros = [this.categoriaActiva() ?? '', ...this.etiquetasActivas()].join('|');
+    return makeStateKey<EstadoTransferido>(`public-events-list:${filtros}`);
+  }
+
+  private async pedirPagina(
+    offset: number,
+  ): Promise<{ eventos: PublicEventSummary[]; total: number; exacto: boolean }> {
+    const respuesta: HttpResponse<PublicEventSummary[]> = await firstValueFrom(
+      this.http.get<PublicEventSummary[]>(this.api.url('/public/events'), {
+        headers: this.api.serverForwardHeaders(),
+        params: this.parametros(offset),
+        observe: 'response',
+      }),
+    );
+    const eventos = respuesta.body ?? [];
+    const cabecera = respuesta.headers.get('X-Total-Count');
+    const total = cabecera === null ? Number.NaN : Number(cabecera);
+    if (!Number.isNaN(total)) {
+      return { eventos, total, exacto: true };
+    }
+    // Sin cabecera legible (p. ej. otro origen sin CORS): si la página vino llena
+    // se asume que hay más, para no dejar «Ver más» inutilizable.
+    return {
+      eventos,
+      total: eventos.length + (eventos.length >= TAMANO_DE_PAGINA ? 1 : 0),
+      exacto: false,
+    };
+  }
+
+  private async cargar(generacion: number): Promise<void> {
+    this.seo.set({ title: this.transloco.translate('publico.eventos.listadoTitulo') });
+    this.error.set(null);
+
+    const clave = this.clave();
+    const transferido = this.transferState.get(clave, null);
     if (transferido) {
-      this.transferState.remove(CLAVE);
-      this.eventos.set(transferido);
+      this.transferState.remove(clave);
+      this.eventos.set(transferido.eventos);
+      this.total.set(transferido.total);
+      this.totalExacto.set(true);
+      this.categorias.set(transferido.categorias);
       this.cargando.set(false);
       return;
     }
 
     try {
-      const eventos = await firstValueFrom(
-        this.http.get<PublicEventSummary[]>(this.api.url('/public/events'), {
-          headers: this.api.serverForwardHeaders(),
-        }),
-      );
-      this.eventos.set(eventos);
+      const [pagina, categorias] = await Promise.all([
+        this.pedirPagina(0),
+        firstValueFrom(
+          this.http.get<CategoriaPublica[]>(this.api.url('/public/event-categories'), {
+            headers: this.api.serverForwardHeaders(),
+          }),
+        ).catch(() => [] as CategoriaPublica[]),
+      ]);
+      if (generacion !== this.generacion) return;
+      this.eventos.set(pagina.eventos);
+      this.total.set(pagina.total);
+      this.totalExacto.set(pagina.exacto);
+      this.categorias.set(categorias);
       if (this.api.isServer) {
-        this.transferState.set(CLAVE, eventos);
+        this.transferState.set(clave, { ...pagina, categorias });
       }
     } catch (error) {
-      this.error.set(
-        error instanceof ApiError
-          ? error.message
-          : this.transloco.translate('publico.eventos.error'),
-      );
+      if (generacion !== this.generacion) return;
+      if ((error as { status?: number }).status === 422) {
+        // Un filtro que el API no acepta equivale a «sin resultados», no a un fallo.
+        this.eventos.set([]);
+        this.total.set(0);
+      } else {
+        this.error.set(
+          error instanceof ApiError
+            ? error.message
+            : this.transloco.translate('publico.eventos.error'),
+        );
+      }
     } finally {
-      this.cargando.set(false);
+      if (generacion === this.generacion) {
+        this.cargando.set(false);
+      }
+    }
+  }
+
+  protected async verMas(): Promise<void> {
+    const generacion = this.generacion;
+    this.cargandoMas.set(true);
+    try {
+      const pagina = await this.pedirPagina(this.eventos().length);
+      // Si mientras tanto cambió el filtro, esta página es de otra consulta.
+      if (generacion !== this.generacion) return;
+      this.eventos.update((actuales) => [...actuales, ...pagina.eventos]);
+      this.total.set(pagina.total);
+      this.totalExacto.set(pagina.exacto);
+    } catch {
+      // El botón sigue disponible para reintentar.
+    } finally {
+      if (generacion === this.generacion) {
+        this.cargandoMas.set(false);
+      }
     }
   }
 }

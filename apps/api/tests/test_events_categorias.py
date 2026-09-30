@@ -77,14 +77,18 @@ def test_repetir_una_etiqueta_no_cuenta_dos_veces_para_el_maximo() -> None:
 
 
 async def test_solo_el_superadmin_gestiona_el_catalogo(
-    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    otra_organizacion: OrganizacionDePrueba,
 ) -> None:
-    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    en_uso = await _crear_categoria(cliente, await _superadmin(cliente, organizacion), "existente")
+    _, sin_permiso = await iniciar_sesion(cliente, otra_organizacion)
     for metodo, ruta, cuerpo in (
         ("get", ADMIN, None),
         ("post", ADMIN, {"slug": "taller", "name": "Taller"}),
+        ("patch", f"{ADMIN}/{en_uso['id']}", {"is_active": False}),
     ):
-        respuesta = await cliente.request(metodo, ruta, headers=cabeceras, json=cuerpo)
+        respuesta = await cliente.request(metodo, ruta, headers=sin_permiso, json=cuerpo)
         assert respuesta.status_code in (401, 403), (metodo, respuesta.status_code)
 
 
@@ -387,3 +391,35 @@ async def test_la_paginacion_global_corta_el_conjunto_ordenado_y_da_el_total(
     assert [e["slug"] for e in pagina_3.json()] == ["e5"]
     assert pagina_1.headers["X-Total-Count"] == pagina_3.headers["X-Total-Count"] == "5"
     assert (await cliente.get(f"{PUBLICO}/events", params={"limit": 101})).status_code == 422
+
+
+async def test_paginacion_combinada_con_filtro_y_empate_de_fecha_entre_organizaciones(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    otra_organizacion: OrganizacionDePrueba,
+) -> None:
+    cabeceras = await _superadmin(cliente, organizacion)
+    taller = await _crear_categoria(cliente, cabeceras, "taller")
+    _, cabeceras_b = await iniciar_sesion(cliente, otra_organizacion)
+    misma_hora = {"starts_at": "2030-02-01T10:00:00+00:00", "ends_at": "2030-02-01T12:00:00+00:00"}
+    # Tres del filtro con la MISMA hora entre dos organizaciones y uno fuera del filtro.
+    for slug, cab in (("t1", cabeceras), ("t2", cabeceras_b), ("t3", cabeceras)):
+        await _publicado(cliente, cab, slug, category_id=taller["id"], **misma_hora)
+    await _publicado(cliente, cabeceras, "fuera", **misma_hora)
+
+    vistos: list[str] = []
+    for offset in (0, 1, 2):
+        pagina = await cliente.get(
+            f"{PUBLICO}/events", params={"categoria": "taller", "limit": 1, "offset": offset}
+        )
+        assert pagina.headers["X-Total-Count"] == "3"
+        vistos += [e["slug"] for e in pagina.json()]
+
+    # Con el mismo `starts_at` el desempate por id mantiene un orden estable: cada
+    # evento aparece exactamente una vez, sin saltos ni repeticiones entre páginas.
+    assert sorted(vistos) == ["t1", "t2", "t3"]
+    completa = await cliente.get(f"{PUBLICO}/events", params={"categoria": "taller"})
+    assert [e["slug"] for e in completa.json()] == vistos
+    assert (
+        await cliente.get(f"{PUBLICO}/events", params={"limit": 1, "offset": 10001})
+    ).status_code == 422

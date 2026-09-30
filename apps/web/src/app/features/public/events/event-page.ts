@@ -134,6 +134,26 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                   <img class="portada" [src]="evento.cover_url" [alt]="evento.title" />
                 }
                 <h1>{{ evento.title }}</h1>
+                @if (evento.category || (evento.tags && evento.tags.length > 0)) {
+                  <nav class="clasificacion" [attr.aria-label]="t('publico.eventos.clasificacion')">
+                    @if (evento.category; as categoria) {
+                      <a
+                        class="clasificacion__categoria"
+                        routerLink="/eventos"
+                        [queryParams]="{ categoria: categoria.slug }"
+                        >{{ categoria.name }}</a
+                      >
+                    }
+                    @for (etiqueta of evento.tags ?? []; track etiqueta) {
+                      <a
+                        class="clasificacion__etiqueta"
+                        routerLink="/eventos"
+                        [queryParams]="{ etiqueta: etiqueta }"
+                        >#{{ etiqueta }}</a
+                      >
+                    }
+                  </nav>
+                }
                 @if (evento.summary) {
                   <p class="hero__lede">{{ evento.summary }}</p>
                 }
@@ -576,6 +596,32 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
     }
     .tier__logos a {
       display: inline-block;
+    }
+    .clasificacion {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--sp-2) var(--sp-3);
+      margin-top: var(--sp-3);
+    }
+    .clasificacion a {
+      text-decoration: none;
+    }
+    .clasificacion__categoria {
+      padding: 2px 10px;
+      border: 1px solid var(--accent);
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-size: var(--fs-label);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .clasificacion__etiqueta {
+      font-size: var(--fs-sm);
+      color: var(--muted);
+    }
+    .clasificacion a:hover {
+      text-decoration: underline;
     }
     .lugar__direccion {
       color: var(--muted);

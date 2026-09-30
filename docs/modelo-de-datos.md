@@ -563,6 +563,14 @@ con el mismo patrón que `app_resolve_organization` y las funciones de la fase a
   los slugs que existían al migrar, congelados. Solo la leen las funciones
   `SECURITY DEFINER`; lleva RLS forzada y sin política, más un `REVOKE` a
   `app_user` (el `REVOKE` lo deshace `roles.sql` al reaplicarse, la RLS no).
+- `event_categories (id, slug UK, name, display_order, is_active)` (migración `0061`): catálogo de
+  **instalación** (sin `organization_id` ni RLS), mismo patrón que `theme_templates`: `app_user`
+  solo lee (`REVOKE` que `roles.sql` deshace al reaplicarse; no hay endpoint que escriba con esa
+  sesión) y escribe solo la superadministración. No se borra: se desactiva. `events.category_id`
+  (una por evento, FK `ON DELETE RESTRICT`) y `events.tags text[]` con índice GIN (`tags @> ...`
+  para filtrar). Solo se asignan categorías activas, salvo la que el evento ya tiene; una
+  categoría desactivada deja de mostrarse en público. Etiquetas: minúsculas, máx. 5, 2–30
+  caracteres, letras (con tildes), números, espacios y guiones.
 - `events.deleted_at` (migración `0060`): eliminación lógica de un evento **ya cancelado**
   (cancelar y eliminar son dos acciones; uno activo no se elimina). No se borra ninguna fila:
   inscripciones, cobros, reembolsos y contabilidad se conservan. El evento desaparece del
