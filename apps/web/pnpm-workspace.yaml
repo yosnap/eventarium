@@ -10,3 +10,18 @@ onlyBuiltDependencies:
   - esbuild
   - lmdb
   - msgpackr-extract
+
+# Versiones con los avisos de `pnpm audit` corregidos de dependencias transitivas
+# de herramientas de desarrollo (eslint, transloco, angular-cli). Se pueden quitar
+# cuando sus paquetes padre suban el rango por su cuenta.
+overrides:
+  'brace-expansion@2': '^2.1.7'
+  'brace-expansion@5': '^5.0.12'
+  'fast-uri@3': '^3.1.8'
+  'ip-address@10': '^10.7.2'
+
+allowBuilds:
+  '@parcel/watcher': set this to true or false
+  esbuild: set this to true or false
+  lmdb: set this to true or false
+  msgpackr-extract: set this to true or false

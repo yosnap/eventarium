@@ -41,7 +41,7 @@ En EasyPanel, crea un proyecto y dentro estos servicios:
 | `worker` | App | la misma imagen que `api` | — |
 | `scheduler` | App | la misma imagen que `api` | — |
 | `web` | App | `ghcr.io/yosnap/eventarium/web:sha-<commit>` | 4000 |
-| `caddy` | Compose (no App suelta) | `caddy:2.10-alpine` | 80 |
+| `caddy` | Compose (no App suelta) | `caddy:2.11.4-alpine` | 80 |
 
 Comandos de arranque:
 
