@@ -31,6 +31,22 @@ export interface ChangelogVersion {
 
 export const CHANGELOG: readonly ChangelogVersion[] = [
   {
+    version: '0.25.1',
+    fecha: '2026-09-30',
+    secciones: [
+      {
+        categoria: 'corregido',
+        items: [
+          {
+            titulo: 'Las direcciones /{organización}/{evento} llevaban a la portada',
+            descripcion:
+              'En la versión 0.25.0 todas las direcciones de evento y de página de organización redirigían a la portada por un fallo al servir los enlaces antiguos. Ahora abren el evento o la página de la organización, y los enlaces antiguos (/eventos/{evento}) siguen llevando a la portada.',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.25.0',
     fecha: '2026-09-30',
     secciones: [

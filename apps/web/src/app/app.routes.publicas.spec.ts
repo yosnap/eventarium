@@ -33,9 +33,9 @@ function ruta(url: string): Route | undefined {
 }
 
 const esComodin = (r: Route | undefined) => r?.path === '**';
-const esEnlaceAntiguo = (r: Route | undefined) => !!r?.matcher && r.redirectTo === '/';
+const esEnlaceAntiguo = (r: Route | undefined) => !!r?.matcher && !!r.canActivate;
 const esEventoDeOrganizacion = (r: Route | undefined) =>
-  !!r?.matcher && !r.redirectTo && r.matcher !== coincideConOrganizacion;
+  !!r?.matcher && !r.canActivate && r.matcher !== coincideConOrganizacion;
 const esPaginaDeOrganizacion = (r: Route | undefined) => r?.matcher === coincideConOrganizacion;
 
 describe('rutas públicas', () => {
@@ -57,7 +57,7 @@ describe('rutas públicas', () => {
   });
 
   it.each(['eventos/iawic', 'eventos/iawic/programa', 'eventos/iawic/sesiones/s1'])(
-    'el enlace antiguo %s se redirige a la portada',
+    'el enlace antiguo %s pasa por el guard que lo manda a la portada',
     (url) => {
       expect(esEnlaceAntiguo(ruta(url))).toBe(true);
     },
@@ -94,5 +94,14 @@ describe('rutas públicas', () => {
     const comodin = ruta('no-existe.php');
     expect(comodin?.redirectTo).toBeUndefined();
     expect(comodin?.loadComponent).toBeDefined();
+  });
+
+  it('ninguna ruta con matcher lleva redirectTo (el SSR la trataría como comodín y tragaría /:org y /:org/:evento)', () => {
+    const publico = routes.find((r) => r.path === '' && r.children && !r.canActivate);
+    const conMatcher = (publico?.children ?? []).filter((r) => r.matcher);
+    expect(conMatcher.length).toBeGreaterThan(0);
+    for (const r of conMatcher) {
+      expect(r.redirectTo).toBeUndefined();
+    }
   });
 });
