@@ -22,6 +22,11 @@ VOLCADO="${1:?Uso: restore.sh <fichero.dump> [directorio-de-objetos]}"
 OBJETOS="${2:-}"
 COMPOSE="${COMPOSE:-docker compose --env-file infra/env/.env -f infra/docker-compose.prod.yml}"
 RESTAURACION_AISLADA="${RESTAURACION_AISLADA:-0}"
+# Servicio de Postgres del compose (`postgres18` durante la migración a la 18).
+SERVICIO_POSTGRES="${SERVICIO_POSTGRES:-postgres}"
+# Nombres de la base de producción que el modo aislado nunca puede usar: el del
+# repositorio por defecto y el que tiene la instalación real.
+BASES_DE_PRODUCCION="${BASES_DE_PRODUCCION:-ia_week eventarium}"
 
 : "${POSTGRES_DB:=ia_week}"
 : "${POSTGRES_SUPERUSER:=postgres}"
@@ -29,10 +34,14 @@ RESTAURACION_AISLADA="${RESTAURACION_AISLADA:-0}"
 
 [ -s "$VOLCADO" ] || { echo "El fichero $VOLCADO no existe o está vacío." >&2; exit 1; }
 
-if [ "$RESTAURACION_AISLADA" = "1" ] && [ "$POSTGRES_DB" = "ia_week" ]; then
-	echo "RESTAURACION_AISLADA=1 con POSTGRES_DB=ia_week (la base de producción)." >&2
-	echo "El modo aislado exige un POSTGRES_DB de prueba explícito, nunca la base real." >&2
-	exit 1
+if [ "$RESTAURACION_AISLADA" = "1" ]; then
+	for produccion in $BASES_DE_PRODUCCION; do
+		if [ "$POSTGRES_DB" = "$produccion" ]; then
+			echo "RESTAURACION_AISLADA=1 con POSTGRES_DB=$produccion (una base de producción)." >&2
+			echo "El modo aislado exige un POSTGRES_DB de prueba explícito, nunca la base real." >&2
+			exit 1
+		fi
+	done
 fi
 
 if [ "$RESTAURACION_AISLADA" = "1" ] && [ -n "$OBJETOS" ] \
@@ -51,17 +60,17 @@ fi
 
 if [ "$RESTAURACION_AISLADA" = "1" ]; then
 	echo "→ Modo aislado: creando «${POSTGRES_DB}» si no existe (sin tocar servicios de producción)"
-	existe="$($COMPOSE exec -T -e PGPASSWORD="$POSTGRES_SUPERUSER_PASSWORD" postgres \
+	existe="$($COMPOSE exec -T -e PGPASSWORD="$POSTGRES_SUPERUSER_PASSWORD" "$SERVICIO_POSTGRES" \
 		psql -U "$POSTGRES_SUPERUSER" -d postgres -tA -c \
 		"SELECT 1 FROM pg_database WHERE datname = '$POSTGRES_DB'")"
 	if [ "$existe" != "1" ]; then
-		$COMPOSE exec -T -e PGPASSWORD="$POSTGRES_SUPERUSER_PASSWORD" postgres \
+		$COMPOSE exec -T -e PGPASSWORD="$POSTGRES_SUPERUSER_PASSWORD" "$SERVICIO_POSTGRES" \
 			psql -U "$POSTGRES_SUPERUSER" -d postgres -v ON_ERROR_STOP=1 -c \
 			"CREATE DATABASE \"$POSTGRES_DB\""
 	fi
 else
-	echo "→ Parando api y worker para que nadie escriba durante la restauración"
-	$COMPOSE stop api worker || true
+	echo "→ Parando api, worker y scheduler para que nadie escriba durante la restauración"
+	$COMPOSE stop api worker scheduler || true
 fi
 
 echo "→ Restaurando $VOLCADO"
@@ -70,7 +79,7 @@ echo "→ Restaurando $VOLCADO"
 # Se conserva la propiedad de los objetos (sin --no-owner): las tablas pertenecen a
 # app_maintainer y, si se restauran a nombre del superusuario, ese rol pierde el acceso
 # y las migraciones fallan con «permission denied for table alembic_version».
-$COMPOSE exec -T -e PGPASSWORD="$POSTGRES_SUPERUSER_PASSWORD" postgres \
+$COMPOSE exec -T -e PGPASSWORD="$POSTGRES_SUPERUSER_PASSWORD" "$SERVICIO_POSTGRES" \
 	pg_restore -U "$POSTGRES_SUPERUSER" -d "$POSTGRES_DB" --clean --if-exists < "$VOLCADO"
 
 if [ "$RESTAURACION_AISLADA" = "1" ]; then
@@ -79,7 +88,7 @@ else
 	echo "→ Reaplicando los roles y sus privilegios"
 	POSTGRES_APP_USER_PASSWORD="${POSTGRES_APP_USER_PASSWORD:?falta POSTGRES_APP_USER_PASSWORD}" \
 	POSTGRES_MAINTAINER_PASSWORD="${POSTGRES_MAINTAINER_PASSWORD:?falta POSTGRES_MAINTAINER_PASSWORD}" \
-		$COMPOSE exec -T -e PGPASSWORD="$POSTGRES_SUPERUSER_PASSWORD" postgres \
+		$COMPOSE exec -T -e PGPASSWORD="$POSTGRES_SUPERUSER_PASSWORD" "$SERVICIO_POSTGRES" \
 		psql -U "$POSTGRES_SUPERUSER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 \
 		-v app_user_password="$POSTGRES_APP_USER_PASSWORD" \
 		-v maintainer_password="$POSTGRES_MAINTAINER_PASSWORD" \
@@ -104,7 +113,7 @@ if [ "$RESTAURACION_AISLADA" = "1" ]; then
 	echo "→ Modo aislado: no se arrancan servicios (nunca se pararon)"
 else
 	echo "→ Arrancando api y worker"
-	$COMPOSE start api worker
+	$COMPOSE up -d api worker scheduler
 fi
 
 echo "Restauración completada. Comprueba /api/v1/health antes de dar por buena la operación."
