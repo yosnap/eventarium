@@ -103,7 +103,7 @@ services:
       retries: 20
 
   caddy:
-    image: caddy:2.10-alpine
+    image: caddy:2.11.4-alpine
     restart: unless-stopped
     depends_on:
       seaweedfs:

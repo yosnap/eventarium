@@ -96,7 +96,7 @@ jobs:
             -e API_UPSTREAM=127.0.0.1:8000 \
             -e WEB_UPSTREAM=127.0.0.1:4200 \
             -e S3_UPSTREAM=127.0.0.1:8333 \
-            caddy:2.10-alpine
+            caddy:2.11.4-alpine
           for intento in $(seq 1 20); do
             codigo=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/media/orgs/x/accounting-receipts/y || echo 000)
             [ "$codigo" = "403" ] && { echo "Caddy listo (regla de justificantes activa)"; break; }
@@ -112,10 +112,10 @@ jobs:
       - name: Validar el Caddyfile de producción (regla de justificantes)
         run: |
           docker run --rm -v "$PWD/infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
-            caddy:2.10-alpine caddy validate --config /etc/caddy/Caddyfile
+            caddy:2.11.4-alpine caddy validate --config /etc/caddy/Caddyfile
           docker run -d --name caddy-prod -p 8090:80 \
             -v "$PWD/infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
-            caddy:2.10-alpine
+            caddy:2.11.4-alpine
           for intento in $(seq 1 20); do
             codigo=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8090/media/orgs/x/accounting-receipts/y || echo 000)
             [ "$codigo" = "403" ] && { echo "Caddyfile de producción: regla de justificantes activa"; break; }

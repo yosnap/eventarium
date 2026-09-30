@@ -224,7 +224,7 @@ services:
   # así que sí existe en el checkout que hace el orquestador (a diferencia de
   # infra/env/.env o infra/seaweedfs/s3.json, que son secretos).
   caddy:
-    image: caddy:2.10-alpine
+    image: caddy:2.11.4-alpine
     restart: unless-stopped
     depends_on:
       api:
