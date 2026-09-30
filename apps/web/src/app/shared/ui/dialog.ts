@@ -61,6 +61,16 @@ import {
       padding: 0;
       max-width: 28.75rem;
       width: calc(100% - 40px);
+      /* Sin tope de alto, un diálogo más alto que la vista (el caso móvil)
+         queda centrado con «margin:auto» y lo que asoma por arriba y por
+         abajo vive fuera de la top-layer, inalcanzable: era el motivo de que
+         «diera error al dar de alta un ponente» en el móvil. Se corta a la
+         vista y el que se desplaza es el cuerpo; el pie, si hay, siempre queda
+         a pulgar. */
+      max-height: calc(100vh - 40px);
+      max-height: calc(100dvh - 40px);
+      display: flex;
+      flex-direction: column;
     }
     /* Variante ancha: modales con contenido de dos columnas (p. ej. el
        editor de imagen, recorte + metadatos lado a lado) que no caben en
@@ -71,17 +81,24 @@ import {
     dialog::backdrop {
       background-color: var(--backdrop);
     }
-    /* .dlg__body (panel-organizador.html:47-48). */
+    /* .dlg__body (panel-organizador.html:47-48). Es la única zona que se
+       desplaza cuando el contenido no cabe en la vista (ver la «max-height»
+       del dialog); «min-height: 0» porque un flex item, sin ella, no se deja
+       recortar y llevaría el scroll fuera del diálogo. */
     .cuerpo {
       padding: var(--sp-5);
+      overflow-y: auto;
+      min-height: 0;
     }
-    /* .dlg__foot (panel-organizador.html:49). */
+    /* .dlg__foot (panel-organizador.html:49). No encoje: las acciones de
+       cerrar/guardar están ahí y deben quedar siempre a pulgar. */
     .pie {
       display: flex;
       gap: var(--sp-3);
       justify-content: flex-end;
       padding: var(--sp-4) var(--sp-5);
       border-top: 1px solid var(--border);
+      flex-shrink: 0;
     }
     .pie:empty {
       display: none;
