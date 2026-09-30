@@ -5,7 +5,10 @@ import { guestGuard } from './core/auth/guest.guard';
 import { personalPlataformaGuard } from './core/auth/personal-plataforma.guard';
 import { superadminGuard } from './core/auth/superadmin.guard';
 import { coincideConEvento, coincideConOrganizacion } from './core/routing/rutas-publicas';
-import { coincideConEnlaceAntiguo } from './features/public/events/enlace-antiguo';
+import {
+  coincideConEnlaceAntiguo,
+  enlaceAntiguoALaPortada,
+} from './features/public/events/enlace-antiguo';
 
 export const routes: Routes = [
   {
@@ -531,8 +534,14 @@ export const routes: Routes = [
         data: { page: 'condiciones-de-inscripcion' },
       },
       // Enlaces antiguos `/eventos/:slug/**`: antes que `:org/:slug`, que también
-      // los reconocería. Ya no se conservan: van a la portada.
-      { matcher: coincideConEnlaceAntiguo, redirectTo: '/' },
+      // los reconocería. Ya no se conservan: el guard las manda a la portada. Nunca
+      // `redirectTo` con `matcher`: ver `enlace-antiguo.ts`.
+      {
+        matcher: coincideConEnlaceAntiguo,
+        canActivate: [enlaceAntiguoALaPortada],
+        loadComponent: () =>
+          import('./features/public/pagina-no-encontrada').then((m) => m.PaginaNoEncontrada),
+      },
       // `/{org}/{evento}/…`: al final del árbol público, para que ninguna ruta
       // estática (legal, mis-eventos, pago, ponentes…) quede tapada. Los
       // matchers exigen `PATRON_SLUG`: `/foo.php` o `/.env` no coinciden.
