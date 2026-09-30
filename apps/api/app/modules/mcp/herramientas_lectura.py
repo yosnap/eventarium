@@ -15,6 +15,7 @@ from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.core.ratelimit import TooManyRequestsError, consumir_por_conexion_mcp
+from app.modules.events import categories as events_categories
 from app.modules.events import repository as events_repository
 from app.modules.events.models import Event
 from app.modules.mcp import schemas
@@ -63,6 +64,8 @@ def _resumen(evento: Event) -> schemas.EventoResumen:
         ciudad=evento.city,
         aforo=evento.capacity,
         modo_inscripcion=evento.registration_mode,
+        categoria=evento.category.slug if evento.category else None,
+        etiquetas=list(evento.tags),
         enlace_panel=f"{base}/dashboard/events/{evento.id}",
     )
 
@@ -76,20 +79,62 @@ async def _evento_permitido(session, contexto: ContextoMcp, event_id: str) -> Ev
     return evento
 
 
+def _etiquetas_de_filtro(etiquetas: list[str] | None) -> tuple[str, ...]:
+    if not etiquetas:
+        return ()
+    if len(etiquetas) > events_categories.MAX_ETIQUETAS_EN_UN_FILTRO:
+        raise ErrorDeHerramienta(
+            f"Se puede filtrar por {events_categories.MAX_ETIQUETAS_EN_UN_FILTRO} etiquetas "
+            "como máximo."
+        )
+    try:
+        return tuple(events_categories.normalizar_etiquetas(etiquetas))
+    except ValueError as exc:
+        raise ErrorDeHerramienta(str(exc)) from exc
+
+
 def registrar(mcp: MCPServer) -> None:
     @mcp.tool(annotations=LECTURA)
-    async def listar_eventos(estado: str | None = None) -> list[schemas.EventoResumen]:
+    async def listar_eventos(
+        estado: str | None = None,
+        categoria: str | None = None,
+        etiquetas: list[str] | None = None,
+    ) -> list[schemas.EventoResumen]:
         """Lista los eventos de la organización a los que tiene acceso esta
         conexión, del más reciente al más antiguo. `estado` filtra por
-        draft, published, archived o cancelled."""
+        draft, published, archived o cancelled; `categoria`, por el slug de una
+        categoría (ver `listar_categorias`); `etiquetas`, por hasta 3 etiquetas
+        que el evento debe tener todas."""
         contexto = await preparar()
         contexto.exigir_ambito(Ambito.EVENTOS_LEER)
+        filtro_etiquetas = _etiquetas_de_filtro(etiquetas)
         async with sesion(contexto) as session:
-            consulta = events_repository.events_query(contexto.organization_id, status=estado)
+            if categoria:
+                existente = await events_categories.get_category_by_slug(session, categoria)
+                if existente is None or not existente.is_active:
+                    raise ErrorDeHerramienta(
+                        f"La categoría «{categoria}» no existe o está desactivada. "
+                        "Consulta `listar_categorias`."
+                    )
+            consulta = events_repository.filtrar_por_categoria_y_etiquetas(
+                events_repository.events_query(contexto.organization_id, status=estado),
+                categoria or None,
+                filtro_etiquetas,
+            )
             if contexto.event_ids is not None:
                 consulta = consulta.where(Event.id.in_(contexto.event_ids))
             eventos = list(await session.scalars(consulta.limit(LIMITE_LISTADO)))
             return [_resumen(evento) for evento in eventos]
+
+    @mcp.tool(annotations=LECTURA)
+    async def listar_categorias() -> list[schemas.Categoria]:
+        """Categorías activas del catálogo de la plataforma, para usar su
+        `slug` como `categoria` al crear o editar un evento o al filtrar."""
+        contexto = await preparar()
+        contexto.exigir_ambito(Ambito.EVENTOS_LEER)
+        async with sesion(contexto) as session:
+            activas = await events_categories.list_categories(session, solo_activas=True)
+            return [schemas.Categoria(slug=c.slug, nombre=c.name) for c in activas]
 
     @mcp.tool(annotations=LECTURA)
     async def ver_evento(event_id: str) -> schemas.EventoDetalle:

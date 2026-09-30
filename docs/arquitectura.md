@@ -133,6 +133,13 @@ redirige `/eventos/{slug}/…` a la URL actual consultando
 y fragmento). En la API las rutas existen en dos formas,
 `/public/organizations/{org}/events/{slug}/…` y la plana obsoleta
 `/public/events/{slug}/…`, con contadores de límite por IP independientes.
+Las rutas planas siguen vivas a propósito: cubren los bundles antiguos en caché
+del service worker y los pagos en vuelo durante el despliegue. **Revisión
+pendiente tras el despliegue de 0.24.x:** cuando los registros de acceso
+confirmen que `/public/events/{slug}/…` (salvo `canonical`, que sirve los
+enlaces ya repartidos) no recibe tráfico durante varias semanas, se retiran.
+Hasta entonces no se toca; a fecha de 2026-09-30 no hay datos porque 0.24.0 aún
+no se ha desplegado.
 
 **Página pública de organización (opt-in).** `/{org}` existe solo si la
 organización activó `public_page_enabled` (desactivado por defecto).
@@ -148,6 +155,15 @@ contratos públicos y es lo que decide si la miga enlaza a la organización o la
 muestra como texto. Los identificadores reservados (`RESERVED_SLUGS`) cubren
 las rutas del frontend y del proxy, porque el slug de organización es el
 primer segmento de la URL.
+
+**Categorías y etiquetas.** Cada evento tiene como mucho una categoría
+(`events.category_id`, del catálogo `event_categories` de la instalación) y
+hasta 5 etiquetas (`events.tags`, con índice GIN). El directorio
+`GET /public/events` acepta `categoria` y `etiqueta` (hasta 3, combinadas con
+«y») y los aplica **en la consulta de cada organización**
+(`filtrar_por_categoria_y_etiquetas`), no en memoria. La misma función filtra
+`listar_eventos` del MCP. El catálogo lo escribe solo la superadministración
+(`MaintenanceDb`); las organizaciones lo leen.
 
 ```mermaid
 sequenceDiagram
