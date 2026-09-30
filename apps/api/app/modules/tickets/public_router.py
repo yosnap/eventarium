@@ -30,7 +30,9 @@ router = APIRouter(prefix="/public", tags=["entradas"])
 )
 async def get_my_ticket(session: SessionDep, token: Annotated[str, Query()]) -> MyTicketResponse:
     info = await service.get_my_ticket_info(session, token=token)
-    return MyTicketResponse(status=info.status, full_name=info.full_name, has_qr=info.tiene_qr)
+    return MyTicketResponse(
+        status=info.status, full_name=info.full_name, has_qr=info.tiene_qr, event=info.evento
+    )
 
 
 @router.get(

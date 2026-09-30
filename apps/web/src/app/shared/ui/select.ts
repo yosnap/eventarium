@@ -13,6 +13,8 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { TranslocoService } from '@jsverse/transloco';
 
 /** Una opción tal y como la recibe `app-select`. */
 export interface SelectOption {
@@ -29,6 +31,11 @@ interface OpcionInterna extends SelectOption {
 
 /** Milisegundos de inactividad antes de reiniciar la búsqueda por letra. */
 const PAUSA_BUSQUEDA_MS = 500;
+
+/** Minúsculas sin diacríticos, para que «cancun» encuentre «Cancún». */
+function normalizar(texto: string): string {
+  return texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
 
 /**
  * Select moderno, sobre `.sel` de la referencia (`eventarium.css:214-251`): mejora
@@ -76,27 +83,57 @@ const PAUSA_BUSQUEDA_MS = 500;
             </option>
           }
         </select>
-        <button
-          #boton
-          type="button"
-          class="sel__btn"
-          role="combobox"
-          aria-haspopup="listbox"
-          [id]="idCampo()"
-          [attr.aria-expanded]="abierto()"
-          [attr.aria-controls]="idLista()"
-          [attr.aria-labelledby]="idEtiqueta() + ' ' + idCampo()"
-          [attr.aria-activedescendant]="idOpcionActiva()"
-          [attr.aria-invalid]="error() ? 'true' : null"
-          [attr.aria-describedby]="descripcionId()"
-          [attr.aria-required]="required() ? 'true' : null"
-          [disabled]="disabled()"
-          (click)="alternar()"
-          (keydown)="alPulsarTecla($event)"
-          (blur)="blurred.emit()"
-        >
-          <span>{{ etiquetaVisible() }}</span>
-        </button>
+        @if (buscable()) {
+          <!-- Modo buscable: mismo combobox, pero el gatillo es un campo de
+               texto que filtra la lista al escribir. Escribir no compromete el
+               valor: solo se elige con Enter, flechas o clic, y al blur el
+               texto vuelve a ser la opción elegida. -->
+          <input
+            #boton
+            type="text"
+            class="sel__btn sel__caja"
+            role="combobox"
+            aria-haspopup="listbox"
+            autocomplete="off"
+            [id]="idCampo()"
+            [attr.aria-expanded]="abierto()"
+            [attr.aria-controls]="idLista()"
+            [attr.aria-labelledby]="idEtiqueta() + ' ' + idCampo()"
+            [attr.aria-activedescendant]="idOpcionActiva()"
+            aria-autocomplete="list"
+            [attr.aria-invalid]="error() ? 'true' : null"
+            [attr.aria-describedby]="descripcionId()"
+            [attr.aria-required]="required() ? 'true' : null"
+            [disabled]="disabled()"
+            [value]="textoEnCaja()"
+            (input)="alEscribirBusqueda($event)"
+            (click)="alternar()"
+            (keydown)="alPulsarTecla($event)"
+            (blur)="alPerderFocoDeCaja()"
+          />
+        } @else {
+          <button
+            #boton
+            type="button"
+            class="sel__btn"
+            role="combobox"
+            aria-haspopup="listbox"
+            [id]="idCampo()"
+            [attr.aria-expanded]="abierto()"
+            [attr.aria-controls]="idLista()"
+            [attr.aria-labelledby]="idEtiqueta() + ' ' + idCampo()"
+            [attr.aria-activedescendant]="idOpcionActiva()"
+            [attr.aria-invalid]="error() ? 'true' : null"
+            [attr.aria-describedby]="descripcionId()"
+            [attr.aria-required]="required() ? 'true' : null"
+            [disabled]="disabled()"
+            (click)="alternar()"
+            (keydown)="alPulsarTecla($event)"
+            (blur)="blurred.emit()"
+          >
+            <span>{{ etiquetaVisible() }}</span>
+          </button>
+        }
         <ul
           class="sel__list"
           role="listbox"
@@ -104,7 +141,7 @@ const PAUSA_BUSQUEDA_MS = 500;
           [attr.aria-labelledby]="idEtiqueta()"
           [hidden]="!abierto()"
         >
-          @for (opcion of opcionesEfectivas(); track opcion.value; let i = $index) {
+          @for (opcion of opcionesFiltradas(); track opcion.value; let i = $index) {
             <!--
               Patrón ARIA «listbox con aria-activedescendant»: la opción NO debe
               recibir foco (por diseño, el foco de verdad se queda siempre en
@@ -119,10 +156,15 @@ const PAUSA_BUSQUEDA_MS = 500;
               [class.is-active]="i === indiceActivo()"
               [attr.aria-selected]="opcion.value === value()"
               [attr.aria-disabled]="opcion.deshabilitada ? 'true' : null"
+              (mousedown)="alPulsarRatonEnOpcion($event)"
               (click)="alElegirOpcion(i)"
               (mousemove)="alPasarRaton(i)"
             >
               {{ opcion.label }}
+            </li>
+          } @empty {
+            <li class="sel__o sel__vacio" role="option" aria-disabled="true" aria-selected="false">
+              {{ avisoSinResultados() }}
             </li>
           }
         </ul>
@@ -265,6 +307,18 @@ const PAUSA_BUSQUEDA_MS = 500;
     .sel__o:hover {
       background: var(--surface-hi);
     }
+    /* Caja de búsqueda del modo buscable: mismo aspecto que el botón, sin la
+       flechita (el caret del texto ya indica que se puede escribir). */
+    .sel__caja {
+      cursor: text;
+    }
+    .sel__caja::after {
+      content: none;
+    }
+    .sel__vacio {
+      color: var(--muted);
+      cursor: default;
+    }
     .sel--up .sel__list {
       top: auto;
       bottom: calc(100% + 6px);
@@ -294,6 +348,10 @@ export class Select {
    * es (p. ej. el select de ciudad de `descubrir-eventos.html`, que muestra
    * "Cualquier ciudad" dentro del botón en vez de un rótulo "Ciudad" aparte). */
   readonly etiquetaOculta = input(false);
+  /** Convierte el gatillo en un campo de texto que filtra las opciones al
+   * escribir (p. ej. la lista de zonas horarias de IANA, cientos de entradas):
+   * el `<select>` nativo oculto sigue guardando el valor de verdad. */
+  readonly buscable = input(false);
   readonly error = input<string | null>(null);
   /** Texto de ayuda bajo el campo, oculto mientras haya un error que mostrar. */
   readonly hint = input<string | null>(null);
@@ -307,7 +365,8 @@ export class Select {
 
   private readonly elementoAnfitrion = inject(ElementRef<HTMLElement>);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly botonRef = viewChild<ElementRef<HTMLButtonElement>>('boton');
+  private readonly transloco = inject(TranslocoService);
+  private readonly botonRef = viewChild<ElementRef<HTMLElement>>('boton');
 
   private static contador = 0;
   private readonly indice = Select.contador++;
@@ -344,6 +403,37 @@ export class Select {
     const seleccionada = opciones.find((opcion) => opcion.value === this.value());
     return seleccionada?.label ?? this.placeholder() ?? '';
   });
+
+  /** Texto tecleado en la caja del modo buscable: filtra la lista pero no
+   * compromete el valor hasta elegir una opción. */
+  protected readonly textoBusqueda = signal('');
+  /** La caja está en edición (foco activo y tecleando): mientras lo esté
+   * muestra lo tecleado — incluso vacío — y no la opción elegida, o Angular
+   * reescribiría el value del input y el caret saltaría al final al borrar
+   * el último carácter del filtro. */
+  protected readonly editandoCaja = signal(false);
+  /** Lo que muestra la caja: lo tecleado mientras se edita, y la opción
+   * elegida (o el marcador) en reposo. */
+  protected readonly textoEnCaja = computed(() =>
+    this.editandoCaja() ? this.textoBusqueda() : this.etiquetaVisible(),
+  );
+  /** La lista que se pinta: toda, o la que pasa el filtro del buscador. */
+  protected readonly opcionesFiltradas = computed<readonly OpcionInterna[]>(() => {
+    const texto = this.textoBusqueda().trim().toLowerCase();
+    if (!texto) return this.opcionesEfectivas();
+    return this.opcionesEfectivas().filter((opcion) =>
+      normalizar(opcion.label).includes(normalizar(texto)),
+    );
+  });
+
+  /** Texto reactivo: `translate()` a secas no es reactivo y, si la primera
+   * pintura ocurre antes de que el idioma esté cargado, dejaría la clave cruda
+   * congelada en la plantilla. `selectTranslate` emite cuando la traducción
+   * está lista y `toSignal` obliga a repintar. */
+  protected readonly avisoSinResultados = toSignal(
+    this.transloco.selectTranslate('comun.sinResultados').pipe(takeUntilDestroyed()),
+    { initialValue: '' },
+  );
 
   private bufferBusqueda = '';
   private temporizadorBusqueda: ReturnType<typeof setTimeout> | null = null;
@@ -391,8 +481,32 @@ export class Select {
     this.confirmarSeleccion(indice);
   }
 
+  /** En el modo buscable, el `mousedown` sobre una opción no debe robar el foco
+   * de la caja: si lo hiciera, el blur vaciaría el filtro y la opción se
+   * movería bajo el cursor antes de que el clic llegue a registrarse. */
+  protected alPulsarRatonEnOpcion(evento: MouseEvent): void {
+    if (this.buscable()) evento.preventDefault();
+  }
+
+  protected alEscribirBusqueda(evento: Event): void {
+    this.textoBusqueda.set((evento.target as HTMLInputElement).value);
+    this.editandoCaja.set(true);
+    if (!this.abierto()) this.abrir();
+    this.indiceActivo.set(this.primeraSeleccionable());
+  }
+
+  /** Al perder el foco la caja vuelve a mostrar la opción elegida: lo tecleado
+   * era solo filtro, y no se confirma nada sin elegir. */
+  protected alPerderFocoDeCaja(): void {
+    this.textoBusqueda.set('');
+    this.editandoCaja.set(false);
+    this.blurred.emit();
+  }
+
   protected alPasarRaton(indice: number): void {
-    const opcion = this.opcionesEfectivas()[indice];
+    // El índice viene de la lista filtrada (la que se pinta): consultarlo
+    // sobre la lista completa desincronizaría el resalte y el Enter.
+    const opcion = this.opcionesFiltradas()[indice];
     if (opcion && !opcion.deshabilitada) this.indiceActivo.set(indice);
   }
 
@@ -426,7 +540,17 @@ export class Select {
         this.indiceActivo.set(this.ultimaSeleccionable());
         return;
       case 'Enter':
+        evento.preventDefault();
+        if (!this.abierto()) {
+          this.abrir();
+          return;
+        }
+        this.confirmarSeleccion(this.indiceActivo());
+        return;
       case ' ':
+        // En el modo buscable el espacio es escritura («New York»), no
+        // confirmación: se deja pasar a la caja.
+        if (this.buscable()) return;
         evento.preventDefault();
         if (!this.abierto()) {
           this.abrir();
@@ -443,6 +567,9 @@ export class Select {
         this.cerrar(false);
         return;
       default:
+        // En modo buscable el texto tecleado va a la caja (y filtra con
+        // alEscribirBusqueda): interceptarlo aquí rompería la escritura.
+        if (this.buscable()) return;
         if (evento.key.length === 1 && /[a-zA-Z0-9áéíóúñÁÉÍÓÚÑ]/.test(evento.key)) {
           evento.preventDefault();
           this.buscarPorLetra(evento.key);
@@ -462,14 +589,19 @@ export class Select {
 
   private cerrar(devolverFoco: boolean): void {
     this.abierto.set(false);
+    // Cerrar (Escape, Tab, clic fuera) también recoge la caja: el filtro era
+    // transitorio y la opción elegida tiene que volver a la pantalla.
+    this.textoBusqueda.set('');
+    this.editandoCaja.set(false);
     if (devolverFoco) this.botonRef()?.nativeElement.focus();
   }
 
   private confirmarSeleccion(indice: number): void {
-    const opcion = this.opcionesEfectivas()[indice];
+    const opcion = this.opcionesFiltradas()[indice];
     if (opcion && !opcion.deshabilitada) {
       this.value.set(opcion.value);
     }
+    this.textoBusqueda.set('');
     this.cerrar(true);
   }
 
@@ -485,18 +617,18 @@ export class Select {
   }
 
   private indiceInicial(): number {
-    const opciones = this.opcionesEfectivas();
+    const opciones = this.opcionesFiltradas();
     const indiceValor = opciones.findIndex((opcion) => opcion.value === this.value());
     if (indiceValor >= 0 && !opciones[indiceValor].deshabilitada) return indiceValor;
     return this.primeraSeleccionable();
   }
 
   private primeraSeleccionable(): number {
-    return this.opcionesEfectivas().findIndex((opcion) => !opcion.deshabilitada);
+    return this.opcionesFiltradas().findIndex((opcion) => !opcion.deshabilitada);
   }
 
   private ultimaSeleccionable(): number {
-    const opciones = this.opcionesEfectivas();
+    const opciones = this.opcionesFiltradas();
     for (const [i, opcion] of [...opciones.entries()].reverse()) {
       if (!opcion.deshabilitada) return i;
     }
@@ -504,7 +636,7 @@ export class Select {
   }
 
   private siguienteSeleccionable(desde: number, direccion: 1 | -1): number {
-    const opciones = this.opcionesEfectivas();
+    const opciones = this.opcionesFiltradas();
     let i = desde;
     let pasos = 0;
     while (pasos < opciones.length) {
@@ -523,7 +655,7 @@ export class Select {
       this.bufferBusqueda = '';
     }, PAUSA_BUSQUEDA_MS);
 
-    const opciones = this.opcionesEfectivas();
+    const opciones = this.opcionesFiltradas();
     const indice = opciones.findIndex(
       (opcion) =>
         !opcion.deshabilitada && opcion.label.toLowerCase().startsWith(this.bufferBusqueda),

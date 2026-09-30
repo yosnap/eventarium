@@ -1,4 +1,4 @@
-import { Injectable, RESPONSE_INIT, inject } from '@angular/core';
+import { Injectable, RESPONSE_INIT, inject, signal } from '@angular/core';
 
 /**
  * Traduce un "no encontrado" de una página pública al código de estado HTTP real
@@ -12,9 +12,20 @@ import { Injectable, RESPONSE_INIT, inject } from '@angular/core';
 export class NotFoundStatusService {
   private readonly responseInit = inject(RESPONSE_INIT, { optional: true });
 
+  /** Un guard no pudo comprobar la ruta (fallo temporal del API): la página
+   * 404 debe responder 503 y no 404, para que un rastreador no des-indexe un
+   * enlace válido. Se consume una sola vez. */
+  readonly falloTemporal = signal(false);
+
   mark(): void {
     if (this.responseInit) {
       this.responseInit.status = 404;
+    }
+  }
+
+  markUnavailable(): void {
+    if (this.responseInit) {
+      this.responseInit.status = 503;
     }
   }
 }

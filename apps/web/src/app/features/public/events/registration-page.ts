@@ -17,6 +17,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { seoDePagina } from '../../../core/seo/meta.service';
 import { temaDeEvento } from '../../../core/theming/tema-de-evento';
+import { apiEvento, rutaEvento } from '../../../core/routing/rutas-publicas';
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
 import {
@@ -31,6 +32,7 @@ import {
 } from '../../../core/registrations/registrations.service';
 import { Alert } from '../../../shared/ui/alert';
 import { Breadcrumb, type BreadcrumbItem } from '../../../shared/ui/breadcrumb';
+import { migasDeEvento } from '../../../shared/ui/migas-de-evento';
 import { Button } from '../../../shared/ui/button';
 import { Checkbox } from '../../../shared/ui/checkbox';
 import { RadioGroup } from '../../../shared/ui/radio';
@@ -62,7 +64,7 @@ function precioEnEuros(cents: number): string {
  * "ya estabas inscrito" ni "te hemos inscrito", dice lo mismo en ambos casos.
  *
  * **Paso de compra:** `ngOnInit` también pide los tipos de entrada vendibles
- * ahora mismo (`GET /public/events/{slug}/ticket-types`). Un evento es «de
+ * ahora mismo (`GET /public/organizations/{org}/events/{slug}/ticket-types`). Un evento es «de
  * pago» a ojos de este formulario si y solo si esa lista no está vacía — no
  * hace falta preguntar por `registration_mode` aparte, y evita duplicar la
  * misma condición en dos sitios. Si hay tipos, el envío pasa por
@@ -275,6 +277,7 @@ function precioEnEuros(cents: number): string {
                   }
 
                   <app-registration-consents
+                    [org]="org()"
                     [slug]="slug()"
                     [errorConsentimiento]="errorConsentimiento()"
                     [errorPoliticas]="errorPoliticas()"
@@ -312,7 +315,7 @@ function precioEnEuros(cents: number): string {
 
             @if (enviado() || noEncontrado()) {
               <p>
-                <a [routerLink]="['/eventos', slug()]">{{ t('inscripcion.volverAlEvento') }}</a>
+                <a [routerLink]="rutaAlEvento()">{{ t('inscripcion.volverAlEvento') }}</a>
               </p>
             }
           </div>
@@ -513,6 +516,7 @@ function precioEnEuros(cents: number): string {
   `,
 })
 export class RegistrationPage implements OnInit {
+  readonly org = input.required<string>();
   readonly slug = input.required<string>();
 
   private readonly registrations = inject(RegistrationsService);
@@ -529,15 +533,16 @@ export class RegistrationPage implements OnInit {
   protected readonly preguntas = signal<RegistrationQuestion[]>([]);
 
   protected migasDePan(evento: PublicEventDetail): BreadcrumbItem[] {
-    return [
-      {
-        label: this.transloco.translate('publico.eventos.listadoTitulo'),
-        routerLink: ['/eventos'],
-      },
-      { label: evento.title, routerLink: ['/eventos', this.slug()] },
-      { label: this.transloco.translate('publico.eventos.inscribirse') },
-    ];
+    return migasDeEvento({
+      inicio: this.transloco.translate('comun.inicio'),
+      organizacion: evento.organization,
+      eventoSlug: evento.slug,
+      eventoTitulo: evento.title,
+      cola: [{ label: this.transloco.translate('publico.eventos.inscribirse') }],
+    });
   }
+
+  protected readonly rutaAlEvento = computed(() => rutaEvento(this.org(), this.slug()));
 
   /** Resumen del evento (`.summary` de `inscripcion.html:172-181`): consulta
    * de solo lectura aparte de `cargarPreguntas`/`cargarTiposDeEntrada`, en
@@ -684,7 +689,7 @@ export class RegistrationPage implements OnInit {
     this.seo.set({ title: titulo });
     try {
       const evento = await firstValueFrom(
-        this.http.get<PublicEventDetail>(this.api.url(`/public/events/${this.slug()}`), {
+        this.http.get<PublicEventDetail>(this.api.url(apiEvento(this.org(), this.slug())), {
           headers: this.api.serverForwardHeaders(),
         }),
       );
@@ -704,7 +709,7 @@ export class RegistrationPage implements OnInit {
 
   private async cargarPreguntas(): Promise<void> {
     try {
-      this.preguntas.set(await this.registrations.getQuestions(this.slug()));
+      this.preguntas.set(await this.registrations.getQuestions(this.org(), this.slug()));
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) {
         this.noEncontrado.set(true);
@@ -718,7 +723,7 @@ export class RegistrationPage implements OnInit {
 
   private async cargarTiposDeEntrada(): Promise<void> {
     try {
-      this.ticketTypes.set(await this.checkout.getTicketTypes(this.slug()));
+      this.ticketTypes.set(await this.checkout.getTicketTypes(this.org(), this.slug()));
     } catch {
       // Best-effort: si esta llamada falla, el formulario se comporta como
       // un evento gratuito. `cargarPreguntas` ya cubre el caso «evento
@@ -781,7 +786,7 @@ export class RegistrationPage implements OnInit {
     this.errorPresupuesto.set(null);
     try {
       this.presupuesto.set(
-        await this.checkout.quote(this.slug(), {
+        await this.checkout.quote(this.org(), this.slug(), {
           ticketTypeId,
           code: this.codigoDescuento().trim() || null,
           turnstileToken: this.turnstileToken() ?? '',
@@ -925,7 +930,7 @@ export class RegistrationPage implements OnInit {
       if (esCompraDePago) {
         await this.enviarCompra();
       } else {
-        const mensaje = await this.registrations.submit(this.slug(), {
+        const mensaje = await this.registrations.submit(this.org(), this.slug(), {
           email: this.email().trim(),
           fullName: this.fullName().trim(),
           answers: this.construirRespuestas(),
@@ -961,7 +966,7 @@ export class RegistrationPage implements OnInit {
   /** Extraído de `enviar` solo para no anidar el `try` de la compra dentro
    * del `try` general: mismas reglas de error, misma señal de "enviando". */
   private async enviarCompra(): Promise<void> {
-    const resultado = await this.checkout.startCheckout(this.slug(), {
+    const resultado = await this.checkout.startCheckout(this.org(), this.slug(), {
       email: this.email().trim(),
       fullName: this.fullName().trim(),
       answers: this.construirRespuestas(),

@@ -4,6 +4,7 @@
     "cargando": "Cargando…",
     "cerrar": "Cerrar",
     "volver": "Volver",
+    "inicio": "Inicio",
     "guardar": "Guardar",
     "guardado": "Guardado",
     "error": "Se ha producido un error",
@@ -16,7 +17,31 @@
       "activarClaro": "Activar el tema claro"
     },
     "si": "Sí",
-    "no": "No"
+    "no": "No",
+    "datetime": {
+      "elegirFecha": "Elegir fecha",
+      "elegirHora": "Elegir hora",
+      "mesAnterior": "Mes anterior",
+      "mesSiguiente": "Mes siguiente",
+      "hora": "Hora",
+      "minuto": "Minuto",
+      "hoy": "Hoy",
+      "ahora": "Ahora",
+      "listo": "Listo",
+      "menosUnaHora": "Restar una hora",
+      "menosCincoMinutos": "Restar cinco minutos",
+      "masCincoMinutos": "Sumar cinco minutos",
+      "masUnaHora": "Sumar una hora"
+    },
+    "sinResultados": "Sin coincidencias"
+  },
+  "calendario": {
+    "titulo": "Añade el evento a tu calendario",
+    "google": "Google Calendar",
+    "outlook": "Outlook",
+    "apple": "Apple Calendar",
+    "nuevaPestana": "(se abre en una pestaña nueva)",
+    "descargaIcs": "(descarga un archivo .ics)"
   },
   "errores": {
     "sitioNoDisponible": "Sitio no disponible",
@@ -53,8 +78,35 @@
       },
       "eventoCancelado": "Evento cancelado por la organización"
     },
+    "organizacion": {
+      "rotulo": "Organización",
+      "proximos": "Próximos eventos",
+      "pasados": "Eventos pasados",
+      "sinProximos": "Ahora mismo no hay eventos próximos.",
+      "sinPasados": "Todavía no hay eventos pasados.",
+      "verMas": "Ver más",
+      "cancelado": "Cancelado",
+      "noEncontrada": "Esta organización no tiene página pública.",
+      "verEventos": "Ver todos los eventos",
+      "descripcionPorDefecto": "Eventos de {{nombre}}."
+    },
+    "noEncontrada": {
+      "mensaje": "No hemos encontrado esa página.",
+      "temporal": "No hemos podido comprobar ese enlace ahora mismo. Inténtalo de nuevo en unos minutos.",
+      "volver": "Volver al inicio"
+    },
     "eventos": {
       "listadoTitulo": "Eventos",
+      "clasificacion": "Categoría y etiquetas del evento",
+      "categoriasRotulo": "Categorías",
+      "categoriasTodas": "Todas",
+      "etiquetasActivas": "Etiquetas activas",
+      "quitarEtiqueta": "Quitar la etiqueta {{etiqueta}}",
+      "quitarFiltros": "Quitar los filtros",
+      "sinEventosConFiltros": "No hay eventos con estos filtros.",
+      "verMas": "Ver más ({{n}} de {{total}})",
+      "verMasSinTotal": "Ver más",
+      "filtrosSobreCargados": "El buscador y los filtros actúan sobre los eventos ya cargados.",
       "ruta": "Ruta",
       "todosLosEventos": "← Todos los eventos",
       "rotulo": "Descubrir",
@@ -907,6 +959,27 @@
         "ingresosTotales": "Ingresos totales"
       }
     },
+    "categorias": {
+      "nav": "Categorías",
+      "rotulo": "Categorías",
+      "cabeceraInicio": "El catálogo de categorías de eventos:",
+      "cabeceraMarca": "una por evento, para filtrar el directorio",
+      "titulo": "Catálogo",
+      "nueva": "Nueva categoría",
+      "identificador": "Identificador",
+      "identificadorAyuda": "Minúsculas, números y guiones. Sale en la dirección del filtro y no se puede cambiar después.",
+      "identificadorInvalido": "Usa minúsculas, números y guiones (2 a 40 caracteres).",
+      "nombre": "Nombre",
+      "orden": "Orden",
+      "anadir": "Añadir",
+      "activa": "Activa",
+      "guardar": "Guardar",
+      "cargando": "Cargando…",
+      "vacio": "Todavía no hay categorías. Añade la primera.",
+      "nota": "Las categorías no se borran: al desactivar una, deja de poder asignarse y de mostrarse en la web pública, pero los eventos que ya la tienen la conservan.",
+      "datosInvalidos": "Escribe un nombre y un orden entero entre 0 y 10000.",
+      "error": "No hemos podido completar la operación."
+    },
     "organizacion": {
       "titulo": "Organización",
       "nombre": "Nombre",
@@ -916,6 +989,25 @@
       "correoContacto": "Correo de contacto",
       "nombreRequerido": "Escribe el nombre de la organización.",
       "correoInvalido": "Escribe un correo electrónico válido.",
+      "webInvalida": "Escribe una dirección que empiece por http:// o https://.",
+      "direccion": "Dirección",
+      "paginaPublica": {
+        "titulo": "Página pública",
+        "activar": "Publicar la página de la organización",
+        "pista": "Desactivada por defecto. Sin ella, tus eventos siguen siendo públicos; solo desaparece tu página propia.",
+        "seHaraPublico": "Al activarla se harán públicos exactamente estos datos:",
+        "campos": {
+          "nombre": "El nombre",
+          "descripcion": "La descripción",
+          "web": "El sitio web",
+          "direccion": "La dirección",
+          "logo": "El logotipo",
+          "redes": "Las redes sociales de la marca",
+          "eventos": "Tus eventos públicos, próximos y pasados"
+        },
+        "noSePublica": "La razón social y el correo de contacto nunca se publican.",
+        "ver": "Ver mi página"
+      },
       "guardando": "Guardando…",
       "guardado": "Cambios guardados.",
       "error": "No hemos podido guardar los cambios.",
@@ -1187,6 +1279,14 @@
         "portadaNoValida": "Solo se aceptan imágenes PNG, JPEG o WebP.",
         "portadaDemasiadoGrande": "La portada no puede superar los 5 MB.",
         "ventanaDePago": "Ventana de pago (minutos)",
+        "categoria": "Categoría",
+        "sinCategoria": "Sin categoría",
+        "categoriaDesactivada": "{{nombre}} (desactivada)",
+        "etiquetas": "Etiquetas",
+        "etiquetasAyuda": "Separadas por comas, hasta 5. Minúsculas; letras, números, espacios y guiones (2 a 30 caracteres cada una).",
+        "etiquetaLongitud": "«{{etiqueta}}»: cada etiqueta debe tener entre {{min}} y {{max}} caracteres.",
+        "etiquetaCaracteres": "«{{etiqueta}}»: solo letras, números, espacios y guiones.",
+        "etiquetasDemasiadas": "Un evento admite como máximo {{max}} etiquetas.",
         "ventanaDePagoAyuda": "Tiempo que tiene un comprador para pagar antes de que su plaza se libere. Solo se aplica a eventos de pago.",
         "ventanaDePagoRequerida": "Indica la ventana de pago.",
         "ventanaDePagoFueraDeRango": "Debe estar entre 30 y 1439 minutos.",
@@ -1927,7 +2027,14 @@
         "confirmar": "Sí, cancelar el evento",
         "enCurso": "Cancelación en curso: quedan {{cancelar}} inscripciones por cancelar y {{avisar}} avisos por enviar.",
         "completada": "Evento cancelado. Todas las inscripciones están canceladas y avisadas.",
-        "reembolsosFallidos": "{{n}} reembolsos han fallado tras varios intentos. Revísalos en los pagos del evento."
+        "reembolsosFallidos": "{{n}} reembolsos han fallado tras varios intentos. Revísalos en los pagos del evento.",
+        "eliminarTitulo": "Eliminar el evento",
+        "eliminarExplicacion": "Un evento cancelado se puede eliminar. Desaparece del panel y de la web pública; las inscripciones, los cobros y la contabilidad se conservan. Un evento que no está cancelado no se puede eliminar: primero hay que cancelarlo.",
+        "eliminarEspera": "Podrás eliminarlo cuando termine la cancelación: todas las inscripciones canceladas y avisadas y ningún reembolso pendiente.",
+        "eliminarBoton": "Eliminar evento",
+        "eliminarDialogoTitulo": "¿Eliminar este evento?",
+        "eliminarDialogoTexto": "Dejará de aparecer en el panel y en la web pública. Los registros de inscripciones, cobros y contabilidad se conservan. El identificador del evento seguirá reservado.",
+        "eliminarConfirmar": "Sí, eliminar el evento"
       }
     },
     "sponsorTiersNav": "Niveles de patrocinio",

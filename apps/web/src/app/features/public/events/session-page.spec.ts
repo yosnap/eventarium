@@ -23,6 +23,7 @@ function sesionDetalle() {
     video_url: 'https://youtu.be/abc123',
     materials: [{ label: 'Diapositivas', url: 'https://ejemplo.com/slides.pdf' }],
     participants: [{ display_name: 'Ana Ponente', role_key: 'speaker', public_slug: 'ana' }],
+    organization: { slug: 'acme', name: 'Acme', page_public: false },
     event_slug: 'iawic-2026',
     event_title: 'IA Week in Cascais 2026',
   };
@@ -62,11 +63,15 @@ describe('SessionPage', () => {
   it('ofrece el enlace directo en tema claro sin violaciones de accesibilidad', async () => {
     document.documentElement.setAttribute('data-theme', 'light');
     const fixture = TestBed.createComponent(SessionPage);
+    fixture.componentRef.setInput('org', 'acme');
     fixture.componentRef.setInput('slug', 'iawic-2026');
     fixture.componentRef.setInput('sessionId', 's2');
     fixture.detectChanges();
     http
-      .expectOne((peticion) => peticion.url === '/api/v1/public/events/iawic-2026/sessions/s2')
+      .expectOne(
+        (peticion) =>
+          peticion.url === '/api/v1/public/organizations/acme/events/iawic-2026/sessions/s2',
+      )
       .flush({
         ...sesionDetalle(),
         id: 's2',
@@ -82,11 +87,15 @@ describe('SessionPage', () => {
 
   it('muestra la sesión, sus ponentes, materiales y el vídeo embebido', async () => {
     const fixture = TestBed.createComponent(SessionPage);
+    fixture.componentRef.setInput('org', 'acme');
     fixture.componentRef.setInput('slug', 'iawic-2026');
     fixture.componentRef.setInput('sessionId', 's1');
     fixture.detectChanges();
     http
-      .expectOne((peticion) => peticion.url === '/api/v1/public/events/iawic-2026/sessions/s1')
+      .expectOne(
+        (peticion) =>
+          peticion.url === '/api/v1/public/organizations/acme/events/iawic-2026/sessions/s1',
+      )
       .flush(sesionDetalle());
     await avanzar(fixture);
 
@@ -105,11 +114,15 @@ describe('SessionPage', () => {
 
   it('ofrece un enlace directo en vez de un iframe para la plataforma "other"', async () => {
     const fixture = TestBed.createComponent(SessionPage);
+    fixture.componentRef.setInput('org', 'acme');
     fixture.componentRef.setInput('slug', 'iawic-2026');
     fixture.componentRef.setInput('sessionId', 's2');
     fixture.detectChanges();
     http
-      .expectOne((peticion) => peticion.url === '/api/v1/public/events/iawic-2026/sessions/s2')
+      .expectOne(
+        (peticion) =>
+          peticion.url === '/api/v1/public/organizations/acme/events/iawic-2026/sessions/s2',
+      )
       .flush({
         ...sesionDetalle(),
         id: 's2',
@@ -128,12 +141,14 @@ describe('SessionPage', () => {
 
   it('marca "no encontrado" cuando la sesión no existe', async () => {
     const fixture = TestBed.createComponent(SessionPage);
+    fixture.componentRef.setInput('org', 'acme');
     fixture.componentRef.setInput('slug', 'iawic-2026');
     fixture.componentRef.setInput('sessionId', 'no-existe');
     fixture.detectChanges();
     http
       .expectOne(
-        (peticion) => peticion.url === '/api/v1/public/events/iawic-2026/sessions/no-existe',
+        (peticion) =>
+          peticion.url === '/api/v1/public/organizations/acme/events/iawic-2026/sessions/no-existe',
       )
       .flush({ detail: 'La sesión no existe.' }, { status: 404, statusText: 'Not Found' });
     await avanzar(fixture);

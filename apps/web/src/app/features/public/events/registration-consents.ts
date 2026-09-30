@@ -15,6 +15,7 @@ import {
   type PoliticasPublicas,
   PublicPoliciesService,
 } from '../../../core/policies/public-policies.service';
+import { urlEvento } from '../../../core/routing/rutas-publicas';
 import { Button } from '../../../shared/ui/button';
 import { Checkbox } from '../../../shared/ui/checkbox';
 
@@ -120,6 +121,7 @@ type EstadoDeCarga = 'cargando' | 'listo' | 'error';
   `,
 })
 export class RegistrationConsents {
+  readonly org = input.required<string>();
   readonly slug = input.required<string>();
   readonly errorConsentimiento = input<string | null>(null);
   readonly errorPoliticas = input<string | null>(null);
@@ -135,11 +137,13 @@ export class RegistrationConsents {
   protected readonly politicas = signal<PoliticasPublicas | null>(null);
   protected readonly hayPoliticas = computed(() => (this.politicas()?.policies.length ?? 0) > 0);
 
-  protected readonly enlacePoliticas = computed(() => `/eventos/${this.slug()}/politicas`);
+  protected readonly enlacePoliticas = computed(() =>
+    urlEvento(this.org(), this.slug(), 'politicas'),
+  );
   /** La privacidad del organizador si la tiene; si no, la general. */
   protected readonly enlacePrivacidad = computed(() =>
     this.politicas()?.policies.some((politica) => politica.kind === 'privacidad')
-      ? `/eventos/${this.slug()}/politicas#privacidad`
+      ? `${urlEvento(this.org(), this.slug(), 'politicas')}#privacidad`
       : '/legal/privacidad',
   );
 
@@ -169,7 +173,7 @@ export class RegistrationConsents {
     this.politicasAceptadas.set(false);
     this.estado.set('cargando');
     try {
-      this.politicas.set(await this.servicio.obtener(this.slug()));
+      this.politicas.set(await this.servicio.obtener(this.org(), this.slug()));
       this.estado.set('listo');
       return true;
     } catch (error) {

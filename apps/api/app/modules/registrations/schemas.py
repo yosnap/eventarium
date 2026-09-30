@@ -8,6 +8,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
+from app.modules.organizations.schemas import PublicOrganizationRef
 from app.modules.policies.schemas import AcceptedPolicyOut
 
 RegistrationStatus = Literal[
@@ -62,7 +63,7 @@ class SubmitRegistrationRequest(BaseModel):
         max_length=10,
         description=(
             "Versiones de las políticas del organizador que se muestran y se "
-            "aceptan (las de `GET /public/events/{slug}/policies`)."
+            "aceptan (las de `GET /public/organizations/{org}/events/{slug}/policies`)."
         ),
     )
     turnstile_token: str = Field(description="Token del widget de Turnstile")
@@ -93,12 +94,32 @@ class VerifyRegistrationRequest(BaseModel):
     token: str
 
 
+class EventCalendarInfo(BaseModel):
+    """Lo mínimo del evento para que la persona lo añada a su calendario.
+
+    Solo viaja cuando la inscripción está `confirmed` (ver
+    `registrations.calendar`): no es dato interno, es lo que ya se enseña en la
+    ficha pública del evento, entregado junto a la respuesta para no obligar al
+    frontend a pedir el evento aparte con un slug que no siempre conoce.
+    """
+
+    slug: str
+    organization: PublicOrganizationRef
+    title: str
+    starts_at: datetime
+    ends_at: datetime
+    timezone: str
+    location: str | None
+
+
 class VerifyRegistrationResponse(BaseModel):
     """Resultado de verificar una inscripción."""
 
     message: str
     # confirmed | pending_approval | waitlisted
     status: str
+    # Solo con `status == "confirmed"`.
+    event: EventCalendarInfo | None = None
 
 
 class ConfirmWaitlistPromotionRequest(BaseModel):
@@ -111,6 +132,8 @@ class ConfirmWaitlistPromotionResponse(BaseModel):
     """Resultado de confirmar una promoción de lista de espera."""
 
     message: str
+    # Solo si la plaza queda `confirmed` (un evento de pago pasa a `pending_payment`).
+    event: EventCalendarInfo | None = None
 
 
 class CancelRegistrationRequest(BaseModel):
@@ -155,6 +178,7 @@ class MyRegistrationItem(BaseModel):
     event_title: str
     starts_at: datetime
     organization_name: str
+    organization: PublicOrganizationRef
     status: RegistrationStatus
     # La organización canceló el evento (no confundir con una cancelación de
     # la propia persona).

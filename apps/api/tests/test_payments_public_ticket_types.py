@@ -57,7 +57,7 @@ async def _crear_tipo(cliente: AsyncClient, cabeceras: dict[str, str], event_id:
 
 
 def _url(slug: str) -> str:
-    return f"/api/v1/public/events/{slug}/ticket-types"
+    return f"/api/v1/public/organizations/acme/events/{slug}/ticket-types"
 
 
 async def test_lista_los_tipos_activos_y_en_ventana_con_su_precio(

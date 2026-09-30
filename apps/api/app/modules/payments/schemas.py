@@ -13,6 +13,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, model_validator
 
+from app.modules.registrations.schemas import EventCalendarInfo
+
 DiscountType = Literal["percentage", "fixed_amount"]
 
 
@@ -282,7 +284,7 @@ class CheckoutStartRequest(BaseModel):
         max_length=10,
         description=(
             "Versiones de las políticas del organizador que se muestran y se "
-            "aceptan (las de `GET /public/events/{slug}/policies`)."
+            "aceptan (las de `GET /public/organizations/{org}/events/{slug}/policies`)."
         ),
     )
     ticket_type_id: str
@@ -305,6 +307,9 @@ class PaymentStatusResponse(BaseModel):
 
     registration_status: str
     payment_status: str | None
+    # Solo con la inscripción `confirmed` (el webhook ya la confirmó): la
+    # pantalla de retorno ofrece «añadir al calendario» sin pedir el evento aparte.
+    event: EventCalendarInfo | None = None
 
 
 # --- Panel de pagos y reembolsos (fase 6 del PRD, fase 5 de trabajo) ---------

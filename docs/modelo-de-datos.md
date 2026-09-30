@@ -30,6 +30,8 @@ erDiagram
     text legal_name
     text description
     text website
+    text address
+    boolean public_page_enabled
     text contact_email
     bool is_active
   }
@@ -96,7 +98,7 @@ erDiagram
   events {
     uuid id PK
     uuid organization_id FK
-    text slug UK
+    text slug "UK con organization_id"
     text title
     text summary
     text description
@@ -282,7 +284,7 @@ con lo que el patrocinador ya tenía guardado — mismo motivo que
 `events/service.py:update_session` con `video_platform`/`video_url`.
 
 **El bloque público nunca expone la aportación.** El endpoint público de
-detalle de evento (`GET /public/events/{slug}`) agrupa los patrocinadores por
+detalle de evento (`GET /public/organizations/{org}/events/{slug}`) agrupa los patrocinadores por
 nivel y los ordena por `sponsor_tiers.display_order`, pero solo expone
 `name`/`logo_url`/`website` (`PublicSponsor`) — nunca importe ni descripción:
 el PRD no pide hacer pública la valoración económica de nadie. El filtro de
@@ -551,6 +553,35 @@ con el mismo patrón que `app_resolve_organization` y las funciones de la fase a
 | `app_create_organization_row(id, slug, name)` | Insertar la fila de `organizations`, antes de que exista ningún contexto RLS que la haga visible |
 | `app_check_slug_available(slug)` | Comprobación pública (sin autenticar) de si un slug está libre, usada por el formulario en vivo |
 | `app_find_user_by_id(id)` | Leer el propio usuario (email, verificación) para la dependencia `require_verified_user`, sin que exista aún membresía alguna |
+
+### Slug de evento por organización y página pública: tablas y funciones
+
+- `events` es único por `(organization_id, slug)` (`uq_events_organization_id_slug`);
+  la unicidad global de la migración `0030` se revirtió en la `0058`. La tabla de enlaces antiguos que creó la `0058` se eliminó en la `0062`. El slug de
+  evento y el de organización son inmutables.
+- `event_categories (id, slug UK, name, display_order, is_active)` (migración `0061`): catálogo de
+  **instalación** (sin `organization_id` ni RLS), mismo patrón que `theme_templates`: `app_user`
+  solo lee (`REVOKE` que `roles.sql` deshace al reaplicarse; no hay endpoint que escriba con esa
+  sesión) y escribe solo la superadministración. No se borra: se desactiva. `events.category_id`
+  (una por evento, FK `ON DELETE RESTRICT`) y `events.tags text[]` con índice GIN (`tags @> ...`
+  para filtrar). Solo se asignan categorías activas, salvo la que el evento ya tiene; una
+  categoría desactivada deja de mostrarse en público. Etiquetas: minúsculas, máx. 5, 2–30
+  caracteres, letras (con tildes), números, espacios y guiones.
+- `events.deleted_at` (migración `0060`): eliminación lógica de un evento **ya cancelado**
+  (cancelar y eliminar son dos acciones; uno activo no se elimina). No se borra ninguna fila:
+  inscripciones, cobros, reembolsos y contabilidad se conservan. El evento desaparece del
+  panel (`get_event`, `events_query`), del público y de las funciones `SECURITY DEFINER` que
+  lo resuelven o lo listan; el `slug` sigue reservado. `DELETE /events/{id}` se rechaza
+  (409) si no está cancelado, mientras el barrido de la cancelación siga en marcha o si hay
+  reembolsos sin completar.
+- `organizations.address` y `organizations.public_page_enabled` (`NOT NULL DEFAULT false`),
+  migración `0059`, que además antepone `https://` a las webs guardadas sin esquema.
+
+| Función | Uso |
+|---|---|
+| `app_resolve_public_event(org_slug, slug)` / `app_resolve_public_event_display(org_slug, slug)` | Resolver un evento publicable (o cancelado, para mostrarlo) por organización y slug, con organización activa |
+| `app_resolve_public_organization(org_slug)` | El `id` de una organización solo si su página pública está activada y la organización está activa |
+| `app_list_registrations_by_email(email)` | Ahora devuelve también `organization_slug` y `organization_page_public` |
 
 ### Cuenta propia y recuperación: tres funciones `SECURITY DEFINER` más
 

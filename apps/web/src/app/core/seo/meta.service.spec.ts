@@ -43,6 +43,21 @@ describe('SeoMetaService', () => {
     expect(contenido('property="og:image"')).toContain(IMAGEN_OG_POR_DEFECTO);
   });
 
+  it('publica la ruta canónica en absoluta y la quita en la página siguiente', () => {
+    const canonica = () =>
+      document.head.querySelector('link[rel="canonical"]')?.getAttribute('href');
+
+    seo.set({ title: 'Evento', canonica: '/acme/iawic' });
+    expect(canonica()).toBe(`${location.origin}/acme/iawic`);
+
+    seo.set({ title: 'Otra', canonica: '/acme/otro' });
+    expect(document.head.querySelectorAll('link[rel="canonical"]')).toHaveLength(1);
+    expect(canonica()).toBe(`${location.origin}/acme/otro`);
+
+    seo.set({ title: 'Sin canónica' });
+    expect(canonica()).toBeUndefined();
+  });
+
   it('la tarjeta por defecto existe en public/', () => {
     expect(existsSync(join(process.cwd(), 'public', IMAGEN_OG_POR_DEFECTO))).toBe(true);
   });

@@ -17,6 +17,7 @@ from app.core.tasks import send_invitation_email, send_speaker_bio_request_email
 from app.modules.events import repository, service, speakers_repository
 from app.modules.events.models import Event, EventMember, EventSession, EventVenue
 from app.modules.events.schemas import (
+    EventCategoryOut,
     EventCreate,
     EventInvitationCreate,
     EventMemberCreate,
@@ -70,6 +71,18 @@ async def _event_response(session: AsyncSession, evento: Event) -> EventResponse
     return EventResponse(
         id=str(evento.id),
         slug=evento.slug,
+        category=(
+            EventCategoryOut(
+                id=str(evento.category.id),
+                slug=evento.category.slug,
+                name=evento.category.name,
+                display_order=evento.category.display_order,
+                is_active=evento.category.is_active,
+            )
+            if evento.category is not None
+            else None
+        ),
+        tags=list(evento.tags),
         title=evento.title,
         summary=evento.summary,
         description=evento.description,

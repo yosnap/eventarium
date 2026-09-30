@@ -105,12 +105,13 @@ async def main(slug_organizacion: str) -> None:
     )
     print(f"--- Los {len(EVENTOS)} eventos (el último NO debe aparecer en público) ---")
     for spec in EVENTOS:
-        print(f"{base}/eventos/{spec['slug']:<32} {spec['title']}")
+        print(f"{base}/{slug_organizacion}/{spec['slug']:<32} {spec['title']}")
 
     oculto = next((s for s in EVENTOS if s.get("visibility") == "hidden"), None)
     if oculto is not None:
         print(
-            f"\nComprobación del evento oculto: {base}/eventos/{oculto['slug']} debe dar 404, "
+            f"\nComprobación del evento oculto: "
+            f"{base}/{slug_organizacion}/{oculto['slug']} debe dar 404, "
             "y no debe salir en el listado."
         )
     print(f"\nListado completo: {base}/eventos")

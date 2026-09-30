@@ -28,12 +28,12 @@ AHORA = datetime.now(UTC).replace(microsecond=0)
 ORGANIZACION = "/api/v1/organizations/me/policies"
 
 
-def _publicas(slug: str) -> str:
-    return f"/api/v1/public/events/{slug}/policies"
+def _publicas(slug: str, organizacion: str = "acme") -> str:
+    return f"/api/v1/public/organizations/{organizacion}/events/{slug}/policies"
 
 
 def _inscripcion(slug: str) -> str:
-    return f"/api/v1/public/events/{slug}/registrations"
+    return f"/api/v1/public/organizations/acme/events/{slug}/registrations"
 
 
 def _payload(email: str = "asistente@example.com", **extra: object) -> dict:
@@ -79,8 +79,8 @@ async def _escribir(cliente: AsyncClient, cabeceras: dict[str, str], kind: str, 
     assert respuesta.status_code == 200, respuesta.text
 
 
-async def _ids_vigentes(cliente: AsyncClient, slug: str) -> list[str]:
-    respuesta = await cliente.get(_publicas(slug))
+async def _ids_vigentes(cliente: AsyncClient, slug: str, organizacion: str = "acme") -> list[str]:
+    respuesta = await cliente.get(_publicas(slug, organizacion))
     assert respuesta.status_code == 200, respuesta.text
     return [politica["version_id"] for politica in respuesta.json()["policies"]]
 
@@ -221,7 +221,7 @@ async def test_ids_de_otra_organizacion_no_valen(
     await _crear_evento(otra_organizacion, "ajeno")
     await _escribir(cliente, cabeceras, "condiciones", "Nuestras")
     await _escribir(cliente, ajenas, "condiciones", "Suyas")
-    ajenos = await _ids_vigentes(cliente, "ajeno")
+    ajenos = await _ids_vigentes(cliente, "ajeno", otra_organizacion.slug)
 
     respuesta = await cliente.post(
         _inscripcion("propio"), json=_payload(accepted_policy_version_ids=ajenos)

@@ -72,7 +72,7 @@ async def test_el_slug_es_unico_dentro_de_la_misma_organizacion(
     assert repetido.status_code == 409
 
 
-async def test_el_slug_es_unico_entre_organizaciones_distintas(
+async def test_el_mismo_slug_puede_usarse_en_organizaciones_distintas(
     cliente: AsyncClient,
     organizacion: OrganizacionDePrueba,
     otra_organizacion: OrganizacionDePrueba,
@@ -82,7 +82,7 @@ async def test_el_slug_es_unico_entre_organizaciones_distintas(
     await _crear_evento(cliente, cabeceras_a)
 
     repetido = await cliente.post(EVENTS, headers=cabeceras_b, json=_payload_evento())
-    assert repetido.status_code == 409
+    assert repetido.status_code == 201, repetido.text
 
 
 async def test_un_evento_archivado_no_puede_volver_a_publicarse(
@@ -103,15 +103,30 @@ async def test_un_evento_archivado_no_puede_volver_a_publicarse(
     assert reabierto.status_code == 422
 
 
-async def test_no_existe_delete_de_evento(
+async def test_un_evento_que_no_esta_cancelado_no_se_elimina_con_delete(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    """Un evento se archiva, no se borra: no hay ruta `DELETE /events/{id}`."""
+    """Solo se elimina un evento ya cancelado (ver `test_events_eliminacion.py`):
+    uno en borrador o publicado hay que cancelarlo antes, y sigue existiendo."""
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_evento(cliente, cabeceras)
 
     respuesta = await cliente.delete(f"{EVENTS}/{evento['id']}", headers=cabeceras)
-    assert respuesta.status_code in (404, 405)
+
+    assert respuesta.status_code == 409
+    assert (await cliente.get(f"{EVENTS}/{evento['id']}", headers=cabeceras)).status_code == 200
+
+
+async def test_sin_events_write_no_se_puede_eliminar(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    evento = await _crear_evento(cliente, cabeceras)
+    _, sin_permiso = await iniciar_sesion_como(cliente, organizacion, "attendee")
+
+    respuesta = await cliente.delete(f"{EVENTS}/{evento['id']}", headers=sin_permiso)
+
+    assert respuesta.status_code == 403
 
 
 async def test_sin_events_write_no_se_puede_crear(

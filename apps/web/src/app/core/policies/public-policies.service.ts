@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 
 import type { PlantillaDeTema } from '../theming/theme-template.model';
 import { ApiService } from '../api/api.service';
+import { apiEvento } from '../routing/rutas-publicas';
 
 export type TipoDePolitica = 'condiciones' | 'reembolsos' | 'privacidad' | 'otras';
 
@@ -15,7 +16,7 @@ export interface PoliticaPublica {
   readonly created_at: string;
 }
 
-/** Contrato de `GET /public/events/{slug}/policies`. */
+/** Contrato de `GET /public/organizations/{org}/events/{slug}/policies`. */
 export interface PoliticasPublicas {
   readonly organization_name: string;
   /** Solo los textos vigentes; vacía si el evento no tiene ninguno. */
@@ -33,9 +34,9 @@ export class PublicPoliciesService {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
 
-  obtener(slug: string): Promise<PoliticasPublicas> {
+  obtener(org: string, slug: string): Promise<PoliticasPublicas> {
     return firstValueFrom(
-      this.http.get<PoliticasPublicas>(this.api.url(`/public/events/${slug}/policies`), {
+      this.http.get<PoliticasPublicas>(this.api.url(apiEvento(org, slug, '/policies')), {
         headers: this.api.serverForwardHeaders(),
       }),
     );

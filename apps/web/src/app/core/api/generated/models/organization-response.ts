@@ -6,12 +6,14 @@
  * Datos de la organización actual.
  */
 export interface OrganizationResponse {
+  address?: (string | null);
   contact_email?: (string | null);
   description?: (string | null);
   id: string;
   is_active: boolean;
   legal_name?: (string | null);
   name: string;
+  public_page_enabled: boolean;
   slug: string;
   website?: (string | null);
 }

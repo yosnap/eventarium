@@ -9,13 +9,15 @@ import { RequestBuilder } from '../../request-builder';
 
 import { PublicTicketTypeResponse } from '../../models/public-ticket-type-response';
 
-export interface ListPublicTicketTypesApiV1PublicEventsSlugTicketTypesGet$Params {
+export interface ListPublicTicketTypesApiV1PublicOrganizationsOrgSlugEventsSlugTicketTypesGet$Params {
+  org_slug: string;
   slug: string;
 }
 
-export function listPublicTicketTypesApiV1PublicEventsSlugTicketTypesGet(http: HttpClient, rootUrl: string, params: ListPublicTicketTypesApiV1PublicEventsSlugTicketTypesGet$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<PublicTicketTypeResponse>>> {
-  const rb = new RequestBuilder(rootUrl, listPublicTicketTypesApiV1PublicEventsSlugTicketTypesGet.PATH, 'get');
+export function listPublicTicketTypesApiV1PublicOrganizationsOrgSlugEventsSlugTicketTypesGet(http: HttpClient, rootUrl: string, params: ListPublicTicketTypesApiV1PublicOrganizationsOrgSlugEventsSlugTicketTypesGet$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<PublicTicketTypeResponse>>> {
+  const rb = new RequestBuilder(rootUrl, listPublicTicketTypesApiV1PublicOrganizationsOrgSlugEventsSlugTicketTypesGet.PATH, 'get');
   if (params) {
+    rb.path('org_slug', params.org_slug, {});
     rb.path('slug', params.slug, {});
   }
 
@@ -29,4 +31,4 @@ export function listPublicTicketTypesApiV1PublicEventsSlugTicketTypesGet(http: H
   );
 }
 
-listPublicTicketTypesApiV1PublicEventsSlugTicketTypesGet.PATH = '/api/v1/public/events/{slug}/ticket-types';
+listPublicTicketTypesApiV1PublicOrganizationsOrgSlugEventsSlugTicketTypesGet.PATH = '/api/v1/public/organizations/{org_slug}/events/{slug}/ticket-types';

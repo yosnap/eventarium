@@ -18,6 +18,7 @@ function perfilPublico() {
     social_links: [{ kind: 'twitter', url: 'https://twitter.com/ana' }],
     history: [
       {
+        organization: { slug: 'acme', name: 'Acme', page_public: false },
         event_slug: 'iawic-2026',
         event_title: 'IA Week in Cascais 2026',
         session_id: 's1',

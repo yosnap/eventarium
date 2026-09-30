@@ -9,13 +9,15 @@ import { RequestBuilder } from '../../request-builder';
 
 import { PublicEventDetail } from '../../models/public-event-detail';
 
-export interface GetPublicEventApiV1PublicEventsSlugGet$Params {
+export interface GetPublicEventApiV1PublicOrganizationsOrgSlugEventsSlugGet$Params {
+  org_slug: string;
   slug: string;
 }
 
-export function getPublicEventApiV1PublicEventsSlugGet(http: HttpClient, rootUrl: string, params: GetPublicEventApiV1PublicEventsSlugGet$Params, context?: HttpContext): Observable<StrictHttpResponse<PublicEventDetail>> {
-  const rb = new RequestBuilder(rootUrl, getPublicEventApiV1PublicEventsSlugGet.PATH, 'get');
+export function getPublicEventApiV1PublicOrganizationsOrgSlugEventsSlugGet(http: HttpClient, rootUrl: string, params: GetPublicEventApiV1PublicOrganizationsOrgSlugEventsSlugGet$Params, context?: HttpContext): Observable<StrictHttpResponse<PublicEventDetail>> {
+  const rb = new RequestBuilder(rootUrl, getPublicEventApiV1PublicOrganizationsOrgSlugEventsSlugGet.PATH, 'get');
   if (params) {
+    rb.path('org_slug', params.org_slug, {});
     rb.path('slug', params.slug, {});
   }
 
@@ -29,4 +31,4 @@ export function getPublicEventApiV1PublicEventsSlugGet(http: HttpClient, rootUrl
   );
 }
 
-getPublicEventApiV1PublicEventsSlugGet.PATH = '/api/v1/public/events/{slug}';
+getPublicEventApiV1PublicOrganizationsOrgSlugEventsSlugGet.PATH = '/api/v1/public/organizations/{org_slug}/events/{slug}';

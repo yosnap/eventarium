@@ -34,6 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import SessionApp, maintenance_session, set_organization_context
 from app.core.tenant import base_url_de_organizacion
 from app.modules.events.models import Event
+from app.modules.organizations.models import Organization
 from app.modules.payments import refunds_service, repository
 from app.modules.payments import service as payments_service
 from app.modules.payments import stripe_client as stripe_gateway
@@ -257,6 +258,8 @@ async def crear_sesion_de_pago(session: AsyncSession, *, payment_id: uuid.UUID) 
     # `events` no admite huérfanos); el `else ""` es solo defensivo, igual que
     # el `else 30` de la línea anterior.
     evento_slug = evento.slug if evento is not None else ""
+    organizacion = await session.get(Organization, pago.organization_id)
+    org_slug = organizacion.slug if organizacion is not None else ""
     base = await base_url_de_organizacion(pago.organization_id)
 
     inscripcion = (
@@ -299,15 +302,15 @@ async def crear_sesion_de_pago(session: AsyncSession, *, payment_id: uuid.UUID) 
             product_name=tipo.name if tipo is not None else "Entrada",
         ),
         # `slug` viaja en la URL porque el endpoint de estado
-        # (`GET /public/events/{slug}/checkout/{registration_id}/status`) está
+        # (`GET /public/organizations/{org}/events/{slug}/checkout/{registration_id}/status`) está
         # anidado bajo el evento, no solo bajo la inscripción: sin él, la
         # pantalla de retorno no podría ni siquiera preguntar por el estado
         # real del pago.
         success_url=(
-            f"{base}/pago/retorno?registration_id={pago.registration_id}&slug={evento_slug}"
+            f"{base}/pago/retorno?registration_id={pago.registration_id}&org={org_slug}&slug={evento_slug}"
         ),
         cancel_url=(
-            f"{base}/pago/cancelado?registration_id={pago.registration_id}&slug={evento_slug}"
+            f"{base}/pago/cancelado?registration_id={pago.registration_id}&org={org_slug}&slug={evento_slug}"
         ),
         expires_at_epoch=expires_at_epoch,
         idempotency_key=f"checkout_{pago.id}_{pago.checkout_attempts}",

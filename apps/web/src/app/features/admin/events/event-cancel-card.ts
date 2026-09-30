@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  computed,
   type OnInit,
   inject,
   input,
@@ -89,6 +90,46 @@ const FALLOS_MAXIMOS = 3;
         }
       </app-card>
 
+      @if (cancelado()) {
+        <app-card [heading]="t('eliminarTitulo')">
+          <p>{{ t('eliminarExplicacion') }}</p>
+          @if (!puedeEliminar()) {
+            <p class="aviso" aria-live="polite">{{ t('eliminarEspera') }}</p>
+          }
+          <app-button
+            type="button"
+            variant="peligro"
+            [disabled]="!puedeEliminar()"
+            (pulsado)="dialogoEliminar.abrir()"
+          >
+            {{ t('eliminarBoton') }}
+          </app-button>
+          @if (errorEliminar(); as mensaje) {
+            <app-alert tone="error">{{ mensaje }}</app-alert>
+          }
+        </app-card>
+      }
+
+      <app-dialog #dialogoEliminar>
+        <h3>{{ t('eliminarDialogoTitulo') }}</h3>
+        <p>{{ t('eliminarDialogoTexto') }}</p>
+        @if (errorEliminarDialogo(); as mensaje) {
+          <app-alert tone="error">{{ mensaje }}</app-alert>
+        }
+        <app-button pie variant="secundario" type="button" (pulsado)="dialogoEliminar.cerrar()">
+          {{ t('volver') }}
+        </app-button>
+        <app-button
+          pie
+          variant="peligro"
+          type="button"
+          [loading]="eliminando()"
+          (pulsado)="eliminar()"
+        >
+          {{ t('eliminarConfirmar') }}
+        </app-button>
+      </app-dialog>
+
       <app-dialog #dialogo>
         <h3>{{ t('dialogoTitulo') }}</h3>
         @if (resumen(); as r) {
@@ -130,11 +171,14 @@ export class EventCancelCard implements OnInit {
   /** Estado inicial: `true` si el evento ya estaba cancelado al cargar. */
   readonly yaCancelado = input(false);
   readonly cancelacionConfirmada = output<void>();
+  /** El evento se ha eliminado: quien lo aloja debe salir de su pantalla. */
+  readonly eliminado = output<void>();
 
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
   private readonly dialogoRef = viewChild.required<Dialog>('dialogo');
+  private readonly dialogoEliminarRef = viewChild.required<Dialog>('dialogoEliminar');
 
   protected readonly resumen = signal<Resumen | null>(null);
   protected readonly progreso = signal<Progreso | null>(null);
@@ -144,6 +188,16 @@ export class EventCancelCard implements OnInit {
   protected readonly cancelado = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly errorDialogo = signal<string | null>(null);
+  protected readonly eliminando = signal(false);
+  protected readonly errorEliminar = signal<string | null>(null);
+  protected readonly errorEliminarDialogo = signal<string | null>(null);
+
+  /** Solo cuando la cancelación ha terminado del todo: sin inscripciones por
+   * cancelar ni avisar y sin reembolsos fallidos (la API lo exige igual). */
+  protected readonly puedeEliminar = computed(() => {
+    const p = this.progreso();
+    return p !== null && p.por_cancelar === 0 && p.por_avisar === 0 && p.reembolsos_fallidos === 0;
+  });
 
   private temporizador: ReturnType<typeof setInterval> | null = null;
   private fallosSeguidos = 0;
@@ -178,6 +232,20 @@ export class EventCancelCard implements OnInit {
       this.error.set(this.mensaje(error));
     } finally {
       this.cargandoResumen.set(false);
+    }
+  }
+
+  protected async eliminar(): Promise<void> {
+    this.eliminando.set(true);
+    this.errorEliminarDialogo.set(null);
+    try {
+      await firstValueFrom(this.http.delete<void>(this.api.url(`/events/${this.eventId()}`)));
+      this.dialogoEliminarRef().cerrar();
+      this.eliminado.emit();
+    } catch (error) {
+      this.errorEliminarDialogo.set(this.mensaje(error));
+    } finally {
+      this.eliminando.set(false);
     }
   }
 

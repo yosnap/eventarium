@@ -4,14 +4,16 @@ import { esperarSinDesborde } from './desborde';
 
 /** El evento de la semilla con más contenido (sedes, sesiones, ponentes). */
 const EVENTO = process.env['E2E_EVENTO'] ?? 'demo-multisede-tres';
+/** Organización dueña de la semilla. */
+const ORG = process.env['E2E_ORG'] ?? 'acme';
 
 const RUTAS_FIJAS = [
   '/',
   '/eventos',
-  `/eventos/${EVENTO}`,
-  `/eventos/${EVENTO}/programa`,
-  `/eventos/${EVENTO}/inscribirse`,
-  `/eventos/${EVENTO}/politicas`,
+  `/${ORG}/${EVENTO}`,
+  `/${ORG}/${EVENTO}/programa`,
+  `/${ORG}/${EVENTO}/inscribirse`,
+  `/${ORG}/${EVENTO}/politicas`,
   '/acceder',
   '/registro',
   '/recuperar-contrasena',
@@ -31,7 +33,7 @@ test.describe('Páginas públicas en un móvil de 360 px', () => {
   }
 
   test('sin desborde en una sesión y un ponente de la agenda', async ({ page }) => {
-    await page.goto(`/eventos/${EVENTO}`);
+    await page.goto(`/${ORG}/${EVENTO}`);
     const sesion = await page.locator('a[href*="/sesiones/"]').first().getAttribute('href');
     expect(sesion, 'la agenda de la semilla enlaza alguna sesión').toBeTruthy();
     await page.goto(sesion!);

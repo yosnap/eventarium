@@ -36,6 +36,7 @@ from app.core.config import get_settings
 from app.core.database import maintenance_session
 from app.core.permissions import Permission
 from app.modules.events import cancelacion
+from app.modules.events import categories as events_categories
 from app.modules.events import service as events_service
 from app.modules.events.schemas import (
     EventCreate,
@@ -46,7 +47,12 @@ from app.modules.events.schemas import (
 )
 from app.modules.mcp import schemas
 from app.modules.mcp.contexto import ContextoMcp, ErrorDeHerramienta, sesion
-from app.modules.mcp.herramientas_lectura import _evento_permitido, _resumen, _uuid, preparar
+from app.modules.mcp.herramientas_lectura import (
+    _evento_permitido,
+    _resumen,
+    _uuid,
+    preparar,
+)
 from app.modules.mcp.scopes import Ambito
 from app.modules.registrations.models import EventRegistration
 from app.modules.sponsors import service as sponsors_service
@@ -111,6 +117,19 @@ def _sin_nulos(**campos: Any) -> dict[str, Any]:
     return {clave: valor for clave, valor in campos.items() if valor is not None}
 
 
+async def _id_de_categoria(session: Any, slug: str) -> str | None:  # noqa: ANN401 - AsyncSession
+    """Id de la categoría con ese slug; `""` quita la categoría (`None`).
+
+    La regla de «solo activas» la aplica el servicio al guardar el evento.
+    """
+    if not slug:
+        return None
+    categoria = await events_categories.get_category_by_slug(session, slug)
+    if categoria is None:
+        raise ErrorDeHerramienta(f"La categoría «{slug}» no existe. Consulta `listar_categorias`.")
+    return str(categoria.id)
+
+
 def _codigo_de_cancelacion(
     contexto: ContextoMcp,
     event_id: uuid.UUID,
@@ -165,11 +184,14 @@ def registrar(mcp: MCPServer) -> None:
         resumen: str | None = None,
         descripcion: str | None = None,
         zona_horaria: str = "Europe/Madrid",
+        categoria: str | None = None,
+        etiquetas: list[str] | None = None,
     ) -> schemas.EventoResumen:
         """Crea un evento **en borrador**. La persona lo revisa y lo publica
         desde Eventarium (o con `publicar_evento`, si la conexión lo permite).
         `formato`: in_person, online o hybrid. `modo_inscripcion`: free,
-        approval o paid."""
+        approval o paid. `categoria`: slug de una categoría activa (ver
+        `listar_categorias`). `etiquetas`: hasta 5, de 2 a 30 caracteres."""
         contexto = await preparar()
         contexto.exigir_ambito(Ambito.EVENTOS_EDITAR)
         if contexto.event_ids is not None:
@@ -193,10 +215,13 @@ def registrar(mcp: MCPServer) -> None:
                 summary=resumen,
                 description=descripcion,
                 timezone=zona_horaria,
+                tags=etiquetas,
             ),
         ).model_dump(exclude_unset=True)
         datos["status"] = "draft"
         async with sesion(contexto) as session:
+            if categoria:
+                datos["category_id"] = await _id_de_categoria(session, categoria)
             evento = await events_service.create_event(
                 session, organization_id=contexto.organization_id, datos=datos
             )
@@ -220,9 +245,13 @@ def registrar(mcp: MCPServer) -> None:
         visibilidad: str | None = None,
         resumen: str | None = None,
         descripcion: str | None = None,
+        categoria: str | None = None,
+        etiquetas: list[str] | None = None,
     ) -> schemas.EventoResumen:
         """Cambia los datos de un evento. No cambia su estado: para eso están
-        `publicar_evento`, `despublicar_evento` y `cancelar_evento`."""
+        `publicar_evento`, `despublicar_evento` y `cancelar_evento`.
+        `categoria`: slug de una categoría activa (cadena vacía la quita).
+        `etiquetas`: sustituye las actuales (lista vacía las quita)."""
         contexto = await preparar()
         contexto.exigir_ambito(Ambito.EVENTOS_EDITAR)
         cambios = _sin_nulos(
@@ -239,12 +268,17 @@ def registrar(mcp: MCPServer) -> None:
             visibility=visibilidad,
             summary=resumen,
             description=descripcion,
+            tags=etiquetas,
         )
+        if categoria is not None:
+            cambios["category_id"] = None  # se resuelve con la sesión abierta
         if not cambios:
             raise ErrorDeHerramienta("Indica al menos un dato que cambiar.")
         datos = _validar(EventUpdate, cambios).model_dump(exclude_unset=True)
         async with sesion(contexto) as session:
             evento = await _evento_permitido(session, contexto, event_id)
+            if categoria is not None:
+                datos["category_id"] = await _id_de_categoria(session, categoria)
             evento = await events_service.update_event(
                 session, organization_id=contexto.organization_id, event_id=evento.id, datos=datos
             )

@@ -117,6 +117,7 @@ describe('RegistrationPage', () => {
 
   function crearFixture() {
     const fixture = TestBed.createComponent(RegistrationPage);
+    fixture.componentRef.setInput('org', 'acme');
     fixture.componentRef.setInput('slug', 'iawic-2026');
     return fixture;
   }
@@ -142,7 +143,9 @@ describe('RegistrationPage', () => {
       expect(titulo.getTitle()).toBe('Inscripción');
 
       TestBed.inject(HttpTestingController)
-        .expectOne((peticion) => peticion.url.endsWith('/public/events/iawic-2026'))
+        .expectOne((peticion) =>
+          peticion.url.endsWith('/public/organizations/acme/events/iawic-2026'),
+        )
         .flush({ title: 'IA Week', summary: null, cover_url: null, theme: null });
       await avanzar(fixture);
 
@@ -156,7 +159,9 @@ describe('RegistrationPage', () => {
       fixture.detectChanges();
 
       TestBed.inject(HttpTestingController)
-        .expectOne((peticion) => peticion.url.endsWith('/public/events/iawic-2026'))
+        .expectOne((peticion) =>
+          peticion.url.endsWith('/public/organizations/acme/events/iawic-2026'),
+        )
         .flush(null, { status: 500, statusText: 'Error' });
       await avanzar(fixture);
 
@@ -241,6 +246,7 @@ describe('RegistrationPage', () => {
       await avanzar(fixture);
 
       expect(registrations.submit).toHaveBeenCalledWith(
+        'acme',
         'iawic-2026',
         expect.objectContaining({
           email: 'asistente@example.com',
@@ -342,6 +348,7 @@ describe('RegistrationPage', () => {
       await avanzar(fixture);
 
       expect(checkout.quote).toHaveBeenCalledWith(
+        'acme',
         'iawic-2026',
         expect.objectContaining({ ticketTypeId: 'tipo-general' }),
       );
@@ -364,6 +371,7 @@ describe('RegistrationPage', () => {
       await avanzar(fixture);
 
       expect(startCheckout).toHaveBeenCalledWith(
+        'acme',
         'iawic-2026',
         expect.objectContaining({ ticketTypeId: 'tipo-general', email: 'asistente@example.com' }),
       );
@@ -486,9 +494,9 @@ describe('RegistrationPage', () => {
       const raiz = fixture.nativeElement as HTMLElement;
       expect(raiz.textContent).toContain('He leído y acepto las condiciones de IA Week.');
       const enlaces = Array.from(raiz.querySelectorAll('a')).map((a) => a.getAttribute('href'));
-      expect(enlaces).toContain('/eventos/iawic-2026/politicas');
+      expect(enlaces).toContain('/acme/iawic-2026/politicas');
       // Hay privacidad del organizador: la casilla de datos enlaza a ella.
-      expect(enlaces).toContain('/eventos/iawic-2026/politicas#privacidad');
+      expect(enlaces).toContain('/acme/iawic-2026/politicas#privacidad');
       await esperarSinViolacionesDeAccesibilidad(raiz);
     });
 
@@ -509,6 +517,7 @@ describe('RegistrationPage', () => {
       rellenar(fixture.nativeElement, true);
       await enviar(fixture);
       expect(submit).toHaveBeenCalledWith(
+        'acme',
         'iawic-2026',
         expect.objectContaining({
           acceptedPolicyVersionIds: ['v-condiciones', 'v-privacidad'],
@@ -551,6 +560,7 @@ describe('RegistrationPage', () => {
       rellenarSinPoliticas(raiz);
       await enviar(fixture);
       expect(submit).toHaveBeenCalledWith(
+        'acme',
         'iawic-2026',
         expect.objectContaining({ acceptedPolicyVersionIds: [] }),
       );
@@ -641,6 +651,7 @@ describe('RegistrationPage', () => {
       fixture.detectChanges();
 
       expect(startCheckout).toHaveBeenCalledWith(
+        'acme',
         'iawic-2026',
         expect.objectContaining({ acceptedPolicyVersionIds: ['v-reembolsos'] }),
       );

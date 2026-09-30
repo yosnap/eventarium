@@ -177,8 +177,8 @@ con `AuthService.loadCurrentUser()`.
 ## Checklist manual — Fase 2 del PRD, fase 4 (página pública con SSR)
 
 Revisado el 2026-09-08 sobre las cuatro pantallas públicas nuevas:
-`/eventos` (listado), `/eventos/:slug` (detalle con agenda), `/eventos/:slug/sesiones/:sessionId`
-(ponencia) y `/ponentes/:publicSlug` (perfil de ponente).
+`/eventos` (listado), `/{org}/{evento}` (detalle con agenda), `/{org}/{evento}/sesiones/:sessionId`
+(ponencia; hasta el 0.23 la ruta era `/eventos/:slug`) y `/ponentes/:publicSlug` (perfil de ponente).
 
 | # | Criterio WCAG 2.1 AA | Cómo se ha comprobado | Resultado |
 |---|---|---|---|
@@ -220,7 +220,7 @@ recorrido de SSR).
 Revisado el 2026-09-08 sobre las tres pantallas nuevas: `/admin/sponsor-tiers`
 (niveles de la organización), el bloque de patrocinadores embebido en
 `/admin/events/:id` (`EventSponsors`) y el bloque público en
-`/eventos/:slug`.
+`/{org}/{evento}`.
 
 | # | Criterio WCAG 2.1 AA | Cómo se ha comprobado | Resultado |
 |---|---|---|---|

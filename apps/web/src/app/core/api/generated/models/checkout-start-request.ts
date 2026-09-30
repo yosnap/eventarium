@@ -11,7 +11,7 @@ import { RegistrationAnswerInputPublic } from '../models/registration-answer-inp
 export interface CheckoutStartRequest {
 
   /**
-   * Versiones de las políticas del organizador que se muestran y se aceptan (las de `GET /public/events/{slug}/policies`).
+   * Versiones de las políticas del organizador que se muestran y se aceptan (las de `GET /public/organizations/{org}/events/{slug}/policies`).
    */
   accepted_policy_version_ids?: Array<string>;
   answers?: Array<RegistrationAnswerInputPublic>;

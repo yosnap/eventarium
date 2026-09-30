@@ -9,15 +9,17 @@ import { RequestBuilder } from '../../request-builder';
 
 import { PublicSponsorDetail } from '../../models/public-sponsor-detail';
 
-export interface GetPublicSponsorApiV1PublicEventsSlugSponsorsSponsorIdGet$Params {
+export interface GetPublicSponsorApiV1PublicOrganizationsOrgSlugEventsSlugSponsorsSponsorIdGet$Params {
   sponsor_id: string;
+  org_slug: string;
   slug: string;
 }
 
-export function getPublicSponsorApiV1PublicEventsSlugSponsorsSponsorIdGet(http: HttpClient, rootUrl: string, params: GetPublicSponsorApiV1PublicEventsSlugSponsorsSponsorIdGet$Params, context?: HttpContext): Observable<StrictHttpResponse<PublicSponsorDetail>> {
-  const rb = new RequestBuilder(rootUrl, getPublicSponsorApiV1PublicEventsSlugSponsorsSponsorIdGet.PATH, 'get');
+export function getPublicSponsorApiV1PublicOrganizationsOrgSlugEventsSlugSponsorsSponsorIdGet(http: HttpClient, rootUrl: string, params: GetPublicSponsorApiV1PublicOrganizationsOrgSlugEventsSlugSponsorsSponsorIdGet$Params, context?: HttpContext): Observable<StrictHttpResponse<PublicSponsorDetail>> {
+  const rb = new RequestBuilder(rootUrl, getPublicSponsorApiV1PublicOrganizationsOrgSlugEventsSlugSponsorsSponsorIdGet.PATH, 'get');
   if (params) {
     rb.path('sponsor_id', params.sponsor_id, {});
+    rb.path('org_slug', params.org_slug, {});
     rb.path('slug', params.slug, {});
   }
 
@@ -31,4 +33,4 @@ export function getPublicSponsorApiV1PublicEventsSlugSponsorsSponsorIdGet(http: 
   );
 }
 
-getPublicSponsorApiV1PublicEventsSlugSponsorsSponsorIdGet.PATH = '/api/v1/public/events/{slug}/sponsors/{sponsor_id}';
+getPublicSponsorApiV1PublicOrganizationsOrgSlugEventsSlugSponsorsSponsorIdGet.PATH = '/api/v1/public/organizations/{org_slug}/events/{slug}/sponsors/{sponsor_id}';

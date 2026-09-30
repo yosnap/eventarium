@@ -13,6 +13,16 @@ function rutaCon(parametros: Record<string, string>) {
   return { snapshot: { queryParamMap: convertToParamMap(parametros) } };
 }
 
+const EVENTO = {
+  organization: { slug: 'acme', name: 'Acme', page_public: false },
+  slug: 'congreso',
+  title: 'Congreso de IA',
+  starts_at: '2026-10-01T07:00:00Z',
+  ends_at: '2026-10-01T16:30:00Z',
+  timezone: 'Europe/Madrid',
+  location: 'Palacio de Congresos',
+};
+
 describe('PaymentReturnPage', () => {
   function configurar(checkout: Partial<PublicCheckoutService>, ruta: unknown) {
     TestBed.configureTestingModule({
@@ -41,13 +51,64 @@ describe('PaymentReturnPage', () => {
       registration_status: 'confirmed',
       payment_status: 'paid',
     });
-    configurar({ getStatus }, rutaCon({ registration_id: 'reg-1', slug: 'iawic-2026' }));
+    configurar(
+      { getStatus },
+      rutaCon({ registration_id: 'reg-1', org: 'acme', slug: 'iawic-2026' }),
+    );
 
     const fixture = TestBed.createComponent(PaymentReturnPage);
     await fixture.whenStable();
 
     expect(fixture.nativeElement.textContent).toContain('¡Pago confirmado!');
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('con el pago confirmado ofrece añadir el evento al calendario', async () => {
+    const getStatus = vi.fn().mockResolvedValue({
+      registration_status: 'confirmed',
+      payment_status: 'paid',
+      event: EVENTO,
+    });
+    configurar(
+      { getStatus },
+      rutaCon({ registration_id: 'reg-1', org: 'acme', slug: 'iawic-2026' }),
+    );
+
+    const fixture = TestBed.createComponent(PaymentReturnPage);
+    await fixture.whenStable();
+
+    expect(fixture.nativeElement.querySelector('app-add-to-calendar')).not.toBeNull();
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('con el pago aún pendiente no ofrece el calendario', async () => {
+    const getStatus = vi.fn().mockResolvedValue({
+      registration_status: 'pending_payment',
+      payment_status: 'pending',
+      event: null,
+    });
+    configurar(
+      { getStatus },
+      rutaCon({ registration_id: 'reg-1', org: 'acme', slug: 'iawic-2026' }),
+    );
+
+    const fixture = TestBed.createComponent(PaymentReturnPage);
+    await fixture.whenStable();
+
+    expect(fixture.nativeElement.querySelector('app-add-to-calendar')).toBeNull();
+  });
+
+  it('un slug con forma de ruta en la URL se descarta: no se consulta nada', async () => {
+    const getStatus = vi.fn();
+    configurar(
+      { getStatus },
+      rutaCon({ registration_id: 'reg-1', org: 'acme', slug: '../../admin' }),
+    );
+
+    const fixture = TestBed.createComponent(PaymentReturnPage);
+    await fixture.whenStable();
+
+    expect(getStatus).not.toHaveBeenCalled();
   });
 
   it('sin `registration_id` ni `slug` en la URL muestra un error, sin consultar nada', async () => {
@@ -67,14 +128,17 @@ describe('PaymentReturnPage', () => {
       registration_status: 'confirmed',
       payment_status: 'paid',
     });
-    configurar({ getStatus }, rutaCon({ registration_id: 'reg-1', slug: 'iawic-2026' }));
+    configurar(
+      { getStatus },
+      rutaCon({ registration_id: 'reg-1', org: 'acme', slug: 'iawic-2026' }),
+    );
 
     const fixture = TestBed.createComponent(PaymentReturnPage);
     await fixture.whenStable();
 
     // El estado inicial es «comprobando», nunca «confirmado» de entrada: solo
     // pasa a confirmado después de que la respuesta del backend lo diga.
-    expect(getStatus).toHaveBeenCalledWith('iawic-2026', 'reg-1');
+    expect(getStatus).toHaveBeenCalledWith('acme', 'iawic-2026', 'reg-1');
     expect(fixture.nativeElement.textContent).toContain('¡Pago confirmado!');
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
@@ -84,7 +148,10 @@ describe('PaymentReturnPage', () => {
       registration_status: 'pending_payment',
       payment_status: 'pending',
     });
-    configurar({ getStatus }, rutaCon({ registration_id: 'reg-1', slug: 'iawic-2026' }));
+    configurar(
+      { getStatus },
+      rutaCon({ registration_id: 'reg-1', org: 'acme', slug: 'iawic-2026' }),
+    );
 
     const fixture = TestBed.createComponent(PaymentReturnPage);
     await fixture.whenStable();
@@ -109,7 +176,10 @@ describe('PaymentReturnPage', () => {
       registration_status: 'cancelled',
       payment_status: 'expired',
     });
-    configurar({ getStatus }, rutaCon({ registration_id: 'reg-1', slug: 'iawic-2026' }));
+    configurar(
+      { getStatus },
+      rutaCon({ registration_id: 'reg-1', org: 'acme', slug: 'iawic-2026' }),
+    );
 
     const fixture = TestBed.createComponent(PaymentReturnPage);
     await fixture.whenStable();
@@ -120,7 +190,10 @@ describe('PaymentReturnPage', () => {
 
   it('un error de red al consultar el estado no se confunde con un pago fallido', async () => {
     const getStatus = vi.fn().mockRejectedValue(new Error('red caída'));
-    configurar({ getStatus }, rutaCon({ registration_id: 'reg-1', slug: 'iawic-2026' }));
+    configurar(
+      { getStatus },
+      rutaCon({ registration_id: 'reg-1', org: 'acme', slug: 'iawic-2026' }),
+    );
 
     const fixture = TestBed.createComponent(PaymentReturnPage);
     await fixture.whenStable();
@@ -135,7 +208,10 @@ describe('PaymentReturnPage', () => {
       registration_status: 'pending_payment',
       payment_status: 'pending',
     });
-    configurar({ getStatus }, rutaCon({ registration_id: 'reg-1', slug: 'iawic-2026' }));
+    configurar(
+      { getStatus },
+      rutaCon({ registration_id: 'reg-1', org: 'acme', slug: 'iawic-2026' }),
+    );
 
     TestBed.createComponent(PaymentReturnPage);
     await vi.advanceTimersByTimeAsync(0);

@@ -10,14 +10,16 @@ import { RequestBuilder } from '../../request-builder';
 import { RegistrationMessageResponse } from '../../models/registration-message-response';
 import { SubmitRegistrationRequest } from '../../models/submit-registration-request';
 
-export interface CreateRegistrationApiV1PublicEventsSlugRegistrationsPost$Params {
+export interface CreateRegistrationApiV1PublicOrganizationsOrgSlugEventsSlugRegistrationsPost$Params {
+  org_slug: string;
   slug: string;
       body: SubmitRegistrationRequest
 }
 
-export function createRegistrationApiV1PublicEventsSlugRegistrationsPost(http: HttpClient, rootUrl: string, params: CreateRegistrationApiV1PublicEventsSlugRegistrationsPost$Params, context?: HttpContext): Observable<StrictHttpResponse<RegistrationMessageResponse>> {
-  const rb = new RequestBuilder(rootUrl, createRegistrationApiV1PublicEventsSlugRegistrationsPost.PATH, 'post');
+export function createRegistrationApiV1PublicOrganizationsOrgSlugEventsSlugRegistrationsPost(http: HttpClient, rootUrl: string, params: CreateRegistrationApiV1PublicOrganizationsOrgSlugEventsSlugRegistrationsPost$Params, context?: HttpContext): Observable<StrictHttpResponse<RegistrationMessageResponse>> {
+  const rb = new RequestBuilder(rootUrl, createRegistrationApiV1PublicOrganizationsOrgSlugEventsSlugRegistrationsPost.PATH, 'post');
   if (params) {
+    rb.path('org_slug', params.org_slug, {});
     rb.path('slug', params.slug, {});
     rb.body(params.body, 'application/json');
   }
@@ -32,4 +34,4 @@ export function createRegistrationApiV1PublicEventsSlugRegistrationsPost(http: H
   );
 }
 
-createRegistrationApiV1PublicEventsSlugRegistrationsPost.PATH = '/api/v1/public/events/{slug}/registrations';
+createRegistrationApiV1PublicOrganizationsOrgSlugEventsSlugRegistrationsPost.PATH = '/api/v1/public/organizations/{org_slug}/events/{slug}/registrations';

@@ -10,14 +10,16 @@ import { RequestBuilder } from '../../request-builder';
 import { CheckoutQuoteRequest } from '../../models/checkout-quote-request';
 import { CheckoutQuoteResponse } from '../../models/checkout-quote-response';
 
-export interface QuoteCheckoutApiV1PublicEventsSlugCheckoutQuotePost$Params {
+export interface QuoteCheckoutApiV1PublicOrganizationsOrgSlugEventsSlugCheckoutQuotePost$Params {
+  org_slug: string;
   slug: string;
       body: CheckoutQuoteRequest
 }
 
-export function quoteCheckoutApiV1PublicEventsSlugCheckoutQuotePost(http: HttpClient, rootUrl: string, params: QuoteCheckoutApiV1PublicEventsSlugCheckoutQuotePost$Params, context?: HttpContext): Observable<StrictHttpResponse<CheckoutQuoteResponse>> {
-  const rb = new RequestBuilder(rootUrl, quoteCheckoutApiV1PublicEventsSlugCheckoutQuotePost.PATH, 'post');
+export function quoteCheckoutApiV1PublicOrganizationsOrgSlugEventsSlugCheckoutQuotePost(http: HttpClient, rootUrl: string, params: QuoteCheckoutApiV1PublicOrganizationsOrgSlugEventsSlugCheckoutQuotePost$Params, context?: HttpContext): Observable<StrictHttpResponse<CheckoutQuoteResponse>> {
+  const rb = new RequestBuilder(rootUrl, quoteCheckoutApiV1PublicOrganizationsOrgSlugEventsSlugCheckoutQuotePost.PATH, 'post');
   if (params) {
+    rb.path('org_slug', params.org_slug, {});
     rb.path('slug', params.slug, {});
     rb.body(params.body, 'application/json');
   }
@@ -32,4 +34,4 @@ export function quoteCheckoutApiV1PublicEventsSlugCheckoutQuotePost(http: HttpCl
   );
 }
 
-quoteCheckoutApiV1PublicEventsSlugCheckoutQuotePost.PATH = '/api/v1/public/events/{slug}/checkout/quote';
+quoteCheckoutApiV1PublicOrganizationsOrgSlugEventsSlugCheckoutQuotePost.PATH = '/api/v1/public/organizations/{org_slug}/events/{slug}/checkout/quote';

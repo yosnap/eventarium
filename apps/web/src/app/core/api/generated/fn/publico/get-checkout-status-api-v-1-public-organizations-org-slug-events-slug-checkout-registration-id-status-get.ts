@@ -9,15 +9,17 @@ import { RequestBuilder } from '../../request-builder';
 
 import { PaymentStatusResponse } from '../../models/payment-status-response';
 
-export interface GetCheckoutStatusApiV1PublicEventsSlugCheckoutRegistrationIdStatusGet$Params {
+export interface GetCheckoutStatusApiV1PublicOrganizationsOrgSlugEventsSlugCheckoutRegistrationIdStatusGet$Params {
   registration_id: string;
+  org_slug: string;
   slug: string;
 }
 
-export function getCheckoutStatusApiV1PublicEventsSlugCheckoutRegistrationIdStatusGet(http: HttpClient, rootUrl: string, params: GetCheckoutStatusApiV1PublicEventsSlugCheckoutRegistrationIdStatusGet$Params, context?: HttpContext): Observable<StrictHttpResponse<PaymentStatusResponse>> {
-  const rb = new RequestBuilder(rootUrl, getCheckoutStatusApiV1PublicEventsSlugCheckoutRegistrationIdStatusGet.PATH, 'get');
+export function getCheckoutStatusApiV1PublicOrganizationsOrgSlugEventsSlugCheckoutRegistrationIdStatusGet(http: HttpClient, rootUrl: string, params: GetCheckoutStatusApiV1PublicOrganizationsOrgSlugEventsSlugCheckoutRegistrationIdStatusGet$Params, context?: HttpContext): Observable<StrictHttpResponse<PaymentStatusResponse>> {
+  const rb = new RequestBuilder(rootUrl, getCheckoutStatusApiV1PublicOrganizationsOrgSlugEventsSlugCheckoutRegistrationIdStatusGet.PATH, 'get');
   if (params) {
     rb.path('registration_id', params.registration_id, {});
+    rb.path('org_slug', params.org_slug, {});
     rb.path('slug', params.slug, {});
   }
 
@@ -31,4 +33,4 @@ export function getCheckoutStatusApiV1PublicEventsSlugCheckoutRegistrationIdStat
   );
 }
 
-getCheckoutStatusApiV1PublicEventsSlugCheckoutRegistrationIdStatusGet.PATH = '/api/v1/public/events/{slug}/checkout/{registration_id}/status';
+getCheckoutStatusApiV1PublicOrganizationsOrgSlugEventsSlugCheckoutRegistrationIdStatusGet.PATH = '/api/v1/public/organizations/{org_slug}/events/{slug}/checkout/{registration_id}/status';

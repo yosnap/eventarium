@@ -10,14 +10,16 @@ import { RequestBuilder } from '../../request-builder';
 import { CheckoutStartRequest } from '../../models/checkout-start-request';
 import { CheckoutStartResponse } from '../../models/checkout-start-response';
 
-export interface StartCheckoutApiV1PublicEventsSlugCheckoutPost$Params {
+export interface StartCheckoutApiV1PublicOrganizationsOrgSlugEventsSlugCheckoutPost$Params {
+  org_slug: string;
   slug: string;
       body: CheckoutStartRequest
 }
 
-export function startCheckoutApiV1PublicEventsSlugCheckoutPost(http: HttpClient, rootUrl: string, params: StartCheckoutApiV1PublicEventsSlugCheckoutPost$Params, context?: HttpContext): Observable<StrictHttpResponse<CheckoutStartResponse>> {
-  const rb = new RequestBuilder(rootUrl, startCheckoutApiV1PublicEventsSlugCheckoutPost.PATH, 'post');
+export function startCheckoutApiV1PublicOrganizationsOrgSlugEventsSlugCheckoutPost(http: HttpClient, rootUrl: string, params: StartCheckoutApiV1PublicOrganizationsOrgSlugEventsSlugCheckoutPost$Params, context?: HttpContext): Observable<StrictHttpResponse<CheckoutStartResponse>> {
+  const rb = new RequestBuilder(rootUrl, startCheckoutApiV1PublicOrganizationsOrgSlugEventsSlugCheckoutPost.PATH, 'post');
   if (params) {
+    rb.path('org_slug', params.org_slug, {});
     rb.path('slug', params.slug, {});
     rb.body(params.body, 'application/json');
   }
@@ -32,4 +34,4 @@ export function startCheckoutApiV1PublicEventsSlugCheckoutPost(http: HttpClient,
   );
 }
 
-startCheckoutApiV1PublicEventsSlugCheckoutPost.PATH = '/api/v1/public/events/{slug}/checkout';
+startCheckoutApiV1PublicOrganizationsOrgSlugEventsSlugCheckoutPost.PATH = '/api/v1/public/organizations/{org_slug}/events/{slug}/checkout';

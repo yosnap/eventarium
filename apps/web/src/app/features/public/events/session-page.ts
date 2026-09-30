@@ -18,6 +18,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { temaDeEvento } from '../../../core/theming/tema-de-evento';
 import type { PlantillaDeTema } from '../../../core/theming/theme-template.model';
+import { apiEvento, rutaEvento } from '../../../core/routing/rutas-publicas';
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { seoDePagina } from '../../../core/seo/meta.service';
@@ -26,6 +27,7 @@ import { iniciales } from '../../../shared/text/iniciales';
 import { Alert } from '../../../shared/ui/alert';
 import { Breadcrumb, type BreadcrumbItem } from '../../../shared/ui/breadcrumb';
 import { Reveal } from '../../../shared/ui/reveal.directive';
+import { migasDeEvento, type OrganizacionPublica } from '../../../shared/ui/migas-de-evento';
 import { claveTipoSesion, rolLegible } from './event-page.types';
 import { resolveVideoEmbed } from './video-embed';
 
@@ -47,6 +49,7 @@ interface PublicSessionDetail {
   readonly video_url: string | null;
   readonly materials: readonly { url?: string; label?: string }[];
   readonly participants: readonly PublicParticipant[];
+  readonly organization: OrganizacionPublica;
   readonly event_slug: string;
   readonly event_title: string;
   readonly theme?: PlantillaDeTema | null;
@@ -402,6 +405,7 @@ const CLAVE_AGENDA = 'eventarium-agenda';
   `,
 })
 export class SessionPage implements OnInit {
+  readonly org = input.required<string>();
   readonly slug = input.required<string>();
   readonly sessionId = input.required<string>();
 
@@ -439,22 +443,23 @@ export class SessionPage implements OnInit {
       : null;
   }
 
-  /** Eventos › evento › Programa (ancla a la agenda del evento, clicable) ›
+  /** Inicio › organización › evento › Programa (ancla a la agenda del evento, clicable) ›
    * charla actual (sin enlace, es la página en la que ya está la persona). */
   protected migasDePan(sesion: PublicSessionDetail): BreadcrumbItem[] {
-    return [
-      {
-        label: this.transloco.translate('publico.eventos.listadoTitulo'),
-        routerLink: ['/eventos'],
-      },
-      { label: sesion.event_title, routerLink: ['/eventos', sesion.event_slug] },
-      {
-        label: this.transloco.translate('publico.eventos.multisede.rotulo'),
-        routerLink: ['/eventos', sesion.event_slug],
-        fragment: 'agenda-h2',
-      },
-      { label: sesion.title },
-    ];
+    return migasDeEvento({
+      inicio: this.transloco.translate('comun.inicio'),
+      organizacion: sesion.organization,
+      eventoSlug: sesion.event_slug,
+      eventoTitulo: sesion.event_title,
+      cola: [
+        {
+          label: this.transloco.translate('publico.eventos.multisede.rotulo'),
+          routerLink: rutaEvento(sesion.organization.slug, sesion.event_slug),
+          fragment: 'agenda-h2',
+        },
+        { label: sesion.title },
+      ],
+    });
   }
 
   /** Duración real de la sesión en minutos, con la misma escala de claves
@@ -487,7 +492,7 @@ export class SessionPage implements OnInit {
   }
 
   private idAgenda(): string {
-    return `${this.slug()}:${this.sessionId()}`;
+    return `${this.org()}:${this.slug()}:${this.sessionId()}`;
   }
 
   private leerAgenda(): string[] {
@@ -525,7 +530,7 @@ export class SessionPage implements OnInit {
 
   private async cargar(): Promise<void> {
     const clave = makeStateKey<PublicSessionDetail>(
-      `public-session:${this.slug()}:${this.sessionId()}`,
+      `public-session:${this.org()}:${this.slug()}:${this.sessionId()}`,
     );
     const transferido = this.transferState.get(clave, null);
     if (transferido) {
@@ -538,7 +543,7 @@ export class SessionPage implements OnInit {
     try {
       const sesion = await firstValueFrom(
         this.http.get<PublicSessionDetail>(
-          this.api.url(`/public/events/${this.slug()}/sessions/${this.sessionId()}`),
+          this.api.url(apiEvento(this.org(), this.slug(), `/sessions/${this.sessionId()}`)),
           { headers: this.api.serverForwardHeaders() },
         ),
       );

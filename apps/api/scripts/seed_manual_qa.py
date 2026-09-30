@@ -494,14 +494,17 @@ async def main() -> None:
     print(f"Listado de eventos:      {base}/eventos")
 
     print("\n--- Evento de pago (ya confirmado, sin pasar por Stripe) ---")
-    print(f"Ficha del evento:        {base}/eventos/{evento_pago.slug}")
+    print(f"Ficha del evento:        {base}/{organizacion.slug}/{evento_pago.slug}")
     sesion_presencial = pago["sesion_presencial"]
     sesion_online = pago["sesion_online"]
     print(
-        f"Sesión presencial:       {base}/eventos/{evento_pago.slug}/sesiones/"
+        f"Sesión presencial:       {base}/{organizacion.slug}/{evento_pago.slug}/sesiones/"
         f"{sesion_presencial.id}"
     )
-    print(f"Sesión online:           {base}/eventos/{evento_pago.slug}/sesiones/{sesion_online.id}")
+    print(
+        f"Sesión online:           {base}/{organizacion.slug}/{evento_pago.slug}"
+        f"/sesiones/{sesion_online.id}"
+    )
     print(f"Ponente:                 {base}/ponentes/{pago['ponente_slug']}")
     print(
         "Retorno de pago (debe salir «confirmado»): "
@@ -514,13 +517,14 @@ async def main() -> None:
     )
 
     print("\n--- Evento gratuito (inscríbete de verdad en el navegador) ---")
-    print(f"Ficha del evento:        {base}/eventos/{evento_gratis.slug}")
+    print(f"Ficha del evento:        {base}/{organizacion.slug}/{evento_gratis.slug}")
     sesion_gratis = gratis["sesion"]
     print(
-        f"Sesión:                  {base}/eventos/{evento_gratis.slug}/sesiones/{sesion_gratis.id}"
+        f"Sesión:                  {base}/{organizacion.slug}/{evento_gratis.slug}"
+        f"/sesiones/{sesion_gratis.id}"
     )
     print(f"Ponente:                 {base}/ponentes/{gratis['ponente_slug']}")
-    print(f"Formulario de inscripción: {base}/eventos/{evento_gratis.slug}/inscribirse")
+    print(f"Formulario de inscripción: {base}/{organizacion.slug}/{evento_gratis.slug}/inscribirse")
     print(
         "  Nota: este es el evento a rellenar de verdad en el navegador (no hay "
         "Stripe involucrado, es gratuito) — usa un correo cualquiera y revisa "

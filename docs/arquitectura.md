@@ -113,13 +113,45 @@ el mismo error que si no existiera, para no confirmar UUIDs válidos.
 
 **Público: desde el propio recurso.** Las páginas públicas de evento,
 inscripción, entrada o invitación llevan el identificador del recurso en la
-URL (`/eventos/{slug}`, tokens de verificación…). La función
-`app_resolve_public_event(slug)` devuelve solo `(id, organization_id)` y
-únicamente si el evento es publicable — la comprobación de visibilidad va
-dentro de la función, no después, así que un evento no publicable ni
-siquiera revela que existe por su slug. Con el `organization_id` en mano, el
+URL: `/{org}/{evento}/…` para un evento (la organización forma parte de la
+URL) y tokens de verificación para el resto. La función
+`app_resolve_public_event(org_slug, slug)` devuelve solo `(id, organization_id)`
+y únicamente si el evento es publicable y su organización está activa — la
+comprobación va dentro de la función, no después, así que un evento no
+publicable ni siquiera revela que existe. Con el `organization_id` en mano, el
 router fija el contexto RLS igual que `checkout_service.iniciar_compra` y a
 partir de ahí todo se sirve con las políticas normales.
+
+El slug de evento es único **por organización**, no en toda la instalación.
+Las direcciones anteriores (`/eventos/{slug}/…`), que eran de prueba, ya no se
+traducen: el frontend las redirige a la portada y la API solo ofrece
+`/public/organizations/{org}/events/{slug}/…` (la migración `0062` eliminó la
+tabla `legacy_event_slugs`). Como el slug solo no identifica un evento, el
+retorno de pago de Stripe exige `org` en la URL.
+
+**Página pública de organización (opt-in).** `/{org}` existe solo si la
+organización activó `public_page_enabled` (desactivado por defecto).
+`app_resolve_public_organization(slug)` devuelve el `id` únicamente con la
+página activada y la organización activa: apagada, inactiva o inexistente dan
+el mismo 404. El perfil (`PublicOrganizationProfile`) se construye campo a
+campo: nombre, descripción, web, dirección, logotipo y redes; nunca la razón
+social ni el correo de contacto. Sus eventos son los públicos, publicados o
+cancelados: un evento cancelado sigue apareciendo, marcado como cancelado, y no
+desaparece del historial (el directorio general `/public/events` no lista los
+cancelados). `organization.page_public` viaja en todos los
+contratos públicos y es lo que decide si la miga enlaza a la organización o la
+muestra como texto. Los identificadores reservados (`RESERVED_SLUGS`) cubren
+las rutas del frontend y del proxy, porque el slug de organización es el
+primer segmento de la URL.
+
+**Categorías y etiquetas.** Cada evento tiene como mucho una categoría
+(`events.category_id`, del catálogo `event_categories` de la instalación) y
+hasta 5 etiquetas (`events.tags`, con índice GIN). El directorio
+`GET /public/events` acepta `categoria` y `etiqueta` (hasta 3, combinadas con
+«y») y los aplica **en la consulta de cada organización**
+(`filtrar_por_categoria_y_etiquetas`), no en memoria. La misma función filtra
+`listar_eventos` del MCP. El catálogo lo escribe solo la superadministración
+(`MaintenanceDb`); las organizaciones lo leen.
 
 ```mermaid
 sequenceDiagram
@@ -127,8 +159,8 @@ sequenceDiagram
   participant A as API
   participant D as PostgreSQL
 
-  N->>A: GET /eventos/mi-evento (autenticado o no)
-  A->>D: app_resolve_public_event('mi-evento')
+  N->>A: GET /public/organizations/acme/events/mi-evento (autenticado o no)
+  A->>D: app_resolve_public_event('acme', 'mi-evento')
   D-->>A: (id, organization_id) — solo si es publicable
   A->>A: Sin fila → 404 uniforme
   A->>D: SET LOCAL app.organization_id = organization_id
@@ -369,8 +401,8 @@ que llaman a Stripe (petición HTTP, webhook, tareas de fondo).
 
 1. El formulario público (`registration-page.ts`) pide tipo de entrada y
    código de descuento opcional, valida el precio con
-   `POST /public/events/{slug}/checkout/quote` (informativo, no reserva
-   nada) y envía la compra a `POST /public/events/{slug}/checkout`.
+   `POST /public/organizations/{org}/events/{slug}/checkout/quote` (informativo, no reserva
+   nada) y envía la compra a `POST /public/organizations/{org}/events/{slug}/checkout`.
 2. `checkout_service.iniciar_compra` corre en dos transacciones: la primera
    (con los bloqueos de fila del cupo del tipo de entrada y del uso del
    código) deja la inscripción en `pending_payment` y hace `commit` antes de

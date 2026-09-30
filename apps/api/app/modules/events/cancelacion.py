@@ -162,6 +162,41 @@ async def cancelar_evento(
     return evento
 
 
+async def eliminar_evento(
+    session: AsyncSession, *, organization_id: uuid.UUID, event_id: uuid.UUID
+) -> Event:
+    """Elimina (lógicamente) un evento **ya cancelado**. Cancelar y eliminar son
+    dos acciones: un evento que no está cancelado no se elimina.
+
+    Se conserva cada fila (inscripciones, cobros, reembolsos, contabilidad):
+    `deleted_at` solo lo saca del panel y del público. Se rechaza mientras el
+    barrido de la cancelación siga en marcha o algún reembolso se haya
+    quedado sin completar: ocultar el evento escondería justo lo que la
+    organización todavía tiene que resolver.
+    """
+    evento = await repository.get_event(session, organization_id, event_id)
+    if evento is None:
+        raise NotFoundError("El evento no existe.")
+    if evento.status != "cancelled":
+        raise ConflictError("Solo se puede eliminar un evento cancelado. Cancélalo primero.")
+    progreso = await progreso_de_cancelacion(
+        session, organization_id=organization_id, event_id=event_id
+    )
+    if progreso["por_cancelar"] or progreso["por_avisar"]:
+        raise ConflictError(
+            "La cancelación del evento todavía está en marcha (inscripciones por cancelar "
+            "o avisar). Vuelve a intentarlo cuando termine."
+        )
+    if progreso["reembolsos_fallidos"]:
+        raise ConflictError(
+            "Hay reembolsos de la cancelación que no se han podido completar. "
+            "Resuélvelos antes de eliminar el evento."
+        )
+    evento.deleted_at = datetime.now(UTC)
+    await session.flush()
+    return evento
+
+
 async def _cancelar_lote(organization_id: uuid.UUID, event_id: uuid.UUID) -> int:
     """Cancela un lote de inscripciones vivas. Devuelve cuántas ha tratado
     (0 = no queda ninguna)."""

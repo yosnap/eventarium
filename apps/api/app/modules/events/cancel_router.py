@@ -11,7 +11,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Response, status
 from pydantic import BaseModel, Field
 
 from app.core.audit import registrar_auditoria
@@ -72,6 +72,21 @@ async def _auditar_cancelacion(
             entity_type="event",
             entity_id=str(event_id),
             detail=detalle,
+        )
+
+
+async def _auditar_eliminacion(
+    actor_user_id: uuid.UUID, organization_id: uuid.UUID, event_id: uuid.UUID, slug: str
+) -> None:
+    async with maintenance_session() as auditoria:
+        await registrar_auditoria(
+            auditoria,
+            actor_user_id=actor_user_id,
+            organization_id=organization_id,
+            action="events.deleted",
+            entity_type="event",
+            entity_id=str(event_id),
+            detail={"slug": slug},
         )
 
 
@@ -154,6 +169,33 @@ async def cancel_event(
         por_avisar=resumen.inscripciones_afectadas,
         reembolsos_fallidos=0,
     )
+
+
+@router.delete(
+    "/{event_id}",
+    summary="Eliminar un evento cancelado",
+    description=(
+        "Solo un evento **cancelado** se puede eliminar; uno activo hay que cancelarlo "
+        "antes. La eliminación es lógica: el evento desaparece del panel y del público, "
+        "pero sus inscripciones, cobros y contabilidad se conservan. Se rechaza mientras "
+        "la cancelación siga en marcha o queden reembolsos sin completar."
+    ),
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[require_permission(Permission.EVENTS_WRITE)],
+)
+async def delete_event(
+    usuario: CurrentUserDep,
+    session: DbDep,
+    background_tasks: BackgroundTasks,
+    event_id: uuid.UUID,
+) -> Response:
+    evento = await cancelacion.eliminar_evento(
+        session, organization_id=usuario.organization_id, event_id=event_id
+    )
+    background_tasks.add_task(
+        _auditar_eliminacion, usuario.id, usuario.organization_id, event_id, evento.slug
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get(

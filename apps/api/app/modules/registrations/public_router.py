@@ -28,10 +28,11 @@ from app.core.ratelimit import (
     limit_per_ip,
 )
 from app.core.turnstile import require_turnstile
-from app.modules.events import service as events_service
 from app.modules.events.models import Event
+from app.modules.events.public_deps import EVENTO_PARA_INSCRIBIR, ruta_de_evento
 from app.modules.policies import service as policies_service
 from app.modules.registrations import repository, service
+from app.modules.registrations.calendar import calendario_de_inscripcion
 from app.modules.registrations.schemas import (
     CancelRegistrationRequest,
     CancelRegistrationResponse,
@@ -58,18 +59,16 @@ _MENSAJES_POR_ESTADO = {
 }
 
 
-async def _obtener_evento_para_inscripcion_o_404(session: SessionDep, slug: str) -> Event:
-    return await events_service.resolve_public_event_by_slug(session, slug)
-
-
-@router.get(
-    "/events/{slug}/registration-questions",
+@ruta_de_evento(
+    router,
+    "get",
+    "/registration-questions",
     summary="Listar las preguntas personalizadas de inscripción de un evento",
     response_model=list[RegistrationQuestionPublic],
-    dependencies=[limit_per_ip("inscripcion-preguntas", PUBLICO_POR_IP)],
+    limite=("inscripcion-preguntas", PUBLICO_POR_IP),
 )
 async def list_registration_questions(
-    evento: Annotated[Event, Depends(_obtener_evento_para_inscripcion_o_404)],
+    evento: Annotated[Event, Depends(EVENTO_PARA_INSCRIBIR)],
     session: SessionDep,
 ) -> list[RegistrationQuestionPublic]:
     preguntas = await repository.get_questions(session, evento.organization_id, evento.id)
@@ -86,8 +85,10 @@ async def list_registration_questions(
     ]
 
 
-@router.post(
-    "/events/{slug}/registrations",
+@ruta_de_evento(
+    router,
+    "post",
+    "/registrations",
     summary="Inscribirse a un evento",
     description=(
         "Da de alta una inscripción, o reencola el correo pendiente si el email "
@@ -96,17 +97,17 @@ async def list_registration_questions(
     ),
     response_model=RegistrationMessageResponse,
     status_code=status.HTTP_202_ACCEPTED,
-    dependencies=[limit_per_ip("inscripcion", INSCRIPCION_POR_IP)],
+    limite=("inscripcion", INSCRIPCION_POR_IP),
 )
 async def create_registration(
-    evento: Annotated[Event, Depends(_obtener_evento_para_inscripcion_o_404)],
+    evento: Annotated[Event, Depends(EVENTO_PARA_INSCRIBIR)],
     datos: SubmitRegistrationRequest,
     request: Request,
     session: SessionDep,
 ) -> RegistrationMessageResponse:
     if evento.registration_mode == "paid":
         # Un evento de pago solo admite inscripción a través del embudo de
-        # compra (`POST /public/events/{slug}/checkout`), que crea la
+        # compra (`POST /public/organizations/{org}/events/{slug}/checkout`), que crea la
         # inscripción y el pago en la misma transacción: este endpoint
         # gratuito nunca captura el tipo de entrada ni el código de
         # descuento, así que dejarlo colar dejaría una inscripción sin pago
@@ -148,6 +149,7 @@ async def verify_registration(
     return VerifyRegistrationResponse(
         message=_MENSAJES_POR_ESTADO.get(inscripcion.status, "Inscripción verificada."),
         status=inscripcion.status,
+        event=await calendario_de_inscripcion(session, inscripcion),
     )
 
 
@@ -164,8 +166,11 @@ async def verify_registration(
 async def confirm_waitlist_promotion(
     datos: ConfirmWaitlistPromotionRequest, session: SessionDep
 ) -> ConfirmWaitlistPromotionResponse:
-    await service.confirm_waitlist_promotion(session, token=datos.token)
-    return ConfirmWaitlistPromotionResponse(message="Tu plaza está confirmada.")
+    inscripcion = await service.confirm_waitlist_promotion(session, token=datos.token)
+    return ConfirmWaitlistPromotionResponse(
+        message="Tu plaza está confirmada.",
+        event=await calendario_de_inscripcion(session, inscripcion),
+    )
 
 
 @router.post(

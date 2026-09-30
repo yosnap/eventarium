@@ -2,12 +2,15 @@ import { ChangeDetectionStrategy, Component, type OnDestroy, inject, signal } fr
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
+import { rutaDeVueltaAlEvento, slugValido } from '../../../core/routing/rutas-publicas';
 import { seoDePagina } from '../../../core/seo/meta.service';
 import { PublicCheckoutService } from '../../../core/payments/public-checkout.service';
+import { AddToCalendar } from '../../../shared/ui/add-to-calendar';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Reveal } from '../../../shared/ui/reveal.directive';
+import type { EventoParaCalendario } from '../../../shared/calendar/calendar-links';
 
 type Estado = 'comprobando' | 'confirmado' | 'pendiente' | 'fallido' | 'error';
 
@@ -26,7 +29,7 @@ const ESPERAS_REINTENTO_AUTOMATICO_MS = [2000, 4000, 8000, 8000, 8000] as const;
  * `checkout.session.completed` es la única fuente de verdad (ver
  * `phase-04-checkout-webhooks-y-confirmacion.md`); esta pantalla solo
  * pregunta al backend por el estado ya persistido
- * (`GET /public/events/{slug}/checkout/{registration_id}/status`) y refleja
+ * (`GET /public/organizations/{org}/events/{slug}/checkout/{registration_id}/status`) y refleja
  * lo que encuentra. Si todavía no ha llegado (carrera normal entre el
  * navegador volviendo y el webhook procesándose), reintenta automáticamente
  * un número acotado de veces con espera creciente y, agotadas, deja un botón
@@ -35,7 +38,7 @@ const ESPERAS_REINTENTO_AUTOMATICO_MS = [2000, 4000, 8000, 8000, 8000] as const;
 @Component({
   selector: 'app-payment-return',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, Reveal],
+  imports: [TranslocoDirective, RouterLink, AddToCalendar, Alert, Button, Card, Reveal],
   template: `
     <ng-container *transloco="let t">
       <div class="pagina">
@@ -54,9 +57,11 @@ const ESPERAS_REINTENTO_AUTOMATICO_MS = [2000, 4000, 8000, 8000, 8000] as const;
                 <app-alert tone="info" [title]="t('pago.retorno.pendienteTitulo')">
                   {{ t('pago.retorno.pendienteDetalle') }}
                 </app-alert>
-                <app-button type="button" [loading]="reintentando()" (click)="reintentar()">
-                  {{ t('pago.retorno.reintentar') }}
-                </app-button>
+                @if (org) {
+                  <app-button type="button" [loading]="reintentando()" (click)="reintentar()">
+                    {{ t('pago.retorno.reintentar') }}
+                  </app-button>
+                }
               }
               @case ('fallido') {
                 <app-alert tone="error" [title]="t('pago.retorno.fallidoTitulo')">
@@ -74,9 +79,15 @@ const ESPERAS_REINTENTO_AUTOMATICO_MS = [2000, 4000, 8000, 8000, 8000] as const;
             }
           </div>
 
-          @if (slug) {
+          <!-- El webhook ya confirmó el pago: solo entonces el backend entrega el
+               evento. Fuera del aria-live, para que no se lea como parte del aviso. -->
+          @if (estado() === 'confirmado' && evento(); as e) {
+            <app-add-to-calendar [evento]="e" />
+          }
+
+          @if (slug && org) {
             <p>
-              <a [routerLink]="['/eventos', slug]">{{ t('pago.retorno.volverAlEvento') }}</a>
+              <a [routerLink]="volverAlEvento(org, slug)">{{ t('pago.retorno.volverAlEvento') }}</a>
             </p>
           }
         </app-card>
@@ -105,7 +116,10 @@ export class PaymentReturnPage implements OnDestroy {
 
   protected readonly estado = signal<Estado>('comprobando');
   protected readonly reintentando = signal(false);
+  protected readonly org: string | null;
   protected readonly slug: string | null;
+  protected readonly volverAlEvento = rutaDeVueltaAlEvento;
+  protected readonly evento = signal<EventoParaCalendario | null>(null);
 
   private readonly registrationId: string | null;
   private intentosAutomaticos = 0;
@@ -114,9 +128,10 @@ export class PaymentReturnPage implements OnDestroy {
   constructor() {
     this.seo.set({ title: this.transloco.translate('pago.retorno.titulo') });
     const parametros = this.ruta.snapshot.queryParamMap;
-    this.slug = parametros.get('slug');
+    this.org = slugValido(parametros.get('org'));
+    this.slug = slugValido(parametros.get('slug'));
     this.registrationId = parametros.get('registration_id');
-    if (!this.slug || !this.registrationId) {
+    if (!this.org || !this.slug || !this.registrationId) {
       this.estado.set('error');
       return;
     }
@@ -135,13 +150,14 @@ export class PaymentReturnPage implements OnDestroy {
   }
 
   private async comprobar(): Promise<void> {
-    if (!this.slug || !this.registrationId) {
+    if (!this.org || !this.slug || !this.registrationId) {
       this.estado.set('error');
       return;
     }
     try {
-      const resultado = await this.checkout.getStatus(this.slug, this.registrationId);
+      const resultado = await this.checkout.getStatus(this.org, this.slug, this.registrationId);
       if (resultado.registration_status === 'confirmed') {
+        this.evento.set(resultado.event ?? null);
         this.estado.set('confirmado');
         return;
       }

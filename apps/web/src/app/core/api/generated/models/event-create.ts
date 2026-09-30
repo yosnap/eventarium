@@ -7,6 +7,7 @@
  */
 export interface EventCreate {
   capacity?: (number | null);
+  category_id?: (string | null);
   city?: (string | null);
   description?: (string | null);
   email_verification_required?: boolean;
@@ -22,6 +23,7 @@ export interface EventCreate {
   starts_at: string;
   status?: 'draft' | 'published' | 'archived';
   summary?: (string | null);
+  tags?: Array<string>;
   timezone?: string;
   title: string;
   visibility?: 'public' | 'hidden' | 'private';

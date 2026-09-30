@@ -17,6 +17,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { temaDeEvento } from '../../../core/theming/tema-de-evento';
 import type { PlantillaDeTema } from '../../../core/theming/theme-template.model';
+import { apiEvento, rutaEvento, urlEvento } from '../../../core/routing/rutas-publicas';
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { seoDePagina } from '../../../core/seo/meta.service';
@@ -26,10 +27,12 @@ import { Alert } from '../../../shared/ui/alert';
 import { Breadcrumb, type BreadcrumbItem } from '../../../shared/ui/breadcrumb';
 import { Chip } from '../../../shared/ui/chip';
 import { Reveal } from '../../../shared/ui/reveal.directive';
+import { migasDeEvento, type OrganizacionPublica } from '../../../shared/ui/migas-de-evento';
 
 type ContributionType = 'monetaria' | 'en_especie';
 
 interface PublicSponsorHistoryItem {
+  readonly organization: OrganizacionPublica;
   readonly event_slug: string;
   readonly event_title: string;
   readonly starts_at: string;
@@ -45,6 +48,7 @@ interface PublicSponsorDetail {
   readonly contribution_description: string | null;
   readonly tier_name: string;
   readonly tier_benefits: string | null;
+  readonly organization: OrganizacionPublica;
   readonly event_slug: string;
   readonly event_title: string;
   readonly history: readonly PublicSponsorHistoryItem[];
@@ -161,9 +165,7 @@ const CLAVE_TIPO_APORTACION: Record<ContributionType, string> = {
                   <article class="edicion">
                     <div class="edicion__cabecera">
                       <h3>
-                        <a [routerLink]="['/eventos', edicion.event_slug]">{{
-                          edicion.event_title
-                        }}</a>
+                        <a [routerLink]="rutaAEdicion(edicion)">{{ edicion.event_title }}</a>
                       </h3>
                       <span class="edicion__anio">
                         {{ edicion.starts_at | date: 'yyyy' }} · {{ edicion.tier_name }}
@@ -334,6 +336,7 @@ const CLAVE_TIPO_APORTACION: Record<ContributionType, string> = {
   `,
 })
 export class SponsorPage implements OnInit {
+  readonly org = input.required<string>();
   readonly slug = input.required<string>();
   readonly sponsorId = input.required<string>();
 
@@ -360,15 +363,24 @@ export class SponsorPage implements OnInit {
    * Patrocinadores › patrocinador actual, tres niveles exactos, sin un
    * "Eventos" añadido encima — ese nivel extra no está en el prototipo. */
   protected migasDePan(patrocinador: PublicSponsorDetail): BreadcrumbItem[] {
-    return [
-      { label: patrocinador.event_title, routerLink: ['/eventos', patrocinador.event_slug] },
-      {
-        label: this.transloco.translate('publico.eventos.patrocinadores.titulo'),
-        routerLink: ['/eventos', patrocinador.event_slug],
-        fragment: 'patrocinadores-h2',
-      },
-      { label: patrocinador.name },
-    ];
+    return migasDeEvento({
+      inicio: this.transloco.translate('comun.inicio'),
+      organizacion: patrocinador.organization,
+      eventoSlug: patrocinador.event_slug,
+      eventoTitulo: patrocinador.event_title,
+      cola: [
+        {
+          label: this.transloco.translate('publico.eventos.patrocinadores.titulo'),
+          routerLink: rutaEvento(patrocinador.organization.slug, patrocinador.event_slug),
+          fragment: 'patrocinadores-h2',
+        },
+        { label: patrocinador.name },
+      ],
+    });
+  }
+
+  protected rutaAEdicion(edicion: PublicSponsorHistoryItem): string[] {
+    return rutaEvento(edicion.organization.slug, edicion.event_slug);
   }
 
   ngOnInit(): void {
@@ -377,7 +389,7 @@ export class SponsorPage implements OnInit {
 
   private async cargar(): Promise<void> {
     const clave = makeStateKey<PublicSponsorDetail>(
-      `public-sponsor:${this.slug()}:${this.sponsorId()}`,
+      `public-sponsor:${this.org()}:${this.slug()}:${this.sponsorId()}`,
     );
     const transferido = this.transferState.get(clave, null);
     if (transferido) {
@@ -390,7 +402,7 @@ export class SponsorPage implements OnInit {
     try {
       const patrocinador = await firstValueFrom(
         this.http.get<PublicSponsorDetail>(
-          this.api.url(`/public/events/${this.slug()}/sponsors/${this.sponsorId()}`),
+          this.api.url(apiEvento(this.org(), this.slug(), `/sponsors/${this.sponsorId()}`)),
           { headers: this.api.serverForwardHeaders() },
         ),
       );
@@ -416,6 +428,12 @@ export class SponsorPage implements OnInit {
     this.seo.set({
       title: `${patrocinador.name} · ${patrocinador.event_title}`,
       description: this.transloco.translate('publico.patrocinador.rotulo'),
+      canonica: urlEvento(
+        patrocinador.organization.slug,
+        patrocinador.event_slug,
+        'patrocinadores',
+        patrocinador.id,
+      ),
     });
   }
 }

@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.security import hash_password
 from app.core.storage import build_object_key
+from app.modules.events import categories as event_categories
 from app.modules.events import repository as events_repository
 from app.modules.events import service as events_service
 from app.modules.events.models import (
@@ -38,6 +39,7 @@ from app.modules.registrations.models import EventRegistration
 from app.modules.sponsors import service as sponsors_service
 from app.modules.sponsors.models import Sponsor, SponsorTier
 from app.modules.users.models import User
+from scripts.seed_eventos_demo.datos import CATEGORIAS_Y_ETIQUETAS
 from scripts.seed_eventos_demo.imagenes import _logo, _portada
 
 
@@ -113,6 +115,20 @@ def _local_a_utc(momento: datetime, zona: str) -> datetime:
     para ser conscientes de zona. Al persistir se reinterpretan en la zona del
     evento y se convierten a UTC, que es como se guardan en base de datos."""
     return momento.replace(tzinfo=ZoneInfo(zona)).astimezone(UTC)
+
+
+async def _asignar_categoria_y_etiquetas(session: AsyncSession, evento: Event) -> None:
+    """Categoría y etiquetas de demostración, sin pisar lo que ya tenga el evento."""
+    asignacion = CATEGORIAS_Y_ETIQUETAS.get(evento.slug)
+    if asignacion is None:
+        return
+    categoria = await event_categories.get_category_by_slug(session, asignacion[0])
+    if categoria is not None and evento.category_id is None:
+        evento.category_id = categoria.id
+    if not evento.tags:
+        evento.tags = event_categories.normalizar_etiquetas(asignacion[1])
+    await session.flush()
+    await session.refresh(evento, ["category"])
 
 
 async def _get_or_create_evento(
@@ -499,6 +515,7 @@ async def _sembrar_evento(
     almacen: Any,
 ) -> Event:
     evento = await _get_or_create_evento(session, organization_id=organization_id, spec=spec)
+    await _asignar_categoria_y_etiquetas(session, evento)
 
     # Sedes primero: las sesiones pueden referenciarlas por índice.
     ids_sedes = [

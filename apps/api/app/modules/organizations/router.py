@@ -10,16 +10,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import CurrentUserDep, DbDep, PermissionsDep, require_permission
 from app.core.permissions import Permission
-from app.core.storage import build_object_key, get_storage, public_url_versionada, validate_upload
+from app.core.storage import build_object_key, get_storage, validate_upload
 from app.core.tasks import send_invitation_email
 from app.modules.media import service as media_service
-from app.modules.media.models import Media
 from app.modules.organizations import (
     invitations_service,
     members_service,
     metrics_service,
     repository,
 )
+from app.modules.organizations import service as organizations_service
 from app.modules.organizations.invitations_models import OrganizationInvitation
 from app.modules.organizations.metrics_schemas import MetricasDeOrganizacionOut
 from app.modules.organizations.models import OrganizationBranding, OrganizationMember
@@ -51,13 +51,7 @@ async def _branding_response(
     if branding is None:
         return BrandingAdminResponse(social_links=[])
     almacen = get_storage()
-    if branding.logo_media_id is not None:
-        media = await session.get(Media, branding.logo_media_id)
-        logo_url = public_url_versionada(media.object_key, media.updated_at) if media else None
-    elif branding.logo_object_key:
-        logo_url = almacen.public_url(branding.logo_object_key)
-    else:
-        logo_url = None
+    logo_url = await organizations_service.logo_url(session, branding)
     return BrandingAdminResponse(
         theme_template_id=str(branding.theme_template_id) if branding.theme_template_id else None,
         social_links=branding.social_links,
@@ -107,6 +101,8 @@ async def get_me(usuario: CurrentUserDep, session: DbDep) -> OrganizationRespons
         description=organizacion.description,
         website=organizacion.website,
         contact_email=organizacion.contact_email,
+        address=organizacion.address,
+        public_page_enabled=organizacion.public_page_enabled,
         is_active=organizacion.is_active,
     )
 

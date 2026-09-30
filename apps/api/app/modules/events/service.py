@@ -7,19 +7,20 @@ válidas (`archived` es terminal).
 
 from __future__ import annotations
 
+import secrets
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import delete, select, text
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import set_organization_context
 from app.core.storage import get_storage, public_url_versionada
-from app.modules.events import repository
+from app.modules.events import categories, repository
 from app.modules.events import schemas as events_schemas
 from app.modules.events.geocoding import geocode_address
 from app.modules.events.models import (
@@ -31,6 +32,8 @@ from app.modules.events.models import (
 )
 from app.modules.media.models import Media
 from app.modules.organizations import repository as organizations_repository
+from app.modules.organizations import service as organizations_service
+from app.modules.organizations.schemas import PublicOrganizationRef
 from app.modules.payments import repository as payments_repository
 from app.modules.payments import service as payments_service
 from app.modules.theme_templates.accent_palette import fusionar_overrides
@@ -38,13 +41,33 @@ from app.modules.theme_templates.models import ThemeTemplate
 from app.modules.theme_templates.schemas import PublicTheme
 from app.shared.errors import ConflictError, NotFoundError, ValidationDomainError
 
+_INTENTOS_DE_SUGERENCIA = 50
+
+
+async def _slug_repetido(session: AsyncSession, organization_id: uuid.UUID, slug: str) -> Exception:
+    """Conflicto de slug con el primer libre de la forma `slug-2`, `slug-3`… como sugerencia."""
+    candidato = ""
+    for numero in range(2, _INTENTOS_DE_SUGERENCIA + 2):
+        sufijo = f"-{numero}"
+        candidato = f"{slug[: 160 - len(sufijo)]}{sufijo}"
+        if await repository.get_event_by_slug(session, organization_id, candidato) is None:
+            break
+    else:
+        # Todos los cercanos están ocupados: un sufijo aleatorio evita seguir consultando.
+        sufijo = f"-{secrets.token_hex(3)}"
+        candidato = f"{slug[: 160 - len(sufijo)]}{sufijo}"
+    return ConflictError(
+        f"Ya existe un evento con el identificador «{slug}» en tu organización.",
+        extra={"suggested_slug": candidato},
+    )
+
 
 async def _asegurar_slug_disponible(
     session: AsyncSession, organization_id: uuid.UUID, slug: str
 ) -> None:
     existente = await repository.get_event_by_slug(session, organization_id, slug)
     if existente is not None:
-        raise ConflictError(f"Ya existe un evento con el identificador «{slug}».")
+        raise await _slug_repetido(session, organization_id, slug)
 
 
 async def _asegurar_venta_posible(
@@ -140,19 +163,25 @@ async def create_event(
     session: AsyncSession, *, organization_id: uuid.UUID, datos: dict[str, Any]
 ) -> Event:
     await _asegurar_slug_disponible(session, organization_id, datos["slug"])
+    if "category_id" in datos:
+        datos = {
+            **datos,
+            "category_id": await categories.resolver_categoria_del_evento(
+                session, datos["category_id"]
+            ),
+        }
 
     evento = Event(organization_id=organization_id, **datos)
-    session.add(evento)
     try:
-        await session.flush()
+        # Punto de guardado: tras un `IntegrityError` la transacción sigue
+        # utilizable y se puede calcular la sugerencia de slug.
+        async with session.begin_nested():
+            session.add(evento)
+            await session.flush()
     except IntegrityError as exc:
-        # El slug es único en toda la instalación (`UNIQUE(slug)`), no solo
-        # dentro de la organización: la comprobación de arriba solo ve, bajo
-        # RLS, los eventos de la propia organización, así que una colisión con
-        # el slug de OTRA organización es un flujo normal que solo se detecta
-        # aquí, en el `flush` — no únicamente la carrera entre dos altas
-        # simultáneas dentro de la misma organización.
-        raise ConflictError(f"Ya existe un evento con el identificador «{datos['slug']}».") from exc
+        # La comprobación de arriba ya cubre el caso normal; esto es la carrera
+        # entre dos altas simultáneas con el mismo slug dentro de la organización.
+        raise await _slug_repetido(session, organization_id, datos["slug"]) from exc
 
     # `event_id=evento.id` tras el `flush` (no antes de crearlo, como hacía
     # esta llamada originalmente): sin él, un alta directa con
@@ -175,6 +204,7 @@ async def create_event(
         direccion_anterior=None,
     )
     await session.flush()
+    await session.refresh(evento, ["category"])
     return evento
 
 
@@ -270,6 +300,14 @@ async def update_event(
             session, datos.pop("theme_template_id")
         )
 
+    categoria_cambiada = "category_id" in datos
+    if categoria_cambiada:
+        # `null` quita; ausencia no cambia (por eso solo se mira si viene). La
+        # categoría que el evento ya tiene siempre es válida, esté o no activa.
+        datos["category_id"] = await categories.resolver_categoria_del_evento(
+            session, datos["category_id"], actual=evento.category_id
+        )
+
     for campo, valor in datos.items():
         setattr(evento, campo, valor)
 
@@ -284,6 +322,8 @@ async def update_event(
         await session.flush()
     except IntegrityError as exc:
         raise ConflictError(f"Ya existe un evento con el identificador «{nuevo_slug}».") from exc
+    if categoria_cambiada:
+        await session.refresh(evento, ["category"])
     return evento
 
 
@@ -596,42 +636,44 @@ async def delete_venue(
     await session.flush()
 
 
-_RESOLVER_PARA_INSCRIBIR = text("SELECT id, organization_id FROM app_resolve_public_event(:slug)")
+_RESOLVER_PARA_INSCRIBIR = text(
+    "SELECT id, organization_id FROM app_resolve_public_event(:org_slug, :slug)"
+)
 _RESOLVER_PARA_MOSTRAR = text(
-    "SELECT id, organization_id FROM app_resolve_public_event_display(:slug)"
+    "SELECT id, organization_id FROM app_resolve_public_event_display(:org_slug, :slug)"
 )
 
 
 async def resolve_public_event_by_slug(
-    session: AsyncSession, slug: str, *, para_mostrar: bool = False
+    session: AsyncSession,
+    org_slug: str,
+    slug: str,
+    *,
+    para_mostrar: bool = False,
 ) -> Event:
-    """Resuelve un evento público por su slug, sin ningún contexto RLS previo.
+    """Resuelve un evento público, sin ningún contexto RLS previo.
 
-    Sin dominio por organización, la organización de una página pública sale
-    del propio evento, no de ningún host (fase 2 del plan de organización sin
-    dominio). `app_resolve_public_event` es `SECURITY DEFINER` de alcance
-    mínimo: solo devuelve `(id, organization_id)`, y solo si el evento ya
-    cumple las condiciones de "publicable" (`published` + `public`) — la
-    comprobación de visibilidad va dentro de la función, no después, para que
-    un evento no publicable no revele ni que existe (mismo fail-closed que
-    usaba antes la resolución por host para un host desconocido).
+    Con la URL `/{org}/{evento}` el par organización + slug es único; el slug
+    solo no identifica un evento.
+
+    Las dos funciones `SECURITY DEFINER` son de alcance mínimo: solo devuelven
+    `(id, organization_id)`, y solo si el evento ya cumple las condiciones de
+    «publicable» y su organización sigue activa. La comprobación va dentro de
+    la función, no después, para que un evento no publicable no revele ni que
+    existe.
 
     Fija el contexto RLS de `session` (organización **y** vacía `app.user_id`
     — solo para caminos sin autenticar). Solo debe llamarse desde routers
     públicos, nunca desde uno autenticado: sobrescribiría la organización
     activa y el usuario de la sesión en curso.
+
+    `para_mostrar=True` admite también eventos cancelados (su ficha sigue
+    visible con el aviso). Todo lo que inscribe, vende o cobra usa el valor
+    por defecto, que solo resuelve eventos publicados: así un evento
+    cancelado nunca vuelve a abrir la inscripción ni la compra.
     """
-    # `para_mostrar=True` admite también eventos cancelados (su ficha sigue
-    # visible con el aviso). Todo lo que inscribe, vende o cobra usa el valor
-    # por defecto, que solo resuelve eventos publicados: así un evento
-    # cancelado nunca vuelve a abrir la inscripción ni la compra.
     consulta = _RESOLVER_PARA_MOSTRAR if para_mostrar else _RESOLVER_PARA_INSCRIBIR
-    fila = (
-        await session.execute(
-            consulta,
-            {"slug": slug},
-        )
-    ).first()
+    fila = (await session.execute(consulta, {"org_slug": org_slug, "slug": slug})).first()
     if fila is None:
         raise NotFoundError("El evento no existe.")
 
@@ -643,26 +685,42 @@ async def resolve_public_event_by_slug(
     return evento
 
 
-async def _resolver_cover_url(session: AsyncSession, evento: Event) -> str | None:
-    """Misma lógica que `events/public_router.py::_cover_url`, pero
-    invocada DENTRO del bucle por organización de
-    `list_public_events_across_organizations` — llamarla después de que el
-    bucle termine resolvería `Media` con el contexto RLS de la ÚLTIMA
-    organización iterada, y la portada de cualquier otro evento con
-    `cover_media_id` saldría `None` en silencio (`Media` tiene `FORCE ROW
-    LEVEL SECURITY`, hallazgo de code-review)."""
+async def _resolver_portadas(session: AsyncSession, eventos: list[Event]) -> dict[uuid.UUID, str]:
+    """Portada de cada evento de la página con una sola consulta a `Media`.
+
+    Sin una consulta por evento (una sola a `Media` por página). Vale
+    cuando todos los eventos comparten el contexto RLS ya fijado.
+    """
+    ids_de_medios = {e.cover_media_id for e in eventos if e.cover_media_id is not None}
+    medios: dict[uuid.UUID, Media] = {}
+    if ids_de_medios:
+        filas = await session.scalars(select(Media).where(Media.id.in_(ids_de_medios)))
+        medios = {medio.id: medio for medio in filas}
     almacen = get_storage()
-    if evento.cover_media_id is not None:
-        media = await session.get(Media, evento.cover_media_id)
-        return public_url_versionada(media.object_key, media.updated_at) if media else None
-    if evento.cover_object_key:
-        return almacen.public_url(evento.cover_object_key)
-    return None
+    portadas: dict[uuid.UUID, str] = {}
+    for evento in eventos:
+        if evento.cover_media_id is not None:
+            medio = medios.get(evento.cover_media_id)
+            if medio is not None:
+                portadas[evento.id] = public_url_versionada(medio.object_key, medio.updated_at)
+        elif evento.cover_object_key:
+            portadas[evento.id] = almacen.public_url(evento.cover_object_key)
+    return portadas
 
 
 async def list_public_events_across_organizations(
     session: AsyncSession,
-) -> list[tuple[Event, int, payments_service.PrecioPublico | None, str | None]]:
+    *,
+    category_slug: str | None = None,
+    tags: tuple[str, ...] = (),
+    limit: int | None = None,
+    offset: int = 0,
+) -> tuple[
+    list[
+        tuple[Event, int, payments_service.PrecioPublico | None, str | None, PublicOrganizationRef]
+    ],
+    int,
+]:
     """Eventos publicados de **toda la instalación**, sin organización activa.
 
     Fase 6 del plan de organización sin dominio: `GET /public/events` (el
@@ -684,6 +742,12 @@ async def list_public_events_across_organizations(
     de organizaciones de una instalación es pequeño (no es una consulta por
     evento, es una por organización), así que el coste es aceptable para un
     endpoint ya limitado por IP.
+
+    Los filtros (categoría, etiquetas) van en la consulta de cada organización.
+    Con `limit`, cada organización trae como mucho `offset + limit` filas
+    (ordenadas) y el conjunto mezclado se corta después: la página global es la
+    correcta sin traer todos los eventos. Devuelve también el total que
+    cumple los filtros, para paginar.
     """
     organizaciones = (
         await session.execute(
@@ -691,24 +755,42 @@ async def list_public_events_across_organizations(
         )
     ).all()
 
-    resultado: list[tuple[Event, int, payments_service.PrecioPublico | None, str | None]] = []
+    resultado: list[
+        tuple[Event, int, payments_service.PrecioPublico | None, str | None, PublicOrganizationRef]
+    ] = []
+    total = 0
     for (organization_id,) in organizaciones:
         await set_organization_context(session, organization_id)
-        filas = (
-            await session.execute(
-                repository.public_events_with_confirmed_count_query(organization_id)
+        organizacion = await organizations_service.public_ref(session, organization_id)
+        consulta = repository.public_events_with_confirmed_count_query(
+            organization_id, category_slug=category_slug, tags=tags
+        )
+        if limit is not None:
+            # El total solo hace falta para paginar; sin `limit` es `len(resultado)`.
+            total += int(
+                await session.scalar(
+                    select(func.count()).select_from(consulta.order_by(None).subquery())
+                )
+                or 0
             )
-        ).all()
+            consulta = consulta.limit(offset + limit)
+        filas = (await session.execute(consulta)).all()
         ids_de_pago = [evento.id for evento, _ in filas if evento.registration_mode == "paid"]
         precios = await payments_service.get_min_public_prices(
             session, organization_id=organization_id, event_ids=ids_de_pago
         )
+        # Las portadas se resuelven aquí, dentro del contexto RLS de esta
+        # organización (`Media` tiene RLS), y en una sola consulta.
+        portadas = await _resolver_portadas(session, [evento for evento, _ in filas])
         for evento, reservadas in filas:
-            cover_url = await _resolver_cover_url(session, evento)
-            resultado.append((evento, reservadas, precios.get(evento.id), cover_url))
+            resultado.append(
+                (evento, reservadas, precios.get(evento.id), portadas.get(evento.id), organizacion)
+            )
 
-    resultado.sort(key=lambda item: item[0].starts_at)
-    return resultado
+    resultado.sort(key=lambda item: (item[0].starts_at, item[0].id))
+    if limit is None:
+        return resultado, len(resultado)
+    return resultado[offset : offset + limit], total
 
 
 async def tema_publico_del_evento(session: AsyncSession, evento: Event) -> PublicTheme | None:
@@ -756,3 +838,61 @@ async def tema_publico_del_evento(session: AsyncSession, evento: Event) -> Publi
     if evento.theme_overrides:
         tokens = fusionar_overrides(tokens, evento.theme_overrides)
     return PublicTheme(id=str(fila[0]), key=fila[1], name=fila[2], tokens=tokens)
+
+
+# Los cancelados siguen visibles en la página de la organización, marcados como
+# cancelados: no desaparecen de su historial.
+_ESTADOS_EN_LA_PAGINA_DE_ORGANIZACION = ("published", "cancelled")
+
+
+async def list_public_events_of_organization(
+    session: AsyncSession,
+    organization_id: uuid.UUID,
+    *,
+    upcoming: bool,
+    limit: int,
+    offset: int,
+) -> tuple[list[tuple[Event, int, payments_service.PrecioPublico | None, str | None]], int]:
+    """Eventos publicados de **una** organización, próximos o pasados, paginados.
+
+    Fija el contexto RLS de esa organización y no recorre las demás. Los
+    próximos son los que aún no han terminado, del más cercano al más lejano;
+    los pasados, del más reciente al más antiguo. Reutiliza la misma consulta
+    que el listado de toda la instalación, con el filtro de publicación
+    explícito. Devuelve las filas de la página y el total.
+    """
+    await set_organization_context(session, organization_id)
+    ahora = func.now()
+    if upcoming:
+        condicion = Event.ends_at >= ahora
+        orden = (Event.starts_at.asc(), Event.id.asc())
+    else:
+        condicion = Event.ends_at < ahora
+        orden = (Event.starts_at.desc(), Event.id.desc())
+
+    base = repository.public_events_with_confirmed_count_query(
+        organization_id, _ESTADOS_EN_LA_PAGINA_DE_ORGANIZACION
+    )
+    total = await session.scalar(
+        select(func.count()).select_from(
+            repository.public_events_query(organization_id, _ESTADOS_EN_LA_PAGINA_DE_ORGANIZACION)
+            .where(condicion)
+            .subquery()
+        )
+    )
+    filas = (
+        await session.execute(
+            base.where(condicion).order_by(None).order_by(*orden).limit(limit).offset(offset)
+        )
+    ).all()
+
+    ids_de_pago = [evento.id for evento, _ in filas if evento.registration_mode == "paid"]
+    precios = await payments_service.get_min_public_prices(
+        session, organization_id=organization_id, event_ids=ids_de_pago
+    )
+    portadas = await _resolver_portadas(session, [evento for evento, _ in filas])
+    resultado = [
+        (evento, reservadas, precios.get(evento.id), portadas.get(evento.id))
+        for evento, reservadas in filas
+    ]
+    return resultado, int(total or 0)

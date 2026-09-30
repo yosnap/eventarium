@@ -9,15 +9,17 @@ import { RequestBuilder } from '../../request-builder';
 
 import { PublicSessionDetail } from '../../models/public-session-detail';
 
-export interface GetPublicSessionApiV1PublicEventsSlugSessionsSessionIdGet$Params {
+export interface GetPublicSessionApiV1PublicOrganizationsOrgSlugEventsSlugSessionsSessionIdGet$Params {
   session_id: string;
+  org_slug: string;
   slug: string;
 }
 
-export function getPublicSessionApiV1PublicEventsSlugSessionsSessionIdGet(http: HttpClient, rootUrl: string, params: GetPublicSessionApiV1PublicEventsSlugSessionsSessionIdGet$Params, context?: HttpContext): Observable<StrictHttpResponse<PublicSessionDetail>> {
-  const rb = new RequestBuilder(rootUrl, getPublicSessionApiV1PublicEventsSlugSessionsSessionIdGet.PATH, 'get');
+export function getPublicSessionApiV1PublicOrganizationsOrgSlugEventsSlugSessionsSessionIdGet(http: HttpClient, rootUrl: string, params: GetPublicSessionApiV1PublicOrganizationsOrgSlugEventsSlugSessionsSessionIdGet$Params, context?: HttpContext): Observable<StrictHttpResponse<PublicSessionDetail>> {
+  const rb = new RequestBuilder(rootUrl, getPublicSessionApiV1PublicOrganizationsOrgSlugEventsSlugSessionsSessionIdGet.PATH, 'get');
   if (params) {
     rb.path('session_id', params.session_id, {});
+    rb.path('org_slug', params.org_slug, {});
     rb.path('slug', params.slug, {});
   }
 
@@ -31,4 +33,4 @@ export function getPublicSessionApiV1PublicEventsSlugSessionsSessionIdGet(http: 
   );
 }
 
-getPublicSessionApiV1PublicEventsSlugSessionsSessionIdGet.PATH = '/api/v1/public/events/{slug}/sessions/{session_id}';
+getPublicSessionApiV1PublicOrganizationsOrgSlugEventsSlugSessionsSessionIdGet.PATH = '/api/v1/public/organizations/{org_slug}/events/{slug}/sessions/{session_id}';

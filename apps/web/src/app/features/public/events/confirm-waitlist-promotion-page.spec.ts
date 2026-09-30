@@ -18,6 +18,16 @@ function rutaConToken(token: string | null) {
   return { snapshot: { queryParamMap: convertToParamMap(token ? { token } : {}) } };
 }
 
+const EVENTO = {
+  organization: { slug: 'acme', name: 'Acme', page_public: false },
+  slug: 'congreso',
+  title: 'Congreso de IA',
+  starts_at: '2026-10-01T07:00:00Z',
+  ends_at: '2026-10-01T16:30:00Z',
+  timezone: 'Europe/Madrid',
+  location: 'Palacio de Congresos',
+};
+
 describe('ConfirmWaitlistPromotionPage', () => {
   function configurar(registrations: Partial<RegistrationsService>, ruta: unknown) {
     TestBed.configureTestingModule({
@@ -88,6 +98,31 @@ describe('ConfirmWaitlistPromotionPage', () => {
     expect(confirmWaitlistPromotion).toHaveBeenCalledWith('token-valido');
     expect(fixture.nativeElement.textContent).toContain('Tu plaza está confirmada.');
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('con la plaza confirmada tras la promoción ofrece el calendario', async () => {
+    const confirmWaitlistPromotion = vi
+      .fn()
+      .mockResolvedValue({ message: 'Tu plaza está confirmada.', event: EVENTO });
+    configurar({ confirmWaitlistPromotion }, rutaConToken('token-valido'));
+
+    const fixture = TestBed.createComponent(ConfirmWaitlistPromotionPage);
+    await fixture.whenStable();
+
+    expect(fixture.nativeElement.querySelector('app-add-to-calendar')).not.toBeNull();
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  it('si la promoción deja la plaza pendiente de pago no ofrece el calendario', async () => {
+    const confirmWaitlistPromotion = vi
+      .fn()
+      .mockResolvedValue({ message: 'Tu plaza está confirmada.', event: null });
+    configurar({ confirmWaitlistPromotion }, rutaConToken('token-valido'));
+
+    const fixture = TestBed.createComponent(ConfirmWaitlistPromotionPage);
+    await fixture.whenStable();
+
+    expect(fixture.nativeElement.querySelector('app-add-to-calendar')).toBeNull();
   });
 
   it('con un token caducado muestra el error genérico', async () => {
