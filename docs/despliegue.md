@@ -294,16 +294,24 @@ crean con `roles.sql`, que hay que dejar dentro del contenedor antes de migrar.
    Si algo no coincide termina con error y el destino queda poblado, y por eso no se puede
    reejecutar. Para empezar de cero: parar `postgres18`, borrar su volumen (`<proyecto>_postgres18-data`),
    levantarlo de nuevo, volver a dejar `roles.sql` dentro y repetir. El origen no se ha tocado.
-5. **Corte:** cambiar `DATABASE_URL` y `DATABASE_MIGRATIONS_URL` a `postgres18` (con el nombre real de
-   la base) y `depends_on` de `migrate`, `api`, `worker` y `scheduler` a `postgres18: service_healthy`.
-   Fijar antes `IMAGE_TAG=sha-<commit>` para que el corte no arrastre código nuevo.
+5. **Corte, sin tocar el entorno:** un `compose-deploy` con el compose del corte, en el que el servicio
+   `postgres` pasa a `postgres:18.6-alpine` sobre el volumen ya migrado (`postgres18-data` montado en
+   `/var/lib/postgresql`), desaparece `postgres18` y el de la 16 queda como `postgres16` con
+   `profiles: ["rollback"]` (no arranca, pero conserva su volumen). Como el host sigue siendo `postgres`,
+   `DATABASE_URL`, `DATABASE_MIGRATIONS_URL` y los `depends_on` no cambian. Es la vía usada cuando el panel
+   de Dokploy no permite editar el entorno con seguridad. Fijar antes `IMAGE_TAG=sha-<commit>` si hay
+   despliegues de código pendientes.
 6. Arrancar `migrate`, `api`, `worker` y `scheduler`; comprobar `ng-server-context=ssr` y un recorrido
    de humo (login, ficha pública, inscripción de prueba, panel, `/mcp`, `/media`).
 
-**Vuelta atrás** (mientras el servicio `postgres` de la 16 y su volumen sigan ahí): restaurar las
-URL y el `depends_on` anteriores y redesplegar. Lo escrito en la 18 después del corte no vuelve
-solo: habría que volcarlo de la 18 a la 16. Pasados 30 días sin incidencias se elimina el servicio de
-la 16 y su volumen, y se borra cualquier volcado con datos personales.
+**Vuelta atrás.** Antes del corte, o después sin haber escrito nada nuevo: volver al compose anterior
+(`postgres` con `postgres:16-alpine` y el volumen `postgres-data`, que sigue intacto). Después de haber
+escrito en la 18: la 16 no puede leer un archivo `pg_dump` de la 18, así que se hace un volcado **en texto
+plano** desde la 18 (`pg_dump -Fp`), se **elimina la línea `SET transaction_timeout`** (parámetro nuevo
+que la 16 no conoce) y se carga con `psql --single-transaction` en una 16 nueva a la que antes se le han
+aplicado los roles (`roles.sql`). Ensayado en local: lo escrito en la 18 sobrevive con las mismas tablas,
+políticas RLS y propietarios. Pasados 30 días sin incidencias se elimina el servicio de la 16 y su
+volumen, y se borra cualquier volcado con datos personales.
 
 ## Copias de seguridad
 
