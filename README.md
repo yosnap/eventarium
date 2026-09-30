@@ -7,7 +7,7 @@ eventos bajo su propio dominio y su propia marca.
 Primer despliegue: **IAWIC** (IA Week Valencia).
 
 - **Licencia:** MIT
-- **Backend:** FastAPI (Python 3.12) + PostgreSQL 16 con Row-Level Security
+- **Backend:** FastAPI (Python 3.12) + PostgreSQL 18 con Row-Level Security
 - **Frontend:** Angular 21 LTS (SSR en rutas públicas) + Tailwind v4
 - **Almacenamiento:** SeaweedFS (API S3) tras una interfaz `StorageProvider`
 - **Tareas async:** Taskiq sobre Redis Streams

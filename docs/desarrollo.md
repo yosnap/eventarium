@@ -205,6 +205,39 @@ El aislamiento entre tests se hace con `TRUNCATE`, no envolviendo cada test en u
 transacción: los tests de RLS necesitan abrir sus propias transacciones y fijar el
 contexto en cada una.
 
+## Migrar la base de desarrollo de PostgreSQL 16 a la 18
+
+El entorno de desarrollo usa `postgres:18.6-alpine`. La imagen 18 guarda los datos en
+`/var/lib/postgresql/18/docker` y el volumen se monta en `/var/lib/postgresql`, por lo que
+**no puede arrancar sobre el volumen de la 16** (`postgres-data`): falla con `Exited (1)`.
+El compose usa un volumen nuevo (`postgres18-data`) y el viejo queda intacto. Si tienes datos
+de desarrollo que quieres conservar, **cópialos antes** de actualizar (después de cambiar la
+imagen el contenedor 16 ya no existe):
+
+```bash
+# 1. Con la 16 todavía en marcha: copia de seguridad fuera del repositorio
+mkdir -p ~/Backups && docker exec ia-week-postgres-1 pg_dump -U postgres -d ia_week -Fc -f /tmp/dev.dump
+docker cp ia-week-postgres-1:/tmp/dev.dump ~/Backups/dev-ia_week.dump && chmod 600 ~/Backups/dev-ia_week.dump
+
+# 2. Actualiza el repositorio y recrea solo Postgres (crea el volumen nuevo, los roles y una base vacía)
+docker compose --env-file infra/env/.env -f infra/docker-compose.yml up -d --no-deps postgres
+
+# 3. Restaura y reaplica roles y privilegios
+docker cp ~/Backups/dev-ia_week.dump ia-week-postgres-1:/tmp/dev.dump
+docker exec ia-week-postgres-1 pg_restore -U postgres -d ia_week --exit-on-error --single-transaction /tmp/dev.dump
+set -a; . infra/env/.env; set +a
+docker exec -e PGPASSWORD="$POSTGRES_SUPERUSER_PASSWORD" ia-week-postgres-1 psql -U postgres -d ia_week -v ON_ERROR_STOP=1 -q \
+  -v app_user_password="$POSTGRES_APP_USER_PASSWORD" -v maintainer_password="$POSTGRES_MAINTAINER_PASSWORD" \
+  -v dbname=ia_week -f /opt/postgres-sql/roles.sql
+docker exec ia-week-postgres-1 psql -U postgres -d ia_week -c "ANALYZE"
+make db-migrate        # aplica las migraciones que falten
+make db-test-create    # crea la base de tests (el clúster nuevo solo trae `ia_week`)
+```
+
+Comprueba los datos y, cuando estés seguro, borra el volumen viejo con
+`docker volume rm ia-week_postgres-data`. Si no te importan los datos de desarrollo, basta con
+`make reset`. Los datos de `backups/` nunca van al repositorio.
+
 ## Migraciones
 
 Se ejecutan siempre con el rol `app_maintainer` (`DATABASE_MIGRATIONS_URL`). Con el rol

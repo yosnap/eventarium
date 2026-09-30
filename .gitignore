@@ -52,3 +52,6 @@ Thumbs.db
 # Resultados de las pruebas e2e (Playwright)
 apps/web/test-results/
 apps/web/playwright-report/
+
+# Copias de seguridad con datos reales: nunca al repositorio
+backups/

@@ -22,7 +22,7 @@ flowchart LR
   Web -. "branding de plataforma" .-> API
   R2 --> S3[(SeaweedFS\nbucket media)]
 
-  API --> PG[(PostgreSQL 16\nRLS por organización)]
+  API --> PG[(PostgreSQL 18\nRLS por organización)]
   API --> Redis[(Redis\nsesiones y límites)]
   API --> S3
   Worker["Worker Taskiq"] --> Redis
