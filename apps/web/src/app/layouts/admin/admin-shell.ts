@@ -2,14 +2,16 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  OnDestroy,
   computed,
   effect,
   inject,
   signal,
   viewChild,
 } from '@angular/core';
-import { Router, RouterLink, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
+import { Subscription } from 'rxjs';
 
 import { AuthService, OrganizacionDeLaPersona } from '../../core/auth/auth.service';
 import { BrandLockup } from '../../shared/ui/brand-lockup';
@@ -100,6 +102,7 @@ import { VerificationNotice } from './verification-notice';
           [class.abierta]="navegacionAbierta()"
           [attr.aria-label]="t('admin.navegacion')"
           (keydown.escape)="cerrarNavegacion()"
+          (click)="cerrarAlPulsarEnlace($event)"
         >
           <app-admin-nav [plataforma]="esPanelPlataforma()" />
         </nav>
@@ -244,7 +247,7 @@ import { VerificationNotice } from './verification-notice';
     }
   `,
 })
-export class AdminShell {
+export class AdminShell implements OnDestroy {
   protected readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly panelScope = inject(PanelScope);
@@ -277,8 +280,24 @@ export class AdminShell {
   private readonly panelNavegacion = viewChild<ElementRef<HTMLElement>>('panelNavegacion');
   private readonly botonNavegacion = viewChild<ElementRef<HTMLButtonElement>>('botonNavegacion');
   private seAbrioAlgunaVez = false;
+  private suscripciones = new Subscription();
 
   constructor() {
+    // En el móvil el panel cubre la pantalla; si quien pulsa un enlace tuviera
+    // que cerrarlo a mano para ver a dónde ha ido, no sirve la navegación.
+    // Cualquier cambio de ruta lo repliega — también los guard rebotados,
+    // que igualmente dejan el panel en una pantalla distinta de la esperada.
+    this.suscripciones.add(
+      this.router.events.subscribe((evento) => {
+        if (evento instanceof NavigationEnd) {
+          // El devolverse el foco al botón es solo para el cierre deliberado
+          // (Escape o el propio botón); al cerrar por navegación el foco se
+          // queda en la página nueva.
+          this.seAbrioAlgunaVez = false;
+          this.navegacionAbierta.set(false);
+        }
+      }),
+    );
     void this.cargarOrganizaciones();
     // `authGuard` solo renueva el token en una recarga, nunca recarga el
     // usuario: sin esto, `nombrePanel`/`auth.currentUser()` se quedarían
@@ -363,7 +382,29 @@ export class AdminShell {
     this.navegacionAbierta.set(false);
   }
 
+  /**
+   * Cierre por el propio clic, no por la ruta: los únicos elementos interactivos
+   * del panel son los enlaces de `AdminNav` (sin botones), y si el usuario
+   * pulsa el enlace de la ruta en la que ya está, Angular no emite
+   * `NavigationEnd` — cerrar solo ahí dejaría el menú abierto sobre la misma
+   * pantalla. `seAbrioAlgunaVez` a `false`: el foco se queda en la página,
+   * igual que en los demás cierres por navegación.
+   */
+  protected cerrarAlPulsarEnlace(evento: MouseEvent): void {
+    if (!(evento.target instanceof HTMLAnchorElement)) {
+      return;
+    }
+    this.seAbrioAlgunaVez = false;
+    this.navegacionAbierta.set(false);
+  }
+
   protected async cerrarSesion(): Promise<void> {
     await this.auth.logout();
+  }
+
+  ngOnDestroy(): void {
+    // El shell se destruye al salir del panel; sin esto se filtraría un
+    // listener del router por cada visita.
+    this.suscripciones.unsubscribe();
   }
 }
