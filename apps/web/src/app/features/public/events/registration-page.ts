@@ -64,7 +64,7 @@ function precioEnEuros(cents: number): string {
  * "ya estabas inscrito" ni "te hemos inscrito", dice lo mismo en ambos casos.
  *
  * **Paso de compra:** `ngOnInit` también pide los tipos de entrada vendibles
- * ahora mismo (`GET /public/events/{slug}/ticket-types`). Un evento es «de
+ * ahora mismo (`GET /public/organizations/{org}/events/{slug}/ticket-types`). Un evento es «de
  * pago» a ojos de este formulario si y solo si esa lista no está vacía — no
  * hace falta preguntar por `registration_mode` aparte, y evita duplicar la
  * misma condición en dos sitios. Si hay tipos, el envío pasa por

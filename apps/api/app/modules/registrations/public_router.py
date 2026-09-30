@@ -107,7 +107,7 @@ async def create_registration(
 ) -> RegistrationMessageResponse:
     if evento.registration_mode == "paid":
         # Un evento de pago solo admite inscripción a través del embudo de
-        # compra (`POST /public/events/{slug}/checkout`), que crea la
+        # compra (`POST /public/organizations/{org}/events/{slug}/checkout`), que crea la
         # inscripción y el pago en la misma transacción: este endpoint
         # gratuito nunca captura el tipo de entrada ni el código de
         # descuento, así que dejarlo colar dejaría una inscripción sin pago

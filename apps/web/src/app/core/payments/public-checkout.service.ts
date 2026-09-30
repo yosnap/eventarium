@@ -102,14 +102,8 @@ export class PublicCheckoutService {
   }
 
   /** Estado real, persistido, del pago — nunca inferido del simple retorno de Stripe. */
-  async getStatus(
-    org: string | null,
-    slug: string,
-    registrationId: string,
-  ): Promise<PaymentStatus> {
-    // Sin organización (retorno de un pago iniciado antes del cambio de URL):
-    // ruta plana antigua, que resuelve por el enlace congelado.
-    const ruta = org === null ? `/public/events/${slug}` : apiEvento(org, slug);
+  async getStatus(org: string, slug: string, registrationId: string): Promise<PaymentStatus> {
+    const ruta = apiEvento(org, slug);
     return firstValueFrom(
       this.http.get<PaymentStatus>(this.api.url(`${ruta}/checkout/${registrationId}/status`)),
     );

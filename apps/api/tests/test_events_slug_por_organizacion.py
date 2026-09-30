@@ -10,7 +10,7 @@ from httpx import AsyncClient
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from app.core.database import SessionApp, SessionMaintenance
+from app.core.database import SessionMaintenance
 from tests.conftest import OrganizacionDePrueba, iniciar_sesion
 from tests.test_events_public import EVENTS, _crear_evento, _publicar
 
@@ -104,39 +104,17 @@ async def test_una_organizacion_inactiva_no_sirve_sus_eventos(
     assert (await cliente.get(_anidada(organizacion))).status_code == 404
 
 
-async def test_el_enlace_antiguo_plano_sigue_llevando_al_evento_original(
-    cliente: AsyncClient,
-    organizacion: OrganizacionDePrueba,
-    otra_organizacion: OrganizacionDePrueba,
-) -> None:
-    """Un slug reutilizado después por otra organización no secuestra el enlace viejo."""
-    propio = await _evento_publicado(cliente, organizacion, title="El original")
-    # La migración congela los slugs existentes; este evento simula uno anterior a ella.
-    async with SessionMaintenance() as session:
-        await session.execute(
-            text(
-                "INSERT INTO legacy_event_slugs (slug, event_id, organization_id) "
-                "VALUES (:slug, :evento, :organizacion)"
-            ),
-            {"slug": SLUG, "evento": propio["id"], "organizacion": organizacion.id},
-        )
-        await session.commit()
-    await _evento_publicado(cliente, otra_organizacion, title="El que reutiliza el slug")
-
-    plano = await cliente.get(f"/api/v1/public/events/{SLUG}/canonical")
-    assert plano.status_code == 200, plano.text
-    assert plano.json()["organization_slug"] == organizacion.slug
-    detalle = await cliente.get(f"/api/v1/public/events/{SLUG}")
-    assert detalle.status_code == 200
-    assert detalle.json()["title"] == propio["title"]
-
-
-async def test_un_slug_que_nunca_fue_antiguo_no_se_resuelve_por_la_ruta_plana(
+async def test_las_rutas_planas_anteriores_ya_no_existen(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
+    """Sin la organización en la ruta el slug no identifica un evento."""
     await _evento_publicado(cliente, organizacion)
-    assert (await cliente.get(f"/api/v1/public/events/{SLUG}")).status_code == 404
-    assert (await cliente.get(f"/api/v1/public/events/{SLUG}/canonical")).status_code == 404
+    for ruta in (
+        f"/api/v1/public/events/{SLUG}",
+        f"/api/v1/public/events/{SLUG}/canonical",
+        f"/api/v1/public/events/{SLUG}/policies",
+    ):
+        assert (await cliente.get(ruta)).status_code == 404, ruta
 
 
 def _migracion():  # noqa: ANN202 - módulo cargado por ruta, su nombre no es importable
@@ -161,36 +139,3 @@ async def test_la_comprobacion_de_la_bajada_aborta_y_lista_los_slugs_repetidos(
     async with SessionMaintenance() as session:
         with pytest.raises(DBAPIError, match=SLUG):
             await session.execute(text(_migracion()._COMPROBACION_DUPLICADOS))
-
-
-async def test_la_aplicacion_no_puede_leer_ni_escribir_los_enlaces_antiguos(
-    cliente: AsyncClient, organizacion: OrganizacionDePrueba
-) -> None:
-    """La tabla solo la leen las funciones `SECURITY DEFINER`: aunque un
-    `GRANT` amplio la devuelva a `app_user`, la RLS forzada sin política la cierra."""
-    evento = await _evento_publicado(cliente, organizacion)
-
-    async def _conceder(sentencia: str) -> None:
-        async with SessionMaintenance() as session:
-            await session.execute(text(sentencia))
-            await session.commit()
-
-    # `infra/postgres/sql/roles.sql` concede a `app_user` todos los privilegios
-    # sobre las tablas existentes al reaplicarse: se simula para probar solo la RLS.
-    await _conceder("GRANT SELECT, INSERT, UPDATE, DELETE ON legacy_event_slugs TO app_user")
-    try:
-        async with SessionApp() as session:
-            visibles = (
-                await session.execute(text("SELECT count(*) FROM legacy_event_slugs"))
-            ).scalar()
-            assert visibles == 0
-            with pytest.raises(DBAPIError):
-                await session.execute(
-                    text(
-                        "INSERT INTO legacy_event_slugs (slug, event_id, organization_id) "
-                        "VALUES ('secuestro', :evento, :organizacion)"
-                    ),
-                    {"evento": evento["id"], "organizacion": organizacion.id},
-                )
-    finally:
-        await _conceder("REVOKE ALL ON legacy_event_slugs FROM app_user")

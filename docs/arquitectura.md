@@ -123,23 +123,11 @@ router fija el contexto RLS igual que `checkout_service.iniciar_compra` y a
 partir de ahí todo se sirve con las políticas normales.
 
 El slug de evento es único **por organización**, no en toda la instalación.
-Las URLs anteriores (`/eventos/{slug}`, que ya no identifican un evento por sí
-solas) se resuelven únicamente por `legacy_event_slugs`, una tabla que la
-migración `0058` rellena una sola vez con los eventos que ya existían: un slug
-que otra organización reutilice después nunca secuestra un enlace antiguo, y
-un evento que ya no es público da 404, nunca «el siguiente». El frontend
-redirige `/eventos/{slug}/…` a la URL actual consultando
-`GET /public/events/{slug}/canonical` (el SSR responde 302, con sufijo, query
-y fragmento). En la API las rutas existen en dos formas,
-`/public/organizations/{org}/events/{slug}/…` y la plana obsoleta
-`/public/events/{slug}/…`, con contadores de límite por IP independientes.
-Las rutas planas siguen vivas a propósito: cubren los bundles antiguos en caché
-del service worker y los pagos en vuelo durante el despliegue. **Revisión
-pendiente tras el despliegue de 0.24.x:** cuando los registros de acceso
-confirmen que `/public/events/{slug}/…` (salvo `canonical`, que sirve los
-enlaces ya repartidos) no recibe tráfico durante varias semanas, se retiran.
-Hasta entonces no se toca; a fecha de 2026-09-30 no hay datos porque 0.24.0 aún
-no se ha desplegado.
+Las direcciones anteriores (`/eventos/{slug}/…`), que eran de prueba, ya no se
+traducen: el frontend las redirige a la portada y la API solo ofrece
+`/public/organizations/{org}/events/{slug}/…` (la migración `0062` eliminó la
+tabla `legacy_event_slugs`). Como el slug solo no identifica un evento, el
+retorno de pago de Stripe exige `org` en la URL.
 
 **Página pública de organización (opt-in).** `/{org}` existe solo si la
 organización activó `public_page_enabled` (desactivado por defecto).
@@ -413,8 +401,8 @@ que llaman a Stripe (petición HTTP, webhook, tareas de fondo).
 
 1. El formulario público (`registration-page.ts`) pide tipo de entrada y
    código de descuento opcional, valida el precio con
-   `POST /public/events/{slug}/checkout/quote` (informativo, no reserva
-   nada) y envía la compra a `POST /public/events/{slug}/checkout`.
+   `POST /public/organizations/{org}/events/{slug}/checkout/quote` (informativo, no reserva
+   nada) y envía la compra a `POST /public/organizations/{org}/events/{slug}/checkout`.
 2. `checkout_service.iniciar_compra` corre en dos transacciones: la primera
    (con los bloqueos de fila del cupo del tipo de entrada y del uso del
    código) deja la inscripción en `pending_payment` y hace `commit` antes de

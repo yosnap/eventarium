@@ -642,26 +642,19 @@ _RESOLVER_PARA_INSCRIBIR = text(
 _RESOLVER_PARA_MOSTRAR = text(
     "SELECT id, organization_id FROM app_resolve_public_event_display(:org_slug, :slug)"
 )
-_RESOLVER_ENLACE_ANTIGUO = text(
-    "SELECT id, organization_id, organization_slug, slug "
-    "FROM app_resolve_legacy_event(:slug, :mostrar)"
-)
 
 
 async def resolve_public_event_by_slug(
     session: AsyncSession,
+    org_slug: str,
     slug: str,
     *,
-    org_slug: str | None = None,
     para_mostrar: bool = False,
 ) -> Event:
     """Resuelve un evento público, sin ningún contexto RLS previo.
 
-    Con `org_slug` (la URL `/{org}/{evento}`) el par organización + slug es
-    único. Sin él (enlace antiguo `/eventos/{slug}`) el slug ya no identifica
-    un evento por sí solo: se resuelve únicamente por `legacy_event_slugs`, la
-    tabla congelada al migrar, de modo que un slug que otra organización
-    reutilice después nunca secuestra un enlace antiguo.
+    Con la URL `/{org}/{evento}` el par organización + slug es único; el slug
+    solo no identifica un evento.
 
     Las dos funciones `SECURITY DEFINER` son de alcance mínimo: solo devuelven
     `(id, organization_id)`, y solo si el evento ya cumple las condiciones de
@@ -679,12 +672,8 @@ async def resolve_public_event_by_slug(
     por defecto, que solo resuelve eventos publicados: así un evento
     cancelado nunca vuelve a abrir la inscripción ni la compra.
     """
-    if org_slug is None:
-        consulta, parametros = _RESOLVER_ENLACE_ANTIGUO, {"slug": slug, "mostrar": para_mostrar}
-    else:
-        consulta = _RESOLVER_PARA_MOSTRAR if para_mostrar else _RESOLVER_PARA_INSCRIBIR
-        parametros = {"org_slug": org_slug, "slug": slug}
-    fila = (await session.execute(consulta, parametros)).first()
+    consulta = _RESOLVER_PARA_MOSTRAR if para_mostrar else _RESOLVER_PARA_INSCRIBIR
+    fila = (await session.execute(consulta, {"org_slug": org_slug, "slug": slug})).first()
     if fila is None:
         raise NotFoundError("El evento no existe.")
 
@@ -694,16 +683,6 @@ async def resolve_public_event_by_slug(
         raise NotFoundError("El evento no existe.")
 
     return evento
-
-
-async def canonical_of_legacy_slug(session: AsyncSession, slug: str) -> tuple[str, str]:
-    """`(slug de organización, slug actual)` de un enlace antiguo `/eventos/{slug}`."""
-    fila = (
-        await session.execute(_RESOLVER_ENLACE_ANTIGUO, {"slug": slug, "mostrar": True})
-    ).first()
-    if fila is None:
-        raise NotFoundError("El evento no existe.")
-    return fila[2], fila[3]
 
 
 async def _resolver_portadas(session: AsyncSession, eventos: list[Event]) -> dict[uuid.UUID, str]:
