@@ -73,14 +73,16 @@ db-seed: ## Carga los datos de demostración (idempotente)
 
 db-reset: ## Borra el volumen de PostgreSQL y vuelve a migrar y sembrar
 	$(COMPOSE) rm -sf postgres
-	docker volume rm -f ia-week_postgres-data
+	docker volume rm -f ia-week_postgres18-data
 	$(COMPOSE) up -d --wait postgres
 	$(MAKE) db-migrate db-seed
 
 db-test-create: ## Crea la base de datos de tests
-	$(COMPOSE) exec -T postgres psql -U $(POSTGRES_SUPERUSER) -d postgres \
-		-c "SELECT 'CREATE DATABASE $(POSTGRES_DB)_test OWNER app_maintainer' \
-		WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$(POSTGRES_DB)_test')\gexec"
+	@# Sin `\gexec` dentro de `-c`: el psql de PostgreSQL 18 ya no lo admite.
+	$(COMPOSE) exec -T postgres psql -U $(POSTGRES_SUPERUSER) -d postgres -tAc \
+		"SELECT 1 FROM pg_database WHERE datname = '$(POSTGRES_DB)_test'" | grep -qx 1 \
+		|| $(COMPOSE) exec -T postgres psql -U $(POSTGRES_SUPERUSER) -d postgres \
+		-c "CREATE DATABASE $(POSTGRES_DB)_test OWNER app_maintainer"
 	POSTGRES_APP_USER_PASSWORD=$(POSTGRES_APP_USER_PASSWORD) \
 	POSTGRES_MAINTAINER_PASSWORD=$(POSTGRES_MAINTAINER_PASSWORD) \
 	$(COMPOSE) exec -T -e PGPASSWORD=$(POSTGRES_SUPERUSER_PASSWORD) postgres \

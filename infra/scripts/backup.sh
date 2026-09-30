@@ -5,6 +5,9 @@
 # restauración está en restore.sh y su prueba se documenta en docs/despliegue.md.
 #
 #   DESTINO=/var/backups/eventarium infra/scripts/backup.sh
+#
+# Variables: DESTINO, RETENCION_DIAS y SERVICIO_POSTGRES (servicio de Postgres del
+# compose; `postgres` por defecto, `postgres18` para copiar la 18 durante la migración).
 set -euo pipefail
 
 DESTINO="${DESTINO:-./backups}"
@@ -21,7 +24,7 @@ mkdir -p "$DESTINO"
 VOLCADO="$DESTINO/postgres-$FECHA.dump"
 echo "→ Volcando $POSTGRES_DB en $VOLCADO"
 # Formato custom (-Fc): permite restaurar tablas sueltas y va comprimido.
-$COMPOSE exec -T -e PGPASSWORD="$POSTGRES_SUPERUSER_PASSWORD" postgres \
+$COMPOSE exec -T -e PGPASSWORD="$POSTGRES_SUPERUSER_PASSWORD" "${SERVICIO_POSTGRES:-postgres}" \
 	pg_dump -U "$POSTGRES_SUPERUSER" -d "$POSTGRES_DB" -Fc > "$VOLCADO"
 
 if [ ! -s "$VOLCADO" ]; then

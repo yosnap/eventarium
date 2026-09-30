@@ -34,7 +34,8 @@ En EasyPanel, crea un proyecto y dentro estos servicios:
 
 | Servicio | Tipo | Imagen o plantilla | Puerto interno |
 |---|---|---|---|
-| `postgres` | Plantilla PostgreSQL 16 | — | 5432 |
+| `postgres` | Compose (volumen `postgres-data`) | `postgres:16-alpine`; en migración a la 18 | 5432 |
+| `postgres18` | Compose (volumen `postgres18-data`) | `postgres:18.6-alpine` (en paralelo durante la migración) | 5432 |
 | `redis` | Plantilla Redis 7 | — | 6379 |
 | `seaweedfs` | App | `chrislusf/seaweedfs:3.97` | 8333 |
 | `api` | App | `ghcr.io/yosnap/eventarium/api:sha-<commit>` | 8000 |
@@ -262,7 +263,53 @@ Prueba el `downgrade` en un entorno de preproducción antes de necesitarlo en se
 todas las migraciones son reversibles sin pérdida de datos, y ese es el peor momento
 para descubrirlo.
 
+## Migrar PostgreSQL de la 16 a la 18
+
+Procedimiento para la instalación de producción (base `eventarium`, servicio `postgres` de la 16
+y servicio `postgres18` de la 18 en paralelo). **Se hace en una ventana distinta a la de un
+despliegue con migraciones de Alembic.** La base es pequeña (decenas de MB): la copia dura segundos.
+
+Por qué así: la imagen 18 guarda los datos en `/var/lib/postgresql/18/docker` y los datos de la 16
+son incompatibles, así que hay que copiar de un servidor a otro; el volumen de la 16 no se toca y
+la vuelta atrás es cambiar el host de vuelta. Se queda en `alpine` (musl): cambiar a Debian altera
+la ordenación del texto y puede corromper índices. En Dokploy los *binds* de `./postgres/init` y
+`./postgres/sql` llegan **vacíos** al contenedor, así que `01-roles.sh` no corre y los roles se
+crean con `roles.sql`, que hay que dejar dentro del contenedor antes de migrar.
+
+1. **Copia de seguridad fuera del servidor** y restauración de prueba (sección siguiente).
+2. Desplegar el compose con `postgres18` (arranca vacío y la API no lo usa) y comprobar que está `healthy`. Ese despliegue también **recrea `worker` y `scheduler`** (se les desactiva el healthcheck heredado): hacerlo sin tareas en cola.
+3. Parar `api`, `worker` y `scheduler`. Comprobar que no hay inscripciones en `pending_payment`.
+4. Dejar `roles.sql` en el contenedor nuevo (`/tmp/roles.sql`) y ejecutar dentro de `postgres18`:
+
+   ```bash
+   docker exec -i -e CONFIRMO_MIGRAR=si <contenedor-postgres18> sh -s < infra/scripts/upgrade-postgres.sh
+   ```
+
+   Copia la base con `pg_dump | pg_restore` (una transacción, aborta al primer error), reaplica
+   roles y privilegios, hace `ANALYZE` y **compara tabla a tabla** recuentos, políticas RLS,
+   funciones `SECURITY DEFINER`, roles, propietarios y privilegios. Solo escribe en el servidor
+   nuevo, se niega a sobrescribir un destino con tablas y aborta si hay conexiones abiertas en el
+   origen (hay que parar `api`, `worker` y `scheduler` antes).
+
+   Si algo no coincide termina con error y el destino queda poblado, y por eso no se puede
+   reejecutar. Para empezar de cero: parar `postgres18`, borrar su volumen (`<proyecto>_postgres18-data`),
+   levantarlo de nuevo, volver a dejar `roles.sql` dentro y repetir. El origen no se ha tocado.
+5. **Corte:** cambiar `DATABASE_URL` y `DATABASE_MIGRATIONS_URL` a `postgres18` (con el nombre real de
+   la base) y `depends_on` de `migrate`, `api`, `worker` y `scheduler` a `postgres18: service_healthy`.
+   Fijar antes `IMAGE_TAG=sha-<commit>` para que el corte no arrastre código nuevo.
+6. Arrancar `migrate`, `api`, `worker` y `scheduler`; comprobar `ng-server-context=ssr` y un recorrido
+   de humo (login, ficha pública, inscripción de prueba, panel, `/mcp`, `/media`).
+
+**Vuelta atrás** (mientras el servicio `postgres` de la 16 y su volumen sigan ahí): restaurar las
+URL y el `depends_on` anteriores y redesplegar. Lo escrito en la 18 después del corte no vuelve
+solo: habría que volcarlo de la 18 a la 16. Pasados 30 días sin incidencias se elimina el servicio de
+la 16 y su volumen, y se borra cualquier volcado con datos personales.
+
 ## Copias de seguridad
+
+`backup.sh` y `restore.sh` aceptan `SERVICIO_POSTGRES` (servicio de Postgres del compose: `postgres` por
+defecto, `postgres18` durante la migración; **ojo: sin ella se copia la 16**) y `restore.sh` además
+`BASES_DE_PRODUCCION` (por defecto `ia_week eventarium`), los nombres que el modo aislado nunca puede usar.
 
 ```bash
 DESTINO=/var/backups/eventarium infra/scripts/backup.sh
@@ -285,7 +332,7 @@ infra/scripts/restore.sh /var/backups/eventarium/postgres-20260907-031500.dump \
                          /var/backups/eventarium/objetos-20260907-031500
 ```
 
-Para `api` y `worker`, restaura con `--clean --if-exists`, **reaplica los roles y sus
+Para `api`, `worker` y `scheduler`, restaura con `--clean --if-exists`, **reaplica los roles y sus
 privilegios** (un `pg_restore` no los recrea) y vuelve a arrancar los servicios.
 
 El cliente S3 se ejecuta dentro de la red de Compose, así que usa el mismo endpoint
