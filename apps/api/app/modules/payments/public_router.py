@@ -28,11 +28,11 @@ from app.core.ratelimit import (
     CHECKOUT_QUOTE_POR_IP,
     INSCRIPCION_POR_IP,
     PUBLICO_POR_IP,
-    limit_per_ip,
 )
 from app.core.turnstile import require_turnstile
-from app.modules.events import service as events_service
 from app.modules.events.models import Event
+from app.modules.events.public_deps import EVENTO_PARA_INSCRIBIR, ruta_de_evento
+from app.modules.organizations import service as organizations_service
 from app.modules.payments import checkout_service, repository, service
 from app.modules.payments.schemas import (
     CheckoutQuoteRequest,
@@ -51,12 +51,10 @@ from app.shared.errors import NotFoundError, ValidationDomainError
 router = APIRouter(prefix="/public", tags=["público"])
 
 
-async def _obtener_evento_o_404(session: SessionDep, slug: str) -> Event:
-    return await events_service.resolve_public_event_by_slug(session, slug)
-
-
-@router.get(
-    "/events/{slug}/ticket-types",
+@ruta_de_evento(
+    router,
+    "get",
+    "/ticket-types",
     summary="Listar los tipos de entrada vendibles ahora mismo",
     description=(
         "Solo los tipos vigentes en este instante (activos y dentro de su "
@@ -66,10 +64,10 @@ async def _obtener_evento_o_404(session: SessionDep, slug: str) -> Event:
         "expone el propio evento publicado."
     ),
     response_model=list[PublicTicketTypeResponse],
-    dependencies=[limit_per_ip("public-ticket-types", PUBLICO_POR_IP)],
+    limite=("public-ticket-types", PUBLICO_POR_IP),
 )
 async def list_public_ticket_types(
-    evento: Annotated[Event, Depends(_obtener_evento_o_404)], session: SessionDep
+    evento: Annotated[Event, Depends(EVENTO_PARA_INSCRIBIR)], session: SessionDep
 ) -> list[PublicTicketTypeResponse]:
     tipos = await service.list_public_ticket_types(
         session, organization_id=evento.organization_id, event_id=evento.id
@@ -86,8 +84,10 @@ async def list_public_ticket_types(
     ]
 
 
-@router.post(
-    "/events/{slug}/checkout/quote",
+@ruta_de_evento(
+    router,
+    "post",
+    "/checkout/quote",
     summary="Presupuesto de compra de una entrada",
     description=(
         "Calcula el precio final de un tipo de entrada, con o sin código de "
@@ -95,10 +95,10 @@ async def list_public_ticket_types(
         "puramente informativo."
     ),
     response_model=CheckoutQuoteResponse,
-    dependencies=[limit_per_ip("checkout-quote", CHECKOUT_QUOTE_POR_IP)],
+    limite=("checkout-quote", CHECKOUT_QUOTE_POR_IP),
 )
 async def quote_checkout(
-    evento: Annotated[Event, Depends(_obtener_evento_o_404)],
+    evento: Annotated[Event, Depends(EVENTO_PARA_INSCRIBIR)],
     datos: CheckoutQuoteRequest,
     request: Request,
     session: SessionDep,
@@ -125,8 +125,10 @@ async def quote_checkout(
     )
 
 
-@router.post(
-    "/events/{slug}/checkout",
+@ruta_de_evento(
+    router,
+    "post",
+    "/checkout",
     summary="Comprar una entrada de un evento de pago",
     description=(
         "Inscripción + selección de tipo de entrada y código de descuento en una "
@@ -136,10 +138,10 @@ async def quote_checkout(
         "estaba inscrito."
     ),
     response_model=CheckoutStartResponse,
-    dependencies=[limit_per_ip("checkout-compra", INSCRIPCION_POR_IP)],
+    limite=("checkout-compra", INSCRIPCION_POR_IP),
 )
 async def start_checkout(
-    evento: Annotated[Event, Depends(_obtener_evento_o_404)],
+    evento: Annotated[Event, Depends(EVENTO_PARA_INSCRIBIR)],
     datos: CheckoutStartRequest,
     request: Request,
     session: SessionDep,
@@ -178,18 +180,20 @@ async def start_checkout(
     return CheckoutStartResponse(message=resultado.message, checkout_url=resultado.checkout_url)
 
 
-@router.get(
-    "/events/{slug}/checkout/{registration_id}/status",
+@ruta_de_evento(
+    router,
+    "get",
+    "/checkout/{registration_id}/status",
     summary="Estado real de un pago, para la pantalla de retorno",
     description=(
         "Consulta lo persistido, nunca da el pago por confirmado por el mero "
         "retorno desde Stripe: el webhook es la única fuente de verdad."
     ),
     response_model=PaymentStatusResponse,
-    dependencies=[limit_per_ip("checkout-estado", CHECKOUT_QUOTE_POR_IP)],
+    limite=("checkout-estado", CHECKOUT_QUOTE_POR_IP),
 )
 async def get_checkout_status(
-    evento: Annotated[Event, Depends(_obtener_evento_o_404)],
+    evento: Annotated[Event, Depends(EVENTO_PARA_INSCRIBIR)],
     registration_id: str,
     session: SessionDep,
 ) -> PaymentStatusResponse:
@@ -210,5 +214,9 @@ async def get_checkout_status(
     return PaymentStatusResponse(
         registration_status=inscripcion.status,
         payment_status=pago.status if pago is not None else None,
-        event=calendario_de_evento(evento, estado_inscripcion=inscripcion.status),
+        event=calendario_de_evento(
+            evento,
+            await organizations_service.public_ref(session, evento.organization_id),
+            estado_inscripcion=inscripcion.status,
+        ),
     )

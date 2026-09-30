@@ -10,13 +10,22 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import set_organization_context
+from app.core.storage import get_storage, public_url_versionada
+from app.modules.media.models import Media
 from app.modules.organizations.models import Organization, OrganizationBranding
+from app.modules.organizations.schemas import (
+    RESERVED_SLUGS,
+    PublicOrganizationProfile,
+    PublicOrganizationRef,
+    PublicSocialLink,
+)
 from app.modules.roles.models import Role, RolePermission, RoleProfileField
 from app.modules.roles.system_roles import SYSTEM_ROLE_TEMPLATES
-from app.shared.errors import ConflictError
+from app.shared.errors import ConflictError, NotFoundError
 
 
 async def clone_system_roles(session: AsyncSession, organization_id: uuid.UUID) -> dict[str, Role]:
@@ -77,6 +86,8 @@ async def create_organization(
     crea ninguna fila en `organization_domains`, retirada del esquema.
     """
     slug_limpio = slug.strip().lower()
+    if slug_limpio in RESERVED_SLUGS:
+        raise ConflictError(f"El identificador «{slug_limpio}» está reservado.")
 
     existente = await session.scalar(select(Organization).where(Organization.slug == slug_limpio))
     if existente is not None:
@@ -101,3 +112,72 @@ async def create_organization(
     await clone_system_roles(session, organizacion.id)
     await session.flush()
     return organizacion
+
+
+async def public_ref(session: AsyncSession, organization_id: uuid.UUID) -> PublicOrganizationRef:
+    """La organización tal y como aparece en un contrato público.
+
+    Lee bajo el contexto RLS ya fijado por la resolución pública del evento.
+    """
+    organizacion = await session.get(Organization, organization_id)
+    if organizacion is None:
+        raise NotFoundError("La organización no existe.")
+    return PublicOrganizationRef(
+        slug=organizacion.slug,
+        name=organizacion.name,
+        page_public=organizacion.public_page_enabled,
+    )
+
+
+async def logo_url(session: AsyncSession, branding: OrganizationBranding | None) -> str | None:
+    """URL pública del logotipo, gestionado por la biblioteca o anterior a ella."""
+    if branding is None:
+        return None
+    if branding.logo_media_id is not None:
+        media = await session.get(Media, branding.logo_media_id)
+        return public_url_versionada(media.object_key, media.updated_at) if media else None
+    if branding.logo_object_key:
+        return get_storage().public_url(branding.logo_object_key)
+    return None
+
+
+_RESOLVER_PAGINA_PUBLICA = text("SELECT id FROM app_resolve_public_organization(:slug)")
+
+
+async def resolve_public_organization(session: AsyncSession, slug: str) -> Organization:
+    """La organización de una página pública `/{slug}`, sin contexto RLS previo.
+
+    La función `SECURITY DEFINER` solo devuelve el `id` si la página está
+    activada y la organización activa: con el interruptor apagado, una
+    organización inactiva o una inexistente dan el mismo 404. Fija el contexto
+    RLS de `session` (solo para caminos sin autenticar).
+    """
+    organization_id = await session.scalar(_RESOLVER_PAGINA_PUBLICA, {"slug": slug})
+    if organization_id is None:
+        raise NotFoundError("La página de la organización no existe.")
+    await set_organization_context(session, organization_id)
+    organizacion = await session.get(Organization, organization_id)
+    if organizacion is None:  # pragma: no cover - lo garantiza la función SECURITY DEFINER
+        raise NotFoundError("La página de la organización no existe.")
+    return organizacion
+
+
+async def public_profile(
+    session: AsyncSession, organizacion: Organization
+) -> PublicOrganizationProfile:
+    """El perfil público, construido campo a campo: nada más sale de aquí."""
+    branding = await session.get(OrganizationBranding, organizacion.id)
+    enlaces = [
+        PublicSocialLink(kind=str(enlace["kind"]), url=str(enlace["url"]))
+        for enlace in (branding.social_links if branding else [])
+        if enlace.get("kind") and enlace.get("url")
+    ]
+    return PublicOrganizationProfile(
+        slug=organizacion.slug,
+        name=organizacion.name,
+        description=organizacion.description,
+        website=organizacion.website,
+        address=organizacion.address,
+        logo_url=await logo_url(session, branding),
+        social_links=enlaces,
+    )

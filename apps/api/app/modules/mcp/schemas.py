@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class EventoResumen(BaseModel):
@@ -27,7 +27,15 @@ class EventoResumen(BaseModel):
     ciudad: str | None
     aforo: int | None
     modo_inscripcion: str
+    # Slug de la categoría del catálogo (ver `listar_categorias`), si tiene.
+    categoria: str | None = None
+    etiquetas: list[str] = Field(default_factory=list)
     enlace_panel: str
+
+
+class Categoria(BaseModel):
+    slug: str
+    nombre: str
 
 
 class Sede(BaseModel):

@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../api/api.service';
+import { apiEvento } from '../routing/rutas-publicas';
 import type { EventoParaCalendario } from '../../shared/calendar/calendar-links';
 
 export interface RegistrationQuestion {
@@ -57,6 +58,11 @@ export interface MyTicketInfo {
 }
 
 export interface MyRegistrationItem {
+  readonly organization: {
+    readonly slug: string;
+    readonly name: string;
+    readonly page_public: boolean;
+  };
   readonly event_slug: string;
   readonly event_title: string;
   readonly starts_at: string;
@@ -78,17 +84,17 @@ export class RegistrationsService {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
 
-  async getQuestions(slug: string): Promise<RegistrationQuestion[]> {
+  async getQuestions(org: string, slug: string): Promise<RegistrationQuestion[]> {
     return firstValueFrom(
       this.http.get<RegistrationQuestion[]>(
-        this.api.url(`/public/events/${slug}/registration-questions`),
+        this.api.url(apiEvento(org, slug, '/registration-questions')),
       ),
     );
   }
 
-  async submit(slug: string, datos: SubmitRegistrationInput): Promise<string> {
+  async submit(org: string, slug: string, datos: SubmitRegistrationInput): Promise<string> {
     const respuesta = await firstValueFrom(
-      this.http.post<RespuestaGenerica>(this.api.url(`/public/events/${slug}/registrations`), {
+      this.http.post<RespuestaGenerica>(this.api.url(apiEvento(org, slug, '/registrations')), {
         email: datos.email,
         full_name: datos.fullName,
         answers: datos.answers,

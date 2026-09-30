@@ -112,7 +112,7 @@ async def _eventos_con_cifras(
     filas = (
         await session.execute(
             select(*columnas)
-            .where(Event.organization_id == organization_id)
+            .where(Event.organization_id == organization_id, Event.deleted_at.is_(None))
             .order_by(Event.starts_at.desc())
         )
     ).all()
@@ -148,7 +148,7 @@ async def _cifras(session: AsyncSession, organization_id: uuid.UUID) -> CifrasDe
         for estado, total in (
             await session.execute(
                 select(Event.status, func.count())
-                .where(Event.organization_id == organization_id)
+                .where(Event.organization_id == organization_id, Event.deleted_at.is_(None))
                 .group_by(Event.status)
             )
         ).all()

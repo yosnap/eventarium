@@ -1,3 +1,4 @@
+import { rutaEvento } from '../../../../core/routing/rutas-publicas';
 import { ChangeDetectionStrategy, Component, type OnInit, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
@@ -26,9 +27,16 @@ const CLAVE_FORMATO: Record<EventoEnDirecto['location_mode'], string> = {
         </h2>
         @if (servicio.eventos().length > 0) {
           <ul class="landing-directo-lista">
-            @for (evento of servicio.eventos(); track evento.slug; let i = $index) {
+            @for (
+              evento of servicio.eventos();
+              track evento.organization.slug + evento.slug;
+              let i = $index
+            ) {
               <li appReveal [index]="i">
-                <a class="landing-directo-tarjeta" [routerLink]="['/eventos', evento.slug]">
+                <a
+                  class="landing-directo-tarjeta"
+                  [routerLink]="rutaEvento(evento.organization.slug, evento.slug)"
+                >
                   <span class="landing-directo-portada">
                     @if (evento.cover_url) {
                       <img
@@ -150,6 +158,7 @@ const CLAVE_FORMATO: Record<EventoEnDirecto['location_mode'], string> = {
 })
 export class LandingEnDirecto implements OnInit {
   protected readonly servicio = inject(EnDirectoService);
+  protected readonly rutaEvento = rutaEvento;
 
   ngOnInit(): void {
     void this.servicio.cargar();

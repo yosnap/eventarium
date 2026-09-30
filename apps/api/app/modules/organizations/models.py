@@ -14,6 +14,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
@@ -35,6 +36,11 @@ class Organization(Base, TimestampMixin):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     website: Mapped[str | None] = mapped_column(String(300), nullable=True)
     contact_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    address: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    # Opt-in: la página pública `/{org}` solo existe con el interruptor activado.
+    public_page_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     branding: Mapped[OrganizationBranding | None] = relationship(

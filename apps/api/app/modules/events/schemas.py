@@ -9,7 +9,8 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
-from app.modules.organizations.schemas import SLUG_PATTERN
+from app.modules.events.categories import normalizar_etiquetas
+from app.modules.organizations.schemas import SLUG_PATTERN, PublicOrganizationRef
 from app.modules.sponsors.schemas import PublicSponsorTier
 from app.modules.theme_templates.schemas import PublicTheme, validar_theme_overrides
 
@@ -66,6 +67,42 @@ def validate_materials(materials: list[dict[str, Any]]) -> None:
             raise ValueError("El enlace de cada material debe usar https.")
 
 
+class EventCategoryOut(BaseModel):
+    """Categoría del catálogo de instalación, tal y como la ve el panel."""
+
+    id: str
+    slug: str
+    name: str
+    display_order: int
+    is_active: bool
+
+
+class PublicCategoryRef(BaseModel):
+    """La categoría de un evento en los contratos públicos."""
+
+    slug: str
+    name: str
+
+
+class EventCategoryCreate(BaseModel):
+    slug: Annotated[str, Field(min_length=2, max_length=40, pattern=SLUG_PATTERN)]
+    name: Annotated[str, Field(min_length=1, max_length=80)]
+    display_order: Annotated[int, Field(ge=0, le=10000)] = 0
+    is_active: bool = True
+
+
+class EventCategoryUpdate(BaseModel):
+    """El identificador (`slug`) no se cambia: forma parte de las URLs de filtro."""
+
+    name: Annotated[str, Field(min_length=1, max_length=80)] | None = None
+    display_order: Annotated[int, Field(ge=0, le=10000)] | None = None
+    is_active: bool | None = None
+
+
+def _etiquetas_normalizadas(valor: list[str]) -> list[str]:
+    return normalizar_etiquetas(valor)
+
+
 class EventCreate(BaseModel):
     """Alta de un evento."""
 
@@ -73,6 +110,10 @@ class EventCreate(BaseModel):
     title: Annotated[str, Field(min_length=1, max_length=200)]
     summary: str | None = None
     description: str | None = None
+    # Id de una categoría **activa** del catálogo, o `None` (sin categoría).
+    category_id: str | None = None
+    # Minúsculas, máx. 5, 2–30 caracteres; ver `categories.normalizar_etiquetas`.
+    tags: list[str] = Field(default_factory=list)
     status: EventStatusInput = "draft"
     visibility: EventVisibility = "public"
     timezone: Annotated[str, Field(min_length=1, max_length=60)] = "Europe/Madrid"
@@ -100,6 +141,11 @@ class EventCreate(BaseModel):
         _validar_rango_de_fechas(self.starts_at, self.ends_at)
         return self
 
+    @field_validator("tags")
+    @classmethod
+    def _normalizar_tags(cls, valor: list[str]) -> list[str]:
+        return _etiquetas_normalizadas(valor)
+
 
 class EventUpdate(BaseModel):
     """Campos editables de un evento. `status` incluido: así se publica o archiva."""
@@ -107,6 +153,10 @@ class EventUpdate(BaseModel):
     title: Annotated[str, Field(min_length=1, max_length=200)] | None = None
     summary: str | None = None
     description: str | None = None
+    # `null` explícito **quita** la categoría; si el campo no viene, no cambia.
+    category_id: str | None = None
+    # Si no viene, no cambia; `[]` quita todas. `null` no es válido.
+    tags: list[str] | None = None
     status: EventStatusInput | None = None
     visibility: EventVisibility | None = None
     timezone: Annotated[str, Field(min_length=1, max_length=60)] | None = None
@@ -149,6 +199,13 @@ class EventUpdate(BaseModel):
             _validar_rango_de_fechas(self.starts_at, self.ends_at)
         return self
 
+    @field_validator("tags")
+    @classmethod
+    def _normalizar_tags(cls, valor: list[str] | None) -> list[str] | None:
+        if valor is None:
+            raise ValueError("`tags` no admite `null`: usa una lista vacía para quitarlas.")
+        return _etiquetas_normalizadas(valor)
+
     @model_validator(mode="after")
     def _rechazar_null_explicito_en_contingency_fund_percent(self) -> EventUpdate:
         # `NUMERIC(5,2) NOT NULL` en `events`: a diferencia del resto de
@@ -171,6 +228,10 @@ class EventResponse(BaseModel):
 
     id: str
     slug: str
+    # La categoría se devuelve entera, aunque esté desactivada: el selector del
+    # panel la muestra igualmente para no borrarla al guardar.
+    category: EventCategoryOut | None = None
+    tags: list[str] = Field(default_factory=list)
     title: str
     summary: str | None
     description: str | None
@@ -385,6 +446,13 @@ class PublicParticipant(BaseModel):
     public_slug: str | None
 
 
+class CanonicalEventLink(BaseModel):
+    """Dónde vive hoy un enlace antiguo `/eventos/{slug}`."""
+
+    organization_slug: str
+    slug: str
+
+
 class PublicEventSummary(BaseModel):
     """Evento tal y como aparece en el listado público.
 
@@ -396,6 +464,12 @@ class PublicEventSummary(BaseModel):
     """
 
     slug: str
+    organization: PublicOrganizationRef
+    category: PublicCategoryRef | None = None
+    tags: list[str] = Field(default_factory=list)
+    # El evento está cancelado: en la página de su organización sigue apareciendo,
+    # marcado. El directorio general no lista los cancelados.
+    cancelled: bool = False
     title: str
     summary: str | None
     cover_url: str | None
@@ -448,6 +522,7 @@ class PublicSessionDetail(PublicEventSession):
 
     event_slug: str
     event_title: str
+    organization: PublicOrganizationRef
     # Plantilla del evento padre, ya resuelta: la página la aplica igual que la
     # ficha del evento para no cambiar de aspecto al navegar dentro de él.
     theme: PublicTheme | None = None
@@ -473,6 +548,9 @@ class PublicEventDetail(BaseModel):
     """
 
     slug: str
+    organization: PublicOrganizationRef
+    category: PublicCategoryRef | None = None
+    tags: list[str] = Field(default_factory=list)
     cancelled: bool = False
     cancellation_reason: str | None = None
     title: str

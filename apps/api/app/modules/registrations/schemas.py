@@ -8,6 +8,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
+from app.modules.organizations.schemas import PublicOrganizationRef
 from app.modules.policies.schemas import AcceptedPolicyOut
 
 RegistrationStatus = Literal[
@@ -103,6 +104,7 @@ class EventCalendarInfo(BaseModel):
     """
 
     slug: str
+    organization: PublicOrganizationRef
     title: str
     starts_at: datetime
     ends_at: datetime
@@ -176,6 +178,7 @@ class MyRegistrationItem(BaseModel):
     event_title: str
     starts_at: datetime
     organization_name: str
+    organization: PublicOrganizationRef
     status: RegistrationStatus
     # La organización canceló el evento (no confundir con una cancelación de
     # la propia persona).

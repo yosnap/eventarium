@@ -37,12 +37,30 @@ eventos concretos; en ese caso no puede crear eventos nuevos.
 ## Herramientas
 
 - Lectura: `listar_eventos`, `ver_evento`, `cifras_de_inscripcion`,
-  `listar_niveles_de_patrocinio`.
+  `listar_niveles_de_patrocinio`, `listar_categorias`. `ver_evento` devuelve
+  `enlace_publico` con la URL pública del evento, `/{organización}/{evento}`.
+  `listar_eventos` filtra por `estado`, por `categoria` (slug) y por hasta 3
+  `etiquetas` (el evento debe tener todas). No hay filtro por organización:
+  una conexión pertenece a una sola.
 - Escritura: `crear_evento`, `editar_evento`, `anadir_sesion`,
   `editar_sesion`, `quitar_sesion`, `anadir_sede`, `anadir_patrocinador`,
   `editar_patrocinador`.
 - Estado: `publicar_evento`, `despublicar_evento` (se niega si hay
   inscripciones vivas) y `cancelar_evento`.
+
+**Categoría y etiquetas.** `crear_evento` y `editar_evento` aceptan
+`categoria` (el `slug` de una categoría activa, tal como lo devuelve
+`listar_categorias`) y `etiquetas` (hasta 5, de 2 a 30 caracteres, en
+minúsculas; solo letras, números, espacios y guiones). Una categoría
+inexistente o desactivada se rechaza. En `editar_evento`, omitir el campo no
+cambia nada; `categoria=""` quita la categoría y `etiquetas=[]` las quita todas.
+La categoría que un evento ya tiene se conserva aunque se desactive (y
+volver a indicarla en `editar_evento` no da error, igual que en el panel). Filtrar
+`listar_eventos` por una categoría inexistente o desactivada da error, no una
+lista vacía. El tope de 3 etiquetas del filtro se cuenta antes de quitar
+repetidas. El catálogo
+de categorías solo lo gestiona la superadministración desde el panel: el MCP
+no lo modifica.
 
 `cancelar_evento` va en dos pasos: la primera llamada devuelve un resumen
 (inscripciones y cobros afectados) y un código de confirmación válido unos

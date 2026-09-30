@@ -66,6 +66,8 @@ def _to_response(organizacion: Organization) -> OrganizationResponse:
         description=organizacion.description,
         website=organizacion.website,
         contact_email=organizacion.contact_email,
+        address=organizacion.address,
+        public_page_enabled=organizacion.public_page_enabled,
         is_active=organizacion.is_active,
     )
 

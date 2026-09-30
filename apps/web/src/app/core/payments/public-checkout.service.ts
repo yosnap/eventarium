@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../api/api.service';
+import { apiEvento } from '../routing/rutas-publicas';
 import type { EventoParaCalendario } from '../../shared/calendar/calendar-links';
 import type { RegistrationAnswerInput } from '../registrations/registrations.service';
 
@@ -58,18 +59,19 @@ export class PublicCheckoutService {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
 
-  async getTicketTypes(slug: string): Promise<PublicTicketType[]> {
+  async getTicketTypes(org: string, slug: string): Promise<PublicTicketType[]> {
     return firstValueFrom(
-      this.http.get<PublicTicketType[]>(this.api.url(`/public/events/${slug}/ticket-types`)),
+      this.http.get<PublicTicketType[]>(this.api.url(apiEvento(org, slug, '/ticket-types'))),
     );
   }
 
   async quote(
+    org: string,
     slug: string,
     datos: { ticketTypeId: string; code: string | null; turnstileToken: string },
   ): Promise<CheckoutQuote> {
     return firstValueFrom(
-      this.http.post<CheckoutQuote>(this.api.url(`/public/events/${slug}/checkout/quote`), {
+      this.http.post<CheckoutQuote>(this.api.url(apiEvento(org, slug, '/checkout/quote')), {
         ticket_type_id: datos.ticketTypeId,
         code: datos.code,
         turnstile_token: datos.turnstileToken,
@@ -78,9 +80,13 @@ export class PublicCheckoutService {
   }
 
   /** `checkout_url` es `null` cuando la inscripción existente no es pagable ahora mismo. */
-  async startCheckout(slug: string, datos: StartCheckoutInput): Promise<CheckoutStartResponse> {
+  async startCheckout(
+    org: string,
+    slug: string,
+    datos: StartCheckoutInput,
+  ): Promise<CheckoutStartResponse> {
     return firstValueFrom(
-      this.http.post<CheckoutStartResponse>(this.api.url(`/public/events/${slug}/checkout`), {
+      this.http.post<CheckoutStartResponse>(this.api.url(apiEvento(org, slug, '/checkout')), {
         email: datos.email,
         full_name: datos.fullName,
         answers: datos.answers,
@@ -96,11 +102,16 @@ export class PublicCheckoutService {
   }
 
   /** Estado real, persistido, del pago — nunca inferido del simple retorno de Stripe. */
-  async getStatus(slug: string, registrationId: string): Promise<PaymentStatus> {
+  async getStatus(
+    org: string | null,
+    slug: string,
+    registrationId: string,
+  ): Promise<PaymentStatus> {
+    // Sin organización (retorno de un pago iniciado antes del cambio de URL):
+    // ruta plana antigua, que resuelve por el enlace congelado.
+    const ruta = org === null ? `/public/events/${slug}` : apiEvento(org, slug);
     return firstValueFrom(
-      this.http.get<PaymentStatus>(
-        this.api.url(`/public/events/${slug}/checkout/${registrationId}/status`),
-      ),
+      this.http.get<PaymentStatus>(this.api.url(`${ruta}/checkout/${registrationId}/status`)),
     );
   }
 }

@@ -13,6 +13,7 @@ import { TranslocoDirective } from '@jsverse/transloco';
 
 import { Chip } from '../../../../shared/ui/chip';
 import { Panel } from '../../../../shared/ui/panel';
+import { rutaEvento } from '../../../../core/routing/rutas-publicas';
 import { claveTipoSesion, type PublicEventSession } from '../event-page.types';
 
 export interface DiaDeAgenda {
@@ -109,7 +110,7 @@ export interface DiaDeAgenda {
                     <app-chip>{{ t(claveTipoSesion(sesion.session_type)) }}</app-chip>
                     <a
                       class="ficha"
-                      [routerLink]="['/eventos', eventSlug(), 'sesiones', sesion.id]"
+                      [routerLink]="rutaEvento(org(), eventSlug(), 'sesiones', sesion.id)"
                     >
                       {{ t('publico.eventos.sesion.ficha') }}
                     </a>
@@ -243,7 +244,9 @@ export interface DiaDeAgenda {
   `,
 })
 export class EventAgendaSection {
+  protected readonly rutaEvento = rutaEvento;
   readonly dias = input.required<readonly DiaDeAgenda[]>();
+  readonly org = input.required<string>();
   readonly eventSlug = input.required<string>();
   readonly eventTimezone = input.required<string>();
 

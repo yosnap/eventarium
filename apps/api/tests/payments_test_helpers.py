@@ -150,7 +150,7 @@ async def _crear_publicar_evento_de_pago(
 
 
 def _url_checkout(slug: str) -> str:
-    return f"/api/v1/public/events/{slug}/checkout"
+    return f"/api/v1/public/organizations/acme/events/{slug}/checkout"
 
 
 async def _preparar_evento_de_pago(

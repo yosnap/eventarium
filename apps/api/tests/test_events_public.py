@@ -21,6 +21,8 @@ from tests.payments_test_helpers import (
 )
 
 PUBLIC_EVENTS = "/api/v1/public/events"
+EVENTOS_DE_ACME = "/api/v1/public/organizations/acme/events"
+EVENTOS_DE_RIVAL = "/api/v1/public/organizations/rival/events"
 PUBLIC_SPEAKERS = "/api/v1/public/speakers"
 EVENTS = "/api/v1/events"
 
@@ -181,13 +183,13 @@ async def test_el_listado_y_el_detalle_incluyen_el_precio_desde_del_tipo_mas_bar
     assert por_slug["precio-pago-mismo-precio"]["price_from_cents"] == 1000
     assert por_slug["precio-pago-mismo-precio"]["price_multiple"] is False
 
-    detalle = await cliente.get(f"{PUBLIC_EVENTS}/precio-pago")
+    detalle = await cliente.get(f"{EVENTOS_DE_ACME}/precio-pago")
     assert detalle.status_code == 200
     assert detalle.json()["price_from_cents"] == 750
     assert detalle.json()["price_currency"] == "eur"
     assert detalle.json()["price_multiple"] is True
 
-    detalle_unico = await cliente.get(f"{PUBLIC_EVENTS}/precio-pago-unico")
+    detalle_unico = await cliente.get(f"{EVENTOS_DE_ACME}/precio-pago-unico")
     assert detalle_unico.status_code == 200
     assert detalle_unico.json()["price_multiple"] is False
 
@@ -204,7 +206,7 @@ async def test_el_detalle_de_un_evento_no_publico_da_404_uniforme(
     await _publicar(cliente, cabeceras, privado["id"], visibility="private")
 
     for slug in ("en-borrador", "oculto-2", "privado-2", "no-existe"):
-        respuesta = await cliente.get(f"{PUBLIC_EVENTS}/{slug}")
+        respuesta = await cliente.get(f"{EVENTOS_DE_ACME}/{slug}")
         assert respuesta.status_code == 404
         assert respuesta.json()["detail"] == "El evento no existe."
 
@@ -218,8 +220,7 @@ async def test_la_resolucion_publica_por_evento_no_filtra_datos_de_otra_organiza
     dedicado: la función `SECURITY DEFINER` que resuelve el evento público por
     slug (fase 2) nunca devuelve datos de un evento no publicable, con casos
     de dos organizaciones distintas, cada una con su propio evento no
-    publicable (los slugs son únicos en toda la instalación desde la fase 0,
-    así que no pueden coincidir)."""
+    publicable."""
     _, cabeceras_a = await iniciar_sesion(cliente, organizacion)
     _, cabeceras_b = await iniciar_sesion(cliente, otra_organizacion)
 
@@ -227,18 +228,21 @@ async def test_la_resolucion_publica_por_evento_no_filtra_datos_de_otra_organiza
     oculto_b = await _crear_evento(cliente, cabeceras_b, slug="oculto-org-b")
     await _publicar(cliente, cabeceras_b, oculto_b["id"], visibility="hidden")
 
-    for slug in ("borrador-org-a", "oculto-org-b"):
-        respuesta = await cliente.get(f"{PUBLIC_EVENTS}/{slug}")
+    for base, slug in (
+        (EVENTOS_DE_ACME, "borrador-org-a"),
+        (EVENTOS_DE_RIVAL, "oculto-org-b"),
+    ):
+        respuesta = await cliente.get(f"{base}/{slug}")
         assert respuesta.status_code == 404
         assert respuesta.json()["detail"] == "El evento no existe."
 
     # Publicar el de la organización A no afecta ni revela nada de la B.
     await _publicar(cliente, cabeceras_a, borrador_a["id"])
-    publico = await cliente.get(f"{PUBLIC_EVENTS}/borrador-org-a")
+    publico = await cliente.get(f"{EVENTOS_DE_ACME}/borrador-org-a")
     assert publico.status_code == 200
     assert publico.json()["title"] == borrador_a["title"]
 
-    sigue_oculto = await cliente.get(f"{PUBLIC_EVENTS}/oculto-org-b")
+    sigue_oculto = await cliente.get(f"{EVENTOS_DE_RIVAL}/oculto-org-b")
     assert sigue_oculto.status_code == 404
     assert sigue_oculto.json()["detail"] == "El evento no existe."
 
@@ -269,12 +273,12 @@ async def test_la_resolucion_publica_por_evento_no_filtra_datos_de_otra_organiza
         ).json()
     await _publicar(cliente, cabeceras_b, evento_b_publico["id"])
 
-    detalle_a = (await cliente.get(f"{PUBLIC_EVENTS}/borrador-org-a")).json()
+    detalle_a = (await cliente.get(f"{EVENTOS_DE_ACME}/borrador-org-a")).json()
     nombres_de_sede_en_a = {sede["name"] for sede in detalle_a["venues"]}
     assert sede_a["name"] in nombres_de_sede_en_a
     assert sede_b["name"] not in nombres_de_sede_en_a
 
-    detalle_b = (await cliente.get(f"{PUBLIC_EVENTS}/publico-org-b")).json()
+    detalle_b = (await cliente.get(f"{EVENTOS_DE_RIVAL}/publico-org-b")).json()
     nombres_de_sede_en_b = {sede["name"] for sede in detalle_b["venues"]}
     assert sede_b["name"] in nombres_de_sede_en_b
     assert sede_a["name"] not in nombres_de_sede_en_b
@@ -315,7 +319,7 @@ async def test_el_detalle_incluye_agenda_y_participantes_sin_correo(
     )
     await _publicar(cliente, cabeceras, evento["id"])
 
-    detalle = await cliente.get(f"{PUBLIC_EVENTS}/con-agenda")
+    detalle = await cliente.get(f"{EVENTOS_DE_ACME}/con-agenda")
     assert detalle.status_code == 200
     cuerpo = detalle.json()
     assert len(cuerpo["sessions"]) == 1
@@ -343,7 +347,7 @@ async def test_una_sesion_de_evento_no_publicado_da_404_aunque_se_conozca_el_id(
         )
     ).json()
 
-    respuesta = await cliente.get(f"{PUBLIC_EVENTS}/sin-publicar/sessions/{sesion['id']}")
+    respuesta = await cliente.get(f"{EVENTOS_DE_ACME}/sin-publicar/sessions/{sesion['id']}")
     assert respuesta.status_code == 404
 
 
@@ -366,7 +370,7 @@ async def test_una_sesion_publicada_se_ve_anidada_bajo_su_evento(
     ).json()
     await _publicar(cliente, cabeceras, evento["id"])
 
-    respuesta = await cliente.get(f"{PUBLIC_EVENTS}/con-sesion-publica/sessions/{sesion['id']}")
+    respuesta = await cliente.get(f"{EVENTOS_DE_ACME}/con-sesion-publica/sessions/{sesion['id']}")
     assert respuesta.status_code == 200
     cuerpo = respuesta.json()
     assert cuerpo["event_slug"] == "con-sesion-publica"
@@ -444,7 +448,7 @@ async def test_el_perfil_publico_de_un_ponente_expone_la_lista_blanca_y_el_histo
     assert cuerpo["history"][0]["event_slug"] == "con-ponente-publico"
 
     # La agenda pública del evento enlaza al perfil recién activado.
-    detalle = await cliente.get(f"{PUBLIC_EVENTS}/con-ponente-publico")
+    detalle = await cliente.get(f"{EVENTOS_DE_ACME}/con-ponente-publico")
     assert detalle.json()["sessions"][0]["participants"][0]["public_slug"] == "la-gran-ponente"
 
 
@@ -470,7 +474,7 @@ async def test_el_listado_publico_incluye_eventos_de_toda_la_instalacion(
     slugs = {evento["slug"] for evento in listado.json()}
     assert slugs == {"evento-de-acme", "evento-de-rival"}
 
-    detalle = await cliente.get(f"{PUBLIC_EVENTS}/evento-de-acme")
+    detalle = await cliente.get(f"{EVENTOS_DE_ACME}/evento-de-acme")
     assert detalle.status_code == 200, detalle.text
     assert detalle.json()["slug"] == "evento-de-acme"
 
@@ -710,7 +714,7 @@ async def test_el_detalle_publico_expone_sedes_y_venue_id_de_la_sesion(
 
     await _publicar(cliente, cabeceras, evento["id"])
 
-    detalle = await cliente.get(f"{PUBLIC_EVENTS}/con-sedes")
+    detalle = await cliente.get(f"{EVENTOS_DE_ACME}/con-sedes")
     assert detalle.status_code == 200
     cuerpo = detalle.json()
     assert len(cuerpo["venues"]) == 1
@@ -728,13 +732,13 @@ async def test_el_detalle_publico_expone_las_plazas_reservadas(
     evento = await _crear_evento(cliente, cabeceras, slug="detalle-con-reservas", capacity=10)
     await _publicar(cliente, cabeceras, evento["id"])
 
-    sin_reservas = await cliente.get(f"{PUBLIC_EVENTS}/detalle-con-reservas")
+    sin_reservas = await cliente.get(f"{EVENTOS_DE_ACME}/detalle-con-reservas")
     assert sin_reservas.json()["reserved_count"] == 0
 
     await _crear_inscripcion(organizacion.id, uuid.UUID(evento["id"]), "una@example.test")
     await _crear_inscripcion(organizacion.id, uuid.UUID(evento["id"]), "otra@example.test")
 
-    con_reservas = await cliente.get(f"{PUBLIC_EVENTS}/detalle-con-reservas")
+    con_reservas = await cliente.get(f"{EVENTOS_DE_ACME}/detalle-con-reservas")
     assert con_reservas.json()["reserved_count"] == 2
 
 

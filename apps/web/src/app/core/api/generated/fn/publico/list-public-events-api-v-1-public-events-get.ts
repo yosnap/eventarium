@@ -10,11 +10,31 @@ import { RequestBuilder } from '../../request-builder';
 import { PublicEventSummary } from '../../models/public-event-summary';
 
 export interface ListPublicEventsApiV1PublicEventsGet$Params {
+
+/**
+ * Slug de la categoría
+ */
+  categoria?: (string | null);
+
+/**
+ * Etiqueta (varias: y)
+ */
+  etiqueta?: Array<string>;
+
+/**
+ * Sin `limit`: todos
+ */
+  limit?: (number | null);
+  offset?: number;
 }
 
 export function listPublicEventsApiV1PublicEventsGet(http: HttpClient, rootUrl: string, params?: ListPublicEventsApiV1PublicEventsGet$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<PublicEventSummary>>> {
   const rb = new RequestBuilder(rootUrl, listPublicEventsApiV1PublicEventsGet.PATH, 'get');
   if (params) {
+    rb.query('categoria', params.categoria, {});
+    rb.query('etiqueta', params.etiqueta, {});
+    rb.query('limit', params.limit, {});
+    rb.query('offset', params.offset, {});
   }
 
   return http.request(

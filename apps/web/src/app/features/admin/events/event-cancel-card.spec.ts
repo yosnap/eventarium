@@ -127,4 +127,85 @@ describe('EventCancelCard', () => {
     expect(botones.some((texto) => texto.includes('Cancelar evento'))).toBe(false);
     await esperarSinViolacionesDeAccesibilidad(raiz);
   });
+
+  describe('eliminar', () => {
+    it('un evento activo no ofrece eliminar: primero hay que cancelarlo', async () => {
+      const fixture = await crear(false);
+      expect(fixture.nativeElement.textContent).not.toContain('Eliminar evento');
+    });
+
+    it('con la cancelación en marcha el botón está desactivado y lo explica', async () => {
+      const fixture = await crear(true);
+      http
+        .expectOne('/api/v1/events/e1/cancel/progress')
+        .flush({ por_cancelar: 2, por_avisar: 3, reembolsos_fallidos: 0 });
+      await avanzar(fixture);
+      const raiz: HTMLElement = fixture.nativeElement;
+
+      expect(botonPorTexto(raiz, 'Eliminar evento').disabled).toBe(true);
+      expect(raiz.textContent).toContain('Podrás eliminarlo cuando termine la cancelación');
+      // Para que el intervalo de seguimiento no deje peticiones abiertas.
+      fixture.destroy();
+    });
+
+    it('con reembolsos fallidos tampoco se puede eliminar', async () => {
+      const fixture = await crear(true);
+      http
+        .expectOne('/api/v1/events/e1/cancel/progress')
+        .flush({ por_cancelar: 0, por_avisar: 0, reembolsos_fallidos: 1 });
+      await avanzar(fixture);
+
+      expect(botonPorTexto(fixture.nativeElement, 'Eliminar evento').disabled).toBe(true);
+    });
+
+    it('terminada la cancelación, confirma en un diálogo y elimina', async () => {
+      const fixture = await crear(true);
+      http
+        .expectOne('/api/v1/events/e1/cancel/progress')
+        .flush({ por_cancelar: 0, por_avisar: 0, reembolsos_fallidos: 0 });
+      await avanzar(fixture);
+      const raiz: HTMLElement = fixture.nativeElement;
+      let eliminado = false;
+      fixture.componentInstance.eliminado.subscribe(() => (eliminado = true));
+
+      const abrir = botonPorTexto(raiz, 'Eliminar evento');
+      expect(abrir.disabled).toBe(false);
+      abrir.click();
+      await avanzar(fixture);
+      expect(raiz.textContent).toContain('¿Eliminar este evento?');
+
+      botonPorTexto(raiz, 'Sí, eliminar el evento').click();
+      const peticion = http.expectOne('/api/v1/events/e1');
+      expect(peticion.request.method).toBe('DELETE');
+      peticion.flush(null, { status: 204, statusText: 'No Content' });
+      await avanzar(fixture);
+
+      expect(eliminado).toBe(true);
+    });
+
+    it('si la API lo rechaza (409) enseña el motivo y no da el evento por eliminado', async () => {
+      const fixture = await crear(true);
+      http
+        .expectOne('/api/v1/events/e1/cancel/progress')
+        .flush({ por_cancelar: 0, por_avisar: 0, reembolsos_fallidos: 0 });
+      await avanzar(fixture);
+      const raiz: HTMLElement = fixture.nativeElement;
+      let eliminado = false;
+      fixture.componentInstance.eliminado.subscribe(() => (eliminado = true));
+
+      botonPorTexto(raiz, 'Eliminar evento').click();
+      await avanzar(fixture);
+      botonPorTexto(raiz, 'Sí, eliminar el evento').click();
+      http
+        .expectOne('/api/v1/events/e1')
+        .flush(
+          { detail: 'Hay reembolsos sin completar.' },
+          { status: 409, statusText: 'Conflict' },
+        );
+      await avanzar(fixture);
+
+      expect(eliminado).toBe(false);
+      expect(raiz.textContent).toContain('Hay reembolsos sin completar.');
+    });
+  });
 });

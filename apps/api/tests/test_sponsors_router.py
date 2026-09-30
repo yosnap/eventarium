@@ -19,6 +19,7 @@ from tests.conftest import OrganizacionDePrueba, crear_rol, iniciar_sesion, inic
 EVENTS = "/api/v1/events"
 SPONSOR_TIERS = "/api/v1/organizations/me/sponsor-tiers"
 PUBLIC_EVENTS = "/api/v1/public/events"
+EVENTOS_DE_ACME = "/api/v1/public/organizations/acme/events"
 
 PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
@@ -294,7 +295,7 @@ async def test_bloque_publico_agrupa_por_nivel_muestra_el_logo_y_oculta_aportaci
         },
     )
 
-    detalle = await cliente.get(f"{PUBLIC_EVENTS}/{evento['slug']}")
+    detalle = await cliente.get(f"{EVENTOS_DE_ACME}/{evento['slug']}")
     assert detalle.status_code == 200
     cuerpo = detalle.json()
     assert [nivel["name"] for nivel in cuerpo["sponsor_tiers"]] == ["Oro", "Plata"]
@@ -348,7 +349,7 @@ async def test_ficha_publica_de_patrocinador_incluye_nivel_e_historial_por_nombr
     ).json()
 
     respuesta = await cliente.get(
-        f"{PUBLIC_EVENTS}/{evento_actual['slug']}/sponsors/{patrocinador['id']}"
+        f"{EVENTOS_DE_ACME}/{evento_actual['slug']}/sponsors/{patrocinador['id']}"
     )
     assert respuesta.status_code == 200, respuesta.text
     cuerpo = respuesta.json()
@@ -381,7 +382,9 @@ async def test_ficha_publica_de_patrocinador_404_si_el_evento_no_es_publico(
         )
     ).json()
 
-    respuesta = await cliente.get(f"{PUBLIC_EVENTS}/{evento['slug']}/sponsors/{patrocinador['id']}")
+    respuesta = await cliente.get(
+        f"{EVENTOS_DE_ACME}/{evento['slug']}/sponsors/{patrocinador['id']}"
+    )
     assert respuesta.status_code == 404
 
 
@@ -402,5 +405,5 @@ async def test_evento_en_borrador_no_expone_su_bloque_de_patrocinadores(
         },
     )
 
-    respuesta = await cliente.get(f"{PUBLIC_EVENTS}/{evento['slug']}")
+    respuesta = await cliente.get(f"{EVENTOS_DE_ACME}/{evento['slug']}")
     assert respuesta.status_code == 404

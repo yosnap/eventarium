@@ -296,9 +296,9 @@ class TestWebPublica:
         evento = await _evento_publicado(cliente, cabeceras, "ficha-cancelada")
         await _cancelar(cliente, cabeceras, evento, await _resumen(cliente, cabeceras, evento))
 
-        ficha = await cliente.get("/api/v1/public/events/ficha-cancelada")
+        ficha = await cliente.get("/api/v1/public/organizations/acme/events/ficha-cancelada")
         preguntas = await cliente.get(
-            "/api/v1/public/events/ficha-cancelada/registration-questions"
+            "/api/v1/public/organizations/acme/events/ficha-cancelada/registration-questions"
         )
         listado = await cliente.get("/api/v1/public/events")
 

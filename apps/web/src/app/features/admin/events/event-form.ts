@@ -17,6 +17,12 @@ import { PageHeader } from '../../../shared/ui/page-header';
 import { Select, type SelectOption } from '../../../shared/ui/select';
 import { isoAValorLocal } from './datetime-local';
 import { EventDetails } from './event-details';
+import {
+  LONGITUD_MAX_ETIQUETA,
+  LONGITUD_MIN_ETIQUETA,
+  MAX_ETIQUETAS,
+  analizarEtiquetas,
+} from '../../../core/eventos/etiquetas';
 
 type LocationMode = 'in_person' | 'online' | 'hybrid';
 
@@ -35,6 +41,15 @@ interface EventoBase {
   readonly longitude: number | null;
   readonly timezone: string;
   readonly payment_checkout_window_minutes: number;
+  readonly category: CategoriaDelCatalogo | null;
+  readonly tags: readonly string[];
+}
+
+interface CategoriaDelCatalogo {
+  readonly id: string;
+  readonly slug: string;
+  readonly name: string;
+  readonly is_active: boolean;
 }
 
 type CampoBase = 'slug' | 'title' | 'startsAt' | 'endsAt' | 'paymentWindow';
@@ -152,6 +167,21 @@ function zonasHorariasDisponibles(): readonly string[] {
                 fieldId="evento-ciudad"
                 [label]="t('admin.events.formulario.ciudad')"
                 [(value)]="city"
+              />
+
+              <app-select
+                fieldId="evento-categoria"
+                [label]="t('admin.events.formulario.categoria')"
+                [options]="opcionesDeCategoria()"
+                [(value)]="categoria"
+              />
+              <app-input
+                class="campo-ancho"
+                fieldId="evento-etiquetas"
+                [label]="t('admin.events.formulario.etiquetas')"
+                [hint]="t('admin.events.formulario.etiquetasAyuda')"
+                [error]="errorDeEtiquetas()"
+                [(value)]="etiquetasTexto"
               />
 
               <div class="campo-select">
@@ -361,6 +391,52 @@ export class EventForm {
   protected readonly ventanaDePagoMin = VENTANA_DE_PAGO_MIN;
   protected readonly ventanaDePagoMax = VENTANA_DE_PAGO_MAX;
 
+  /** Id de la categoría elegida, o cadena vacía = sin categoría. */
+  protected readonly categoria = signal('');
+  protected readonly categoriasActivas = signal<readonly CategoriaDelCatalogo[]>([]);
+  /** La categoría que el evento ya tiene, aunque se haya desactivado: se sigue
+   * mostrando para no borrarla al guardar otros cambios. */
+  private readonly categoriaActual = signal<CategoriaDelCatalogo | null>(null);
+  protected readonly etiquetasTexto = signal('');
+
+  protected readonly opcionesDeCategoria = computed<SelectOption[]>(() => {
+    const opciones: SelectOption[] = [
+      { value: '', label: this.transloco.translate('admin.events.formulario.sinCategoria') },
+      ...this.categoriasActivas().map((c) => ({ value: c.id, label: c.name })),
+    ];
+    const actual = this.categoriaActual();
+    if (actual && !opciones.some((o) => o.value === actual.id)) {
+      opciones.push({
+        value: actual.id,
+        label: this.transloco.translate('admin.events.formulario.categoriaDesactivada', {
+          nombre: actual.name,
+        }),
+      });
+    }
+    return opciones;
+  });
+
+  protected readonly errorDeEtiquetas = computed<string | null>(() => {
+    const { error } = analizarEtiquetas(this.etiquetasTexto());
+    if (!error) return null;
+    switch (error.tipo) {
+      case 'longitud':
+        return this.transloco.translate('admin.events.formulario.etiquetaLongitud', {
+          etiqueta: error.etiqueta,
+          min: LONGITUD_MIN_ETIQUETA,
+          max: LONGITUD_MAX_ETIQUETA,
+        });
+      case 'caracteres':
+        return this.transloco.translate('admin.events.formulario.etiquetaCaracteres', {
+          etiqueta: error.etiqueta,
+        });
+      case 'demasiadas':
+        return this.transloco.translate('admin.events.formulario.etiquetasDemasiadas', {
+          max: MAX_ETIQUETAS,
+        });
+    }
+  });
+
   protected readonly opcionesDeZonaHoraria = computed<SelectOption[]>(() =>
     zonasHorariasDisponibles().map((zona) => ({ value: zona, label: zona })),
   );
@@ -387,12 +463,25 @@ export class EventForm {
   });
 
   constructor() {
+    void this.cargarCategorias();
     const id = this.route.snapshot.paramMap.get('eventId');
     if (id && id !== 'nuevo') {
       this.eventId.set(id);
       void this.cargar(id);
     } else {
       this.cargando.set(false);
+    }
+  }
+
+  private async cargarCategorias(): Promise<void> {
+    try {
+      this.categoriasActivas.set(
+        await firstValueFrom(
+          this.http.get<CategoriaDelCatalogo[]>(this.api.url('/event-categories')),
+        ),
+      );
+    } catch {
+      // Sin catálogo el formulario sigue funcionando: solo no ofrece categorías.
     }
   }
 
@@ -411,6 +500,9 @@ export class EventForm {
       this.longitud.set(evento.longitude);
       this.timezone.set(evento.timezone);
       this.paymentWindow.set(evento.payment_checkout_window_minutes);
+      this.categoria.set(evento.category?.id ?? '');
+      this.categoriaActual.set(evento.category);
+      this.etiquetasTexto.set(evento.tags.join(', '));
     } catch (error) {
       this.error.set(
         error instanceof ApiError
@@ -487,7 +579,7 @@ export class EventForm {
     evento.preventDefault();
     this.error.set(null);
     this.exito.set(false);
-    if (!this.validarTodo()) {
+    if (!this.validarTodo() || this.errorDeEtiquetas()) {
       return;
     }
 
@@ -502,6 +594,9 @@ export class EventForm {
         this.locationMode() !== 'online' ? this.locationAddress().trim() || null : null,
       timezone: this.timezone(),
       payment_checkout_window_minutes: this.paymentWindow(),
+      // Siempre explícitos: `null` quita la categoría, `[]` las etiquetas.
+      category_id: this.categoria() || null,
+      tags: [...analizarEtiquetas(this.etiquetasTexto()).etiquetas],
     };
 
     this.guardando.set(true);

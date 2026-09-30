@@ -106,7 +106,7 @@ async def _inscribir_y_confirmar(
         "turnstile_token": "token-de-prueba",
     }
     respuesta = await cliente.post(
-        f"/api/v1/public/events/{evento['slug']}/registrations",
+        f"/api/v1/public/organizations/acme/events/{evento['slug']}/registrations",
         json=payload,
     )
     assert respuesta.status_code == 202, respuesta.text
@@ -137,7 +137,7 @@ async def _inscribir_sin_verificar(
         "turnstile_token": "token-de-prueba",
     }
     respuesta = await cliente.post(
-        f"/api/v1/public/events/{evento['slug']}/registrations",
+        f"/api/v1/public/organizations/acme/events/{evento['slug']}/registrations",
         json=payload,
     )
     assert respuesta.status_code == 202, respuesta.text

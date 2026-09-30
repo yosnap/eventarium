@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, mo
 
 from app.core.permissions import Permission
 from app.core.security import password_meets_complexity
-from app.modules.organizations.schemas import SLUG_PATTERN
+from app.modules.organizations.schemas import SLUG_PATTERN, PublicOrganizationRef
 
 # Lista blanca fija de `profile_data` que se sirve en el perfil público de un
 # ponente. Nunca se vuelca `profile_data` completo: un campo a medida que una
@@ -197,6 +197,7 @@ class PublicSpeakerHistoryItem(BaseModel):
 
     event_slug: str
     event_title: str
+    organization: PublicOrganizationRef
     session_id: str
     session_title: str
     starts_at: datetime

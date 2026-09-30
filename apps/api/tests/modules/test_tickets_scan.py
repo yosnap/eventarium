@@ -87,7 +87,7 @@ async def _inscribir_y_confirmar(cliente: AsyncClient, evento: dict, email: str)
         "turnstile_token": "token-de-prueba",
     }
     respuesta = await cliente.post(
-        f"/api/v1/public/events/{evento['slug']}/registrations",
+        f"/api/v1/public/organizations/acme/events/{evento['slug']}/registrations",
         json=payload,
     )
     assert respuesta.status_code == 202, respuesta.text

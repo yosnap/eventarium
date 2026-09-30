@@ -15,6 +15,7 @@ import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
+import { rutaEvento } from '../../../core/routing/rutas-publicas';
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
 import { seoDePagina } from '../../../core/seo/meta.service';
@@ -31,6 +32,7 @@ interface SocialLink {
 }
 
 interface HistoryItem {
+  readonly organization: { readonly slug: string };
   readonly event_slug: string;
   readonly event_title: string;
   readonly session_id: string;
@@ -50,6 +52,7 @@ interface PublicSpeakerProfile {
 /** Una edición (evento) del historial, con sus sesiones ordenadas por fecha y
  * el año de la más antigua para la cabecera de la línea de tiempo. */
 interface EdicionDeHistorial {
+  readonly org: string;
   readonly slug: string;
   readonly title: string;
   readonly anio: number;
@@ -163,9 +166,11 @@ function etiquetaEnlace(kind: string, traducir: (clave: string) => string): stri
               @if (proximaParticipacion(); as proxima) {
                 <div class="lateral__fila lateral__fila--proxima">
                   <span class="muted">{{ t('publico.ponentes.proxima') }}</span>
-                  <a class="valor-acento" [routerLink]="['/eventos', proxima.event_slug]">{{
-                    proxima.event_title
-                  }}</a>
+                  <a
+                    class="valor-acento"
+                    [routerLink]="rutaEvento(proxima.organization.slug, proxima.event_slug)"
+                    >{{ proxima.event_title }}</a
+                  >
                 </div>
               }
             </aside>
@@ -196,7 +201,9 @@ function etiquetaEnlace(kind: string, traducir: (clave: string) => string): stri
                   >
                     <div class="edicion__cabecera">
                       <h3>
-                        <a [routerLink]="['/eventos', edicion.slug]">{{ edicion.title }}</a>
+                        <a [routerLink]="rutaEvento(edicion.org, edicion.slug)">{{
+                          edicion.title
+                        }}</a>
                       </h3>
                       <span class="edicion__anio">
                         {{ edicion.anio }} · {{ rolesDeLaEdicion(edicion.sesiones, t) }}
@@ -206,7 +213,9 @@ function etiquetaEnlace(kind: string, traducir: (clave: string) => string): stri
                       @for (sesion of edicion.sesiones; track sesion.session_id) {
                         <a
                           class="charla"
-                          [routerLink]="['/eventos', edicion.slug, 'sesiones', sesion.session_id]"
+                          [routerLink]="
+                            rutaEvento(edicion.org, edicion.slug, 'sesiones', sesion.session_id)
+                          "
                         >
                           {{ sesion.session_title }}
                         </a>
@@ -457,6 +466,7 @@ export class SpeakerPage implements OnInit {
   protected readonly noEncontrado = signal(false);
 
   protected readonly iniciales = iniciales;
+  protected readonly rutaEvento = rutaEvento;
 
   /** Edición = evento agrupador de sesiones, más reciente primero — la
    * primera de la lista es la que se resalta (`.edicion--actual`), igual que
@@ -475,6 +485,7 @@ export class SpeakerPage implements OnInit {
     const grupos: EdicionDeHistorial[] = [...porEvento.entries()].map(([slug, sesiones]) => {
       const ordenadas = [...sesiones].sort((a, b) => a.starts_at.localeCompare(b.starts_at));
       return {
+        org: ordenadas[0].organization.slug,
         slug,
         title: ordenadas[0].event_title,
         anio: new Date(ordenadas[0].starts_at).getFullYear(),

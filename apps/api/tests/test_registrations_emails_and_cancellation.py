@@ -99,7 +99,7 @@ def _payload_inscripcion(**overrides: object) -> dict:
 
 async def _inscribir(cliente: AsyncClient, slug: str, **overrides: object):
     return await cliente.post(
-        f"/api/v1/public/events/{slug}/registrations",
+        f"/api/v1/public/organizations/acme/events/{slug}/registrations",
         json=_payload_inscripcion(**overrides),
     )
 

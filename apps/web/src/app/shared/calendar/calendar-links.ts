@@ -12,6 +12,7 @@
 
 /** Los datos del evento que necesita cualquier destino de calendario. */
 export interface EventoParaCalendario {
+  readonly organization: { readonly slug: string };
   readonly slug: string;
   readonly title: string;
   readonly starts_at: string;

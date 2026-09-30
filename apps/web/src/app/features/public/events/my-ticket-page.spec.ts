@@ -19,6 +19,7 @@ function rutaConToken(token: string | null) {
 }
 
 const EVENTO = {
+  organization: { slug: 'acme', name: 'Acme', page_public: false },
   slug: 'congreso',
   title: 'Congreso de IA',
   starts_at: '2026-10-01T07:00:00Z',

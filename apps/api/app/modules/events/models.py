@@ -30,8 +30,9 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -39,15 +40,32 @@ from app.core.database import Base, TimestampMixin
 from app.shared.identifiers import new_uuid7
 
 
+class EventCategory(Base, TimestampMixin):
+    """Una categoría del catálogo de instalación (una por evento).
+
+    Tabla de instalación, sin `organization_id` y por tanto sin RLS. `app_user`
+    solo tiene `SELECT` (revocado el resto en `0061_categorias_etiquetas`);
+    solo la superadministración escribe, con la sesión de mantenimiento. No se
+    borra: se desactiva (`is_active`), y un evento que ya la tiene la conserva.
+    """
+
+    __tablename__ = "event_categories"
+
+    id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=new_uuid7)
+    slug: Mapped[str] = mapped_column(String(40), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(80), nullable=False)
+    display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
 class Event(Base, TimestampMixin):
     """Evento de una organización, con su agenda."""
 
     __tablename__ = "events"
     __table_args__ = (
-        # Sin dominio por organización, el slug es la única forma de resolver
-        # un evento en una URL pública: tiene que ser único en toda la
-        # instalación, no solo dentro de su organización.
-        UniqueConstraint("slug", name="uq_events_slug"),
+        # La organización forma parte de la URL pública (`/{org}/{evento}`):
+        # el slug solo tiene que ser único dentro de su organización.
+        UniqueConstraint("organization_id", "slug", name="uq_events_organization_id_slug"),
         # Objetivo de las FK compuestas de las tablas hijas (event_sessions, event_members).
         UniqueConstraint("id", "organization_id", name="uq_events_id_organization_id"),
         # Stripe admite un `expires_at` de Checkout Session entre 30 minutos y
@@ -79,6 +97,16 @@ class Event(Base, TimestampMixin):
         index=True,
     )
     slug: Mapped[str] = mapped_column(String(160), nullable=False)
+    # Una categoría del catálogo de instalación (`ON DELETE RESTRICT`: una
+    # categoría en uso no se borra, se desactiva). `NULL` = sin categoría.
+    category_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("event_categories.id", ondelete="RESTRICT"), nullable=True
+    )
+    category: Mapped[EventCategory | None] = relationship(lazy="selectin")
+    # Etiquetas libres, normalizadas en minúsculas (máx. 5; ver `normalizar_etiquetas`).
+    tags: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, default=list, server_default=text("'{}'")
+    )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -92,6 +120,10 @@ class Event(Base, TimestampMixin):
     # terminales; solo se llega a `cancelled` con `cancelar_evento`).
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Eliminado (solo se puede eliminar un evento cancelado). Eliminación lógica: el
+    # evento desaparece del panel y del público, pero no se borra ninguna fila —
+    # inscripciones, cobros y contabilidad se conservan.
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Texto opcional que ve el público en la ficha del evento cancelado.
     cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     # public | hidden | private
@@ -394,8 +426,9 @@ class SpeakerPublicProfile(Base, TimestampMixin):
         UniqueConstraint(
             "organization_id", "user_id", name="uq_speaker_public_profiles_organization_id_user_id"
         ),
-        # Igual que `events.slug`: sin dominio por organización, único en toda
-        # la instalación.
+        # A diferencia de `events.slug` (único por organización), el slug público
+        # del ponente sigue siendo único en toda la instalación: `/ponentes/{slug}`
+        # no lleva la organización en la URL.
         UniqueConstraint("public_slug", name="uq_speaker_public_profiles_public_slug"),
         # Compuesta contra `(id, organization_id)` de `organization_members`: la
         # membresía de origen de la biografía debe pertenecer a esta misma

@@ -4,7 +4,9 @@ import { RouterLink } from '@angular/router';
 export interface BreadcrumbItem {
   readonly label: string;
   /** Ausente en el último elemento: esa es la página actual, se pinta como
-   * texto plano, no como enlace a sí misma. */
+   * texto plano, no como enlace a sí misma. En un elemento intermedio también
+   * se pinta como texto (sin `href`, sin foco): es una organización sin página
+   * pública. */
   readonly routerLink?: readonly (string | number)[];
   readonly fragment?: string;
 }
@@ -25,7 +27,11 @@ export interface BreadcrumbItem {
         @if ($last) {
           <span aria-current="page">{{ item.label }}</span>
         } @else {
-          <a [routerLink]="item.routerLink" [fragment]="item.fragment">{{ item.label }}</a>
+          @if (item.routerLink) {
+            <a [routerLink]="item.routerLink" [fragment]="item.fragment">{{ item.label }}</a>
+          } @else {
+            <span>{{ item.label }}</span>
+          }
           <span aria-hidden="true">·</span>
         }
       }

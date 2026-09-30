@@ -4,6 +4,8 @@ import { authGuard } from './core/auth/auth.guard';
 import { guestGuard } from './core/auth/guest.guard';
 import { personalPlataformaGuard } from './core/auth/personal-plataforma.guard';
 import { superadminGuard } from './core/auth/superadmin.guard';
+import { coincideConEvento, coincideConOrganizacion } from './core/routing/rutas-publicas';
+import { coincideConEnlaceAntiguo, enlaceAntiguo } from './features/public/events/enlace-antiguo';
 
 export const routes: Routes = [
   {
@@ -397,6 +399,16 @@ export const routes: Routes = [
           import('./features/admin/superadmin/analytics-page').then((m) => m.AnalyticsPage),
       },
       {
+        // Catálogo de categorías de eventos: solo superadmin (escribe una tabla
+        // de instalación), no el rol `soporte`.
+        path: 'categorias',
+        canActivate: [superadminGuard],
+        loadComponent: () =>
+          import('./features/admin/superadmin/event-categories-page').then(
+            (m) => m.EventCategoriesPage,
+          ),
+      },
+      {
         // Credencial del proveedor de IA e interruptores de servicio: solo
         // superadmin, no el rol `soporte` que sí entra al resto de `/admin`.
         path: 'ia',
@@ -468,35 +480,6 @@ export const routes: Routes = [
           import('./features/public/events/events-list-page').then((m) => m.EventsListPage),
       },
       {
-        path: 'eventos/:slug',
-        loadComponent: () => import('./features/public/events/event-page').then((m) => m.EventPage),
-      },
-      {
-        path: 'eventos/:slug/sesiones/:sessionId',
-        loadComponent: () =>
-          import('./features/public/events/session-page').then((m) => m.SessionPage),
-      },
-      {
-        path: 'eventos/:slug/programa',
-        loadComponent: () =>
-          import('./features/public/events/event-venues-page').then((m) => m.EventVenuesPage),
-      },
-      {
-        path: 'eventos/:slug/patrocinadores/:sponsorId',
-        loadComponent: () =>
-          import('./features/public/events/sponsor-page').then((m) => m.SponsorPage),
-      },
-      {
-        path: 'eventos/:slug/politicas',
-        loadComponent: () =>
-          import('./features/public/events/public-policies-page').then((m) => m.PublicPoliciesPage),
-      },
-      {
-        path: 'eventos/:slug/inscribirse',
-        loadComponent: () =>
-          import('./features/public/events/registration-page').then((m) => m.RegistrationPage),
-      },
-      {
         path: 'pago/retorno',
         loadComponent: () =>
           import('./features/public/events/payment-return').then((m) => m.PaymentReturnPage),
@@ -547,7 +530,63 @@ export const routes: Routes = [
         loadComponent: () => import('./features/public/legal/legal-page').then((m) => m.LegalPage),
         data: { page: 'condiciones-de-inscripcion' },
       },
+      // Enlaces antiguos `/eventos/:slug/**`: antes que `:org/:slug`, que también
+      // los reconocería. El guard redirige a la URL actual; si el evento ya no
+      // es público, cae en la página 404.
+      {
+        matcher: coincideConEnlaceAntiguo,
+        canActivate: [enlaceAntiguo],
+        loadComponent: () =>
+          import('./features/public/pagina-no-encontrada').then((m) => m.PaginaNoEncontrada),
+      },
+      // `/{org}/{evento}/…`: al final del árbol público, para que ninguna ruta
+      // estática (legal, mis-eventos, pago, ponentes…) quede tapada. Los
+      // matchers exigen `PATRON_SLUG`: `/foo.php` o `/.env` no coinciden.
+      {
+        matcher: coincideConEvento(),
+        loadComponent: () => import('./features/public/events/event-page').then((m) => m.EventPage),
+      },
+      {
+        matcher: coincideConEvento('sesiones/:sessionId'),
+        loadComponent: () =>
+          import('./features/public/events/session-page').then((m) => m.SessionPage),
+      },
+      {
+        matcher: coincideConEvento('programa'),
+        loadComponent: () =>
+          import('./features/public/events/event-venues-page').then((m) => m.EventVenuesPage),
+      },
+      {
+        matcher: coincideConEvento('patrocinadores/:sponsorId'),
+        loadComponent: () =>
+          import('./features/public/events/sponsor-page').then((m) => m.SponsorPage),
+      },
+      {
+        matcher: coincideConEvento('politicas'),
+        loadComponent: () =>
+          import('./features/public/events/public-policies-page').then((m) => m.PublicPoliciesPage),
+      },
+      {
+        matcher: coincideConEvento('inscribirse'),
+        loadComponent: () =>
+          import('./features/public/events/registration-page').then((m) => m.RegistrationPage),
+      },
+      // `/{org}`: página pública de la organización (opt-in). Detrás de todo lo
+      // estático y de las rutas de evento; si la organización no activó su
+      // página, la propia página responde 404.
+      {
+        matcher: coincideConOrganizacion,
+        loadComponent: () =>
+          import('./features/public/organization/organization-public-page').then(
+            (m) => m.OrganizationPublicPage,
+          ),
+      },
+      // Cualquier otra cosa: 404 real dentro de la cabecera y el pie públicos.
+      {
+        path: '**',
+        loadComponent: () =>
+          import('./features/public/pagina-no-encontrada').then((m) => m.PaginaNoEncontrada),
+      },
     ],
   },
-  { path: '**', redirectTo: '' },
 ];

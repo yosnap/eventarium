@@ -75,7 +75,7 @@ async def _crear_codigo(cliente: AsyncClient, cabeceras: dict[str, str], event_i
 
 
 def _url_quote(slug: str) -> str:
-    return f"/api/v1/public/events/{slug}/checkout/quote"
+    return f"/api/v1/public/organizations/acme/events/{slug}/checkout/quote"
 
 
 async def test_presupuesto_sin_codigo_devuelve_el_precio_de_lista(

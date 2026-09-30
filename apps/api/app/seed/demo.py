@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.security import generate_password, hash_password
+from app.modules.events.models import EventCategory
 from app.modules.organizations import service
 from app.modules.organizations.models import Organization, OrganizationMember
 from app.modules.roles.models import Role
@@ -32,6 +33,31 @@ class SeedResult:
     owner_email: str
     owner_password: str | None
     created: bool
+
+
+# Catálogo de categorías de desarrollo: en una instalación real las define la
+# superadministración desde el panel; aquí solo se siembran para tener con qué
+# probar el filtro del directorio. Idempotente por `slug`.
+CATEGORIAS_DE_DEMO: tuple[tuple[str, str, int], ...] = (
+    ("conferencia", "Conferencia", 10),
+    ("taller", "Taller", 20),
+    ("meetup", "Meetup", 30),
+    ("formacion", "Formación", 40),
+    ("hackathon", "Hackathon", 50),
+    ("networking", "Networking", 60),
+)
+
+
+async def sembrar_categorias(session: AsyncSession) -> int:
+    """Crea las categorías de demostración que falten. Devuelve cuántas creó."""
+    creadas = 0
+    for slug, nombre, orden in CATEGORIAS_DE_DEMO:
+        existente = await session.scalar(select(EventCategory).where(EventCategory.slug == slug))
+        if existente is None:
+            session.add(EventCategory(slug=slug, name=nombre, display_order=orden, is_active=True))
+            creadas += 1
+    await session.flush()
+    return creadas
 
 
 async def seed_demo(session: AsyncSession, *, reset_password: bool = False) -> SeedResult:
@@ -93,6 +119,7 @@ async def seed_demo(session: AsyncSession, *, reset_password: bool = False) -> S
             )
         )
 
+    await sembrar_categorias(session)
     await session.flush()
     return SeedResult(
         organization_slug=organizacion.slug,

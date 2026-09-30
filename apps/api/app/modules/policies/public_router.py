@@ -7,11 +7,15 @@ un evento oculto o privado da 404 y no revela que existe.
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from typing import Annotated
+
+from fastapi import APIRouter, Depends
 
 from app.core.deps import SessionDep
-from app.core.ratelimit import PUBLICO_POR_IP, limit_per_ip
+from app.core.ratelimit import PUBLICO_POR_IP
 from app.modules.events import service as events_service
+from app.modules.events.models import Event
+from app.modules.events.public_deps import EVENTO_PARA_MOSTRAR, ruta_de_evento
 from app.modules.organizations.models import Organization
 from app.modules.policies import service
 from app.modules.policies.router import version_out
@@ -20,14 +24,17 @@ from app.modules.policies.schemas import PublicEventPolicies
 router = APIRouter(prefix="/public", tags=["público"])
 
 
-@router.get(
-    "/events/{slug}/policies",
+@ruta_de_evento(
+    router,
+    "get",
+    "/policies",
     summary="Políticas y condiciones vigentes de un evento",
     response_model=PublicEventPolicies,
-    dependencies=[limit_per_ip("politicas-publicas", PUBLICO_POR_IP)],
+    limite=("politicas-publicas", PUBLICO_POR_IP),
 )
-async def get_public_event_policies(slug: str, session: SessionDep) -> PublicEventPolicies:
-    evento = await events_service.resolve_public_event_by_slug(session, slug, para_mostrar=True)
+async def get_public_event_policies(
+    evento: Annotated[Event, Depends(EVENTO_PARA_MOSTRAR)], session: SessionDep
+) -> PublicEventPolicies:
     organizacion = await session.get(Organization, evento.organization_id)
     vigentes = await service.vigentes_de_evento(session, evento.organization_id, evento.id)
     return PublicEventPolicies(

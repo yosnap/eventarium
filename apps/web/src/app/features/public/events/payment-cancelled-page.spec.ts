@@ -56,6 +56,15 @@ describe('PaymentCancelledPage', () => {
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
+  it('con la organización en la URL enlaza a la ruta nueva del evento', async () => {
+    configurar(rutaCon({ org: 'acme', slug: 'iawic-2026' }));
+
+    const fixture = TestBed.createComponent(PaymentCancelledPage);
+    await fixture.whenStable();
+
+    expect(fixture.nativeElement.querySelector('a')?.getAttribute('href')).toBe('/acme/iawic-2026');
+  });
+
   it('sin `slug` en la URL no muestra el enlace de vuelta', async () => {
     configurar(rutaCon({}));
 

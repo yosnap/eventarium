@@ -51,6 +51,7 @@ export const PLATFORM_NAV_LINKS: readonly AdminNavLink[] = [
     labelKey: 'admin.superadmin.plantillas.titulo',
     soloSuperadmin: true,
   },
+  { path: ['/admin/categorias'], labelKey: 'admin.categorias.nav', soloSuperadmin: true },
   // Suplantar y el directorio de usuarios aceptan también el rol de
   // plataforma `soporte` en el backend (`require_platform_staff`, plan
   // `260916-0810-usuarios-y-permisos-plataforma`): sin `soloSuperadmin`,

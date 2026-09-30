@@ -8,6 +8,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { esperarSinViolacionesDeAccesibilidad } from '../../../../testing/axe';
 import es from '../../../../../public/assets/i18n/es-ES.json';
+import { By } from '@angular/platform-browser';
+import { Select } from '../../../shared/ui/select';
 import { EventForm } from './event-form';
 
 function eventoDetalle(overrides: Record<string, unknown> = {}) {
@@ -20,6 +22,8 @@ function eventoDetalle(overrides: Record<string, unknown> = {}) {
     location_mode: 'in_person',
     timezone: 'Europe/Madrid',
     payment_checkout_window_minutes: 45,
+    category: null,
+    tags: [],
     ...overrides,
   };
 }
@@ -50,6 +54,21 @@ function configurar(id: string | null) {
   });
 }
 
+const CATEGORIAS = [
+  { id: 'c-taller', slug: 'taller', name: 'Taller', display_order: 1, is_active: true },
+  { id: 'c-charla', slug: 'charla', name: 'Charla', display_order: 2, is_active: true },
+];
+
+/** El formulario pide el catálogo de categorías activas al abrirse. */
+async function flushCategorias(
+  http: HttpTestingController,
+  fixture: ComponentFixture<unknown>,
+  categorias: readonly object[] = CATEGORIAS,
+): Promise<void> {
+  http.expectOne('/api/v1/event-categories').flush(categorias);
+  await avanzar(fixture);
+}
+
 /** `EventDetails` (delegado desde `EventForm` en modo edición) pide sus propios
  * datos —solo portada y estado, ya no arrastra ninguna sección del evento—: se
  * vacía aquí para no dejar la petición pendiente en `http.verify()`. */
@@ -76,6 +95,7 @@ describe('EventForm', () => {
 
     const fixture = TestBed.createComponent(EventForm);
     await avanzar(fixture);
+    await flushCategorias(http, fixture);
 
     expect(fixture.nativeElement.querySelector('app-event-details')).toBeNull();
     const campoVentana = fixture.nativeElement.querySelector(
@@ -94,6 +114,7 @@ describe('EventForm', () => {
 
     const fixture = TestBed.createComponent(EventForm);
     await avanzar(fixture);
+    await flushCategorias(http, fixture);
 
     const campoVentana = fixture.nativeElement.querySelector(
       '#evento-ventana-pago',
@@ -112,6 +133,7 @@ describe('EventForm', () => {
 
     const fixture = TestBed.createComponent(EventForm);
     await avanzar(fixture);
+    await flushCategorias(http, fixture);
     http
       .expectOne((peticion) => peticion.url === '/api/v1/events/e1' && peticion.method === 'GET')
       .flush(eventoDetalle());
@@ -132,5 +154,105 @@ describe('EventForm', () => {
     await flushEventDetails(http, fixture);
 
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
+  describe('categoría y etiquetas', () => {
+    async function abrirEdicion(
+      overrides: Record<string, unknown> = {},
+      categorias: readonly object[] = CATEGORIAS,
+    ) {
+      configurar('e1');
+      http = TestBed.inject(HttpTestingController);
+      const fixture = TestBed.createComponent(EventForm);
+      await avanzar(fixture);
+      await flushCategorias(http, fixture, categorias);
+      http
+        .expectOne((p) => p.url === '/api/v1/events/e1' && p.method === 'GET')
+        .flush(eventoDetalle(overrides));
+      await avanzar(fixture);
+      await flushEventDetails(http, fixture);
+      return fixture;
+    }
+
+    function opciones(fixture: ComponentFixture<unknown>): string[] {
+      const nativo = fixture.nativeElement.querySelector(
+        '#evento-categoria-nativo',
+      ) as HTMLSelectElement;
+      return [...nativo.options].map((o) => o.textContent?.trim() ?? '');
+    }
+
+    it('ofrece «Sin categoría» y las activas del catálogo', async () => {
+      const fixture = await abrirEdicion();
+      expect(opciones(fixture)).toEqual(['Sin categoría', 'Taller', 'Charla']);
+    });
+
+    it('conserva en el selector la categoría actual aunque esté desactivada', async () => {
+      const desactivada = {
+        id: 'c-vieja',
+        slug: 'vieja',
+        name: 'Vieja',
+        display_order: 9,
+        is_active: false,
+      };
+      const fixture = await abrirEdicion({ category: desactivada });
+      expect(opciones(fixture)).toContain('Vieja (desactivada)');
+      expect(
+        (fixture.nativeElement.querySelector('#evento-categoria-nativo') as HTMLSelectElement)
+          .value,
+      ).toBe('c-vieja');
+    });
+
+    it('carga las etiquetas y envía categoría y etiquetas normalizadas al guardar', async () => {
+      const fixture = await abrirEdicion({ category: CATEGORIAS[0], tags: ['ia', 'datos'] });
+      const campo = fixture.nativeElement.querySelector('#evento-etiquetas') as HTMLInputElement;
+      expect(campo.value).toBe('ia, datos');
+
+      campo.value = ' IA , Machine   Learning,ia ';
+      campo.dispatchEvent(new Event('input'));
+      await avanzar(fixture);
+      (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
+        new Event('submit'),
+      );
+      await avanzar(fixture);
+
+      const peticion = http.expectOne((p) => p.url === '/api/v1/events/e1' && p.method === 'PATCH');
+      expect(peticion.request.body.category_id).toBe('c-taller');
+      expect(peticion.request.body.tags).toEqual(['ia', 'machine learning']);
+      peticion.flush(eventoDetalle());
+    });
+
+    it('«Sin categoría» envía null para quitarla', async () => {
+      const fixture = await abrirEdicion({ category: CATEGORIAS[0] });
+      // El `<select>` nativo del componente es un espejo oculto: se elige por el
+      // propio componente, como haría un clic en su lista.
+      const selector = fixture.debugElement
+        .queryAll(By.directive(Select))
+        .find((d) => d.nativeElement.querySelector('#evento-categoria-nativo'));
+      selector?.componentInstance.value.set('');
+      await avanzar(fixture);
+      (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
+        new Event('submit'),
+      );
+      await avanzar(fixture);
+
+      const peticion = http.expectOne((p) => p.url === '/api/v1/events/e1' && p.method === 'PATCH');
+      expect(peticion.request.body.category_id).toBeNull();
+      peticion.flush(eventoDetalle());
+    });
+
+    it('unas etiquetas inválidas se avisan y bloquean el guardado', async () => {
+      const fixture = await abrirEdicion();
+      const campo = fixture.nativeElement.querySelector('#evento-etiquetas') as HTMLInputElement;
+      campo.value = 'uno, dos, tres, cuatro, cinco, seis';
+      campo.dispatchEvent(new Event('input'));
+      await avanzar(fixture);
+      expect(fixture.nativeElement.textContent).toContain('como máximo 5 etiquetas');
+
+      (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
+        new Event('submit'),
+      );
+      await avanzar(fixture);
+      http.expectNone((p) => p.method === 'PATCH');
+    });
   });
 });

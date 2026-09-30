@@ -15,6 +15,7 @@ from tests.conftest import OrganizacionDePrueba, iniciar_sesion
 from tests.test_sponsors_router import _crear_evento, _crear_tier, _publicar
 
 PUBLIC_EVENTS = "/api/v1/public/events"
+EVENTOS_DE_ACME = "/api/v1/public/organizations/acme/events"
 EVENTS = "/api/v1/events"
 
 
@@ -70,7 +71,7 @@ async def test_sesion_patrocinador_y_politicas_traen_el_tema_del_evento(
     ).json()
     await _publicar(cliente, cabeceras, evento["id"])
 
-    base = f"{PUBLIC_EVENTS}/{evento['slug']}"
+    base = f"{EVENTOS_DE_ACME}/{evento['slug']}"
     ficha = (await cliente.get(base)).json()
     assert ficha["theme"]["key"] == plantilla.key
 
