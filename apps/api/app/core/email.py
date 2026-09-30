@@ -15,7 +15,9 @@ cambio del panel en llegar al worker, que es quien envía casi todo.
 from __future__ import annotations
 
 import asyncio
+import html
 import logging
+import re
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -145,6 +147,52 @@ def parametros_tls(modo: ModoTls) -> dict[str, Any]:
     return {"use_tls": False, "start_tls": None}
 
 
+#: URL hasta el siguiente espacio o `<`. La regex no descarta un punto de
+#: frase colado al final — solo lo evita de facto porque los cuerpos del
+#: sistema llevan cada URL sola en su línea (ver `tasks.py`), sin texto pegado.
+_RE_ENLACE = re.compile(r"https?://[^\s<]+")
+
+
+def _linea_a_html(linea: str) -> str:
+    """Una línea del cuerpo: cada URL se convierte en `<a href>` de verdad.
+
+    Se escapa **antes** de sustituir: el enlace resultante lleva su propio
+    `&amp;` ya escapado, válido tanto en el atributo `href` como en el texto.
+    """
+
+    def sustituir(match: re.Match[str]) -> str:
+        url = html.escape(match.group(0))
+        return f'<a href="{url}">{url}</a>'
+
+    return _RE_ENLACE.sub(sustituir, html.escape(linea))
+
+
+def texto_a_html(cuerpo: str) -> str:
+    """Versión HTML del cuerpo en texto plano, con enlaces de verdad.
+
+    Todos los cuerpos del sistema siguen el mismo patrón (párrafos
+    separados por línea en blanco, las URLs solas en su línea), y el
+    resultado va solo al cliente de correo que prefiere HTML:
+
+    - cada párrafo es un `<p>` (los clientes de correo se llevan bien solo
+      con lo más básico: ni CSS ni tablas);
+    - cada URL se convierte en `<a href>`: los clientes de correo móvil
+      envuelven una URL larga en mitad de línea y el enlace de texto plano
+      se rompe al pulsarlo; con el elemento real se toca igual;
+    - el resto se escapa, para que un nombre con `&` o `<` no se trague la
+      estructura.
+
+    El texto plano original viaja siempre como alternativa (ver
+    `enviar_con`): los clientes que solo lean texto reciben el cuerpo
+    intacto.
+    """
+    parrafos = (
+        [_linea_a_html(linea) for linea in bruto.split("\n") if linea.strip()]
+        for bruto in cuerpo.split("\n\n")
+    )
+    return "".join(f"<p>{' '.join(partes)}</p>" for partes in parrafos if partes)
+
+
 async def enviar_con(
     config: ConfigSmtp,
     *,
@@ -159,6 +207,7 @@ async def enviar_con(
     mensaje["To"] = to
     mensaje["Subject"] = subject
     mensaje.set_content(body)
+    mensaje.add_alternative(texto_a_html(body), subtype="html")
     for adjunto in attachments:
         mensaje.add_attachment(
             adjunto.content,
