@@ -34,8 +34,8 @@ En EasyPanel, crea un proyecto y dentro estos servicios:
 
 | Servicio | Tipo | Imagen o plantilla | Puerto interno |
 |---|---|---|---|
-| `postgres` | Compose (volumen `postgres-data`) | `postgres:16-alpine`; en migración a la 18 | 5432 |
-| `postgres18` | Compose (volumen `postgres18-data`) | `postgres:18.6-alpine` (en paralelo durante la migración) | 5432 |
+| `postgres` | Compose (volumen `postgres18-data`) | `postgres:18.6-alpine` | 5432 |
+| `postgres16` | Compose, perfil `rollback` (no arranca) | `postgres:16.15-alpine`, volumen `postgres-data` intacto; se elimina el 2026-10-30 | — |
 | `redis` | Plantilla Redis 7 | — | 6379 |
 | `seaweedfs` | App | `chrislusf/seaweedfs:3.97` | 8333 |
 | `api` | App | `ghcr.io/yosnap/eventarium/api:sha-<commit>` | 8000 |
@@ -264,6 +264,8 @@ todas las migraciones son reversibles sin pérdida de datos, y ese es el peor mo
 para descubrirlo.
 
 ## Migrar PostgreSQL de la 16 a la 18
+
+**Hecho el 2026-09-30 en producción** (base `eventarium`, 12 MB, 57 tablas, sin visitas): la migración con `upgrade-postgres.sh` verificó recuentos, políticas RLS, funciones, roles y privilegios idénticos, y el corte fue por renombrado de servicio. Queda el servicio `postgres16` en el perfil `rollback` hasta el 2026-10-30. Lo que sigue es el procedimiento, por si hay que repetirlo o volver atrás.
 
 Procedimiento para la instalación de producción (base `eventarium`, servicio `postgres` de la 16
 y servicio `postgres18` de la 18 en paralelo). **Se hace en una ventana distinta a la de un
