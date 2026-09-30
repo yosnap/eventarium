@@ -1,5 +1,5 @@
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
@@ -12,6 +12,8 @@ import { ThemingService } from '../../core/theming/theming.service';
 import { PublicShell } from './public-shell';
 
 describe('PublicShell', () => {
+  let http: HttpTestingController;
+
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [
@@ -44,10 +46,19 @@ describe('PublicShell', () => {
         },
       ],
     });
+    http = TestBed.inject(HttpTestingController);
   });
 
   afterEach(() => {
     document.documentElement.removeAttribute('data-theme');
+    // El `AccessMenu` del shell renueva con la cookie al hidratarse
+    // (`afterNextRender`); en el test no hay cookie, así que la renovación
+    // responde 401 y se queda en invitado. Se descarta esa petición para no
+    // dejar peticiones colgando entre pruebas.
+    for (const peticion of http.match((req) => req.url.endsWith('/auth/refresh'))) {
+      peticion.flush(null, { status: 401, statusText: 'Unauthorized' });
+    }
+    http.verify();
   });
 
   it('el pie atribuye la plataforma a Humanitek con su logo enlazando a humanitek.org', async () => {

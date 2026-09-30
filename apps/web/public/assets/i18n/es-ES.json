@@ -257,7 +257,9 @@
     "accesoMenu": {
       "titulo": "Acceso a la cuenta",
       "iniciarSesion": "Iniciar sesión",
-      "crearCuenta": "Crear cuenta"
+      "crearCuenta": "Crear cuenta",
+      "miCuenta": "Mi cuenta",
+      "cerrarSesion": "Cerrar sesión"
     },
     "redesSociales": "Redes sociales del organizador",
     "piePagina": "Pie de página",

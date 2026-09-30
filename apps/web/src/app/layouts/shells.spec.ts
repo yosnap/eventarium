@@ -44,6 +44,7 @@ describe('shells', () => {
       }),
       isAuthenticated: signal(true),
       cierreFueDeliberado: signal(false),
+      refresh: vi.fn().mockResolvedValue(false),
       logout: vi.fn(),
       listMyOrganizations: vi.fn().mockResolvedValue([]),
       loadCurrentUser: vi.fn().mockResolvedValue(undefined),
@@ -151,6 +152,11 @@ describe('shells', () => {
   });
 
   it('el menú de acceso del shell público lleva tanto a acceder como a crear cuenta', async () => {
+    // Sin sesión: el menú (que ahora reacciona al estado real) muestra las
+    // opciones de invitado.
+    TestBed.overrideProvider(AuthService, {
+      useValue: { ...configurarAuth(false), currentUser: signal(null), isAuthenticated: signal(false) },
+    });
     const fixture = TestBed.createComponent(PublicShell);
     await fixture.whenStable();
     fixture.detectChanges();

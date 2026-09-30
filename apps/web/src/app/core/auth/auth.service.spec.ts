@@ -202,6 +202,26 @@ describe('AuthService: refresh()', () => {
     expect(servicio.isAuthenticated()).toBe(false);
     expect(servicio.accessToken()).toBeNull();
   });
+
+  it('dos refresh() simultáneos envían UNA sola petición /auth/refresh', async () => {
+    await iniciarSesion();
+
+    // Varios consumidores (guards, interceptor de 401, menú de la cabecera
+    // pública) pueden querer renovar a la vez tras una recarga. El backend
+    // rota el refresh token en cada /auth/refresh y revoca la familia entera
+    // si detecta reutilización de uno ya rotado: la segunda petición en
+    // paralelo habría matado la sesión de quien solo recargó la página.
+    const [a, b] = [servicio.refresh(), servicio.refresh()];
+    const peticion = http.expectOne('/api/v1/auth/refresh');
+    peticion.flush({ access_token: 'token-nuevo', expires_in: 900 });
+    const [resA, resB] = await Promise.all([a, b]);
+
+    expect(resA).toBe(true);
+    expect(resB).toBe(true);
+    expect(servicio.accessToken()).toBe('token-nuevo');
+    // Sin peticiones pendientes: la segunda llamada no lanzó otra petición.
+    http.verify();
+  });
 });
 
 describe('AuthService: organización sin dominio', () => {

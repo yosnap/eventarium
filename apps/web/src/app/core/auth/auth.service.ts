@@ -197,45 +197,67 @@ export class AuthService {
     this.usuario.set(respuesta.user);
   }
 
+  /**
+   * Refresh en vuelo, compartido por todos los que a la vez quieren renovar
+   * (guards, interceptor de 401, menú de la cabecera pública tras una recarga).
+   *
+   * El backend **rota** el refresh token en cada `/auth/refresh` y revoca toda la
+   * familia si detecta que un token ya rotado se reutiliza. Dos refresh en
+   * paralelo no serían "dos intentos", serían exactamente esa reutilización:
+   * el segundo llegaría con la cookie que el primer refresh acaba de reemplazar
+   * y tumbaría la sesión de una persona que solo había recargado la página.
+   * Deduplicar por aquí lo hace imposible por construcción.
+   */
+  private refreshEnVuelo: Promise<boolean> | null = null;
+
   /** Renueva el access token con la cookie. Devuelve `false` si ya no hay sesión. */
   async refresh(): Promise<boolean> {
-    const generacionAlEmpezar = this.generacionSesion;
-    try {
-      const respuesta = await firstValueFrom(
-        this.http.post<RespuestaRefresh>(this.api.url('/auth/refresh'), null, {
-          withCredentials: true,
-        }),
-      );
-      // La sesión pudo cerrarse (logout, u otro refresh que sí falló) mientras
-      // esta petición estaba en vuelo. Aplicar ahora este token resucitaría
-      // una sesión que se cerró a propósito.
-      if (this.generacionSesion !== generacionAlEmpezar) {
-        return false;
-      }
-      this.token.set(respuesta.access_token);
-      return true;
-    } catch (error) {
-      // Solo se limpia la sesión cuando el SERVIDOR ha dicho de verdad que
-      // ya no hay nada que renovar (401/403 — cookie de refresco caducada o
-      // revocada). Un fallo de red, un 5xx durante un despliegue o un
-      // timeout no significan "sesión muerta", significan "no se ha podido
-      // comprobar" — limpiarla en esos casos expulsaría del panel a mitad
-      // de un formulario sin guardar por un problema pasajero (hallazgo de
-      // code-review). El resto de este método ya se comporta bien sin
-      // limpiar: se queda con el token viejo, que seguirá fallando hasta
-      // que un refresh posterior (transitorio ya resuelto, o el usuario
-      // reintentando) tenga éxito.
-      //
-      // El error que llega aquí ya pasó por `errorInterceptor`, que lo
-      // convierte siempre en `ApiError` antes de que este `catch` lo vea
-      // (`errorInterceptor` está registrado antes que `authInterceptor` en
-      // `app.config.ts`, así que es el último en tocar la respuesta). Un
-      // `HttpErrorResponse` aquí nunca llegaría a cumplirse.
-      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
-        this.clear();
-      }
-      return false;
+    if (this.refreshEnVuelo !== null) {
+      return this.refreshEnVuelo;
     }
+    const generacionAlEmpezar = this.generacionSesion;
+    const renovacion = (async () => {
+      try {
+        const respuesta = await firstValueFrom(
+          this.http.post<RespuestaRefresh>(this.api.url('/auth/refresh'), null, {
+            withCredentials: true,
+          }),
+        );
+        // La sesión pudo cerrarse (logout, u otro refresh que sí falló) mientras
+        // esta petición estaba en vuelo. Aplicar ahora este token resucitaría
+        // una sesión que se cerró a propósito.
+        if (this.generacionSesion !== generacionAlEmpezar) {
+          return false;
+        }
+        this.token.set(respuesta.access_token);
+        return true;
+      } catch (error) {
+        // Solo se limpia la sesión cuando el SERVIDOR ha dicho de verdad que
+        // ya no hay nada que renovar (401/403 — cookie de refresco caducada o
+        // revocada). Un fallo de red, un 5xx durante un despliegue o un
+        // timeout no significan "sesión muerta", significan "no se ha podido
+        // comprobar" — limpiarla en esos casos expulsaría del panel a mitad
+        // de un formulario sin guardar por un problema pasajero (hallazgo de
+        // code-review). El resto de este método ya se comporta bien sin
+        // limpiar: se queda con el token viejo, que seguirá fallando hasta
+        // que un refresh posterior (transitorio ya resuelto, o el usuario
+        // reintentando) tenga éxito.
+        //
+        // El error que llega aquí ya pasó por `errorInterceptor`, que lo
+        // convierte siempre en `ApiError` antes de que este `catch` lo vea
+        // (`errorInterceptor` está registrado antes que `authInterceptor` en
+        // `app.config.ts`, así que es el último en tocar la respuesta). Un
+        // `HttpErrorResponse` aquí nunca llegaría a cumplirse.
+        if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+          this.clear();
+        }
+        return false;
+      } finally {
+        this.refreshEnVuelo = null;
+      }
+    })();
+    this.refreshEnVuelo = renovacion;
+    return renovacion;
   }
 
   async register(email: string, password: string, turnstileToken: string): Promise<void> {
