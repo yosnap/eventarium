@@ -31,6 +31,42 @@ export interface ChangelogVersion {
 
 export const CHANGELOG: readonly ChangelogVersion[] = [
   {
+    version: '0.26.0',
+    fecha: '2026-09-30',
+    secciones: [
+      {
+        categoria: 'agregado',
+        items: [
+          {
+            titulo: 'Menú de cuenta en la cabecera de la web pública',
+            descripcion:
+              'La cabecera de la web pública ya no dice "Iniciar sesión" cuando hay sesión viva: muestra la cuenta (nombre, «Mi cuenta», «Cerrar sesión») o las opciones de invitado según el estado real, renovando la sesión al cargar. «Cerrar sesión» vuelve a la interfaz de invitado sin navegar.',
+          },
+        ],
+      },
+      {
+        categoria: 'corregido',
+        items: [
+          {
+            titulo: 'El correo saliente lleva una versión HTML con enlaces de verdad',
+            descripcion:
+              'Cada correo del sistema va ahora con una alternativa HTML además del texto plano: las direcciones web son enlaces de verdad que se pueden pulsar. Antes, los clientes de correo móvil partían las direcciones largas al envolver la línea y el enlace no funcionaba; por eso las invitaciones a ponentes llegaban rotas.',
+          },
+          {
+            titulo: 'Los diálogos del panel caben en una vista pequeña',
+            descripcion:
+              'Los diálogos más altos que la pantalla (como el alta de ponente en el móvil) quedaban cortados con sus botones inalcanzables. Ahora se ajustan a la altura disponible, el contenido se desplaza por sí solo y los botones de acción quedan siempre a la vista.',
+          },
+          {
+            titulo: 'El menú de navegación del panel se repliega al elegir',
+            descripcion:
+              'En pantallas estrechas, el menú del panel ya no se queda abierto encima de la página elegida: se repliega al pulsar cualquier enlace de navegación, incluso si vuelves a la página en la que ya estabas.',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.25.1',
     fecha: '2026-09-30',
     secciones: [
