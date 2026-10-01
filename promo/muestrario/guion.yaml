@@ -1,0 +1,44 @@
+# Muestrario del lenguaje visual dinámico: una escena por técnica, para elegir qué se queda.
+escenas:
+  - id: gancho
+    pieza: rotulo
+    parametros: { titulo: "Organiza eventos *sin caos*", fondo: acento, animacion: rotulador }
+    frases:
+      - texto: "Organiza eventos sin caos."
+  - id: pila
+    pieza: pila
+    parametros: { capturas: [panel, eventos, agenda], titulo: "Todo tu evento, *en un sitio*" }
+    frases:
+      - texto: "Panel, eventos y agenda en un solo sitio."
+  - id: lista
+    pieza: lista
+    parametros:
+      captura: inscripciones
+      elementos: ["Inscripción gratis o de pago", "Lista de espera automática", "Entradas con QR", "Contabilidad al día"]
+    frases:
+      - texto: "Inscripción, lista de espera, entradas con QR y contabilidad."
+  - id: detalle
+    pieza: detalle
+    parametros: { captura: contabilidad, caja: saldo, etiqueta: "Saldo en positivo", titulo: "Tus cuentas, *claras*" }
+    frases:
+      - texto: "Y sabes en todo momento cómo van tus cuentas."
+  - id: dispositivos
+    pieza: dispositivos
+    parametros: { escritorio: inscripciones, movil: check-in, titulo: "Check-in con el *móvil*" }
+    frases:
+      - texto: "El día del evento, check-in con el móvil."
+  - id: abanico
+    pieza: abanico
+    parametros: { capturas: [plantillas, marca, politicas], titulo: "Con *tu marca* y tus normas" }
+    frases:
+      - texto: "Con tu marca, tus plantillas y tus políticas."
+  - id: mosaico
+    pieza: mosaico
+    parametros: { capturas: [panel, eventos, agenda, ponentes, ficha-publica, patrocinadores], titulo: "Y *mucho más*" }
+    frases:
+      - texto: "Y mucho más."
+  - id: cierre
+    pieza: logo
+    parametros: { lema: "Tus eventos, de principio a fin", boton: "Crea tu cuenta gratis", url: "eventarium.org" }
+    frases:
+      - texto: "Eventarium. Crea tu cuenta gratis."
