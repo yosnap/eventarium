@@ -31,6 +31,32 @@ export interface ChangelogVersion {
 
 export const CHANGELOG: readonly ChangelogVersion[] = [
   {
+    version: '0.26.1',
+    fecha: '2026-10-01',
+    secciones: [
+      {
+        categoria: 'modificado',
+        items: [
+          {
+            titulo: 'Todos los correos llevan la plantilla de la plataforma',
+            descripcion:
+              'Cada correo del sistema (invitaciones, verificación, recuperación, inscripciones, pago…) se envía ahora con una plantilla con la cabecera de la plataforma (el logotipo configurado en la identidad, con un acento en el color de marca), un botón de acción destacado con el enlace principal, y un pie con los enlaces a las páginas legales (aviso legal, privacidad y cookies). El texto plano alternativo conserva el cuerpo y añade el pie.',
+          },
+        ],
+      },
+      {
+        categoria: 'corregido',
+        items: [
+          {
+            titulo: 'Los diálogos cerrados no se pintan en el flujo de la página',
+            descripcion:
+              'Los diálogos cerrados (como los del selector de imágenes) se seguían pintando dentro de la página, flotando encima del formulario y pisando su contenido. Ahora solo se dibujan cuando están abiertos.',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.26.0',
     fecha: '2026-09-30',
     secciones: [
