@@ -69,6 +69,15 @@ import {
          a pulgar. */
       max-height: calc(100vh - 40px);
       max-height: calc(100dvh - 40px);
+    }
+    /* La flexbox solo con el diálogo abierto. Con «display: flex» en la regla
+       base (incondicional) la regla de autor ganaba al «display: none» del
+       navegador que oculta un dialog cerrado, y TODOS los diálogos cerrados se
+       pintaban en el flujo de la página (los de MediaPicker flotaban por encima
+       del formulario y se pisaban). showModal() añade el atributo open, así que
+       con esta condición se conserva el scroll de cuerpo y el pie a pulgar en
+       abierto sin que el estado cerrado se vea. */
+    dialog[open] {
       display: flex;
       flex-direction: column;
     }
