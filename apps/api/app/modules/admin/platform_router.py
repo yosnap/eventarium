@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import registrar_auditoria
 from app.core.deps import SCOPE_SESION, CurrentUser, get_maintenance_db, require_superadmin
+from app.core.email import invalidar_branding_en_cache
 from app.core.storage import (
     build_platform_object_key,
     get_storage,
@@ -212,6 +213,11 @@ async def _subir_imagen_de_marca(
         entity_id=str(branding.singleton),
         detail=None,
     )
+    # El correo lee el logo con caché corta por proceso: se invalida aquí para
+    # que el proceso que guardó el logo (la API) use el nuevo ya, igual que
+    # `email_router.py` hace con la caché de la configuración SMTP. El worker
+    # se actualiza solo con el TTL de 30 s.
+    invalidar_branding_en_cache()
     return await _branding(session)
 
 
