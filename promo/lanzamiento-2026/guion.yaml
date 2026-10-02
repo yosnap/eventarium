@@ -37,7 +37,7 @@ escenas:
   - id: agenda
     pieza: captura
     duracionMinima: 5
-    parametros: { captura: agenda, pulsar: true, titulo: "Agenda con *sesiones y salas*" }
+    parametros: { captura: agenda, titulo: "Agenda con *sesiones y salas*" }
     frases:
       - texto: "Monta la agenda con charlas, descansos y servicios."
   - id: ponentes
@@ -76,7 +76,7 @@ escenas:
   - id: patrocinadores
     pieza: captura
     duracionMinima: 5
-    parametros: { captura: patrocinadores, pulsar: true, titulo: "Patrocinadores *por niveles*" }
+    parametros: { captura: patrocinadores, titulo: "Patrocinadores *por niveles*" }
     frases:
       - texto: "Gestiona patrocinadores por niveles y sus aportaciones."
   - id: mcp

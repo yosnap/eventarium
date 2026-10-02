@@ -29,17 +29,7 @@
     },
     {
       "id": "agenda",
-      "ruta": "/dashboard/events/01a0f95f-1067-7c00-8c46-68c3973f874f/agenda",
-      "cajas": {
-        "anadir": "button:has-text('Añadir sesión')"
-      },
-      "pulsar": "anadir",
-      "pasos": [
-        {
-          "accion": "desplazar",
-          "selector": "button:has-text('Añadir sesión')"
-        }
-      ]
+      "ruta": "/dashboard/events/01a0f95f-1067-7c00-8c46-68c3973f874f/agenda"
     },
     {
       "id": "ponentes",
@@ -78,17 +68,7 @@
     },
     {
       "id": "patrocinadores",
-      "ruta": "/dashboard/events/01a0f95f-1067-7c00-8c46-68c3973f874f/patrocinadores",
-      "cajas": {
-        "anadir": "button:has-text('Añadir patrocinador')"
-      },
-      "pulsar": "anadir",
-      "pasos": [
-        {
-          "accion": "desplazar",
-          "selector": "button:has-text('Añadir patrocinador')"
-        }
-      ]
+      "ruta": "/dashboard/events/01a0f95f-1067-7c00-8c46-68c3973f874f/patrocinadores"
     },
     {
       "id": "politicas",

@@ -68,7 +68,13 @@
     "datosPermitidos": [
       "@example.com",
       "@example.test"
-    ]
+    ],
+    "sustituirTextos": {
+      "http://localhost:8080": "https://eventarium.org",
+      "http://localhost:4200": "https://eventarium.org",
+      "localhost:8080": "eventarium.org",
+      "localhost:4200": "eventarium.org"
+    }
   },
   "voz": {
     "proveedor": "ninguna"
