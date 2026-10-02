@@ -152,8 +152,25 @@ export interface ReceiptDraft {
 /** Centinela de `ocr_provider` mientras no se sabe qué modelo lo leerá. */
 export const MOTOR_PENDIENTE = 'ai_gateway';
 
+/**
+ * Formato compartido por todas las cifras de contabilidad: es-ES con
+ * separador de miles y coma decimal, siempre dos decimales.
+ *
+ * Sin separador de miles (`(cents/100).toFixed(2)`) las cifras eran cadenas
+ * ininterrumpibles («21485000.00», sin un solo punto de ruptura) cuyo
+ * min-content revienta los contenedores de ancho fijo (KPIs, celdas de
+ * columna, raíl) — ver informe
+ * `261002-1450-investigacion-desbordes-visuales-contabilidad.md`.
+ * El símbolo no va aquí: quien llama añade « €» (y varias traducciones ya lo
+ * llevan), y `aCents()` de esta misma ficha sigue entendiendo el resultado.
+ */
+const FORMATO_EURO = new Intl.NumberFormat('es-ES', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 export function euros(cents: number): string {
-  return (cents / 100).toFixed(2);
+  return FORMATO_EURO.format(cents / 100);
 }
 
 /** Un único separador seguido de exactamente 3 dígitos y nada más detrás es

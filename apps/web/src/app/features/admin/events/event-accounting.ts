@@ -231,7 +231,10 @@ interface KpiVisible {
     }
     .kpis {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(11.125rem, 1fr));
+      /* \`min(11.125rem, 100%)\`: si una tarjeta exigiera más de lo que cabe
+       * (cifra enorme), la track no ensancha la rejilla — se rompe el valor
+       * dentro de la caja, nunca la página (informe 261002, H2). */
+      grid-template-columns: repeat(auto-fit, minmax(min(11.125rem, 100%), 1fr));
       gap: var(--sp-4);
       margin-bottom: var(--sp-6);
     }
@@ -377,7 +380,13 @@ export class EventAccounting implements OnInit {
         valor: `${euros(this.ejecutadoTotal())} €`,
         descriptor:
           pctEjecutado !== null
-            ? t('admin.events.accounting.kpis.ejecutadoTotalDescriptor', { pct: pctEjecutado })
+            ? pctEjecutado === 0 && this.ejecutadoTotal() > 0
+              ? // Redondear a «0 %» con un presupuesto enorme y un ejecutado
+                // pequeño miente: dice que no se ha gastado nada.
+                t('admin.events.accounting.kpis.ejecutadoTotalDescriptorMenosDeUnPct')
+              : t('admin.events.accounting.kpis.ejecutadoTotalDescriptor', {
+                  pct: pctEjecutado,
+                })
             : null,
         tono: pctEjecutado !== null && pctEjecutado > 100 ? 'warn' : null,
       },

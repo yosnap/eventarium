@@ -37,9 +37,17 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       display: block;
       height: 100%;
     }
+    /* \`min-width: 0\`: sin esto el min-content del valor (una cifra mono sin
+     * espacios, p. ej. «21.485.000,00») empujaba la tarjeta y la track de la
+     * grid por encima de su \`minmax(… , 1fr)\`, ensanchando la fila de KPIs
+     * y, en varios anchos, la página entera (informe 261002, H2).
+     * \`container-type\`: habilita las consultas de contenedor que escalan el
+     * valor según el ancho real de la tarjeta. */
     .kpi {
       box-sizing: border-box;
       height: 100%;
+      min-width: 0;
+      container-type: inline-size;
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
       background-color: var(--surface);
@@ -48,18 +56,37 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
     .rotulo-seccion {
       display: block;
     }
-    /* .kpi__v: mono, --fs-metric, line-height 1, tracking -0.02em (panel-organizador.html:25). */
+    /* .kpi__v: mono, --fs-metric, line-height 1, tracking -0.02em (panel-organizador.html:25).
+     * \`overflow-wrap\`: una cifra grande (sin espacios en su interior) nunca
+     * debe ensanchar la tarjeta: si no cabe, rompe dentro de la caja en vez
+     * de salirse. */
     .valor {
       font-family: var(--font-mono);
       font-size: var(--fs-metric);
       line-height: 1;
       letter-spacing: -0.02em;
+      min-width: 0;
+      overflow-wrap: break-word;
       /* El color semántico pinta solo el valor; la información no depende de él. */
       &.tono-warn {
         color: var(--warn);
       }
       &.tono-accent {
         color: var(--accent);
+      }
+    }
+    /* --fs-metric (2–2.75rem) no cabe en una tarjeta de 4-6 columnas: con el
+     * tamaño a la vista, «12.654,40 €» desbordaba la caja en todo escritorio
+     * (informe 261002, H2). Se escala por el ancho real de la tarjeta, no por
+     * el de la ventana. */
+    @container (max-width: 239px) {
+      .valor {
+        font-size: 1.375rem;
+      }
+    }
+    @container (max-width: 189px) {
+      .valor {
+        font-size: 1.125rem;
       }
     }
     /* .kpi__d: fs-sm muted, 8px por encima (panel-organizador.html:26). */

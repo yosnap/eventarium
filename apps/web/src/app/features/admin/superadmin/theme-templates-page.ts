@@ -384,7 +384,7 @@ function formularioDesdePlantilla(plantilla: PlantillaDeTema): FormularioDePlant
     }
     .catalogo {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(13rem, 100%), 1fr));
       gap: var(--sp-4);
       margin-bottom: var(--space-md);
     }

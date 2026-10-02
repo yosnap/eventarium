@@ -193,6 +193,7 @@ interface DiaDeAgenda {
     }
     .acciones {
       display: flex;
+      flex-wrap: wrap;
       gap: var(--space-sm);
     }
   `,

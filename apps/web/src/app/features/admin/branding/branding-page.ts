@@ -196,7 +196,7 @@ interface Branding {
     .tarjetas {
       display: grid;
       gap: var(--space-md);
-      grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
     }
     .nombre-organizacion {
       display: flex;
@@ -241,7 +241,7 @@ interface Branding {
     }
     .plantillas {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(15rem, 100%), 1fr));
       gap: var(--sp-4);
     }
     .plantilla-tarjeta {

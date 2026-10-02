@@ -254,7 +254,7 @@ function fechaEnZona(iso: string, zona: string): string {
     /* .venues (evento-multisede.html:14). */
     .sedes-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
       gap: var(--sp-4);
       margin-top: var(--sp-6);
     }

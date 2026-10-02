@@ -1,0 +1,103 @@
+# Lenguaje dinámico: mitad pantallas 3D con el cursor pulsando botones reales, mitad composiciones
+# (pila, abanico, lista, dispositivos, detalle, mosaico). Ritmo pausado: 5-7 s por escena.
+# Las frases marcan el ritmo y serán la locución cuando haya voz. Tres actos: problema → producto → acción.
+# Evidencia: docs/prd.md §4 (organizaciones, eventos, inscripción, QR, pagos, patrocinadores, contabilidad,
+# legal) y las pantallas reales de apps/web.
+escenas:
+  - id: gancho
+    pieza: rotulo
+    duracionMinima: 5
+    parametros: { titulo: "Organiza eventos *sin caos*", subtitulo: "Eventarium lo pone en orden", fondo: acento, animacion: rotulador }
+    frases:
+      - texto: "Organizar un evento no debería ser pelearse con diez hojas de cálculo."
+  - id: portada
+    pieza: captura
+    duracionMinima: 5
+    parametros: { captura: portada, titulo: "Tus eventos, con *tu marca*" }
+    frases:
+      - texto: "Eventarium reúne en un solo sitio todo lo que necesita tu evento."
+  - id: todo-en-uno
+    pieza: pila
+    duracionMinima: 5
+    parametros: { capturas: [panel, eventos, agenda], titulo: "Todo tu evento, *en un sitio*" }
+    frases:
+      - texto: "Desde un panel ves inscripciones, ingresos y tareas pendientes."
+  - id: crear-evento
+    pieza: captura
+    duracionMinima: 5
+    parametros: { captura: eventos, pulsar: true, titulo: "Crea un evento en *minutos*" }
+    frases:
+      - texto: "Presencial, online o híbrido; de un día o de varios."
+  - id: identidad
+    pieza: abanico
+    duracionMinima: 5
+    parametros: { capturas: [plantillas, marca, politicas], titulo: "Con tu marca y *tus normas*" }
+    frases:
+      - texto: "Elige una plantilla, pon tu logo y publica tus propias condiciones."
+  - id: agenda
+    pieza: captura
+    duracionMinima: 5
+    parametros: { captura: agenda, titulo: "Agenda con *sesiones y salas*" }
+    frases:
+      - texto: "Monta la agenda con charlas, descansos y servicios."
+  - id: ponentes
+    pieza: captura
+    duracionMinima: 5
+    parametros: { captura: ponentes, pulsar: true, titulo: "Invita a tus *ponentes*" }
+    frases:
+      - texto: "Invita a tus ponentes por correo y ellos completan su ficha."
+        # La voz junta «invita a» y suena «invítame»: se dice en otro orden.
+        hablado: "Invita por correo a tus ponentes y ellos completan su ficha."
+  - id: inscripcion
+    pieza: lista
+    duracionMinima: 6
+    parametros:
+      captura: ficha-publica
+      titulo: "Inscripción *a tu manera*"
+      elementos: ["Gratis, con aprobación o de pago", "Pago seguro con Stripe", "Preguntas a medida", "Entrada con QR al momento"]
+    frases:
+      - texto: "Tus asistentes se inscriben en segundos, gratis, con aprobación o pagando con Stripe."
+  - id: aforo
+    pieza: captura
+    duracionMinima: 5
+    parametros: { captura: inscripciones, titulo: "Aforo y lista de espera, *solos*" }
+    frases:
+      - texto: "Controla el aforo y deja que la lista de espera se gestione sola."
+  - id: check-in
+    pieza: dispositivos
+    duracionMinima: 5
+    parametros: { escritorio: inscripciones, movil: check-in, titulo: "Check-in con el *móvil*" }
+    frases:
+      - texto: "El día del evento, tu equipo escanea las entradas con el móvil."
+  - id: cuentas
+    pieza: detalle
+    duracionMinima: 5
+    parametros: { captura: contabilidad, caja: saldo, etiqueta: "Saldo en positivo", titulo: "Tus cuentas, *claras*" }
+    frases:
+      - texto: "Presupuesto, ingresos y gastos de cada evento, siempre al día."
+  - id: patrocinadores
+    pieza: captura
+    duracionMinima: 5
+    parametros: { captura: patrocinadores, titulo: "Patrocinadores *por niveles*" }
+    frases:
+      - texto: "Gestiona patrocinadores por niveles y sus aportaciones."
+  - id: mcp
+    pieza: captura
+    duracionMinima: 5
+    parametros: { captura: mcp, titulo: "Y gestiónalo con *tu IA*" }
+    frases:
+      - texto: "Y si quieres, gestiónalo desde tu asistente de inteligencia artificial."
+  - id: mucho-mas
+    pieza: mosaico
+    duracionMinima: 4
+    parametros: { capturas: [panel, eventos, agenda, ponentes, ficha-publica, patrocinadores], titulo: "Y *mucho más*" }
+    frases:
+      - texto: "Y mucho más."
+  - id: cierre
+    pieza: logo
+    duracionMinima: 6
+    parametros: { lema: "Tus eventos, de principio a fin", boton: "Crea tu cuenta gratis", url: "eventarium.org" }
+    frases:
+      - texto: "Eventarium. Tus eventos, de principio a fin."
+        # La tilde fija la pronunciación: e-ven-TA-rium, con «a» española.
+        hablado: "Eventárium. Tus eventos, de principio a fin."

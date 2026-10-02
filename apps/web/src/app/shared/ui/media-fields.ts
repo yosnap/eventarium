@@ -360,7 +360,7 @@ function baseDeCarpetas(kind: MediaKind): string {
     }
     .rejilla {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(8rem, 100%), 1fr));
       gap: var(--sp-2);
       max-height: 20rem;
       overflow: auto;
