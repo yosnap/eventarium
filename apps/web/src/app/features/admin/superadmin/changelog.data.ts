@@ -31,6 +31,47 @@ export interface ChangelogVersion {
 
 export const CHANGELOG: readonly ChangelogVersion[] = [
   {
+    version: '0.27.0',
+    fecha: '2026-10-02',
+    secciones: [
+      {
+        categoria: 'agregado',
+        items: [
+          {
+            titulo: 'Vídeo de lanzamiento promocional',
+            descripcion:
+              'Vídeo promocional del lanzamiento con voz propia, subtítulos y versión vertical de 30 segundos, listo para compartir.',
+          },
+        ],
+      },
+      {
+        categoria: 'modificado',
+        items: [
+          {
+            titulo: 'Importes con separador de miles en todo el panel',
+            descripcion:
+              'Todas las cifras monetarias del panel (contabilidad, pagos, KPIs…) se leen ahora en formato español con separador de miles y coma decimal («21.470,00» en vez de «21470.00»).',
+          },
+          {
+            titulo: 'El KPI «Ejecutado total» no miente con un 0 %',
+            descripcion:
+              'Con un presupuesto enorme y un gasto aún pequeño, el descriptor del KPI decía «0 % del presupuesto» por el redondeo. Ahora dice «menos de 1 % del presupuesto».',
+          },
+        ],
+      },
+      {
+        categoria: 'corregido',
+        items: [
+          {
+            titulo: 'Las cifras grandes y los textos largos ya no desbordan el panel',
+            descripcion:
+              'Una cifra enorme (o un correo, un estado o un importe largo) podía ensanchar KPIs, el presupuesto, la contingencia, la previsión, los pagos, las inscripciones, las sedes, la agenda y la lista pública de eventos, haciendo que la página entera se saliera de la pantalla en móvil. Ahora el número o el texto se parte dentro de su propia caja y la página mantiene siempre su ancho.',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.26.1',
     fecha: '2026-10-01',
     secciones: [
