@@ -1,0 +1,97 @@
+{
+  "esquema": 1,
+  "motor": ">=0.1.0",
+  "proyecto": "eventarium",
+  "nombre": "lanzamiento-2026",
+  "formato": {
+    "ancho": 1920,
+    "alto": 1080,
+    "fps": 30
+  },
+  "duracion": {
+    "min": 70,
+    "max": 100
+  },
+  "idioma": "es",
+  "marca": {
+    "nombre": "Eventarium",
+    "colores": {
+      "primario": "#006b26",
+      "fondo": "#f5f5f5",
+      "texto": "#0b0b0b",
+      "acento": "#006b26"
+    },
+    "tipografias": {
+      "titulos": "Bebas Neue",
+      "texto": "Inter"
+    },
+    "fuentes": {
+      "titulos": "../../apps/web/public/assets/fonts/bebas-neue/bebas-neue-400.woff2",
+      "texto": "../../apps/web/public/assets/fonts/inter/inter-400.woff2"
+    }
+  },
+  "app": {
+    "urlBase": "http://localhost:4200",
+    "origenesPermitidos": [
+      "http://localhost:4200",
+      "http://localhost:8080"
+    ],
+    "preparacion": [
+      "sh",
+      "-c",
+      "cd apps/api && uv run python -m scripts.seed_video_promocional"
+    ],
+    "inicioSesion": {
+      "ruta": "/acceder",
+      "pasos": [
+        {
+          "accion": "escribir",
+          "selector": "#campo-0",
+          "texto": "laura.martin.video@example.com"
+        },
+        {
+          "accion": "escribir",
+          "selector": "#campo-1",
+          "variable": "EVENTARIUM_VIDEO_CLAVE"
+        },
+        {
+          "accion": "clic",
+          "selector": "button[type=submit]"
+        },
+        {
+          "accion": "esperar",
+          "selector": "text=Cumbre Digital Valencia"
+        }
+      ]
+    },
+    "camaraFalsa": true,
+    "datosPermitidos": [
+      "@example.com",
+      "@example.test"
+    ],
+    "sustituirTextos": {
+      "http://localhost:8080": "https://eventarium.org",
+      "http://localhost:4200": "https://eventarium.org",
+      "localhost:8080": "eventarium.org",
+      "localhost:4200": "eventarium.org"
+    }
+  },
+  "voz": {
+    "proveedor": "elevenlabs",
+    "vozId": "D7dkYvH17OKLgp4SLulf",
+    "modelo": "eleven_multilingual_v2"
+  },
+  "musica": {
+    "caracter": "suave",
+    "bpm": 104,
+    "tonalidad": "La menor"
+  },
+  "direccion": "dinamica",
+  "semilla": 1,
+  "subtitulos": false,
+  "terminos": [
+    "Eventarium",
+    "Stripe",
+    "QR"
+  ]
+}

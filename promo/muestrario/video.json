@@ -1,0 +1,8 @@
+{
+  "esquema": 1,
+  "basadoEn": "../lanzamiento-2026",
+  "nombre": "muestrario",
+  "duracion": { "min": 18, "max": 40 },
+  "direccion": "dinamica",
+  "semilla": 2
+}

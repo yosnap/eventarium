@@ -1,0 +1,8 @@
+{
+  "esquema": 1,
+  "basadoEn": "../lanzamiento-2026",
+  "nombre": "vertical-2026",
+  "formato": { "ancho": 1080, "alto": 1920, "fps": 30 },
+  "duracion": { "min": 25, "max": 40 },
+  "subtitulos": true
+}

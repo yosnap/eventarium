@@ -1,0 +1,86 @@
+{
+  "capturas": [
+    {
+      "id": "portada",
+      "ruta": "/",
+      "pasos": [
+        {
+          "accion": "clic",
+          "selector": "text=Solo las necesarias",
+          "siExiste": true
+        }
+      ]
+    },
+    {
+      "id": "panel",
+      "ruta": "/dashboard"
+    },
+    {
+      "id": "eventos",
+      "ruta": "/dashboard/events",
+      "cajas": {
+        "crear": "button:has-text('Crear evento')"
+      },
+      "pulsar": "crear"
+    },
+    {
+      "id": "plantillas",
+      "ruta": "/dashboard/events/01a0f95f-1067-7c00-8c46-68c3973f874f/diseno"
+    },
+    {
+      "id": "agenda",
+      "ruta": "/dashboard/events/01a0f95f-1067-7c00-8c46-68c3973f874f/agenda"
+    },
+    {
+      "id": "ponentes",
+      "ruta": "/dashboard/events/01a0f95f-1067-7c00-8c46-68c3973f874f/ponentes",
+      "cajas": {
+        "invitar": "button:has-text('Invitar ponente')"
+      },
+      "pulsar": "invitar"
+    },
+    {
+      "id": "ficha-publica",
+      "ruta": "/cumbre-digital/demo-completo-presencial",
+      "pasos": [
+        {
+          "accion": "clic",
+          "selector": "text=Solo las necesarias",
+          "siExiste": true
+        }
+      ]
+    },
+    {
+      "id": "inscripciones",
+      "ruta": "/dashboard/events/01a0f95f-1067-7c00-8c46-68c3973f874f/inscripciones"
+    },
+    {
+      "id": "check-in",
+      "ruta": "/dashboard/events/01a0f95f-1067-7c00-8c46-68c3973f874f/check-in",
+      "viewport": "movil"
+    },
+    {
+      "id": "contabilidad",
+      "ruta": "/dashboard/events/01a0f95f-1067-7c00-8c46-68c3973f874f/contabilidad",
+      "cajas": {
+        "saldo": "text=cierra en positivo"
+      }
+    },
+    {
+      "id": "patrocinadores",
+      "ruta": "/dashboard/events/01a0f95f-1067-7c00-8c46-68c3973f874f/patrocinadores"
+    },
+    {
+      "id": "politicas",
+      "ruta": "/dashboard/politicas"
+    },
+    {
+      "id": "marca",
+      "ruta": "/dashboard/branding"
+    },
+    {
+      "id": "mcp",
+      "ruta": "/dashboard/mcp"
+    }
+  ]
+}
