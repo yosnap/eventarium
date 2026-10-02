@@ -55,6 +55,26 @@ function euros(cents: number): string {
   return (cents / 100).toFixed(2);
 }
 
+/**
+ * Formato de SOLO presentación para la tabla y el diálogo: es-ES con
+ * separador de miles («21.470,00»), mismo criterio que `euros()` de
+ * `accounting-types.ts` (informe 261002, H3).
+ *
+ * NO se usa en el `<input type="number">` ni en su `max`: ese campo y sus
+ * validaciones (`Number(…)` + `esParcial`) esperan un número plano, y un
+ * separador de miles lo dejaría inválido en el navegador. El prellenado
+ * plano en un importe que se muestra formateado a su lado se compensa con
+ * `inputmode="decimal"` y la ayuda del diálogo.
+ */
+const FORMATO_EURO_PLANO = new Intl.NumberFormat('es-ES', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+function eurosFormateado(cents: number): string {
+  return FORMATO_EURO_PLANO.format(cents / 100);
+}
+
 function pendiente(pago: Payment): number {
   return pago.amount_cents - pago.refunded_cents;
 }
@@ -129,10 +149,10 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
                   }
                 </td>
                 <td class="numerica">
-                  {{ euros(pago.amount_cents) }} {{ pago.currency.toUpperCase() }}
+                  {{ eurosFormateado(pago.amount_cents) }} {{ pago.currency.toUpperCase() }}
                 </td>
                 <td class="numerica">
-                  {{ euros(pago.refunded_cents) }} {{ pago.currency.toUpperCase() }}
+                  {{ eurosFormateado(pago.refunded_cents) }} {{ pago.currency.toUpperCase() }}
                 </td>
                 <td>
                   @if (pendiente(pago) > 0) {
@@ -153,11 +173,11 @@ function tieneReembolsoAgotado(pago: Payment): boolean {
             <h2>{{ t('admin.events.payments.dialogo.titulo') }}</h2>
             <dl class="resumen">
               <dt>{{ t('admin.events.payments.dialogo.total') }}</dt>
-              <dd>{{ euros(pago.amount_cents) }} {{ pago.currency.toUpperCase() }}</dd>
+              <dd>{{ eurosFormateado(pago.amount_cents) }} {{ pago.currency.toUpperCase() }}</dd>
               <dt>{{ t('admin.events.payments.dialogo.yaReembolsado') }}</dt>
-              <dd>{{ euros(pago.refunded_cents) }} {{ pago.currency.toUpperCase() }}</dd>
+              <dd>{{ eurosFormateado(pago.refunded_cents) }} {{ pago.currency.toUpperCase() }}</dd>
               <dt>{{ t('admin.events.payments.dialogo.pendiente') }}</dt>
-              <dd>{{ euros(pendiente(pago)) }} {{ pago.currency.toUpperCase() }}</dd>
+              <dd>{{ eurosFormateado(pendiente(pago)) }} {{ pago.currency.toUpperCase() }}</dd>
             </dl>
 
             <div class="campo-numero">
@@ -292,6 +312,7 @@ export class EventPayments implements OnInit {
   protected readonly errorDialogo = signal<string | null>(null);
 
   protected readonly euros = euros;
+  protected readonly eurosFormateado = eurosFormateado;
   protected readonly pendiente = pendiente;
   protected readonly tieneReembolsoEnCurso = tieneReembolsoEnCurso;
   protected readonly tieneReembolsoAgotado = tieneReembolsoAgotado;

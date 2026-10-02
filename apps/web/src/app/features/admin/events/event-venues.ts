@@ -175,7 +175,10 @@ function vacio(): {
      * había sitio de sobra para verlos uno junto al otro. */
     .contenido {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+      /* El tope de la track no puede ser mayor que la propia tarjeta:
+       * con minmax(18rem, …) una tarjeta de 254px pedía 288px y la página
+       * desbordaba 1px a 320px de ancho de ventana. */
+      grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
       gap: var(--sp-6);
       align-items: start;
     }
@@ -187,7 +190,7 @@ function vacio(): {
       margin: 0;
       padding: 0;
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr));
       gap: var(--sp-4);
     }
     .lista li {

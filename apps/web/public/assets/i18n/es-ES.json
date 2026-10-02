@@ -1698,6 +1698,7 @@
           "ejecutadoEnEspecie": "Ejecutado en especie",
           "ejecutadoTotal": "Ejecutado total",
           "ejecutadoTotalDescriptor": "{{pct}} % del presupuesto",
+          "ejecutadoTotalDescriptorMenosDeUnPct": "menos de 1 % del presupuesto",
           "ingresos": "Ingresos",
           "comprometido": "Comprometido",
           "saldo": "Saldo",

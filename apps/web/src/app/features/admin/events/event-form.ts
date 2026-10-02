@@ -309,7 +309,7 @@ function zonasHorariasDisponibles(): readonly string[] {
      * columna a todo el ancho que tenía el formulario antes. */
     .rejilla {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
       gap: var(--space-lg) var(--space-md);
       align-items: start;
     }

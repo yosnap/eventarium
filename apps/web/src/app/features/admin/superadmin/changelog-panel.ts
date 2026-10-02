@@ -199,6 +199,7 @@ const VERSIONES_POR_PAGINA = 6;
     .paginacion {
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: var(--space-md);
       margin-top: var(--sp-4);
     }

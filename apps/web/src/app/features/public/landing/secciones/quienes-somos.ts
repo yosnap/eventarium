@@ -66,7 +66,7 @@ import { ResaltarPipe } from '../resaltar.pipe';
     .landing-cifras {
       display: grid;
       gap: var(--space-sm);
-      grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));
       margin: var(--space-lg) 0 0;
       padding: 0;
       list-style: none;

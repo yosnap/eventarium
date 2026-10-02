@@ -117,7 +117,7 @@ interface EventoResumen {
      * apiladas a todo el ancho de la página sin motivo. */
     .fila-superior {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
       gap: var(--space-lg);
       align-items: start;
     }

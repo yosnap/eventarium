@@ -293,6 +293,7 @@ const LIMITE = 20;
     .paginacion {
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: var(--space-md);
       margin-top: var(--space-md);
     }

@@ -212,7 +212,8 @@ import { claveDeEstado, type RegistrationDetail } from './registration-types';
     }
     .datos {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+      /* El tope no puede superar la propia rejilla (pantallas angostas). */
+      grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
       gap: var(--space-md);
       margin: 0;
     }
@@ -223,6 +224,9 @@ import { claveDeEstado, type RegistrationDetail } from './registration-types';
     .datos dd {
       margin: 0;
       font-weight: 500;
+      /* Correo, URL u otro token inquebrable debe romperse en la celda,
+       * no ensancharla. */
+      overflow-wrap: anywhere;
     }
     .acciones {
       display: flex;
