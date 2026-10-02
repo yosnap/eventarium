@@ -77,7 +77,9 @@
     }
   },
   "voz": {
-    "proveedor": "ninguna"
+    "proveedor": "elevenlabs",
+    "vozId": "D7dkYvH17OKLgp4SLulf",
+    "modelo": "eleven_multilingual_v2"
   },
   "musica": {
     "caracter": "suave",

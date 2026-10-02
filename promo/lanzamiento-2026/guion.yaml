@@ -46,6 +46,8 @@ escenas:
     parametros: { captura: ponentes, pulsar: true, titulo: "Invita a tus *ponentes*" }
     frases:
       - texto: "Invita a tus ponentes por correo y ellos completan su ficha."
+        # La voz junta «invita a» y suena «invítame»: se dice en otro orden.
+        hablado: "Invita por correo a tus ponentes y ellos completan su ficha."
   - id: inscripcion
     pieza: lista
     duracionMinima: 6
@@ -97,3 +99,5 @@ escenas:
     parametros: { lema: "Tus eventos, de principio a fin", boton: "Crea tu cuenta gratis", url: "eventarium.org" }
     frases:
       - texto: "Eventarium. Tus eventos, de principio a fin."
+        # La tilde fija la pronunciación: e-ven-TA-rium, con «a» española.
+        hablado: "Eventárium. Tus eventos, de principio a fin."
