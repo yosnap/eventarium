@@ -74,7 +74,7 @@ const CLAVE_FORMATO: Record<EventoEnDirecto['location_mode'], string> = {
     .landing-directo-lista {
       display: grid;
       gap: var(--space-sm);
-      grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr));
       margin: 0;
       padding: 0;
       list-style: none;

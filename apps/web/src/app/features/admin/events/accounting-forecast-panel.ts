@@ -77,7 +77,10 @@ import { euros, eurosConSigno } from './accounting-types';
     }
     .num {
       font-family: var(--font-mono);
-      white-space: nowrap;
+      /* Sin \`nowrap\`: un saldo negativo grande no ensancha la fila a 320px —
+         rompe antes de la «€» en vez de salirse (informe 261002, H5). */
+      min-width: 0;
+      overflow-wrap: break-word;
     }
     .negativo {
       color: var(--warn);
@@ -104,6 +107,9 @@ import { euros, eurosConSigno } from './accounting-types';
       font-family: var(--font-mono);
       font-size: 1.35rem;
       margin-top: 6px;
+      min-width: 0;
+      /* Una cifra grande rompe dentro de la caja, nunca fuera (informe 261002, H5). */
+      overflow-wrap: break-word;
     }
   `,
 })

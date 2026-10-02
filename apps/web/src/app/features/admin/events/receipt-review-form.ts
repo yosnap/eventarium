@@ -346,6 +346,8 @@ function importeParaElCampo(cents: number | null): string {
       margin: 0;
       font-size: 1.75rem;
       font-weight: 700;
+      /* Un total grande rompe dentro de la alerta, nunca fuera (informe 261002, H5). */
+      overflow-wrap: break-word;
     }
     .importe-alto-texto {
       margin: 0;
@@ -413,7 +415,7 @@ export class ReceiptReviewForm {
    * segunda confirmación. */
   protected readonly totalConfirmable = computed(() => {
     const cents = aCents(this.total());
-    return cents === null ? '0.00' : euros(cents);
+    return cents === null ? '0,00' : euros(cents);
   });
 
   constructor() {

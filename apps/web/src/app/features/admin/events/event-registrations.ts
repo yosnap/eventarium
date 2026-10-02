@@ -403,6 +403,7 @@ interface FilaEmbudo {
     .paginacion {
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: var(--space-md);
     }
     /* Diálogo de rechazo: mismo patrón de campo que el resto del panel. */

@@ -270,7 +270,7 @@ describe('ReceiptReviewForm', () => {
     await avanzar(fixture);
 
     // El importe se enseña en grande antes de insistir.
-    expect(fixture.nativeElement.querySelector('.importe-alto')?.textContent).toContain('2000.00');
+    expect(fixture.nativeElement.querySelector('.importe-alto')?.textContent).toContain('2000,00');
 
     botonPorTexto(fixture, 'Sí, dar de alta este gasto').click();
     await avanzar(fixture);
@@ -299,7 +299,7 @@ describe('ReceiptReviewForm', () => {
     );
     await avanzar(fixture);
 
-    expect(fixture.nativeElement.querySelector('.importe-alto')?.textContent).toContain('2000.00');
+    expect(fixture.nativeElement.querySelector('.importe-alto')?.textContent).toContain('2000,00');
   });
 
   it('descartar exige confirmación en un diálogo y cancelar no llama al API', async () => {

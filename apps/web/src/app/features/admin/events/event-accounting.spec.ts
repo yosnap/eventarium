@@ -103,8 +103,13 @@ function panelVisible(fixture: ComponentFixture<unknown>): HTMLElement {
   return visibles[0];
 }
 
-function flushCarga(http: HttpTestingController): void {
-  http.expectOne((p) => p.url === `${BASE}/budget/summary` && p.method === 'GET').flush(resumen());
+function flushCarga(
+  http: HttpTestingController,
+  resumenSobreescrito: Partial<Record<string, unknown>> = {},
+): void {
+  http
+    .expectOne((p) => p.url === `${BASE}/budget/summary` && p.method === 'GET')
+    .flush(resumen(resumenSobreescrito));
   http.expectOne((p) => p.url === `${BASE}/incomes` && p.method === 'GET').flush(ingresos());
   http.expectOne((p) => p.url === `${BASE}/budget-lines` && p.method === 'GET').flush(lineas());
   http.expectOne((p) => p.url === `${BASE}/expenses` && p.method === 'GET').flush(gastos());
@@ -177,10 +182,28 @@ describe('EventAccounting', () => {
     await avanzar(fixture);
 
     const texto = fixture.nativeElement.textContent as string;
-    // Presupuesto: 1000.00 €
-    expect(texto).toContain('1000.00');
-    // Ingresos: 800.00 €
-    expect(texto).toContain('800.00');
+    // Presupuesto: 1000,00 € (formato es-ES — informe 261002, H3)
+    expect(texto).toContain('1000,00');
+    // Ingresos: 800,00 €
+    expect(texto).toContain('800,00');
+  });
+
+  it('con presupuesto enorme y ejecutado pequeño no miente con «0 % del presupuesto»', async () => {
+    const fixture = TestBed.createComponent(EventAccounting);
+    fixture.componentRef.setInput('eventId', 'e1');
+    fixture.detectChanges();
+    await avanzar(fixture);
+
+    // 1.000.000 € de presupuesto con 620 € ejecutados: el redondeo al
+    // entero da un 0 % que diría que no se ha gastado nada.
+    flushCarga(http, { total_budgeted_cents: 100_000_000 });
+    await avanzarHastaQueTermineLaCarga(fixture);
+    flushJustificantes(http);
+    await avanzar(fixture);
+
+    const texto = fixture.nativeElement.textContent as string;
+    expect(texto).toContain('menos de 1 % del presupuesto');
+    expect(texto).not.toContain('0 % del presupuesto');
   });
 
   it('cambia de pestaña entre ingresos, gastos y en especie', async () => {
@@ -264,12 +287,12 @@ describe('EventAccounting', () => {
     await avanzar(fixture);
 
     const texto = fixture.nativeElement.textContent as string;
-    // Ejecutado en metálico: 60000 cents (única partida) = 600.00 €.
-    expect(texto).toContain('600.00');
-    // Ejecutado en especie (resumen): 2000 cents = 20.00 €.
-    expect(texto).toContain('20.00');
-    // Saldo = 800.00 (ingresos) - (600.00 metálico + 20.00 especie) = 180.00 €.
-    expect(texto).toContain('180.00');
+    // Ejecutado en metálico: 60000 cents (única partida) = 600,00 €.
+    expect(texto).toContain('600,00');
+    // Ejecutado en especie (resumen): 2000 cents = 20,00 €.
+    expect(texto).toContain('20,00');
+    // Saldo = 800,00 (ingresos) - (600,00 metálico + 20,00 especie) = 180,00 €.
+    expect(texto).toContain('180,00');
   });
 
   it('muestra un error si la carga del resumen falla', async () => {
@@ -328,10 +351,10 @@ describe('EventAccounting', () => {
     // Aviso de cabecera del panel de presupuesto, en singular.
     expect(texto).toContain('Una partida se ha pasado');
     // El desglose de contingencia nombra la partida que se pasó y su exceso.
-    expect(texto).toContain('Sin partida · se pasó de 200.00 € a 500.00 €');
-    expect(texto).toContain('− 300.00 €');
+    expect(texto).toContain('Sin partida · se pasó de 200,00 € a 500,00 €');
+    expect(texto).toContain('− 300,00 €');
     // El raíl de contingencia anuncia las dos cifras reales, no solo color.
-    expect(texto).toContain('300.00 € consumidos');
+    expect(texto).toContain('300,00 € consumidos');
 
     // La fila pasada lleva la clase de warn y su porcentaje también.
     const filaSobre = fixture.nativeElement.querySelector('.part.sobre') as HTMLElement;
@@ -379,9 +402,9 @@ describe('EventAccounting', () => {
     expect(texto).toContain('Cobrado');
     expect(texto).toContain('Pagado');
     expect(texto).toContain('Caja hoy');
-    // Cobrado = 800.00 (solo bancario: la especie de 200.00 no entra) ·
-    // Pagado = 600.00 (metálico) · Caja = +200.00.
-    expect(texto).toContain('+ 200.00 €');
+    // Cobrado = 800,00 (solo bancario: la especie de 200,00 no entra) ·
+    // Pagado = 600,00 (metálico) · Caja = +200,00.
+    expect(texto).toContain('+ 200,00 €');
     // El pie de ingresos SÍ suma la especie (total del libro, no de caja).
     expect(texto).toContain('Total de ingresos');
   });
@@ -399,9 +422,9 @@ describe('EventAccounting', () => {
 
     const texto = fixture.nativeElement.textContent as string;
     expect(texto).toContain('Total de ingresos');
-    expect(texto).toContain('800.00 €');
+    expect(texto).toContain('800,00 €');
     expect(texto).toContain('Total de gastos en metálico');
-    expect(texto).toContain('600.00 €');
+    expect(texto).toContain('600,00 €');
     expect(texto).toContain('Total valorado en especie');
   });
 

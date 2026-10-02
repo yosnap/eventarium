@@ -268,7 +268,7 @@ type Modo = 'heredada' | 'propia';
     }
     .kpis {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
       gap: var(--space-md);
       margin-block-end: var(--space-md);
     }

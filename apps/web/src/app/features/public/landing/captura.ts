@@ -55,12 +55,14 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       padding: 0.55rem 0.75rem;
       border-bottom: 1px solid var(--border);
       background: var(--surface-hi);
+      min-width: 0;
     }
     .punto {
       width: 0.6rem;
       height: 0.6rem;
       border-radius: 50%;
       background: var(--border-strong);
+      flex: none;
     }
     .direccion {
       margin-left: 0.5rem;
@@ -70,6 +72,12 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       font-family: var(--font-mono);
       font-size: var(--fs-label);
       color: var(--muted);
+      /* Como una barra de direcciones real: la URL se recorta con elipse,
+       * nunca ensancha la «ventana». */
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .captura {
       display: block;

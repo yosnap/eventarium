@@ -43,19 +43,28 @@ interface LineaConsumo {
                 })
               "
             >
-              <span class="rail-consumido" [style.width.%]="porcentajeConsumido()">
-                <span>{{
+              <span class="rail-consumido" [style.width.%]="porcentajeConsumido()"></span>
+              <span class="rail-libre" [style.width.%]="100 - porcentajeConsumido()"></span>
+            </div>
+            <!-- Las cifras no viven dentro de los segmentos: un consumo bajo
+                 (típico) deja un segmento de pocos píxeles y la etiqueta de
+                 ~140px se superponía con la del segmento contiguo, ilegible
+                 (informe 261002, H4). El raíl solo comunica la proporción; las
+                 cifras, siempre enteras, van aquí debajo. -->
+            <div class="rail-lineas">
+              <span class="num consumo">
+                {{
                   t('admin.events.accounting.contingencia.consumidos', {
                     importe: euros(consumidoCents()),
                   })
-                }}</span>
+                }}
               </span>
-              <span class="rail-libre" [style.width.%]="100 - porcentajeConsumido()">
-                <span>{{
+              <span class="num">
+                {{
                   t('admin.events.accounting.contingencia.libres', {
                     importe: euros(disponibleCents() ?? 0),
                   })
-                }}</span>
+                }}
               </span>
             </div>
 
@@ -89,7 +98,8 @@ interface LineaConsumo {
     </ng-container>
   `,
   styles: `
-    /* .cont__rail / .cont__used / .cont__free (contabilidad-evento.html:62-69). */
+    /* .cont__rail / .cont__used / .cont__free (contabilidad-evento.html:62-69):
+       el raíl es solo proporción — las etiquetas viven en .rail-lineas. */
     .rail {
       display: flex;
       height: 26px;
@@ -102,26 +112,14 @@ interface LineaConsumo {
     .rail-consumido {
       background-color: var(--warn-dim);
       border-right: 1px solid var(--warn);
+    }
+    .rail-lineas {
       display: flex;
-      align-items: center;
-      padding: 0 10px;
-    }
-    .rail-libre {
-      display: flex;
-      align-items: center;
-      padding: 0 10px;
-    }
-    .rail span {
-      font-family: var(--font-mono);
-      font-size: var(--fs-label);
-      letter-spacing: 0.06em;
-      white-space: nowrap;
-    }
-    .rail-consumido span {
-      color: var(--warn);
-    }
-    .rail-libre span {
-      color: var(--muted);
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: var(--space-xs) var(--sp-4);
+      font-size: var(--fs-sm);
+      margin-bottom: 12px;
     }
     .linea {
       display: grid;
@@ -136,7 +134,10 @@ interface LineaConsumo {
     }
     .num {
       font-family: var(--font-mono);
-      white-space: nowrap;
+      /* Sin \`nowrap\`: una cifra grande rompe dentro de su mitad de fila en
+         vez de ensanchar la caja (informe 261002, H5). */
+      min-width: 0;
+      overflow-wrap: break-word;
     }
     .consumo {
       color: var(--warn);

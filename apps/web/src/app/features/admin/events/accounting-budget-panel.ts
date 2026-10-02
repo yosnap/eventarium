@@ -124,6 +124,10 @@ interface FilaPresupuesto {
       letter-spacing: 0.14em;
       text-transform: uppercase;
       color: var(--muted);
+      /* En anchos muy estrechos la cabecera pasa a tres columnas:
+       * «PRESUPUESTO» no cabe y debe romperse, no ensanchar la track. */
+      min-width: 0;
+      overflow-wrap: anywhere;
     }
     .parthead span:nth-child(n + 3) {
       text-align: right;
@@ -168,6 +172,10 @@ interface FilaPresupuesto {
     .num {
       font-family: var(--font-mono);
       text-align: right;
+      /* Una cifra grande no debe ensanchar la columna fija: rompe dentro de la
+       * celda en vez de desbordar (informe 261002, H5). */
+      min-width: 0;
+      overflow-wrap: break-word;
     }
     .pct {
       color: var(--muted);
@@ -209,20 +217,41 @@ interface FilaPresupuesto {
       margin-left: auto;
     }
     /* Bajo 1040px, la referencia estrecha las columnas fijas antes de
-       apilar (contabilidad-evento.html:95-98). */
+       apilar (contabilidad-evento.html:95-98). El tracking baja porque
+       «PRESUPUESTO» en 0.14em no cabe en la columna de 5.5rem
+       (informe 261002, H6). */
     @media (max-width: 1040px) {
       .parthead,
       .part {
         grid-template-columns: 9.375rem minmax(5.5rem, 1fr) 5.5rem 5.5rem 3.375rem;
         gap: var(--sp-3);
       }
+      .parthead span {
+        letter-spacing: 0.05em;
+      }
     }
     /* Bajo 860px, el raíl pasa a su propia fila y la columna «Comparación»
-       de cabecera se oculta (contabilidad-evento.html:104-106). */
+       de cabecera se oculta (contabilidad-evento.html:104-106).
+
+       La fila no hereda las columnas fijas 5.25/5.25/3.375rem: con 375px de
+       viewport solo quedaban ~35px para el nombre de la partida, y su
+       min-content (la palabra más larga) empujaba la track \`1fr\` por encima
+       de \`min-width: auto\`, ensanchando el panel y la página entera hasta
+       394px (informe 261002, H1). Ahora: nombre a ancho completo, raíl a
+       ancho completo y las tres cifras en tercios de \`minmax(0, 1fr)\` — la
+       track ya no puede pedir más espacio del que hay. */
     @media (max-width: 860px) {
       .parthead,
       .part {
-        grid-template-columns: 1fr 5.25rem 5.25rem 3.375rem;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      .parthead > span:first-child,
+      .part > span:first-child {
+        grid-column: 1 / -1;
+        min-width: 0;
+      }
+      .parthead > span:nth-child(n + 2) {
+        min-width: 0;
       }
       .rail {
         grid-column: 1 / -1;

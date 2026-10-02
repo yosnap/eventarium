@@ -602,7 +602,10 @@ function normalizarCiudad(ciudad: string): string {
         grid-template-columns: 74px minmax(0, 1fr);
         gap: var(--sp-4);
       }
-      /* Con wrap: precio y chip en una línea no cabían en 360 px. */
+      /* Con wrap: precio y chip en una línea no cabían en 360 px. El chip
+         además permite partirse en varias líneas: con estados largos
+         («INSCRIPCIÓN CON APROBACIÓN») su min-content de una línea de
+         224px ensanchaba la fila y la página entera a 359px. */
       .ev-lado {
         grid-column: 2;
         flex-direction: row;
@@ -611,6 +614,9 @@ function normalizarCiudad(ciudad: string): string {
         align-items: center;
         justify-content: flex-start;
         text-align: left;
+      }
+      .ev-lado ::ng-deep .chip {
+        white-space: normal;
       }
     }
   `,

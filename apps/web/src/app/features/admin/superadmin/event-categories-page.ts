@@ -114,7 +114,7 @@ interface FilaEditable {
   styles: `
     .nueva {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
       gap: var(--space-md);
       align-items: end;
     }

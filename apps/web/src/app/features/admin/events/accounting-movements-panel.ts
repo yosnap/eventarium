@@ -171,6 +171,8 @@ const CLAVE_PESTANA: Record<Movimiento, string> = {
        botones mono en mayúsculas, no botones sueltos. */
     .tabs {
       display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
       gap: 4px;
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
