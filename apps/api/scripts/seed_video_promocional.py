@@ -21,6 +21,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 
+from app.core.config import get_settings
 from app.core.database import maintenance_session
 from app.core.security import hash_password
 from app.modules.accounting.models import AccountingBudgetLine, AccountingExpense, AccountingIncome
@@ -245,6 +246,9 @@ def slugs_propios_de_ponente() -> None:
 
 
 async def main() -> None:
+    # Datos ficticios para capturas: nunca en la base de producción.
+    if get_settings().app_env == "production":
+        raise SystemExit("seed_video_promocional no se ejecuta en producción (APP_ENV=production).")
     clave = os.environ.get("EVENTARIUM_VIDEO_CLAVE", "")
     if len(clave) < 12:
         raise SystemExit("Falta EVENTARIUM_VIDEO_CLAVE (mínimo 12 caracteres) en el entorno.")
