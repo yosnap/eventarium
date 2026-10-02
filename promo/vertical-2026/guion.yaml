@@ -1,0 +1,44 @@
+# Corte vertical (9:16, ~30 s) para redes: lo esencial del vídeo de lanzamiento. Las frases son idénticas
+# a las ya locutadas y aprobadas en lanzamiento-2026, así la voz sale de la caché sin gastar.
+# Subtítulos activados: en redes muchos lo ven sin sonido.
+escenas:
+  - id: gancho
+    pieza: rotulo
+    duracionMinima: 4
+    parametros: { titulo: "Organiza eventos *sin caos*", subtitulo: "Eventarium lo pone en orden", fondo: acento, animacion: rotulador }
+    frases:
+      - texto: "Organizar un evento no debería ser pelearse con diez hojas de cálculo."
+  - id: todo-en-uno
+    pieza: pila
+    duracionMinima: 4
+    parametros: { capturas: [panel, eventos, agenda], titulo: "Todo tu evento, *en un sitio*" }
+    frases:
+      - texto: "Desde un panel ves inscripciones, ingresos y tareas pendientes."
+  - id: inscripcion
+    pieza: lista
+    duracionMinima: 5
+    parametros:
+      captura: ficha-publica
+      titulo: "Inscripción *a tu manera*"
+      elementos: ["Gratis, con aprobación o de pago", "Pago seguro con Stripe", "Entrada con QR al momento"]
+    frases:
+      - texto: "Tus asistentes se inscriben en segundos, gratis, con aprobación o pagando con Stripe."
+  - id: check-in
+    pieza: dispositivos
+    duracionMinima: 4
+    parametros: { escritorio: inscripciones, movil: check-in, titulo: "Check-in con el *móvil*" }
+    frases:
+      - texto: "El día del evento, tu equipo escanea las entradas con el móvil."
+  - id: cuentas
+    pieza: detalle
+    duracionMinima: 4
+    parametros: { captura: contabilidad, caja: saldo, etiqueta: "Saldo en positivo", titulo: "Tus cuentas, *claras*" }
+    frases:
+      - texto: "Presupuesto, ingresos y gastos de cada evento, siempre al día."
+  - id: cierre
+    pieza: logo
+    duracionMinima: 5
+    parametros: { lema: "Tus eventos, de principio a fin", boton: "Crea tu cuenta gratis", url: "eventarium.org" }
+    frases:
+      - texto: "Eventarium. Tus eventos, de principio a fin."
+        hablado: "Eventárium. Tus eventos, de principio a fin."
