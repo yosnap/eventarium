@@ -7,6 +7,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
+from app.core.locale import DEFAULT_LOCALE, Locale
 from app.core.security import password_meets_complexity
 from app.modules.roles.schemas import ProfileFieldResponse
 
@@ -339,6 +340,9 @@ class InvitationAcceptRequest(BaseModel):
         description=(
             "Contraseña: mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial"
         ),
+    )
+    locale: Locale = Field(
+        default=DEFAULT_LOCALE, description="Idioma de la cuenta. Si no se indica, 'es-ES'."
     )
 
     @field_validator("password")

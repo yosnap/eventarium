@@ -12,6 +12,6 @@
 export interface UserMeUpdate {
   first_name?: (string | null);
   last_name?: (string | null);
-  locale?: (string | null);
+  locale?: ('es-ES' | 'en-US' | null);
   notify_similar_events?: (boolean | null);
 }

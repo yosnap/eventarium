@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { ApiError } from '../api/error.interceptor';
 import { ApiService } from '../api/api.service';
 import { ProfileField } from '../../shared/ui/dynamic-field.model';
+import { LocaleDeCuenta } from '../i18n/locale-de-cuenta';
 
 export interface UsuarioAutenticado {
   readonly id: string;
@@ -331,12 +332,18 @@ export class AuthService {
     return renovacion;
   }
 
-  async register(email: string, password: string, turnstileToken: string): Promise<void> {
+  async register(
+    email: string,
+    password: string,
+    turnstileToken: string,
+    locale: LocaleDeCuenta,
+  ): Promise<void> {
     await firstValueFrom(
       this.http.post<RespuestaGenerica>(this.api.url('/auth/register'), {
         email,
         password,
         turnstile_token: turnstileToken,
+        locale,
       }),
     );
   }
@@ -442,7 +449,7 @@ export class AuthService {
   async updateMe(datos: {
     firstName?: string;
     lastName?: string;
-    locale?: string;
+    locale?: LocaleDeCuenta;
     notifySimilarEvents?: boolean;
   }): Promise<void> {
     const respuesta = await firstValueFrom(

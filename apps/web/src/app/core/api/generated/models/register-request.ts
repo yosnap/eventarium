@@ -13,6 +13,11 @@ export interface RegisterRequest {
   email: string;
 
   /**
+   * Idioma de la cuenta. Si no se indica, 'es-ES'.
+   */
+  locale?: 'es-ES' | 'en-US';
+
+  /**
    * Contraseña: mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial
    */
   password: string;

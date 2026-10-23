@@ -169,6 +169,97 @@ async def test_aceptar_dos_veces_no_duplica_la_membresia(
         assert len(membresias) == 1
 
 
+async def test_aceptar_con_locale_valido_lo_persiste(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """Fase 2 (plan `261019-1343`): `locale` explícito en la aceptación se guarda
+    en la cuenta, igual que en el registro de fase 1."""
+    _invitation_id, token = await _crear_invitacion(organizacion, email="con-idioma@example.com")
+
+    respuesta = await cliente.post(
+        f"/api/v1/public/invitations/{token}/accept",
+        json={
+            "first_name": "Con",
+            "last_name": "Idioma",
+            "password": CONTRASENA_ACEPTAR,
+            "locale": "en-US",
+        },
+    )
+    assert respuesta.status_code == 200, respuesta.text
+
+    async with SessionMaintenance() as session:
+        usuario = await session.scalar(select(User).where(User.email == "con-idioma@example.com"))
+    assert usuario is not None
+    assert usuario.locale == "en-US"
+
+
+async def test_aceptar_sin_locale_usa_es_es_por_defecto(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """Fase 2: si se omite `locale`, la cuenta queda en `'es-ES'`."""
+    _invitation_id, token = await _crear_invitacion(organizacion, email="sin-idioma@example.com")
+
+    respuesta = await cliente.post(
+        f"/api/v1/public/invitations/{token}/accept",
+        json={"first_name": "Sin", "last_name": "Idioma", "password": CONTRASENA_ACEPTAR},
+    )
+    assert respuesta.status_code == 200, respuesta.text
+
+    async with SessionMaintenance() as session:
+        usuario = await session.scalar(select(User).where(User.email == "sin-idioma@example.com"))
+    assert usuario is not None
+    assert usuario.locale == "es-ES"
+
+
+async def test_aceptar_con_locale_invalido_devuelve_422(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """Fase 2: `locale` fuera del catálogo `Literal["es-ES", "en-US"]` es 422."""
+    _invitation_id, token = await _crear_invitacion(organizacion, email="idioma-malo@example.com")
+
+    respuesta = await cliente.post(
+        f"/api/v1/public/invitations/{token}/accept",
+        json={
+            "first_name": "Idioma",
+            "last_name": "Malo",
+            "password": CONTRASENA_ACEPTAR,
+            "locale": "fr-FR",
+        },
+    )
+    assert respuesta.status_code == 422
+
+
+async def test_aceptar_dos_veces_con_locale_distinto_no_cambia_el_ya_fijado(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """Fase 2, idempotencia: la segunda aceptación (rama temprana de
+    `invitations_service.py`, invitación ya `aceptada`) no reescribe la cuenta,
+    así que el `locale` de la primera llamada se mantiene aunque la segunda pida
+    otro distinto."""
+    _invitation_id, token = await _crear_invitacion(
+        organizacion, email="doble-clic-idioma@example.com"
+    )
+    datos_base = {"first_name": "Doble", "last_name": "Idioma", "password": CONTRASENA_ACEPTAR}
+
+    primera = await cliente.post(
+        f"/api/v1/public/invitations/{token}/accept",
+        json={**datos_base, "locale": "en-US"},
+    )
+    segunda = await cliente.post(
+        f"/api/v1/public/invitations/{token}/accept",
+        json={**datos_base, "locale": "es-ES"},
+    )
+    assert primera.status_code == 200, primera.text
+    assert segunda.status_code == 200, segunda.text
+
+    async with SessionMaintenance() as session:
+        usuario = await session.scalar(
+            select(User).where(User.email == "doble-clic-idioma@example.com")
+        )
+    assert usuario is not None
+    assert usuario.locale == "en-US"
+
+
 async def test_token_caducado_revocado_y_aceptado_dan_mensajes_distintos(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:

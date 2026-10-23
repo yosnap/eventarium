@@ -80,6 +80,40 @@ async def test_patch_me_activa_y_desactiva_la_preferencia_de_notificaciones(
     assert desactivar.json()["notify_similar_events"] is False
 
 
+async def test_patch_me_con_locale_valido_lo_actualiza(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """Fase 1 (plan `261019-1343`): `locale` restringido al catálogo
+    `Literal["es-ES", "en-US"]` sigue aceptando un valor válido."""
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    respuesta = await cliente.patch(ME, headers=cabeceras, json={"locale": "en-US"})
+    assert respuesta.status_code == 200
+
+
+async def test_patch_me_con_locale_fuera_de_catalogo_devuelve_422(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """Fase 1: antes de este plan, `locale` era un `str` libre de 2-10 caracteres;
+    ahora cualquier valor fuera del catálogo compartido es 422 (cambio de contrato
+    deliberado, red-team #11)."""
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    respuesta = await cliente.patch(ME, headers=cabeceras, json={"locale": "fr-FR"})
+    assert respuesta.status_code == 422
+
+
+async def test_patch_me_con_locale_null_explicito_devuelve_422(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """Hallazgo de code-review (no introducido por el plan, pero el endpoint ya
+    se tocaba aquí): `locale` es NOT NULL en la base de datos, así que un
+    `"locale": null` explícito debe rechazarse con 422, no reventar con un
+    IntegrityError sin traducir (500). Omitir el campo (no probado aquí, ya
+    cubierto por el resto de tests de esta clase) sigue sin tocar nada."""
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    respuesta = await cliente.patch(ME, headers=cabeceras, json={"locale": None})
+    assert respuesta.status_code == 422
+
+
 async def test_change_email_exige_la_contrasena_actual(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
