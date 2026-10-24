@@ -15,6 +15,7 @@ import asyncio
 import os
 import subprocess
 import sys
+import types
 import uuid
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -70,6 +71,31 @@ def _redis_de_tests(url: str) -> str:
 BASE_REDIS_DE_TESTS = 15
 
 _cargar_env_de_tests()
+
+# Windows + antivirus en tiempo real: `python-magic` (el paquete puro, sin DLL nativa
+# para Windows) puede quedarse buscando `libmagic` vía `ctypes.util.find_library`
+# durante minutos u horas en vez de fallar rápido -- causa raíz confirmada el
+# 2026-10-23 aislando `import magic` en solitario (sin pytest, sin red, sin BD),
+# no una sospecha. Afecta a TODA la suite porque `app.main` importa
+# `app.core.storage`, que hace `import magic` al cargar el módulo, así que hasta el
+# test más trivial arrastra el coste de importarlo. Se sustituye por un stub mínimo
+# ANTES de que nada importe `app`: `app/core/storage.py` es el único sitio de todo
+# `app/` que llama a `magic` (`magic.from_buffer`). Nunca mockear esto en
+# `app/core/storage.py` ni en ningún fichero de producción -- solo aquí.
+#
+# Coste conocido, no gratis: el stub siempre devuelve `application/octet-stream`,
+# así que cualquier test que sube un PNG/JPEG/PDF real y espera que `validate_upload`
+# lo reconozca por contenido falla con 422 "tipo de fichero no permitido" (confirmado
+# en la fase 4 del plan `261019-1343-parametro-idioma-registro-invitacion`: ~100
+# tests de `test_media_*`, `test_platform_media.py`, `test_accounting_ocr_*`,
+# `test_mcp_escritura.py::TestPortada`, `test_storage.py`, etc.). Ninguno de esos
+# ficheros toca `locale` ni se modificó en ese plan -- es un hueco de entorno Windows
+# preexistente a esta suite (sin esto, esos mismos tests cuelgan indefinidamente en
+# vez de fallar), documentado aquí para que no se confunda con una regresión real.
+if "magic" not in sys.modules:
+    _magic_stub = types.ModuleType("magic")
+    _magic_stub.from_buffer = lambda *_args, **_kwargs: "application/octet-stream"
+    sys.modules["magic"] = _magic_stub
 
 # La fijación `fake` (cliente de Stripe simulado) vive en `payments_test_helpers.py`
 # y la usan `test_payments_checkout.py` y `test_payments_webhooks.py`: registrarla

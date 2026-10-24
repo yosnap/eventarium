@@ -18382,6 +18382,16 @@
             "minLength": 8,
             "title": "Password",
             "description": "Contraseña: mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial"
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Locale",
+            "description": "Idioma de la cuenta. Si no se indica, 'es-ES'.",
+            "default": "es-ES"
           }
         },
         "type": "object",
@@ -24103,6 +24113,16 @@
             "type": "string",
             "title": "Turnstile Token",
             "description": "Token del widget de Turnstile"
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Locale",
+            "description": "Idioma de la cuenta. Si no se indica, 'es-ES'.",
+            "default": "es-ES"
           }
         },
         "type": "object",
@@ -27572,8 +27592,10 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 10,
-                "minLength": 2
+                "enum": [
+                  "es-ES",
+                  "en-US"
+                ]
               },
               {
                 "type": "null"

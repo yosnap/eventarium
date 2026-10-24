@@ -7,8 +7,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import text
+from sqlalchemy import select, text
 
+from app.core.database import SessionMaintenance
 from app.core.tasks import send_verification_email
 from app.modules.auth.verification import (
     PROPOSITO_VERIFICACION_CORREO,
@@ -16,6 +17,7 @@ from app.modules.auth.verification import (
     generate_token,
     peek_token,
 )
+from app.modules.users.models import User
 from app.shared.errors import ServiceUnavailableError
 from tests.conftest import OrganizacionDePrueba
 
@@ -64,6 +66,63 @@ async def test_registro_dos_veces_responde_igual_y_no_duplica(
     assert primera.status_code == segunda.status_code == 202
     assert primera.json() == segunda.json()
     assert _correo_encolado_sincrono.await_count == 1
+
+
+async def test_registro_con_locale_valido_se_persiste(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, _correo_encolado_sincrono: AsyncMock
+) -> None:
+    """Fase 1 (plan `261019-1343`): `locale` explícito se guarda en la cuenta."""
+    datos = {**DATOS_REGISTRO, "locale": "en-US"}
+    respuesta = await cliente.post(REGISTER, json=datos)
+    assert respuesta.status_code == 202
+
+    async with SessionMaintenance() as session:
+        usuario = await session.scalar(select(User).where(User.email == datos["email"]))
+    assert usuario is not None
+    assert usuario.locale == "en-US"
+
+
+async def test_registro_sin_locale_usa_es_es_por_defecto(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, _correo_encolado_sincrono: AsyncMock
+) -> None:
+    """Fase 1: si se omite `locale`, la cuenta queda en `'es-ES'` (default del catálogo)."""
+    respuesta = await cliente.post(REGISTER, json=DATOS_REGISTRO)
+    assert respuesta.status_code == 202
+
+    async with SessionMaintenance() as session:
+        usuario = await session.scalar(select(User).where(User.email == DATOS_REGISTRO["email"]))
+    assert usuario is not None
+    assert usuario.locale == "es-ES"
+
+
+async def test_registro_con_locale_invalido_devuelve_422(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """Fase 1: `locale` fuera del catálogo `Literal["es-ES", "en-US"]` es un 422 de
+    Pydantic, antes de tocar el router/servicio (anti-enumeración intacta: el 422 es
+    igual exista o no la cuenta, porque ni siquiera llega a consultar la base)."""
+    datos = {**DATOS_REGISTRO, "locale": "fr-FR"}
+    respuesta = await cliente.post(REGISTER, json=datos)
+    assert respuesta.status_code == 422
+
+
+async def test_registro_dos_veces_con_locales_distintos_responde_igual_y_no_cambia_el_locale(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, _correo_encolado_sincrono: AsyncMock
+) -> None:
+    """Fase 1, caso borde de anti-enumeración: el correo ya existente ignora el
+    `locale` recibido en la segunda llamada; el 202 es idéntico (status + cuerpo
+    completo) y el correo de verificación se encola una sola vez."""
+    primera = await cliente.post(REGISTER, json={**DATOS_REGISTRO, "locale": "en-US"})
+    segunda = await cliente.post(REGISTER, json={**DATOS_REGISTRO, "locale": "es-ES"})
+
+    assert primera.status_code == segunda.status_code == 202
+    assert primera.json() == segunda.json()
+    assert _correo_encolado_sincrono.await_count == 1
+
+    async with SessionMaintenance() as session:
+        usuario = await session.scalar(select(User).where(User.email == DATOS_REGISTRO["email"]))
+    assert usuario is not None
+    assert usuario.locale == "en-US"
 
 
 async def test_verificar_token_marca_el_correo_y_el_segundo_intento_falla(

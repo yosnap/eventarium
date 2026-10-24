@@ -4,6 +4,7 @@ import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
 import { ApiError } from '../../../core/api/error.interceptor';
 import { AuthService } from '../../../core/auth/auth.service';
+import { localeDeCuenta } from '../../../core/i18n/locale-de-cuenta';
 import { AuthFrame } from '../../../layouts/public/auth-frame';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
@@ -180,7 +181,12 @@ export class RegisterPage {
 
     this.enviando.set(true);
     try {
-      await this.auth.register(this.email().trim(), this.password(), this.turnstileToken() ?? '');
+      await this.auth.register(
+        this.email().trim(),
+        this.password(),
+        this.turnstileToken() ?? '',
+        localeDeCuenta(this.transloco.getActiveLang()),
+      );
       this.enviado.set(true);
     } catch (error) {
       this.error.set(

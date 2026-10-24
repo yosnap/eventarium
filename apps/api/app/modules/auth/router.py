@@ -130,7 +130,9 @@ async def register(
     datos: RegisterRequest, request: Request, session: SessionDep
 ) -> GenericMessageResponse:
     await require_turnstile(request, datos.turnstile_token)
-    await service.register_user(session, email=str(datos.email), password=datos.password)
+    await service.register_user(
+        session, email=str(datos.email), password=datos.password, locale=datos.locale
+    )
     return GenericMessageResponse(
         message="Si el correo no está ya registrado, recibirás un enlace de verificación."
     )

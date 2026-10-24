@@ -7,6 +7,7 @@ from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
+from app.core.locale import Locale
 from app.core.permissions import Permission
 from app.core.security import password_meets_complexity
 from app.modules.organizations.schemas import SLUG_PATTERN, PublicOrganizationRef
@@ -67,12 +68,24 @@ class UserMeUpdate(BaseModel):
 
     first_name: Annotated[str, Field(min_length=1, max_length=100)] | None = None
     last_name: Annotated[str, Field(min_length=1, max_length=100)] | None = None
-    locale: Annotated[str, Field(min_length=2, max_length=10)] | None = None
+    locale: Locale | None = None
     # "Avisarme de eventos similares" — la persona la activa sobre sí misma.
     # Sin motor de envío todavía (plan `260916-0810-usuarios-y-permisos-
     # plataforma`, fase 3): el campo se guarda desde ya para no perder la
     # señal hasta que exista ese motor.
     notify_similar_events: bool | None = None
+
+    @field_validator("locale")
+    @classmethod
+    def _rechaza_locale_null_explicito(cls, valor: Locale | None) -> Locale | None:
+        # `locale` es NOT NULL en la base de datos (a diferencia de first_name/
+        # last_name, que sí admiten NULL): un `"locale": null` explícito en el
+        # body violaría esa restricción con un IntegrityError sin traducir (500
+        # en vez de 422). Pydantic solo ejecuta este validador cuando el campo
+        # viene en el body (omitirlo sigue sin tocar nada, vía exclude_unset).
+        if valor is None:
+            raise ValueError("locale no admite null; omite el campo para no cambiarlo.")
+        return valor
 
 
 class ChangeEmailRequest(BaseModel):

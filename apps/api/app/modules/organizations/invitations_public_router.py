@@ -74,6 +74,7 @@ async def accept_invitation(
         first_name=datos.first_name,
         last_name=datos.last_name,
         password=datos.password,
+        locale=datos.locale,
     )
     organizacion = await session.get(Organization, miembro.organization_id)
     if organizacion is None:  # pragma: no cover - ya se acaba de crear la membresía sobre ella

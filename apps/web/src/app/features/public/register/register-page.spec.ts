@@ -153,10 +153,14 @@ describe('RegisterPage', () => {
     );
     await fixture.whenStable();
 
+    // Fase 3 (plan `261019-1343`): `register()` gana un 4º argumento `locale`.
+    // El caso feliz no activa Transloco con otro idioma, así que el valor
+    // esperado es el único cargado en este test: `'es-ES'` (red-team #4).
     expect(auth.register).toHaveBeenCalledWith(
       'valido@example.com',
       'Una-Contraseña-Fuerte-1!',
       '',
+      'es-ES',
     );
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });

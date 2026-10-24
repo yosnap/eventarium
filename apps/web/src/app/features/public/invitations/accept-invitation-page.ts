@@ -6,6 +6,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
+import { localeDeCuenta } from '../../../core/i18n/locale-de-cuenta';
 import { AuthFrame } from '../../../layouts/public/auth-frame';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
@@ -175,7 +176,9 @@ export class AcceptInvitationPage {
   private async consultar(token: string): Promise<void> {
     try {
       const datos = await firstValueFrom(
-        this.http.get<InvitationPublicResponse>(this.api.url(`/public/invitations/${token}`)),
+        this.http.get<InvitationPublicResponse>(
+          this.api.url(`/public/invitations/${encodeURIComponent(token)}`),
+        ),
       );
       this.organizationName.set(datos.organization_name);
       this.roleName.set(datos.role_name);
@@ -191,6 +194,15 @@ export class AcceptInvitationPage {
   protected async aceptar(evento: Event): Promise<void> {
     evento.preventDefault();
     this.errorEnvio.set(null);
+
+    // Solo se llega aquí con `estado() === 'formulario'`, que `consultar()` únicamente
+    // fija tras una respuesta correcta con un token no nulo — pero es un campo distinto
+    // de `estado()` a ojos de TypeScript, así que se repite la guarda para que
+    // `encodeURIComponent` reciba un `string`, nunca `string | null`.
+    const token = this.token;
+    if (!token) {
+      return;
+    }
 
     this.errorNombre.set(
       this.firstName().trim() ? null : this.transloco.translate('invitacion.nombreRequerido'),
@@ -208,11 +220,15 @@ export class AcceptInvitationPage {
     this.enviando.set(true);
     try {
       await firstValueFrom(
-        this.http.post(this.api.url(`/public/invitations/${this.token}/accept`), {
-          first_name: this.firstName().trim(),
-          last_name: this.lastName().trim(),
-          password: this.password(),
-        }),
+        this.http.post(
+          this.api.url(`/public/invitations/${encodeURIComponent(token)}/accept`),
+          {
+            first_name: this.firstName().trim(),
+            last_name: this.lastName().trim(),
+            password: this.password(),
+            locale: localeDeCuenta(this.transloco.getActiveLang()),
+          },
+        ),
       );
       this.estado.set('exito');
     } catch (error) {

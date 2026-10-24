@@ -23,6 +23,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import set_organization_context
+from app.core.locale import DEFAULT_LOCALE, Locale
 from app.core.permissions import Permission
 from app.core.security import hash_password
 from app.modules.auth.verification import (
@@ -404,13 +405,17 @@ async def accept_invitation(
     first_name: str,
     last_name: str,
     password: str,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> OrganizationMember:
-    """Fija nombre y contraseña, y crea la membresía. Idempotente.
+    """Fija nombre, contraseña e idioma, y crea la membresía. Idempotente.
 
     Aceptar dos veces con el mismo token no duplica la membresía: si la
     invitación ya está `aceptada`, se devuelve la fila existente sin volver a
     tocar la cuenta ni el rol — es justo lo que exige la fase 2 (doble clic,
-    recarga tras aceptar).
+    recarga tras aceptar), e incluye no reescribir `locale`.
+
+    `locale` tiene valor por defecto porque `test_invitaciones_ponente.py`
+    (fuera de esta fase) llama a esta función sin ese argumento.
     """
     resuelto = await resolve_invitation_token(session, token)
 
@@ -481,12 +486,13 @@ async def accept_invitation(
     )
 
     await session.execute(
-        text("SELECT app_accept_invited_user(:id, :hash, :first_name, :last_name)"),
+        text("SELECT app_accept_invited_user(:id, :hash, :first_name, :last_name, :locale)"),
         {
             "id": usuario_id,
             "hash": hash_password(password),
             "first_name": first_name.strip(),
             "last_name": last_name.strip(),
+            "locale": locale,
         },
     )
 
