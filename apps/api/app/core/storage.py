@@ -12,8 +12,8 @@ import uuid
 from datetime import datetime
 from typing import Any, Protocol
 
-import aioboto3
 import magic
+from aiobotocore.session import get_session
 from botocore.config import Config as BotoConfig
 
 from app.core.config import get_settings
@@ -134,7 +134,7 @@ class S3StorageProvider:
         settings = get_settings()
         self._bucket = settings.s3_bucket
         self._public_base_url = settings.s3_public_base_url
-        self._session = aioboto3.Session()
+        self._session = get_session()
         self._client_kwargs: dict[str, Any] = {
             "service_name": "s3",
             "endpoint_url": settings.s3_endpoint,
@@ -146,7 +146,7 @@ class S3StorageProvider:
         }
 
     def _client(self) -> Any:
-        return self._session.client(**self._client_kwargs)
+        return self._session.create_client(**self._client_kwargs)
 
     async def ensure_bucket(self) -> None:
         async with self._client() as s3:

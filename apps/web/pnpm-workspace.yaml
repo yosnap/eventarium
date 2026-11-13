@@ -17,8 +17,22 @@ onlyBuiltDependencies:
 overrides:
   'brace-expansion@2': '^2.1.7'
   'brace-expansion@5': '^5.0.12'
-  'fast-uri@3': '^3.1.8'
-  'ip-address@10': '^10.7.2'
+  'fast-uri@3': '^3.1.9'
+  'ip-address@10': '^10.7.4'
+  'body-parser@2': '^2.4.0'
+  'proxy-addr@2': '^2.0.8'
+  'qs@6': '^6.16.1'
+  'handlebars@4': '^4.7.10'
+  'source-map-js@1': '^1.2.2'
+  'undici@7': '^7.30.1'
+  'undici@6': '^6.29.1'
+  # Saltos de major en herramientas de desarrollo (CLI de Angular, eslint,
+  # typescript-eslint, transloco): el aviso solo está corregido en glob 14 y
+  # minimatch 11. Comprobado con lint, tests y build.
+  'glob@10': '^14.0.2'
+  'glob@13': '^14.0.2'
+  'minimatch@9': '^11.0.1'
+  'minimatch@10': '^11.0.1'
 
 allowBuilds:
   '@parcel/watcher': set this to true or false

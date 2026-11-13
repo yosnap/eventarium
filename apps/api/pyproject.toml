@@ -14,7 +14,7 @@ dependencies = [
     "pydantic-settings>=2.6,<3.0",
     "pyjwt>=2.15.1,<3.0",
     "argon2-cffi>=23.1,<26.0",
-    "aioboto3>=13.2,<16.0",
+    "aiobotocore>=3.10,<4.0",
     "python-magic>=0.4.27,<0.5",
     "taskiq>=0.11,<1.0",
     "taskiq-redis>=1.0,<2.0",
@@ -45,7 +45,7 @@ dependencies = [
     # ficheros de usuario — aquí no hay alternativa razonable sin decodificar
     # imágenes. Mitigado con límite de dimensiones antes de decodificar
     # completo (ver `app/modules/media/processing.py`).
-    "pillow>=12.3,<13.0",
+    "pillow>=13.0,<14.0",
     # Cifrado en reposo de las claves de proveedor de IA (plan
     # `260911-0325`, fase 1): `cryptography.fernet`. Rango cerrado a la
     # major actual — Fernet es estable, pero la librería rota APIs de
@@ -57,15 +57,14 @@ dependencies = [
     # fase 2). Se usa **solo** `litellm.acompletion` y su mapa de precios:
     # ni el proxy, ni el router, ni los callbacks.
     #
-    # Tope en `<1.98` a propósito, no por pereza de rango: desde 1.98 LiteLLM
-    # declara `boto3>=1.43.1` como dependencia **base** (antes solo la traía
-    # el extra `proxy`, que no usamos), y `aioboto3` —el cliente S3 de la
-    # biblioteca de medios y de contabilidad— arrastra `aiobotocore==2.25.1`,
-    # que fija `botocore<1.40.62`. Las dos restricciones son incompatibles y
-    # no hay ninguna versión de `aioboto3` publicada que admita la serie
-    # 1.43 de botocore, así que subir LiteLLM aquí rompería la subida de
-    # ficheros. Al soltarse ese pin en `aioboto3`, se puede ampliar el tope.
-    "litellm>=1.95,<1.98",
+    # Desde 1.98 LiteLLM declara `boto3>=1.43.1` como dependencia base. Por
+    # eso el cliente S3 usa `aiobotocore` directamente (3.x admite botocore
+    # 1.43) y no `aioboto3`, que sigue fijando `aiobotocore==2.25.1`.
+    #
+    # Tope en `<1.106.2`: desde 1.106.2 el mapa de precios que trae el paquete
+    # ya no incluye OpenRouter, y como el mapa remoto no se descarga (ver
+    # `litellm_runtime.py`), todo gasto de OpenRouter pasaría a no auditable.
+    "litellm>=1.100.4,<1.106.2",
     # Rasterización de PDF antes del OCR de justificantes (plan
     # `260910-2216`, fase 4). `pypdfium2` y no `pdf2image`: este trae el
     # binario de PDFium dentro de la rueda, así que la imagen Docker no gana
@@ -86,7 +85,7 @@ dev = [
     "ruff>=0.8,<1.0",
     "mypy>=1.13,<2.0",
     "pip-audit>=2.7,<3.0",
-    "types-aioboto3[s3]>=13.2,<16.0",
+    "types-aiobotocore[s3]>=3.0,<4.0",
 ]
 
 [build-system]
@@ -127,7 +126,7 @@ plugins = []
 exclude = ["alembic/versions/"]
 
 [[tool.mypy.overrides]]
-module = ["magic.*", "taskiq_redis.*", "aioboto3.*", "pypdfium2.*"]
+module = ["magic.*", "taskiq_redis.*", "pypdfium2.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
@@ -136,3 +135,9 @@ asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.uv]
+# LiteLLM 1.106 declara `filelock<4`, pero los avisos de seguridad de filelock
+# solo están corregidos en 4.2.1. LiteLLM 1.108 ya admite filelock 4 con el
+# mismo código; se puede quitar al subir LiteLLM.
+override-dependencies = ["filelock>=4.2.1"]
