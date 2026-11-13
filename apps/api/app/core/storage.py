@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import Any, Protocol
 
 import magic
-from aiobotocore.session import get_session
+from aiobotocore.session import get_session as get_aio_session
 from botocore.config import Config as BotoConfig
 
 from app.core.config import get_settings
@@ -134,7 +134,7 @@ class S3StorageProvider:
         settings = get_settings()
         self._bucket = settings.s3_bucket
         self._public_base_url = settings.s3_public_base_url
-        self._session = get_session()
+        self._session = get_aio_session()
         self._client_kwargs: dict[str, Any] = {
             "service_name": "s3",
             "endpoint_url": settings.s3_endpoint,
