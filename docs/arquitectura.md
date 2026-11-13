@@ -346,7 +346,7 @@ personal que demuestra haber sido borrado.
 
 ## Almacenamiento de objetos
 
-`StorageProvider` es un `Protocol`; `S3StorageProvider` (aioboto3, path-style) es la
+`StorageProvider` es un `Protocol`; `S3StorageProvider` (aiobotocore, path-style) es la
 implementación para SeaweedFS. Dos invariantes:
 
 - Toda clave se construye con `build_object_key` → `orgs/{organization_id}/{tipo}/{uuid}.{ext}`.

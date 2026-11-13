@@ -33,6 +33,37 @@ export interface ChangelogVersion {
 
 export const CHANGELOG: readonly ChangelogVersion[] = [
   {
+    version: '0.30.0',
+    fecha: '2026-11-13',
+    secciones: [
+      {
+        categoria: 'modificado',
+        items: [
+          {
+            titulo: 'Publicar un evento de pago antes de abrir la venta',
+            descripcion:
+              'Un evento de pago se puede publicar aunque la venta de entradas empiece más tarde. Mientras no haya entradas a la venta, la ficha y el formulario dicen cuándo abre, o que la venta ha terminado, en lugar de mostrar un formulario gratuito. Un evento publicado se sigue pudiendo editar aunque su venta haya cerrado.',
+          },
+          {
+            titulo: 'Reembolsos en la auditoría',
+            descripcion:
+              'Cada reembolso pedido desde el panel queda registrado en la auditoría con quién lo pidió, el importe y si anula la entrada.',
+          },
+        ],
+      },
+      {
+        categoria: 'corregido',
+        items: [
+          {
+            titulo: 'Dependencias con avisos de seguridad',
+            descripcion:
+              'Se actualizan las librerías de la API y de la web con vulnerabilidades conocidas (Pillow, Angular, DOMPurify, LiteLLM, certifi, aiohttp, urllib3, entre otras).',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.29.0',
     fecha: '2026-10-21',
     secciones: [
