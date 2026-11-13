@@ -66,13 +66,7 @@ import { ApiService } from '../../core/api/api.service';
             <span class="nombre">{{ etiqueta() }}</span>
             <span class="chevron" aria-hidden="true">▾</span>
           } @else {
-            <svg
-              viewBox="0 0 24 24"
-              width="20"
-              height="20"
-              aria-hidden="true"
-              fill="none"
-            >
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none">
               <circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.6" />
               <path
                 d="M4.5 19.5c1.5-3.5 4.5-5.25 7.5-5.25s6 1.75 7.5 5.25"

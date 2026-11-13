@@ -57,9 +57,13 @@ describe('AccessMenu', () => {
     fixture.detectChanges();
     http.expectOne('/api/v1/auth/refresh').flush({ access_token: 'token-1', expires_in: 900 });
     await vaciarMicrotareas();
-    http
-      .expectOne('/api/v1/users/me')
-      .flush({ id: '1', email: 'ana@ejemplo.com', first_name: 'Ana', last_name: null, is_superadmin: false });
+    http.expectOne('/api/v1/users/me').flush({
+      id: '1',
+      email: 'ana@ejemplo.com',
+      first_name: 'Ana',
+      last_name: null,
+      is_superadmin: false,
+    });
     await avanzar(fixture);
     return fixture;
   }
