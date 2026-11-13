@@ -146,6 +146,8 @@ describe('EventForm', () => {
     expect(fixture.nativeElement.textContent).toContain('Debe estar entre 30 y 1439 minutos.');
   });
 
+  // Renderiza el formulario con EventDetails entero y pasa axe por todo: en
+  // local tarda unos 2 s, y en el runner de CI llegó a 10 s.
   it('modo edición: carga los datos base y delega el resto en EventDetails', async () => {
     configurar('e1');
     http = TestBed.inject(HttpTestingController);
@@ -173,7 +175,7 @@ describe('EventForm', () => {
     await flushEventDetails(http, fixture);
 
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
-  });
+  }, 20_000);
 
   describe('categoría y etiquetas', () => {
     async function abrirEdicion(
