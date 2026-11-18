@@ -92,10 +92,10 @@ h3 {
 /*
  * Revelado sutil al entrar en pantalla, sobre `[data-reveal]`/`reveal.js` de
  * la referencia (`eventarium.css:281-294`). Dos salvaguardas, no una:
- * - `.js-activo` solo lo añade `Reveal` (`shared/ui/reveal.directive.ts`)
- *   cuando confirma que el JS arrancó — sin esa clase, `[appReveal]` no
- *   tiene ninguna regla que lo oculte, así que el HTML servido por SSR (o
- *   cualquier caso en que el bootstrap fallara) se queda visible tal cual.
+ * - `.js-activo` lo añade un script de `index.html` antes del primer pintado,
+ *   solo si hay JavaScript, y lo retira si la aplicación no arranca en 4 s
+ *   (`Reveal` marca `app-lista` al arrancar). Sin esa clase, `[appReveal]` no
+ *   tiene ninguna regla que lo oculte y el HTML servido por SSR se ve tal cual.
  * - `prefers-reduced-motion` anula la ocultación por completo más abajo, no
  *   solo acorta la transición.
  */

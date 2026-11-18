@@ -18,9 +18,10 @@ import {
  * Dos salvaguardas que la referencia exige explícitamente y que aquí se
  * cumplen igual:
  * - **Sin JavaScript, nada se oculta.** La clase que esconde el contenido
- *   (`.js-activo`) solo se añade a `<html>` cuando esta directiva confirma
- *   que el JS arrancó (ver `reveal-activo.service.ts`); si el bootstrapeo
- *   fallara, el contenido servido por SSR se queda visible.
+ *   (`.js-activo`) la añade un script mínimo de `index.html` antes del primer
+ *   pintado, para que el contenido no se vea quieto y luego salte al animarse.
+ *   Sin JavaScript no se ejecuta; si la aplicación no arranca en 4 s, el mismo
+ *   script la quita y todo se ve.
  * - **`prefers-reduced-motion: reduce` no mueve nada.** La regla vive en
  *   `styles.css` como CSS puro (no aquí): con ese ajuste del sistema, el
  *   contenido aparece ya visible sin transición, sin que esta directiva
@@ -45,7 +46,9 @@ export class Reveal implements AfterViewInit, OnDestroy {
     }
     const elemento = this.elementRef.nativeElement;
     elemento.style.setProperty('--i', String(this.index));
-    document.documentElement.classList.add('js-activo');
+    // `index.html` ya añadió `js-activo` antes del primer pintado; `app-lista` le
+    // dice que la aplicación arrancó y que no hace falta mostrarlo todo por si acaso.
+    document.documentElement.classList.add('js-activo', 'app-lista');
 
     if (typeof IntersectionObserver === 'undefined') {
       elemento.classList.add('es-visible');
