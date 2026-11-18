@@ -270,6 +270,9 @@ def traducir_interfaz(
     simular: bool = typer.Option(
         False, "--simular", help="Solo cuenta lo que haría, sin llamar a la IA."
     ),
+    a_la_vez: int = typer.Option(
+        2, "--a-la-vez", help="Lotes que se piden a la vez (según lo que admita el proveedor)."
+    ),
 ) -> None:
     """Traduce con IA los textos de la interfaz web que faltan o han cambiado.
 
@@ -291,7 +294,7 @@ def traducir_interfaz(
         if organization_id is None:
             raise typer.BadParameter(f"No existe la organización «{organizacion}».")
         traductor = None if simular else traductor_de_la_pasarela(organization_id)
-        informe = await traducir(idioma, traductor, simular=simular)
+        informe = await traducir(idioma, traductor, simular=simular, a_la_vez=a_la_vez)
         typer.echo(f"Claves por traducir: {informe.pendientes}")
         if not simular:
             typer.echo(f"Traducidas: {informe.traducidas}")

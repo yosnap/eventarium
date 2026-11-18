@@ -195,7 +195,13 @@ def _escribir_json(ruta: Path, datos: dict[str, Any]) -> None:
     ruta.write_text(json.dumps(datos, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
-async def traducir(idioma: str, traductor: Traductor | None, *, simular: bool = False) -> Informe:
+async def traducir(
+    idioma: str,
+    traductor: Traductor | None,
+    *,
+    simular: bool = False,
+    a_la_vez: int = LOTES_A_LA_VEZ,
+) -> Informe:
     """Traduce lo pendiente de `idioma`. Con `simular`, solo cuenta lo que haría."""
     arbol_origen = _leer_json(CARPETA_TRADUCCIONES / f"{IDIOMA_ORIGEN}.json")
     origen = aplanar(arbol_origen)
@@ -211,7 +217,7 @@ async def traducir(idioma: str, traductor: Traductor | None, *, simular: bool = 
     if traductor is None:
         raise ValueError("Hace falta un traductor para traducir de verdad.")
 
-    semaforo = asyncio.Semaphore(LOTES_A_LA_VEZ)
+    semaforo = asyncio.Semaphore(max(1, a_la_vez))
 
     async def traducir_lote(lote: list[str]) -> None:
         async with semaforo:
