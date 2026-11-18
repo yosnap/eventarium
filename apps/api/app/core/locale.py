@@ -41,6 +41,18 @@ RUTAS_WEB: Final[dict[Locale, dict[str, str]]] = {
     "en-US": {
         "pago/retorno": "payment/return",
         "pago/cancelado": "payment/cancelled",
+        "verificar-correo": "verify-email",
+        "recuperar-contrasena/nueva": "forgot-password/new",
+        "invitacion": "invitation",
+        "cuenta/confirmar-correo": "account/confirm-email",
+        "verificar-inscripcion": "verify-registration",
+        "confirmar-promocion": "confirm-promotion",
+        "cancelar-inscripcion": "cancel-registration",
+        "mi-entrada": "my-ticket",
+        "mis-eventos/ver": "my-events/view",
+        "legal/aviso-legal": "legal/legal-notice",
+        "legal/privacidad": "legal/privacy",
+        "legal/cookies": "legal/cookies",
     },
 }
 
