@@ -33,6 +33,14 @@ describe('rutas con prefijo de idioma', () => {
     for (const prefijo of PREFIJOS) {
       const conPrefijo = rutasPublicas(routes.find((r) => r.path === prefijo)?.children ?? []);
       expect(conPrefijo).toEqual(expect.arrayContaining(raiz));
+      // Mismo shell, mismas rutas y en el mismo orden (los matchers no tienen nombre).
+      const shellRaiz = routes.find((r) => r.path === '' && r.children)?.children ?? [];
+      const shellPrefijo =
+        routes.find((r) => r.path === prefijo)?.children?.find((r) => r.path === '' && r.children)
+          ?.children ?? [];
+      expect(shellPrefijo.map((r) => r.path ?? r.matcher?.toString())).toEqual(
+        shellRaiz.map((r) => r.path ?? r.matcher?.toString()),
+      );
       expect(conPrefijo).not.toContain('dashboard');
     }
   });
@@ -47,8 +55,20 @@ describe('rutas con prefijo de idioma', () => {
         expect(serverRoutes[indice].renderMode, ruta).toBe(RenderMode.Client);
       }
     }
-    expect(PAGINAS_PUBLICAS_SOLO_DE_CLIENTE).toEqual(
-      expect.arrayContaining(['verificar-correo', 'recuperar-contrasena/nueva', 'mis-eventos/ver']),
-    );
+    // Lista escrita a mano a propósito: si alguien quita una página de la lista
+    // compartida, este test lo detecta en vez de recorrer la misma lista.
+    for (const pagina of [
+      'acceder',
+      'mis-eventos',
+      'vista-previa/**',
+      'verificar-correo',
+      'recuperar-contrasena/nueva',
+      'cuenta/confirmar-correo',
+      'mis-eventos/ver',
+    ]) {
+      for (const ruta of [pagina, ...PREFIJOS.map((p) => `${p}/${pagina}`)]) {
+        expect(serverRoutes.find((r) => r.path === ruta)?.renderMode, ruta).toBe(RenderMode.Client);
+      }
+    }
   });
 });

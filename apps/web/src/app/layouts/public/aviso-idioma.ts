@@ -7,9 +7,9 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { Router } from '@angular/router';
 
-import { IDIOMAS, Idioma, urlEnIdioma } from '../../core/i18n/idioma';
+import { IDIOMAS, Idioma, ofreceCambioDeIdioma, urlEnIdioma } from '../../core/i18n/idioma';
+import { urlActual } from '../../core/i18n/url-actual';
 import { IdiomaService } from '../../core/i18n/idioma.service';
 
 /**
@@ -88,7 +88,7 @@ function leerDescarte(): boolean {
   `,
 })
 export class AvisoIdioma {
-  private readonly router = inject(Router);
+  private readonly urlDeLaPagina = urlActual();
   private readonly documento = inject(DOCUMENT);
   private readonly activo = inject(IdiomaService).idioma();
   private readonly preferido = signal<Idioma | null>(null);
@@ -96,7 +96,12 @@ export class AvisoIdioma {
 
   protected readonly sugerido = computed(() => {
     const preferido = this.preferido();
-    return preferido && preferido !== this.activo && !this.descartado() ? preferido : null;
+    return preferido &&
+      preferido !== this.activo &&
+      !this.descartado() &&
+      ofreceCambioDeIdioma(this.urlDeLaPagina())
+      ? preferido
+      : null;
   });
 
   constructor() {
@@ -112,7 +117,7 @@ export class AvisoIdioma {
   }
 
   protected url(idioma: Idioma): string {
-    return urlEnIdioma(this.router.url, idioma);
+    return urlEnIdioma(this.urlDeLaPagina(), idioma);
   }
 
   protected descartar(): void {

@@ -61,6 +61,6 @@ export class PaymentCancelledPage {
   protected readonly volverAlEvento = rutaDeVueltaAlEvento;
 
   constructor() {
-    this.seo.set({ title: this.transloco.translate('pago.cancelado.titulo') });
+    this.seo.set({ title: this.transloco.translate('pago.cancelado.titulo'), noIndexar: true });
   }
 }

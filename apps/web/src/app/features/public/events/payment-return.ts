@@ -129,7 +129,8 @@ export class PaymentReturnPage implements OnDestroy {
   private temporizador: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
-    this.seo.set({ title: this.transloco.translate('pago.retorno.titulo') });
+    // Página de paso con datos de una compra concreta: no se indexa.
+    this.seo.set({ title: this.transloco.translate('pago.retorno.titulo'), noIndexar: true });
     const parametros = this.ruta.snapshot.queryParamMap;
     this.org = slugValido(parametros.get('org'));
     this.slug = slugValido(parametros.get('slug'));

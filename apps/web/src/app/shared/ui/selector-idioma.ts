@@ -1,10 +1,14 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { NavigationEnd, Router } from '@angular/router';
-import { filter, map } from 'rxjs';
 import { TranslocoDirective } from '@jsverse/transloco';
 
-import { IDIOMAS, NOMBRE_DEL_IDIOMA, PREFIJO_DE_IDIOMA, urlEnIdioma } from '../../core/i18n/idioma';
+import {
+  IDIOMAS,
+  NOMBRE_DEL_IDIOMA,
+  PREFIJO_DE_IDIOMA,
+  ofreceCambioDeIdioma,
+  urlEnIdioma,
+} from '../../core/i18n/idioma';
+import { urlActual } from '../../core/i18n/url-actual';
 import { IdiomaService } from '../../core/i18n/idioma.service';
 
 /**
@@ -19,23 +23,25 @@ import { IdiomaService } from '../../core/i18n/idioma.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [TranslocoDirective],
   template: `
-    <nav *transloco="let t" [attr.aria-label]="t('comun.idioma')" [class.compacto]="compacto()">
-      <ul>
-        @for (opcion of opciones(); track opcion.idioma) {
-          <li>
-            <a
-              [attr.href]="opcion.url"
-              [attr.hreflang]="opcion.idioma"
-              [attr.lang]="opcion.idioma"
-              [attr.aria-current]="opcion.activo ? 'true' : null"
-              [attr.aria-label]="compacto() ? opcion.nombre : null"
-            >
-              {{ compacto() ? opcion.codigo : opcion.nombre }}
-            </a>
-          </li>
-        }
-      </ul>
-    </nav>
+    @if (opciones().length > 0) {
+      <nav *transloco="let t" [attr.aria-label]="t('comun.idioma')" [class.compacto]="compacto()">
+        <ul>
+          @for (opcion of opciones(); track opcion.idioma) {
+            <li>
+              <a
+                [attr.href]="opcion.url"
+                [attr.hreflang]="opcion.idioma"
+                [attr.lang]="opcion.idioma"
+                [attr.aria-current]="opcion.activo ? 'true' : null"
+                [attr.aria-label]="compacto() ? opcion.nombre : null"
+              >
+                {{ compacto() ? opcion.codigo : opcion.nombre }}
+              </a>
+            </li>
+          }
+        </ul>
+      </nav>
+    }
   `,
   styles: `
     ul {
@@ -70,25 +76,18 @@ export class SelectorIdioma {
   /** Códigos cortos (ES · EN) en la cabecera; nombres completos en el pie. */
   readonly compacto = input(false);
 
-  private readonly router = inject(Router);
   private readonly activo = inject(IdiomaService).idioma();
-
-  /** La cabecera no se vuelve a crear al navegar: la URL tiene que seguir al router. */
-  private readonly url = toSignal(
-    this.router.events.pipe(
-      filter((evento) => evento instanceof NavigationEnd),
-      map((evento) => evento.urlAfterRedirects),
-    ),
-    { initialValue: this.router.url },
-  );
+  private readonly url = urlActual();
 
   protected readonly opciones = computed(() =>
-    IDIOMAS.map((idioma) => ({
-      idioma,
-      nombre: NOMBRE_DEL_IDIOMA[idioma],
-      codigo: PREFIJO_DE_IDIOMA[idioma] || idioma.slice(0, 2),
-      url: urlEnIdioma(this.url(), idioma),
-      activo: idioma === this.activo,
-    })),
+    !ofreceCambioDeIdioma(this.url())
+      ? []
+      : IDIOMAS.map((idioma) => ({
+          idioma,
+          nombre: NOMBRE_DEL_IDIOMA[idioma],
+          codigo: PREFIJO_DE_IDIOMA[idioma] || idioma.slice(0, 2),
+          url: urlEnIdioma(this.url(), idioma),
+          activo: idioma === this.activo,
+        })),
   );
 }

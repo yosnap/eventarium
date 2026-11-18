@@ -113,13 +113,29 @@ export const NOMBRE_DEL_IDIOMA: Readonly<Record<Idioma, string>> = {
  * cualquier otra cosa (otro origen, `//…`) devuelve la portada del idioma destino.
  */
 export function urlEnIdioma(url: string, destino: Idioma): string {
-  const valida = url.startsWith('/') && !url.startsWith('//') ? url : '/';
+  const esLocal = (ruta: string) => /^\/(?![/\\])/.test(ruta) || ruta === '/';
+  const valida = esLocal(url) ? url : '/';
   const actual = idiomaDelPrefijo(valida);
-  const sinPrefijo = actual ? valida.slice(PREFIJO_DE_IDIOMA[actual].length + 1) || '/' : valida;
+  const sinPrefijo = actual ? valida.slice(PREFIJO_DE_IDIOMA[actual].length + 1) : valida;
   const resto = sinPrefijo.startsWith('/') ? sinPrefijo : `/${sinPrefijo}`;
+  if (!esLocal(resto)) {
+    return PREFIJO_DE_IDIOMA[destino] ? `/${PREFIJO_DE_IDIOMA[destino]}` : '/';
+  }
   const prefijo = PREFIJO_DE_IDIOMA[destino];
   if (!prefijo) {
     return resto;
   }
-  return resto === '/' ? `/${prefijo}` : `/${prefijo}${resto}`;
+  // La portada con parámetros va sin barra final: `/en?x=1`, no `/en/?x=1`.
+  return /^\/(?:[?#]|$)/.test(resto) ? `/${prefijo}${resto.slice(1)}` : `/${prefijo}${resto}`;
+}
+
+/**
+ * Si en esta URL tiene sentido ofrecer otro idioma. No en las rutas que siguen el
+ * idioma de la cuenta (paneles, consentimiento OAuth), que no existen con prefijo, ni
+ * en los enlaces con `token`: recargar uno de un solo uso ya gastado mostraría
+ * «enlace caducado» aunque la acción haya ido bien.
+ */
+export function ofreceCambioDeIdioma(url: string): boolean {
+  const [ruta, consulta = ''] = url.split('?', 2);
+  return !sigueIdiomaDeCuenta(ruta) && !new URLSearchParams(consulta.split('#')[0]).has('token');
 }

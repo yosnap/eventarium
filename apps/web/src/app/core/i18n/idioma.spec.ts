@@ -5,6 +5,7 @@ import {
   idiomaDelPrefijo,
   leerIdiomaDeCookie,
   resolverIdioma,
+  ofreceCambioDeIdioma,
   serializarCookieDeIdioma,
   urlEnIdioma,
 } from './idioma';
@@ -68,5 +69,29 @@ describe('urlEnIdioma', () => {
   it('nunca devuelve una URL de otro sitio', () => {
     expect(urlEnIdioma('//malo.example/x', 'en-US')).toBe('/en');
     expect(urlEnIdioma('https://malo.example', 'es-ES')).toBe('/');
+    expect(urlEnIdioma('/en//malo.example', 'es-ES')).toBe('/');
+    expect(urlEnIdioma('/\\malo.example', 'en-US')).toBe('/en');
+  });
+
+  it('la portada con parámetros no lleva barra final', () => {
+    expect(urlEnIdioma('/?x=1', 'en-US')).toBe('/en?x=1');
+  });
+});
+
+describe('ofreceCambioDeIdioma', () => {
+  it('no en los paneles ni en el consentimiento OAuth, que no existen con prefijo', () => {
+    expect(ofreceCambioDeIdioma('/oauth/consentimiento?client_id=x')).toBe(false);
+    expect(ofreceCambioDeIdioma('/espacio-de-trabajo')).toBe(false);
+    expect(ofreceCambioDeIdioma('/dashboard')).toBe(false);
+  });
+
+  it('no en un enlace con token, que podría estar ya gastado', () => {
+    expect(ofreceCambioDeIdioma('/verificar-inscripcion?token=abc')).toBe(false);
+    expect(ofreceCambioDeIdioma('/en/mis-eventos/ver?token=abc')).toBe(false);
+  });
+
+  it('sí en el resto de páginas públicas', () => {
+    expect(ofreceCambioDeIdioma('/acme/evento?x=1')).toBe(true);
+    expect(ofreceCambioDeIdioma('/en/eventos')).toBe(true);
   });
 });
