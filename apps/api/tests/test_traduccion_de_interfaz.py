@@ -111,7 +111,7 @@ async def test_un_lote_sin_respuesta_no_para_los_demas(
 
     async def traductor(mensajes: list[dict[str, str]]) -> str:
         textos = json.loads(mensajes[1]["content"])
-        if "nuevo" in textos:
+        if "Nuevo" in textos.values():
             raise TimeoutError
         return json.dumps({clave: texto for clave, texto in textos.items()})
 
@@ -120,3 +120,29 @@ async def test_un_lote_sin_respuesta_no_para_los_demas(
     assert informe.sin_respuesta == 1
     # La siguiente ejecución solo pide la que faltó.
     assert (await traducir("en-US", None, simular=True)).pendientes == 1
+
+
+async def test_el_catalogo_del_servidor_usa_el_texto_como_clave(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.core import mensajes as catalogo
+    from app.core.mensajes import extraer as extractor
+
+    monkeypatch.setattr(catalogo, "CARPETA", tmp_path)
+    monkeypatch.setattr(modulo, "FICHERO_HUELLAS", tmp_path / "huellas.json")
+    monkeypatch.setattr(modulo, "FICHERO_GLOSARIO", tmp_path / "glosario.json")
+    monkeypatch.setattr(
+        extractor,
+        "extraer",
+        lambda: extractor.Extraccion(mensajes={"No existe {slug}.", "Hecho."}),
+    )
+    traducidos = {"No existe {slug}.": "There is no {slug}.", "Hecho.": "Done."}
+
+    async def traductor(mensajes: list[dict[str, str]]) -> str:
+        textos = json.loads(mensajes[1]["content"])
+        assert "{nombre}" in mensajes[0]["content"]  # el contexto del servidor
+        return json.dumps({clave: traducidos[texto] for clave, texto in textos.items()})
+
+    informe = await modulo.traducir_servidor("en-US", traductor)
+    assert informe.traducidas == 2
+    assert json.loads((tmp_path / "en-US.json").read_text(encoding="utf-8")) == traducidos

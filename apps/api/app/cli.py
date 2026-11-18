@@ -274,14 +274,18 @@ def traducir_interfaz(
         2, "--a-la-vez", help="Lotes que se piden a la vez (según lo que admita el proveedor)."
     ),
 ) -> None:
-    """Traduce con IA los textos de la interfaz web que faltan o han cambiado.
+    """Traduce con IA los textos de la interfaz web y los mensajes de la API pendientes.
 
     Usa la IA configurada para la organización o, si hereda, la de la plataforma
     (`/admin`). El gasto queda en el uso de IA de esa organización.
     """
     from app.core.locale import DEFAULT_LOCALE, LOCALES
     from app.modules.organizations.models import Organization
-    from app.traduccion_de_interfaz import traducir, traductor_de_la_pasarela
+    from app.traduccion_de_interfaz import (
+        traducir,
+        traducir_servidor,
+        traductor_de_la_pasarela,
+    )
 
     if idioma not in LOCALES or idioma == DEFAULT_LOCALE:
         raise typer.BadParameter(f"«{idioma}» no es un idioma de destino del catálogo.")
@@ -294,29 +298,34 @@ def traducir_interfaz(
         if organization_id is None:
             raise typer.BadParameter(f"No existe la organización «{organizacion}».")
         traductor = None if simular else traductor_de_la_pasarela(organization_id)
-        informe = await traducir(idioma, traductor, simular=simular, a_la_vez=a_la_vez)
-        typer.echo(f"Claves por traducir: {informe.pendientes}")
-        if not simular:
-            typer.echo(f"Traducidas: {informe.traducidas}")
-        if informe.sin_respuesta:
-            typer.secho(
-                f"Sin respuesta de la IA: {informe.sin_respuesta} claves. "
-                "Vuelve a ejecutarlo para completarlas.",
-                fg=typer.colors.YELLOW,
-            )
-        if informe.rechazadas:
-            typer.secho(
-                f"Rechazadas (variables distintas o vacías): {', '.join(informe.rechazadas)}",
-                fg=typer.colors.YELLOW,
-            )
-        if informe.revisar:
-            typer.secho(
-                "Corregidas a mano cuyo original cambió (no se tocan, revísalas): "
-                + ", ".join(informe.revisar),
-                fg=typer.colors.YELLOW,
-            )
-        if informe.sobrantes:
-            typer.echo(f"Claves que ya no existen en español (se quitan): {len(informe.sobrantes)}")
+        for titulo, funcion in (
+            ("Interfaz web", traducir),
+            ("Mensajes de la API", traducir_servidor),
+        ):
+            informe = await funcion(idioma, traductor, simular=simular, a_la_vez=a_la_vez)
+            typer.secho(titulo, bold=True)
+            typer.echo(f"  Por traducir: {informe.pendientes}")
+            if not simular:
+                typer.echo(f"  Traducidas: {informe.traducidas}")
+            if informe.sin_respuesta:
+                typer.secho(
+                    f"  Sin respuesta de la IA: {informe.sin_respuesta}. "
+                    "Vuelve a ejecutarlo para completarlas.",
+                    fg=typer.colors.YELLOW,
+                )
+            if informe.rechazadas:
+                typer.secho(
+                    f"  Rechazadas (variables distintas o vacías): {', '.join(informe.rechazadas)}",
+                    fg=typer.colors.YELLOW,
+                )
+            if informe.revisar:
+                typer.secho(
+                    "  Corregidas a mano cuyo original cambió (no se tocan, revísalas): "
+                    + ", ".join(informe.revisar),
+                    fg=typer.colors.YELLOW,
+                )
+            if informe.sobrantes:
+                typer.echo(f"  Ya no existen en español (se quitan): {len(informe.sobrantes)}")
 
     asyncio.run(_ejecutar())
 
