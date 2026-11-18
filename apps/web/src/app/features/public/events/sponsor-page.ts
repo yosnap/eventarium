@@ -431,6 +431,7 @@ export class SponsorPage implements OnInit {
     this.patrocinador.set(patrocinador);
     this.aplicarTema(patrocinador.theme);
     this.seo.set({
+      contenidoDelOrganizador: true,
       title: `${patrocinador.name} · ${patrocinador.event_title}`,
       description: this.transloco.translate('publico.patrocinador.rotulo'),
       noIndexar: patrocinador.visibility === 'hidden',

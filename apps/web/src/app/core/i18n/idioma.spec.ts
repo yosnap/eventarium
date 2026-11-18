@@ -6,6 +6,7 @@ import {
   leerIdiomaDeCookie,
   resolverIdioma,
   serializarCookieDeIdioma,
+  urlEnIdioma,
 } from './idioma';
 
 const COOKIE_EN = `otra=1; ${NOMBRE_COOKIE_IDIOMA}=en-US`;
@@ -52,5 +53,20 @@ describe('resolverIdioma', () => {
   it('una página pública sin prefijo es siempre del idioma por defecto', () => {
     expect(resolverIdioma('/acme/evento', COOKIE_EN)).toBe('es-ES');
     expect(resolverIdioma('/', COOKIE_EN)).toBe('es-ES');
+  });
+});
+
+describe('urlEnIdioma', () => {
+  it('cambia solo el prefijo de idioma', () => {
+    expect(urlEnIdioma('/acme/evento?x=1', 'en-US')).toBe('/en/acme/evento?x=1');
+    expect(urlEnIdioma('/en/acme/evento', 'es-ES')).toBe('/acme/evento');
+    expect(urlEnIdioma('/en', 'es-ES')).toBe('/');
+    expect(urlEnIdioma('/', 'en-US')).toBe('/en');
+    expect(urlEnIdioma('/en/acme', 'en-US')).toBe('/en/acme');
+  });
+
+  it('nunca devuelve una URL de otro sitio', () => {
+    expect(urlEnIdioma('//malo.example/x', 'en-US')).toBe('/en');
+    expect(urlEnIdioma('https://malo.example', 'es-ES')).toBe('/');
   });
 });

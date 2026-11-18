@@ -577,6 +577,7 @@ export class EventVenuesPage implements OnInit {
     this.aplicarTema(evento.theme);
     this.sedesVisibles.set(evento.venues.map((sede) => sede.id));
     this.seo.set({
+      contenidoDelOrganizador: true,
       title: `${evento.title} · ${this.traducir('publico.eventos.multisede.rotulo')}`,
       description: evento.summary ?? this.traducir('publico.eventos.sinResumen'),
       image: evento.cover_url,

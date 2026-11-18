@@ -966,6 +966,7 @@ export class EventPage implements OnInit {
     // cuando no hay tema propio es lo que deja pasar la de la organización.
     this.aplicarTema(evento.theme);
     this.seo.set({
+      contenidoDelOrganizador: true,
       title: evento.title,
       description: evento.summary ?? this.transloco.translate('publico.eventos.sinResumen'),
       image: evento.cover_url,

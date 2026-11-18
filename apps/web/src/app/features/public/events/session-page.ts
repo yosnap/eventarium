@@ -594,6 +594,7 @@ export class SessionPage implements OnInit {
       resolveVideoEmbed(sesion.video_platform, sesion.video_url, this.api.currentHost()),
     );
     this.seo.set({
+      contenidoDelOrganizador: true,
       title: `${sesion.title} · ${sesion.event_title}`,
       description: sesion.description ?? this.transloco.translate('publico.eventos.sinResumen'),
       noIndexar: sesion.visibility === 'hidden',

@@ -72,6 +72,38 @@ async def test_camino_1_alta_directa_deja_pending_payment_sin_emitir_entrada(
         assert tickets == []
 
 
+@pytest.mark.parametrize(("accept_language", "prefijo"), [("es-ES", ""), ("en-US,en;q=0.9", "/en")])
+async def test_stripe_vuelve_a_la_web_en_el_idioma_de_la_compra(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    monkeypatch: pytest.MonkeyPatch,
+    fake: FakeStripeClient,
+    accept_language: str,
+    prefijo: str,
+) -> None:
+    sufijo = "idioma" + prefijo.strip("/")
+    evento, tipo = await _preparar_evento_de_pago(cliente, organizacion, monkeypatch, sufijo)
+    fake.v1.checkout.sessions.create_async.return_value = _sesion_creada()
+
+    respuesta = await cliente.post(
+        _url_checkout(evento["slug"]),
+        headers={"Accept-Language": accept_language},
+        json={
+            "email": f"{sufijo}@example.com",
+            "full_name": "Compra Con Idioma",
+            "data_processing_accepted": True,
+            "ticket_type_id": tipo["id"],
+            "turnstile_token": "token-de-prueba",
+        },
+    )
+    assert respuesta.status_code == 200, respuesta.text
+    parametros = fake.v1.checkout.sessions.create_async.await_args.kwargs["params"]
+    assert f"{prefijo}/pago/retorno?" in parametros["success_url"]
+    assert f"{prefijo}/pago/cancelado?" in parametros["cancel_url"]
+    if not prefijo:
+        assert "/en/" not in parametros["success_url"]
+
+
 async def test_camino_2_verificacion_deja_pending_payment(
     organizacion: OrganizacionDePrueba,
 ) -> None:

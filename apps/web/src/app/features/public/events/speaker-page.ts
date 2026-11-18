@@ -585,6 +585,7 @@ export class SpeakerPage implements OnInit {
   private aplicar(perfil: PublicSpeakerProfile): void {
     this.perfil.set(perfil);
     this.seo.set({
+      contenidoDelOrganizador: true,
       title: perfil.display_name,
       description: perfil.fields['bio'] ?? this.transloco.translate('publico.eventos.sinResumen'),
     });

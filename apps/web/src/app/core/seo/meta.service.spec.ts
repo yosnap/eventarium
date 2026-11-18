@@ -54,7 +54,12 @@ describe('SeoMetaService', () => {
     expect(document.head.querySelectorAll('link[rel="canonical"]')).toHaveLength(1);
     expect(canonica()).toBe(`${location.origin}/acme/otro`);
 
+    // Sin ruta propia, la canónica es la ruta actual sin parámetros.
     seo.set({ title: 'Sin canónica' });
+    expect(canonica()).toBe(`${location.origin}${location.pathname}`);
+
+    // Una página que no se indexa no publica canónica.
+    seo.set({ title: 'Privada', noIndexar: true });
     expect(canonica()).toBeUndefined();
   });
 

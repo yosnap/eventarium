@@ -561,6 +561,7 @@ export class OrganizationPublicPage implements OnInit {
     this.proximos.set(estado.proximos);
     this.pasados.set(estado.pasados);
     this.seo.set({
+      contenidoDelOrganizador: true,
       title: estado.perfil.name,
       description:
         estado.perfil.description ??

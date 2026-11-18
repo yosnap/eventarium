@@ -706,7 +706,7 @@ export class RegistrationPage implements OnInit {
     // Antes de pedir el evento: si la petición falla, la página no debe
     // quedarse con el título y las OG del evento del que se venía.
     const titulo = this.transloco.translate('inscripcion.seoTitulo');
-    this.seo.set({ title: titulo });
+    this.seo.set({ title: titulo, contenidoDelOrganizador: true });
     try {
       const evento = await firstValueFrom(
         this.http.get<PublicEventDetail>(this.api.url(apiEvento(this.org(), this.slug())), {
@@ -716,6 +716,7 @@ export class RegistrationPage implements OnInit {
       this.evento.set(evento);
       this.aplicarTema(evento.theme);
       this.seo.set({
+        contenidoDelOrganizador: true,
         title: `${titulo} · ${evento.title}`,
         description: evento.summary ?? this.transloco.translate('publico.eventos.sinResumen'),
         image: evento.cover_url,
