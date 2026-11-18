@@ -112,8 +112,25 @@ h3 {
   transition-delay: calc(var(--i, 0) * 70ms);
 }
 
+/*
+ * Animaciones de la portada con GSAP: las piezas de entrada del hero
+ * (`[data-entrada]`) y los textos que se encienden con el scroll
+ * (`[appTextoRevelado]`) salen ya en su estado inicial desde el primer pintado.
+ * Sin esto, el HTML del servidor las pintaba normales y GSAP, al cargar, las
+ * ocultaba o atenuaba para animarlas: un salto en cada carga. La directiva marca
+ * `.animacion-lista` cuando toma el control o cuando no va a animar.
+ */
+.js-activo [data-entrada]:not(.animacion-lista) {
+  opacity: 0;
+}
+.js-activo [appTextoRevelado]:not(.animacion-lista) {
+  opacity: 0.22;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .js-activo [appReveal] {
+  .js-activo [appReveal],
+  .js-activo [data-entrada],
+  .js-activo [appTextoRevelado] {
     opacity: 1;
     transform: none;
   }

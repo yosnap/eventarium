@@ -45,7 +45,7 @@ function leerDescarte(): boolean {
 }
 
 /**
- * Banda discreta que ofrece la página en el idioma del navegador cuando no coincide
+ * Aviso flotante y discreto que ofrece la página en el idioma del navegador cuando no coincide
  * con el de la página. Nunca redirige. Solo existe en el navegador y después de
  * hidratar: el HTML del servidor no depende de `Accept-Language`.
  */
@@ -61,15 +61,22 @@ function leerDescarte(): boolean {
     }
   `,
   styles: `
+    /* Flotante: aparece después de cargar y no debe desplazar la página. */
     .aviso {
+      position: fixed;
+      top: calc(var(--space-4, 1rem) * 4.5);
+      right: var(--space-4, 1rem);
+      z-index: 40;
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      justify-content: center;
       gap: var(--space-3, 0.75rem);
-      padding: var(--space-2, 0.5rem) var(--space-4, 1rem);
-      background-color: var(--surface-2);
-      border-bottom: 1px solid var(--border);
+      max-width: calc(100vw - 2 * var(--space-4, 1rem));
+      padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-md);
       color: var(--fg);
       font-size: 0.9375rem;
     }

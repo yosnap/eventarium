@@ -120,9 +120,12 @@ describe('animaciones de la landing', () => {
     const fixture = await renderizar();
     ejecutarCallbacks();
     const piezas = fixture.nativeElement.querySelectorAll('[data-entrada]');
-    expect(gsapFalso.from).toHaveBeenCalledWith(
+    // Parten ocultas desde el primer pintado (`styles.css`): la entrada solo las
+    // hace aparecer.
+    expect(gsapFalso.fromTo).toHaveBeenCalledWith(
       piezas,
-      expect.objectContaining({ opacity: 0, stagger: 0.09, clearProps: 'opacity,transform' }),
+      expect.objectContaining({ opacity: 0 }),
+      expect.objectContaining({ opacity: 1, stagger: 0.09, clearProps: 'opacity,transform' }),
     );
     const contenido = fixture.nativeElement.querySelector('[data-hero-contenido]');
     expect(gsapFalso.to).toHaveBeenCalledWith(
@@ -139,17 +142,32 @@ describe('animaciones de la landing', () => {
     // mucho más que el margen, pero el hero acaba de crearse.
     const reloj = vi.spyOn(performance, 'now').mockReturnValue(600_000);
     onTestFinished(() => reloj.mockRestore());
-    await renderizar();
+    const fixture = await renderizar();
     ejecutarCallbacks();
-    expect(gsapFalso.from).toHaveBeenCalled();
+    const piezas = fixture.nativeElement.querySelectorAll('[data-entrada]');
+    expect(gsapFalso.fromTo.mock.calls.some(([objetivo]) => objetivo === piezas)).toBe(false);
+    expect(
+      gsapFalso.fromTo.mock.calls.some(
+        ([objetivo]) => objetivo instanceof NodeList && objetivo.length === piezas.length,
+      ),
+    ).toBe(true);
   });
 
   it('si GSAP llega pasado el margen, el hero no repite la entrada', async () => {
     const reloj = vi.spyOn(performance, 'now').mockReturnValueOnce(0).mockReturnValue(5_000);
     onTestFinished(() => reloj.mockRestore());
-    await renderizar();
+    const fixture = await renderizar();
     ejecutarCallbacks();
-    expect(gsapFalso.from).not.toHaveBeenCalled();
+    const piezas: HTMLElement[] = Array.from(
+      fixture.nativeElement.querySelectorAll('[data-entrada]'),
+    );
+    expect(
+      gsapFalso.fromTo.mock.calls.some(
+        ([objetivo]) => objetivo instanceof NodeList && objetivo.length === piezas.length,
+      ),
+    ).toBe(false);
+    // Sin entrada, las piezas se muestran ya: no se quedan ocultas por el CSS.
+    expect(piezas.every((pieza) => pieza.classList.contains('animacion-lista'))).toBe(true);
   });
 
   it('cada tarjeta apilada se encoge cuando la siguiente le pasa por encima; la última no', async () => {
