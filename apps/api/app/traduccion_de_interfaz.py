@@ -37,7 +37,9 @@ IDIOMA_ORIGEN = "es-ES"
 USE_CASE = "traduccion_interfaz"
 CLAVES_POR_LOTE = 30
 #: Lotes que se piden a la vez a la IA.
-LOTES_A_LA_VEZ = 3
+LOTES_A_LA_VEZ = 2
+#: Reintentos de un lote que el proveedor rechaza (límite de peticiones, saturación).
+REINTENTOS = 4
 
 NOMBRE_DEL_IDIOMA = {"en-US": "inglés de Estados Unidos"}
 
@@ -252,16 +254,27 @@ async def traducir(idioma: str, traductor: Traductor | None, *, simular: bool = 
 def traductor_de_la_pasarela(organization_id: uuid.UUID) -> Traductor:
     """Traductor que usa la IA configurada para la organización (o la de la plataforma)."""
     from app.modules.ai_gateway import client as ai_gateway
+    from app.modules.ai_gateway.errores import ErrorDeProveedor
 
     async def pedir(mensajes_: list[dict[str, str]]) -> str:
-        resultado = await ai_gateway.completar(
-            organization_id=organization_id,
-            use_case=USE_CASE,
-            messages=list(mensajes_),
-            temperature=0.2,
-            response_format={"type": "json_object"},
-            timeout=300,
-        )
-        return resultado.contenido
+        for intento in range(REINTENTOS + 1):
+            try:
+                resultado = await ai_gateway.completar(
+                    organization_id=organization_id,
+                    use_case=USE_CASE,
+                    messages=list(mensajes_),
+                    temperature=0.2,
+                    response_format={"type": "json_object"},
+                    timeout=300,
+                )
+            except ErrorDeProveedor:
+                # Los proveedores limitan las peticiones simultáneas: se espera y se
+                # reintenta antes de dar el lote por perdido.
+                if intento == REINTENTOS:
+                    raise
+                await asyncio.sleep(15 * (intento + 1))
+            else:
+                return resultado.contenido
+        raise RuntimeError("inalcanzable")
 
     return pedir
