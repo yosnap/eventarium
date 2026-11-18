@@ -10677,6 +10677,1722 @@
     "El rol de esta invitación ya no existe.": {
       "origen": "840fb6cea143153a",
       "destino": "63d30cf32db2480d"
+    },
+    "El rol indicado no existe en esta organización.": {
+      "origen": "686872793ad29f57",
+      "destino": "ab476116ff8873ad"
+    },
+    "El rol no existe en esta organización.": {
+      "origen": "7cfcb710639fe426",
+      "destino": "54323979cfdd8d0f"
+    },
+    "El rol «speaker» no existe en esta organización.": {
+      "origen": "4c8ad8c80aff4014",
+      "destino": "186207c5c6bfe6ce"
+    },
+    "El secreto debe tener al menos 32 caracteres": {
+      "origen": "e90df5fad83cd4ed",
+      "destino": "ce61b35a138f6f94"
+    },
+    "El servicio de IA está desactivado para esta organización.": {
+      "origen": "8cecf89bb005bb0b",
+      "destino": "7f6ad7335d7db7ed"
+    },
+    "El servicio de sesiones no está disponible. Inténtalo de nuevo.": {
+      "origen": "4519fd9544cae286",
+      "destino": "15908355cb0eb850"
+    },
+    "El servicio de verificación anti-bot no está disponible. Inténtalo de nuevo.": {
+      "origen": "d7f26bed75956da1",
+      "destino": "76953128f2167fca"
+    },
+    "El servidor SMTP tiene que ser una dirección pública.": {
+      "origen": "0820dc81eb0ade23",
+      "destino": "5c063e818eded5fc"
+    },
+    "El sitio necesita un nombre.": {
+      "origen": "7b08a7a2e854c6db",
+      "destino": "7ff1794755e33ed6"
+    },
+    "El sitio no existe.": {
+      "origen": "5d06ebb3d9b5ca14",
+      "destino": "b435421bee3e3c9b"
+    },
+    "El texto de la organización no puede ser nulo.": {
+      "origen": "153835a30e1a6e7a",
+      "destino": "4809b4d91a828af3"
+    },
+    "El texto no puede superar los {limite} caracteres.": {
+      "origen": "0381c7686e9d0d99",
+      "destino": "82c62fc20ffd265f"
+    },
+    "El tipo de enlace es demasiado largo.": {
+      "origen": "3996081bb9334ffb",
+      "destino": "3e8031201fb9f5bf"
+    },
+    "El tipo de entrada indicado no existe en este evento.": {
+      "origen": "07d1db045f8dfcba",
+      "destino": "b747aa0bb1e1e154"
+    },
+    "El tipo de entrada no existe.": {
+      "origen": "8e8b30061ad3e392",
+      "destino": "3c1c511bb1dbd435"
+    },
+    "El tipo de objeto no puede estar vacío": {
+      "origen": "fb18456f59c7e4cb",
+      "destino": "62a18d429312cf9c"
+    },
+    "El tipo de sesión necesita un nombre.": {
+      "origen": "25a36b306d80210d",
+      "destino": "c29592ed15cdff7a"
+    },
+    "El tipo «{tipo}» está desactivado: actívalo o elige otro.": {
+      "origen": "2fe468f09d148897",
+      "destino": "dbc07d2dc680b3f4"
+    },
+    "El usuario no existe o está desactivado.": {
+      "origen": "c42a4ede67c5839d",
+      "destino": "9d7c4a4c8b771cff"
+    },
+    "El usuario no existe.": {
+      "origen": "7f0eee2e04ecc6d4",
+      "destino": "bed48451ab13f1a1"
+    },
+    "El usuario no pertenece a esa organización.": {
+      "origen": "5ed6ecc6f62b40a0",
+      "destino": "09c7e98dfb3fbc6e"
+    },
+    "El usuario ya no existe o está desactivado.": {
+      "origen": "1586381c95f02fe8",
+      "destino": "9dc263820520936c"
+    },
+    "El usuario ya no tiene acceso a esta organización.": {
+      "origen": "37f70ce3b3ab5151",
+      "destino": "38fbe8ef6091aafe"
+    },
+    "El único origen admitido para un ingreso manual es «subvencion».": {
+      "origen": "c262ee71df81f63f",
+      "destino": "0bbaf0be7978d4b7"
+    },
+    "Elige al menos un evento o deja la conexión para todos.": {
+      "origen": "903cfce20ad545bb",
+      "destino": "4cbdc9f8b720606e"
+    },
+    "Elige al menos un permiso para la conexión.": {
+      "origen": "df137d7db84965ec",
+      "destino": "9a78972f82ba7c9b"
+    },
+    "Elige otro evento: no se puede copiar del mismo.": {
+      "origen": "927b30c268b6d426",
+      "destino": "c3a60789d1da9c44"
+    },
+    "En línea (el enlace para conectarte está al final de este correo).": {
+      "origen": "f71bf97bb162bae5",
+      "destino": "97222f85945fb6b0"
+    },
+    "Enlace para conectarte:\n{enlace}": {
+      "origen": "fa20d96a6e4711f0",
+      "destino": "1dd657ce504c6084"
+    },
+    "Entrada": {
+      "origen": "b40b2944d0e8d52f",
+      "destino": "567a8b5f8f5ce3c5"
+    },
+    "Entrada pagada en {titulo}": {
+      "origen": "d0740a01ca5f67f4",
+      "destino": "d9e9b802875ba890"
+    },
+    "Enviar una clave exige enviar también «provider» y «default_model».": {
+      "origen": "4696d1a87823caa5",
+      "destino": "a4c2c5f59077e2eb"
+    },
+    "Error HTTP": {
+      "origen": "df28c04dbc5e86ea",
+      "destino": "03335752e98aebfb"
+    },
+    "Error de dominio": {
+      "origen": "926b22a428e9c37f",
+      "destino": "cc99bee4704f4997"
+    },
+    "Error interno": {
+      "origen": "0c3b96f1905a62f8",
+      "destino": "1dac8deadf07408d"
+    },
+    "Esa membresía no existe.": {
+      "origen": "7547f09d4580b68a",
+      "destino": "60d8c828ac949d20"
+    },
+    "Esa membresía no te pertenece.": {
+      "origen": "3ba38ff8331b21c4",
+      "destino": "27f827130228d389"
+    },
+    "Esa organización no existe.": {
+      "origen": "6213ec28ac8d961a",
+      "destino": "48371c6f8e5f0583"
+    },
+    "Esa partida de presupuesto no existe en el evento de este borrador.": {
+      "origen": "7a0e8906283ac66f",
+      "destino": "2179ca08684333a5"
+    },
+    "Esa partida de presupuesto no existe en el evento de este patrocinador.": {
+      "origen": "136588ebbda18969",
+      "destino": "5025b97a4a148f34"
+    },
+    "Esa partida de presupuesto no existe en este evento.": {
+      "origen": "be4f6ea63a512c26",
+      "destino": "5fbe4360fdd7df4c"
+    },
+    "Esa partida de presupuesto no existe.": {
+      "origen": "e0e911a6f29a4882",
+      "destino": "a513da4a17d82a5c"
+    },
+    "Esa persona no está en el roster de este evento.": {
+      "origen": "f6d124e6abc98fba",
+      "destino": "328fc0463cfbb87a"
+    },
+    "Esa persona no pertenece a la organización.": {
+      "origen": "7678beb3696e7b5b",
+      "destino": "0e46c74163c7675c"
+    },
+    "Esa persona ya está en el roster de este evento.": {
+      "origen": "59318d6e079b86fa",
+      "destino": "69c325721ec4d3d9"
+    },
+    "Esa persona ya no existe.": {
+      "origen": "c6c9475519e9f417",
+      "destino": "0ddf193e196e2304"
+    },
+    "Esa persona ya tiene ese rol en la organización.": {
+      "origen": "19cfa627c34292de",
+      "destino": "8e95b6bf9f0d5f4e"
+    },
+    "Esa versión no existe.": {
+      "origen": "ba0b36fb519eef7f",
+      "destino": "462a193cc6c1066f"
+    },
+    "Escribe la clave para probarla, o guarda una antes de probar sin escribirla.": {
+      "origen": "42a96a2ef0c9283e",
+      "destino": "a1ce2b1237ecae18"
+    },
+    "Ese balance exportado no existe.": {
+      "origen": "f7f60c5979f69a59",
+      "destino": "4c787f6984ca15d4"
+    },
+    "Ese borrador de gasto no existe.": {
+      "origen": "041bcf8050edb38a",
+      "destino": "35e241b01df8ee2d"
+    },
+    "Ese borrador no está en estado fallido.": {
+      "origen": "a6c601b5695782d8",
+      "destino": "d5ed53a024dc0e0c"
+    },
+    "Ese borrador ya está confirmado o descartado.": {
+      "origen": "68ce0af90119ed04",
+      "destino": "8c73b31574c86204"
+    },
+    "Ese borrador ya no está pendiente de revisión.": {
+      "origen": "58a8acc466172973",
+      "destino": "379fed138e087c53"
+    },
+    "Ese borrador ya se había confirmado.": {
+      "origen": "03634a89e1683ce9",
+      "destino": "fcf1e10422a8929d"
+    },
+    "Ese correo ya está en uso.": {
+      "origen": "7dd689be29c3d4ce",
+      "destino": "c1a47b9a3f1037a4"
+    },
+    "Ese estado de borrador no existe.": {
+      "origen": "c633eb265f2cab9c",
+      "destino": "8f17199f5b973010"
+    },
+    "Ese gasto no existe.": {
+      "origen": "09dfdf1e06a62005",
+      "destino": "63dd1ad98c7b3775"
+    },
+    "Ese ingreso no existe.": {
+      "origen": "78edfbd1bffb8bea",
+      "destino": "8d57fbbbe29e8283"
+    },
+    "Ese justificante no existe.": {
+      "origen": "57840350afe995d9",
+      "destino": "7c832d3b7a3eb595"
+    },
+    "Ese medio no es de tipo «{tipo}».": {
+      "origen": "bb62176c1ac21559",
+      "destino": "086cfccb2ed8c8c5"
+    },
+    "Ese medio no existe.": {
+      "origen": "794b58295b5e03ac",
+      "destino": "eee86ba3ef9e1950"
+    },
+    "Ese nivel de patrocinio no existe en esta organización.": {
+      "origen": "f61187311aac1d34",
+      "destino": "289f7dd1dc29a69f"
+    },
+    "Ese nivel de patrocinio tiene patrocinadores asignados; reasígnalos antes de borrarlo.": {
+      "origen": "eb77d743af299ad1",
+      "destino": "8e8db2b95e559f3a"
+    },
+    "Ese patrocinador no existe.": {
+      "origen": "4ee74a7456e94131",
+      "destino": "cc124340ad862182"
+    },
+    "Ese rol no existe para nadie de esta organización.": {
+      "origen": "b32ed4f179553377",
+      "destino": "360956a47873accb"
+    },
+    "Ese tipo de sesión acaba de borrarse: elige otro y vuelve a guardar.": {
+      "origen": "86a739e87128180a",
+      "destino": "0608881a201d11db"
+    },
+    "Ese tipo de sesión no es válido.": {
+      "origen": "6bd0f5f678803e34",
+      "destino": "a88e67133cfab651"
+    },
+    "Ese tipo de sesión no existe.": {
+      "origen": "8760543c4c0ed596",
+      "destino": "d803715c0cd38150"
+    },
+    "Ese tipo de texto no existe.": {
+      "origen": "217cc39d69167f5d",
+      "destino": "6b7e79dde0306814"
+    },
+    "Esta contraseña aparece en filtraciones conocidas. Elige otra.": {
+      "origen": "76f75483e951ed29",
+      "destino": "28cae09fb7562537"
+    },
+    "Esta cuenta no tiene ninguna organización activa.": {
+      "origen": "cafef7d32d664c98",
+      "destino": "b2707f4d829b52d6"
+    },
+    "Esta cuenta ya tiene contraseña. Inicia sesión con ella en vez de aceptar aquí.": {
+      "origen": "1d48068c38664c42",
+      "destino": "e3f0982235e074a7"
+    },
+    "Esta inscripción no tiene ninguna entrada disponible.": {
+      "origen": "901b03988596c342",
+      "destino": "f8f7837b3f92c9c7"
+    },
+    "Esta inscripción no tiene ninguna entrada emitida.": {
+      "origen": "f2716359fe92bafc",
+      "destino": "46e107cda7af1691"
+    },
+    "Esta invitación ha caducado. Pide que te envíen otra.": {
+      "origen": "21b56dbf5beb5bb9",
+      "destino": "b6bdd940bfde53d0"
+    },
+    "Esta invitación ha sido revocada.": {
+      "origen": "bb4d2cd00131bf63",
+      "destino": "66dfd582723da04b"
+    },
+    "Esta invitación ya no está pendiente.": {
+      "origen": "6bee4363980f3ff6",
+      "destino": "40dd410735860f4d"
+    },
+    "Esta invitación ya se aceptó.": {
+      "origen": "f7dc12ee1abef847",
+      "destino": "dcb95ea14712cbaf"
+    },
+    "Esta operación es exclusiva del propietario de la organización.": {
+      "origen": "bb9b8c496d3eb7a9",
+      "destino": "9ad8ac81d39e7bc7"
+    },
+    "Esta organización no tiene ninguna cuenta de Stripe conectada.": {
+      "origen": "be0ca735f9b0d370",
+      "destino": "ae3009b74fefa899"
+    },
+    "Esta organización todavía hereda la configuración de la plataforma: para sobrescribirla hay que enviar «provider», «default_model» y «api_key».": {
+      "origen": "20a45956904d10a3",
+      "destino": "dca51caad417dd1c"
+    },
+    "Esta organización todavía no puede cobrar entradas.": {
+      "origen": "68ed6f345551112e",
+      "destino": "bd1a029b9876661b"
+    },
+    "Esta sesión no es de suplantación.": {
+      "origen": "7b31bea6bf569400",
+      "destino": "fc1786bbf6fb12e1"
+    },
+    "Estamos tramitando el reembolso de tu pago; lo recibirás en los próximos días en el mismo medio de pago.": {
+      "origen": "92639fb89f746ada",
+      "destino": "074e68b37f3fcf72"
+    },
+    "Este borrador ha agotado sus intentos de extracción: da de alta el gasto a mano desde el justificante.": {
+      "origen": "dae3b2ff11657bb0",
+      "destino": "445f53c0d423e38a"
+    },
+    "Este campo es obligatorio.": {
+      "origen": "da0986902b185fa2",
+      "destino": "68cadcee19d24b1a"
+    },
+    "Este campo no está permitido.": {
+      "origen": "ec5984d03436f73c",
+      "destino": "18321117fdc92d9d"
+    },
+    "Este código no es válido para esta entrada.": {
+      "origen": "e938e4417fb12bda",
+      "destino": "5d4746a405ee44c0"
+    },
+    "Este evento requiere completar la compra de una entrada.": {
+      "origen": "92cd8fae980947dc",
+      "destino": "26ac1b7a67040c71"
+    },
+    "Este interruptor no admite `null`.": {
+      "origen": "f48d63a91a35d1b6",
+      "destino": "52802dcea06d5363"
+    },
+    "Este medio está en uso y no se puede borrar.": {
+      "origen": "b3ec096166aabe85",
+      "destino": "ee2ecc44d2078c7d"
+    },
+    "Este pago no admite un reembolso en su estado actual.": {
+      "origen": "c97fb27f6dcdfcd7",
+      "destino": "ecad4b81ba2db8f7"
+    },
+    "Este tipo de entrada está agotado.": {
+      "origen": "085e7eeb76b19065",
+      "destino": "cb906fb8025a4d55"
+    },
+    "Este tipo de entrada no está disponible.": {
+      "origen": "14dcf90a6cbe5edd",
+      "destino": "4b68c90a20c5b15d"
+    },
+    "Estás en la lista de espera": {
+      "origen": "150eb07d3d9be03d",
+      "destino": "6fd4ad9b0eadf65b"
+    },
+    "Evento cancelado: {titulo}": {
+      "origen": "2f35ea5e13fca09e",
+      "destino": "36a66b6043becef4"
+    },
+    "Evolucion temporal": {
+      "origen": "3960f8a562dbd138",
+      "destino": "38f65d735e9e02a5"
+    },
+    "Fallo de un servicio externo": {
+      "origen": "096ee34a7012855a",
+      "destino": "3969228d929b561d"
+    },
+    "Falta el fichero.": {
+      "origen": "407edaa12f2ff223",
+      "destino": "3aa2f0271c3fcaaa"
+    },
+    "Falta el servidor SMTP.": {
+      "origen": "821ba95e3f517771",
+      "destino": "5132075323a0e1b8"
+    },
+    "Falta el usuario SMTP.": {
+      "origen": "a449ff8cff0429f9",
+      "destino": "146e007d9304ae99"
+    },
+    "Falta indicar de qué membresía tomar la biografía (source_organization_member_id).": {
+      "origen": "e87a9ad1db3a1cbf",
+      "destino": "8b811a9cdfa23a23"
+    },
+    "Falta indicar de qué membresía tomar la biografía.": {
+      "origen": "788f128c6f586af8",
+      "destino": "eda9b42d9924140d"
+    },
+    "Falta la cabecera Authorization: Bearer.": {
+      "origen": "7cefb0facf7eaec6",
+      "destino": "50c4f1e51347dea0"
+    },
+    "Falta la cabecera Stripe-Signature.": {
+      "origen": "0dd2b505e7074281",
+      "destino": "8c035207470708d1"
+    },
+    "Falta la contraseña o API key.": {
+      "origen": "d3491989c36f9659",
+      "destino": "32476a933d2be9cb"
+    },
+    "Falta tu ficha para «{evento}»": {
+      "origen": "f75e7f9169cb259e",
+      "destino": "ac62529662c9c77d"
+    },
+    "Falta «media_id» o «url».": {
+      "origen": "5cc2e051f8a6dfb8",
+      "destino": "b2d7f84a069e6c78"
+    },
+    "Falta «media_id».": {
+      "origen": "989e2aa7db1c3469",
+      "destino": "72f893b7bd9f989e"
+    },
+    "Falta «url».": {
+      "origen": "95a805d5f23a89fe",
+      "destino": "5c3c3944dc4ab5d2"
+    },
+    "Faltan «kind» o el fichero.": {
+      "origen": "561bcde514e04bf1",
+      "destino": "d283a84081fdfa87"
+    },
+    "Faltan «kind» o «url».": {
+      "origen": "da136d4e90251367",
+      "destino": "9a7844928594422f"
+    },
+    "Firma de webhook no valida.": {
+      "origen": "5c1918ed209914bb",
+      "destino": "c844bfda92c49edf"
+    },
+    "Gastos": {
+      "origen": "906c3c0e12cc2322",
+      "destino": "d311416fa3aadb4d"
+    },
+    "Hace falta un traductor para traducir de verdad.": {
+      "origen": "0dc8efe52a36c4e7",
+      "destino": "a01cf1f09d42e63a"
+    },
+    "Has superado el límite de peticiones. Inténtalo de nuevo en unos instantes.": {
+      "origen": "d10379e555c0055b",
+      "destino": "585eff4d2850cb90"
+    },
+    "Hay reembolsos de la cancelación que no se han podido completar. Resuélvelos antes de eliminar el evento.": {
+      "origen": "796f249c9b9c2116",
+      "destino": "735edaedd8949edf"
+    },
+    "Hay una inscripción nueva en «{titulo}».": {
+      "origen": "ced6a82a92cd85f0",
+      "destino": "4d41fe39b798ec4a"
+    },
+    "Hemos recibido tu inscripción": {
+      "origen": "ce9b876f0780bc03",
+      "destino": "82052eb2f46b3fba"
+    },
+    "Hola,": {
+      "origen": "f8320d7048d87951",
+      "destino": "dafe7694460f4e37"
+    },
+    "Hola,\n\nAlguien ha pedido restablecer la contraseña de esta cuenta. Si has sido tú, elige una nueva desde este enlace:\n{enlace}\n\nEl enlace caduca en 24 horas. Si no has sido tú, ignora este mensaje: tu contraseña actual sigue siendo válida.": {
+      "origen": "ff61f1aff35ee551",
+      "destino": "59150cf0db0ea075"
+    },
+    "Hola,\n\nAlguien ha pedido ver el listado de inscripciones a eventos de este correo. Si has sido tú, entra aquí:\n{enlace}\n\nEl enlace caduca en 30 minutos y solo sirve una vez. Si no has sido tú, ignora este mensaje.": {
+      "origen": "9ec28325e8ef1b46",
+      "destino": "d15fd040fe6ab58a"
+    },
+    "Hola,\n\nAlguien ha solicitado cambiar el correo de esta cuenta a {correo}. El cambio no se aplicará hasta que se confirme desde esa dirección.\n\nSi no has sido tú, cambia tu contraseña cuanto antes: alguien con acceso a tu sesión está intentando llevarse la cuenta a otro correo.": {
+      "origen": "55f544101906ea8b",
+      "destino": "c251b95df2583455"
+    },
+    "Hola,\n\nConfirma que quieres usar este correo para tu cuenta:\n{enlace}\n\nEl enlace caduca en 24 horas. Si no has sido tú, ignora este mensaje.": {
+      "origen": "08ce619fe16cf94e",
+      "destino": "baf8e84e33b780e9"
+    },
+    "Hola,\n\nConfirma tu correo para completar el registro:\n{enlace}\n\nEl enlace caduca en 24 horas. Si no has sido tú, ignora este mensaje.": {
+      "origen": "0279ff50e19cf21f",
+      "destino": "33bb97e44714dbea"
+    },
+    "Hola,\n\nConfirma tu correo para completar la inscripción:\n{enlace}\n\nEl enlace caduca en 24 horas. Si no has sido tú, ignora este mensaje.": {
+      "origen": "21d19210c794ad69",
+      "destino": "33bb97e44714dbea"
+    },
+    "Hola,\n\nCreaste una cuenta hace 5 días y tu correo sigue sin verificar. Si no lo verificas en los próximos 2 días, la cuenta se eliminará automáticamente.\n\nSi no fuiste tú, no hace falta que hagas nada: se eliminará sola.": {
+      "origen": "4c3c6b70156816ff",
+      "destino": "dc87364e97b76f83"
+    },
+    "Hola,\n\nEl equipo de soporte ha accedido a tu cuenta de {organizacion} durante unos {minutos} minutos para revisar una incidencia. El motivo indicado es: «{motivo}».\n\nEl acceso es de solo lectura: durante ese tiempo no se ha modificado nada de tu cuenta ni de tus eventos. Queda registrado quién lo hizo y cuándo.\n\nSi no esperabas este acceso, responde a este correo para que lo revisemos.": {
+      "origen": "64fb7075ef9dd27e",
+      "destino": "a9c0858ce307f17d"
+    },
+    "Hola,\n\nEl organizador del evento no ha aprobado tu inscripción. Si crees que es un error, contacta directamente con la organización.": {
+      "origen": "74e0bdbfd195a458",
+      "destino": "4f0ab4dbe200021e"
+    },
+    "Hola,\n\nHemos recibido tu inscripción. El organizador del evento la revisará y te avisaremos por correo en cuanto la apruebe o la rechace.": {
+      "origen": "ce8d35675a4cb4a0",
+      "destino": "b1b149b9f541b9d2"
+    },
+    "Hola,\n\nLa organización ha cancelado el evento «{titulo}».": {
+      "origen": "6d5896ff8dbb4b84",
+      "destino": "10948a80cccaee4e"
+    },
+    "Hola,\n\nPara publicar el programa de «{evento}» falta completar tu ficha de ponente (biografía, titular y demás datos de perfil).\n\nPuedes completarla desde tu cuenta:\n{enlace}\n\nSi tienes cualquier duda, responde directamente a la organización.": {
+      "origen": "6096a6481ce5ed41",
+      "destino": "170170438dbd4c34"
+    },
+    "Hola,\n\nSe ha liberado una plaza y te toca a ti. Confirma tu inscripción antes del {expira_el} (hora del evento) desde este enlace:\n{enlace_confirmar}\n\nSi no confirmas a tiempo, pasaremos a la siguiente persona en la lista de espera.\n\nSi ya no quieres asistir, cancela tu inscripción aquí:\n{enlace_cancelacion}": {
+      "origen": "eb86a684d1eaffdd",
+      "destino": "354c66d8ca2d32d9"
+    },
+    "Hola,\n\nTe han invitado a unirte a «{organizacion}» con el rol «{rol}».\nPara aceptar la invitación y crear tu contraseña, entra aquí:\n{enlace}\n\nEl enlace caduca en 7 días. Si no esperabas esta invitación, puedes ignorar este mensaje.": {
+      "origen": "aceb740955949127",
+      "destino": "921d991b3b41a41e"
+    },
+    "Hola,\n\nTu inscripción a este evento ha quedado cancelada. Si no has sido tú, contacta con la organización del evento.": {
+      "origen": "a43fc26ff4d1ff45",
+      "destino": "f3d2a1351f3461b2"
+    },
+    "Hola,\n\n{intro}\n\nSi no puedes asistir, cancela tu inscripción desde este enlace:\n{enlace}": {
+      "origen": "19ec7d7d587b0fcd",
+      "destino": "c5924bbdc4bf21fe"
+    },
+    "Indica el modo de inscripción.": {
+      "origen": "adc4a15cdaff72fc",
+      "destino": "85da175607997665"
+    },
+    "Indica el tipo con nombre libre solo cuando el tipo es «Otro».": {
+      "origen": "c68b50225c1f7b83",
+      "destino": "7876f127006c136c"
+    },
+    "Indica «media_id» o «url», no los dos.": {
+      "origen": "37fbd882baae7212",
+      "destino": "3fa1eaf41b6f8622"
+    },
+    "Ingresos": {
+      "origen": "ed94a0879ec8b78c",
+      "destino": "c4b7330bd91e0c97"
+    },
+    "Inscripción pendiente de aprobar en {titulo}": {
+      "origen": "d2ddce3c70f15b16",
+      "destino": "e9967f50be571bca"
+    },
+    "KPI": {
+      "origen": "f2536f5b3f1d03a1",
+      "destino": "f2536f5b3f1d03a1"
+    },
+    "La URL del proveedor debe empezar por https://.": {
+      "origen": "ca5ce2eae704dfc4",
+      "destino": "991fc1f52a6f2bfa"
+    },
+    "La URL del proveedor no puede apuntar a la propia máquina en producción.": {
+      "origen": "5a916ef5b04bff08",
+      "destino": "24b5f82341a89cec"
+    },
+    "La URL del proveedor no tiene host.": {
+      "origen": "9cb0431f7b73224a",
+      "destino": "2696640349a4d804"
+    },
+    "La URL del proveedor resuelve a una dirección de red interna o reservada.": {
+      "origen": "7c38c792e479ee14",
+      "destino": "b087d6353616022e"
+    },
+    "La URL no se ha podido descargar (redirección o error).": {
+      "origen": "6ba199178179e411",
+      "destino": "693115ffba3c2c88"
+    },
+    "La URL resuelve a una dirección de red interna o reservada.": {
+      "origen": "8ad673d341001b76",
+      "destino": "2f9bee7a63ae65b9"
+    },
+    "La agenda cambió desde que la cargaste. Recarga antes de guardar.": {
+      "origen": "a90fa6382a6f0f8e",
+      "destino": "10c9992159243fd0"
+    },
+    "La asistencia de este evento no está cerrada.": {
+      "origen": "1208f8e627639d20",
+      "destino": "bee433dcadc8ea3c"
+    },
+    "La asistencia se cierra cuando el evento ha terminado.": {
+      "origen": "d8ddc942f2767e75",
+      "destino": "a04f48df5ecfa8ae"
+    },
+    "La caducidad debe estar entre 1 y {maximo} días.": {
+      "origen": "58a49f526f5528ca",
+      "destino": "0cb28677573144b8"
+    },
+    "La cancelación del evento todavía está en marcha (inscripciones por cancelar o avisar). Vuelve a intentarlo cuando termine.": {
+      "origen": "1af9c4adf1e7e9f9",
+      "destino": "bf413798e9f56792"
+    },
+    "La categoría indicada está desactivada.": {
+      "origen": "ff3cedf500730b89",
+      "destino": "eb4c6d910c02d746"
+    },
+    "La categoría indicada no es válida.": {
+      "origen": "96b7f87a4f4e769a",
+      "destino": "a88320c9aba0c0c5"
+    },
+    "La categoría indicada no existe.": {
+      "origen": "9799251753bf1ce0",
+      "destino": "afe40b157e7a32ee"
+    },
+    "La categoría no existe.": {
+      "origen": "6a45a18805f3aac5",
+      "destino": "9fe9c283124482f5"
+    },
+    "La clave del proveedor no puede estar vacía.": {
+      "origen": "f5e5ee00141719d0",
+      "destino": "0a2bc53e4fab0263"
+    },
+    "La conexión no existe.": {
+      "origen": "0138d953c0506da7",
+      "destino": "cd18f94ea1b4fe51"
+    },
+    "La contraseña actual no es correcta.": {
+      "origen": "37f4692faf3d6b99",
+      "destino": "aa43911cc13f66a9"
+    },
+    "La contraseña debe tener mínimo 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial.": {
+      "origen": "f005b7a7099c413b",
+      "destino": "1dda995206964535"
+    },
+    "La contraseña no es correcta.": {
+      "origen": "c042b468cbc31f14",
+      "destino": "96bfe6916d71ddb7"
+    },
+    "La cuenta de Stripe de esta compra ya no está disponible.": {
+      "origen": "6993f4a7a7f56709",
+      "destino": "c00642d2eca527c4"
+    },
+    "La cuenta de esta invitación ya no existe.": {
+      "origen": "83b08df68ba7d4ff",
+      "destino": "9efc08bdfd4ee572"
+    },
+    "La cuenta está desactivada.": {
+      "origen": "cae72d60ff37090c",
+      "destino": "9c3940342280e6cb"
+    },
+    "La dirección web debe empezar por http:// o https://.": {
+      "origen": "bf1f71432ea2ed68",
+      "destino": "96fc017be5768725"
+    },
+    "La dirección web no es válida.": {
+      "origen": "28a223455569d95c",
+      "destino": "5cad46404da08562"
+    },
+    "La etiqueta «{etiqueta}» debe tener entre {minimo} y {maximo} caracteres.": {
+      "origen": "2f41dd036d7023d7",
+      "destino": "c79a2e2e73f1cb53"
+    },
+    "La etiqueta «{etiqueta}» solo admite letras, números, espacios y guiones.": {
+      "origen": "188b60a54386b787",
+      "destino": "8eaf113a40f35210"
+    },
+    "La fecha de fin debe ser posterior a la de inicio.": {
+      "origen": "ad82dfff5b652f58",
+      "destino": "e0f4aba1da51ddca"
+    },
+    "La fecha no es válida.": {
+      "origen": "bb2788cd1ba03976",
+      "destino": "f94f4a556fe5ee23"
+    },
+    "La fecha y hora no son válidas.": {
+      "origen": "126700a103c8fed5",
+      "destino": "0ba411b4a1d7e4f8"
+    },
+    "La ficha ha cambiado mientras la editabas. Recárgala y vuelve a guardar.": {
+      "origen": "69f8ab0bc863cf04",
+      "destino": "95952fa885003c7f"
+    },
+    "La hora no es válida.": {
+      "origen": "3161db0d5b5aa170",
+      "destino": "53c8199a74998dd8"
+    },
+    "La imagen supera el límite de píxeles permitido.": {
+      "origen": "8462467a3b1af6b4",
+      "destino": "276d2efb4a8f8323"
+    },
+    "La inscripción no existe.": {
+      "origen": "60240ccbed4217f7",
+      "destino": "b8ed56f817c9dc23"
+    },
+    "La inscripción ya está cancelada o rechazada.": {
+      "origen": "1deeb5002e201d58",
+      "destino": "0506bef3e6f66147"
+    },
+    "La invitación indicada no existe en esta organización.": {
+      "origen": "67c531ac9c3114c6",
+      "destino": "ad08f633f149e9ef"
+    },
+    "La organización no existe.": {
+      "origen": "ceea38421ae14835",
+      "destino": "f151ef1b28295ca0"
+    },
+    "La organización no tiene tipos de sesión activos: crea o activa alguno.": {
+      "origen": "9b3a810c8bd37b9a",
+      "destino": "b7f7ca6666d3013b"
+    },
+    "La organización ya no existe.": {
+      "origen": "a8443a4b9f6cdded",
+      "destino": "70a2c577a3ad41b8"
+    },
+    "La pasarela de pago no ha devuelto una sesion de compra valida.": {
+      "origen": "699179dc8c14fc4a",
+      "destino": "56fcb5a9366a3954"
+    },
+    "La pasarela de pago no ha podido completar la operacion. Intentalo de nuevo en unos minutos.": {
+      "origen": "a1a5e24fb888dc14",
+      "destino": "dce734d2a52f02c5"
+    },
+    "La persona no está en el roster de este evento.": {
+      "origen": "26b2e68ea032e208",
+      "destino": "d405efe03525b2a8"
+    },
+    "La petición no supera la validación.": {
+      "origen": "f2fbe1b9787071b0",
+      "destino": "2d650eb72d815bdc"
+    },
+    "La plantilla de tema no existe.": {
+      "origen": "1749b2b9954a5eeb",
+      "destino": "8133809384b5dc55"
+    },
+    "La plantilla indicada no es válida.": {
+      "origen": "2a2a75a2429163ee",
+      "destino": "6dd7704f67560f97"
+    },
+    "La plantilla indicada no existe.": {
+      "origen": "44e1172d3f5e6271",
+      "destino": "eff7c2506c59128d"
+    },
+    "La plantilla no supera el contraste mínimo AA (4,5:1) en alguno de sus pares críticos.": {
+      "origen": "031d1a7b0d8fed2f",
+      "destino": "07a9e3632ce71b62"
+    },
+    "La pregunta no existe.": {
+      "origen": "36b85296621f1bc4",
+      "destino": "9fa712d2325a5c0e"
+    },
+    "La pregunta «{pregunta}» es obligatoria.": {
+      "origen": "d0a08d5bdcfbf5be",
+      "destino": "86e7d0aabc8783d5"
+    },
+    "La pregunta «{pregunta}» tiene más de una respuesta.": {
+      "origen": "9e025b2732a83976",
+      "destino": "0c24250382a198ee"
+    },
+    "La página de la organización no existe.": {
+      "origen": "33ad06524764f445",
+      "destino": "b53d30e83ef98a80"
+    },
+    "La región de Amazon SES no es válida.": {
+      "origen": "a1f8334d22daa327",
+      "destino": "e1f4c5ce3375ff5a"
+    },
+    "La respuesta a «{pregunta}» debe ser texto.": {
+      "origen": "1cedded2a8a0bdc7",
+      "destino": "ad836a759ae64537"
+    },
+    "La respuesta a «{pregunta}» debe ser una lista de opciones.": {
+      "origen": "69e638fc1aea467f",
+      "destino": "9239c0b1d0a75419"
+    },
+    "La respuesta a «{pregunta}» es demasiado larga.": {
+      "origen": "9bbae69d58a3c31b",
+      "destino": "36e609a7dfde9887"
+    },
+    "La respuesta a «{pregunta}» incluye una opción no válida.": {
+      "origen": "85cd48e633eaa565",
+      "destino": "ab9021a3e3714b8f"
+    },
+    "La respuesta a «{pregunta}» no es una opción válida.": {
+      "origen": "a384fbca5c00d64a",
+      "destino": "ec64f08b13c50fee"
+    },
+    "La sede indicada no pertenece a este evento.": {
+      "origen": "10d9925684f50886",
+      "destino": "ce40ca234468794f"
+    },
+    "La sede no existe.": {
+      "origen": "434f6578d885e59d",
+      "destino": "39320f4ccc3516b2"
+    },
+    "La sesión debe caer dentro del rango de fechas del evento.": {
+      "origen": "e76f3f627e0fc601",
+      "destino": "6dcd130f338af467"
+    },
+    "La sesión ha caducado. Vuelve a iniciar sesión.": {
+      "origen": "f7ff47e0adc115e5",
+      "destino": "05e812a3ad76eb66"
+    },
+    "La sesión no existe.": {
+      "origen": "6131472759ad71df",
+      "destino": "bb1cf5fc08d131f3"
+    },
+    "La solicitud no existe o ha caducado. Vuelve a conectar el asistente.": {
+      "origen": "cac7b411bf146928",
+      "destino": "cc424cdf596f98ec"
+    },
+    "La suplantación es de solo lectura.": {
+      "origen": "a87f6325dda0b1d9",
+      "destino": "938f1991cd322aef"
+    },
+    "La suplantación ha terminado.": {
+      "origen": "7eca769897389a52",
+      "destino": "e6be47fc003fbf93"
+    },
+    "La valoración en especie exige una partida de presupuesto a la que imputarla.": {
+      "origen": "fc527a1f5bfb4c2b",
+      "destino": "7c7854a962e5e928"
+    },
+    "La verificación anti-bot no es válida.": {
+      "origen": "54bff28e041da1d2",
+      "destino": "60ab6587505c4341"
+    },
+    "La zona horaria no es válida: usa una del tipo «Europe/Madrid».": {
+      "origen": "d9f1fbc6e4e937a7",
+      "destino": "9d467c0172253dfe"
+    },
+    "Las ausencias sin avisar pueden tenerse en cuenta al revisar tus próximas inscripciones.": {
+      "origen": "d0112c91646172ba",
+      "destino": "2f731c2131cfc662"
+    },
+    "Las condiciones del organizador han cambiado mientras rellenabas el formulario. Revísalas y vuelve a aceptarlas.": {
+      "origen": "01a67e0172a70aee",
+      "destino": "9694a25aaae6b129"
+    },
+    "Las inscripciones o los pagos del evento han cambiado desde el resumen. Vuelve a revisarlo antes de cancelar.": {
+      "origen": "95a8d60465998131",
+      "destino": "bdb57939a958a3db"
+    },
+    "Lo usan {en_uso} sesión(es): desactívalo para que no se ofrezca en las nuevas; las que ya lo tienen lo conservan.": {
+      "origen": "a4dc13e5f3346109",
+      "destino": "b524008a2923764a"
+    },
+    "Los campos {campos} no admiten «null» explícito: omítelos para no cambiarlos.": {
+      "origen": "0032ea9932454a06",
+      "destino": "4e75e66fca78ce9b"
+    },
+    "Los pagos no estan configurados en esta instalacion.": {
+      "origen": "7f85170aae673762",
+      "destino": "a804c2526eccb0e6"
+    },
+    "Los pagos no están configurados en esta instalación. Contacta con quien administra la plataforma.": {
+      "origen": "9db1b8206d5d0b8d",
+      "destino": "a7955d2357f5dd80"
+    },
+    "Los roles del sistema no se pueden eliminar.": {
+      "origen": "9b46190684585c4c",
+      "destino": "bd2823c463c6938c"
+    },
+    "Los tipos de sesión han cambiado: recarga la lista y vuelve a ordenar.": {
+      "origen": "7c336b7025f18b7e",
+      "destino": "db22cf8324b6d22b"
+    },
+    "Mensaje del organizador:\n{motivo}": {
+      "origen": "5b69830f095786e4",
+      "destino": "fb6fe423e6711c88"
+    },
+    "Motivo:\n{motivo}": {
+      "origen": "88e0a7c370502e0e",
+      "destino": "e259442663a24d82"
+    },
+    "Ningún importe del gasto puede ser negativo.": {
+      "origen": "2c16742fbdf75c0d",
+      "destino": "87d4d8a7e55124d1"
+    },
+    "No autenticado": {
+      "origen": "bf623cf00a0e8652",
+      "destino": "76d1efbeed2dd7b2"
+    },
+    "No existe ese nivel de patrocinio.": {
+      "origen": "6da54322162aea22",
+      "destino": "ebab58a38b8ceb5e"
+    },
+    "No existe la plantilla de rol «{plantilla}».": {
+      "origen": "7960e175d2b76bf7",
+      "destino": "72af77413cb426fc"
+    },
+    "No existe ninguna inscripción con ese email en este evento.": {
+      "origen": "dae3e1252773882d",
+      "destino": "f36c1cb73b116a89"
+    },
+    "No existe ninguna plantilla de tema con el id «{plantilla}».": {
+      "origen": "1e2734f7755d5508",
+      "destino": "7afe8aba062dc73f"
+    },
+    "No existe.": {
+      "origen": "371204ddf38d78c2",
+      "destino": "5737f9e9fbbf0a8d"
+    },
+    "No hay configuración propia que actualizar: envía «provider», «default_model» y «api_key».": {
+      "origen": "55aa2bc23c82e9a7",
+      "destino": "8b1e9c26e3cde6f9"
+    },
+    "No hay ninguna clave que cifrar.": {
+      "origen": "d769e363697adf49",
+      "destino": "180b708c4db08d66"
+    },
+    "No hay ninguna configuración de IA disponible para esta organización.": {
+      "origen": "f40e6d31f30e600a",
+      "destino": "ae90137b31b117c9"
+    },
+    "No hay ninguna imagen que enviar al motor de extracción.": {
+      "origen": "8c31e2271f70a28d",
+      "destino": "0b77296579327737"
+    },
+    "No hay ningún tipo de sesión activo «{buscado}». Disponibles: {disponibles}.": {
+      "origen": "ad1bbc1670184536",
+      "destino": "a1313b7340573f17"
+    },
+    "No hay sesión que renovar.": {
+      "origen": "3099bd59506ccea6",
+      "destino": "d8bba9e959979e92"
+    },
+    "No perteneces a esta organización.": {
+      "origen": "4caf32bc9987c04a",
+      "destino": "d6895fcb0a9a280e"
+    },
+    "No puedes ampliar tus propios permisos.": {
+      "origen": "3875075aadb376d2",
+      "destino": "838f830fc85a25b1"
+    },
+    "No puedes conceder permisos que tú no tienes.": {
+      "origen": "54e2231500cff8ed",
+      "destino": "5a8782c0b544d70f"
+    },
+    "No puedes desactivar tu propia cuenta.": {
+      "origen": "8c8ed351fe584946",
+      "destino": "d8c97859c7ed81f1"
+    },
+    "No puedes editar la ficha de otra persona.": {
+      "origen": "3680480bae02c940",
+      "destino": "6e8c6535e47f2b1c"
+    },
+    "No puedes quitar el último rol de una persona. Sácala de la organización en su lugar.": {
+      "origen": "05581399839c7e6b",
+      "destino": "a30b17bec4934efc"
+    },
+    "No puedes retirarte tu propio rol de plataforma.": {
+      "origen": "5d3a6003c55299fa",
+      "destino": "39f7e529f0ebbd5c"
+    },
+    "No se ha podido dar de alta el borrador de gasto.": {
+      "origen": "9f072a9a4702a9bb",
+      "destino": "710d1ac6b9cb058e"
+    },
+    "No se ha podido dar de alta el gasto.": {
+      "origen": "84f63c408a356eb2",
+      "destino": "b1a685bd576f7007"
+    },
+    "No se ha podido dar de alta el ingreso.": {
+      "origen": "b8f43c012b6e437a",
+      "destino": "c4ed8223e419ad9d"
+    },
+    "No se ha podido dar de alta el patrocinador.": {
+      "origen": "a60f2400d332b172",
+      "destino": "438db8e2852dc458"
+    },
+    "No se ha podido dar de alta la partida de presupuesto.": {
+      "origen": "ce0ff0861acb99a0",
+      "destino": "b0273dfc58c5076c"
+    },
+    "No se ha podido descargar la URL.": {
+      "origen": "dbd51fa999a587ad",
+      "destino": "03a747d0a16a166f"
+    },
+    "No se ha podido fijar la valoración en especie.": {
+      "origen": "695d4d1535ae181b",
+      "destino": "88d1aefa55b87ee5"
+    },
+    "No se ha podido guardar el justificante.": {
+      "origen": "b9eabc1f7fc7c467",
+      "destino": "75a8933ecac1ad83"
+    },
+    "No se ha podido leer el PDF del justificante.": {
+      "origen": "bc330b63744b41c9",
+      "destino": "a362091ed7643717"
+    },
+    "No se ha podido leer la imagen del justificante.": {
+      "origen": "2f0f621bc364ef23",
+      "destino": "71f432cb7da7fbb3"
+    },
+    "No se ha podido leer la imagen.": {
+      "origen": "deed4ee520116432",
+      "destino": "39207fea6cffeb4b"
+    },
+    "No se ha podido resolver el host de la URL del proveedor.": {
+      "origen": "768951d83ae45915",
+      "destino": "ffe924be2cd2292b"
+    },
+    "No se ha podido resolver el host de la URL.": {
+      "origen": "fc3a6776b1bc6fb1",
+      "destino": "d92dcf33dd12db36"
+    },
+    "No se ha podido resolver el servidor SMTP.": {
+      "origen": "37dd97f2005ba6f8",
+      "destino": "158c9183e1107716"
+    },
+    "No se han podido guardar los cambios de la partida.": {
+      "origen": "e37e692bfef5065a",
+      "destino": "7ebe81609f4177c3"
+    },
+    "No se han podido guardar los cambios del gasto.": {
+      "origen": "30e95736f4af88c9",
+      "destino": "f8206bd33335d42f"
+    },
+    "No se han podido guardar los cambios del ingreso.": {
+      "origen": "b95424215bda09d0",
+      "destino": "8ebafbf92c96d7ba"
+    },
+    "No se han podido guardar los cambios del patrocinador.": {
+      "origen": "4af6441576098b63",
+      "destino": "5cb9d83647b49a6a"
+    },
+    "No se han podido guardar los datos de cobro del patrocinador.": {
+      "origen": "770b992d72daa19e",
+      "destino": "d663a351c2bd64dd"
+    },
+    "No se puede borrar la sede: {en_uso} sesión(es) de la agenda la tienen asignada.": {
+      "origen": "0fc1a26f3a3b51b2",
+      "destino": "b6fdb85ea37a9e4f"
+    },
+    "No se puede borrar un código de descuento con pagos asociados.": {
+      "origen": "6b661eda19be695e",
+      "destino": "5a907ee54b25d4ae"
+    },
+    "No se puede borrar un tipo de entrada con códigos de descuento o pagos asociados. Desactívalo en su lugar (`is_active = false`).": {
+      "origen": "0a0a3a6cf5132f64",
+      "destino": "58d456df573a2588"
+    },
+    "No se puede borrar un tipo de entrada con dependencias asociadas.": {
+      "origen": "6bd532005019607d",
+      "destino": "eadeb80abe11c50c"
+    },
+    "No se puede borrar una pregunta con respuestas guardadas.": {
+      "origen": "c691d25331d1f043",
+      "destino": "7838333907a1e1d2"
+    },
+    "No se puede borrar: la partida tiene gastos enlazados.": {
+      "origen": "f4c3e37d7b90d564",
+      "destino": "dcfaa445c0e21bcb"
+    },
+    "No se puede cambiar el tipo ni las opciones de una pregunta con respuestas guardadas.": {
+      "origen": "02fadea63c05bb15",
+      "destino": "2f4c66a6e549abb0"
+    },
+    "No se puede confirmar el pago pendiente de una inscripción sin una compra de entrada ya iniciada.": {
+      "origen": "c0e693da815ab704",
+      "destino": "9d6bf54b42c74998"
+    },
+    "No se puede confirmar una inscripción de un evento de pago sin un pago verificado.": {
+      "origen": "dd723741c0bcd131",
+      "destino": "55cdbac967b00ceb"
+    },
+    "No se puede pasar el evento a «de pago» porque ya tiene inscripciones sin pago ({recuento}). Cancela esas inscripciones o crea un evento nuevo de pago.": {
+      "origen": "faf78585e7ff880f",
+      "destino": "62a438901de265b1"
+    },
+    "No se puede publicar un evento de pago hasta conectar una cuenta de Stripe y completar su verificación.": {
+      "origen": "f4d3b1a246229e55",
+      "destino": "83e157e727798a94"
+    },
+    "No se puede publicar un evento de pago sin ningún tipo de entrada a la venta ni pendiente de abrir.": {
+      "origen": "6b2becd0cc251abd",
+      "destino": "7347efc4507fe4cc"
+    },
+    "No se puede publicar un evento de pago: esta instalación no tiene Stripe configurado.": {
+      "origen": "21ae126b62bbab3e",
+      "destino": "610b533cce43c3b1"
+    },
+    "No se puede quitar del roster: tiene {activas} participación(es) activa(s) en la agenda del evento.": {
+      "origen": "c9ea106aa6f7b84f",
+      "destino": "afd8289de96df8c3"
+    },
+    "No se puede quitar el pago mientras haya inscripciones con una compra iniciada ({recuento}). Espera a que se resuelvan o cancélalas.": {
+      "origen": "5f41181dce22c49e",
+      "destino": "63b0d8016926f51c"
+    },
+    "No se puede suplantar a personal de la plataforma.": {
+      "origen": "19c315e9d2641a79",
+      "destino": "fa3646f4cc12cea4"
+    },
+    "No se pueden eliminar campos predefinidos del rol.": {
+      "origen": "499e3a77bec88236",
+      "destino": "be06b84a39754a25"
+    },
+    "No tienes permiso para esta operación.": {
+      "origen": "3459bb6007249f8e",
+      "destino": "8f1b63b5fa977ca1"
+    },
+    "No tienes permiso para gestionar este medio.": {
+      "origen": "39510456acfba13b",
+      "destino": "a214b7c5914b2c29"
+    },
+    "Nombre: {nombre}\nCorreo: {correo}\nEstado: {estado}": {
+      "origen": "9c0a781224d83019",
+      "destino": "cae8ad1920aed2bd"
+    },
+    "Nueva inscripción en {titulo}": {
+      "origen": "8c08307833e9e3f9",
+      "destino": "60ae132b80058ee0"
+    },
+    "Otra persona ha guardado este texto a la vez; recarga y vuelve a intentarlo.": {
+      "origen": "96450e6a66930d44",
+      "destino": "5aa67e05d9fb472c"
+    },
+    "Para cancelar un evento usa la acción «Cancelar evento».": {
+      "origen": "fb732ebfe3c17f4e",
+      "destino": "2eca3cdcf4ee5f58"
+    },
+    "Permiso denegado": {
+      "origen": "0007cd9aa08f5452",
+      "destino": "59b77dbd5bd2fc76"
+    },
+    "Permiso desconocido: {permiso}.": {
+      "origen": "e10070aad4435248",
+      "destino": "3959fc86f8768e7d"
+    },
+    "Presupuesto": {
+      "origen": "f7c9c2d9d560de9f",
+      "destino": "1c6225ec7092ad2f"
+    },
+    "Presupuesto frente a ejecutado": {
+      "origen": "b6f90ca683ab93b7",
+      "destino": "13755f4a225b9059"
+    },
+    "Puede tener como máximo {max_length} caracteres.": {
+      "origen": "101e59b4c9d209a4",
+      "destino": "aaf0a7cdc9e3a510"
+    },
+    "Puede tener como máximo {max_length} elementos.": {
+      "origen": "166280ed2e63c8e9",
+      "destino": "cd77805e77746c86"
+    },
+    "Puedes consultar tu inscripción aquí:\n{enlace}": {
+      "origen": "f5b108f52e5ce08e",
+      "destino": "02400122e64f4f75"
+    },
+    "Puerto no permitido. Usa uno de: {puertos}.": {
+      "origen": "123088e423edd19c",
+      "destino": "1dd5487915e8156a"
+    },
+    "Recordatorio: {titulo} — {cuando}": {
+      "origen": "b42f6cb8ae3e0aae",
+      "destino": "69cd9538a4632c96"
+    },
+    "Recupera tu contraseña": {
+      "origen": "4e3b4a871b5f993f",
+      "destino": "c9544fd1cad9e1de"
+    },
+    "Recurso no encontrado": {
+      "origen": "3e8a670e24980528",
+      "destino": "739e3da4d1b29880"
+    },
+    "STRIPE_SECRET_KEY es una clave de test (sk_test_...) en producción: cobraría contra la cuenta de pruebas de Stripe con dinero real.": {
+      "origen": "e35e376702ce331c",
+      "destino": "4010a0c125599e60"
+    },
+    "Saldo": {
+      "origen": "51ec087004da7848",
+      "destino": "d05e07b7c14e596a"
+    },
+    "Se ha alcanzado el límite de gasto en IA de este periodo.": {
+      "origen": "f35e112aa8b6e444",
+      "destino": "8f733ee7957daca2"
+    },
+    "Se ha liberado una plaza: confirma tu inscripción": {
+      "origen": "aa1d8f70f0cdc1dc",
+      "destino": "eaf29dfab9549c95"
+    },
+    "Se ha pagado una entrada de «{titulo}».": {
+      "origen": "f18888d0483c5139",
+      "destino": "01d0fb44685204a4"
+    },
+    "Se ha producido un error inesperado.": {
+      "origen": "1a787275747346a7",
+      "destino": "7053d12aceb59a1f"
+    },
+    "Se ha solicitado cambiar el correo de tu cuenta": {
+      "origen": "0fcfbb380d7d1636",
+      "destino": "425d4e445eebede8"
+    },
+    "Se requieren privilegios de personal de plataforma.": {
+      "origen": "116d1dfbbbe65c94",
+      "destino": "d46dafdac2b52451"
+    },
+    "Se requieren privilegios de superadministrador.": {
+      "origen": "78ccacee55e7d103",
+      "destino": "57f06201fe99a1a3"
+    },
+    "Se te ha devuelto el importe completo de tu pago; lo verás en los próximos días en el mismo medio de pago.": {
+      "origen": "09acdc4cfb2210de",
+      "destino": "1f4fe39e6ac249dd"
+    },
+    "Servicio no disponible": {
+      "origen": "edeeb110e42c26f3",
+      "destino": "60bbf0436e6db773"
+    },
+    "Sesión invalidada por reutilización de un token. Vuelve a iniciar sesión.": {
+      "origen": "ec04445f00e23b05",
+      "destino": "7737c90c7f005fc3"
+    },
+    "Si cancelas antes del {limite}, se te devuelve el importe.": {
+      "origen": "dec4a189362c80fa",
+      "destino": "ac1cb57d701693c7"
+    },
+    "Sin partida": {
+      "origen": "f24844471f28b813",
+      "destino": "665c904e99ce309d"
+    },
+    "Solo se admiten URLs https://.": {
+      "origen": "7577fcfb4d256d31",
+      "destino": "6ae5067c7429d411"
+    },
+    "Solo se cierra la asistencia de eventos presenciales celebrados.": {
+      "origen": "bd05c667460becb8",
+      "destino": "e8a79527293c8528"
+    },
+    "Solo se puede aprobar una inscripción pendiente de aprobación.": {
+      "origen": "1d68582fe8a0d7bf",
+      "destino": "8c2b3e87809c6b44"
+    },
+    "Solo se puede cancelar un evento publicado.": {
+      "origen": "411bbb856bf8f266",
+      "destino": "6081eb2271624333"
+    },
+    "Solo se puede eliminar un evento cancelado. Cancélalo primero.": {
+      "origen": "562739988d513fb4",
+      "destino": "91e4e0b6d0013656"
+    },
+    "Solo se puede rechazar una inscripción pendiente de aprobación.": {
+      "origen": "1a33ce69a7424599",
+      "destino": "e22f0befe68f49de"
+    },
+    "Solo se puede reintentar una extracción que falló por presupuesto de IA agotado. Este borrador falló por otro motivo y repetirla daría el mismo resultado.": {
+      "origen": "ade2e24fb563c1b6",
+      "destino": "f0598a5e088a4132"
+    },
+    "Solo un patrocinador con aportación «en especie» puede tener valoración en especie.": {
+      "origen": "2e24783231d90531",
+      "destino": "5d944c737fc6d00d"
+    },
+    "Solo un propietario puede gestionar el rol de propietario.": {
+      "origen": "4f9591158129e01c",
+      "destino": "1a0c4e049f00eb38"
+    },
+    "TURNSTILE_ENABLED no puede estar desactivado en producción: desprotegería el registro y el reenvío de verificación frente a scripts automatizados.": {
+      "origen": "cf63ab6e8d74ff57",
+      "destino": "0738ca8ac929f47e"
+    },
+    "Te devolvemos el importe íntegro de tu pago; lo recibirás en los próximos días en el mismo medio de pago.": {
+      "origen": "7839da224659a700",
+      "destino": "764c1c8f34bb10ef"
+    },
+    "Te han invitado a «{organizacion}»": {
+      "origen": "2935ca863b07d82c",
+      "destino": "62627b468e7cb8a6"
+    },
+    "Te recordamos tu inscripción a «{titulo}».": {
+      "origen": "429e3a0f0fe3fabd",
+      "destino": "a46237168cbe3d1a"
+    },
+    "Tiene que quedar al menos un tipo de sesión activo.": {
+      "origen": "8b66a505be08500e",
+      "destino": "c65bfe9690e7b2a5"
+    },
+    "Tipo de campo no soportado: {tipo}.": {
+      "origen": "5ce0420410f2f1b6",
+      "destino": "d23dada119ccb5aa"
+    },
+    "Tipo de fichero no permitido: {mime}.": {
+      "origen": "8ac52ab973d1b46d",
+      "destino": "dec9d517feb4b9aa"
+    },
+    "Tipo de fichero no permitido: {mime}. Se aceptan {tipos}.": {
+      "origen": "240c4ca2f7c368c4",
+      "destino": "f1c042f3db501e73"
+    },
+    "Tipo de justificante no rasterizable: {mime}.": {
+      "origen": "d9218fa858b31486",
+      "destino": "eab196afde68263c"
+    },
+    "Tipo de medio no admitido: {tipo}.": {
+      "origen": "ad57ad61cb1948b7",
+      "destino": "b25ec2eb6b6cbd87"
+    },
+    "Tipo de token incorrecto.": {
+      "origen": "cf4130dd72f75689",
+      "destino": "065eeb4198f96e19"
+    },
+    "Todavía no hay ninguna clave guardada: envía «provider», «default_model» y «api_key» juntos.": {
+      "origen": "39c7818dd914e51d",
+      "destino": "1489c3c4b2023f75"
+    },
+    "Todavía no hay proveedor configurado: envía «provider», «default_model» y «api_key» juntos.": {
+      "origen": "5ffa94fc997b55a2",
+      "destino": "af6d4b47c5faa659"
+    },
+    "Token con contenido no válido.": {
+      "origen": "6de7c4c87ce1f490",
+      "destino": "55e61e6a3884793f"
+    },
+    "Token no válido o caducado.": {
+      "origen": "c82aba0e2d393d02",
+      "destino": "19c57be53c3f74fb"
+    },
+    "Tu correo ya está verificado.": {
+      "origen": "bac8eda90e4575f1",
+      "destino": "2f9051834adb293a"
+    },
+    "Tu cuenta se eliminará en 2 días si no verificas tu correo": {
+      "origen": "7ecd49f7eb31829a",
+      "destino": "077dc82d19aa586e"
+    },
+    "Tu entrada es el código QR de este correo: muéstrala en la puerta. También puedes verla aquí:\n{enlace}": {
+      "origen": "b3ab57a830029c68",
+      "destino": "0e627d6186cf21a1"
+    },
+    "Tu inscripción está confirmada": {
+      "origen": "5b613e4190f42f02",
+      "destino": "6c1c0c29c6f33a94"
+    },
+    "Tu inscripción ha quedado confirmada. ¡Te esperamos! Tu entrada es el código QR de este correo: muéstrala en la puerta el día del evento.\n\nSi pierdes este correo o no ves la imagen, puedes volver a verla aquí:\n{enlace}": {
+      "origen": "82b7990c1f3448b8",
+      "destino": "bc400db59741e2ff"
+    },
+    "Tu inscripción ha sido cancelada": {
+      "origen": "acd6cdafb920b2f4",
+      "destino": "984086be8a699ee5"
+    },
+    "Tu inscripción no ha sido aprobada": {
+      "origen": "5bfd03b66ba33f87",
+      "destino": "159fb1cd661a9e26"
+    },
+    "Tu inscripción queda cancelada y tu entrada deja de ser válida.": {
+      "origen": "f3a0186848d64525",
+      "destino": "cec266863400316d"
+    },
+    "Tu pago no se reembolsa automáticamente por la política de plazo de cancelación de este evento. Contacta con la organización si crees que debería reembolsarse.": {
+      "origen": "5765beb44e7f5d94",
+      "destino": "5614d909b237b0a7"
+    },
+    "Tu plaza está reservada. Complétala pagando tu entrada antes de {expira_el} desde este enlace:\n{enlace}": {
+      "origen": "2c2a4b8678e3703a",
+      "destino": "8ba89ed53d0d8979"
+    },
+    "Tu rol no te permite conceder «{permiso}» a una conexión.": {
+      "origen": "b16c84a5d01e7afa",
+      "destino": "eaaf6e332bb4087d"
+    },
+    "Tus inscripciones a eventos": {
+      "origen": "5fad2f6dd8cafa46",
+      "destino": "5f1c3a3e10821f19"
+    },
+    "URL sin host.": {
+      "origen": "0a70a06dd599aec6",
+      "destino": "0b6fa57277a522c3"
+    },
+    "Un descuento de importe fijo debe ser mayor que 0.": {
+      "origen": "861f26087f4e1591",
+      "destino": "96244917a8fc61f1"
+    },
+    "Un descuento de porcentaje debe estar entre 1 y 100.": {
+      "origen": "46a0b5b06971cc7b",
+      "destino": "15d6ae080122f138"
+    },
+    "Un evento admite como máximo {maximo} etiquetas.": {
+      "origen": "1df00c39bb4c4220",
+      "destino": "cb07c39981126f60"
+    },
+    "Un evento admite hasta {maximo} sitios cercanos.": {
+      "origen": "5ea85a2a0c034dbf",
+      "destino": "0e3f3bef416d558e"
+    },
+    "Un evento archivado no puede volver a editarse.": {
+      "origen": "a909bbcfaf4731a2",
+      "destino": "a6f55ab7f412fa4e"
+    },
+    "Un evento cancelado no puede volver a editarse.": {
+      "origen": "932795bf07bfaaa8",
+      "destino": "a54b46d887cfe257"
+    },
+    "Un gasto en especie se borra poniendo la valoración del patrocinador a null, no por este endpoint.": {
+      "origen": "a1ddeeae9900cec4",
+      "destino": "a9b3ce3818abe108"
+    },
+    "Un gasto en especie se edita fijando la valoración del patrocinador, no por este endpoint.": {
+      "origen": "5b26ab590bf60083",
+      "destino": "a7e6dd78f096e661"
+    },
+    "Un proveedor personalizado necesita la dirección de su endpoint para poder consultar sus modelos.": {
+      "origen": "ed3bab32522bd0f1",
+      "destino": "b1197a3ea429d9a4"
+    },
+    "Un texto propio del evento no puede estar vacío; para usar el de la organización, vuelve a heredarlo.": {
+      "origen": "c5be2ab898899f4c",
+      "destino": "d2acc689cbc0e75d"
+    },
+    "Una aportación en especie exige una descripción.": {
+      "origen": "b6acf0002f25dae4",
+      "destino": "b25a9c34abc5840f"
+    },
+    "Una aportación en especie no lleva importe.": {
+      "origen": "2c39b706b5067b16",
+      "destino": "3fdbb2af25723004"
+    },
+    "Una aportación monetaria exige un importe positivo.": {
+      "origen": "dec7739fbdd5803d",
+      "destino": "47a6dfea913ee150"
+    },
+    "Una aportación monetaria no lleva descripción.": {
+      "origen": "7305cefcaf534363",
+      "destino": "246311771966a77a"
+    },
+    "Una de las respuestas no corresponde a ninguna pregunta de este evento.": {
+      "origen": "4803f6e2fc884c51",
+      "destino": "93347970cb74ed50"
+    },
+    "Una pausa no lleva ponentes.": {
+      "origen": "43ee75e27c0b4c1e",
+      "destino": "d3d7c8d0c5d67c09"
+    },
+    "Una pregunta de opción necesita al menos una opción.": {
+      "origen": "482c6d503d6c02d6",
+      "destino": "e26d22051467bda7"
+    },
+    "Una pregunta de texto libre no lleva opciones.": {
+      "origen": "75b811764d73b3e8",
+      "destino": "449e12af6075024f"
+    },
+    "Una sesión de suplantación no puede cambiar de organización.": {
+      "origen": "3924422f27baa1f2",
+      "destino": "7ddecce7b2b0a816"
+    },
+    "Una sesión de suplantación no puede usar los endpoints de administración.": {
+      "origen": "90f7ad57622cc49f",
+      "destino": "8348922291589f26"
+    },
+    "Una sesión de suplantación solo puede consultar, no modificar.": {
+      "origen": "f41a0cc60eba9664",
+      "destino": "e441c71b8273da59"
+    },
+    "Uno de los participantes no pertenece al roster de este evento.": {
+      "origen": "fdd9c5d6b67e9e65",
+      "destino": "48c8397fb6569e27"
+    },
+    "Valor no permitido. Valores aceptados: {expected}.": {
+      "origen": "673d4e57eceb6b8c",
+      "destino": "4e5a330cd0c2843d"
+    },
+    "Verifica tu correo": {
+      "origen": "0a4ee7e2fb2e4ee3",
+      "destino": "bb265946234feb98"
+    },
+    "Verifica tu inscripción": {
+      "origen": "563d34a79790d66c",
+      "destino": "c67f33717038bc63"
+    },
+    "Verificación anti-bot no válida": {
+      "origen": "5e0dd2408d346804",
+      "destino": "a2ba15ed971620f3"
+    },
+    "Ya existe un código «{codigo}» en este evento.": {
+      "origen": "a880d12bea820397",
+      "destino": "ca5e0b8579f633da"
+    },
+    "Ya existe un evento con el identificador «{slug}» en tu organización.": {
+      "origen": "8b5bdb38c302fe07",
+      "destino": "bb94087833634020"
+    },
+    "Ya existe un evento con el identificador «{slug}».": {
+      "origen": "5f5126e52ce2685f",
+      "destino": "2a2d75bf49e696a1"
+    },
+    "Ya existe un nivel de patrocinio llamado «{nombre}».": {
+      "origen": "bf2f07e32ec49e1a",
+      "destino": "8e208ebeac353bd1"
+    },
+    "Ya existe un rol con la clave «{clave}».": {
+      "origen": "e7314188fe25cbb2",
+      "destino": "7ef714e7426cbde1"
+    },
+    "Ya existe un tipo de entrada llamado «{nombre}» en este evento.": {
+      "origen": "e9eb11e727db58ef",
+      "destino": "61ffbae64c7620c2"
+    },
+    "Ya existe una categoría con el identificador «{slug}».": {
+      "origen": "9876fdc6383a775f",
+      "destino": "e77401aa38b5ef2f"
+    },
+    "Ya existe una organización con el identificador «{slug}».": {
+      "origen": "822188c95fca3e19",
+      "destino": "8fb32b8f2137e51d"
+    },
+    "Ya existe una plantilla con la clave «{clave}».": {
+      "origen": "5dcda2bd182caa0e",
+      "destino": "63a09b1f46047127"
+    },
+    "Ya ha pasado el plazo de reembolso: si cancelas, no se devuelve el importe.": {
+      "origen": "cf2c4ae0830a8b98",
+      "destino": "e7c645528eb66455"
+    },
+    "Ya hay un tipo de sesión con ese nombre.": {
+      "origen": "0c40a470076b2ed8",
+      "destino": "bb97e5de4400bc7e"
+    },
+    "Ya no se puede reabrir: han pasado más de 7 días desde el evento.": {
+      "origen": "25cfc57e01a54a8e",
+      "destino": "872f16da985fb029"
+    },
+    "`contingency_fund_percent` no admite `null`.": {
+      "origen": "cc3b5beffafbdaf5",
+      "destino": "3f880fb3e98cd37a"
+    },
+    "`kind` no admite `null`.": {
+      "origen": "2d75d57c79ac1921",
+      "destino": "79443a78ab4ba90f"
+    },
+    "`name` no admite `null`.": {
+      "origen": "a0466b802f661336",
+      "destino": "5e14a1fa2a7129d7"
+    },
+    "`reminder_enabled` no admite `null`.": {
+      "origen": "6f01b91b8f70a279",
+      "destino": "2621ff65076e23e6"
+    },
+    "`reminder_hours_before` no admite `null`.": {
+      "origen": "3f7874e79527d064",
+      "destino": "701957733406f69c"
+    },
+    "`tags` no admite `null`: usa una lista vacía para quitarlas.": {
+      "origen": "a5bee7329afacad0",
+      "destino": "f0bfe7c7c4d87bc0"
+    },
+    "`total_cents` debe ser `base_cents + vat_cents` (o `base_cents` si exento).": {
+      "origen": "67d1da5a87c874ab",
+      "destino": "261e3f2c87a0bedb"
+    },
+    "confirmada": {
+      "origen": "f8dd34c4142a8f53",
+      "destino": "9599915bd8cd62b6"
+    },
+    "en lista de espera (el aforo está completo)": {
+      "origen": "541cea96d0904de7",
+      "destino": "e91267e245d46aad"
+    },
+    "la plataforma": {
+      "origen": "cfb8d13f4c277c8e",
+      "destino": "b298f7541ebfd197"
+    },
+    "locale no admite null; omite el campo para no cambiarlo.": {
+      "origen": "06251355c2ad3a34",
+      "destino": "1fc8aecb81d7350c"
+    },
+    "pendiente de tu aprobación": {
+      "origen": "fe8eb4a508fbf633",
+      "destino": "07e24b27972d6a33"
+    },
+    "{partida}: {presupuestado} presupuestado / {ejecutado} ejecutado ({porcentaje})": {
+      "origen": "d4a1546937b739fd",
+      "destino": "b7a1c886fcface6c"
+    },
+    "{periodo}: ingresos {ingresos} / gastos {gastos}": {
+      "origen": "f994eca15b938a6f",
+      "destino": "a97bb8ff74d361a2"
+    },
+    "{proveedor} necesita la dirección del endpoint («api_base»).": {
+      "origen": "cb1281483a93bbd5",
+      "destino": "244c27e56b6fb576"
+    },
+    "{proveedor} usa una dirección fija: no admite «api_base».": {
+      "origen": "e55e1964cacaa4fc",
+      "destino": "2260b52e07b9117a"
+    },
+    "{sede} (o en línea: el enlace está al final de este correo).": {
+      "origen": "ddffd5bfb55c29e1",
+      "destino": "da78e07613f7cf0a"
+    },
+    "{total} confirmadas": {
+      "origen": "eace6b3ed5bbfb79",
+      "destino": "a31d66ad069e9271"
+    },
+    "{total} en lista de espera": {
+      "origen": "e5e9ea4a8c1fcd00",
+      "destino": "8953752c15527c42"
+    },
+    "{total} pendientes de aprobación": {
+      "origen": "8322977e6a3aac09",
+      "destino": "28405736f023a87e"
+    },
+    "{total} pendientes de pago": {
+      "origen": "43940ea3d8b69c98",
+      "destino": "c9053e055f06ff2d"
+    },
+    "{total} pendientes de verificar el correo": {
+      "origen": "54518801c0926596",
+      "destino": "bdb7c3806897ae9c"
+    },
+    "«Mis eventos» no está disponible durante una suplantación.": {
+      "origen": "f0c0021b6a9e46ca",
+      "destino": "57b64680dcd18d2d"
+    },
+    "«media_id» debe ser una cadena.": {
+      "origen": "90ca2db90a9edded",
+      "destino": "9ad21ede371de5a1"
+    },
+    "«media_id» no es un identificador válido.": {
+      "origen": "2c8640b378876f6a",
+      "destino": "6b66d7ee19c7df9d"
+    },
+    "«url» debe ser una cadena.": {
+      "origen": "0701641728ed3286",
+      "destino": "bc7407a1c98d2200"
+    },
+    "«{clave}» no es un proveedor de IA admitido.": {
+      "origen": "9aeb66566eadc461",
+      "destino": "a6f2a68f5d404704"
+    },
+    "«{etiqueta}» admite como máximo {maximo} caracteres (tiene {longitud}).": {
+      "origen": "abb0e89b13f43fab",
+      "destino": "bf93e41857baa9f5"
+    },
+    "«{etiqueta}» debe ser texto.": {
+      "origen": "044f28811ab6f348",
+      "destino": "cc1a769096ca2ecd"
+    },
+    "«{etiqueta}» debe ser un correo electrónico válido.": {
+      "origen": "9f6074ce40ae9f33",
+      "destino": "405fc1cc2c401ba7"
+    },
+    "«{etiqueta}» debe ser un teléfono válido.": {
+      "origen": "195fc13f7163f556",
+      "destino": "ac9974b35e583752"
+    },
+    "«{etiqueta}» debe ser una URL que empiece por http(s).": {
+      "origen": "f9120d7e2b17c0bb",
+      "destino": "395156510f0db15c"
+    },
+    "«{etiqueta}» debe ser una fecha ISO (AAAA-MM-DD).": {
+      "origen": "b48e8a16bd965794",
+      "destino": "b665c5735058f22b"
+    },
+    "«{etiqueta}» debe ser uno de: {opciones}.": {
+      "origen": "209974bd329e5dea",
+      "destino": "f7be6d083eeda9d2"
+    },
+    "«{etiqueta}» debe ser verdadero o falso.": {
+      "origen": "10e370c4e3bc2e7c",
+      "destino": "ffc95965abc9dd86"
+    },
+    "«{etiqueta}» es obligatorio.": {
+      "origen": "6475bf74cfaa9952",
+      "destino": "4bdecfff8f687d6a"
+    },
+    "«{etiqueta}» no es un identificador válido.": {
+      "origen": "78044e24392ada78",
+      "destino": "3f044498f917fa8b"
+    },
+    "«{modelo}» no es un modelo admitido de {proveedor}.": {
+      "origen": "5989a56cd9b23b8c",
+      "destino": "38954ba56ac20579"
+    },
+    "«{modelo}» no puede estar vacío.": {
+      "origen": "e41f0e47412111c0",
+      "destino": "613f529354807e4a"
+    },
+    "«{plantilla}» no es un identificador válido de plantilla.": {
+      "origen": "e7f8abae43ee6fea",
+      "destino": "16dbb49755134020"
+    },
+    "«{servicio}» no es un servicio conmutable de la plataforma.": {
+      "origen": "1356bcc562e5b799",
+      "destino": "5d691653a2fda652"
+    },
+    "«{token}» declara «{valor}», que no es una familia autoalojada. Admitidas: {admitidas}.": {
+      "origen": "59a5ef24be464214",
+      "destino": "7f2a226cc46e9ce0"
+    },
+    "«{valor}» no es un identificador de plantilla válido.": {
+      "origen": "84479bed4084c701",
+      "destino": "ca73320b80f4207e"
+    },
+    "¿No puedes ir? Cancela tu inscripción y tu plaza quedará libre para otra persona de la lista de espera:\n{enlace}": {
+      "origen": "c31ab2f0c77ad287",
+      "destino": "0f889ce0a8fc2bb0"
+    },
+    "¿No puedes ir? Cancela tu inscripción y tu plaza quedará libre:\n{enlace}": {
+      "origen": "f3e21167e8201d28",
+      "destino": "d99abeb46affce0c"
     }
   }
 }
