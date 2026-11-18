@@ -151,6 +151,10 @@ class EventRegistration(Base, TimestampMixin):
     event_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
     organization_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
     email: Mapped[str] = mapped_column(String(320), nullable=False)
+    # Idioma en que se hizo la inscripción: el de sus correos (migración `0073`).
+    locale: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="es-ES", server_default="es-ES"
+    )
     full_name: Mapped[str] = mapped_column(String(200), nullable=False)
     # Enlace opcional a una cuenta existente, resuelto por email con la función
     # `SECURITY DEFINER` `app_find_user_by_email` (`0004_correo_y_verificacion`):
