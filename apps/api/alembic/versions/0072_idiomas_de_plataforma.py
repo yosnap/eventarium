@@ -50,6 +50,15 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint("enabled_locales", "platform_branding", type_="check")
+    # Por su nombre literal, con y sin el prefijo duplicado de una versión
+    # anterior de esta migración: la base puede tener cualquiera de los dos.
+    op.execute(
+        "ALTER TABLE platform_branding "
+        "DROP CONSTRAINT IF EXISTS ck_platform_branding_enabled_locales"
+    )
+    op.execute(
+        "ALTER TABLE platform_branding "
+        "DROP CONSTRAINT IF EXISTS ck_platform_branding_ck_platform_branding_enabled_locales"
+    )
     op.drop_column("platform_branding", "language_switcher_visible")
     op.drop_column("platform_branding", "enabled_locales")

@@ -6,8 +6,9 @@ comando que genera los catálogos con IA. Cuenta como mensaje:
 - el primer argumento (o `detail=`) al crear un error de dominio
   (`DomainError` y sus subclases, en cualquier módulo);
 - el `title` de esas clases;
-- el mensaje de un `ValueError` lanzado dentro de un validador de Pydantic
-  (`field_validator`, `model_validator`), que Pydantic devuelve como error 422;
+- el mensaje de un `ValueError` (o de un `ErrorDeValidacion`, su variante con
+  parámetros) lanzado dentro de un validador de Pydantic (`field_validator`,
+  `model_validator`), que Pydantic devuelve como error 422;
 - el primer argumento de `t(...)`;
 - las plantillas de `mensajes/validacion.py`.
 """
@@ -102,10 +103,9 @@ def extraer() -> Extraccion:
     arboles = {ruta: ast.parse(ruta.read_text(encoding="utf-8")) for ruta in _ficheros()}
     errores = clases_de_error(arboles)
     resultado = Extraccion()
-    # Las clases se buscan en todo el código; los mensajes, fuera de la propia
-    # infraestructura de traducción.
-    arboles = {ruta: arbol for ruta, arbol in arboles.items() if ruta not in EXCLUIDOS}
-
+    # La propia infraestructura de traducción trabaja con mensajes ya extraídos
+    # (`t(self.plantilla)`): de ella solo se recogen sus literales («Error
+    # interno», los títulos de los errores), sin exigir que todo lo sea.
     lineas = {ruta: ruta.read_text(encoding="utf-8").splitlines() for ruta in arboles}
 
     def anotar(valor: ast.expr | None, ruta: Path) -> None:
@@ -113,6 +113,8 @@ def extraer() -> Extraccion:
             return
         if isinstance(valor, ast.Constant) and isinstance(valor.value, str):
             resultado.mensajes.add(valor.value)
+            return
+        if ruta in EXCLUIDOS:
             return
         # `marcar("…")` ya registra su literal.
         if (
@@ -156,7 +158,7 @@ def extraer() -> Extraccion:
                 anotar(_mensaje(nodo), ruta)
             elif nombre in errores or nombre == "t":
                 anotar(_mensaje(nodo), ruta)
-            elif nombre == "ValueError":
+            elif nombre in ("ValueError", "ErrorDeValidacion"):
                 # Dentro o fuera de un validador: las funciones auxiliares que llaman
                 # los validadores también acaban en un 422.
                 anotar(_mensaje(nodo), ruta)

@@ -8,7 +8,14 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
 from app.core.database import SessionApp, SessionMaintenance
-from app.modules.events.categories import normalizar_etiquetas
+from app.core.mensajes import ErrorDeValidacion
+from app.modules.events.categories import (
+    DEMASIADAS_ETIQUETAS,
+    LONGITUD_MAX_ETIQUETA,
+    LONGITUD_MIN_ETIQUETA,
+    MAX_ETIQUETAS,
+    normalizar_etiquetas,
+)
 from app.modules.users.models import User
 from tests.conftest import OrganizacionDePrueba, iniciar_sesion
 from tests.test_events_public import _crear_evento, _publicar
@@ -67,6 +74,22 @@ def test_las_etiquetas_se_normalizan_en_minusculas_sin_repetidas() -> None:
 def test_las_etiquetas_invalidas_se_rechazan(etiquetas: list[str]) -> None:
     with pytest.raises(ValueError):
         normalizar_etiquetas(etiquetas)
+
+
+def test_el_error_dice_que_etiqueta_falla_y_los_limites_de_las_constantes() -> None:
+    with pytest.raises(ErrorDeValidacion) as larga:
+        normalizar_etiquetas(["ia", " " + "x" * 31])
+    assert str(larga.value) == (
+        f"La etiqueta «{'x' * 31}» debe tener entre {LONGITUD_MIN_ETIQUETA} y "
+        f"{LONGITUD_MAX_ETIQUETA} caracteres."
+    )
+    with pytest.raises(ErrorDeValidacion) as signos:
+        normalizar_etiquetas(["#ia"])
+    assert "«#ia»" in str(signos.value)
+    with pytest.raises(ErrorDeValidacion) as muchas:
+        normalizar_etiquetas([f"etiqueta {n}" for n in range(MAX_ETIQUETAS + 1)])
+    assert muchas.value.codigo == DEMASIADAS_ETIQUETAS
+    assert str(muchas.value) == f"Un evento admite como máximo {MAX_ETIQUETAS} etiquetas."
 
 
 def test_repetir_una_etiqueta_no_cuenta_dos_veces_para_el_maximo() -> None:
@@ -264,6 +287,15 @@ async def test_etiquetas_invalidas_dan_422(
         )
         assert respuesta.status_code == 422, etiquetas
 
+    respuesta = await cliente.patch(
+        f"{EVENTS}/{evento['id']}", headers=cabeceras, json={"tags": ["ia", "#ia"]}
+    )
+    (error,) = respuesta.json()["errors"]
+    assert error["mensaje"] == (
+        "La etiqueta «#ia» solo admite letras, números, espacios y guiones."
+    )
+    assert error["propio"] is True
+
 
 # --- Contratos y filtros públicos -------------------------------------------
 
@@ -353,6 +385,14 @@ async def test_maximo_tres_etiquetas_por_filtro_y_etiquetas_invalidas(
     assert demasiadas.status_code == 422
     invalida = await cliente.get(f"{PUBLICO}/events", params={"etiqueta": "#mal"})
     assert invalida.status_code == 422
+    assert invalida.json()["detail"] == (
+        "La etiqueta «#mal» solo admite letras, números, espacios y guiones."
+    )
+    corta = await cliente.get(f"{PUBLICO}/events", params={"etiqueta": "a"})
+    assert corta.json()["detail"] == (
+        f"La etiqueta «a» debe tener entre {LONGITUD_MIN_ETIQUETA} y "
+        f"{LONGITUD_MAX_ETIQUETA} caracteres."
+    )
     tres = await cliente.get(
         f"{PUBLICO}/events", params=[("etiqueta", t) for t in ("aa", "bb", "cc")]
     )

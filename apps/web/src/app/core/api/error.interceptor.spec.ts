@@ -41,6 +41,33 @@ describe('errorInterceptor', () => {
       await mensajeDe({
         detail: GENERICO,
         errors: [
+          { campo: 'body.title', mensaje: 'Debe tener al menos 1 caracteres.', propio: false },
+          {
+            campo: 'body',
+            mensaje: 'La fecha de fin debe ser posterior a la de inicio.',
+            propio: true,
+          },
+        ],
+      }),
+    ).toBe('La fecha de fin debe ser posterior a la de inicio.');
+  });
+
+  it('los mensajes genéricos de un campo no se enseñan: queda el genérico', async () => {
+    expect(
+      await mensajeDe({
+        detail: GENERICO,
+        errors: [
+          { campo: 'body.title', mensaje: 'Debe tener al menos 1 caracteres.', propio: false },
+        ],
+      }),
+    ).toBe(GENERICO);
+  });
+
+  it('sin el campo «propio», reconoce el prefijo de una API anterior', async () => {
+    expect(
+      await mensajeDe({
+        detail: GENERICO,
+        errors: [
           {
             campo: 'body',
             mensaje: 'Value error, La fecha de fin debe ser posterior a la de inicio.',
@@ -50,7 +77,7 @@ describe('errorInterceptor', () => {
     ).toBe('La fecha de fin debe ser posterior a la de inicio.');
   });
 
-  it('los mensajes técnicos de Pydantic no se enseñan: queda el genérico', async () => {
+  it('los mensajes técnicos de Pydantic sin «propio» no se enseñan', async () => {
     expect(
       await mensajeDe({
         detail: GENERICO,

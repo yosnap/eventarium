@@ -9,8 +9,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.core.locale import resolver_idioma_de_peticion
 from app.core.mensajes import formatear, t
-from app.core.mensajes.validacion import mensaje_de_validacion
+from app.core.mensajes.validacion import es_de_validador_propio, mensaje_de_validacion
 
 PROBLEM_CONTENT_TYPE = "application/problem+json"
 
@@ -23,6 +24,8 @@ class DomainError(Exception):
 
     status_code: int = status.HTTP_400_BAD_REQUEST
     title: str = "Error de dominio"
+    #: Las subclases pueden fijar su `code`; el del constructor lo sustituye.
+    code: str | None = None
 
     def __init__(
         self,
@@ -38,7 +41,8 @@ class DomainError(Exception):
         programa, cuando el texto no basta."""
         self.plantilla = detail
         self.params = params or {}
-        self.code = code
+        if code is not None:
+            self.code = code
         self.detail = formatear(detail, self.params)
         super().__init__(self.detail)
         self.extra = extra or {}
@@ -145,6 +149,9 @@ def register_exception_handlers(app: FastAPI) -> None:
                     {
                         "campo": ".".join(str(p) for p in e["loc"]),
                         "mensaje": mensaje_de_validacion(e),
+                        # Mensaje de un validador propio, pensado para enseñarse
+                        # tal cual; los demás son genéricos de un campo.
+                        "propio": es_de_validador_propio(e),
                     }
                     for e in exc.errors()
                 ],
@@ -153,13 +160,18 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(Exception)
     async def _inesperado(request: Request, exc: Exception) -> JSONResponse:
+        # Este manejador corre en `ServerErrorMiddleware`, fuera del middleware que
+        # fija el idioma: se resuelve aquí desde la propia petición.
+        idioma = resolver_idioma_de_peticion(
+            request.query_params.get("idioma"), request.headers.get("accept-language")
+        )
         return _problem_response(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
             {
                 "type": "about:blank",
-                "title": t("Error interno"),
+                "title": t("Error interno", idioma),
                 "status": status.HTTP_500_INTERNAL_SERVER_ERROR,
-                "detail": t("Se ha producido un error inesperado."),
+                "detail": t("Se ha producido un error inesperado.", idioma),
                 "instance": request.url.path,
             },
         )

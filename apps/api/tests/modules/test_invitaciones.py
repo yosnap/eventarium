@@ -274,3 +274,35 @@ async def test_borrar_un_rol_cancela_sus_invitaciones_pendientes(
             select(OrganizationInvitation).where(OrganizationInvitation.id == invitation_id)
         )
         assert invitacion is None  # `ON DELETE CASCADE` de `role_id`
+
+
+async def test_la_invitacion_sale_en_el_idioma_de_la_cuenta_invitada_si_ya_existe(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    """Sin cuenta previa, el idioma de quien invita, que se guarda en la cuenta
+    creada; el reenvío usa el de la cuenta, no el de quien reenvía."""
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    role_id = await _role_id(organizacion, "organizer")
+
+    with patch(
+        "app.modules.organizations.router.send_invitation_email.kiq", new_callable=AsyncMock
+    ) as encolar:
+        creada = await cliente.post(
+            INVITACIONES,
+            json={"email": "idioma@ejemplo.com", "role_id": str(role_id)},
+            headers={**cabeceras, "Accept-Language": "en-US"},
+        )
+        assert creada.status_code == 201, creada.text
+        assert encolar.await_args is not None
+        assert encolar.await_args.kwargs["locale"] == "en-US"
+
+        reenvio = await cliente.post(
+            f"{INVITACIONES}/{creada.json()['invitation']['id']}/resend",
+            headers={**cabeceras, "Accept-Language": "es-ES"},
+        )
+        assert reenvio.status_code == 200, reenvio.text
+        assert encolar.await_args.kwargs["locale"] == "en-US"
+
+    async with SessionMaintenance() as session:
+        locale = await session.scalar(select(User.locale).where(User.email == "idioma@ejemplo.com"))
+    assert locale == "en-US"

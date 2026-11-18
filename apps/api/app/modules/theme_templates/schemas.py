@@ -15,6 +15,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.core.mensajes import ErrorDeValidacion
 from app.modules.theme_templates.accent_palette import UMBRAL_CROMA_MINIMO, hex_a_oklch
 
 MODOS_DE_PLANTILLA: tuple[str, str] = ("dark", "light")
@@ -173,19 +174,28 @@ def validar_theme_overrides(overrides: dict[str, Any] | None) -> dict[str, str] 
     if overrides is None:
         return None
 
+    # Lo edita el organizador desde la ficha del evento: mensajes traducibles,
+    # con los datos como parámetros.
     desconocidas = set(overrides.keys()) - CLAVES_DE_OVERRIDE
     if desconocidas:
-        # mensaje interno: validación técnica del panel de plataforma.
-        raise ValueError(f"Claves de personalización desconocidas: {sorted(desconocidas)}.")
+        raise ErrorDeValidacion(
+            "Claves de personalización desconocidas: {claves}. Admitidas: {admitidas}.",
+            params={
+                "claves": ", ".join(sorted(desconocidas)),
+                "admitidas": ", ".join(sorted(CLAVES_DE_OVERRIDE)),
+            },
+        )
 
     if "accent" in overrides:
         valor = overrides["accent"]
         if not isinstance(valor, str) or not _HEX_6_SOLO_RE.match(valor.strip()):
-            # mensaje interno: validación técnica del panel de plataforma.
-            raise ValueError(f"«accent» debe ser un color hex de 6 dígitos, y llegó «{valor!r}».")
+            raise ErrorDeValidacion(
+                "El color de acento debe ser un color hex de 6 dígitos (#rrggbb), "
+                "y llegó «{valor}».",
+                params={"valor": valor},
+            )
         _, croma, _ = hex_a_oklch(valor.strip())
         if croma < UMBRAL_CROMA_MINIMO:
-            # mensaje interno: validación técnica del panel de plataforma.
             raise ValueError(
                 "El color de acento necesita algo de saturación — el blanco, el "
                 "negro y los grises no sirven como acento."
@@ -195,10 +205,14 @@ def validar_theme_overrides(overrides: dict[str, Any] | None) -> dict[str, str] 
         if token in overrides:
             valor = overrides[token]
             if not isinstance(valor, str) or valor.strip() not in familias:
-                # mensaje interno: validación técnica del panel de plataforma.
-                raise ValueError(
-                    f"«{token}» declara «{valor!r}», que no es una familia autoalojada. "
-                    f"Admitidas: {sorted(familias)}."
+                raise ErrorDeValidacion(
+                    "«{token}» declara «{valor}», que no es una familia autoalojada. "
+                    "Admitidas: {admitidas}.",
+                    params={
+                        "token": token,
+                        "valor": valor,
+                        "admitidas": ", ".join(sorted(familias)),
+                    },
                 )
 
     return overrides

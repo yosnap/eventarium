@@ -43,6 +43,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.database import set_organization_context
 from app.core.deps import SessionDep
+from app.core.mensajes import ErrorDeValidacion
 from app.core.ratelimit import PUBLICO_POR_IP, limit_per_ip
 from app.core.storage import get_storage, public_url_versionada
 from app.modules.events import (
@@ -281,15 +282,15 @@ async def list_public_events(
 ) -> list[PublicEventSummary]:
     try:
         etiquetas = tuple(categories.normalizar_etiquetas(etiqueta))
-    except ValueError as exc:
-        raise ValidationDomainError(
-            "Las etiquetas del filtro no son válidas: cada una debe tener entre {minimo} y "
-            "{maximo} caracteres y solo admite letras, números, espacios y guiones.",
-            params={
-                "minimo": categories.LONGITUD_MIN_ETIQUETA,
-                "maximo": categories.LONGITUD_MAX_ETIQUETA,
-            },
-        ) from exc
+    except ErrorDeValidacion as exc:
+        if exc.codigo == categories.DEMASIADAS_ETIQUETAS:
+            # El tope de un filtro, no el de un evento.
+            raise ValidationDomainError(
+                "El filtro admite como máximo {maximo} etiquetas.",
+                params={"maximo": categories.MAX_ETIQUETAS_EN_UN_FILTRO},
+            ) from exc
+        # Qué etiqueta falla, y si es por su longitud o por sus caracteres.
+        raise ValidationDomainError(exc.plantilla, params=exc.params) from exc  # mensaje marcado
     filas, total = await service.list_public_events_across_organizations(
         session, category_slug=categoria, tags=etiquetas, limit=limit, offset=offset
     )

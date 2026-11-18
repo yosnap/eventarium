@@ -272,6 +272,13 @@ class TestPersonalizacionPorEvento:
             json={"theme_overrides": {"bg": "#000000"}},
         )
         assert respuesta.status_code == 422, respuesta.text
+        # Lo ve el organizador: traducible, y con la clave que sobra.
+        (error,) = respuesta.json()["errors"]
+        assert error["propio"] is True
+        assert error["mensaje"] == (
+            "Claves de personalización desconocidas: bg. "
+            "Admitidas: accent, font-body, font-display."
+        )
 
     async def test_fuente_con_tipo_no_textual_se_rechaza_con_422(
         self, cliente: AsyncClient, organizacion: OrganizacionDePrueba

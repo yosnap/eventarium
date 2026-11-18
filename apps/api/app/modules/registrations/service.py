@@ -379,6 +379,9 @@ async def submit_registration(
         session, event.organization_id, event.id, email_normalizado
     )
     if existente is not None:
+        # Quien vuelve a enviar el formulario recibe los correos (y el pago) en el
+        # idioma de esta petición, sea cual sea el estado de la inscripción.
+        existente.locale = idioma_actual()
         # Reintento tras caducar: una compra abandonada de un
         # evento de pago que nunca llegó a moverse dinero (su pago sigue en
         # `pending`/`expired`) se reactiva en vez de bloquear a la persona
@@ -401,9 +404,6 @@ async def submit_registration(
             ahora = datetime.now(UTC)
             existente.status = nuevo_estado
             existente.cancelled_at = None
-            # Vuelve a inscribirse ahora: los correos y el pago siguen el idioma
-            # de esta petición, no el del intento abandonado.
-            existente.locale = idioma_actual()
             # Un ciclo nuevo: lo de la lista de espera o la aprobación del
             # anterior no cuenta para decidir si ya se avisó al organizador.
             existente.waitlist_promoted_at = None
@@ -427,7 +427,6 @@ async def submit_registration(
             existente.status = await _evaluar_estado_por_aforo(
                 session, evento_bloqueado, registration_id=existente.id
             )
-            existente.locale = idioma_actual()
             await session.flush()
             return existente
         if existente.status == "pending_verification":
@@ -447,6 +446,7 @@ async def submit_registration(
             )
         # `pending_payment`: sin plantilla propia; el enlace de pago lo
         # reenvía el propio checkout.
+        await session.flush()
         return None
 
     user_id = await repository.find_user_id_by_email(session, email_normalizado)

@@ -3,14 +3,16 @@
 Pydantic los escribe en inglés y con su propio texto. Aquí se rehacen por `type`
 con los datos de su `ctx` (longitudes, límites, valores esperados), en español
 como clave del catálogo. Los `ValueError` de los validadores del proyecto llegan
-como `"Value error, <mensaje>"` y se traducen por su mensaje.
+como `"Value error, <mensaje>"` y se traducen por su mensaje (o por su plantilla y
+parámetros, si son un `ErrorDeValidacion`); son los únicos que la web enseña tal
+cual, y por eso cada error lleva `propio`.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from app.core.mensajes import t
+from app.core.mensajes import ErrorDeValidacion, t
 
 PLANTILLAS: dict[str, str] = {
     "missing": "Este campo es obligatorio.",
@@ -51,13 +53,27 @@ PLANTILLAS: dict[str, str] = {
 }
 
 _PREFIJO_VALUE_ERROR = "Value error, "
+#: Mensaje del validador de correo de Pydantic (`EmailStr`): en inglés y con el
+#: detalle de `email-validator`, que no es una clave del catálogo.
+_PREFIJO_CORREO_NO_VALIDO = "value is not a valid email address"
+
+
+def es_de_validador_propio(error: dict[str, Any]) -> bool:
+    """El error viene de un validador del proyecto (un `ValueError`), con un mensaje
+    redactado para personas, y no de una comprobación genérica de Pydantic."""
+    return error.get("type") == "value_error"
 
 
 def mensaje_de_validacion(error: dict[str, Any]) -> str:
     tipo = str(error.get("type", ""))
     contexto = dict(error.get("ctx") or {})
     if tipo == "value_error":
+        causa = contexto.get("error")
+        if isinstance(causa, ErrorDeValidacion):
+            return t(causa.plantilla, **causa.params)
         mensaje = str(error.get("msg", ""))
+        if mensaje.startswith(_PREFIJO_CORREO_NO_VALIDO):
+            return t("El correo electrónico no es válido.")
         if mensaje.startswith(_PREFIJO_VALUE_ERROR):
             mensaje = mensaje[len(_PREFIJO_VALUE_ERROR) :]
         return t(mensaje)

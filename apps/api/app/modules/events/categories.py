@@ -9,6 +9,7 @@ from typing import cast
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.mensajes import ErrorDeValidacion
 from app.modules.events.models import EventCategory
 from app.shared.errors import ValidationDomainError
 
@@ -21,8 +22,13 @@ LONGITUD_MAX_ETIQUETA = 30
 _ETIQUETA = re.compile(r"^[a-z0-9áéíóúüñ]+(?:[ -][a-z0-9áéíóúüñ]+)*$")
 
 
+#: `codigo` del `ErrorDeValidacion` cuando sobran etiquetas (no cuando una falla).
+DEMASIADAS_ETIQUETAS = "demasiadas_etiquetas"
+
+
 def normalizar_etiquetas(etiquetas: list[str]) -> list[str]:
-    """Etiquetas en minúsculas, sin blancos de más ni repetidas, o `ValueError`.
+    """Etiquetas en minúsculas, sin blancos de más ni repetidas, o `ErrorDeValidacion`
+    (un `ValueError`) que dice qué etiqueta falla y por qué.
 
     Se conserva el orden de la primera aparición. La comprobación del máximo se
     hace **después** de quitar repetidas: repetir una no cuenta dos veces.
@@ -31,15 +37,27 @@ def normalizar_etiquetas(etiquetas: list[str]) -> list[str]:
     for original in etiquetas:
         etiqueta = re.sub(r"\s+", " ", original.strip().lower())
         if not (LONGITUD_MIN_ETIQUETA <= len(etiqueta) <= LONGITUD_MAX_ETIQUETA):
-            # Literal para que se pueda traducir: si cambian los límites, cambia aquí.
-            raise ValueError("Cada etiqueta debe tener entre 2 y 30 caracteres.")
+            raise ErrorDeValidacion(
+                "La etiqueta «{etiqueta}» debe tener entre {minimo} y {maximo} caracteres.",
+                params={
+                    "etiqueta": original.strip(),
+                    "minimo": LONGITUD_MIN_ETIQUETA,
+                    "maximo": LONGITUD_MAX_ETIQUETA,
+                },
+            )
         if not _ETIQUETA.fullmatch(etiqueta):
-            raise ValueError("Las etiquetas solo admiten letras, números, espacios y guiones.")
+            raise ErrorDeValidacion(
+                "La etiqueta «{etiqueta}» solo admite letras, números, espacios y guiones.",
+                params={"etiqueta": original.strip()},
+            )
         if etiqueta not in limpias:
             limpias.append(etiqueta)
     if len(limpias) > MAX_ETIQUETAS:
-        # Literal, para que se pueda traducir: si cambia MAX_ETIQUETAS, cambia también aquí.
-        raise ValueError("Un evento admite como máximo 10 etiquetas.")
+        raise ErrorDeValidacion(
+            "Un evento admite como máximo {maximo} etiquetas.",
+            params={"maximo": MAX_ETIQUETAS},
+            codigo=DEMASIADAS_ETIQUETAS,
+        )
     return limpias
 
 

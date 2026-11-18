@@ -6,20 +6,28 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import mensajes
 from app.core.cleanup import sweep_unverified_accounts
+from app.core.locale import idioma_actual
 from app.modules.organizations.invitations_models import OrganizationInvitation
 from app.modules.users.models import User
 from tests.conftest import OrganizacionDePrueba
 
 
 async def _crear_usuario_sin_verificar(
-    maintenance_db: AsyncSession, *, email: str, antiguedad: timedelta, avisado: bool = False
+    maintenance_db: AsyncSession,
+    *,
+    email: str,
+    antiguedad: timedelta,
+    avisado: bool = False,
+    locale: str = "es-ES",
 ) -> None:
     creado_en = datetime.now(UTC) - antiguedad
-    usuario = User(email=email, is_active=True)
+    usuario = User(email=email, is_active=True, locale=locale)
     maintenance_db.add(usuario)
     await maintenance_db.flush()
     await maintenance_db.execute(
@@ -56,6 +64,46 @@ async def test_avisa_a_los_5_dias_y_no_antes(maintenance_db: AsyncSession) -> No
         select(User.verification_warning_sent_at).where(User.email == "cinco-dias@example.com")
     )
     assert avisado is not None
+
+
+ASUNTO_DEL_AVISO = "Tu cuenta se eliminará en 2 días si no verificas tu correo"
+
+
+async def test_cada_aviso_sale_en_el_idioma_de_su_cuenta(
+    maintenance_db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    traducciones = {ASUNTO_DEL_AVISO: "Your account will be deleted in 2 days"}
+    monkeypatch.setattr(
+        mensajes, "catalogo", lambda locale: traducciones if locale == "en-US" else {}
+    )
+    await _crear_usuario_sin_verificar(
+        maintenance_db,
+        email="aviso-en@example.com",
+        antiguedad=timedelta(days=5, hours=1),
+        locale="en-US",
+    )
+    await _crear_usuario_sin_verificar(
+        maintenance_db, email="aviso-es@example.com", antiguedad=timedelta(days=5, hours=1)
+    )
+    idioma_al_enviar: dict[str, str] = {}
+
+    async def enviar(**kwargs: object) -> None:
+        # La plantilla del correo lee el idioma del contexto: tiene que ser el suyo.
+        idioma_al_enviar[str(kwargs["to"])] = idioma_actual()
+
+    with patch("app.core.cleanup.get_email_provider") as proveedor_falso:
+        envio = AsyncMock(side_effect=enviar)
+        proveedor_falso.return_value.send = envio
+        await sweep_unverified_accounts()
+
+    asuntos = {llamada.kwargs["to"]: llamada.kwargs["subject"] for llamada in envio.await_args_list}
+    assert asuntos == {
+        "aviso-en@example.com": "Your account will be deleted in 2 days",
+        "aviso-es@example.com": ASUNTO_DEL_AVISO,
+    }
+    assert idioma_al_enviar == {"aviso-en@example.com": "en-US", "aviso-es@example.com": "es-ES"}
+    # El barrido no deja fijado el idioma de la última cuenta.
+    assert idioma_actual() == "es-ES"
 
 
 async def test_no_reenvia_el_aviso_ya_mandado(maintenance_db: AsyncSession) -> None:

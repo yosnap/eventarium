@@ -28,6 +28,7 @@ from app.core.config import get_settings
 from app.core.database import SessionMaintenance
 from app.core.tasks import (
     LONGITUD_MAXIMA_DEL_ASUNTO,
+    send_event_cancelled_email,
     send_invitation_email,
     send_password_reset_email,
     send_registration_confirmed_email,
@@ -188,8 +189,27 @@ async def test_un_salto_de_linea_en_el_nombre_no_parte_el_asunto(proveedor: Asyn
     )
 
     asunto = proveedor.send.await_args.kwargs["subject"]
-    assert asunto == "Te han invitado a «Acme Bcc: otro@example.com»"
+    assert asunto == "Te han invitado a «Acme Bcc: otro@example[.]com»"
     assert "\n" not in asunto and "\r" not in asunto
+
+
+async def test_las_urls_escritas_por_el_organizador_no_llegan_enlazables(
+    proveedor: AsyncMock,
+) -> None:
+    await _en_su_contexto(
+        send_event_cancelled_email.original_func(
+            "p@example.com",
+            ORGANIZACION,
+            "Gala en acme-login.com",
+            "Pide el reembolso en https://phishing.example/pago",
+            False,
+        )
+    )
+
+    cuerpo = proveedor.send.await_args.kwargs["body"]
+    assert "https://phishing.example" not in cuerpo
+    assert "https[:]//phishing[.]example/pago" in cuerpo
+    assert "«Gala en acme-login[.]com»" in cuerpo
 
 
 async def test_un_asunto_largo_se_recorta(proveedor: AsyncMock) -> None:
@@ -203,16 +223,16 @@ async def test_un_asunto_largo_se_recorta(proveedor: AsyncMock) -> None:
 # --- La inscripción guarda su idioma ----------------------------------------
 
 
-async def test_la_inscripcion_guarda_el_idioma_de_la_pagina(
-    cliente: AsyncClient, organizacion: OrganizacionDePrueba
-) -> None:
+async def _evento_publicado(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, slug: str
+) -> str:
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     ahora = datetime.now(UTC).replace(microsecond=0)
     creacion = await cliente.post(
         "/api/v1/events",
         headers=cabeceras,
         json={
-            "slug": "idioma-inscripcion",
+            "slug": slug,
             "title": "Evento con idioma",
             "starts_at": (ahora + timedelta(days=3)).isoformat(),
             "ends_at": (ahora + timedelta(days=4)).isoformat(),
@@ -227,16 +247,22 @@ async def test_la_inscripcion_guarda_el_idioma_de_la_pagina(
         json={"status": "published", "visibility": "public"},
     )
     assert publicacion.status_code == 200, publicacion.text
+    return str(evento["slug"])
 
+
+async def _inscribirse(
+    cliente: AsyncClient, slug: str, email: str, accept_language: str
+) -> AsyncMock:
+    """Envía el formulario y devuelve el `kiq` del correo encolado."""
     with (
         patch.object(send_registration_verification_email, "kiq", new_callable=AsyncMock) as v,
         patch.object(send_registration_confirmed_email, "kiq", new_callable=AsyncMock) as c,
     ):
         respuesta = await cliente.post(
-            f"/api/v1/public/organizations/acme/events/{evento['slug']}/registrations",
-            headers={"Accept-Language": "en-US,en;q=0.9"},
+            f"/api/v1/public/organizations/acme/events/{slug}/registrations",
+            headers={"Accept-Language": accept_language},
             json={
-                "email": "english@example.com",
+                "email": email,
                 "full_name": "English Speaker",
                 "answers": [],
                 "data_processing_accepted": True,
@@ -246,15 +272,41 @@ async def test_la_inscripcion_guarda_el_idioma_de_la_pagina(
             },
         )
     assert respuesta.status_code == 202, respuesta.text
+    encolado = v if v.await_args else c
+    assert encolado.await_args is not None
+    return encolado
 
+
+async def _idioma_guardado(email: str) -> str | None:
     async with SessionMaintenance() as session:
-        locale = await session.scalar(
-            select(EventRegistration.locale).where(EventRegistration.email == "english@example.com")
+        return await session.scalar(
+            select(EventRegistration.locale).where(EventRegistration.email == email)
         )
-    assert locale == "en-US"
-    encolado = v.await_args or c.await_args
-    assert encolado is not None
-    assert encolado.kwargs["locale"] == "en-US"
+
+
+async def test_la_inscripcion_guarda_el_idioma_de_la_pagina(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    slug = await _evento_publicado(cliente, organizacion, "idioma-inscripcion")
+
+    encolado = await _inscribirse(cliente, slug, "english@example.com", "en-US,en;q=0.9")
+
+    assert await _idioma_guardado("english@example.com") == "en-US"
+    assert encolado.await_args is not None
+    assert encolado.await_args.kwargs["locale"] == "en-US"
+
+
+async def test_reenviar_el_formulario_cambia_el_idioma_al_de_la_nueva_peticion(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    slug = await _evento_publicado(cliente, organizacion, "idioma-reenvio")
+    await _inscribirse(cliente, slug, "cambia@example.com", "en-US,en;q=0.9")
+
+    reenvio = await _inscribirse(cliente, slug, "cambia@example.com", "es-ES,es;q=0.9")
+
+    assert await _idioma_guardado("cambia@example.com") == "es-ES"
+    assert reenvio.await_args is not None
+    assert reenvio.await_args.kwargs["locale"] == "es-ES"
 
 
 # --- Pagos diferidos ---------------------------------------------------------

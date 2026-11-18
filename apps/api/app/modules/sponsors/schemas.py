@@ -15,7 +15,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.core.mensajes import marcar
+from app.core.mensajes import ErrorDeValidacion, marcar
 from app.modules.organizations.schemas import PublicOrganizationRef
 from app.modules.theme_templates.schemas import PublicTheme
 
@@ -41,7 +41,10 @@ def _prohibir_null_explicito(instancia: BaseModel, campos: tuple[str, ...]) -> N
         if campo in instancia.model_fields_set and getattr(instancia, campo) is None
     ]
     if enviados_a_null:
-        raise ValueError("Hay campos que no admiten «null» explícito: omítelos para no cambiarlos.")
+        raise ErrorDeValidacion(
+            "Los campos {campos} no admiten «null» explícito: omítelos para no cambiarlos.",
+            params={"campos": ", ".join(enviados_a_null)},
+        )
 
 
 def validate_contribution(

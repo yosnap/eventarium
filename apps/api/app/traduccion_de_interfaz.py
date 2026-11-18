@@ -25,6 +25,7 @@ import uuid
 from collections.abc import Awaitable, Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
+from string import Formatter
 from typing import Any
 
 RAIZ_WEB = Path(__file__).resolve().parents[2] / "web"
@@ -88,14 +89,23 @@ def variables(texto: str) -> list[str]:
     return sorted(m.group(1) for m in _VARIABLE.finditer(texto))
 
 
-def variables_del_servidor(texto: str) -> list[str]:
-    """Parámetros `{x}` de un mensaje de la API (`str.format`)."""
-    from app.core.mensajes import parametros_de
+def variables_del_servidor(texto: str) -> list[tuple[str, str, str]]:
+    """Parámetros `{x}` de un mensaje de la API (`str.format`), con su
+    especificador y su conversión: `{x:>10}` o `{x!r}` no son `{x}`, y una
+    traducción que los añada o los cambie se rechaza.
 
-    return sorted(parametros_de(texto))
+    Lanza `ValueError` si las llaves están mal formadas (`{x`, `}`).
+    """
+    return sorted(
+        {
+            (campo, especificador or "", conversion or "")
+            for _, campo, especificador, conversion in Formatter().parse(texto)
+            if campo is not None
+        }
+    )
 
 
-Variables = Callable[[str], list[str]]
+Variables = Callable[[str], list[str] | list[tuple[str, str, str]]]
 
 
 @dataclass
@@ -183,7 +193,7 @@ def validar(
     """Traducciones válidas de la respuesta y claves rechazadas.
 
     Se rechaza una clave si falta, viene vacía, no es texto o no conserva sus
-    variables `{{ }}`.
+    variables (`{{ }}` en la web; `{x}` con su especificador y conversión en la API).
     """
     try:
         datos = json.loads(respuesta)
@@ -198,12 +208,20 @@ def validar(
         if (
             isinstance(traducido, str)
             and traducido.strip()
-            and variables_de(traducido) == variables_de(original)
+            and _mismas_variables(traducido, original, variables_de)
         ):
             validas[clave] = traducido
         else:
             rechazadas.append(clave)
     return validas, rechazadas
+
+
+def _mismas_variables(traducido: str, original: str, variables_de: Variables) -> bool:
+    """Llaves mal formadas en una traducción la rechazan a ella sola, no al lote."""
+    try:
+        return variables_de(traducido) == variables_de(original)
+    except ValueError:
+        return False
 
 
 @dataclass

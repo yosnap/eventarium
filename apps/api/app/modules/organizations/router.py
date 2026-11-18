@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.base import NO_VALUE
 
 from app.core.deps import CurrentUserDep, DbDep, PermissionsDep, require_permission
-from app.core.locale import idioma_actual
 from app.core.permissions import Permission
 from app.core.storage import build_object_key, get_storage, validate_upload
 from app.core.tasks import send_invitation_email
@@ -495,14 +494,13 @@ async def _encolar_correo_de_invitacion(
     rol = await session.get(Role, invitacion.role_id)
     if organizacion is None or rol is None:  # pragma: no cover - garantizado por las FK
         return
-    # La persona invitada aún no tiene idioma: el de quien invita.
     await send_invitation_email.kiq(
         invitacion.email,
         token,
         str(organization_id),
         organizacion.name,
         rol.name,
-        locale=idioma_actual(),
+        locale=await invitations_service.idioma_de_la_invitacion(invitacion.email),
     )
 
 

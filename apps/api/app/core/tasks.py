@@ -161,9 +161,11 @@ async def send_invitation_email(
     idioma = _idioma_del_envio(locale)
     base = await base_url_de_organizacion(uuid.UUID(organization_id))
     enlace = _enlace(base, idioma, "invitacion", token)
+    # Nombre escrito por un usuario: sin URLs que se conviertan en el botón del correo.
+    organizacion = neutralizar_texto_de_usuario(organization_name)
     await _enviar(
         to_email,
-        t("Te han invitado a «{organizacion}»", organizacion=organization_name),
+        t("Te han invitado a «{organizacion}»", organizacion=organizacion),
         t(
             "Hola,\n\n"
             "Te han invitado a unirte a «{organizacion}» con el rol «{rol}».\n"
@@ -171,7 +173,7 @@ async def send_invitation_email(
             "{enlace}\n\n"
             "El enlace caduca en 7 días. Si no esperabas esta invitación, puedes "
             "ignorar este mensaje.",
-            organizacion=organization_name,
+            organizacion=organizacion,
             rol=role_name,
             enlace=enlace,
         ),
@@ -442,7 +444,8 @@ async def send_registration_rejected_email(
         "El organizador del evento no ha aprobado tu inscripción. Si crees que "
         "es un error, contacta directamente con la organización."
     )
-    motivo = reason.strip() if reason else None
+    # Texto libre del organizador: sin URLs que se conviertan en el botón del correo.
+    motivo = neutralizar_texto_de_usuario(reason) if reason else None
     if motivo:
         cuerpo += "\n\n" + t("Mensaje del organizador:\n{motivo}", motivo=motivo)
     await _enviar(to_email, t("Tu inscripción no ha sido aprobada"), cuerpo)
@@ -577,6 +580,9 @@ async def send_event_cancelled_email(
     """La organización ha cancelado el evento. Lo encola el barrido de
     `events/cancelacion.py`, una vez por inscripción cancelada con el evento."""
     _idioma_del_envio(locale)
+    # Textos escritos por el organizador: sin URLs que se conviertan en el botón.
+    titulo = neutralizar_texto_de_usuario(titulo)
+    motivo = neutralizar_texto_de_usuario(motivo) if motivo else None
     cuerpo = t("Hola,\n\nLa organización ha cancelado el evento «{titulo}».", titulo=titulo)
     if motivo:
         cuerpo += "\n\n" + t("Motivo:\n{motivo}", motivo=motivo)
@@ -856,9 +862,11 @@ async def send_speaker_bio_request_email(
     # El ancla lleva directo a la ficha de ponente dentro de la cuenta (el panel
     # no lleva prefijo de idioma).
     enlace = f"{base}/dashboard/account#ficha"
+    # Nombre escrito por el organizador: sin URLs que se conviertan en el botón.
+    evento = neutralizar_texto_de_usuario(event_name)
     await _enviar(
         to_email,
-        t("Falta tu ficha para «{evento}»", evento=event_name),
+        t("Falta tu ficha para «{evento}»", evento=evento),
         t(
             "Hola,\n\n"
             "Para publicar el programa de «{evento}» falta completar tu ficha "
@@ -866,7 +874,7 @@ async def send_speaker_bio_request_email(
             "Puedes completarla desde tu cuenta:\n"
             "{enlace}\n\n"
             "Si tienes cualquier duda, responde directamente a la organización.",
-            evento=event_name,
+            evento=evento,
             enlace=enlace,
         ),
     )

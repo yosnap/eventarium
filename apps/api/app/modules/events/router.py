@@ -11,7 +11,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import CurrentUserDep, DbDep, PermissionsDep, require_permission
-from app.core.locale import idioma_actual
 from app.core.permissions import Permission
 from app.core.ratelimit import PEDIR_BIO_POR_IP, limit_per_ip
 from app.core.storage import build_object_key, get_storage, public_url_versionada, validate_upload
@@ -836,8 +835,7 @@ async def create_event_invitation(
             str(usuario.organization_id),
             organizacion.name,
             rol.name,
-            # La persona invitada aún no tiene idioma: el de quien invita.
-            locale=idioma_actual(),
+            locale=await invitations_service.idioma_de_la_invitacion(resultado.invitation.email),
         )
     return InvitationCreateResponse(
         status="invited",

@@ -22,8 +22,8 @@ from enum import StrEnum
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import set_organization_context
-from app.core.locale import DEFAULT_LOCALE, Locale
+from app.core.database import maintenance_session, set_organization_context
+from app.core.locale import DEFAULT_LOCALE, Locale, idioma_actual, normalizar_locale
 from app.core.mensajes import marcar
 from app.core.permissions import Permission
 from app.core.security import hash_password
@@ -141,7 +141,9 @@ async def create_invitation(
     # Correo sin cuenta → cuenta sin contraseña (lo que `add_member` ya hacía)
     # más la invitación como estado. Sin membresía todavía: esa nace al
     # aceptar (fase 2), no aquí.
-    usuario = User(email=correo, is_active=True)
+    # Hasta que acepte y elija el suyo, la cuenta tiene el idioma de quien invita:
+    # el reenvío de la invitación sale así en el mismo idioma que la primera.
+    usuario = User(email=correo, is_active=True, locale=idioma_actual())
     session.add(usuario)
     await session.flush()
 
@@ -165,6 +167,23 @@ async def create_invitation(
     await session.flush()
 
     return InvitationResult(member=None, invitation=invitacion, token=token)
+
+
+async def idioma_de_la_invitacion(email: str) -> Locale:
+    """Idioma del correo de invitación: el de la cuenta con ese correo si ya
+    existe (`users.locale`); si no, el de la petición.
+
+    Con la sesión de mantenimiento, como `auth.service.idioma_de_cuenta`: bajo
+    RLS quien invita no ve la fila de alguien que aún no está en su
+    organización. La cuenta que `create_invitation` acaba de crear en la
+    transacción en curso no es visible desde aquí, y cae en el de la petición,
+    que es el mismo con el que se ha creado.
+    """
+    async with maintenance_session() as session:
+        valor = await session.scalar(
+            text("SELECT locale FROM users WHERE lower(email) = lower(:email)"), {"email": email}
+        )
+    return normalizar_locale(valor) if valor is not None else idioma_actual()
 
 
 async def _validar_evento(

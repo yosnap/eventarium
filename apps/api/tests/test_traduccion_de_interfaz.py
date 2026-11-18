@@ -15,6 +15,7 @@ from app.traduccion_de_interfaz import (
     reconstruir,
     traducir,
     validar,
+    variables_del_servidor,
 )
 
 ORIGEN = {
@@ -52,6 +53,42 @@ def test_validar_rechaza_variables_distintas_y_respuestas_vacias() -> None:
     assert validas == {"b": "Close"}
     assert rechazadas == ["a", "c"]
     assert validar(originales, "no es json") == ({}, ["a", "b", "c"])
+
+
+def test_variables_del_servidor_incluyen_especificador_y_conversion() -> None:
+    assert variables_del_servidor("De {minimo} a {maximo:>3} ({x!r}), {{literal}}.") == [
+        ("maximo", ">3", ""),
+        ("minimo", "", ""),
+        ("x", "", "r"),
+    ]
+
+
+def test_validar_del_servidor_rechaza_especificadores_y_conversiones_nuevos() -> None:
+    originales = {
+        "a": "Entre {minimo} y {maximo} caracteres.",
+        "b": "Hola, {nombre}.",
+        "c": "Hola, {nombre}.",
+        "d": "Total: {importe:.2f} €.",
+    }
+    respuesta = json.dumps(
+        {
+            "a": "Between {minimo} and {maximo} characters.",
+            "b": "Hi, {nombre!r}.",
+            "c": "Hi, {nombre:>40}.",
+            "d": "Total: {importe} €.",
+        }
+    )
+    validas, rechazadas = validar(originales, respuesta, variables_del_servidor)
+    assert validas == {"a": "Between {minimo} and {maximo} characters."}
+    assert rechazadas == ["b", "c", "d"]
+
+
+def test_validar_del_servidor_rechaza_solo_la_clave_con_llaves_mal_formadas() -> None:
+    originales = {"a": "Hola, {nombre}.", "b": "Adiós, {nombre}.", "c": "Cerrar"}
+    respuesta = json.dumps({"a": "Hi, {nombre.", "b": "Bye, {nombre}.", "c": "Close }"})
+    validas, rechazadas = validar(originales, respuesta, variables_del_servidor)
+    assert validas == {"b": "Bye, {nombre}."}
+    assert rechazadas == ["a", "c"]
 
 
 @pytest.fixture

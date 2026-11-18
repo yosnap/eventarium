@@ -20,22 +20,33 @@ export class ApiError extends Error {
   }
 }
 
-/** Prefijo con el que Pydantic envuelve los `ValueError` de los validadores
- * propios de la API, que ya vienen redactados en español para personas. */
+/** Prefijo con el que Pydantic envolvía los `ValueError` de los validadores
+ * propios antes de que la API marcase cada error con `propio`. Se conserva como
+ * respaldo para respuestas de una API anterior. */
 const PREFIJO_VALIDADOR_PROPIO = 'Value error, ';
+
+/** Un elemento de `errors[]` en un 422 de validación de la API. */
+interface ErrorDeValidacion {
+  readonly campo?: unknown;
+  readonly mensaje?: unknown;
+  /** `true` si viene de un validador propio, con un mensaje para personas. */
+  readonly propio?: unknown;
+}
 
 /**
  * En un 422 de validación, el `detail` es genérico («La petición no supera la
  * validación»). Si alguno de sus `errors` viene de un validador propio («El fin
- * tiene que ser posterior al inicio»), ese dice qué corregir. Los mensajes de
- * Pydantic sin más («String should have…») son técnicos y en inglés: esos no.
+ * tiene que ser posterior al inicio»), ese dice qué corregir. Los mensajes
+ * genéricos de un campo («Debe tener al menos 1 caracteres») no dicen cuál: esos no.
  */
 function mensajeDeValidadorPropio(problema: ProblemDetail | null): string | null {
   const errores = problema?.['errors'];
   if (!Array.isArray(errores)) return null;
-  for (const error of errores) {
-    const mensaje = (error as { mensaje?: unknown } | null)?.mensaje;
-    if (typeof mensaje === 'string' && mensaje.startsWith(PREFIJO_VALIDADOR_PROPIO)) {
+  for (const error of errores as readonly (ErrorDeValidacion | null)[]) {
+    const mensaje = error?.mensaje;
+    if (typeof mensaje !== 'string') continue;
+    if (error?.propio === true) return mensaje;
+    if (mensaje.startsWith(PREFIJO_VALIDADOR_PROPIO)) {
       return mensaje.slice(PREFIJO_VALIDADOR_PROPIO.length);
     }
   }
