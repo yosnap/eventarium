@@ -220,15 +220,12 @@ export class AcceptInvitationPage {
     this.enviando.set(true);
     try {
       await firstValueFrom(
-        this.http.post(
-          this.api.url(`/public/invitations/${encodeURIComponent(token)}/accept`),
-          {
-            first_name: this.firstName().trim(),
-            last_name: this.lastName().trim(),
-            password: this.password(),
-            locale: localeDeCuenta(this.transloco.getActiveLang()),
-          },
-        ),
+        this.http.post(this.api.url(`/public/invitations/${encodeURIComponent(token)}/accept`), {
+          first_name: this.firstName().trim(),
+          last_name: this.lastName().trim(),
+          password: this.password(),
+          locale: localeDeCuenta(this.transloco.getActiveLang()),
+        }),
       );
       this.estado.set('exito');
     } catch (error) {
