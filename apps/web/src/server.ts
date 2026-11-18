@@ -7,6 +7,7 @@ import {
 import express from 'express';
 import { join } from 'node:path';
 
+import { precargarFuentes } from './server-fuentes';
 import { pintarTemaEnHtml } from './server-theme';
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
@@ -85,7 +86,7 @@ app.use((req, res, next) => {
         await writeResponseToNodeResponse(response, res);
         return;
       }
-      const html = pintarTemaEnHtml(await response.text(), req.headers.cookie);
+      const html = precargarFuentes(pintarTemaEnHtml(await response.text(), req.headers.cookie));
       // `pintarTemaEnHtml` puede alargar el cuerpo (inserta `data-theme="..."` en
       // `<html>`), así que reutilizar `Content-Length` de la respuesta original deja
       // el HTML servido truncado al tamaño incorrecto y anterior. Se quita la
