@@ -28,6 +28,7 @@ import { PageHeader } from '../../../shared/ui/page-header';
 import { MemberProfileForm } from '../members/member-profile-form';
 import { IDIOMAS, NOMBRE_DEL_IDIOMA, esIdioma } from '../../../core/i18n/idioma';
 import { IdiomaService } from '../../../core/i18n/idioma.service';
+import { ThemingService } from '../../../core/theming/theming.service';
 import { LocaleDeCuenta } from '../../../core/i18n/locale-de-cuenta';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -93,7 +94,7 @@ const TIPOS_DE_ENLACE = ['twitter', 'linkedin', 'instagram', 'web'] as const;
             fieldId="cuenta-idioma"
             [label]="t('admin.cuenta.perfil.idioma')"
             [hint]="t('admin.cuenta.perfil.idiomaPista')"
-            [options]="opcionesIdioma"
+            [options]="opcionesIdioma()"
             [(value)]="idioma"
           />
           <app-checkbox
@@ -279,13 +280,19 @@ export class AccountPage {
 
   protected readonly firstName = signal(this.auth.currentUser()?.first_name ?? '');
   protected readonly lastName = signal(this.auth.currentUser()?.last_name ?? '');
-  /** Nombre de cada idioma en ese idioma: así lo reconoce quien no entiende el actual. */
-  protected readonly opcionesIdioma: readonly SelectOption[] = IDIOMAS.map((idioma) => ({
-    value: idioma,
-    label: NOMBRE_DEL_IDIOMA[idioma],
-  }));
   private readonly idiomaInicial: string =
     this.auth.currentUser()?.locale ?? inject(IdiomaService).idioma();
+  private readonly theming = inject(ThemingService);
+  /**
+   * Los idiomas activos en la plataforma, más el que ya tenga la cuenta aunque se
+   * haya desactivado. Cada uno con su nombre en ese idioma: así lo reconoce quien
+   * no entiende el actual.
+   */
+  protected readonly opcionesIdioma = computed<readonly SelectOption[]>(() =>
+    IDIOMAS.filter(
+      (idioma) => this.theming.idiomasActivos().includes(idioma) || idioma === this.idiomaInicial,
+    ).map((idioma) => ({ value: idioma, label: NOMBRE_DEL_IDIOMA[idioma] })),
+  );
   protected readonly idioma = signal<string>(this.idiomaInicial);
 
   protected readonly notifySimilarEvents = signal(

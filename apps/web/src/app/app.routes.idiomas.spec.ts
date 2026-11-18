@@ -1,3 +1,10 @@
+import {
+  EnvironmentInjector,
+  provideZonelessChangeDetection,
+  runInInjectionContext,
+} from '@angular/core';
+import { TestBed } from '@angular/core/testing';
+import { Router, UrlSegment, provideRouter, type RedirectFunction } from '@angular/router';
 import { RenderMode } from '@angular/ssr';
 import { describe, expect, it } from 'vitest';
 
@@ -83,5 +90,21 @@ describe('rutas con prefijo de idioma', () => {
         expect(serverRoutes.find((r) => r.path === ruta)?.renderMode, ruta).toBe(RenderMode.Client);
       }
     }
+  });
+
+  it('con el idioma desactivado, su prefijo lleva a la misma página en español con su consulta', () => {
+    TestBed.configureTestingModule({
+      providers: [provideZonelessChangeDetection(), provideRouter([])],
+    });
+    const respaldo = routes.filter((r) => r.path === 'en')[1];
+    // Va justo detrás de la ruta con `canMatch`: solo se alcanza si esta no encaja.
+    expect(routes.indexOf(respaldo)).toBe(routes.findIndex((r) => r.path === 'en') + 1);
+    const redirigir = respaldo.children?.[0].redirectTo as RedirectFunction;
+    const url = ['my-ticket'].map((p) => new UrlSegment(p, {}));
+    const destino = runInInjectionContext(TestBed.inject(EnvironmentInjector), () =>
+      redirigir({ url, queryParams: { token: 'abc' }, fragment: 'qr' } as never),
+    );
+    expect(TestBed.inject(Router).serializeUrl(destino as never)).toBe('/mi-entrada?token=abc#qr');
+    TestBed.resetTestingModule();
   });
 });

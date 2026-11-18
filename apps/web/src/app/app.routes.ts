@@ -1,5 +1,5 @@
 import { inject } from '@angular/core';
-import { Route, Routes } from '@angular/router';
+import { Route, Router, Routes } from '@angular/router';
 
 import { guardDe, requierePermiso } from './core/auth/permisos-del-panel';
 import { authGuard } from './core/auth/auth.guard';
@@ -7,7 +7,7 @@ import { guestGuard } from './core/auth/guest.guard';
 import { personalPlataformaGuard } from './core/auth/personal-plataforma.guard';
 import { superadminGuard } from './core/auth/superadmin.guard';
 import { IDIOMAS, IDIOMA_POR_DEFECTO, Idioma, PREFIJO_DE_IDIOMA } from './core/i18n/idioma';
-import { rutaEn, subrutaDeEvento } from './core/i18n/rutas-traducidas';
+import { rutaEn, subrutaDeEvento, traducirRuta } from './core/i18n/rutas-traducidas';
 import { coincideConEvento, coincideConOrganizacion } from './core/routing/rutas-publicas';
 import {
   coincideConEnlaceAntiguo,
@@ -255,9 +255,37 @@ const RUTAS_CON_PREFIJO_DE_IDIOMA: Routes = IDIOMAS.filter(
   children: [...rutasDeAcceso(idioma), shellPublico(idioma)],
 }));
 
+/**
+ * Con el idioma desactivado en `/admin/idiomas`, sus enlaces (correos ya enviados,
+ * marcadores, lo que tenga indexado un buscador) llevan a la misma página en el
+ * idioma por defecto, con su consulta (`?token=…`) y su ancla, en vez de a un 404.
+ */
+const IDIOMAS_DESACTIVADOS_A_LA_RAIZ: Routes = IDIOMAS.filter(
+  (idioma) => PREFIJO_DE_IDIOMA[idioma] !== '',
+).map((idioma) => ({
+  path: PREFIJO_DE_IDIOMA[idioma],
+  children: [
+    {
+      path: '**',
+      redirectTo: ({ url, queryParams, fragment }) => {
+        const ruta = traducirRuta(
+          `/${url.map((segmento) => segmento.path).join('/')}`,
+          idioma,
+          IDIOMA_POR_DEFECTO,
+        );
+        return inject(Router).createUrlTree(ruta.split('/').filter(Boolean), {
+          queryParams,
+          fragment: fragment ?? undefined,
+        });
+      },
+    },
+  ],
+}));
+
 export const routes: Routes = [
   // Primero: el prefijo de idioma no puede caer en el matcher de organización.
   ...RUTAS_CON_PREFIJO_DE_IDIOMA,
+  ...IDIOMAS_DESACTIVADOS_A_LA_RAIZ,
   ...rutasDeAcceso(IDIOMA_POR_DEFECTO),
   {
     // Consentimiento OAuth del MCP: un asistente pide conectarse con la cuenta
