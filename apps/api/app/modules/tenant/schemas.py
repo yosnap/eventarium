@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from app.core.locale import LOCALES, Locale
+
 
 class ResolvedTheme(BaseModel):
     """La plantilla de tema de la plataforma, ya resuelta.
@@ -37,6 +39,9 @@ class PlatformBrandingBlock(BaseModel):
     social_links: list[dict[str, object]] = Field(default_factory=list)
     theme_template_id: str | None = None
     theme: ResolvedTheme | None = None
+    # Idiomas que ofrece la web pública y si se ve su selector.
+    enabled_locales: list[Locale] = Field(default_factory=lambda: list(LOCALES))
+    language_switcher_visible: bool = True
 
 
 class BrandingResponse(BaseModel):

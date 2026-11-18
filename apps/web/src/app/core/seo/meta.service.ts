@@ -4,6 +4,7 @@ import { Meta, Title } from '@angular/platform-browser';
 import { IDIOMA_POR_DEFECTO, Idioma, urlEnIdioma } from '../i18n/idioma';
 import { IdiomaService } from '../i18n/idioma.service';
 import { DecisionDeIndexacion, decidirIndexacion } from './indexacion-por-idioma';
+import { ThemingService } from '../theming/theming.service';
 
 /** Datos mínimos para las etiquetas Open Graph de una página pública. */
 export interface DatosOg {
@@ -44,6 +45,7 @@ export class SeoMetaService {
   private readonly title = inject(Title);
   private readonly documento = inject(DOCUMENT);
   private readonly idioma = inject(IdiomaService);
+  private readonly theming = inject(ThemingService);
 
   set(datos: DatosOg): void {
     this.title.setTitle(datos.title);
@@ -71,6 +73,7 @@ export class SeoMetaService {
         contenidoDelOrganizador: datos.contenidoDelOrganizador ?? false,
         idiomaOrigen: datos.idiomaOrigen,
         idiomasAlDia: datos.idiomasAlDia,
+        idiomasActivos: this.theming.idiomasActivos(),
       });
       this.fijarCanonica(decision.canonica);
       this.fijarAlternativas(decision.alternativas);

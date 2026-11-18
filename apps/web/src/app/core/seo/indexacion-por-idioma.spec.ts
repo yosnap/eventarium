@@ -61,4 +61,16 @@ describe('decidirIndexacion', () => {
     expect(decision.canonica).toBe('/en/acme/summit');
     expect(decision.alternativas).toEqual([]);
   });
+
+  it('un idioma desactivado en la plataforma no se anuncia', () => {
+    const decision = decidirIndexacion({
+      ruta: '/eventos',
+      activo: 'es-ES',
+      contenidoDelOrganizador: false,
+      idiomasActivos: ['es-ES'],
+    });
+    expect(decision.canonica).toBe('/eventos');
+    expect(decision.alternativas).toEqual([]);
+    expect(decision.ogLocaleAlternativos).toEqual([]);
+  });
 });

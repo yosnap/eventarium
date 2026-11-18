@@ -19,6 +19,8 @@ export interface EntradaDeIndexacion {
    * solo cuenta el idioma de origen.
    */
   readonly idiomasAlDia?: readonly Idioma[];
+  /** Idiomas que ofrece la plataforma (`/admin/idiomas`). Sin el dato, todos. */
+  readonly idiomasActivos?: readonly Idioma[];
 }
 
 export interface DecisionDeIndexacion {
@@ -47,9 +49,12 @@ const comoOgLocale = (idioma: Idioma) => idioma.replace('-', '_');
  */
 export function decidirIndexacion(entrada: EntradaDeIndexacion): DecisionDeIndexacion {
   const origen = entrada.idiomaOrigen ?? IDIOMA_POR_DEFECTO;
-  const disponibles = entrada.contenidoDelOrganizador
-    ? IDIOMAS.filter((idioma) => idioma === origen || entrada.idiomasAlDia?.includes(idioma))
-    : IDIOMAS;
+  const activos = entrada.idiomasActivos ?? IDIOMAS;
+  const disponibles = (
+    entrada.contenidoDelOrganizador
+      ? IDIOMAS.filter((idioma) => idioma === origen || entrada.idiomasAlDia?.includes(idioma))
+      : IDIOMAS
+  ).filter((idioma) => idioma === origen || activos.includes(idioma));
   const ogLocale = comoOgLocale(entrada.activo);
 
   if (!disponibles.includes(entrada.activo)) {

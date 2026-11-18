@@ -35,7 +35,7 @@ _RUTAS_DE_LA_APLICACION = frozenset(
         "cancelar-inscripcion", "check-in", "confirmar-promocion", "contabilidad",
         "correo", "crear-organizacion", "cuenta", "dashboard", "descuentos", "diseno",
         "editar", "entradas", "espacio-de-trabajo", "estilo", "eventos", "events", "ia",
-        "identidad", "inscripciones", "invitacion", "legal", "legales", "mcp", "members",
+        "identidad", "idiomas", "inscripciones", "invitacion", "legal", "legales", "mcp", "members",
         "mi-entrada", "mis-eventos", "oauth", "organization", "pago", "patrocinadores",
         "payments", "plantillas", "politicas", "ponentes", "recuperar-contrasena",
         "registrations", "registro", "roles", "servicios", "session-types", "sponsor-tiers",

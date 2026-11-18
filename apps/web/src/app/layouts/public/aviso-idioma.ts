@@ -11,6 +11,7 @@ import {
 import { IDIOMAS, Idioma, ofreceCambioDeIdioma, urlEnIdioma } from '../../core/i18n/idioma';
 import { urlActual } from '../../core/i18n/url-actual';
 import { IdiomaService } from '../../core/i18n/idioma.service';
+import { ThemingService } from '../../core/theming/theming.service';
 
 /**
  * Textos del aviso en el idioma de quien visita, que no es el de la página: por eso
@@ -91,6 +92,7 @@ export class AvisoIdioma {
   private readonly urlDeLaPagina = urlActual();
   private readonly documento = inject(DOCUMENT);
   private readonly activo = inject(IdiomaService).idioma();
+  private readonly theming = inject(ThemingService);
   private readonly preferido = signal<Idioma | null>(null);
   private readonly descartado = signal(false);
 
@@ -108,7 +110,10 @@ export class AvisoIdioma {
     afterNextRender(() => {
       this.descartado.set(leerDescarte());
       const navegador = this.documento.defaultView?.navigator;
-      this.preferido.set(idiomaPreferido(navegador?.languages ?? [navegador?.language ?? '']));
+      const preferido = idiomaPreferido(navegador?.languages ?? [navegador?.language ?? '']);
+      this.preferido.set(
+        preferido && this.theming.idiomasActivos().includes(preferido) ? preferido : null,
+      );
     });
   }
 

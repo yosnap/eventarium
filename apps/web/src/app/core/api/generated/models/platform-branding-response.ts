@@ -7,7 +7,9 @@ import { ThemeResolved } from '../models/theme-resolved';
  * Identidad de la plataforma tal y como la consume el endpoint público.
  */
 export interface PlatformBrandingResponse {
+  enabled_locales?: Array<'es-ES' | 'en-US'>;
   favicon_url?: (string | null);
+  language_switcher_visible?: boolean;
   logo_url?: (string | null);
   name: string;
   social_links?: Array<{

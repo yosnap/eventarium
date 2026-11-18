@@ -21388,6 +21388,22 @@
                 "type": "null"
               }
             ]
+          },
+          "enabled_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Enabled Locales"
+          },
+          "language_switcher_visible": {
+            "type": "boolean",
+            "title": "Language Switcher Visible",
+            "default": true
           }
         },
         "type": "object",
@@ -21453,6 +21469,22 @@
                 "type": "null"
               }
             ]
+          },
+          "enabled_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Enabled Locales"
+          },
+          "language_switcher_visible": {
+            "type": "boolean",
+            "title": "Language Switcher Visible",
+            "default": true
           }
         },
         "type": "object",
@@ -21502,6 +21534,35 @@
               }
             ],
             "title": "Theme Template Id"
+          },
+          "enabled_locales": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "es-ES",
+                    "en-US"
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled Locales"
+          },
+          "language_switcher_visible": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language Switcher Visible"
           }
         },
         "type": "object",

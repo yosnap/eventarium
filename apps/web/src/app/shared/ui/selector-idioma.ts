@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, computed, inject, input } from '@an
 import { TranslocoDirective } from '@jsverse/transloco';
 
 import {
-  IDIOMAS,
   NOMBRE_DEL_IDIOMA,
   PREFIJO_DE_IDIOMA,
   ofreceCambioDeIdioma,
@@ -10,6 +9,7 @@ import {
 } from '../../core/i18n/idioma';
 import { urlActual } from '../../core/i18n/url-actual';
 import { IdiomaService } from '../../core/i18n/idioma.service';
+import { ThemingService } from '../../core/theming/theming.service';
 
 /**
  * Enlaces a esta misma página en cada idioma.
@@ -77,12 +77,15 @@ export class SelectorIdioma {
   readonly compacto = input(false);
 
   private readonly activo = inject(IdiomaService).idioma();
+  private readonly theming = inject(ThemingService);
   private readonly url = urlActual();
 
   protected readonly opciones = computed(() =>
+    !this.theming.selectorDeIdiomaVisible() ||
+    this.theming.idiomasActivos().length < 2 ||
     !ofreceCambioDeIdioma(this.url())
       ? []
-      : IDIOMAS.map((idioma) => ({
+      : this.theming.idiomasActivos().map((idioma) => ({
           idioma,
           nombre: NOMBRE_DEL_IDIOMA[idioma],
           codigo: PREFIJO_DE_IDIOMA[idioma] || idioma.slice(0, 2),

@@ -2,6 +2,7 @@ import { computed, signal } from '@angular/core';
 
 import { Branding } from '../app/core/theming/branding.model';
 import { brandingDePrueba as brandingDePruebaBase } from './branding.fixture';
+import { IDIOMAS } from '../app/core/i18n/idioma';
 
 /**
  * Doble mínimo de `ThemingService` para los tests de componentes.
@@ -24,5 +25,7 @@ export function themingDePrueba(branding: Branding = brandingDePruebaBase()) {
     error: signal<string | null>(null),
     plataforma: computed(() => estado().platform),
     nombreDeMarca: computed(() => estado().platform.name),
+    idiomasActivos: computed(() => IDIOMAS),
+    selectorDeIdiomaVisible: computed(() => true),
   };
 }

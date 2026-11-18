@@ -1,3 +1,4 @@
+import { inject } from '@angular/core';
 import { Route, Routes } from '@angular/router';
 
 import { guardDe, requierePermiso } from './core/auth/permisos-del-panel';
@@ -11,6 +12,7 @@ import {
   coincideConEnlaceAntiguo,
   enlaceAntiguoALaPortada,
 } from './features/public/events/enlace-antiguo';
+import { ThemingService } from './core/theming/theming.service';
 
 /**
  * Páginas de acceso y de enlaces recibidos por correo (registro, recuperación,
@@ -246,6 +248,9 @@ const RUTAS_CON_PREFIJO_DE_IDIOMA: Routes = IDIOMAS.filter(
   (idioma) => PREFIJO_DE_IDIOMA[idioma] !== '',
 ).map((idioma) => ({
   path: PREFIJO_DE_IDIOMA[idioma],
+  // Un idioma desactivado en `/admin/idiomas` no tiene páginas: su prefijo cae
+  // en las rutas de la raíz y acaba en 404 (está reservado como organización).
+  canMatch: [() => inject(ThemingService).idiomasActivos().includes(idioma)],
   children: [...rutasDeAcceso(), shellPublico()],
 }));
 
@@ -587,6 +592,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/admin/superadmin/platform-identity-page').then(
             (m) => m.PlatformIdentityPage,
+          ),
+      },
+      {
+        path: 'idiomas',
+        loadComponent: () =>
+          import('./features/admin/superadmin/platform-languages-page').then(
+            (m) => m.PlatformLanguagesPage,
           ),
       },
       {
