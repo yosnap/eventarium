@@ -43,6 +43,7 @@ from app.modules.payments import refunds_service, repository
 from app.modules.payments import service as payments_service
 from app.modules.payments import stripe_client as stripe_gateway
 from app.modules.payments.models import EventPayment, OrganizationStripeAccount
+from app.modules.registrations import avisos as registrations_avisos
 from app.modules.registrations import service as registrations_service
 from app.modules.registrations.models import EventRegistration
 from app.modules.registrations.schemas import RegistrationAnswerInput
@@ -422,13 +423,13 @@ async def confirmar_pago_y_registro(
         pago.stripe_payment_intent_id = stripe_payment_intent_id
     inscripcion.status = "confirmed"
     inscripcion.confirmed_at = datetime.now(UTC)
-    await registrations_service._enviar_email_por_estado(session, inscripcion)  # noqa: SLF001
+    await registrations_avisos._enviar_email_por_estado(session, inscripcion)  # noqa: SLF001
     # El aviso al organizador de una inscripción de pago sale aquí, al cobrarse,
     # no al abrir el checkout. Quien llega al pago desde la lista de espera o
     # tras aprobarse ya se avisó al inscribirse: no se le avisa dos veces.
     ya_avisada = inscripcion.waitlist_promoted_at is not None or inscripcion.approved_at is not None
     if not ya_avisada:
-        await registrations_service.avisar_al_organizador(session, inscripcion, pagada=True)
+        await registrations_avisos.avisar_al_organizador(session, inscripcion, pagada=True)
     return "processed"
 
 
@@ -449,7 +450,7 @@ async def dispatch_pending_payment_links() -> None:
     llegara a persistir.
     """
     from app.core.tasks import send_registration_payment_link_email
-    from app.modules.registrations.service import _generar_token_cancelacion  # noqa: SLF001
+    from app.modules.registrations.avisos import _generar_token_cancelacion  # noqa: SLF001
 
     async with maintenance_session() as session:
         pagos = await repository.pagos_sin_enlace_entregado(session)

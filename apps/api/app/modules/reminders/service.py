@@ -110,7 +110,7 @@ async def enviar_recordatorio(registration_id: uuid.UUID) -> bool:
     faltan menos de 60 minutos, o ya se envió para la fecha actual.
     """
     from app.core.tasks import limpiar_asunto
-    from app.modules.registrations.service import _generar_token_cancelacion  # noqa: SLF001
+    from app.modules.registrations.avisos import _generar_token_cancelacion  # noqa: SLF001
 
     async with maintenance_session() as session:
         inscripcion = await session.get(EventRegistration, registration_id)
