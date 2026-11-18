@@ -17,7 +17,7 @@ import {
   NavigationEnd,
   Router,
 } from '@angular/router';
-import { filter } from 'rxjs';
+import { filter, firstValueFrom } from 'rxjs';
 import { provideServiceWorker } from '@angular/service-worker';
 import { TranslocoService, provideTransloco } from '@jsverse/transloco';
 
@@ -77,13 +77,17 @@ export const appConfig: ApplicationConfig = {
     // también en SSR, para que el HTML servido ya declare su idioma.
     provideAppInitializer(() => {
       const idioma = inject(IDIOMA);
-      inject(TranslocoService).setActiveLang(idioma);
+      const transloco = inject(TranslocoService);
+      transloco.setActiveLang(idioma);
       inject(DOCUMENT).documentElement.lang = idioma;
       // Al cruzar entre panel y páginas públicas puede cambiar el idioma que toca.
       const servicio = inject(IdiomaService);
       inject(Router)
         .events.pipe(filter((evento) => evento instanceof NavigationEnd))
         .subscribe((evento) => servicio.recargarSiCambiaElIdioma(evento.urlAfterRedirects));
+      // Los textos del idioma (un chunk aparte si no es el español) se esperan antes de
+      // pintar: así el navegador hidrata con el mismo texto que pintó el servidor.
+      return firstValueFrom(transloco.load(idioma));
     }),
     // Solo la PWA de check-in (fase 4 del PRD) lo necesita hoy, pero registrarlo aquí
     // no afecta al resto del panel: `enabled` ya lo desactiva fuera de producción, y
