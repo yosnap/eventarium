@@ -44,6 +44,7 @@ import { type Speaker, EventSpeakersSection } from './sections/event-speakers-se
 import { DirectionsLink } from '../../../shared/ui/directions-link';
 import { EventNearbySection } from './sections/event-nearby-section';
 import { AvisoVentaEntradas, avisoDeVenta } from './aviso-venta-entradas';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 
 /** `starts_at` (UTC) al día calendario en la zona del evento, sin arrastrar la
  * zona horaria del entorno de ejecución (navegador o SSR) al agrupar por fecha:
@@ -90,6 +91,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
   selector: 'app-event-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    EnlacePipe,
     AvisoVentaEntradas,
     DatePipe,
     DirectionsLink,
@@ -162,7 +164,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                     @if (evento.category; as categoria) {
                       <a
                         class="clasificacion__categoria"
-                        routerLink="/eventos"
+                        [routerLink]="'/eventos' | enlace"
                         [queryParams]="{ categoria: categoria.slug }"
                         >{{ categoria.name }}</a
                       >
@@ -170,7 +172,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                     @for (etiqueta of evento.tags ?? []; track etiqueta) {
                       <a
                         class="clasificacion__etiqueta"
-                        routerLink="/eventos"
+                        [routerLink]="'/eventos' | enlace"
                         [queryParams]="{ etiqueta: etiqueta }"
                         >#{{ etiqueta }}</a
                       >
@@ -278,14 +280,14 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                     @if (avisoVenta(); as aviso) {
                       <app-aviso-venta-entradas [aviso]="aviso" />
                     } @else {
-                      <a class="ficha__inscribirse" [routerLink]="ruta('inscribirse')">
+                      <a class="ficha__inscribirse" [routerLink]="ruta('inscribirse') | enlace">
                         {{ t('publico.eventos.inscribirse') }}
                       </a>
                       <p class="ficha__nota">{{ t('publico.eventos.ficha.sinCuenta') }}</p>
                     }
                   }
                   <p class="ficha__nota">
-                    <a [routerLink]="ruta('politicas')">
+                    <a [routerLink]="ruta('politicas') | enlace">
                       {{ t('publico.politicas.enlace') }}
                     </a>
                   </p>
@@ -305,7 +307,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                   @if (evento.venues.length > 1) {
                     <p class="hint">
                       {{ t('publico.eventos.multisede.pregunta') }}
-                      <a class="mark" [routerLink]="ruta('programa')">
+                      <a class="mark" [routerLink]="ruta('programa') | enlace">
                         {{ t('publico.eventos.multisede.enlace') }}
                       </a>
                     </p>
@@ -363,7 +365,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                     <ul class="tier__logos" [class]="'tamano-' + nivel.logo_size">
                       @for (patrocinador of nivel.sponsors; track $index + patrocinador.name) {
                         <li>
-                          <a [routerLink]="ruta('patrocinadores', patrocinador.id)">
+                          <a [routerLink]="ruta('patrocinadores', patrocinador.id) | enlace">
                             @if (patrocinador.logo_url) {
                               <img [src]="patrocinador.logo_url" [alt]="patrocinador.name" />
                             } @else {

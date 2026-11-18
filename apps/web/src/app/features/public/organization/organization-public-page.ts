@@ -24,6 +24,7 @@ import { Button } from '../../../shared/ui/button';
 import { Chip } from '../../../shared/ui/chip';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 import { ICONOS_REDES } from '../../../shared/ui/share-links-iconos';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 
 interface PerfilPublico {
   readonly slug: string;
@@ -100,7 +101,7 @@ interface EstadoTransferido {
 @Component({
   selector: 'app-organization-public-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, DatePipe, RouterLink, Alert, Button, Chip, Reveal],
+  imports: [EnlacePipe, TranslocoDirective, DatePipe, RouterLink, Alert, Button, Chip, Reveal],
   template: `
     <ng-container *transloco="let t">
       @if (cargando()) {
@@ -111,7 +112,7 @@ interface EstadoTransferido {
             temporal() ? t('publico.noEncontrada.temporal') : t('publico.organizacion.noEncontrada')
           }}</app-alert>
           <p>
-            <a routerLink="/eventos">{{ t('publico.organizacion.verEventos') }}</a>
+            <a [routerLink]="'/eventos' | enlace">{{ t('publico.organizacion.verEventos') }}</a>
           </p>
         </div>
       } @else if (perfil(); as p) {
@@ -205,7 +206,7 @@ interface EstadoTransferido {
                   ) {
                     <a
                       class="ev"
-                      [routerLink]="rutaEvento(evento.organization.slug, evento.slug)"
+                      [routerLink]="rutaEvento(evento.organization.slug, evento.slug) | enlace"
                       appReveal
                       [index]="i"
                     >

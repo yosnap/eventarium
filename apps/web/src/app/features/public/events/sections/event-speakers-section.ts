@@ -5,6 +5,7 @@ import { TranslocoDirective } from '@jsverse/transloco';
 
 import { Reveal } from '../../../../shared/ui/reveal.directive';
 import { rolLegible } from '../event-page.types';
+import { EnlacePipe } from '../../../../core/i18n/enlace.pipe';
 
 export interface Speaker {
   readonly ref: string;
@@ -28,7 +29,7 @@ export interface Speaker {
 @Component({
   selector: 'app-event-speakers-section',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgTemplateOutlet, RouterLink, TranslocoDirective, Reveal],
+  imports: [EnlacePipe, NgTemplateOutlet, RouterLink, TranslocoDirective, Reveal],
   template: `
     <ng-container *transloco="let t">
       <div class="rejilla">
@@ -36,7 +37,7 @@ export interface Speaker {
           @if (ponente.publicSlug) {
             <a
               class="ponente"
-              [routerLink]="['/ponentes', ponente.publicSlug]"
+              [routerLink]="['/ponentes', ponente.publicSlug] | enlace"
               appReveal
               [index]="indice"
             >

@@ -46,6 +46,7 @@ import { AvisoVentaEntradas, avisoDeVenta } from './aviso-venta-entradas';
 import { precioDelResumen, precioEnEuros } from './precio-de-inscripcion';
 import { RegistrationConsents } from './registration-consents';
 import { CODIGO_POLITICAS_CAMBIADAS } from '../../../core/policies/public-policies.service';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -79,6 +80,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   selector: 'app-registration-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    EnlacePipe,
     AvisoVentaEntradas,
     DatePipe,
     TranslocoDirective,
@@ -317,7 +319,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
             @if (enviado() || noEncontrado()) {
               <p>
-                <a [routerLink]="rutaAlEvento()">{{ t('inscripcion.volverAlEvento') }}</a>
+                <a [routerLink]="rutaAlEvento() | enlace">{{ t('inscripcion.volverAlEvento') }}</a>
               </p>
             }
           </div>

@@ -28,6 +28,7 @@ import { Breadcrumb, type BreadcrumbItem } from '../../../shared/ui/breadcrumb';
 import { Chip } from '../../../shared/ui/chip';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 import { migasDeEvento, type OrganizacionPublica } from '../../../shared/ui/migas-de-evento';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 
 type ContributionType = 'monetaria' | 'en_especie';
 
@@ -80,7 +81,7 @@ const CLAVE_TIPO_APORTACION: Record<ContributionType, string> = {
 @Component({
   selector: 'app-sponsor-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, RouterLink, TranslocoDirective, Alert, Breadcrumb, Chip, Reveal],
+  imports: [EnlacePipe, DatePipe, RouterLink, TranslocoDirective, Alert, Breadcrumb, Chip, Reveal],
   template: `
     <ng-container *transloco="let t">
       @if (cargando()) {
@@ -167,7 +168,9 @@ const CLAVE_TIPO_APORTACION: Record<ContributionType, string> = {
                   <article class="edicion">
                     <div class="edicion__cabecera">
                       <h3>
-                        <a [routerLink]="rutaAEdicion(edicion)">{{ edicion.event_title }}</a>
+                        <a [routerLink]="rutaAEdicion(edicion) | enlace">{{
+                          edicion.event_title
+                        }}</a>
                       </h3>
                       <span class="edicion__anio">
                         {{ edicion.starts_at | date: 'yyyy' }} · {{ edicion.tier_name }}

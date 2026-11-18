@@ -36,6 +36,7 @@ import {
   rolLegible,
 } from './event-page.types';
 import { resolveVideoEmbed } from './video-embed';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 
 interface PublicParticipant {
   readonly display_name: string;
@@ -86,7 +87,16 @@ const CLAVE_AGENDA = 'eventarium-agenda';
 @Component({
   selector: 'app-session-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, RouterLink, TranslocoDirective, Alert, Breadcrumb, Reveal, SessionTypeChip],
+  imports: [
+    EnlacePipe,
+    DatePipe,
+    RouterLink,
+    TranslocoDirective,
+    Alert,
+    Breadcrumb,
+    Reveal,
+    SessionTypeChip,
+  ],
   template: `
     <ng-container *transloco="let t">
       @if (cargando()) {
@@ -138,7 +148,7 @@ const CLAVE_AGENDA = 'eventarium-agenda';
                       }}</span>
                       <div>
                         @if (persona.public_slug) {
-                          <a [routerLink]="['/ponentes', persona.public_slug]">
+                          <a [routerLink]="['/ponentes', persona.public_slug] | enlace">
                             {{ persona.display_name }}
                           </a>
                         } @else {

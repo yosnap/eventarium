@@ -100,3 +100,26 @@ export function resolverIdioma(ruta: string, cabeceraCookie: string | null | und
   }
   return IDIOMA_POR_DEFECTO;
 }
+
+/** Nombre de cada idioma en ese mismo idioma, para el selector. */
+export const NOMBRE_DEL_IDIOMA: Readonly<Record<Idioma, string>> = {
+  'es-ES': 'Español',
+  'en-US': 'English',
+};
+
+/**
+ * La misma página en otro idioma: quita el prefijo del idioma actual, si lo hay, y
+ * pone el del destino. Solo cambia el primer segmento de una ruta de esta misma web;
+ * cualquier otra cosa (otro origen, `//…`) devuelve la portada del idioma destino.
+ */
+export function urlEnIdioma(url: string, destino: Idioma): string {
+  const valida = url.startsWith('/') && !url.startsWith('//') ? url : '/';
+  const actual = idiomaDelPrefijo(valida);
+  const sinPrefijo = actual ? valida.slice(PREFIJO_DE_IDIOMA[actual].length + 1) || '/' : valida;
+  const resto = sinPrefijo.startsWith('/') ? sinPrefijo : `/${sinPrefijo}`;
+  const prefijo = PREFIJO_DE_IDIOMA[destino];
+  if (!prefijo) {
+    return resto;
+  }
+  return resto === '/' ? `/${prefijo}` : `/${prefijo}${resto}`;
+}

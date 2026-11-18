@@ -11,6 +11,7 @@ import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
 import { PasswordStrength, isPasswordValid } from '../../../shared/ui/password-strength';
 import { Reveal } from '../../../shared/ui/reveal.directive';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 
 type Estado = 'formulario' | 'exito' | 'tokenInvalido';
 
@@ -25,6 +26,7 @@ type Estado = 'formulario' | 'exito' | 'tokenInvalido';
   selector: 'app-reset-password-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    EnlacePipe,
     TranslocoDirective,
     RouterLink,
     AuthFrame,
@@ -46,7 +48,7 @@ type Estado = 'formulario' | 'exito' | 'tokenInvalido';
                   <app-alert tone="error" [title]="t('verificarCorreo.errorTitulo')">
                     {{ t('recuperarContrasena.tokenInvalido') }}
                     <p>
-                      <a routerLink="/recuperar-contrasena">{{
+                      <a [routerLink]="'/recuperar-contrasena' | enlace">{{
                         t('recuperarContrasena.pedirOtro')
                       }}</a>
                     </p>
@@ -56,7 +58,7 @@ type Estado = 'formulario' | 'exito' | 'tokenInvalido';
                   <app-alert tone="exito" [title]="t('recuperarContrasena.exitoNuevaTitulo')">
                     {{ t('recuperarContrasena.exitoNuevaDetalle') }}
                     <p>
-                      <a routerLink="/acceder">{{ t('registro.yaTengoCuenta') }}</a>
+                      <a [routerLink]="'/acceder' | enlace">{{ t('registro.yaTengoCuenta') }}</a>
                     </p>
                   </app-alert>
                 }
