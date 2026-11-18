@@ -153,10 +153,14 @@ describe('RegisterPage', () => {
     );
     await fixture.whenStable();
 
+    // `register()` gana un 4º argumento `locale`.
+    // El caso feliz no activa Transloco con otro idioma, así que el valor
+    // esperado es el único cargado en este test: `'es-ES'`.
     expect(auth.register).toHaveBeenCalledWith(
       'valido@example.com',
       'Una-Contraseña-Fuerte-1!',
       '',
+      'es-ES',
     );
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });

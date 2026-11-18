@@ -10,6 +10,7 @@ import {
   output,
   signal,
   viewChild,
+  LOCALE_ID,
 } from '@angular/core';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
@@ -167,6 +168,8 @@ const FALLOS_MAXIMOS = 3;
   `,
 })
 export class EventCancelCard implements OnInit {
+  /** Idioma de la visita, para fechas e importes. */
+  private readonly idioma = inject(LOCALE_ID);
   readonly eventId = input.required<string>();
   /** Estado inicial: `true` si el evento ya estaba cancelado al cargar. */
   readonly yaCancelado = input(false);
@@ -214,7 +217,7 @@ export class EventCancelCard implements OnInit {
   }
 
   protected importe(r: Resumen): string {
-    return formatearPrecio(r.importe_a_reembolsar_cents, r.moneda ?? 'eur');
+    return formatearPrecio(r.importe_a_reembolsar_cents, r.moneda ?? 'eur', this.idioma);
   }
 
   protected async abrirResumen(): Promise<void> {

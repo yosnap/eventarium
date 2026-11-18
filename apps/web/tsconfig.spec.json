@@ -12,6 +12,7 @@
   "include": [
     "src/**/*.d.ts",
     "src/**/*.spec.ts",
-    "src/testing/setup-styles.ts"
+    "src/testing/setup-styles.ts",
+    "src/testing/providers.ts"
   ]
 }

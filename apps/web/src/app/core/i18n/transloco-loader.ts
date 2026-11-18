@@ -3,6 +3,7 @@ import { Translation, TranslocoLoader } from '@jsverse/transloco';
 import { Observable, of } from 'rxjs';
 
 import esES from '../../../../public/assets/i18n/es-ES.json';
+import { Idioma, esIdioma } from './idioma';
 
 /**
  * Traducciones incluidas en el paquete.
@@ -16,17 +17,19 @@ import esES from '../../../../public/assets/i18n/es-ES.json';
  * El fichero JSON sigue siendo la única fuente: para añadir un idioma, se añade su
  * fichero y su entrada en este mapa.
  */
-const TRADUCCIONES: Readonly<Record<string, Translation>> = {
+const TRADUCCIONES: Readonly<Partial<Record<Idioma, Translation>>> = {
   'es-ES': esES as Translation,
 };
 
 @Injectable({ providedIn: 'root' })
 export class TraduccionesLoader implements TranslocoLoader {
   getTranslation(idioma: string): Observable<Translation> {
-    const traduccion = TRADUCCIONES[idioma];
-    if (!traduccion) {
-      throw new Error(`No hay traducciones para «${idioma}».`);
+    if (!esIdioma(idioma)) {
+      throw new Error(`«${idioma}» no es un idioma de la aplicación.`);
     }
+    // Un idioma del catálogo que todavía no tiene fichero se carga vacío: Transloco
+    // muestra entonces cada texto en el idioma de respaldo en vez de romper la página.
+    const traduccion = TRADUCCIONES[idioma] ?? {};
     // El contrato de Transloco espera un Observable, aunque el valor ya esté disponible.
     return of(traduccion);
   }

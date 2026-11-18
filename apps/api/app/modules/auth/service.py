@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import set_organization_context
+from app.core.locale import Locale
 from app.core.redis_client import require_redis
 from app.core.security import (
     create_access_token,
@@ -448,7 +449,9 @@ async def _password_filtrada(password: str) -> bool:
     return False
 
 
-async def register_user(session: AsyncSession, *, email: str, password: str) -> None:
+async def register_user(
+    session: AsyncSession, *, email: str, password: str, locale: Locale
+) -> None:
     """Registra una cuenta y encola el correo de verificación.
 
     Siempre se comporta igual exista o no la cuenta ya: la respuesta al llamador no
@@ -482,11 +485,12 @@ async def register_user(session: AsyncSession, *, email: str, password: str) -> 
     user_id = new_uuid7()
     try:
         await session.execute(
-            text("SELECT app_create_unverified_user(:id, :email, :hash)"),
+            text("SELECT app_create_unverified_user(:id, :email, :hash, :locale)"),
             {
                 "id": user_id,
                 "email": email,
                 "hash": password_hash,
+                "locale": locale,
             },
         )
     except IntegrityError:

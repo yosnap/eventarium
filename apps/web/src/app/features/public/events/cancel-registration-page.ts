@@ -8,6 +8,7 @@ import {
   inject,
   signal,
   viewChild,
+  LOCALE_ID,
 } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
@@ -23,6 +24,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Reveal } from '../../../shared/ui/reveal.directive';
+import { formatearFecha } from '../../../shared/text/formatear-fecha';
 
 type Estado = 'comprobando' | 'listo' | 'ya-cancelada' | 'empezado' | 'exito' | 'error';
 
@@ -115,6 +117,8 @@ type Estado = 'comprobando' | 'listo' | 'ya-cancelada' | 'empezado' | 'exito' | 
   `,
 })
 export class CancelRegistrationPage {
+  /** Idioma de la visita, para fechas e importes. */
+  private readonly idioma = inject(LOCALE_ID);
   private readonly seo = seoDePagina();
   private readonly transloco = inject(TranslocoService);
   private readonly registrations = inject(RegistrationsService);
@@ -132,17 +136,11 @@ export class CancelRegistrationPage {
   protected readonly fecha = computed(() => {
     const vista = this.vista();
     if (!vista) return '';
-    try {
-      return new Intl.DateTimeFormat('es-ES', {
-        dateStyle: 'full',
-        timeStyle: 'short',
-        timeZone: vista.timezone,
-      }).format(new Date(vista.starts_at));
-    } catch {
-      return new Intl.DateTimeFormat('es-ES', { dateStyle: 'full', timeStyle: 'short' }).format(
-        new Date(vista.starts_at),
-      );
-    }
+    return formatearFecha(vista.starts_at, this.idioma, {
+      dateStyle: 'full',
+      timeStyle: 'short',
+      timeZone: vista.timezone,
+    });
   });
 
   constructor() {

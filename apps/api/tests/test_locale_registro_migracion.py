@@ -1,0 +1,110 @@
+"""Comprobaciones de la migración `0069_locale_en_alta_de_cuenta`.
+
+`app_create_unverified_user` cambia de firma (3 -> 4 parámetros, añade
+`p_locale`). Verifica que no queda ninguna sobrecarga huérfana, que el
+`EXECUTE` sigue sin estar abierto a `PUBLIC`, y que el `downgrade` es
+simétrico (deja la firma vieja con sus propios grants, no solo "sin error").
+
+Regla dura del usuario: verificación de permisos únicamente con
+`has_function_privilege(...)`, nunca `SET ROLE` / `SET LOCAL ROLE` (un
+incidente real documentado tumbó Postgres en producción con ese comando).
+El pseudo-rol PUBLIC se escribe `'public'` en minúsculas: PostgreSQL no lo
+reconoce en mayúsculas (`role "PUBLIC" does not exist`).
+
+El ciclo de migración baja a la revisión inmediatamente anterior a esta,
+escrita de forma explícita: `downgrade -1` revertiría `0070_locale_en_invitacion`,
+que va encadenada encima, y no esta.
+"""
+
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+import uuid
+from pathlib import Path
+
+from sqlalchemy import text
+
+from app.core.database import SessionMaintenance
+
+API_DIR = Path(__file__).resolve().parents[1]
+
+# `down_revision` de `0069_locale_en_alta_de_cuenta`.
+REVISION_ANTERIOR = "0068_mis_eventos_calendario"
+FIRMA_NUEVA = "app_create_unverified_user(uuid,text,text,text)"
+FIRMA_VIEJA = "app_create_unverified_user(uuid,text,text)"
+
+
+async def _tiene_privilegio_de_ejecucion(rol: str, firma: str) -> bool:
+    # Solo lectura de catálogo. NUNCA `SET ROLE` / `SET LOCAL ROLE`.
+    async with SessionMaintenance() as session:
+        resultado = await session.scalar(
+            text("SELECT has_function_privilege(:rol, :firma, 'EXECUTE')"),
+            {"rol": rol, "firma": firma},
+        )
+    return bool(resultado)
+
+
+async def _numero_de_sobrecargas() -> int:
+    async with SessionMaintenance() as session:
+        return await session.scalar(
+            text(
+                "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
+                "WHERE n.nspname = 'public' AND p.proname = 'app_create_unverified_user'"
+            )
+        )
+
+
+def _correr_alembic(*comando: str) -> None:
+    entorno = os.environ.copy()
+    resultado = subprocess.run(  # noqa: S603 - argv fijo, sin entrada externa
+        [sys.executable, "-m", "alembic", *comando],
+        cwd=API_DIR,
+        env=entorno,
+        capture_output=True,
+        text=True,
+    )
+    assert resultado.returncode == 0, resultado.stderr
+
+
+async def test_app_user_puede_ejecutar_app_create_unverified_user() -> None:
+    assert await _tiene_privilegio_de_ejecucion("app_user", FIRMA_NUEVA) is True
+
+
+async def test_public_no_puede_ejecutar_app_create_unverified_user() -> None:
+    assert await _tiene_privilegio_de_ejecucion("public", FIRMA_NUEVA) is False
+
+
+async def test_sin_sobrecargas_huerfanas() -> None:
+    assert await _numero_de_sobrecargas() == 1
+
+
+async def test_downgrade_restaura_la_firma_vieja_con_sus_permisos() -> None:
+    _correr_alembic("downgrade", REVISION_ANTERIOR)
+    try:
+        assert await _numero_de_sobrecargas() == 1
+        assert await _tiene_privilegio_de_ejecucion("app_user", FIRMA_VIEJA) is True
+        assert await _tiene_privilegio_de_ejecucion("public", FIRMA_VIEJA) is False
+    finally:
+        _correr_alembic("upgrade", "head")
+    assert await _numero_de_sobrecargas() == 1
+    assert await _tiene_privilegio_de_ejecucion("app_user", FIRMA_NUEVA) is True
+
+
+async def test_la_llamada_antigua_de_tres_argumentos_sigue_funcionando() -> None:
+    """Entre la migración y el reinicio de la API, el código anterior llama a la
+    función sin `p_locale`: el `DEFAULT` la mantiene válida durante el despliegue."""
+    id_usuario = uuid.uuid4()
+    async with SessionMaintenance() as session:
+        try:
+            await session.execute(
+                text("SELECT app_create_unverified_user(:id, :email, :hash)"),
+                {"id": id_usuario, "email": f"tres-args-{id_usuario}@example.com", "hash": "x"},
+            )
+            locale = await session.scalar(
+                text("SELECT locale FROM users WHERE id = :id"), {"id": id_usuario}
+            )
+            assert locale == "es-ES"
+        finally:
+            await session.rollback()

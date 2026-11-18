@@ -7,6 +7,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
+from app.core.codigos_de_idioma import IDENTIFICADORES_DE_IDIOMA
+from app.core.locale import DEFAULT_LOCALE, Locale
 from app.core.security import password_meets_complexity
 from app.modules.roles.schemas import ProfileFieldResponse
 
@@ -83,6 +85,7 @@ RESERVED_SLUGS = (
     | _RUTAS_DE_LA_APLICACION
     | _RUTAS_DEL_PROXY
     | _TERMINOS_DE_CONFIANZA
+    | IDENTIFICADORES_DE_IDIOMA
 )
 
 
@@ -339,6 +342,9 @@ class InvitationAcceptRequest(BaseModel):
         description=(
             "Contraseña: mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial"
         ),
+    )
+    locale: Locale = Field(
+        default=DEFAULT_LOCALE, description="Idioma de la cuenta. Si no se indica, 'es-ES'."
     )
 
     @field_validator("password")

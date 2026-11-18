@@ -146,6 +146,73 @@ describe('AcceptInvitationPage', () => {
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
+  // El token va `encodeURIComponent`-eado en la URL de consulta: sin ello
+  // habría path traversal del lado cliente.
+  it('la consulta manda el token URL-encoded, no en crudo', async () => {
+    configurar(rutaConToken('con/slash&raro'));
+    const fixture = TestBed.createComponent(AcceptInvitationPage);
+    await avanzar(fixture);
+
+    const peticion = http.expectOne(
+      (req) => req.method === 'GET' && req.url.includes('/public/invitations/'),
+    );
+    expect(peticion.request.url).toBe(
+      `/api/v1/public/invitations/${encodeURIComponent('con/slash&raro')}`,
+    );
+    peticion.flush({
+      organization_name: 'Acme',
+      role_name: 'Organizador',
+      account_has_password: false,
+    });
+    await avanzar(fixture);
+  });
+
+  // Misma corrección + requisito de `locale` en el body
+  // del `accept`: el helper `localeDeCuenta()` manda siempre un valor del
+  // catálogo compartido con el backend (hoy, con un solo idioma cargado,
+  // siempre `'es-ES'`).
+  it('aceptar manda locale en el body y el token URL-encoded en la URL', async () => {
+    configurar(rutaConToken('con/slash&raro'));
+    const fixture = TestBed.createComponent(AcceptInvitationPage);
+    await avanzar(fixture);
+
+    http
+      .expectOne((req) => req.method === 'GET' && req.url.includes('/public/invitations/'))
+      .flush({ organization_name: 'Acme', role_name: 'Organizador', account_has_password: false });
+    await avanzar(fixture);
+
+    const nombre = fixture.nativeElement.querySelector('#invitacion-nombre') as HTMLInputElement;
+    const apellidos = fixture.nativeElement.querySelector(
+      '#invitacion-apellidos',
+    ) as HTMLInputElement;
+    const password = fixture.nativeElement.querySelector(
+      '#invitacion-password',
+    ) as HTMLInputElement;
+    nombre.value = 'Ada';
+    nombre.dispatchEvent(new Event('input'));
+    apellidos.value = 'Lovelace';
+    apellidos.dispatchEvent(new Event('input'));
+    password.value = 'Acepta-Esta-Invitacion-1!';
+    password.dispatchEvent(new Event('input'));
+    await avanzar(fixture);
+
+    fixture.nativeElement.querySelector('form')!.dispatchEvent(new Event('submit'));
+    await avanzar(fixture);
+
+    const peticion = http.expectOne((req) => req.method === 'POST');
+    expect(peticion.request.url).toBe(
+      `/api/v1/public/invitations/${encodeURIComponent('con/slash&raro')}/accept`,
+    );
+    expect(peticion.request.body).toEqual({
+      first_name: 'Ada',
+      last_name: 'Lovelace',
+      password: 'Acepta-Esta-Invitacion-1!',
+      locale: 'es-ES',
+    });
+    peticion.flush({ organization_slug: 'acme' });
+    await avanzar(fixture);
+  });
+
   it('el formulario no tiene violaciones de accesibilidad en tema claro', async () => {
     document.documentElement.setAttribute('data-theme', 'light');
     configurar(rutaConToken('token-valido'));
