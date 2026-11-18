@@ -45,6 +45,7 @@ import { DirectionsLink } from '../../../shared/ui/directions-link';
 import { EventNearbySection } from './sections/event-nearby-section';
 import { AvisoVentaEntradas, avisoDeVenta } from './aviso-venta-entradas';
 import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
+import { IdiomaService } from '../../../core/i18n/idioma.service';
 
 /** `starts_at` (UTC) al día calendario en la zona del evento, sin arrastrar la
  * zona horaria del entorno de ejecución (navegador o SSR) al agrupar por fecha:
@@ -719,6 +720,7 @@ export class EventPage implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly documento = inject(DOCUMENT);
+  private readonly idiomaDeLaPagina = inject(IdiomaService);
   private readonly transferState = inject(TransferState);
   private readonly aplicarTema = temaDeEvento();
   private readonly tareasPendientes = inject(PendingTasks);
@@ -806,7 +808,7 @@ export class EventPage implements OnInit {
   /** Absoluta y sin ancla ni query: es lo que se comparte. En el SSR,
    * `location` ya es la URL pública de la petición. */
   protected urlPublica(evento: PublicEventDetail): string {
-    return `${this.documento.location.origin}${urlEvento(evento.organization.slug, evento.slug)}`;
+    return `${this.documento.location.origin}${this.idiomaDeLaPagina.enlace(urlEvento(evento.organization.slug, evento.slug))}`;
   }
 
   protected migasDePan(evento: PublicEventDetail): BreadcrumbItem[] {
