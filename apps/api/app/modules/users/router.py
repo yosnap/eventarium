@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from app.core.audit import registrar_auditoria
 from app.core.database import maintenance_session
 from app.core.deps import CurrentUserDep, DbDep, PermissionsDep, SessionDep, get_token_claims
+from app.core.locale import normalizar_locale
 from app.core.permissions import Permission
 from app.core.ratelimit import (
     CHECK_SLUG_POR_IP,
@@ -140,6 +141,7 @@ async def get_me(
         roles=sorted(claves),
         permissions=sorted(Permission(p) for p in permisos),
         notify_similar_events=usuario.notify_similar_events,
+        locale=normalizar_locale(usuario.locale),
     )
 
 

@@ -21,6 +21,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 
 from sqlalchemy import text
@@ -89,3 +90,21 @@ async def test_downgrade_restaura_la_firma_vieja_con_sus_permisos() -> None:
         _correr_alembic("upgrade", "head")
     assert await _numero_de_sobrecargas() == 1
     assert await _tiene_privilegio_de_ejecucion("app_user", FIRMA_NUEVA) is True
+
+
+async def test_la_llamada_antigua_de_tres_argumentos_sigue_funcionando() -> None:
+    """Entre la migración y el reinicio de la API, el código anterior llama a la
+    función sin `p_locale`: el `DEFAULT` la mantiene válida durante el despliegue."""
+    id_usuario = uuid.uuid4()
+    async with SessionMaintenance() as session:
+        try:
+            await session.execute(
+                text("SELECT app_create_unverified_user(:id, :email, :hash)"),
+                {"id": id_usuario, "email": f"tres-args-{id_usuario}@example.com", "hash": "x"},
+            )
+            locale = await session.scalar(
+                text("SELECT locale FROM users WHERE id = :id"), {"id": id_usuario}
+            )
+            assert locale == "es-ES"
+        finally:
+            await session.rollback()

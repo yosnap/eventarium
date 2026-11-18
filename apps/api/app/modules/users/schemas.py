@@ -49,6 +49,8 @@ class CurrentUserResponse(BaseModel):
     roles: list[str]
     permissions: list[Permission]
     notify_similar_events: bool
+    # Idioma de la cuenta: el panel lo usa para fijar su idioma al arrancar.
+    locale: Locale
 
 
 class VerificationStatusResponse(BaseModel):

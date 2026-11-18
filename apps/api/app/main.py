@@ -14,6 +14,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.core.config import get_settings
 from app.core.deps import bloquear_escritura_si_impersona
+from app.core.locale import IdiomaMiddleware
 from app.core.ratelimit import consumir_mcp_por_ip
 from app.core.redis_client import close_redis
 from app.core.storage import get_storage
@@ -166,6 +167,10 @@ def create_app() -> FastAPI:
         )
 
     register_exception_handlers(app)
+
+    # Idioma de cada petición (`Accept-Language` o `?idioma=`), disponible para el
+    # endpoint y para los manejadores de errores. Sin cabecera, español.
+    app.add_middleware(IdiomaMiddleware)
 
     # La dependencia de solo lectura se aplica aquí, al router raíz de la API,
     # y no endpoint a endpoint: una sesión de suplantación no debe poder
