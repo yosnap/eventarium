@@ -32,11 +32,17 @@ test.describe('Web pública en inglés', () => {
   });
 
   test('las páginas de la plataforma anuncian sus dos idiomas', async ({ request }) => {
-    const html = await (await request.get('/en/eventos')).text();
-    expect(atributo(html, /<link rel="canonical" href="([^"]+)"/)).toMatch(/\/en\/eventos$/);
+    const html = await (await request.get('/en/events')).text();
+    expect(atributo(html, /<link rel="canonical" href="([^"]+)"/)).toMatch(/\/en\/events$/);
     expect(html).toMatch(/hreflang="es-ES" href="[^"]+\/eventos"/);
-    expect(html).toMatch(/hreflang="en-US" href="[^"]+\/en\/eventos"/);
+    expect(html).toMatch(/hreflang="en-US" href="[^"]+\/en\/events"/);
     expect(html).toMatch(/hreflang="x-default" href="[^"]+\/eventos"/);
+  });
+
+  test('las rutas fijas van en inglés: /en/eventos no existe', async ({ request }) => {
+    expect((await request.get('/en/events')).status()).toBe(200);
+    expect((await request.get('/en/eventos')).status()).toBe(404);
+    expect((await request.get(`/en/${ORG}/${EVENTO}/schedule`)).status()).toBe(200);
   });
 
   test('una página inexistente bajo /en/ es un 404', async ({ request }) => {
@@ -45,12 +51,12 @@ test.describe('Web pública en inglés', () => {
   });
 
   test('las páginas de token bajo /en/ no se pintan en el servidor', async ({ request }) => {
-    const html = await (await request.get('/en/verificar-correo?token=prueba')).text();
+    const html = await (await request.get('/en/verify-email?token=prueba')).text();
     expect(html).not.toContain('ng-server-context="ssr"');
   });
 
   test('la navegación interna conserva el prefijo', async ({ page }) => {
-    await page.goto('/en/eventos');
+    await page.goto('/en/events');
     const enlace = page.locator(`a[href^="/en/"][href*="/${EVENTO}"]`).first();
     await expect(enlace).toBeVisible();
     await enlace.click();

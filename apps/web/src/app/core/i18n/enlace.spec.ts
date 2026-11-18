@@ -5,20 +5,28 @@ import { describe, expect, it } from 'vitest';
 import { conPrefijo } from './idioma.service';
 
 describe('conPrefijo', () => {
-  it('antepone el prefijo a las rutas públicas absolutas', () => {
-    expect(conPrefijo('/', 'en')).toBe('/en');
-    expect(conPrefijo('/eventos', 'en')).toBe('/en/eventos');
-    expect(conPrefijo(['/', 'acme', 'evento'], 'en')).toEqual(['/', 'en', 'acme', 'evento']);
-    expect(conPrefijo(['/ponentes', 'ana'], 'en')).toEqual(['/en/ponentes', 'ana']);
+  it('pone el prefijo y traduce los segmentos fijos de la ruta', () => {
+    expect(conPrefijo('/', 'en-US')).toBe('/en');
+    expect(conPrefijo('/eventos', 'en-US')).toBe('/en/events');
+    expect(conPrefijo('/legal/privacidad', 'en-US')).toBe('/en/legal/privacy');
+    expect(conPrefijo(['/', 'acme', 'evento'], 'en-US')).toEqual(['/en/acme/evento']);
+    expect(conPrefijo(['/', 'acme', 'evento', 'programa'], 'en-US')).toEqual([
+      '/en/acme/evento/schedule',
+    ]);
+    expect(conPrefijo(['/ponentes', 'ana'], 'en-US')).toEqual(['/en/speakers/ana']);
+  });
+
+  it('no traduce los identificadores aunque coincidan con una palabra', () => {
+    expect(conPrefijo(['/', 'acme', 'programa'], 'en-US')).toEqual(['/en/acme/programa']);
   });
 
   it('no toca el idioma por defecto, las rutas relativas, los paneles ni otros sitios', () => {
-    expect(conPrefijo('/eventos', '')).toBe('/eventos');
-    expect(conPrefijo('programa', 'en')).toBe('programa');
-    expect(conPrefijo(['programa'], 'en')).toEqual(['programa']);
-    expect(conPrefijo('/dashboard/account', 'en')).toBe('/dashboard/account');
-    expect(conPrefijo(['/dashboard', 'events'], 'en')).toEqual(['/dashboard', 'events']);
-    expect(conPrefijo('//otro.example', 'en')).toBe('//otro.example');
+    expect(conPrefijo('/eventos', 'es-ES')).toBe('/eventos');
+    expect(conPrefijo('programa', 'en-US')).toBe('programa');
+    expect(conPrefijo(['programa'], 'en-US')).toEqual(['programa']);
+    expect(conPrefijo('/dashboard/account', 'en-US')).toBe('/dashboard/account');
+    expect(conPrefijo(['/dashboard', 'events'], 'en-US')).toEqual(['/dashboard', 'events']);
+    expect(conPrefijo('//otro.example', 'en-US')).toBe('//otro.example');
   });
 });
 

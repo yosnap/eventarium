@@ -1,6 +1,7 @@
 import { RenderMode, ServerRoute } from '@angular/ssr';
 
 import { IDIOMAS, PREFIJO_DE_IDIOMA } from './core/i18n/idioma';
+import { rutaDeServidor } from './core/i18n/rutas-traducidas';
 
 /**
  * Modos de renderizado.
@@ -48,15 +49,17 @@ export const PAGINAS_PUBLICAS_SOLO_DE_CLIENTE = [
   ...PAGINAS_DE_TOKEN_DE_UN_SOLO_USO,
 ];
 
-/** Prefijos de URL de los idiomas que no son el de por defecto (`en`). */
-const PREFIJOS = IDIOMAS.map((idioma) => PREFIJO_DE_IDIOMA[idioma]).filter(Boolean);
+/** Idiomas con prefijo de URL (todos menos el de por defecto). */
+const IDIOMAS_CON_PREFIJO = IDIOMAS.filter((idioma) => PREFIJO_DE_IDIOMA[idioma] !== '');
 
 const soloCliente = (path: string): ServerRoute => ({ path, renderMode: RenderMode.Client });
 
 export const serverRoutes: ServerRoute[] = [
   ...PAGINAS_PUBLICAS_SOLO_DE_CLIENTE.flatMap((path) => [
     soloCliente(path),
-    ...PREFIJOS.map((prefijo) => soloCliente(`${prefijo}/${path}`)),
+    ...IDIOMAS_CON_PREFIJO.map((idioma) =>
+      soloCliente(`${PREFIJO_DE_IDIOMA[idioma]}/${rutaDeServidor(idioma, path)}`),
+    ),
   ]),
   // Los dos paneles (organización y plataforma) son solo cliente: necesitan la
   // cookie de sesión, que el servidor no debe manejar. Si se olvidara cualquiera

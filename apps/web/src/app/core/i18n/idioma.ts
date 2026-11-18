@@ -1,4 +1,5 @@
 import { LOCALES_DE_CUENTA, LocaleDeCuenta } from './locale-de-cuenta';
+import { traducirRuta } from './rutas-traducidas';
 
 /**
  * Idiomas de la aplicación y cómo se elige el de cada visita.
@@ -108,8 +109,8 @@ export const NOMBRE_DEL_IDIOMA: Readonly<Record<Idioma, string>> = {
 };
 
 /**
- * La misma página en otro idioma: quita el prefijo del idioma actual, si lo hay, y
- * pone el del destino. Solo cambia el primer segmento de una ruta de esta misma web;
+ * La misma página en otro idioma: quita el prefijo del idioma actual, si lo hay,
+ * traduce los segmentos fijos de la ruta y pone el prefijo del destino. Solo cambia el primer segmento de una ruta de esta misma web;
  * cualquier otra cosa (otro origen, `//…`) devuelve la portada del idioma destino.
  */
 export function urlEnIdioma(url: string, destino: Idioma): string {
@@ -117,10 +118,12 @@ export function urlEnIdioma(url: string, destino: Idioma): string {
   const valida = esLocal(url) ? url : '/';
   const actual = idiomaDelPrefijo(valida);
   const sinPrefijo = actual ? valida.slice(PREFIJO_DE_IDIOMA[actual].length + 1) : valida;
-  const resto = sinPrefijo.startsWith('/') ? sinPrefijo : `/${sinPrefijo}`;
-  if (!esLocal(resto)) {
+  const sinBarra = sinPrefijo.startsWith('/') ? sinPrefijo : `/${sinPrefijo}`;
+  if (!esLocal(sinBarra)) {
     return PREFIJO_DE_IDIOMA[destino] ? `/${PREFIJO_DE_IDIOMA[destino]}` : '/';
   }
+  // Los segmentos fijos de la ruta también cambian de idioma (`eventos` → `events`).
+  const resto = traducirRuta(sinBarra, actual ?? IDIOMA_POR_DEFECTO, destino);
   const prefijo = PREFIJO_DE_IDIOMA[destino];
   if (!prefijo) {
     return resto;

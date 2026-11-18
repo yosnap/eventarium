@@ -35,6 +35,22 @@ def prefijo_de_url(locale: Locale) -> str:
     return f"/{prefijo}" if prefijo else ""
 
 
+#: Rutas de la web que enlaza la API, traducidas por idioma (espejo parcial de
+#: `core/i18n/rutas-traducidas.ts`; un test comprueba que coinciden).
+RUTAS_WEB: Final[dict[Locale, dict[str, str]]] = {
+    "en-US": {
+        "pago/retorno": "payment/return",
+        "pago/cancelado": "payment/cancelled",
+    },
+}
+
+
+def ruta_web(locale: Locale, ruta: str) -> str:
+    """`/pago/retorno` en `locale`, con su prefijo: `/en/payment/return`."""
+    traducida = RUTAS_WEB.get(locale, {}).get(ruta, ruta)
+    return f"{prefijo_de_url(locale)}/{traducida}"
+
+
 #: Idioma de la petición en curso. Fuera de una petición (tareas de taskiq, scripts)
 #: vale el idioma por defecto. Las `BackgroundTasks` de FastAPI sí lo heredan de la
 #: petición que las lanzó, que no tiene por qué ser el de quien recibe el aviso: todo

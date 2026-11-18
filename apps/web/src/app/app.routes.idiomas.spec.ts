@@ -4,8 +4,15 @@ import { describe, expect, it } from 'vitest';
 import { routes } from './app.routes';
 import { PAGINAS_PUBLICAS_SOLO_DE_CLIENTE, serverRoutes } from './app.routes.server';
 import { IDIOMAS, PREFIJO_DE_IDIOMA } from './core/i18n/idioma';
+import { rutaDeServidor, rutaEn } from './core/i18n/rutas-traducidas';
 
 const PREFIJOS = IDIOMAS.map((idioma) => PREFIJO_DE_IDIOMA[idioma]).filter(Boolean);
+
+/** `en` + `acceder` → `en/login`. */
+function conRutaTraducida(prefijo: string, pagina: string): string {
+  const idioma = IDIOMAS.find((i) => PREFIJO_DE_IDIOMA[i] === prefijo)!;
+  return `${prefijo}/${rutaDeServidor(idioma, pagina)}`;
+}
 
 /** Rutas de primer nivel con `path` literal (las de acceso) y las del shell público. */
 function rutasPublicas(hijas: typeof routes): string[] {
@@ -32,14 +39,20 @@ describe('rutas con prefijo de idioma', () => {
     );
     for (const prefijo of PREFIJOS) {
       const conPrefijo = rutasPublicas(routes.find((r) => r.path === prefijo)?.children ?? []);
-      expect(conPrefijo).toEqual(expect.arrayContaining(raiz));
+      // Las mismas páginas, con su ruta traducida al idioma del prefijo.
+      const idioma = IDIOMAS.find((i) => PREFIJO_DE_IDIOMA[i] === prefijo)!;
+      const traducir = (ruta: string) =>
+        ruta.startsWith('shell:')
+          ? `shell:${rutaEn(idioma, ruta.slice('shell:'.length))}`
+          : rutaEn(idioma, ruta);
+      expect(conPrefijo).toEqual(expect.arrayContaining(raiz.map(traducir)));
       // Mismo shell, mismas rutas y en el mismo orden (los matchers no tienen nombre).
       const shellRaiz = routes.find((r) => r.path === '' && r.children)?.children ?? [];
       const shellPrefijo =
         routes.find((r) => r.path === prefijo)?.children?.find((r) => r.path === '' && r.children)
           ?.children ?? [];
-      expect(shellPrefijo.map((r) => r.path ?? r.matcher?.toString())).toEqual(
-        shellRaiz.map((r) => r.path ?? r.matcher?.toString()),
+      expect(shellPrefijo.map((r) => (r.path === undefined ? 'matcher' : 'ruta'))).toEqual(
+        shellRaiz.map((r) => (r.path === undefined ? 'matcher' : 'ruta')),
       );
       expect(conPrefijo).not.toContain('dashboard');
     }
@@ -48,7 +61,7 @@ describe('rutas con prefijo de idioma', () => {
   it('las páginas de token y de sesión son solo de cliente con cualquier prefijo', () => {
     const indiceComodin = serverRoutes.findIndex((r) => r.path === '**');
     for (const pagina of PAGINAS_PUBLICAS_SOLO_DE_CLIENTE) {
-      for (const ruta of [pagina, ...PREFIJOS.map((p) => `${p}/${pagina}`)]) {
+      for (const ruta of [pagina, ...PREFIJOS.map((p) => conRutaTraducida(p, pagina))]) {
         const indice = serverRoutes.findIndex((r) => r.path === ruta);
         expect(indice, ruta).toBeGreaterThanOrEqual(0);
         expect(indice, ruta).toBeLessThan(indiceComodin);
@@ -66,7 +79,7 @@ describe('rutas con prefijo de idioma', () => {
       'cuenta/confirmar-correo',
       'mis-eventos/ver',
     ]) {
-      for (const ruta of [pagina, ...PREFIJOS.map((p) => `${p}/${pagina}`)]) {
+      for (const ruta of [pagina, ...PREFIJOS.map((p) => conRutaTraducida(p, pagina))]) {
         expect(serverRoutes.find((r) => r.path === ruta)?.renderMode, ruta).toBe(RenderMode.Client);
       }
     }

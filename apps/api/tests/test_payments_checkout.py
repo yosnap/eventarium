@@ -98,8 +98,13 @@ async def test_stripe_vuelve_a_la_web_en_el_idioma_de_la_compra(
     )
     assert respuesta.status_code == 200, respuesta.text
     parametros = fake.v1.checkout.sessions.create_async.await_args.kwargs["params"]
-    assert f"{prefijo}/pago/retorno?" in parametros["success_url"]
-    assert f"{prefijo}/pago/cancelado?" in parametros["cancel_url"]
+    retorno, cancelado = (
+        ("/en/payment/return?", "/en/payment/cancelled?")
+        if prefijo
+        else ("/pago/retorno?", "/pago/cancelado?")
+    )
+    assert retorno in parametros["success_url"]
+    assert cancelado in parametros["cancel_url"]
     if not prefijo:
         assert "/en/" not in parametros["success_url"]
 

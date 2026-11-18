@@ -9,10 +9,10 @@ describe('decidirIndexacion', () => {
       activo: 'en-US',
       contenidoDelOrganizador: false,
     });
-    expect(decision.canonica).toBe('/en/eventos');
+    expect(decision.canonica).toBe('/en/events');
     expect(decision.alternativas).toEqual([
       { idioma: 'es-ES', ruta: '/eventos' },
-      { idioma: 'en-US', ruta: '/en/eventos' },
+      { idioma: 'en-US', ruta: '/en/events' },
       { idioma: 'x-default', ruta: '/eventos' },
     ]);
     expect(decision.ogLocale).toBe('en_US');

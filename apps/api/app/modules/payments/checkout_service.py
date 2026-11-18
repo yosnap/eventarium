@@ -32,7 +32,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SessionApp, maintenance_session, set_organization_context
-from app.core.locale import idioma_actual, prefijo_de_url
+from app.core.locale import idioma_actual, ruta_web
 from app.core.tenant import base_url_de_organizacion
 from app.core.tras_commit import despachar_tras_commit
 from app.modules.events.models import Event
@@ -301,7 +301,8 @@ async def crear_sesion_de_pago(session: AsyncSession, *, payment_id: uuid.UUID) 
     expires_at_epoch = int((limite + _MARGEN_TECNICO).timestamp())
 
     # Se vuelve a la web en el idioma en que se hizo la compra.
-    prefijo = prefijo_de_url(idioma_actual())
+    retorno = ruta_web(idioma_actual(), "pago/retorno")
+    cancelado = ruta_web(idioma_actual(), "pago/cancelado")
     creada = await stripe_gateway.crear_sesion_checkout(
         cuenta,
         linea=stripe_gateway.LineaDePrecioAdHoc(
@@ -315,10 +316,10 @@ async def crear_sesion_de_pago(session: AsyncSession, *, payment_id: uuid.UUID) 
         # pantalla de retorno no podría ni siquiera preguntar por el estado
         # real del pago.
         success_url=(
-            f"{base}{prefijo}/pago/retorno?registration_id={pago.registration_id}&org={org_slug}&slug={evento_slug}"
+            f"{base}{retorno}?registration_id={pago.registration_id}&org={org_slug}&slug={evento_slug}"
         ),
         cancel_url=(
-            f"{base}{prefijo}/pago/cancelado?registration_id={pago.registration_id}&org={org_slug}&slug={evento_slug}"
+            f"{base}{cancelado}?registration_id={pago.registration_id}&org={org_slug}&slug={evento_slug}"
         ),
         expires_at_epoch=expires_at_epoch,
         idempotency_key=f"checkout_{pago.id}_{pago.checkout_attempts}",

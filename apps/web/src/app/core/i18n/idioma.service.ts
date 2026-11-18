@@ -10,31 +10,41 @@ import {
   resolverIdioma,
   serializarCookieDeIdioma,
   sigueIdiomaDeCuenta,
+  urlEnIdioma,
 } from './idioma';
 
-/** Implementación de `IdiomaService.enlace`, sin inyección para poder probarla aislada. */
+/**
+ * Implementación de `IdiomaService.enlace`, sin inyección para poder probarla
+ * aislada: traduce los segmentos fijos y antepone el prefijo del idioma.
+ */
 export function conPrefijo<T>(
   ruta: string | readonly T[],
-  prefijo: string,
+  idioma: Idioma,
 ): string | (T | string)[] {
-  if (!prefijo) {
+  if (idioma === IDIOMA_POR_DEFECTO) {
     return typeof ruta === 'string' ? ruta : [...ruta];
   }
   if (typeof ruta === 'string') {
     if (!ruta.startsWith('/') || ruta.startsWith('//') || sigueIdiomaDeCuenta(ruta)) {
       return ruta;
     }
-    return ruta === '/' ? `/${prefijo}` : `/${prefijo}${ruta}`;
+    return urlEnIdioma(ruta, idioma);
   }
   const [primero, ...resto] = ruta;
   if (typeof primero !== 'string' || !primero.startsWith('/')) {
     return [...ruta];
   }
-  const ruteable = [primero, ...resto.map(String)].join('/');
-  if (sigueIdiomaDeCuenta(ruteable)) {
+  if (resto.some((segmento) => typeof segmento !== 'string' && typeof segmento !== 'number')) {
     return [...ruta];
   }
-  return primero === '/' ? ['/', prefijo, ...resto] : [`/${prefijo}${primero}`, ...resto];
+  const comoUrl = `${primero === '/' ? '' : primero}/${resto.map(String).join('/')}`.replace(
+    /\/$/,
+    '',
+  );
+  if (sigueIdiomaDeCuenta(comoUrl || '/')) {
+    return [...ruta];
+  }
+  return [urlEnIdioma(comoUrl || '/', idioma)];
 }
 
 function rutaDeLaPeticion(url: string): string {
@@ -91,7 +101,7 @@ export class IdiomaService {
   enlace(ruta: string): string;
   enlace<T>(ruta: readonly T[]): (T | string)[];
   enlace<T>(ruta: string | readonly T[]): string | (T | string)[] {
-    return conPrefijo(ruta, this.prefijo());
+    return conPrefijo(ruta, this.activo);
   }
 
   /**

@@ -14,6 +14,7 @@ from app.core.locale import (
     DEFAULT_LOCALE,
     LOCALES,
     PREFIJO_DE_URL,
+    RUTAS_WEB,
     IdiomaDep,
     IdiomaMiddleware,
     buscar_locale,
@@ -116,3 +117,33 @@ def test_los_prefijos_de_url_coinciden_con_los_de_la_web() -> None:
     assert bloque, "no se encuentra PREFIJO_DE_IDIOMA en la web"
     web = dict(re.findall(r"'([^']+)':\s*'([^']*)'", bloque.group(1)))
     assert web == PREFIJO_DE_URL
+
+
+RUTAS_TRADUCIDAS_WEB = CATALOGO_WEB.parent / "rutas-traducidas.ts"
+
+
+def _rutas_traducidas_de_la_web() -> dict[str, str]:
+    texto = RUTAS_TRADUCIDAS_WEB.read_text(encoding="utf-8")
+    bloque = re.search(r"'en-US':\s*\{([^}]*)\}", texto)
+    assert bloque, "no se encuentran las rutas en inglés de la web"
+    pares = re.findall(r"(?:'([^']+)'|([\w-]+)):\s*'([^']+)'", bloque.group(1))
+    return {con_comillas or sin_comillas: valor for con_comillas, sin_comillas, valor in pares}
+
+
+@pytest.mark.skipif(not RUTAS_TRADUCIDAS_WEB.exists(), reason="falta apps/web en este checkout")
+def test_las_rutas_que_enlaza_la_api_coinciden_con_las_de_la_web() -> None:
+    web = _rutas_traducidas_de_la_web()
+    for ruta, traducida in RUTAS_WEB["en-US"].items():
+        assert web.get(ruta) == traducida, ruta
+
+
+@pytest.mark.skipif(not RUTAS_TRADUCIDAS_WEB.exists(), reason="falta apps/web en este checkout")
+def test_las_rutas_publicas_traducidas_estan_reservadas() -> None:
+    primeros = {
+        ruta.split("/", 1)[0]
+        for par in _rutas_traducidas_de_la_web().items()
+        for ruta in par
+        if not ruta.startswith(":")
+    }
+    assert primeros, "no se ha leído ninguna ruta traducida"
+    assert primeros - RESERVED_SLUGS == set()

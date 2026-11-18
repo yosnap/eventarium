@@ -43,6 +43,16 @@ _RUTAS_DE_LA_APLICACION = frozenset(
         "suplantar", "usuarios", "verificar-correo", "verificar-inscripcion", "vista-previa",
     }
 )  # fmt: skip
+# Las mismas rutas públicas en los otros idiomas (`core/i18n/rutas-traducidas.ts`):
+# bajo `/en/` también compiten con el identificador de una organización.
+_RUTAS_EN_OTROS_IDIOMAS = frozenset(
+    {
+        "account", "cancel-registration", "confirm-promotion", "create-organization",
+        "events", "forgot-password", "invitation", "legal", "login", "my-events",
+        "my-ticket", "payment", "preview", "signup", "speakers", "verify-email",
+        "verify-registration",
+    }
+)  # fmt: skip
 _RUTAS_DEL_PROXY = frozenset({"healthz", ".well-known", "media"})
 _TERMINOS_DE_CONFIANZA = frozenset(
     {
@@ -86,6 +96,7 @@ RESERVED_SLUGS = (
     | _RUTAS_DEL_PROXY
     | _TERMINOS_DE_CONFIANZA
     | IDENTIFICADORES_DE_IDIOMA
+    | _RUTAS_EN_OTROS_IDIOMAS
 )
 
 

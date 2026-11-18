@@ -6,7 +6,8 @@ import { authGuard } from './core/auth/auth.guard';
 import { guestGuard } from './core/auth/guest.guard';
 import { personalPlataformaGuard } from './core/auth/personal-plataforma.guard';
 import { superadminGuard } from './core/auth/superadmin.guard';
-import { IDIOMAS, PREFIJO_DE_IDIOMA } from './core/i18n/idioma';
+import { IDIOMAS, IDIOMA_POR_DEFECTO, Idioma, PREFIJO_DE_IDIOMA } from './core/i18n/idioma';
+import { rutaEn, subrutaDeEvento } from './core/i18n/rutas-traducidas';
 import { coincideConEvento, coincideConOrganizacion } from './core/routing/rutas-publicas';
 import {
   coincideConEnlaceAntiguo,
@@ -18,81 +19,81 @@ import { ThemingService } from './core/theming/theming.service';
  * Páginas de acceso y de enlaces recibidos por correo (registro, recuperación,
  * entrada, cancelación…). Se montan en la raíz y bajo el prefijo de cada idioma.
  */
-function rutasDeAcceso(): Routes {
+function rutasDeAcceso(idioma: Idioma): Routes {
   return [
     {
-      path: 'acceder',
+      path: rutaEn(idioma, 'acceder'),
       loadComponent: () => import('./features/admin/login/login-page').then((m) => m.LoginPage),
       canActivate: [guestGuard],
     },
     {
-      path: 'registro',
+      path: rutaEn(idioma, 'registro'),
       loadComponent: () =>
         import('./features/public/register/register-page').then((m) => m.RegisterPage),
     },
     {
-      path: 'verificar-correo',
+      path: rutaEn(idioma, 'verificar-correo'),
       loadComponent: () =>
         import('./features/public/verify-email/verify-email-page').then((m) => m.VerifyEmailPage),
     },
     {
-      path: 'crear-organizacion',
+      path: rutaEn(idioma, 'crear-organizacion'),
       loadComponent: () =>
         import('./features/public/create-organization/create-organization-page').then(
           (m) => m.CreateOrganizationPage,
         ),
     },
     {
-      path: 'recuperar-contrasena',
+      path: rutaEn(idioma, 'recuperar-contrasena'),
       loadComponent: () =>
         import('./features/public/forgot-password/forgot-password-page').then(
           (m) => m.ForgotPasswordPage,
         ),
     },
     {
-      path: 'recuperar-contrasena/nueva',
+      path: rutaEn(idioma, 'recuperar-contrasena/nueva'),
       loadComponent: () =>
         import('./features/public/forgot-password/reset-password-page').then(
           (m) => m.ResetPasswordPage,
         ),
     },
     {
-      path: 'invitacion',
+      path: rutaEn(idioma, 'invitacion'),
       loadComponent: () =>
         import('./features/public/invitations/accept-invitation-page').then(
           (m) => m.AcceptInvitationPage,
         ),
     },
     {
-      path: 'cuenta/confirmar-correo',
+      path: rutaEn(idioma, 'cuenta/confirmar-correo'),
       loadComponent: () =>
         import('./features/public/confirm-email-change/confirm-email-change-page').then(
           (m) => m.ConfirmEmailChangePage,
         ),
     },
     {
-      path: 'verificar-inscripcion',
+      path: rutaEn(idioma, 'verificar-inscripcion'),
       loadComponent: () =>
         import('./features/public/events/verify-registration-page').then(
           (m) => m.VerifyRegistrationPage,
         ),
     },
     {
-      path: 'confirmar-promocion',
+      path: rutaEn(idioma, 'confirmar-promocion'),
       loadComponent: () =>
         import('./features/public/events/confirm-waitlist-promotion-page').then(
           (m) => m.ConfirmWaitlistPromotionPage,
         ),
     },
     {
-      path: 'cancelar-inscripcion',
+      path: rutaEn(idioma, 'cancelar-inscripcion'),
       loadComponent: () =>
         import('./features/public/events/cancel-registration-page').then(
           (m) => m.CancelRegistrationPage,
         ),
     },
     {
-      path: 'mi-entrada',
+      path: rutaEn(idioma, 'mi-entrada'),
       loadComponent: () =>
         import('./features/public/events/my-ticket-page').then((m) => m.MyTicketPage),
     },
@@ -100,7 +101,7 @@ function rutasDeAcceso(): Routes {
 }
 
 /** Cabecera y pie públicos con todas sus páginas. Se monta en la raíz y bajo cada prefijo. */
-function shellPublico(): Route {
+function shellPublico(idioma: Idioma): Route {
   return {
     path: '',
     loadComponent: () => import('./layouts/public/public-shell').then((m) => m.PublicShell),
@@ -116,65 +117,65 @@ function shellPublico(): Route {
           import('./features/public/landing/landing-page').then((m) => m.LandingPage),
       },
       {
-        path: 'eventos',
+        path: rutaEn(idioma, 'eventos'),
         loadComponent: () =>
           import('./features/public/events/events-list-page').then((m) => m.EventsListPage),
       },
       {
-        path: 'pago/retorno',
+        path: rutaEn(idioma, 'pago/retorno'),
         loadComponent: () =>
           import('./features/public/events/payment-return').then((m) => m.PaymentReturnPage),
       },
       {
-        path: 'pago/cancelado',
+        path: rutaEn(idioma, 'pago/cancelado'),
         loadComponent: () =>
           import('./features/public/events/payment-cancelled-page').then(
             (m) => m.PaymentCancelledPage,
           ),
       },
       {
-        path: 'ponentes/:publicSlug',
+        path: rutaEn(idioma, 'ponentes/:publicSlug'),
         loadComponent: () =>
           import('./features/public/events/speaker-page').then((m) => m.SpeakerPage),
       },
       {
         // Vista previa del panel (también de un borrador): solo para quien
         // puede ver los eventos; el backend vuelve a exigirlo.
-        path: 'vista-previa/:eventId',
+        path: rutaEn(idioma, 'vista-previa/:eventId'),
         canActivate: [authGuard, requierePermiso({ permiso: 'events:read' })],
         loadComponent: () => import('./features/public/events/event-page').then((m) => m.EventPage),
       },
       {
-        path: 'mis-eventos',
+        path: rutaEn(idioma, 'mis-eventos'),
         loadComponent: () =>
           import('./features/public/mis-eventos/mis-eventos-solicitar-page').then(
             (m) => m.MisEventosSolicitarPage,
           ),
       },
       {
-        path: 'mis-eventos/ver',
+        path: rutaEn(idioma, 'mis-eventos/ver'),
         loadComponent: () =>
           import('./features/public/mis-eventos/mis-eventos-listado-page').then(
             (m) => m.MisEventosListadoPage,
           ),
       },
       {
-        path: 'legal/aviso-legal',
+        path: rutaEn(idioma, 'legal/aviso-legal'),
         loadComponent: () => import('./features/public/legal/legal-page').then((m) => m.LegalPage),
         data: { page: 'aviso-legal' },
       },
       {
-        path: 'legal/privacidad',
+        path: rutaEn(idioma, 'legal/privacidad'),
         loadComponent: () => import('./features/public/legal/legal-page').then((m) => m.LegalPage),
         data: { page: 'privacidad' },
       },
       {
-        path: 'legal/cookies',
+        path: rutaEn(idioma, 'legal/cookies'),
         loadComponent: () => import('./features/public/legal/legal-page').then((m) => m.LegalPage),
         data: { page: 'cookies' },
       },
       {
-        path: 'legal/condiciones-de-inscripcion',
+        path: rutaEn(idioma, 'legal/condiciones-de-inscripcion'),
         loadComponent: () => import('./features/public/legal/legal-page').then((m) => m.LegalPage),
         data: { page: 'condiciones-de-inscripcion' },
       },
@@ -195,27 +196,27 @@ function shellPublico(): Route {
         loadComponent: () => import('./features/public/events/event-page').then((m) => m.EventPage),
       },
       {
-        matcher: coincideConEvento('sesiones/:sessionId'),
+        matcher: coincideConEvento(subrutaDeEvento(idioma, 'sesiones/:sessionId')),
         loadComponent: () =>
           import('./features/public/events/session-page').then((m) => m.SessionPage),
       },
       {
-        matcher: coincideConEvento('programa'),
+        matcher: coincideConEvento(subrutaDeEvento(idioma, 'programa')),
         loadComponent: () =>
           import('./features/public/events/event-venues-page').then((m) => m.EventVenuesPage),
       },
       {
-        matcher: coincideConEvento('patrocinadores/:sponsorId'),
+        matcher: coincideConEvento(subrutaDeEvento(idioma, 'patrocinadores/:sponsorId')),
         loadComponent: () =>
           import('./features/public/events/sponsor-page').then((m) => m.SponsorPage),
       },
       {
-        matcher: coincideConEvento('politicas'),
+        matcher: coincideConEvento(subrutaDeEvento(idioma, 'politicas')),
         loadComponent: () =>
           import('./features/public/events/public-policies-page').then((m) => m.PublicPoliciesPage),
       },
       {
-        matcher: coincideConEvento('inscribirse'),
+        matcher: coincideConEvento(subrutaDeEvento(idioma, 'inscribirse')),
         loadComponent: () =>
           import('./features/public/events/registration-page').then((m) => m.RegistrationPage),
       },
@@ -251,13 +252,13 @@ const RUTAS_CON_PREFIJO_DE_IDIOMA: Routes = IDIOMAS.filter(
   // Un idioma desactivado en `/admin/idiomas` no tiene páginas: su prefijo cae
   // en las rutas de la raíz y acaba en 404 (está reservado como organización).
   canMatch: [() => inject(ThemingService).idiomasActivos().includes(idioma)],
-  children: [...rutasDeAcceso(), shellPublico()],
+  children: [...rutasDeAcceso(idioma), shellPublico(idioma)],
 }));
 
 export const routes: Routes = [
   // Primero: el prefijo de idioma no puede caer en el matcher de organización.
   ...RUTAS_CON_PREFIJO_DE_IDIOMA,
-  ...rutasDeAcceso(),
+  ...rutasDeAcceso(IDIOMA_POR_DEFECTO),
   {
     // Consentimiento OAuth del MCP: un asistente pide conectarse con la cuenta
     // de la persona. Con sesión (`authGuard` conserva la vuelta tras el login).
@@ -677,5 +678,5 @@ export const routes: Routes = [
   // de plataforma y no habría forma de distinguir «enlace viejo del organizador»
   // de «ruta nueva del admin».
 
-  shellPublico(),
+  shellPublico(IDIOMA_POR_DEFECTO),
 ];
