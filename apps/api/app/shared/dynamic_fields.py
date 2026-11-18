@@ -20,7 +20,8 @@ _LONGITUD_MAXIMA = {"text": 300, "textarea": 5000, "url": 500, "email": 254}
 def _exigir_longitud(etiqueta: str, valor: str, maximo: int) -> None:
     if len(valor) > maximo:
         raise ValidationDomainError(
-            f"«{etiqueta}» admite como máximo {maximo} caracteres (tiene {len(valor)})."
+            "«{etiqueta}» admite como máximo {maximo} caracteres (tiene {longitud}).",
+            params={"etiqueta": etiqueta, "maximo": maximo, "longitud": len(valor)},
         )
 
 
@@ -40,41 +41,54 @@ def _validar_valor(spec: FieldSpec, valor: Any) -> Any:
 
     if tipo in {"text", "textarea"}:
         if not isinstance(valor, str):
-            raise ValidationDomainError(f"«{etiqueta}» debe ser texto.")
+            raise ValidationDomainError(
+                "«{etiqueta}» debe ser texto.", params={"etiqueta": etiqueta}
+            )
         limpio = valor.strip()
         _exigir_longitud(etiqueta, limpio, _LONGITUD_MAXIMA[tipo])
         return limpio
 
     if tipo == "email":
         if not isinstance(valor, str) or not _EMAIL.match(valor.strip()):
-            raise ValidationDomainError(f"«{etiqueta}» debe ser un correo electrónico válido.")
+            raise ValidationDomainError(
+                "«{etiqueta}» debe ser un correo electrónico válido.", params={"etiqueta": etiqueta}
+            )
         _exigir_longitud(etiqueta, valor.strip(), _LONGITUD_MAXIMA["email"])
         return valor.strip()
 
     if tipo == "url":
         if not isinstance(valor, str) or not _URL.match(valor.strip()):
-            raise ValidationDomainError(f"«{etiqueta}» debe ser una URL que empiece por http(s).")
+            raise ValidationDomainError(
+                "«{etiqueta}» debe ser una URL que empiece por http(s).",
+                params={"etiqueta": etiqueta},
+            )
         _exigir_longitud(etiqueta, valor.strip(), _LONGITUD_MAXIMA["url"])
         return valor.strip()
 
     if tipo == "phone":
         if not isinstance(valor, str) or not _PHONE.match(valor.strip()):
-            raise ValidationDomainError(f"«{etiqueta}» debe ser un teléfono válido.")
+            raise ValidationDomainError(
+                "«{etiqueta}» debe ser un teléfono válido.", params={"etiqueta": etiqueta}
+            )
         return valor.strip()
 
     if tipo == "boolean":
         if not isinstance(valor, bool):
-            raise ValidationDomainError(f"«{etiqueta}» debe ser verdadero o falso.")
+            raise ValidationDomainError(
+                "«{etiqueta}» debe ser verdadero o falso.", params={"etiqueta": etiqueta}
+            )
         return valor
 
     if tipo == "date":
         if not isinstance(valor, str):
-            raise ValidationDomainError(f"«{etiqueta}» debe ser una fecha ISO (AAAA-MM-DD).")
+            raise ValidationDomainError(
+                "«{etiqueta}» debe ser una fecha ISO (AAAA-MM-DD).", params={"etiqueta": etiqueta}
+            )
         try:
             date.fromisoformat(valor)
         except ValueError as exc:
             raise ValidationDomainError(
-                f"«{etiqueta}» debe ser una fecha ISO (AAAA-MM-DD)."
+                "«{etiqueta}» debe ser una fecha ISO (AAAA-MM-DD).", params={"etiqueta": etiqueta}
             ) from exc
         return valor
 
@@ -82,11 +96,12 @@ def _validar_valor(spec: FieldSpec, valor: Any) -> Any:
         opciones = list((spec.options or {}).get("choices", []))
         if valor not in opciones:
             raise ValidationDomainError(
-                f"«{etiqueta}» debe ser uno de: {', '.join(str(o) for o in opciones)}."
+                "«{etiqueta}» debe ser uno de: {opciones}.",
+                params={"etiqueta": etiqueta, "opciones": ", ".join(str(o) for o in opciones)},
             )
         return valor
 
-    raise ValidationDomainError(f"Tipo de campo no soportado: {tipo}.")
+    raise ValidationDomainError("Tipo de campo no soportado: {tipo}.", params={"tipo": tipo})
 
 
 def validate_profile_data(
@@ -115,7 +130,8 @@ def validate_profile_data(
     desconocidas = sorted(set(entrada) - set(por_clave))
     if desconocidas:
         raise ValidationDomainError(
-            f"Campos no definidos para este rol: {', '.join(desconocidas)}.",
+            "Campos no definidos para este rol: {campos}.",
+            params={"campos": ", ".join(desconocidas)},
             extra={"campos_desconocidos": desconocidas},
         )
 
@@ -123,7 +139,9 @@ def validate_profile_data(
     for clave, campo in por_clave.items():
         if clave not in entrada or entrada[clave] in (None, ""):
             if campo.is_required and enforce_required:
-                raise ValidationDomainError(f"«{campo.label}» es obligatorio.")
+                raise ValidationDomainError(
+                    "«{etiqueta}» es obligatorio.", params={"etiqueta": campo.label}
+                )
             continue
         resultado[clave] = _validar_valor(campo, entrada[clave])
     return resultado

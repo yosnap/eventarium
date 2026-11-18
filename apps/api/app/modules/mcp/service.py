@@ -75,12 +75,15 @@ async def _validar_ambitos(
         try:
             ambito = Ambito(valor)
         except ValueError as exc:
-            raise ValidationDomainError(f"Permiso desconocido: {valor}.") from exc
+            raise ValidationDomainError(
+                "Permiso desconocido: {permiso}.", params={"permiso": valor}
+            ) from exc
         if PERMISO_REQUERIDO[ambito] not in permisos:
             # No se puede conceder a un asistente lo que la propia persona no
             # puede hacer en la web.
             raise PermissionDeniedError(
-                f"Tu rol no te permite conceder «{ambito.value}» a una conexión."
+                "Tu rol no te permite conceder «{permiso}» a una conexión.",
+                params={"permiso": ambito.value},
             )
         resultado.append(ambito.value)
     return resultado
@@ -115,7 +118,9 @@ async def crear_clave(
     dias: int = DIAS_POR_DEFECTO,
 ) -> ClaveCreada:
     if not 1 <= dias <= DIAS_MAXIMOS:
-        raise ValidationDomainError(f"La caducidad debe estar entre 1 y {DIAS_MAXIMOS} días.")
+        raise ValidationDomainError(
+            "La caducidad debe estar entre 1 y {maximo} días.", params={"maximo": DIAS_MAXIMOS}
+        )
     concedidos = await _validar_ambitos(session, organization_id, user_id, ambitos)
     eventos = await _validar_eventos(session, organization_id, event_ids)
     clave = PREFIJO_CLAVE + secrets.token_urlsafe(32)

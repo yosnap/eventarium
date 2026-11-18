@@ -32,7 +32,9 @@ async def create_tier(
     try:
         await session.flush()
     except IntegrityError as exc:
-        raise ConflictError(f"Ya existe un nivel de patrocinio llamado «{datos['name']}».") from exc
+        raise ConflictError(
+            "Ya existe un nivel de patrocinio llamado «{nombre}».", params={"nombre": datos["name"]}
+        ) from exc
     return nivel
 
 
@@ -50,7 +52,8 @@ async def update_tier(
         await session.flush()
     except IntegrityError as exc:
         raise ConflictError(
-            f"Ya existe un nivel de patrocinio llamado «{datos.get('name', nivel.name)}»."
+            "Ya existe un nivel de patrocinio llamado «{nombre}».",
+            params={"nombre": datos.get("name", nivel.name)},
         ) from exc
     return nivel
 
@@ -124,7 +127,8 @@ async def update_sponsor(
     try:
         validate_contribution(tipo_final, importe_final, descripcion_final)
     except ValueError as exc:
-        raise ValidationDomainError(str(exc)) from exc
+        # Solo `validate_contribution`, cuyos mensajes están marcados.
+        raise ValidationDomainError(str(exc)) from exc  # mensaje marcado
 
     for campo, valor in datos.items():
         setattr(patrocinador, campo, valor)

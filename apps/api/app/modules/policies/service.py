@@ -110,7 +110,8 @@ async def guardar_version(
     _validar_tipo(kind)
     if content is not None and len(content) > LIMITE_CARACTERES:
         raise ValidationDomainError(
-            f"El texto no puede superar los {LIMITE_CARACTERES} caracteres."
+            "El texto no puede superar los {limite} caracteres.",
+            params={"limite": LIMITE_CARACTERES},
         )
     if event_id is None:
         if content is None:

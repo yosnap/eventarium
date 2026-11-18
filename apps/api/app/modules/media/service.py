@@ -58,7 +58,7 @@ _TIMEOUT_DESCARGA_URL = 10.0
 def _requerir_permiso_del_kind(kind: str, permisos: set[Permission]) -> Permission:
     permiso = KIND_A_PERMISO.get(kind)
     if permiso is None:
-        raise ValidationDomainError(f"Tipo de medio no admitido: {kind}.")
+        raise ValidationDomainError("Tipo de medio no admitido: {tipo}.", params={"tipo": kind})
     if permiso not in permisos:
         raise PermissionDeniedError(
             "No tienes permiso para esta operación.", extra={"required": permiso.value}
@@ -235,7 +235,7 @@ async def obtener_visible(
     if fila is None or fila.deleted_at is not None or fila.organization_id != organization_id:
         raise NotFoundError("Ese medio no existe.")
     if kind is not None and fila.kind != kind:
-        raise ValidationDomainError(f"Ese medio no es de tipo «{kind}».")
+        raise ValidationDomainError("Ese medio no es de tipo «{tipo}».", params={"tipo": kind})
     permiso_del_kind = KIND_A_PERMISO.get(fila.kind)
     puede_ver = fila.uploaded_by_user_id == user_id or (
         permiso_del_kind is not None and permiso_del_kind in permisos
@@ -259,7 +259,7 @@ async def listar(
 ) -> tuple[list[Media], int]:
     permiso_del_kind = KIND_A_PERMISO.get(kind)
     if permiso_del_kind is None:
-        raise ValidationDomainError(f"Tipo de medio no admitido: {kind}.")
+        raise ValidationDomainError("Tipo de medio no admitido: {tipo}.", params={"tipo": kind})
     ve_toda_la_organizacion = permiso_del_kind in permisos
     condiciones = [
         Media.organization_id == organization_id,

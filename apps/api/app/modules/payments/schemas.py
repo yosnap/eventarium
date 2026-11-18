@@ -28,7 +28,7 @@ def _prohibir_null_explicito(instancia: BaseModel, campos: tuple[str, ...]) -> N
         if campo in instancia.model_fields_set and getattr(instancia, campo) is None
     ]
     if enviados_a_null:
-        raise ValueError(f"Los campos {', '.join(enviados_a_null)} no admiten «null» explícito.")
+        raise ValueError("Hay campos que no admiten «null» explícito: omítelos para no cambiarlos.")
 
 
 def _validar_rango_de_descuento(discount_type: str, discount_value: int) -> None:

@@ -23,6 +23,8 @@ BASE_DE_ERRORES = "DomainError"
 VALIDADORES = {"field_validator", "model_validator", "validator", "root_validator"}
 #: Comentario que exime a un mensaje no literal ya registrado con `marcar("…")`.
 MARCA = "# mensaje marcado"
+#: Comentario de un `ValueError` técnico que nunca llega a una persona.
+MARCA_INTERNA = "# mensaje interno"
 
 
 @dataclass
@@ -112,20 +114,24 @@ def extraer() -> Extraccion:
         if isinstance(valor, ast.Constant) and isinstance(valor.value, str):
             resultado.mensajes.add(valor.value)
             return
+        # `marcar("…")` ya registra su literal.
+        if (
+            isinstance(valor, ast.Call)
+            and _nombre(valor) == "marcar"
+            and valor.args
+            and isinstance(valor.args[0], ast.Constant)
+        ):
+            return
         # Un valor elegido de mensajes ya registrados con `marcar("…")`.
         fin = getattr(valor, "end_lineno", valor.lineno) or valor.lineno
-        tramo = lineas[ruta][valor.lineno - 1 : fin + 1]
-        if any(MARCA in linea for linea in tramo):
+        # El mensaje, la línea siguiente y las dos anteriores (la marca va encima
+        # del `raise`, y el mensaje puede ir en la línea de después).
+        tramo = lineas[ruta][max(valor.lineno - 3, 0) : fin + 1]
+        if any(MARCA in linea or MARCA_INTERNA in linea for linea in tramo):
             return
         resultado.no_literales.append(f"{ruta.relative_to(RAIZ_APP.parent)}:{valor.lineno}")
 
     for ruta, arbol in arboles.items():
-        validadores = [
-            nodo
-            for nodo in ast.walk(arbol)
-            if isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef)) and _es_validador(nodo)
-        ]
-        dentro_de_validador = {id(hijo) for funcion in validadores for hijo in ast.walk(funcion)}
         for nodo in ast.walk(arbol):
             if isinstance(nodo, ast.ClassDef) and nodo.name in errores:
                 for sentencia in nodo.body:
@@ -150,7 +156,9 @@ def extraer() -> Extraccion:
                 anotar(_mensaje(nodo), ruta)
             elif nombre in errores or nombre == "t":
                 anotar(_mensaje(nodo), ruta)
-            elif nombre == "ValueError" and id(nodo) in dentro_de_validador:
+            elif nombre == "ValueError":
+                # Dentro o fuera de un validador: las funciones auxiliares que llaman
+                # los validadores también acaban en un 422.
                 anotar(_mensaje(nodo), ruta)
 
     from app.core.mensajes.validacion import PLANTILLAS

@@ -159,12 +159,16 @@ async def iniciar_compra(
                         session, event.organization_id, codigo.id
                     )
                 if codigo is None:
-                    raise ValidationDomainError(payments_service.MENSAJE_CODIGO_NO_VALIDO)
+                    raise ValidationDomainError(
+                        payments_service.MENSAJE_CODIGO_NO_VALIDO
+                    )  # mensaje marcado
                 usos = await repository.count_used_discount_code(
                     session, event.organization_id, codigo.id
                 )
                 if not payments_service.validar_codigo_vigente(codigo, tipo, usos, ahora):
-                    raise ValidationDomainError(payments_service.MENSAJE_CODIGO_NO_VALIDO)
+                    raise ValidationDomainError(
+                        payments_service.MENSAJE_CODIGO_NO_VALIDO
+                    )  # mensaje marcado
                 discount_type = codigo.discount_type
                 discount_value = codigo.discount_value
                 discount_code_id = codigo.id

@@ -282,7 +282,14 @@ async def list_public_events(
     try:
         etiquetas = tuple(categories.normalizar_etiquetas(etiqueta))
     except ValueError as exc:
-        raise ValidationDomainError(str(exc)) from exc
+        raise ValidationDomainError(
+            "Las etiquetas del filtro no son válidas: cada una debe tener entre {minimo} y "
+            "{maximo} caracteres y solo admite letras, números, espacios y guiones.",
+            params={
+                "minimo": categories.LONGITUD_MIN_ETIQUETA,
+                "maximo": categories.LONGITUD_MAX_ETIQUETA,
+            },
+        ) from exc
     filas, total = await service.list_public_events_across_organizations(
         session, category_slug=categoria, tags=etiquetas, limit=limit, offset=offset
     )

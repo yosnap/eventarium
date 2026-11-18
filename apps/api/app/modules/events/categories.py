@@ -31,19 +31,15 @@ def normalizar_etiquetas(etiquetas: list[str]) -> list[str]:
     for original in etiquetas:
         etiqueta = re.sub(r"\s+", " ", original.strip().lower())
         if not (LONGITUD_MIN_ETIQUETA <= len(etiqueta) <= LONGITUD_MAX_ETIQUETA):
-            raise ValueError(
-                f"Cada etiqueta debe tener entre {LONGITUD_MIN_ETIQUETA} y "
-                f"{LONGITUD_MAX_ETIQUETA} caracteres («{original.strip()}»)."
-            )
+            # Literal para que se pueda traducir: si cambian los límites, cambia aquí.
+            raise ValueError("Cada etiqueta debe tener entre 2 y 30 caracteres.")
         if not _ETIQUETA.fullmatch(etiqueta):
-            raise ValueError(
-                "Las etiquetas solo admiten letras, números, espacios y guiones "
-                f"(«{original.strip()}»)."
-            )
+            raise ValueError("Las etiquetas solo admiten letras, números, espacios y guiones.")
         if etiqueta not in limpias:
             limpias.append(etiqueta)
     if len(limpias) > MAX_ETIQUETAS:
-        raise ValueError(f"Un evento admite como máximo {MAX_ETIQUETAS} etiquetas.")
+        # Literal, para que se pueda traducir: si cambia MAX_ETIQUETAS, cambia también aquí.
+        raise ValueError("Un evento admite como máximo 10 etiquetas.")
     return limpias
 
 

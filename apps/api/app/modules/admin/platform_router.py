@@ -154,7 +154,7 @@ async def _resolver_plantilla(session: AsyncSession, valor: str) -> uuid.UUID | 
         plantilla_id = uuid.UUID(valor)
     except ValueError as exc:
         raise ValidationDomainError(
-            f"«{valor}» no es un identificador de plantilla válido."
+            "«{valor}» no es un identificador de plantilla válido.", params={"valor": valor}
         ) from exc
     if await theme_templates_repository.get_theme_template(session, plantilla_id) is None:
         raise ValidationDomainError("La plantilla de tema no existe.")

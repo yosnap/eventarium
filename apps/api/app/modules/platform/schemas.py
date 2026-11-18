@@ -54,7 +54,7 @@ class PlatformBrandingUpdate(BaseModel):
         if valor is None:
             return None
         if DEFAULT_LOCALE not in valor:
-            raise ValueError(f"El idioma por defecto ({DEFAULT_LOCALE}) no se puede desactivar.")
+            raise ValueError("El idioma por defecto no se puede desactivar.")
         # Sin duplicados y en el orden del catálogo.
         return [locale for locale in LOCALES if locale in valor]
 

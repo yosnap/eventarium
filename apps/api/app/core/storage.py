@@ -92,14 +92,18 @@ def validate_upload(
         raise ValidationDomainError("El fichero está vacío.")
     if len(contenido) > limite:
         raise ValidationDomainError(
-            f"El fichero supera el tamaño máximo de {limite // (1024 * 1024)} MB."
+            "El fichero supera el tamaño máximo de {megas} MB.",
+            params={"megas": limite // (1024 * 1024)},
         )
 
     mime = magic.from_buffer(contenido[:2048], mime=True)
     extension = mimes.get(mime)
     if extension is None:
         tipos = ", ".join(sorted(mimes))
-        raise ValidationDomainError(f"Tipo de fichero no permitido: {mime}. Se aceptan {tipos}.")
+        raise ValidationDomainError(
+            "Tipo de fichero no permitido: {mime}. Se aceptan {tipos}.",
+            params={"mime": mime, "tipos": tipos},
+        )
     return mime, extension
 
 
@@ -195,7 +199,9 @@ class S3StorageProvider:
 
     async def presigned_put_url(self, key: str, content_type: str, *, expires_in: int = 900) -> str:
         if content_type not in ALLOWED_IMAGE_MIMES:
-            raise ValidationDomainError(f"Tipo de fichero no permitido: {content_type}.")
+            raise ValidationDomainError(
+                "Tipo de fichero no permitido: {mime}.", params={"mime": content_type}
+            )
         async with self._client() as s3:
             url: str = await s3.generate_presigned_url(
                 "put_object",

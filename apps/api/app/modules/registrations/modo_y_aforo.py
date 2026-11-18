@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.mensajes import marcar, t
 from app.modules.events.models import Event
 from app.modules.registrations import repository
 from app.modules.registrations.service import reencolar_promociones_caducadas
@@ -28,11 +29,11 @@ _SIN_PAGO_VIVAS = ("pending_verification", "pending_approval", "waitlisted", "co
 _CON_COMPRA_INICIADA = ("pending_payment", "pending_verification", "pending_approval", "waitlisted")
 
 _ETIQUETAS_DE_ESTADO = {
-    "pending_verification": "pendientes de verificar el correo",
-    "pending_approval": "pendientes de aprobación",
-    "pending_payment": "pendientes de pago",
-    "waitlisted": "en lista de espera",
-    "confirmed": "confirmadas",
+    "pending_verification": marcar("{total} pendientes de verificar el correo"),
+    "pending_approval": marcar("{total} pendientes de aprobación"),
+    "pending_payment": marcar("{total} pendientes de pago"),
+    "waitlisted": marcar("{total} en lista de espera"),
+    "confirmed": marcar("{total} confirmadas"),
 }
 
 
@@ -47,9 +48,11 @@ async def _recuento_en(
 
 
 def _describir(recuento: dict[str, int]) -> str:
+    """Recuento legible en el idioma de la petición: cada trozo se traduce aquí,
+    porque va dentro de un `{parámetro}` del mensaje y no de su plantilla."""
     return ", ".join(
-        f"{recuento[estado]} {etiqueta}"
-        for estado, etiqueta in _ETIQUETAS_DE_ESTADO.items()
+        t(plantilla, total=recuento[estado])  # mensaje marcado
+        for estado, plantilla in _ETIQUETAS_DE_ESTADO.items()
         if estado in recuento
     )
 
@@ -65,15 +68,17 @@ async def asegurar_cambio_de_modo_posible(
         if recuento:
             raise ConflictError(
                 "No se puede pasar el evento a «de pago» porque ya tiene inscripciones "
-                f"sin pago ({_describir(recuento)}). Cancela esas inscripciones o crea un "
-                "evento nuevo de pago."
+                "sin pago ({recuento}). Cancela esas inscripciones o crea un "
+                "evento nuevo de pago.",
+                params={"recuento": _describir(recuento)},
             )
     elif evento.registration_mode == "paid":
         recuento = await _recuento_en(session, evento, _CON_COMPRA_INICIADA)
         if recuento:
             raise ConflictError(
                 "No se puede quitar el pago mientras haya inscripciones con una compra "
-                f"iniciada ({_describir(recuento)}). Espera a que se resuelvan o cancélalas."
+                "iniciada ({recuento}). Espera a que se resuelvan o cancélalas.",
+                params={"recuento": _describir(recuento)},
             )
 
 
@@ -85,5 +90,6 @@ async def asegurar_aforo_posible(session: AsyncSession, evento: Event, aforo_nue
     )
     if aforo_nuevo < reservadas:
         raise ConflictError(
-            f"El aforo no puede ser menor que las {reservadas} plazas ya ocupadas o reservadas."
+            "El aforo no puede ser menor que las {reservadas} plazas ya ocupadas o reservadas.",
+            params={"reservadas": reservadas},
         )

@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.database import maintenance_session, set_organization_context
 from app.core.fechas import fecha_y_hora
+from app.core.mensajes import marcar
 from app.core.tasks import (
     process_refunds_task,
     send_registration_cancelled_email,
@@ -75,12 +76,17 @@ def _validar_valor(pregunta: EventRegistrationQuestion, valor: object) -> Any | 
         if valor is None:
             return None
         if not isinstance(valor, str):
-            raise ValidationDomainError(f"La respuesta a «{pregunta.label}» debe ser texto.")
+            raise ValidationDomainError(
+                "La respuesta a «{pregunta}» debe ser texto.", params={"pregunta": pregunta.label}
+            )
         texto = valor.strip()
         if not texto:
             return None
         if len(texto) > _LONGITUD_MAXIMA_TEXTO_LIBRE:
-            raise ValidationDomainError(f"La respuesta a «{pregunta.label}» es demasiado larga.")
+            raise ValidationDomainError(
+                "La respuesta a «{pregunta}» es demasiado larga.",
+                params={"pregunta": pregunta.label},
+            )
         return texto
 
     opciones = set(pregunta.options or [])
@@ -90,7 +96,8 @@ def _validar_valor(pregunta: EventRegistrationQuestion, valor: object) -> Any | 
             return None
         if not isinstance(valor, str) or valor not in opciones:
             raise ValidationDomainError(
-                f"La respuesta a «{pregunta.label}» no es una opción válida."
+                "La respuesta a «{pregunta}» no es una opción válida.",
+                params={"pregunta": pregunta.label},
             )
         return valor
 
@@ -99,11 +106,13 @@ def _validar_valor(pregunta: EventRegistrationQuestion, valor: object) -> Any | 
         return None
     if not isinstance(valor, list) or not all(isinstance(elemento, str) for elemento in valor):
         raise ValidationDomainError(
-            f"La respuesta a «{pregunta.label}» debe ser una lista de opciones."
+            "La respuesta a «{pregunta}» debe ser una lista de opciones.",
+            params={"pregunta": pregunta.label},
         )
     if not set(valor).issubset(opciones):
         raise ValidationDomainError(
-            f"La respuesta a «{pregunta.label}» incluye una opción no válida."
+            "La respuesta a «{pregunta}» incluye una opción no válida.",
+            params={"pregunta": pregunta.label},
         )
     return valor or None
 
@@ -132,7 +141,8 @@ def _validar_respuestas(
             )
         if question_id in vistas:
             raise ValidationDomainError(
-                f"La pregunta «{pregunta.label}» tiene más de una respuesta."
+                "La pregunta «{pregunta}» tiene más de una respuesta.",
+                params={"pregunta": pregunta.label},
             )
         vistas.add(question_id)
 
@@ -143,7 +153,9 @@ def _validar_respuestas(
 
     for pregunta in preguntas:
         if pregunta.required and pregunta.id not in respondidas:
-            raise ValidationDomainError(f"La pregunta «{pregunta.label}» es obligatoria.")
+            raise ValidationDomainError(
+                "La pregunta «{pregunta}» es obligatoria.", params={"pregunta": pregunta.label}
+            )
 
     return validadas
 
@@ -904,10 +916,10 @@ async def cancel_registration_by_token(session: AsyncSession, *, token: str) -> 
     a nadie y borraría la ausencia): se comprueba **antes** de consumir el
     token, para que el enlace no quede gastado por un intento rechazado.
     """
-    invalido = "El enlace de cancelación no es válido o ha caducado."
+    invalido = marcar("El enlace de cancelación no es válido o ha caducado.")
     bruto = await peek_token(PROPOSITO_CANCELACION_INSCRIPCION, token)
     if bruto is None:
-        raise ValidationDomainError(invalido)
+        raise ValidationDomainError(invalido)  # mensaje marcado
 
     registration_id = uuid.UUID(bruto)
     await _fijar_contexto_por_inscripcion(session, registration_id)
@@ -931,7 +943,7 @@ async def cancel_registration_by_token(session: AsyncSession, *, token: str) -> 
     # Otra petición con el mismo enlace puede haberlo gastado entre la lectura
     # y aquí (la fila ya estaba bloqueada, así que no ha cancelado aún).
     if await consume_token(PROPOSITO_CANCELACION_INSCRIPCION, token) is None:
-        raise ValidationDomainError(invalido)
+        raise ValidationDomainError(invalido)  # mensaje marcado
 
     await _cancelar_inscripcion(
         session,

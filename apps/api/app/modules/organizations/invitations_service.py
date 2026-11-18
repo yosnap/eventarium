@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import set_organization_context
 from app.core.locale import DEFAULT_LOCALE, Locale
+from app.core.mensajes import marcar
 from app.core.permissions import Permission
 from app.core.security import hash_password
 from app.modules.auth.verification import (
@@ -390,10 +391,10 @@ def mensaje_de_estado(state: InvitationTokenState) -> str:
 
 
 _MENSAJE_TOKEN_INVALIDO: dict[InvitationTokenState, str] = {
-    InvitationTokenState.INVALIDA: "El enlace de invitación no es válido.",
-    InvitationTokenState.CADUCADA: "Esta invitación ha caducado. Pide que te envíen otra.",
-    InvitationTokenState.REVOCADA: "Esta invitación ha sido revocada.",
-    InvitationTokenState.ACEPTADA: "Esta invitación ya se aceptó.",
+    InvitationTokenState.INVALIDA: marcar("El enlace de invitación no es válido."),
+    InvitationTokenState.CADUCADA: marcar("Esta invitación ha caducado. Pide que te envíen otra."),
+    InvitationTokenState.REVOCADA: marcar("Esta invitación ha sido revocada."),
+    InvitationTokenState.ACEPTADA: marcar("Esta invitación ya se aceptó."),
     InvitationTokenState.VALIDA: "",  # nunca se usa: rama tratada aparte abajo
 }
 
@@ -434,7 +435,7 @@ async def accept_invitation(
         raise ConflictError("Esta invitación ya se aceptó.")
 
     if resuelto.state != InvitationTokenState.VALIDA or resuelto.invitation is None:
-        raise ValidationDomainError(_MENSAJE_TOKEN_INVALIDO[resuelto.state])
+        raise ValidationDomainError(_MENSAJE_TOKEN_INVALIDO[resuelto.state])  # mensaje marcado
 
     if resuelto.account_has_password:
         # No debería llegarse aquí (la fase 1 no emite token si el correo ya

@@ -15,6 +15,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.core.mensajes import marcar
 from app.modules.organizations.schemas import PublicOrganizationRef
 from app.modules.theme_templates.schemas import PublicTheme
 
@@ -40,7 +41,7 @@ def _prohibir_null_explicito(instancia: BaseModel, campos: tuple[str, ...]) -> N
         if campo in instancia.model_fields_set and getattr(instancia, campo) is None
     ]
     if enviados_a_null:
-        raise ValueError(f"Los campos {', '.join(enviados_a_null)} no admiten «null» explícito.")
+        raise ValueError("Hay campos que no admiten «null» explícito: omítelos para no cambiarlos.")
 
 
 def validate_contribution(
@@ -50,14 +51,14 @@ def validate_contribution(
     texto no vacío y ningún importe — nunca los dos a la vez, nunca ninguno."""
     if contribution_type == "monetaria":
         if amount is None or amount <= 0:
-            raise ValueError("Una aportación monetaria exige un importe positivo.")
+            raise ValueError(marcar("Una aportación monetaria exige un importe positivo."))
         if description:
-            raise ValueError("Una aportación monetaria no lleva descripción.")
+            raise ValueError(marcar("Una aportación monetaria no lleva descripción."))
     elif contribution_type == "en_especie":
         if not description or not description.strip():
-            raise ValueError("Una aportación en especie exige una descripción.")
+            raise ValueError(marcar("Una aportación en especie exige una descripción."))
         if amount is not None:
-            raise ValueError("Una aportación en especie no lleva importe.")
+            raise ValueError(marcar("Una aportación en especie no lleva importe."))
 
 
 class SponsorTierCreate(BaseModel):
@@ -113,7 +114,7 @@ class SponsorCreate(BaseModel):
                 self.contribution_type, self.contribution_amount, self.contribution_description
             )
         except ValueError as exc:
-            raise ValueError(str(exc)) from exc
+            raise ValueError(str(exc)) from exc  # mensaje marcado
         return self
 
 
