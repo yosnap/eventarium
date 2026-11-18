@@ -12,6 +12,7 @@ import {
   input,
   makeStateKey,
   signal,
+  LOCALE_ID,
 } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
@@ -704,6 +705,8 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
   `,
 })
 export class EventPage implements OnInit {
+  /** Idioma de la visita, para fechas e importes. */
+  private readonly idioma = inject(LOCALE_ID);
   // Sin valor en la vista previa, que llega por `eventId` (`/vista-previa/:eventId`).
   readonly org = input<string | undefined>('');
   readonly slug = input<string | undefined>('');
@@ -778,7 +781,7 @@ export class EventPage implements OnInit {
     const anadir = (personas: readonly PublicParticipant[]): void => {
       const nuevas = personas
         .filter((persona) => !vistos.has(persona.ref))
-        .sort((a, b) => a.display_name.localeCompare(b.display_name, 'es'));
+        .sort((a, b) => a.display_name.localeCompare(b.display_name, this.idioma));
       for (const persona of nuevas) {
         if (vistos.has(persona.ref)) continue;
         vistos.set(persona.ref, {
@@ -840,7 +843,7 @@ export class EventPage implements OnInit {
   /** Sin entradas a la venta en un evento de pago: aviso en lugar del botón. */
   protected readonly avisoVenta = computed(() => {
     const evento = this.evento();
-    return evento ? avisoDeVenta(evento, null) : null;
+    return evento ? avisoDeVenta(evento, null, false, Date.now(), this.idioma) : null;
   });
 
   /** «Desde X €» con el tipo de entrada vigente más barato
@@ -852,7 +855,7 @@ export class EventPage implements OnInit {
     if (!evento || evento.price_from_cents === null || evento.price_currency === null) {
       return null;
     }
-    return formatearPrecio(evento.price_from_cents, evento.price_currency);
+    return formatearPrecio(evento.price_from_cents, evento.price_currency, this.idioma);
   });
 
   /** Ocupación del aforo en porcentaje entero, acotada a 100: `reserved_count`

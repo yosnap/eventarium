@@ -11,6 +11,7 @@ import {
   inject,
   makeStateKey,
   signal,
+  LOCALE_ID,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -631,6 +632,8 @@ function normalizarCiudad(ciudad: string): string {
   `,
 })
 export class EventsListPage implements OnInit {
+  /** Idioma de la visita, para fechas e importes. */
+  private readonly idioma = inject(LOCALE_ID);
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transferState = inject(TransferState);
@@ -677,7 +680,7 @@ export class EventsListPage implements OnInit {
       const clave = normalizarCiudad(evento.city);
       if (!vistas.has(clave)) vistas.set(clave, evento.city);
     }
-    return [...vistas.values()].sort((a, b) => a.localeCompare(b, 'es'));
+    return [...vistas.values()].sort((a, b) => a.localeCompare(b, this.idioma));
   });
 
   /** Opciones del select de ciudad, con "todas" como primera opción
@@ -833,7 +836,7 @@ export class EventsListPage implements OnInit {
     if (evento.price_from_cents === null || evento.price_currency === null) {
       return traducir('publico.eventos.precio.pago');
     }
-    const precio = formatearPrecio(evento.price_from_cents, evento.price_currency);
+    const precio = formatearPrecio(evento.price_from_cents, evento.price_currency, this.idioma);
     return evento.price_multiple ? traducir('publico.eventos.precio.desde', { precio }) : precio;
   }
 

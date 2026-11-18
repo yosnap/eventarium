@@ -27,7 +27,8 @@ export class ApiService {
    *
    * El servidor de Angular llama a la API con su propio `Host` interno, que no
    * identifica a ninguna organización. `X-Forwarded-Host` lleva el host original de la
-   * persona que visita la web; la API solo lo acepta desde una IP de confianza.
+   * persona que visita la web; la API solo lo acepta desde una IP de confianza. Lo
+   * mismo vale para `X-Forwarded-For`.
    */
   serverForwardHeaders(): HttpHeaders {
     let cabeceras = new HttpHeaders();
@@ -42,6 +43,12 @@ export class ApiService {
     const protocolo = this.peticion.headers.get('x-forwarded-proto');
     if (protocolo) {
       cabeceras = cabeceras.set('X-Forwarded-Proto', protocolo);
+    }
+    // IP de quien visita la web, tal como la puso el proxy: sin ella, la API vería
+    // siempre la del servidor de Angular y sus límites por IP serían comunes a todos.
+    const ip = this.peticion.headers.get('x-forwarded-for');
+    if (ip) {
+      cabeceras = cabeceras.set('X-Forwarded-For', ip);
     }
     return cabeceras;
   }

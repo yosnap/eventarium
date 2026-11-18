@@ -87,7 +87,8 @@
         "test": {
           "builder": "@angular/build:unit-test",
           "options": {
-            "setupFiles": ["src/testing/setup-styles.ts"]
+            "setupFiles": ["src/testing/setup-styles.ts"],
+            "providersFile": "src/testing/providers.ts"
           }
         },
         "lint": {

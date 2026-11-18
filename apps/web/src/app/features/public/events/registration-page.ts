@@ -10,6 +10,7 @@ import {
   input,
   signal,
   viewChild,
+  LOCALE_ID,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
@@ -517,6 +518,8 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   `,
 })
 export class RegistrationPage implements OnInit {
+  /** Idioma de la visita, para fechas e importes. */
+  private readonly idioma = inject(LOCALE_ID);
   readonly org = input.required<string>();
   readonly slug = input.required<string>();
 
@@ -589,7 +592,7 @@ export class RegistrationPage implements OnInit {
         : null;
     }
     const fallida = this.cargaDeTipos() === 'fallida';
-    return avisoDeVenta(evento, this.ticketTypes().length, fallida);
+    return avisoDeVenta(evento, this.ticketTypes().length, fallida, Date.now(), this.idioma);
   });
   protected readonly ticketTypeId = signal<string | null>(null);
   protected readonly errorTicketType = signal<string | null>(null);
