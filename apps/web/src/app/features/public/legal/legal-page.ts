@@ -126,6 +126,11 @@ export class LegalPage implements OnInit {
 
   private aplicar(respuesta: LegalPageResponse): void {
     this.contenidoBruto.set(respuesta.content);
-    this.seo.set({ title: this.transloco.translate(this.tituloClave()) });
+    // El texto legal lo escribe la plataforma en su idioma y aún no tiene traducción:
+    // como el contenido del organizador, solo se ofrece en su idioma de origen.
+    this.seo.set({
+      title: this.transloco.translate(this.tituloClave()),
+      contenidoDelOrganizador: true,
+    });
   }
 }

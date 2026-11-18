@@ -1,6 +1,10 @@
 import { DOCUMENT, DestroyRef, Injectable, inject } from '@angular/core';
 import { Meta, Title } from '@angular/platform-browser';
 
+import { IDIOMA_POR_DEFECTO, Idioma, urlEnIdioma } from '../i18n/idioma';
+import { IdiomaService } from '../i18n/idioma.service';
+import { DecisionDeIndexacion, decidirIndexacion } from './indexacion-por-idioma';
+
 /** Datos mínimos para las etiquetas Open Graph de una página pública. */
 export interface DatosOg {
   readonly title: string;
@@ -9,8 +13,15 @@ export interface DatosOg {
   readonly type?: string;
   /** Para páginas que no deben indexarse (p. ej. enlaces con token). */
   readonly noIndexar?: boolean;
-  /** Ruta canónica de la página (`/acme/iawic`); se publica como `rel=canonical` absoluta. */
+  /**
+   * Ruta de la página sin prefijo de idioma (`/acme/iawic`). Sin ella se usa la ruta
+   * actual sin parámetros. Se publica, con el prefijo que toque, como `rel=canonical`.
+   */
   readonly canonica?: string;
+  /** Contenido escrito por el organizador: solo se indexa en los idiomas al día. */
+  readonly contenidoDelOrganizador?: boolean;
+  readonly idiomaOrigen?: Idioma;
+  readonly idiomasAlDia?: readonly Idioma[];
 }
 
 /**
@@ -32,6 +43,7 @@ export class SeoMetaService {
   private readonly meta = inject(Meta);
   private readonly title = inject(Title);
   private readonly documento = inject(DOCUMENT);
+  private readonly idioma = inject(IdiomaService);
 
   set(datos: DatosOg): void {
     this.title.setTitle(datos.title);
@@ -48,11 +60,22 @@ export class SeoMetaService {
     }
     if (datos.noIndexar) {
       this.meta.updateTag({ name: 'robots', content: 'noindex, nofollow' });
+      this.fijarCanonica(undefined);
+      this.fijarAlternativas([]);
+      this.fijarOgLocale(this.idioma.idioma().replace('-', '_'), []);
     } else {
       this.meta.removeTag('name="robots"');
+      const decision = decidirIndexacion({
+        ruta: datos.canonica ?? this.rutaActualSinPrefijo(),
+        activo: this.idioma.idioma(),
+        contenidoDelOrganizador: datos.contenidoDelOrganizador ?? false,
+        idiomaOrigen: datos.idiomaOrigen,
+        idiomasAlDia: datos.idiomasAlDia,
+      });
+      this.fijarCanonica(decision.canonica);
+      this.fijarAlternativas(decision.alternativas);
+      this.fijarOgLocale(decision.ogLocale, decision.ogLocaleAlternativos);
     }
-
-    this.fijarCanonica(datos.canonica);
 
     // Siempre se fija: si solo se pusiera cuando hay imagen, al navegar desde
     // un evento con portada a otra página se quedaría la portada anterior.
@@ -76,6 +99,34 @@ export class SeoMetaService {
     if (!existente) {
       cabecera.appendChild(enlace);
     }
+  }
+
+  /** `<link rel="alternate" hreflang>`: se sustituyen todos en cada página. */
+  private fijarAlternativas(alternativas: DecisionDeIndexacion['alternativas']): void {
+    const cabecera = this.documento.head;
+    cabecera.querySelectorAll('link[rel="alternate"][hreflang]').forEach((e) => e.remove());
+    for (const { idioma, ruta } of alternativas) {
+      const enlace = this.documento.createElement('link');
+      enlace.setAttribute('rel', 'alternate');
+      enlace.setAttribute('hreflang', idioma);
+      enlace.setAttribute('href', this.absoluta(ruta));
+      cabecera.appendChild(enlace);
+    }
+  }
+
+  private fijarOgLocale(actual: string, alternativos: readonly string[]): void {
+    this.meta.updateTag({ property: 'og:locale', content: actual });
+    while (this.meta.getTag('property="og:locale:alternate"')) {
+      this.meta.removeTag('property="og:locale:alternate"');
+    }
+    for (const alternativo of alternativos) {
+      this.meta.addTag({ property: 'og:locale:alternate', content: alternativo });
+    }
+  }
+
+  /** Ruta actual sin prefijo de idioma ni parámetros. */
+  private rutaActualSinPrefijo(): string {
+    return urlEnIdioma(this.documento.location.pathname, IDIOMA_POR_DEFECTO);
   }
 
   /**

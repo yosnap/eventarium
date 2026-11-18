@@ -14,6 +14,7 @@ import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
 import { PasswordStrength, isPasswordValid } from '../../../shared/ui/password-strength';
 import { Reveal } from '../../../shared/ui/reveal.directive';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 
 type Estado = 'comprobando' | 'formulario' | 'yaTieneCuenta' | 'sinToken' | 'error' | 'exito';
 
@@ -36,6 +37,7 @@ interface InvitationPublicResponse {
   selector: 'app-accept-invitation-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    EnlacePipe,
     TranslocoDirective,
     RouterLink,
     AuthFrame,
@@ -70,7 +72,7 @@ interface InvitationPublicResponse {
                   <app-alert tone="info" [title]="t('invitacion.yaTieneCuentaTitulo')">
                     {{ t('invitacion.yaTieneCuentaDetalle') }}
                     <p>
-                      <a routerLink="/acceder">{{ t('registro.yaTengoCuenta') }}</a>
+                      <a [routerLink]="'/acceder' | enlace">{{ t('registro.yaTengoCuenta') }}</a>
                     </p>
                   </app-alert>
                 }
@@ -78,7 +80,7 @@ interface InvitationPublicResponse {
                   <app-alert tone="exito" [title]="t('invitacion.exitoTitulo')">
                     {{ t('invitacion.exitoDetalle', { organizacion: organizationName() }) }}
                     <p>
-                      <a routerLink="/acceder">{{ t('invitacion.irAAcceder') }}</a>
+                      <a [routerLink]="'/acceder' | enlace">{{ t('invitacion.irAAcceder') }}</a>
                     </p>
                   </app-alert>
                 }

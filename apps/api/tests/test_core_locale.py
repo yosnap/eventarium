@@ -13,6 +13,7 @@ from app.core.codigos_de_idioma import CODIGOS_ISO_639_1
 from app.core.locale import (
     DEFAULT_LOCALE,
     LOCALES,
+    PREFIJO_DE_URL,
     IdiomaDep,
     IdiomaMiddleware,
     buscar_locale,
@@ -106,3 +107,12 @@ def test_el_catalogo_coincide_con_el_de_la_web() -> None:
 def test_ningun_codigo_de_idioma_puede_ser_una_organizacion() -> None:
     assert CODIGOS_ISO_639_1 <= RESERVED_SLUGS
     assert {"en", "es", "fr", "de", "en-us", "es-es"} <= RESERVED_SLUGS
+
+
+@pytest.mark.skipif(not CATALOGO_WEB.exists(), reason="falta apps/web en este checkout")
+def test_los_prefijos_de_url_coinciden_con_los_de_la_web() -> None:
+    texto = (CATALOGO_WEB.parent / "idioma.ts").read_text(encoding="utf-8")
+    bloque = re.search(r"PREFIJO_DE_IDIOMA[^=]*=\s*\{([^}]*)\}", texto)
+    assert bloque, "no se encuentra PREFIJO_DE_IDIOMA en la web"
+    web = dict(re.findall(r"'([^']+)':\s*'([^']*)'", bloque.group(1)))
+    assert web == PREFIJO_DE_URL

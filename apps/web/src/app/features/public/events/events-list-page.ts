@@ -30,6 +30,7 @@ import { Button } from '../../../shared/ui/button';
 import { Chip } from '../../../shared/ui/chip';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 import { Select, type SelectOption } from '../../../shared/ui/select';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 
 type LocationMode = 'in_person' | 'online' | 'hybrid';
 type FiltroModo = 'todos' | LocationMode;
@@ -149,7 +150,17 @@ function normalizarCiudad(ciudad: string): string {
 @Component({
   selector: 'app-events-list-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, RouterLink, TranslocoDirective, Alert, Button, Chip, Select, Reveal],
+  imports: [
+    EnlacePipe,
+    DatePipe,
+    RouterLink,
+    TranslocoDirective,
+    Alert,
+    Button,
+    Chip,
+    Select,
+    Reveal,
+  ],
   template: `
     <ng-container *transloco="let t">
       <section class="hero">
@@ -299,7 +310,7 @@ function normalizarCiudad(ciudad: string): string {
                 ) {
                   <a
                     class="ev"
-                    [routerLink]="rutaEvento(evento.organization.slug, evento.slug)"
+                    [routerLink]="rutaEvento(evento.organization.slug, evento.slug) | enlace"
                     appReveal
                     [index]="indice"
                   >

@@ -24,6 +24,17 @@ Locale = Literal["es-ES", "en-US"]
 DEFAULT_LOCALE: Locale = "es-ES"
 LOCALES: Final[tuple[Locale, ...]] = get_args(Locale)
 
+#: Primer segmento de las URL públicas de la web en cada idioma; el de por defecto va
+#: sin prefijo. Espejo de `PREFIJO_DE_IDIOMA` en `core/i18n/idioma.ts`.
+PREFIJO_DE_URL: Final[dict[Locale, str]] = {"es-ES": "", "en-US": "en"}
+
+
+def prefijo_de_url(locale: Locale) -> str:
+    """Prefijo de ruta (`/en`, o vacío) para enlazar a la web en `locale`."""
+    prefijo = PREFIJO_DE_URL[locale]
+    return f"/{prefijo}" if prefijo else ""
+
+
 #: Idioma de la petición en curso. Fuera de una petición (tareas de taskiq, scripts)
 #: vale el idioma por defecto. Las `BackgroundTasks` de FastAPI sí lo heredan de la
 #: petición que las lanzó, que no tiene por qué ser el de quien recibe el aviso: todo

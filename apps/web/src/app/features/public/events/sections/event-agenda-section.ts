@@ -15,6 +15,7 @@ import { SessionTypeChip } from '../../../../shared/ui/session-type-chip';
 import { Panel } from '../../../../shared/ui/panel';
 import { rutaEvento } from '../../../../core/routing/rutas-publicas';
 import { type PublicEventSession, esPausa, nombreTipoSesion } from '../event-page.types';
+import { EnlacePipe } from '../../../../core/i18n/enlace.pipe';
 
 export interface DiaDeAgenda {
   readonly fecha: string;
@@ -39,7 +40,7 @@ export interface DiaDeAgenda {
 @Component({
   selector: 'app-event-agenda-section',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, RouterLink, TranslocoDirective, SessionTypeChip, Panel],
+  imports: [EnlacePipe, DatePipe, RouterLink, TranslocoDirective, SessionTypeChip, Panel],
   template: `
     <ng-container *transloco="let t">
       <div class="dias" role="tablist" [attr.aria-label]="t('publico.eventos.diasAria')">
@@ -93,7 +94,7 @@ export interface DiaDeAgenda {
                           let ultimo = $last
                         ) {
                           @if (persona.public_slug) {
-                            <a [routerLink]="['/ponentes', persona.public_slug]">{{
+                            <a [routerLink]="['/ponentes', persona.public_slug] | enlace">{{
                               persona.display_name
                             }}</a>
                           } @else {
@@ -114,7 +115,7 @@ export interface DiaDeAgenda {
                     />
                     <a
                       class="ficha"
-                      [routerLink]="rutaEvento(org(), eventSlug(), 'sesiones', sesion.id)"
+                      [routerLink]="rutaEvento(org(), eventSlug(), 'sesiones', sesion.id) | enlace"
                     >
                       {{ t('publico.eventos.sesion.ficha') }}
                     </a>

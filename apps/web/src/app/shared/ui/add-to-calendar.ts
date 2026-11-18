@@ -10,6 +10,7 @@ import {
   type EventoParaCalendario,
 } from '../calendar/calendar-links';
 import { urlEvento } from '../../core/routing/rutas-publicas';
+import { IdiomaService } from '../../core/i18n/idioma.service';
 
 /** Milisegundos que se espera antes de liberar el objeto del `.ics`: Safari
  * necesita que el enlace siga vivo un instante después del clic. */
@@ -119,6 +120,7 @@ export class AddToCalendar {
   readonly evento = input.required<EventoParaCalendario>();
 
   private readonly documento = inject(DOCUMENT);
+  private readonly idiomaDeLaPagina = inject(IdiomaService);
   private static contador = 0;
   protected readonly idTitulo = `calendario-titulo-${AddToCalendar.contador++}`;
 
@@ -126,7 +128,7 @@ export class AddToCalendar {
    * navegador, donde las URL se abren; el enlace resultante nunca se usa en SSR. */
   private readonly urlEvento = computed(
     () =>
-      `${this.documento.defaultView?.location.origin ?? ''}${urlEvento(this.evento().organization.slug, this.evento().slug)}`,
+      `${this.documento.defaultView?.location.origin ?? ''}${this.idiomaDeLaPagina.enlace(urlEvento(this.evento().organization.slug, this.evento().slug))}`,
   );
 
   protected readonly enlaceGoogle = computed(() =>

@@ -14,6 +14,7 @@ import { TranslocoDirective } from '@jsverse/transloco';
 
 import { AuthService, displayName } from '../../core/auth/auth.service';
 import { ApiService } from '../../core/api/api.service';
+import { EnlacePipe } from '../../core/i18n/enlace.pipe';
 
 /**
  * Botón de acceso de la web pública: un icono de cuenta con un desplegable.
@@ -45,7 +46,7 @@ import { ApiService } from '../../core/api/api.service';
 @Component({
   selector: 'app-access-menu',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, TranslocoDirective],
+  imports: [EnlacePipe, RouterLink, TranslocoDirective],
   template: `
     <ng-container *transloco="let t">
       <div #anfitrion class="selector">
@@ -118,7 +119,7 @@ import { ApiService } from '../../core/api/api.service';
                 [id]="idOpcion(0)"
                 [attr.aria-selected]="'false'"
                 class="elemento"
-                routerLink="/acceder"
+                [routerLink]="'/acceder' | enlace"
                 (click)="abierta.set(false)"
               >
                 {{ t('publico.accesoMenu.iniciarSesion') }}
@@ -130,7 +131,7 @@ import { ApiService } from '../../core/api/api.service';
                 [id]="idOpcion(1)"
                 [attr.aria-selected]="'false'"
                 class="elemento"
-                routerLink="/registro"
+                [routerLink]="'/registro' | enlace"
                 (click)="abierta.set(false)"
               >
                 {{ t('publico.accesoMenu.crearCuenta') }}

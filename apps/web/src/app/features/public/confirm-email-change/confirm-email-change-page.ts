@@ -7,6 +7,7 @@ import { AuthFrame } from '../../../layouts/public/auth-frame';
 import { Alert } from '../../../shared/ui/alert';
 import { Card } from '../../../shared/ui/card';
 import { Reveal } from '../../../shared/ui/reveal.directive';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 
 type Estado = 'comprobando' | 'exito' | 'error';
 
@@ -18,7 +19,7 @@ type Estado = 'comprobando' | 'exito' | 'error';
 @Component({
   selector: 'app-confirm-email-change-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, AuthFrame, Alert, Card, Reveal],
+  imports: [EnlacePipe, TranslocoDirective, RouterLink, AuthFrame, Alert, Card, Reveal],
   template: `
     <ng-container *transloco="let t">
       <app-auth-frame [titulo]="t('cuenta.confirmarCorreo.titulo')">
@@ -33,7 +34,7 @@ type Estado = 'comprobando' | 'exito' | 'error';
                   <app-alert tone="exito" [title]="t('cuenta.confirmarCorreo.exitoTitulo')">
                     {{ t('cuenta.confirmarCorreo.exitoDetalle') }}
                     <p>
-                      <a routerLink="/acceder">{{ t('registro.yaTengoCuenta') }}</a>
+                      <a [routerLink]="'/acceder' | enlace">{{ t('registro.yaTengoCuenta') }}</a>
                     </p>
                   </app-alert>
                 }

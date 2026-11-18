@@ -9,12 +9,13 @@ import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 
 /** Formulario de acceso al panel. */
 @Component({
   selector: 'app-login-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, Card, Input, AuthFrame],
+  imports: [EnlacePipe, TranslocoDirective, RouterLink, Alert, Button, Card, Input, AuthFrame],
   template: `
     <ng-container *transloco="let t">
       <app-auth-frame [titulo]="t('admin.login.titulo')">
@@ -46,11 +47,13 @@ import { Input } from '../../../shared/ui/input';
             </app-button>
           </form>
           <p>
-            <a routerLink="/recuperar-contrasena">{{ t('admin.login.olvidasteContrasena') }}</a>
+            <a [routerLink]="'/recuperar-contrasena' | enlace">{{
+              t('admin.login.olvidasteContrasena')
+            }}</a>
           </p>
           <p>
             {{ t('admin.login.sinCuenta') }}
-            <a routerLink="/registro">{{ t('admin.login.registrate') }}</a>
+            <a [routerLink]="'/registro' | enlace">{{ t('admin.login.registrate') }}</a>
           </p>
         </app-card>
       </app-auth-frame>

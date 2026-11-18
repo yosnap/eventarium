@@ -1,22 +1,258 @@
-import { Routes } from '@angular/router';
+import { Route, Routes } from '@angular/router';
 
 import { guardDe, requierePermiso } from './core/auth/permisos-del-panel';
 import { authGuard } from './core/auth/auth.guard';
 import { guestGuard } from './core/auth/guest.guard';
 import { personalPlataformaGuard } from './core/auth/personal-plataforma.guard';
 import { superadminGuard } from './core/auth/superadmin.guard';
+import { IDIOMAS, PREFIJO_DE_IDIOMA } from './core/i18n/idioma';
 import { coincideConEvento, coincideConOrganizacion } from './core/routing/rutas-publicas';
 import {
   coincideConEnlaceAntiguo,
   enlaceAntiguoALaPortada,
 } from './features/public/events/enlace-antiguo';
 
+/**
+ * Páginas de acceso y de enlaces recibidos por correo (registro, recuperación,
+ * entrada, cancelación…). Se montan en la raíz y bajo el prefijo de cada idioma.
+ */
+function rutasDeAcceso(): Routes {
+  return [
+    {
+      path: 'acceder',
+      loadComponent: () => import('./features/admin/login/login-page').then((m) => m.LoginPage),
+      canActivate: [guestGuard],
+    },
+    {
+      path: 'registro',
+      loadComponent: () =>
+        import('./features/public/register/register-page').then((m) => m.RegisterPage),
+    },
+    {
+      path: 'verificar-correo',
+      loadComponent: () =>
+        import('./features/public/verify-email/verify-email-page').then((m) => m.VerifyEmailPage),
+    },
+    {
+      path: 'crear-organizacion',
+      loadComponent: () =>
+        import('./features/public/create-organization/create-organization-page').then(
+          (m) => m.CreateOrganizationPage,
+        ),
+    },
+    {
+      path: 'recuperar-contrasena',
+      loadComponent: () =>
+        import('./features/public/forgot-password/forgot-password-page').then(
+          (m) => m.ForgotPasswordPage,
+        ),
+    },
+    {
+      path: 'recuperar-contrasena/nueva',
+      loadComponent: () =>
+        import('./features/public/forgot-password/reset-password-page').then(
+          (m) => m.ResetPasswordPage,
+        ),
+    },
+    {
+      path: 'invitacion',
+      loadComponent: () =>
+        import('./features/public/invitations/accept-invitation-page').then(
+          (m) => m.AcceptInvitationPage,
+        ),
+    },
+    {
+      path: 'cuenta/confirmar-correo',
+      loadComponent: () =>
+        import('./features/public/confirm-email-change/confirm-email-change-page').then(
+          (m) => m.ConfirmEmailChangePage,
+        ),
+    },
+    {
+      path: 'verificar-inscripcion',
+      loadComponent: () =>
+        import('./features/public/events/verify-registration-page').then(
+          (m) => m.VerifyRegistrationPage,
+        ),
+    },
+    {
+      path: 'confirmar-promocion',
+      loadComponent: () =>
+        import('./features/public/events/confirm-waitlist-promotion-page').then(
+          (m) => m.ConfirmWaitlistPromotionPage,
+        ),
+    },
+    {
+      path: 'cancelar-inscripcion',
+      loadComponent: () =>
+        import('./features/public/events/cancel-registration-page').then(
+          (m) => m.CancelRegistrationPage,
+        ),
+    },
+    {
+      path: 'mi-entrada',
+      loadComponent: () =>
+        import('./features/public/events/my-ticket-page').then((m) => m.MyTicketPage),
+    },
+  ];
+}
+
+/** Cabecera y pie públicos con todas sus páginas. Se monta en la raíz y bajo cada prefijo. */
+function shellPublico(): Route {
+  return {
+    path: '',
+    loadComponent: () => import('./layouts/public/public-shell').then((m) => m.PublicShell),
+    children: [
+      {
+        // La raíz es la landing de la instalación (quiénes somos, eventos en
+        // directo, funcionalidades, cómo colaborar); el directorio de eventos
+        // sigue en /eventos. Revierte la decisión de la fase 6 del plan de
+        // organización sin dominio (raíz = directorio) por petición del dueño.
+        path: '',
+        pathMatch: 'full',
+        loadComponent: () =>
+          import('./features/public/landing/landing-page').then((m) => m.LandingPage),
+      },
+      {
+        path: 'eventos',
+        loadComponent: () =>
+          import('./features/public/events/events-list-page').then((m) => m.EventsListPage),
+      },
+      {
+        path: 'pago/retorno',
+        loadComponent: () =>
+          import('./features/public/events/payment-return').then((m) => m.PaymentReturnPage),
+      },
+      {
+        path: 'pago/cancelado',
+        loadComponent: () =>
+          import('./features/public/events/payment-cancelled-page').then(
+            (m) => m.PaymentCancelledPage,
+          ),
+      },
+      {
+        path: 'ponentes/:publicSlug',
+        loadComponent: () =>
+          import('./features/public/events/speaker-page').then((m) => m.SpeakerPage),
+      },
+      {
+        // Vista previa del panel (también de un borrador): solo para quien
+        // puede ver los eventos; el backend vuelve a exigirlo.
+        path: 'vista-previa/:eventId',
+        canActivate: [authGuard, requierePermiso({ permiso: 'events:read' })],
+        loadComponent: () => import('./features/public/events/event-page').then((m) => m.EventPage),
+      },
+      {
+        path: 'mis-eventos',
+        loadComponent: () =>
+          import('./features/public/mis-eventos/mis-eventos-solicitar-page').then(
+            (m) => m.MisEventosSolicitarPage,
+          ),
+      },
+      {
+        path: 'mis-eventos/ver',
+        loadComponent: () =>
+          import('./features/public/mis-eventos/mis-eventos-listado-page').then(
+            (m) => m.MisEventosListadoPage,
+          ),
+      },
+      {
+        path: 'legal/aviso-legal',
+        loadComponent: () => import('./features/public/legal/legal-page').then((m) => m.LegalPage),
+        data: { page: 'aviso-legal' },
+      },
+      {
+        path: 'legal/privacidad',
+        loadComponent: () => import('./features/public/legal/legal-page').then((m) => m.LegalPage),
+        data: { page: 'privacidad' },
+      },
+      {
+        path: 'legal/cookies',
+        loadComponent: () => import('./features/public/legal/legal-page').then((m) => m.LegalPage),
+        data: { page: 'cookies' },
+      },
+      {
+        path: 'legal/condiciones-de-inscripcion',
+        loadComponent: () => import('./features/public/legal/legal-page').then((m) => m.LegalPage),
+        data: { page: 'condiciones-de-inscripcion' },
+      },
+      // Enlaces antiguos `/eventos/:slug/**`: antes que `:org/:slug`, que también
+      // los reconocería. Ya no se conservan: el guard las manda a la portada. Nunca
+      // `redirectTo` con `matcher`: ver `enlace-antiguo.ts`.
+      {
+        matcher: coincideConEnlaceAntiguo,
+        canActivate: [enlaceAntiguoALaPortada],
+        loadComponent: () =>
+          import('./features/public/pagina-no-encontrada').then((m) => m.PaginaNoEncontrada),
+      },
+      // `/{org}/{evento}/…`: al final del árbol público, para que ninguna ruta
+      // estática (legal, mis-eventos, pago, ponentes…) quede tapada. Los
+      // matchers exigen `PATRON_SLUG`: `/foo.php` o `/.env` no coinciden.
+      {
+        matcher: coincideConEvento(),
+        loadComponent: () => import('./features/public/events/event-page').then((m) => m.EventPage),
+      },
+      {
+        matcher: coincideConEvento('sesiones/:sessionId'),
+        loadComponent: () =>
+          import('./features/public/events/session-page').then((m) => m.SessionPage),
+      },
+      {
+        matcher: coincideConEvento('programa'),
+        loadComponent: () =>
+          import('./features/public/events/event-venues-page').then((m) => m.EventVenuesPage),
+      },
+      {
+        matcher: coincideConEvento('patrocinadores/:sponsorId'),
+        loadComponent: () =>
+          import('./features/public/events/sponsor-page').then((m) => m.SponsorPage),
+      },
+      {
+        matcher: coincideConEvento('politicas'),
+        loadComponent: () =>
+          import('./features/public/events/public-policies-page').then((m) => m.PublicPoliciesPage),
+      },
+      {
+        matcher: coincideConEvento('inscribirse'),
+        loadComponent: () =>
+          import('./features/public/events/registration-page').then((m) => m.RegistrationPage),
+      },
+      // `/{org}`: página pública de la organización (opt-in). Detrás de todo lo
+      // estático y de las rutas de evento; si la organización no activó su
+      // página, la propia página responde 404.
+      {
+        matcher: coincideConOrganizacion,
+        loadComponent: () =>
+          import('./features/public/organization/organization-public-page').then(
+            (m) => m.OrganizationPublicPage,
+          ),
+      },
+      // Cualquier otra cosa: 404 real dentro de la cabecera y el pie públicos.
+      {
+        path: '**',
+        loadComponent: () =>
+          import('./features/public/pagina-no-encontrada').then((m) => m.PaginaNoEncontrada),
+      },
+    ],
+  };
+}
+
+/**
+ * Las mismas páginas públicas bajo el prefijo de cada idioma que no es el de por
+ * defecto (`/en/…`). Rutas explícitas generadas desde el catálogo, no un `matcher`:
+ * así `app.routes.server.ts` puede declarar su modo de render ruta a ruta.
+ */
+const RUTAS_CON_PREFIJO_DE_IDIOMA: Routes = IDIOMAS.filter(
+  (idioma) => PREFIJO_DE_IDIOMA[idioma] !== '',
+).map((idioma) => ({
+  path: PREFIJO_DE_IDIOMA[idioma],
+  children: [...rutasDeAcceso(), shellPublico()],
+}));
+
 export const routes: Routes = [
-  {
-    path: 'acceder',
-    loadComponent: () => import('./features/admin/login/login-page').then((m) => m.LoginPage),
-    canActivate: [guestGuard],
-  },
+  // Primero: el prefijo de idioma no puede caer en el matcher de organización.
+  ...RUTAS_CON_PREFIJO_DE_IDIOMA,
+  ...rutasDeAcceso(),
   {
     // Consentimiento OAuth del MCP: un asistente pide conectarse con la cuenta
     // de la persona. Con sesión (`authGuard` conserva la vuelta tras el login).
@@ -33,78 +269,6 @@ export const routes: Routes = [
       ),
     canActivate: [authGuard],
   },
-  {
-    path: 'registro',
-    loadComponent: () =>
-      import('./features/public/register/register-page').then((m) => m.RegisterPage),
-  },
-  {
-    path: 'verificar-correo',
-    loadComponent: () =>
-      import('./features/public/verify-email/verify-email-page').then((m) => m.VerifyEmailPage),
-  },
-  {
-    path: 'crear-organizacion',
-    loadComponent: () =>
-      import('./features/public/create-organization/create-organization-page').then(
-        (m) => m.CreateOrganizationPage,
-      ),
-  },
-  {
-    path: 'recuperar-contrasena',
-    loadComponent: () =>
-      import('./features/public/forgot-password/forgot-password-page').then(
-        (m) => m.ForgotPasswordPage,
-      ),
-  },
-  {
-    path: 'recuperar-contrasena/nueva',
-    loadComponent: () =>
-      import('./features/public/forgot-password/reset-password-page').then(
-        (m) => m.ResetPasswordPage,
-      ),
-  },
-  {
-    path: 'invitacion',
-    loadComponent: () =>
-      import('./features/public/invitations/accept-invitation-page').then(
-        (m) => m.AcceptInvitationPage,
-      ),
-  },
-  {
-    path: 'cuenta/confirmar-correo',
-    loadComponent: () =>
-      import('./features/public/confirm-email-change/confirm-email-change-page').then(
-        (m) => m.ConfirmEmailChangePage,
-      ),
-  },
-  {
-    path: 'verificar-inscripcion',
-    loadComponent: () =>
-      import('./features/public/events/verify-registration-page').then(
-        (m) => m.VerifyRegistrationPage,
-      ),
-  },
-  {
-    path: 'confirmar-promocion',
-    loadComponent: () =>
-      import('./features/public/events/confirm-waitlist-promotion-page').then(
-        (m) => m.ConfirmWaitlistPromotionPage,
-      ),
-  },
-  {
-    path: 'cancelar-inscripcion',
-    loadComponent: () =>
-      import('./features/public/events/cancel-registration-page').then(
-        (m) => m.CancelRegistrationPage,
-      ),
-  },
-  {
-    path: 'mi-entrada',
-    loadComponent: () =>
-      import('./features/public/events/my-ticket-page').then((m) => m.MyTicketPage),
-  },
-
   // Redirecciones de las rutas antiguas del panel, que vivía bajo `/admin` para
   // **ambos** ámbitos. Ahora el panel de organización está en `/dashboard` y
   // `/admin` es solo la plataforma.
@@ -501,140 +665,5 @@ export const routes: Routes = [
   // de plataforma y no habría forma de distinguir «enlace viejo del organizador»
   // de «ruta nueva del admin».
 
-  {
-    path: '',
-    loadComponent: () => import('./layouts/public/public-shell').then((m) => m.PublicShell),
-    children: [
-      {
-        // La raíz es la landing de la instalación (quiénes somos, eventos en
-        // directo, funcionalidades, cómo colaborar); el directorio de eventos
-        // sigue en /eventos. Revierte la decisión de la fase 6 del plan de
-        // organización sin dominio (raíz = directorio) por petición del dueño.
-        path: '',
-        pathMatch: 'full',
-        loadComponent: () =>
-          import('./features/public/landing/landing-page').then((m) => m.LandingPage),
-      },
-      {
-        path: 'eventos',
-        loadComponent: () =>
-          import('./features/public/events/events-list-page').then((m) => m.EventsListPage),
-      },
-      {
-        path: 'pago/retorno',
-        loadComponent: () =>
-          import('./features/public/events/payment-return').then((m) => m.PaymentReturnPage),
-      },
-      {
-        path: 'pago/cancelado',
-        loadComponent: () =>
-          import('./features/public/events/payment-cancelled-page').then(
-            (m) => m.PaymentCancelledPage,
-          ),
-      },
-      {
-        path: 'ponentes/:publicSlug',
-        loadComponent: () =>
-          import('./features/public/events/speaker-page').then((m) => m.SpeakerPage),
-      },
-      {
-        // Vista previa del panel (también de un borrador): solo para quien
-        // puede ver los eventos; el backend vuelve a exigirlo.
-        path: 'vista-previa/:eventId',
-        canActivate: [authGuard, requierePermiso({ permiso: 'events:read' })],
-        loadComponent: () => import('./features/public/events/event-page').then((m) => m.EventPage),
-      },
-      {
-        path: 'mis-eventos',
-        loadComponent: () =>
-          import('./features/public/mis-eventos/mis-eventos-solicitar-page').then(
-            (m) => m.MisEventosSolicitarPage,
-          ),
-      },
-      {
-        path: 'mis-eventos/ver',
-        loadComponent: () =>
-          import('./features/public/mis-eventos/mis-eventos-listado-page').then(
-            (m) => m.MisEventosListadoPage,
-          ),
-      },
-      {
-        path: 'legal/aviso-legal',
-        loadComponent: () => import('./features/public/legal/legal-page').then((m) => m.LegalPage),
-        data: { page: 'aviso-legal' },
-      },
-      {
-        path: 'legal/privacidad',
-        loadComponent: () => import('./features/public/legal/legal-page').then((m) => m.LegalPage),
-        data: { page: 'privacidad' },
-      },
-      {
-        path: 'legal/cookies',
-        loadComponent: () => import('./features/public/legal/legal-page').then((m) => m.LegalPage),
-        data: { page: 'cookies' },
-      },
-      {
-        path: 'legal/condiciones-de-inscripcion',
-        loadComponent: () => import('./features/public/legal/legal-page').then((m) => m.LegalPage),
-        data: { page: 'condiciones-de-inscripcion' },
-      },
-      // Enlaces antiguos `/eventos/:slug/**`: antes que `:org/:slug`, que también
-      // los reconocería. Ya no se conservan: el guard las manda a la portada. Nunca
-      // `redirectTo` con `matcher`: ver `enlace-antiguo.ts`.
-      {
-        matcher: coincideConEnlaceAntiguo,
-        canActivate: [enlaceAntiguoALaPortada],
-        loadComponent: () =>
-          import('./features/public/pagina-no-encontrada').then((m) => m.PaginaNoEncontrada),
-      },
-      // `/{org}/{evento}/…`: al final del árbol público, para que ninguna ruta
-      // estática (legal, mis-eventos, pago, ponentes…) quede tapada. Los
-      // matchers exigen `PATRON_SLUG`: `/foo.php` o `/.env` no coinciden.
-      {
-        matcher: coincideConEvento(),
-        loadComponent: () => import('./features/public/events/event-page').then((m) => m.EventPage),
-      },
-      {
-        matcher: coincideConEvento('sesiones/:sessionId'),
-        loadComponent: () =>
-          import('./features/public/events/session-page').then((m) => m.SessionPage),
-      },
-      {
-        matcher: coincideConEvento('programa'),
-        loadComponent: () =>
-          import('./features/public/events/event-venues-page').then((m) => m.EventVenuesPage),
-      },
-      {
-        matcher: coincideConEvento('patrocinadores/:sponsorId'),
-        loadComponent: () =>
-          import('./features/public/events/sponsor-page').then((m) => m.SponsorPage),
-      },
-      {
-        matcher: coincideConEvento('politicas'),
-        loadComponent: () =>
-          import('./features/public/events/public-policies-page').then((m) => m.PublicPoliciesPage),
-      },
-      {
-        matcher: coincideConEvento('inscribirse'),
-        loadComponent: () =>
-          import('./features/public/events/registration-page').then((m) => m.RegistrationPage),
-      },
-      // `/{org}`: página pública de la organización (opt-in). Detrás de todo lo
-      // estático y de las rutas de evento; si la organización no activó su
-      // página, la propia página responde 404.
-      {
-        matcher: coincideConOrganizacion,
-        loadComponent: () =>
-          import('./features/public/organization/organization-public-page').then(
-            (m) => m.OrganizationPublicPage,
-          ),
-      },
-      // Cualquier otra cosa: 404 real dentro de la cabecera y el pie públicos.
-      {
-        path: '**',
-        loadComponent: () =>
-          import('./features/public/pagina-no-encontrada').then((m) => m.PaginaNoEncontrada),
-      },
-    ],
-  },
+  shellPublico(),
 ];

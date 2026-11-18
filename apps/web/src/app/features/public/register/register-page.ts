@@ -13,6 +13,7 @@ import { Input } from '../../../shared/ui/input';
 import { PasswordStrength, isPasswordValid } from '../../../shared/ui/password-strength';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 import { TurnstileWidget } from '../../../shared/ui/turnstile-widget';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -35,6 +36,7 @@ type Campo = 'email' | 'password' | 'confirmPassword';
   selector: 'app-register-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    EnlacePipe,
     TranslocoDirective,
     RouterLink,
     AuthFrame,
@@ -102,7 +104,7 @@ type Campo = 'email' | 'password' | 'confirmPassword';
             }
 
             <p>
-              <a routerLink="/acceder">{{ t('registro.yaTengoCuenta') }}</a>
+              <a [routerLink]="'/acceder' | enlace">{{ t('registro.yaTengoCuenta') }}</a>
             </p>
           </app-card>
         </div>
