@@ -9,6 +9,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.core.mensajes import formatear, t
+from app.core.mensajes.validacion import mensaje_de_validacion
+
 PROBLEM_CONTENT_TYPE = "application/problem+json"
 
 # Starlette renombró la constante 422 entre versiones; el número no cambia.
@@ -21,19 +24,38 @@ class DomainError(Exception):
     status_code: int = status.HTTP_400_BAD_REQUEST
     title: str = "Error de dominio"
 
-    def __init__(self, detail: str, *, extra: dict[str, Any] | None = None) -> None:
-        super().__init__(detail)
-        self.detail = detail
+    def __init__(
+        self,
+        detail: str,
+        *,
+        params: dict[str, Any] | None = None,
+        code: str | None = None,
+        extra: dict[str, Any] | None = None,
+    ) -> None:
+        """`detail` es el mensaje en español, un literal con `{parámetros}` si los
+        lleva (nunca una f-string): es la clave de su traducción
+        (`app/core/mensajes`). `code` identifica el error para quien lo trate por
+        programa, cuando el texto no basta."""
+        self.plantilla = detail
+        self.params = params or {}
+        self.code = code
+        self.detail = formatear(detail, self.params)
+        super().__init__(self.detail)
         self.extra = extra or {}
 
     def to_problem(self, instance: str) -> dict[str, Any]:
         cuerpo: dict[str, Any] = {
             "type": "about:blank",
-            "title": self.title,
+            "title": t(self.title),
             "status": self.status_code,
-            "detail": self.detail,
+            # En el idioma de la petición (`Accept-Language`), español por defecto.
+            "detail": t(self.plantilla, **self.params),
             "instance": instance,
         }
+        if self.code:
+            cuerpo["code"] = self.code
+        if self.params:
+            cuerpo["params"] = {clave: str(valor) for clave, valor in self.params.items()}
         cuerpo.update(self.extra)
         return cuerpo
 
@@ -102,7 +124,7 @@ def register_exception_handlers(app: FastAPI) -> None:
             exc.status_code,
             {
                 "type": "about:blank",
-                "title": "Error HTTP",
+                "title": t("Error HTTP"),
                 "status": exc.status_code,
                 "detail": str(exc.detail),
                 "instance": request.url.path,
@@ -115,12 +137,15 @@ def register_exception_handlers(app: FastAPI) -> None:
             HTTP_422,
             {
                 "type": "about:blank",
-                "title": "Datos no válidos",
+                "title": t("Datos no válidos"),
                 "status": HTTP_422,
-                "detail": "La petición no supera la validación.",
+                "detail": t("La petición no supera la validación."),
                 "instance": request.url.path,
                 "errors": [
-                    {"campo": ".".join(str(p) for p in e["loc"]), "mensaje": e["msg"]}
+                    {
+                        "campo": ".".join(str(p) for p in e["loc"]),
+                        "mensaje": mensaje_de_validacion(e),
+                    }
                     for e in exc.errors()
                 ],
             },
@@ -132,9 +157,9 @@ def register_exception_handlers(app: FastAPI) -> None:
             status.HTTP_500_INTERNAL_SERVER_ERROR,
             {
                 "type": "about:blank",
-                "title": "Error interno",
+                "title": t("Error interno"),
                 "status": status.HTTP_500_INTERNAL_SERVER_ERROR,
-                "detail": "Se ha producido un error inesperado.",
+                "detail": t("Se ha producido un error inesperado."),
                 "instance": request.url.path,
             },
         )
