@@ -48,7 +48,13 @@ export class Reveal implements AfterViewInit, OnDestroy {
     elemento.style.setProperty('--i', String(this.index));
     // `index.html` ya añadió `js-activo` antes del primer pintado; `app-lista` le
     // dice que la aplicación arrancó y que no hace falta mostrarlo todo por si acaso.
-    document.documentElement.classList.add('js-activo', 'app-lista');
+    // Si arrancó tarde (`app-tarde`), el contenido ya se mostró y no se vuelve a
+    // ocultar para animarlo.
+    const raiz = document.documentElement;
+    raiz.classList.add('app-lista');
+    if (!raiz.classList.contains('app-tarde')) {
+      raiz.classList.add('js-activo');
+    }
 
     if (typeof IntersectionObserver === 'undefined') {
       elemento.classList.add('es-visible');

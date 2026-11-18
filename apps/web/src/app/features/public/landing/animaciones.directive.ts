@@ -14,6 +14,7 @@ import { type GsapCargado, GsapLoader } from './gsap';
  * `reduce` no se crea ningún tween ni ScrollTrigger: el contenido queda tal
  * como lo sirvió el SSR. */
 const SIN_REDUCIR_MOVIMIENTO = '(prefers-reduced-motion: no-preference)';
+const REDUCIR_MOVIMIENTO = '(prefers-reduced-motion: reduce)';
 
 /**
  * Carga GSAP tras el primer render (nunca en SSR ni antes de hidratar, así el
@@ -44,6 +45,7 @@ abstract class AnimacionConScroll {
         }
         contexto = gsap.gsap.matchMedia();
         contexto.add(SIN_REDUCIR_MOVIMIENTO, () => this.animar(gsap));
+        contexto.add(REDUCIR_MOVIMIENTO, () => this.mostrarSinAnimar());
       });
     });
   }

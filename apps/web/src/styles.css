@@ -118,13 +118,16 @@ h3 {
  * (`[appTextoRevelado]`) salen ya en su estado inicial desde el primer pintado.
  * Sin esto, el HTML del servidor las pintaba normales y GSAP, al cargar, las
  * ocultaba o atenuaba para animarlas: un salto en cada carga. La directiva marca
- * `.animacion-lista` cuando toma el control o cuando no va a animar.
+ * `.animacion-lista` cuando toma el control o cuando no va a animar. Solo sin
+ * «reducir movimiento»: con él no se anima y no se oculta nada.
  */
-.js-activo [data-entrada]:not(.animacion-lista) {
-  opacity: 0;
-}
-.js-activo [appTextoRevelado]:not(.animacion-lista) {
-  opacity: 0.22;
+@media (prefers-reduced-motion: no-preference) {
+  .js-activo [data-entrada]:not(.animacion-lista) {
+    opacity: 0;
+  }
+  .js-activo [appTextoRevelado]:not(.animacion-lista) {
+    opacity: 0.22;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
