@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.database import maintenance_session, set_organization_context
 from app.core.fechas import fecha_y_hora
+from app.core.locale import idioma_actual, normalizar_locale
 from app.core.mensajes import marcar
 from app.core.tasks import (
     process_refunds_task,
@@ -278,14 +279,20 @@ async def _enviar_email_por_estado(session: AsyncSession, inscripcion: EventRegi
                 )
         ticket = await emitir_entrada(session, inscripcion)
         await send_registration_confirmed_email.kiq(
-            inscripcion.email, organization_id, token_cancelacion, generar_token_qr(ticket)
+            inscripcion.email,
+            organization_id,
+            token_cancelacion,
+            generar_token_qr(ticket),
+            locale=inscripcion.locale,
         )
     elif inscripcion.status == "waitlisted":
         await send_registration_waitlisted_email.kiq(
-            inscripcion.email, organization_id, token_cancelacion
+            inscripcion.email, organization_id, token_cancelacion, locale=inscripcion.locale
         )
     elif inscripcion.status == "pending_approval":
-        await send_registration_pending_approval_email.kiq(inscripcion.email, organization_id)
+        await send_registration_pending_approval_email.kiq(
+            inscripcion.email, organization_id, locale=inscripcion.locale
+        )
 
 
 # Estados con los que una inscripción nueva se avisa al organizador. Los que
@@ -321,7 +328,7 @@ async def avisar_al_organizador(
             inscripcion.id,
         )
         return
-    for correo in destinatarios:
+    for correo, idioma in destinatarios:
         encolar_tras_commit(
             session,
             partial(
@@ -335,6 +342,7 @@ async def avisar_al_organizador(
                 participant_email=inscripcion.email,
                 status=inscripcion.status,
                 paid=pagada,
+                locale=idioma,
             ),
         )
 
@@ -406,7 +414,8 @@ async def _promote_next_waitlisted(session: AsyncSession, evento: Event) -> bool
             str(siguiente.organization_id),
             confirm_token,
             cancel_token,
-            fecha_y_hora(ahora + ventana, evento.timezone),
+            fecha_y_hora(ahora + ventana, evento.timezone, normalizar_locale(siguiente.locale)),
+            locale=siguiente.locale,
         ),
     )
     return True
@@ -527,6 +536,7 @@ async def _cancelar_inscripcion(
             inscripcion.email,
             str(organization_id),
             reembolso,
+            locale=inscripcion.locale,
         ),
     )
 
@@ -612,6 +622,9 @@ async def submit_registration(
             ahora = datetime.now(UTC)
             existente.status = nuevo_estado
             existente.cancelled_at = None
+            # Vuelve a inscribirse ahora: los correos y el pago siguen el idioma
+            # de esta petición, no el del intento abandonado.
+            existente.locale = idioma_actual()
             # Un ciclo nuevo: lo de la lista de espera o la aprobación del
             # anterior no cuenta para decidir si ya se avisó al organizador.
             existente.waitlist_promoted_at = None
@@ -635,19 +648,24 @@ async def submit_registration(
             existente.status = await _evaluar_estado_por_aforo(
                 session, evento_bloqueado, registration_id=existente.id
             )
+            existente.locale = idioma_actual()
             await session.flush()
             return existente
         if existente.status == "pending_verification":
             token = await generate_token(PROPOSITO_VERIFICACION_INSCRIPCION, str(existente.id))
             await send_registration_verification_email.kiq(
-                email_normalizado, token, str(event.organization_id)
+                email_normalizado, token, str(event.organization_id), locale=existente.locale
             )
         elif existente.status in ("confirmed", "waitlisted", "pending_approval"):
             await _enviar_email_por_estado(session, existente)
         elif existente.status == "rejected":
-            await send_registration_rejected_email.kiq(existente.email, str(event.organization_id))
+            await send_registration_rejected_email.kiq(
+                existente.email, str(event.organization_id), locale=existente.locale
+            )
         elif existente.status == "cancelled":
-            await send_registration_cancelled_email.kiq(existente.email, str(event.organization_id))
+            await send_registration_cancelled_email.kiq(
+                existente.email, str(event.organization_id), locale=existente.locale
+            )
         # `pending_payment`: sin plantilla propia; el enlace de pago lo
         # reenvía el propio checkout.
         return None
@@ -676,6 +694,9 @@ async def submit_registration(
         user_id=user_id,
         status=estado_inicial,
         confirmed_at=ahora if estado_inicial == "confirmed" else None,
+        # El de la página desde la que se inscribe (`Accept-Language`): todos
+        # sus correos y el pago diferido saldrán en este idioma.
+        locale=idioma_actual(),
     )
     session.add(inscripcion)
     try:
@@ -712,7 +733,7 @@ async def submit_registration(
     if estado_inicial == "pending_verification":
         token = await generate_token(PROPOSITO_VERIFICACION_INSCRIPCION, str(inscripcion.id))
         await send_registration_verification_email.kiq(
-            email_normalizado, token, str(event.organization_id)
+            email_normalizado, token, str(event.organization_id), locale=inscripcion.locale
         )
     else:
         await _enviar_email_por_estado(session, inscripcion)
@@ -839,7 +860,9 @@ async def reject_registration(
     )
     inscripcion.status = "rejected"
     inscripcion.rejected_at = datetime.now(UTC)
-    await send_registration_rejected_email.kiq(inscripcion.email, str(organization_id), reason)
+    await send_registration_rejected_email.kiq(
+        inscripcion.email, str(organization_id), reason, locale=inscripcion.locale
+    )
     return inscripcion
 
 

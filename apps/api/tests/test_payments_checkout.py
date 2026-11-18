@@ -775,7 +775,9 @@ async def test_idempotency_key_mismo_expires_at_en_dos_intentos_de_la_misma_insc
     async with SessionApp() as session:
         async with session.begin():
             await set_organization_context(session, organizacion.id)
-            await checkout_service.crear_sesion_de_pago(session, payment_id=payment_id)
+            await checkout_service.crear_sesion_de_pago(
+                session, payment_id=payment_id, locale="es-ES"
+            )
     _, primeros_kwargs = fake.v1.checkout.sessions.create_async.call_args
     primer_expires_at = primeros_kwargs["params"]["expires_at"]
     primera_clave = primeros_kwargs["options"]["idempotency_key"]
@@ -805,7 +807,9 @@ async def test_idempotency_key_mismo_expires_at_en_dos_intentos_de_la_misma_insc
     async with SessionApp() as session:
         async with session.begin():
             await set_organization_context(session, organizacion.id)
-            await checkout_service.crear_sesion_de_pago(session, payment_id=payment_id)
+            await checkout_service.crear_sesion_de_pago(
+                session, payment_id=payment_id, locale="es-ES"
+            )
     _, segundos_kwargs = fake.v1.checkout.sessions.create_async.call_args
     segundo_expires_at = segundos_kwargs["params"]["expires_at"]
     segunda_clave = segundos_kwargs["options"]["idempotency_key"]

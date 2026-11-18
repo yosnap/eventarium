@@ -25,6 +25,7 @@ from sqlalchemy import func, select, text
 from app.core.config import get_settings
 from app.core.database import maintenance_session
 from app.core.email import get_email_provider
+from app.core.locale import fijar_idioma, normalizar_locale, ruta_web
 from app.core.tenant import base_url_de_organizacion
 from app.modules.events.models import Event
 from app.modules.payments import refunds_service
@@ -108,6 +109,7 @@ async def enviar_recordatorio(registration_id: uuid.UUID) -> bool:
     confirmada, el evento dejó de estar publicado o desactivó el recordatorio,
     faltan menos de 60 minutos, o ya se envió para la fecha actual.
     """
+    from app.core.tasks import limpiar_asunto
     from app.modules.registrations.service import _generar_token_cancelacion  # noqa: SLF001
 
     async with maintenance_session() as session:
@@ -150,6 +152,7 @@ async def enviar_recordatorio(registration_id: uuid.UUID) -> bool:
             )
         )
         base = await base_url_de_organizacion(evento.organization_id)
+        idioma = normalizar_locale(inscripcion.locale)
         datos = DatosDelRecordatorio(
             titulo=evento.title,
             inicio=evento.starts_at,
@@ -160,20 +163,25 @@ async def enviar_recordatorio(registration_id: uuid.UUID) -> bool:
             ciudad=evento.city,
             # Sin saltos de línea: no puede inventar párrafos en el correo.
             url_online=" ".join(evento.online_url.split()) if evento.online_url else None,
-            enlace_mi_entrada=f"{base}/mi-entrada?token={cancel_token}",
-            enlace_cancelacion=f"{base}/cancelar-inscripcion?token={cancel_token}",
+            enlace_mi_entrada=f"{base}{ruta_web(idioma, 'mi-entrada')}?token={cancel_token}",
+            enlace_cancelacion=(
+                f"{base}{ruta_web(idioma, 'cancelar-inscripcion')}?token={cancel_token}"
+            ),
             hay_lista_de_espera=bool(en_espera),
             con_qr=qr is not None,
             reembolso=reembolso,
             limite_de_reembolso=evento.starts_at
             - timedelta(hours=get_settings().payment_refund_cutoff_hours),
+            idioma=idioma,
         )
         destinatario = inscripcion.email
 
+    # El pie y el botón de la plantilla salen en el idioma del contexto.
+    fijar_idioma(idioma)
     asunto, cuerpo = asunto_y_cuerpo(datos)
     await get_email_provider().send(
         to=destinatario,
-        subject=asunto,
+        subject=limpiar_asunto(asunto),
         body=cuerpo,
         attachments=[adjunto_qr(qr)] if qr is not None else [],
     )

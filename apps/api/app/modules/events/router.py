@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import CurrentUserDep, DbDep, PermissionsDep, require_permission
+from app.core.locale import idioma_actual
 from app.core.permissions import Permission
 from app.core.ratelimit import PEDIR_BIO_POR_IP, limit_per_ip
 from app.core.storage import build_object_key, get_storage, public_url_versionada, validate_upload
@@ -671,15 +672,18 @@ async def request_speaker_bio(
     session: DbDep,
     organization_member_id: str,
 ) -> None:
-    correo = await speakers_repository.obtener_email_de_miembro_del_evento(
+    destinatario = await speakers_repository.obtener_correo_e_idioma_de_ponente(
         session,
         organization_id=evento.organization_id,
         event_id=evento.id,
         organization_member_id=uuid.UUID(organization_member_id),
     )
-    if correo is None:
+    if destinatario is None:
         raise NotFoundError("La persona no está en el roster de este evento.")
-    await send_speaker_bio_request_email.kiq(correo, str(evento.organization_id), evento.title)
+    correo, idioma = destinatario
+    await send_speaker_bio_request_email.kiq(
+        correo, str(evento.organization_id), evento.title, locale=idioma
+    )
 
 
 @router.get(
@@ -832,6 +836,8 @@ async def create_event_invitation(
             str(usuario.organization_id),
             organizacion.name,
             rol.name,
+            # La persona invitada aún no tiene idioma: el de quien invita.
+            locale=idioma_actual(),
         )
     return InvitationCreateResponse(
         status="invited",

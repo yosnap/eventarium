@@ -40,6 +40,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.audit import registrar_auditoria
 from app.core.database import Base, TimestampMixin, maintenance_session
+from app.core.fechas import fecha
+from app.core.locale import Locale, idioma_actual
+from app.core.mensajes import t
 from app.core.storage import build_object_key, get_storage
 from app.modules.accounting import repository
 from app.modules.accounting.models import AccountingBudgetLine, AccountingExpense
@@ -361,35 +364,47 @@ def _pdf_generar(titulo: str, lineas: list[str]) -> bytes:
     return bytes(salida)
 
 
-def _construir_pdf(datos: _DatosBalance) -> bytes:
+def _fecha_en_idioma(valor: datetime | None, idioma: Locale) -> str:
+    return fecha(valor.date(), idioma) if valor is not None else ""
+
+
+def _construir_pdf(datos: _DatosBalance, idioma: Locale) -> bytes:
+    """El balance en PDF, en el idioma de quien lo genera (textos y fechas).
+
+    El CSV no se traduce: es para hojas de cálculo y conserva fechas ISO."""
     r = datos.resumen
     lineas: list[str] = []
     total_ingresos = sum(linea.importe_cents for linea in datos.ingresos)
     total_comprometido = sum(linea.importe_cents for linea in datos.comprometido)
+    moneda = datos.moneda
 
-    lineas.append("KPI")
-    lineas.append(f"  Presupuesto: {_euros(r.total_budgeted_cents)} {datos.moneda}")
-    lineas.append(f"  Ejecutado en metalico: {_euros(r.ejecutado_metalico_cents)} {datos.moneda}")
-    lineas.append(f"  Ejecutado en especie: {_euros(r.ejecutado_en_especie_cents)} {datos.moneda}")
+    def kpi(texto: str, importe: str) -> str:
+        return f"  {texto}: {importe} {moneda}"
+
+    lineas.append(t("KPI", idioma))
+    lineas.append(kpi(t("Presupuesto", idioma), _euros(r.total_budgeted_cents)))
+    lineas.append(kpi(t("Ejecutado en metalico", idioma), _euros(r.ejecutado_metalico_cents)))
+    lineas.append(kpi(t("Ejecutado en especie", idioma), _euros(r.ejecutado_en_especie_cents)))
     lineas.append(
-        f"  Ejecutado total: "
-        f"{_euros(r.ejecutado_metalico_cents + r.ejecutado_en_especie_cents)} {datos.moneda}"
+        kpi(
+            t("Ejecutado total", idioma),
+            _euros(r.ejecutado_metalico_cents + r.ejecutado_en_especie_cents),
+        )
     )
-    lineas.append(f"  Ingresos: {_euros(total_ingresos)} {datos.moneda}")
-    lineas.append(f"  Comprometido: {_euros(total_comprometido)} {datos.moneda}")
-    lineas.append(f"  Saldo: {_euros(_saldo_cents(r, total_ingresos))} {datos.moneda}")
+    lineas.append(kpi(t("Ingresos", idioma), _euros(total_ingresos)))
+    lineas.append(kpi(t("Comprometido", idioma), _euros(total_comprometido)))
+    lineas.append(kpi(t("Saldo", idioma), _euros(_saldo_cents(r, total_ingresos))))
     lineas.append(
-        f"  Contingencia disponible: "
-        f"{_euros_opcional(r.disponible_contingencia_cents)} {datos.moneda}"
+        kpi(t("Contingencia disponible", idioma), _euros_opcional(r.disponible_contingencia_cents))
     )
     lineas.append("")
 
-    lineas.append("Presupuesto frente a ejecutado")
+    lineas.append(t("Presupuesto frente a ejecutado", idioma))
     for consumo in r.por_partida:
         nombre = (
             datos.partidas_por_id[consumo.budget_line_id].name
             if consumo.budget_line_id is not None
-            else "Sin partida"
+            else t("Sin partida", idioma)
         )
         pct = (
             f"{(consumo.ejecutado_cents / consumo.budgeted_cents * 100):.0f}%"
@@ -397,31 +412,45 @@ def _construir_pdf(datos: _DatosBalance) -> bytes:
             else "-"
         )
         lineas.append(
-            f"  {nombre}: {_euros(consumo.budgeted_cents)} presupuestado / "
-            f"{_euros(consumo.ejecutado_cents)} ejecutado ({pct})"
+            "  "
+            + t(
+                "{partida}: {presupuestado} presupuestado / {ejecutado} ejecutado ({porcentaje})",
+                idioma,
+                partida=nombre,
+                presupuestado=_euros(consumo.budgeted_cents),
+                ejecutado=_euros(consumo.ejecutado_cents),
+                porcentaje=pct,
+            )
         )
     lineas.append("")
 
-    lineas.append("Ingresos")
+    lineas.append(t("Ingresos", idioma))
     for linea in datos.ingresos:
         lineas.append(f"  {linea.origen} - {linea.concepto}: {_euros(linea.importe_cents)}")
     lineas.append("")
 
-    lineas.append("Gastos")
+    lineas.append(t("Gastos", idioma))
     for gasto in datos.gastos:
         lineas.append(
-            f"  {gasto.provider_name} ({_fecha(gasto.expense_date)}): {_euros(gasto.total_cents)}"
+            f"  {gasto.provider_name} ({_fecha_en_idioma(gasto.expense_date, idioma)}): "
+            f"{_euros(gasto.total_cents)}"
         )
     lineas.append("")
 
-    lineas.append("Evolucion temporal")
+    lineas.append(t("Evolucion temporal", idioma))
     for punto in r.serie_temporal:
         lineas.append(
-            f"  {punto.periodo}: ingresos {_euros(punto.ingresos_cents)} / "
-            f"gastos {_euros(punto.gastos_cents)}"
+            "  "
+            + t(
+                "{periodo}: ingresos {ingresos} / gastos {gastos}",
+                idioma,
+                periodo=punto.periodo,
+                ingresos=_euros(punto.ingresos_cents),
+                gastos=_euros(punto.gastos_cents),
+            )
         )
 
-    return _pdf_generar("Balance del evento", lineas)
+    return _pdf_generar(t("Balance del evento", idioma), lineas)
 
 
 async def _auditar_exportacion(
@@ -457,7 +486,9 @@ async def _generar_snapshot(
     datos = await _cargar_datos_balance(
         session, organization_id=organization_id, event_id=event_id, evento=evento
     )
-    contenido = _construir_csv(datos) if formato == "csv" else _construir_pdf(datos)
+    contenido = (
+        _construir_csv(datos) if formato == "csv" else _construir_pdf(datos, idioma_actual())
+    )
 
     almacen = get_storage()
     extension = "csv" if formato == "csv" else "pdf"

@@ -217,14 +217,15 @@ async def listar_ponentes_del_evento(
     return filas, sesiones_por_miembro, ediciones_por_usuario, slugs, total_sesiones
 
 
-async def obtener_email_de_miembro_del_evento(
+async def obtener_correo_e_idioma_de_ponente(
     session: AsyncSession,
     *,
     organization_id: uuid.UUID,
     event_id: uuid.UUID,
     organization_member_id: uuid.UUID,
-) -> str | None:
-    """Correo de un ponente del roster del evento, o `None` si no lo es.
+) -> tuple[str, str] | None:
+    """Correo e idioma de la cuenta de un ponente del roster del evento, o
+    `None` si no lo es.
 
     Exige el rol de ponente en la membresía de la organización, la misma
     condición que filtra la vista: pedir bio a cualquier miembro del roster
@@ -232,7 +233,7 @@ async def obtener_email_de_miembro_del_evento(
     """
     fila = (
         await session.execute(
-            select(User.email)
+            select(User.email, User.locale)
             .join(OrganizationMember, OrganizationMember.user_id == User.id)
             .join(Role, Role.id == OrganizationMember.role_id)
             .join(EventMember, EventMember.organization_member_id == OrganizationMember.id)
@@ -245,4 +246,4 @@ async def obtener_email_de_miembro_del_evento(
             )
         )
     ).first()
-    return fila[0] if fila else None
+    return (fila[0], fila[1]) if fila else None

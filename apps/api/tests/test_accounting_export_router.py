@@ -14,9 +14,11 @@ import io
 import uuid
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from httpx import AsyncClient
 from sqlalchemy import func, select
 
+from app.core import mensajes
 from app.core.audit import AuditLog
 from app.core.database import SessionMaintenance
 from app.core.permissions import Permission
@@ -546,3 +548,26 @@ async def test_export_muestra_contingencia_no_definida_como_guion(
         if fila and fila[0] not in filas:
             filas[fila[0]] = fila
     assert filas["Contingencia disponible"][1] == "—"
+
+
+async def test_el_pdf_sale_en_el_idioma_de_quien_lo_genera(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    traducciones = {"Balance del evento": "Event balance", "Presupuesto": "Budget"}
+    monkeypatch.setattr(
+        mensajes, "catalogo", lambda locale: traducciones if locale == "en-US" else {}
+    )
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    event_id = await _crear_evento(organizacion)
+
+    ingles = await cliente.get(
+        f"{BASE}/events/{event_id}/export.pdf",
+        headers={**cabeceras, "Accept-Language": "en-US"},
+    )
+    espanol = await cliente.get(f"{BASE}/events/{event_id}/export.pdf", headers=cabeceras)
+
+    assert ingles.status_code == espanol.status_code == 200
+    assert b"(Event balance) Tj" in ingles.content
+    assert b"(  Budget: " in ingles.content
+    assert b"(Balance del evento) Tj" in espanol.content
+    assert b"(  Presupuesto: " in espanol.content
