@@ -102,3 +102,21 @@ async def test_un_texto_que_rompe_las_variables_no_se_guarda(carpeta: Path) -> N
     assert informe.rechazadas == ["comun.hola"]
     guardado = json.loads((carpeta / "en-US.json").read_text(encoding="utf-8"))
     assert "hola" not in guardado["comun"]
+
+
+async def test_un_lote_sin_respuesta_no_para_los_demas(
+    carpeta: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(modulo, "CLAVES_POR_LOTE", 1)
+
+    async def traductor(mensajes: list[dict[str, str]]) -> str:
+        textos = json.loads(mensajes[1]["content"])
+        if "nuevo" in textos:
+            raise TimeoutError
+        return json.dumps({clave: texto for clave, texto in textos.items()})
+
+    informe = await traducir("en-US", traductor)
+    assert informe.traducidas == 2
+    assert informe.sin_respuesta == 1
+    # La siguiente ejecución solo pide la que faltó.
+    assert (await traducir("en-US", None, simular=True)).pendientes == 1

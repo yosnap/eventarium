@@ -26,6 +26,9 @@ import { Input } from '../../../shared/ui/input';
 import { PasswordStrength, isPasswordValid } from '../../../shared/ui/password-strength';
 import { PageHeader } from '../../../shared/ui/page-header';
 import { MemberProfileForm } from '../members/member-profile-form';
+import { IDIOMAS, NOMBRE_DEL_IDIOMA, esIdioma } from '../../../core/i18n/idioma';
+import { IdiomaService } from '../../../core/i18n/idioma.service';
+import { LocaleDeCuenta } from '../../../core/i18n/locale-de-cuenta';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const TIPOS_DE_ENLACE = ['twitter', 'linkedin', 'instagram', 'web'] as const;
@@ -85,6 +88,13 @@ const TIPOS_DE_ENLACE = ['twitter', 'linkedin', 'instagram', 'web'] as const;
             [label]="t('admin.cuenta.perfil.apellidos')"
             autocomplete="family-name"
             [(value)]="lastName"
+          />
+          <app-select
+            fieldId="cuenta-idioma"
+            [label]="t('admin.cuenta.perfil.idioma')"
+            [hint]="t('admin.cuenta.perfil.idiomaPista')"
+            [options]="opcionesIdioma"
+            [(value)]="idioma"
           />
           <app-checkbox
             [label]="t('admin.cuenta.perfil.avisarmeEventosSimilares')"
@@ -269,6 +279,15 @@ export class AccountPage {
 
   protected readonly firstName = signal(this.auth.currentUser()?.first_name ?? '');
   protected readonly lastName = signal(this.auth.currentUser()?.last_name ?? '');
+  /** Nombre de cada idioma en ese idioma: así lo reconoce quien no entiende el actual. */
+  protected readonly opcionesIdioma: readonly SelectOption[] = IDIOMAS.map((idioma) => ({
+    value: idioma,
+    label: NOMBRE_DEL_IDIOMA[idioma],
+  }));
+  private readonly idiomaInicial: string =
+    this.auth.currentUser()?.locale ?? inject(IdiomaService).idioma();
+  protected readonly idioma = signal<string>(this.idiomaInicial);
+
   protected readonly notifySimilarEvents = signal(
     this.auth.currentUser()?.notify_similar_events ?? false,
   );
@@ -345,6 +364,10 @@ export class AccountPage {
         firstName: this.firstName().trim(),
         lastName: this.lastName().trim(),
         notifySimilarEvents: this.notifySimilarEvents(),
+        // Solo si cambia: cambiar de idioma recarga el panel.
+        ...(esIdioma(this.idioma()) && this.idioma() !== this.idiomaInicial
+          ? { locale: this.idioma() as LocaleDeCuenta }
+          : {}),
       });
       this.exitoPerfil.set(true);
     } catch (error) {

@@ -16,8 +16,10 @@ Genera `apps/web/public/assets/i18n/{idioma}.json` a partir de `es-ES.json`, que
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
+import logging
 import re
 import uuid
 from collections.abc import Awaitable, Callable, Iterator
@@ -29,9 +31,13 @@ RAIZ_WEB = Path(__file__).resolve().parents[2] / "web"
 CARPETA_TRADUCCIONES = RAIZ_WEB / "public" / "assets" / "i18n"
 FICHERO_HUELLAS = RAIZ_WEB / "i18n" / ".huellas.json"
 FICHERO_GLOSARIO = RAIZ_WEB / "i18n" / "glosario.json"
+logger = logging.getLogger(__name__)
+
 IDIOMA_ORIGEN = "es-ES"
 USE_CASE = "traduccion_interfaz"
-CLAVES_POR_LOTE = 60
+CLAVES_POR_LOTE = 30
+#: Lotes que se piden a la vez a la IA.
+LOTES_A_LA_VEZ = 3
 
 NOMBRE_DEL_IDIOMA = {"en-US": "inglés de Estados Unidos"}
 
@@ -173,6 +179,9 @@ class Informe:
     revisar: list[str] = field(default_factory=list)
     sobrantes: list[str] = field(default_factory=list)
     pendientes: int = 0
+    #: Claves de lotes que la IA no atendió (error o tiempo agotado): se reintentan
+    #: en la siguiente ejecución.
+    sin_respuesta: int = 0
 
 
 def _leer_json(ruta: Path) -> dict[str, Any]:
@@ -200,28 +209,43 @@ async def traducir(idioma: str, traductor: Traductor | None, *, simular: bool = 
     if traductor is None:
         raise ValueError("Hace falta un traductor para traducir de verdad.")
 
-    for lote in lotes(plan.traducir):
-        textos = {clave: origen[clave] for clave in lote}
-        validas, rechazadas = validar(textos, await traductor(mensajes(textos, idioma, glosario)))
-        if rechazadas:
-            # Un segundo intento solo con las rechazadas, que suelen ser pocas.
-            reintento = {clave: origen[clave] for clave in rechazadas}
-            otra, rechazadas = validar(
-                reintento, await traductor(mensajes(reintento, idioma, glosario))
-            )
-            validas.update(otra)
+    semaforo = asyncio.Semaphore(LOTES_A_LA_VEZ)
+
+    async def traducir_lote(lote: list[str]) -> None:
+        async with semaforo:
+            textos = {clave: origen[clave] for clave in lote}
+            try:
+                respuesta = await traductor(mensajes(textos, idioma, glosario))
+            except Exception:  # noqa: BLE001 - un lote fallido no para los demás
+                logger.warning("Lote sin respuesta de la IA (%s claves)", len(lote))
+                informe.sin_respuesta += len(lote)
+                return
+            validas, rechazadas = validar(textos, respuesta)
+            if rechazadas:
+                # Un segundo intento solo con las rechazadas, que suelen ser pocas.
+                reintento = {clave: origen[clave] for clave in rechazadas}
+                try:
+                    otra, rechazadas = validar(
+                        reintento, await traductor(mensajes(reintento, idioma, glosario))
+                    )
+                    validas.update(otra)
+                except Exception:  # noqa: BLE001
+                    logger.warning("Reintento sin respuesta de la IA (%s claves)", len(rechazadas))
         for clave, texto in validas.items():
             destino[clave] = texto
             huellas[clave] = {"origen": huella(origen[clave]), "destino": huella(texto)}
         informe.traducidas += len(validas)
         informe.rechazadas.extend(rechazadas)
-        # Se guarda tras cada lote: un fallo a mitad no pierde lo ya pagado.
+        # Se guarda tras cada lote: un fallo a mitad no pierde lo ya pagado. Sin
+        # `await` entre leer y escribir, así que los lotes concurrentes no se pisan.
         vigentes = {clave: texto for clave, texto in destino.items() if clave in origen}
         _escribir_json(CARPETA_TRADUCCIONES / f"{idioma}.json", reconstruir(arbol_origen, vigentes))
         todas_las_huellas[idioma] = {
             clave: valor for clave, valor in sorted(huellas.items()) if clave in origen
         }
         _escribir_json(FICHERO_HUELLAS, todas_las_huellas)
+
+    await asyncio.gather(*(traducir_lote(lote) for lote in lotes(plan.traducir, CLAVES_POR_LOTE)))
     return informe
 
 
@@ -236,7 +260,7 @@ def traductor_de_la_pasarela(organization_id: uuid.UUID) -> Traductor:
             messages=list(mensajes_),
             temperature=0.2,
             response_format={"type": "json_object"},
-            timeout=180,
+            timeout=300,
         )
         return resultado.contenido
 

@@ -1294,6 +1294,8 @@
         "nombre": "Nombre",
         "apellidos": "Apellidos",
         "exito": "Perfil actualizado.",
+        "idioma": "Idioma",
+        "idiomaPista": "Idioma del panel y de los correos que recibes. Al guardar, el panel se recarga en el idioma elegido.",
         "avisarmeEventosSimilares": "Avisarme de eventos similares",
         "avisarmeEventosSimilaresPista": "Guardamos tu preferencia ya; todavía no enviamos avisos automáticos."
       },

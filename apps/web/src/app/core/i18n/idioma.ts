@@ -100,3 +100,9 @@ export function resolverIdioma(ruta: string, cabeceraCookie: string | null | und
   }
   return IDIOMA_POR_DEFECTO;
 }
+
+/** Nombre de cada idioma en ese mismo idioma, para el selector. */
+export const NOMBRE_DEL_IDIOMA: Readonly<Record<Idioma, string>> = {
+  'es-ES': 'Español',
+  'en-US': 'English',
+};

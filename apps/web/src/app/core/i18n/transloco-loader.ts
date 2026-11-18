@@ -3,7 +3,9 @@ import { Translation, TranslocoLoader } from '@jsverse/transloco';
 import { Observable, from, of } from 'rxjs';
 
 import esES from '../../../../public/assets/i18n/es-ES.json';
+import { environment } from '../../../environments/environment';
 import { IDIOMA_POR_DEFECTO, Idioma, esIdioma } from './idioma';
+import { pseudoIdiomaPedido, pseudoTraduccion } from './pseudo-idioma';
 
 /**
  * Traducciones de la interfaz.
@@ -34,6 +36,9 @@ export class TraduccionesLoader implements TranslocoLoader {
     }
     const cargar = CARGADORES[idioma];
     if (idioma === IDIOMA_POR_DEFECTO || !cargar) {
+      if (idioma === IDIOMA_POR_DEFECTO && !environment.production && pseudoIdiomaPedido()) {
+        return of(pseudoTraduccion(esES as Translation));
+      }
       return of(idioma === IDIOMA_POR_DEFECTO ? (esES as Translation) : {});
     }
     return from(

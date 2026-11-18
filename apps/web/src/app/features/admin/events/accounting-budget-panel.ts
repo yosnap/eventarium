@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  input,
+  LOCALE_ID,
+} from '@angular/core';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
 import { Panel } from '../../../shared/ui/panel';
@@ -71,8 +78,8 @@ interface FilaPresupuesto {
                     [style.width.%]="fila.anchoEjecutado"
                   ></span>
                 </span>
-                <span class="num">{{ euros(fila.presupuestadoCents) }} €</span>
-                <span class="num">{{ euros(fila.ejecutadoCents) }} €</span>
+                <span class="num">{{ this.euros(fila.presupuestadoCents) }} €</span>
+                <span class="num">{{ this.euros(fila.ejecutadoCents) }} €</span>
                 <span class="num pct" [class.sobre]="fila.sobrePresupuesto">{{
                   fila.porcentajeTexto
                 }}</span>
@@ -100,8 +107,8 @@ interface FilaPresupuesto {
         <span pie
           >{{
             t('admin.events.accounting.partidas.totalValores', {
-              presupuesto: euros(totalPresupuestadoCents()),
-              ejecutado: euros(totalEjecutadoCents()),
+              presupuesto: this.euros(totalPresupuestadoCents()),
+              ejecutado: this.euros(totalEjecutadoCents()),
             })
           }}
         </span>
@@ -269,7 +276,8 @@ export class AccountingBudgetPanel {
 
   private readonly transloco = inject(TranslocoService);
 
-  protected readonly euros = euros;
+  private readonly idioma = inject(LOCALE_ID);
+  protected readonly euros = (cents: number): string => euros(cents, this.idioma);
 
   protected readonly filas = computed<readonly FilaPresupuesto[]>(() => {
     const lineas = this.lineas();
@@ -296,14 +304,14 @@ export class AccountingBudgetPanel {
                 : 'admin.events.accounting.partidas.aria',
               {
                 nombre,
-                ejecutado: euros(linea.ejecutado_cents),
-                presupuesto: euros(linea.budgeted_cents),
+                ejecutado: this.euros(linea.ejecutado_cents),
+                presupuesto: this.euros(linea.budgeted_cents),
                 porcentaje,
               },
             )
           : this.transloco.translate('admin.events.accounting.partidas.ariaSinPresupuesto', {
               nombre,
-              ejecutado: euros(linea.ejecutado_cents),
+              ejecutado: this.euros(linea.ejecutado_cents),
             });
       return {
         id: linea.budget_line_id ?? 'sin-partida',

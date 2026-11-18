@@ -8,6 +8,7 @@ import {
   input,
   signal,
   viewChild,
+  LOCALE_ID,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
@@ -221,7 +222,7 @@ interface FilaEmbudo {
                     <app-chip tone="espera">{{ textoDeAusencias(item.absences_count) }}</app-chip>
                   }
                 </td>
-                <td class="num muted">{{ fechaRelativa(item.created_at) }}</td>
+                <td class="num muted">{{ fechaRelativa(item.created_at, idioma) }}</td>
                 <td>
                   <app-chip [tone]="tonoDeEstado(item.status)">{{
                     t('admin.events.registrations.estado' + claveDeEstado(item.status))
@@ -446,6 +447,7 @@ export class EventRegistrations implements OnInit {
 
   protected readonly claveDeEstado = claveDeEstado;
   protected readonly fechaRelativa = fechaRelativa;
+  protected readonly idioma = inject(LOCALE_ID);
   protected readonly limite = LIMITE;
 
   protected readonly cargando = signal(true);

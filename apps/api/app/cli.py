@@ -295,6 +295,12 @@ def traducir_interfaz(
         typer.echo(f"Claves por traducir: {informe.pendientes}")
         if not simular:
             typer.echo(f"Traducidas: {informe.traducidas}")
+        if informe.sin_respuesta:
+            typer.secho(
+                f"Sin respuesta de la IA: {informe.sin_respuesta} claves. "
+                "Vuelve a ejecutarlo para completarlas.",
+                fg=typer.colors.YELLOW,
+            )
         if informe.rechazadas:
             typer.secho(
                 f"Rechazadas (variables distintas o vacías): {', '.join(informe.rechazadas)}",
