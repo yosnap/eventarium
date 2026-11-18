@@ -20,6 +20,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import re
 import uuid
 from collections.abc import Awaitable, Callable, Iterator
@@ -117,6 +118,9 @@ class Plan:
     revisar: list[str] = field(default_factory=list)
     #: Claves del destino que ya no existen en el original.
     sobrantes: list[str] = field(default_factory=list)
+    #: Traducidas sin huella (escritas a mano, o de otra copia sin el fichero de
+    #: huellas): se conservan tal cual y se registra su huella.
+    adoptadas: list[str] = field(default_factory=list)
 
 
 def planificar(
@@ -126,8 +130,11 @@ def planificar(
     for clave, texto in origen.items():
         anterior = huellas.get(clave)
         actual = destino.get(clave)
-        if actual is None or anterior is None:
+        if actual is None:
             plan.traducir.append(clave)
+            continue
+        if anterior is None:
+            plan.adoptadas.append(clave)
             continue
         cambio_el_original = anterior.get("origen") != huella(texto)
         editada_a_mano = anterior.get("destino") != huella(actual)
@@ -241,8 +248,11 @@ def _leer_json(ruta: Path) -> dict[str, Any]:
 
 
 def _escribir_json(ruta: Path, datos: dict[str, Any]) -> None:
+    """Escribe en un temporal y lo renombra: cortar a mitad no deja un JSON roto."""
     ruta.parent.mkdir(parents=True, exist_ok=True)
-    ruta.write_text(json.dumps(datos, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temporal = ruta.with_name(f"{ruta.name}.tmp")
+    temporal.write_text(json.dumps(datos, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    os.replace(temporal, ruta)
 
 
 async def _traducir_pendientes(
@@ -262,7 +272,15 @@ async def _traducir_pendientes(
     """Traduce las claves pendientes de `destino` y llama a `guardar` tras cada lote."""
     plan = planificar(origen, destino, huellas)
     informe = Informe(revisar=plan.revisar, sobrantes=plan.sobrantes, pendientes=len(plan.traducir))
-    if simular or not plan.traducir:
+    if simular:
+        return informe
+    for clave in plan.adoptadas:
+        huellas[clave] = {"origen": huella(origen[clave]), "destino": huella(destino[clave])}
+    if plan.adoptadas or plan.sobrantes:
+        # Se guarda aunque no haya nada que traducir: así se quitan las sobrantes y
+        # quedan registradas las adoptadas.
+        guardar()
+    if not plan.traducir:
         return informe
     if traductor is None:
         raise ValueError("Hace falta un traductor para traducir de verdad.")
@@ -285,8 +303,14 @@ async def _traducir_pendientes(
         async with semaforo:
             try:
                 validas, rechazadas = await pedir(lote)
-            except Exception:  # noqa: BLE001 - un lote fallido no para los demás
-                logger.warning("Lote sin respuesta de la IA (%s claves)", len(lote))
+            except Exception as exc:  # noqa: BLE001 - un lote fallido no para los demás
+                # Solo el tipo y el código del error: nunca el mensaje del proveedor.
+                logger.warning(
+                    "Lote sin respuesta de la IA (%s claves): %s %s",
+                    len(lote),
+                    type(exc).__name__,
+                    getattr(exc, "code", "") or "",
+                )
                 informe.sin_respuesta += len(lote)
                 return
             if rechazadas:
@@ -294,8 +318,12 @@ async def _traducir_pendientes(
                 try:
                     otra, rechazadas = await pedir(rechazadas)
                     validas.update(otra)
-                except Exception:  # noqa: BLE001
-                    logger.warning("Reintento sin respuesta de la IA (%s claves)", len(rechazadas))
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "Reintento sin respuesta de la IA (%s claves): %s",
+                        len(rechazadas),
+                        type(exc).__name__,
+                    )
         for clave, texto in validas.items():
             destino[clave] = texto
             huellas[clave] = {"origen": huella(origen[clave]), "destino": huella(texto)}

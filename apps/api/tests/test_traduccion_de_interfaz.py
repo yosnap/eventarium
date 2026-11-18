@@ -130,6 +130,49 @@ async def test_traduce_lo_pendiente_y_no_repite_lo_hecho(carpeta: Path) -> None:
     assert llamadas == []
 
 
+def test_planificar_adopta_las_traducciones_sin_huella() -> None:
+    plan = planificar({"a": "Uno", "b": "Dos"}, {"a": "One, by hand"}, {})
+    assert plan.adoptadas == ["a"]
+    assert plan.traducir == ["b"]
+
+
+async def test_no_pisa_traducciones_sin_huella_y_quita_las_sobrantes(carpeta: Path) -> None:
+    (carpeta / "en-US.json").write_text(
+        json.dumps({"comun": {"hola": "Hey, {{ nombre }}!", "cerrar": "Close"}, "viejo": "Old"}),
+        encoding="utf-8",
+    )
+    pedidas: list[str] = []
+
+    async def traductor(mensajes: list[dict[str, str]]) -> str:
+        textos = json.loads(mensajes[1]["content"])
+        pedidas.extend(textos.values())
+        return json.dumps(dict.fromkeys(textos, "New"))
+
+    await traducir("en-US", traductor)
+    assert pedidas == ["Nuevo"]
+    assert json.loads((carpeta / "en-US.json").read_text(encoding="utf-8")) == {
+        "comun": {"hola": "Hey, {{ nombre }}!", "cerrar": "Close"},
+        "nuevo": "New",
+    }
+    huellas = json.loads(modulo.FICHERO_HUELLAS.read_text(encoding="utf-8"))["en-US"]
+    assert huellas["comun.hola"] == {
+        "origen": huella("Hola, {{ nombre }}"),
+        "destino": huella("Hey, {{ nombre }}!"),
+    }
+
+
+async def test_quita_las_sobrantes_aunque_no_haya_nada_que_traducir(carpeta: Path) -> None:
+    (carpeta / "en-US.json").write_text(
+        json.dumps(
+            {"comun": {"hola": "Hi, {{ nombre }}", "cerrar": "Close"}, "nuevo": "New", "x": "Gone"}
+        ),
+        encoding="utf-8",
+    )
+    await traducir("en-US", None)
+    assert "x" not in json.loads((carpeta / "en-US.json").read_text(encoding="utf-8"))
+    assert not list(carpeta.glob("*.tmp"))
+
+
 async def test_un_texto_que_rompe_las_variables_no_se_guarda(carpeta: Path) -> None:
     async def traductor(mensajes: list[dict[str, str]]) -> str:
         textos = json.loads(mensajes[1]["content"])
