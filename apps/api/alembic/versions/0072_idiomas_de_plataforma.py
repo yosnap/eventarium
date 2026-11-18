@@ -43,13 +43,13 @@ def upgrade() -> None:
         ),
     )
     op.create_check_constraint(
-        "ck_platform_branding_enabled_locales",
+        "enabled_locales",
         "platform_branding",
         "'es-ES' = ANY(enabled_locales) AND enabled_locales <@ ARRAY['es-ES','en-US']::varchar[]",
     )
 
 
 def downgrade() -> None:
-    op.drop_constraint("ck_platform_branding_enabled_locales", "platform_branding", type_="check")
+    op.drop_constraint("enabled_locales", "platform_branding", type_="check")
     op.drop_column("platform_branding", "language_switcher_visible")
     op.drop_column("platform_branding", "enabled_locales")

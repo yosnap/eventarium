@@ -29,12 +29,12 @@ def upgrade() -> None:
         sa.Column("locale", sa.String(10), nullable=False, server_default="es-ES"),
     )
     op.create_check_constraint(
-        "ck_event_registrations_locale",
+        "locale",
         "event_registrations",
         "locale IN ('es-ES', 'en-US')",
     )
 
 
 def downgrade() -> None:
-    op.drop_constraint("ck_event_registrations_locale", "event_registrations", type_="check")
+    op.drop_constraint("locale", "event_registrations", type_="check")
     op.drop_column("event_registrations", "locale")
