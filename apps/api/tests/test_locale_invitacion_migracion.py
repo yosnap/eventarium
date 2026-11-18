@@ -1,7 +1,7 @@
-"""Comprobaciones de la migración `0067_locale_en_invitacion` (fase 2).
+"""Comprobaciones de la migración `0070_locale_en_invitacion`.
 
 `app_accept_invited_user` cambia de firma (4 -> 5 parámetros, añade
-`p_locale`). Mismo patrón que `test_locale_registro_migracion.py` (fase 1):
+`p_locale`). Mismo patrón que `test_locale_registro_migracion.py`:
 sin sobrecargas huérfanas, `EXECUTE` cerrado a `PUBLIC`, `downgrade`
 simétrico verificado mientras la base está abajo (no solo "sin error").
 
@@ -9,10 +9,8 @@ Regla dura del usuario: verificación de permisos únicamente con
 `has_function_privilege(...)`, nunca `SET ROLE` / `SET LOCAL ROLE`. Pseudo-rol
 PUBLIC en minúsculas (`'public'`; `'PUBLIC'` da "role does not exist").
 
-Revisión explícita en el ciclo de downgrade: la revisión anterior de esta
-migración es la que fase 1 le puso a la suya, nunca `-1` (con dos
-migraciones encadenadas, `-1` revertiría la de esta fase, no permitiría
-comprobar la cadena completa).
+El ciclo de downgrade baja solo a la revisión inmediatamente anterior,
+`0069_locale_en_alta_de_cuenta`, escrita de forma explícita.
 """
 
 from __future__ import annotations
@@ -28,12 +26,8 @@ from app.core.database import SessionMaintenance
 
 API_DIR = Path(__file__).resolve().parents[1]
 
-# `down_revision` real de esta migración = el `revision` que fase 1 fijó a la
-# suya (`0066_locale_en_alta_de_cuenta`, no el `0063` que asumía el phase
-# file — fase 1 tuvo que renumerarse por migraciones `0063`-`0065` ajenas ya
-# existentes en `origin/develop`/`origin/main`. Verificado leyendo el fichero
-# real de fase 1 y `alembic heads` antes de escribir esta migración).
-REVISION_DE_FASE_1 = "0066_locale_en_alta_de_cuenta"
+# `down_revision` de `0070_locale_en_invitacion`.
+REVISION_ANTERIOR = "0069_locale_en_alta_de_cuenta"
 FIRMA_NUEVA = "app_accept_invited_user(uuid,text,text,text,text)"
 FIRMA_VIEJA = "app_accept_invited_user(uuid,text,text,text)"
 
@@ -82,8 +76,8 @@ async def test_sin_sobrecargas_huerfanas() -> None:
     assert await _numero_de_sobrecargas() == 1
 
 
-async def test_downgrade_restaura_la_firma_de_fase_1_con_sus_permisos() -> None:
-    _correr_alembic("downgrade", REVISION_DE_FASE_1)
+async def test_downgrade_restaura_la_firma_anterior_con_sus_permisos() -> None:
+    _correr_alembic("downgrade", REVISION_ANTERIOR)
     try:
         assert await _numero_de_sobrecargas() == 1
         assert await _tiene_privilegio_de_ejecucion("app_user", FIRMA_VIEJA) is True

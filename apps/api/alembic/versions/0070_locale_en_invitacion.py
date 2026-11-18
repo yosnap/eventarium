@@ -2,11 +2,11 @@
 
 Añade `p_locale` a `app_accept_invited_user` para que la aceptación de una
 invitación (`POST /public/invitations/{token}/accept`) pueda fijar el idioma
-de la cuenta, simétrico a lo que fase 1 hizo con `app_create_unverified_user`
-en el registro.
+de la cuenta, simétrico a lo que `0069_locale_en_alta_de_cuenta` hizo con
+`app_create_unverified_user` en el registro.
 
 La función cambia de **firma** (4 -> 5 parámetros): se elimina la versión
-vieja antes de crear la nueva, mismo patrón que `0066_locale_en_alta_de_cuenta.py`
+vieja antes de crear la nueva, mismo patrón que `0069_locale_en_alta_de_cuenta.py`
 (y antes, `0005_nombre_y_apellidos.py`) al cambiar la firma de una función
 `SECURITY DEFINER` ya existente (`CREATE OR REPLACE` no sustituye una función
 con distinta firma, crea una sobrecarga adicional).
@@ -16,8 +16,8 @@ El cuerpo SQL del `UPDATE` (columnas `password_hash`, `first_name`,
 (primera creación de `app_accept_invited_user`, no cambio de firma — esa
 migración solo es fuente del cuerpo, no precedente del patrón de migración).
 
-Revision ID: 0067_locale_en_invitacion
-Revises: 0066_locale_en_alta_de_cuenta
+Revision ID: 0070_locale_en_invitacion
+Revises: 0069_locale_en_alta_de_cuenta
 """
 
 from __future__ import annotations
@@ -26,8 +26,8 @@ from collections.abc import Sequence
 
 from alembic import op
 
-revision: str = "0067_locale_en_invitacion"
-down_revision: str | None = "0066_locale_en_alta_de_cuenta"
+revision: str = "0070_locale_en_invitacion"
+down_revision: str | None = "0069_locale_en_alta_de_cuenta"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

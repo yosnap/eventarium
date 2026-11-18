@@ -1,4 +1,4 @@
-"""Comprobaciones de la migración `0063_locale_en_alta_de_cuenta` (fase 1).
+"""Comprobaciones de la migración `0069_locale_en_alta_de_cuenta`.
 
 `app_create_unverified_user` cambia de firma (3 -> 4 parámetros, añade
 `p_locale`). Verifica que no queda ninguna sobrecarga huérfana, que el
@@ -11,9 +11,9 @@ incidente real documentado tumbó Postgres en producción con ese comando).
 El pseudo-rol PUBLIC se escribe `'public'` en minúsculas: PostgreSQL no lo
 reconoce en mayúsculas (`role "PUBLIC" does not exist`).
 
-El ciclo de migración usa revisiones **explícitas**, nunca `downgrade -1`:
-en cuanto exista la migración de fase 2 encadenada a esta, `-1` revertiría
-la de fase 2, no esta.
+El ciclo de migración baja a la revisión inmediatamente anterior a esta,
+escrita de forma explícita: `downgrade -1` revertiría `0070_locale_en_invitacion`,
+que va encadenada encima, y no esta.
 """
 
 from __future__ import annotations
@@ -29,9 +29,8 @@ from app.core.database import SessionMaintenance
 
 API_DIR = Path(__file__).resolve().parents[1]
 
-# `down_revision` real fijado por fase 1 (ver Implementation Steps paso 1 del
-# phase file): verificado contra `alembic heads` antes de escribir este test.
-REVISION_ANTERIOR = "0062_sin_enlaces_antiguos"
+# `down_revision` de `0069_locale_en_alta_de_cuenta`.
+REVISION_ANTERIOR = "0068_mis_eventos_calendario"
 FIRMA_NUEVA = "app_create_unverified_user(uuid,text,text,text)"
 FIRMA_VIEJA = "app_create_unverified_user(uuid,text,text)"
 

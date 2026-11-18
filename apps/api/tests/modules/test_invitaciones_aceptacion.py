@@ -172,8 +172,8 @@ async def test_aceptar_dos_veces_no_duplica_la_membresia(
 async def test_aceptar_con_locale_valido_lo_persiste(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    """Fase 2 (plan `261019-1343`): `locale` explícito en la aceptación se guarda
-    en la cuenta, igual que en el registro de fase 1."""
+    """`locale` explícito en la aceptación se guarda en la cuenta, igual que en
+    el registro."""
     _invitation_id, token = await _crear_invitacion(organizacion, email="con-idioma@example.com")
 
     respuesta = await cliente.post(
@@ -196,7 +196,7 @@ async def test_aceptar_con_locale_valido_lo_persiste(
 async def test_aceptar_sin_locale_usa_es_es_por_defecto(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    """Fase 2: si se omite `locale`, la cuenta queda en `'es-ES'`."""
+    """Si se omite `locale`, la cuenta queda en `'es-ES'`."""
     _invitation_id, token = await _crear_invitacion(organizacion, email="sin-idioma@example.com")
 
     respuesta = await cliente.post(
@@ -214,7 +214,7 @@ async def test_aceptar_sin_locale_usa_es_es_por_defecto(
 async def test_aceptar_con_locale_invalido_devuelve_422(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    """Fase 2: `locale` fuera del catálogo `Literal["es-ES", "en-US"]` es 422."""
+    """`locale` fuera del catálogo `Literal["es-ES", "en-US"]` es 422."""
     _invitation_id, token = await _crear_invitacion(organizacion, email="idioma-malo@example.com")
 
     respuesta = await cliente.post(
@@ -232,7 +232,7 @@ async def test_aceptar_con_locale_invalido_devuelve_422(
 async def test_aceptar_dos_veces_con_locale_distinto_no_cambia_el_ya_fijado(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    """Fase 2, idempotencia: la segunda aceptación (rama temprana de
+    """Idempotencia: la segunda aceptación (rama temprana de
     `invitations_service.py`, invitación ya `aceptada`) no reescribe la cuenta,
     así que el `locale` de la primera llamada se mantiene aunque la segunda pida
     otro distinto."""

@@ -9,18 +9,8 @@ vieja antes de crear la nueva, igual que hizo `0005_nombre_y_apellidos.py`
 al quitar `p_full_name` (`CREATE OR REPLACE` no sustituye una función con
 distinta firma, crea una sobrecarga adicional).
 
-Nota de numeración: `down_revision` fijado contra la cabeza real de este
-worktree en el momento de escribir esta migración (`alembic heads` ->
-`0062_sin_enlaces_antiguos`, única cabeza). `origin/develop` y `origin/main`
-ya tienen migraciones `0063`-`0065` propias (sin relación con `locale`, no
-mergeadas todavía en esta rama); se salta ese rango al numerar esta para no
-reutilizar un número ya tomado por otra rama -- quien integre esta rama con
-`develop` necesitará una revisión de fusión de Alembic (`alembic merge
-heads`), algo normal con migraciones en ramas paralelas y fuera del alcance
-de esta fase.
-
-Revision ID: 0066_locale_en_alta_de_cuenta
-Revises: 0062_sin_enlaces_antiguos
+Revision ID: 0069_locale_en_alta_de_cuenta
+Revises: 0068_mis_eventos_calendario
 """
 
 from __future__ import annotations
@@ -29,8 +19,8 @@ from collections.abc import Sequence
 
 from alembic import op
 
-revision: str = "0066_locale_en_alta_de_cuenta"
-down_revision: str | None = "0062_sin_enlaces_antiguos"
+revision: str = "0069_locale_en_alta_de_cuenta"
+down_revision: str | None = "0068_mis_eventos_calendario"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

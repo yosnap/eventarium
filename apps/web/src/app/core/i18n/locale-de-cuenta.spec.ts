@@ -3,8 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { localeDeCuenta } from './locale-de-cuenta';
 
 /**
- * Fase 3 (plan `261019-1343-parametro-idioma-registro-invitacion`): el helper
- * nunca debe enviar al backend un código de idioma fuera del catálogo
+ * El helper nunca debe enviar al backend un código de idioma fuera del catálogo
  * `'es-ES' | 'en-US'` — un idioma de interfaz futuro que el backend no
  * conozca (p. ej. `'en'` en vez de `'en-US'`) no debe convertir el parámetro
  * opcional `locale` en un 422 que bloquee el alta de cuentas.

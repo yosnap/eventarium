@@ -146,9 +146,8 @@ describe('AcceptInvitationPage', () => {
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
-  // Fase 3 (plan `261019-1343`), red-team #14: el token va `encodeURIComponent`-eado
-  // en la URL de consulta — bug preexistente (path traversal del lado cliente),
-  // corregido de paso porque esta fase ya toca la línea al añadir `locale`.
+  // El token va `encodeURIComponent`-eado en la URL de consulta: sin ello
+  // habría path traversal del lado cliente.
   it('la consulta manda el token URL-encoded, no en crudo', async () => {
     configurar(rutaConToken('con/slash&raro'));
     const fixture = TestBed.createComponent(AcceptInvitationPage);
@@ -168,7 +167,7 @@ describe('AcceptInvitationPage', () => {
     await avanzar(fixture);
   });
 
-  // Fase 3, red-team #14 (misma corrección) + requisito de `locale` en el body
+  // Misma corrección + requisito de `locale` en el body
   // del `accept`: el helper `localeDeCuenta()` manda siempre un valor del
   // catálogo compartido con el backend (hoy, con un solo idioma cargado,
   // siempre `'es-ES'`).

@@ -3,7 +3,7 @@
 Vive en `app.core`, no en `app.modules.users.schemas` (dueño natural de la columna
 `users.locale`): `users.schemas` ya importa de `organizations.schemas`
 (`SLUG_PATTERN`, `PublicOrganizationRef`), así que si el alias viviera en `users.schemas`,
-que `organizations.schemas` lo importara de vuelta (fase 2, `InvitationAcceptRequest`)
+que `organizations.schemas` lo importara de vuelta (`InvitationAcceptRequest`)
 cerraría un ciclo. `app.core` es el único punto neutral que `auth`, `organizations` y
 `users` ya pueden importar sin crear una dependencia nueva entre módulos de dominio —
 mismo patrón que `Environment` en `app.core.config`.

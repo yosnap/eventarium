@@ -71,7 +71,7 @@ async def test_registro_dos_veces_responde_igual_y_no_duplica(
 async def test_registro_con_locale_valido_se_persiste(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba, _correo_encolado_sincrono: AsyncMock
 ) -> None:
-    """Fase 1 (plan `261019-1343`): `locale` explícito se guarda en la cuenta."""
+    """`locale` explícito se guarda en la cuenta."""
     datos = {**DATOS_REGISTRO, "locale": "en-US"}
     respuesta = await cliente.post(REGISTER, json=datos)
     assert respuesta.status_code == 202
@@ -85,7 +85,7 @@ async def test_registro_con_locale_valido_se_persiste(
 async def test_registro_sin_locale_usa_es_es_por_defecto(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba, _correo_encolado_sincrono: AsyncMock
 ) -> None:
-    """Fase 1: si se omite `locale`, la cuenta queda en `'es-ES'` (default del catálogo)."""
+    """Si se omite `locale`, la cuenta queda en `'es-ES'` (default del catálogo)."""
     respuesta = await cliente.post(REGISTER, json=DATOS_REGISTRO)
     assert respuesta.status_code == 202
 
@@ -98,7 +98,7 @@ async def test_registro_sin_locale_usa_es_es_por_defecto(
 async def test_registro_con_locale_invalido_devuelve_422(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
-    """Fase 1: `locale` fuera del catálogo `Literal["es-ES", "en-US"]` es un 422 de
+    """`locale` fuera del catálogo `Literal["es-ES", "en-US"]` es un 422 de
     Pydantic, antes de tocar el router/servicio (anti-enumeración intacta: el 422 es
     igual exista o no la cuenta, porque ni siquiera llega a consultar la base)."""
     datos = {**DATOS_REGISTRO, "locale": "fr-FR"}
@@ -109,7 +109,7 @@ async def test_registro_con_locale_invalido_devuelve_422(
 async def test_registro_dos_veces_con_locales_distintos_responde_igual_y_no_cambia_el_locale(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba, _correo_encolado_sincrono: AsyncMock
 ) -> None:
-    """Fase 1, caso borde de anti-enumeración: el correo ya existente ignora el
+    """Caso borde de anti-enumeración: el correo ya existente ignora el
     `locale` recibido en la segunda llamada; el 202 es idéntico (status + cuerpo
     completo) y el correo de verificación se encola una sola vez."""
     primera = await cliente.post(REGISTER, json={**DATOS_REGISTRO, "locale": "en-US"})
