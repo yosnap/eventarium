@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 from app.core.locale import Locale
 from app.core.permissions import Permission
@@ -70,7 +71,8 @@ class UserMeUpdate(BaseModel):
 
     first_name: Annotated[str, Field(min_length=1, max_length=100)] | None = None
     last_name: Annotated[str, Field(min_length=1, max_length=100)] | None = None
-    locale: Locale | None = None
+    # `SkipJsonSchema`: el esquema publicado no anuncia `null`, que se rechaza abajo.
+    locale: Locale | SkipJsonSchema[None] = None
     # "Avisarme de eventos similares" — la persona la activa sobre sí misma.
     # Sin motor de envío todavía (plan `260916-0810-usuarios-y-permisos-
     # plataforma`, fase 3): el campo se guarda desde ya para no perder la

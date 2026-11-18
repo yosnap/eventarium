@@ -88,6 +88,10 @@ async def test_patch_me_con_locale_valido_lo_actualiza(
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     respuesta = await cliente.patch(ME, headers=cabeceras, json={"locale": "en-US"})
     assert respuesta.status_code == 200
+    assert respuesta.json()["locale"] == "en-US"
+    # Y `/users/me` lo devuelve: es lo que usa el panel para fijar su idioma.
+    leido = await cliente.get(ME, headers=cabeceras)
+    assert leido.json()["locale"] == "en-US"
 
 
 async def test_patch_me_con_locale_fuera_de_catalogo_devuelve_422(

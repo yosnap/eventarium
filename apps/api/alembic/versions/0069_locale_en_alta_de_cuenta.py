@@ -2,7 +2,7 @@
 
 Añade `p_locale` a `app_create_unverified_user` para que el registro público
 (`POST /auth/register`) pueda fijar el idioma de la cuenta desde el propio
-alta, en vez de depender siempre del `DEFAULT 'es-ES'` de la columna.
+alta, en vez de recibir siempre `es-ES`.
 
 La función cambia de **firma** (3 -> 4 parámetros): se elimina la versión
 vieja antes de crear la nueva, igual que hizo `0005_nombre_y_apellidos.py`

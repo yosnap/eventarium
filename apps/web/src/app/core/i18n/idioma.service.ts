@@ -9,7 +9,6 @@ import {
   leerIdiomaDeCookie,
   resolverIdioma,
   serializarCookieDeIdioma,
-  sigueIdiomaDeCuenta,
 } from './idioma';
 
 function rutaDeLaPeticion(url: string): string {
@@ -70,14 +69,39 @@ export class IdiomaService {
     if (!this.esNavegador || !esIdioma(localeDeCuenta)) {
       return false;
     }
-    const enCookie = leerIdiomaDeCookie(this.documento.cookie);
-    if (enCookie !== localeDeCuenta) {
+    if (leerIdiomaDeCookie(this.documento.cookie) !== localeDeCuenta) {
       this.documento.cookie = serializarCookieDeIdioma(localeDeCuenta);
     }
-    if (localeDeCuenta === this.activo || !sigueIdiomaDeCuenta(this.documento.location.pathname)) {
+    // Si el navegador no guarda la cookie (bloqueo de cookies, extensiones), recargar
+    // no cambiaría nada y se repetiría en cada carga del usuario: no se recarga.
+    if (leerIdiomaDeCookie(this.documento.cookie) !== localeDeCuenta) {
       return false;
     }
-    this.documento.location.reload();
+    return this.recargarSiCambiaElIdioma(this.documento.location.pathname);
+  }
+
+  /**
+   * Recarga la página si el idioma que corresponde a `url` no es el activo.
+   *
+   * El idioma se fija al arrancar, pero una navegación dentro de la aplicación puede
+   * cruzar la frontera entre un panel (idioma de la cuenta) y una página pública
+   * (idioma del prefijo). Sin recargar, la página pública saldría en el idioma del
+   * panel, distinto del que sirve el servidor para esa misma URL. Devuelve `true` si
+   * va a recargar.
+   */
+  recargarSiCambiaElIdioma(url: string): boolean {
+    if (!this.esNavegador) {
+      return false;
+    }
+    const ruta = url.split(/[?#]/, 1)[0] ?? '/';
+    if (resolverIdioma(ruta, this.documento.cookie) === this.activo) {
+      return false;
+    }
+    if (ruta === this.documento.location.pathname) {
+      this.documento.location.reload();
+    } else {
+      this.documento.location.assign(url);
+    }
     return true;
   }
 }

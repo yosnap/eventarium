@@ -27598,17 +27598,10 @@
             "title": "Last Name"
           },
           "locale": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "es-ES",
-                  "en-US"
-                ]
-              },
-              {
-                "type": "null"
-              }
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
             ],
             "title": "Locale"
           },

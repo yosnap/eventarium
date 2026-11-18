@@ -14,7 +14,10 @@ import {
   withComponentInputBinding,
   withInMemoryScrolling,
   withRouterConfig,
+  NavigationEnd,
+  Router,
 } from '@angular/router';
+import { filter } from 'rxjs';
 import { provideServiceWorker } from '@angular/service-worker';
 import { TranslocoService, provideTransloco } from '@jsverse/transloco';
 
@@ -23,7 +26,7 @@ import { errorInterceptor } from './core/api/error.interceptor';
 import { registrarDatosDeIdioma } from './core/i18n/datos-de-idioma';
 import { IDIOMAS, IDIOMA_POR_DEFECTO } from './core/i18n/idioma';
 import { idiomaInterceptor } from './core/i18n/idioma.interceptor';
-import { IDIOMA } from './core/i18n/idioma.service';
+import { IDIOMA, IdiomaService } from './core/i18n/idioma.service';
 import { TraduccionesLoader } from './core/i18n/transloco-loader';
 import { ThemingService } from './core/theming/theming.service';
 import { environment } from '../environments/environment';
@@ -76,6 +79,11 @@ export const appConfig: ApplicationConfig = {
       const idioma = inject(IDIOMA);
       inject(TranslocoService).setActiveLang(idioma);
       inject(DOCUMENT).documentElement.lang = idioma;
+      // Al cruzar entre panel y páginas públicas puede cambiar el idioma que toca.
+      const servicio = inject(IdiomaService);
+      inject(Router)
+        .events.pipe(filter((evento) => evento instanceof NavigationEnd))
+        .subscribe((evento) => servicio.recargarSiCambiaElIdioma(evento.urlAfterRedirects));
     }),
     // Solo la PWA de check-in (fase 4 del PRD) lo necesita hoy, pero registrarlo aquí
     // no afecta al resto del panel: `enabled` ya lo desactiva fuera de producción, y

@@ -24,9 +24,10 @@ Locale = Literal["es-ES", "en-US"]
 DEFAULT_LOCALE: Locale = "es-ES"
 LOCALES: Final[tuple[Locale, ...]] = get_args(Locale)
 
-#: Idioma de la petición en curso. Fuera de una petición (tareas, scripts) vale el
-#: idioma por defecto: quien envía un correo o genera un documento en segundo plano
-#: debe pasar el idioma del destinatario de forma explícita.
+#: Idioma de la petición en curso. Fuera de una petición (tareas de taskiq, scripts)
+#: vale el idioma por defecto. Las `BackgroundTasks` de FastAPI sí lo heredan de la
+#: petición que las lanzó, que no tiene por qué ser el de quien recibe el aviso: todo
+#: correo o documento para otra persona debe recibir su idioma de forma explícita.
 _idioma_actual: ContextVar[Locale] = ContextVar("idioma_actual", default=DEFAULT_LOCALE)
 
 

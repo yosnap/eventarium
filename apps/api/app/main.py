@@ -169,7 +169,9 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
 
     # Idioma de cada petición (`Accept-Language` o `?idioma=`), disponible para el
-    # endpoint y para los manejadores de errores. Sin cabecera, español.
+    # endpoint y para los manejadores de errores de dominio. Sin cabecera, español.
+    # Los errores 500 los resuelve `ServerErrorMiddleware`, que queda por fuera de
+    # este middleware: esos responden siempre en el idioma por defecto.
     app.add_middleware(IdiomaMiddleware)
 
     # La dependencia de solo lectura se aplica aquí, al router raíz de la API,
