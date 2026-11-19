@@ -40,11 +40,17 @@ async def get_platform_branding(session: AsyncSession) -> PlatformBranding:
     )
 
 
-async def get_platform_legal_page(session: AsyncSession, kind: str) -> PlatformLegalPage | None:
-    """Texto editado de una página legal de plataforma, o `None` si no hay."""
+async def get_platform_legal_page(
+    session: AsyncSession, kind: str, locale: str = "es-ES"
+) -> PlatformLegalPage | None:
+    """Texto editado de una página legal de plataforma en `locale`, o `None` si no hay."""
     return cast(
         "PlatformLegalPage | None",
-        await session.scalar(select(PlatformLegalPage).where(PlatformLegalPage.kind == kind)),
+        await session.scalar(
+            select(PlatformLegalPage).where(
+                PlatformLegalPage.kind == kind, PlatformLegalPage.locale == locale
+            )
+        ),
     )
 
 

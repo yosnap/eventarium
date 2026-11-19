@@ -54,7 +54,7 @@ describe('PlatformLegalPage', () => {
   ): Promise<ComponentFixture<PlatformLegalPage>> {
     const fixture = TestBed.createComponent(PlatformLegalPage);
     await avanzar(fixture);
-    http.expectOne(LEGALES_URL).flush(cuerpo);
+    http.expectOne(`${LEGALES_URL}?idioma=es-ES`).flush(cuerpo);
     await avanzar(fixture);
     return fixture;
   }
@@ -101,5 +101,34 @@ describe('PlatformLegalPage', () => {
     await guardado;
 
     expect(fixture.componentInstance.guardado()).toBe(true);
+  });
+
+  it('en inglés, sin versión propia deja el campo vacío y guarda con su idioma', async () => {
+    const fixture = await crearYCargar();
+    const espanola = (content: string) => ({ content, is_custom: false, served_locale: 'es-ES' });
+
+    fixture.componentInstance['cambiarIdioma']('en-US');
+    await avanzar(fixture);
+    http.expectOne(`${LEGALES_URL}?idioma=en-US`).flush({
+      legal_notice: { content: 'Legal notice', is_custom: true, served_locale: 'en-US' },
+      privacy_policy: espanola('Privacidad de Eventarium'),
+      cookies_policy: espanola('Cookies de Eventarium'),
+      registration_terms: espanola('Condiciones de inscripción de Eventarium'),
+    });
+    await avanzar(fixture);
+
+    expect(fixture.componentInstance.avisoLegal()).toBe('Legal notice');
+    expect(fixture.componentInstance.privacidad()).toBe('');
+
+    const guardado = fixture.componentInstance.guardar(new Event('submit'));
+    await avanzar(fixture);
+    const peticion = http.expectOne((r) => r.url === LEGALES_URL && r.method === 'PATCH');
+    expect(peticion.request.body).toMatchObject({
+      locale: 'en-US',
+      legal_notice_content: 'Legal notice',
+      privacy_policy_content: null,
+    });
+    peticion.flush(SIN_EDITAR);
+    await guardado;
   });
 });

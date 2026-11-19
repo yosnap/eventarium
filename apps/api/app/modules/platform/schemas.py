@@ -63,7 +63,16 @@ class PlatformLegalPageItem(BaseModel):
     """Una página legal de plataforma, con su contenido efectivo."""
 
     content: str
-    is_custom: bool = Field(description="`true` si el admin ha editado esta página.")
+    is_custom: bool = Field(
+        description="`true` si el admin ha editado esta página en el idioma pedido."
+    )
+    served_locale: Locale = Field(
+        default="es-ES",
+        description=(
+            "Idioma del texto servido. Si se pidió otro y no hay versión escrita a mano, "
+            "es `es-ES` y la web muestra el aviso de contenido original."
+        ),
+    )
 
 
 class PlatformLegalPagesResponse(BaseModel):
@@ -86,3 +95,10 @@ class PlatformLegalPagesUpdate(BaseModel):
     privacy_policy_content: Annotated[str, Field(max_length=20_000)] | None = None
     cookies_policy_content: Annotated[str, Field(max_length=20_000)] | None = None
     registration_terms_content: Annotated[str, Field(max_length=20_000)] | None = None
+    locale: Locale = Field(
+        default=DEFAULT_LOCALE,
+        description=(
+            "Idioma de la versión que se edita. Con `null` en otro idioma, se borra esa "
+            "versión y vuelve a servirse la española con aviso."
+        ),
+    )
