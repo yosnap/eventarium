@@ -31,6 +31,24 @@ class EventoResumen(BaseModel):
     categoria: str | None = None
     etiquetas: list[str] = Field(default_factory=list)
     enlace_panel: str
+    # Idioma en que está escrito el evento y, si se pidió otro con `idioma`, el
+    # del título que se devuelve (el pedido si está traducido; si no, el original).
+    idioma_original: str = "es-ES"
+    idioma_servido: str | None = None
+
+
+class EstadoDeTraduccion(BaseModel):
+    evento_id: str
+    idioma_original: str
+    idioma: str
+    # Textos del evento (y de su agenda, sedes, entradas, preguntas…) que hay que
+    # traducir a `idioma`, y cuántos están ya al día.
+    textos: int
+    al_dia: int
+    # Se ha puesto en la cola de traducción automática en esta llamada.
+    en_cola: bool
+    # La organización tiene su propia clave de IA: se puede traducir con IA.
+    traduccion_automatica: bool
 
 
 class Categoria(BaseModel):
@@ -109,6 +127,10 @@ class EventoDetalle(EventoResumen):
     recordatorio_horas: int
     sitios_cercanos: list[SitioCercano] = []
     motivo_cancelacion: str | None
+    # Con `idioma`: idiomas en que todo el evento está al día y cuántos textos se
+    # devuelven en el original porque aún no están traducidos al pedido.
+    idiomas_al_dia: list[str] = Field(default_factory=list)
+    textos_sin_traducir: int = 0
     sedes: list[Sede]
     sesiones: list[Sesion]
     patrocinadores: list[Patrocinador]

@@ -7,7 +7,7 @@ entidad. Cada entidad exige el mismo permiso que editar su original.
 from __future__ import annotations
 
 import uuid
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Query
 from sqlalchemy import select
@@ -15,12 +15,8 @@ from sqlalchemy import select
 from app.core.deps import CurrentUserDep, DbDep, PermissionsDep
 from app.core.locale import Locale
 from app.core.permissions import Permission
-from app.modules.events.models import Event, EventSession, EventVenue
-from app.modules.nearby.models import EventNearbyPlace
+from app.modules.events.models import Event
 from app.modules.organizations.models import Organization
-from app.modules.payments.models import EventTicketType
-from app.modules.registrations.models import EventRegistrationQuestion
-from app.modules.sponsors.models import Sponsor
 from app.modules.translations import cola, panel, service
 from app.modules.translations.campos import TipoDeEntidad
 from app.modules.translations.schemas import (
@@ -221,16 +217,6 @@ async def review_translation(
 
 
 #: Lo que cuelga de un evento y cuenta en su resumen de traducción.
-_HIJOS_DEL_EVENTO: tuple[tuple[TipoDeEntidad, Any], ...] = (
-    ("session", EventSession),
-    ("venue", EventVenue),
-    ("ticket_type", EventTicketType),
-    ("question", EventRegistrationQuestion),
-    ("sponsor", Sponsor),
-    ("nearby_place", EventNearbyPlace),
-)
-
-
 @router.get(
     "/events/{event_id}/summary",
     summary="Cuántos textos del evento están al día en cada idioma",
@@ -244,30 +230,10 @@ async def event_translation_summary(
     evento = await panel.abrir(
         session, usuario, permisos, "event", _uuid_o_404(event_id), escribir=False
     )
-    entidades = [evento]
-    for tipo, modelo in _HIJOS_DEL_EVENTO:
-        filas: Any = await session.scalars(
-            select(modelo).where(
-                modelo.organization_id == usuario.organization_id,
-                modelo.event_id == evento.fila.id,
-            )
-        )
-        entidades += [
-            panel.Entidad(
-                tipo=tipo,
-                fila=fila,
-                event_id=evento.fila.id,
-                origen=evento.origen,
-                origen_organizacion=evento.origen_organizacion,
-                activos=evento.activos,
-            )
-            for fila in filas
-        ]
-    destinos = [locale for locale in evento.activos if locale != evento.origen]
-    cuentas = await panel.progreso(session, entidades, destinos)
+    cuentas = await panel.progreso_del_evento(session, evento)
     progreso = [
-        LocaleProgress(locale=locale, total=cuentas[locale][0], up_to_date=cuentas[locale][1])
-        for locale in destinos
+        LocaleProgress(locale=locale, total=total, up_to_date=al_dia)
+        for locale, (total, al_dia) in cuentas.items()
     ]
     return EventTranslationSummary(
         source_locale=evento.origen,

@@ -15,6 +15,7 @@ from app.modules.mcp.herramientas_escritura import (
     _sin_nulos,
     _validar,
 )
+from app.modules.mcp.herramientas_idioma import exigir_idioma_original, idioma_pedido
 from app.modules.mcp.herramientas_lectura import (
     LECTURA,
     _evento_permitido,
@@ -49,10 +50,13 @@ def registrar(mcp: MCPServer) -> None:
         telefono: str | None = None,
         web: str | None = None,
         nota: str | None = None,
+        idioma: str | None = None,
     ) -> schemas.SitioCercano:
         """Añade un sitio cercano al evento. `tipo`: hotel, restaurant, bar,
         parking, transport, pharmacy u other; con other, `tipo_libre` es su
-        nombre (p. ej. «Gimnasio»). `web` con http(s)://; hasta 50 por evento."""
+        nombre (p. ej. «Gimnasio»). `web` con http(s)://; hasta 50 por evento.
+        `idioma`: el de `nombre` y `nota`; tiene que ser el original del evento."""
+        locale = idioma_pedido(idioma)
         contexto = await preparar()
         contexto.exigir_ambito(Ambito.EVENTOS_EDITAR)
         datos = _validar(
@@ -69,6 +73,7 @@ def registrar(mcp: MCPServer) -> None:
         ).model_dump()
         async with sesion(contexto) as session:
             evento = await _evento_permitido(session, contexto, event_id)
+            exigir_idioma_original(locale, evento)
             sitio = await nearby_service.crear(
                 session, organization_id=contexto.organization_id, event_id=evento.id, datos=datos
             )

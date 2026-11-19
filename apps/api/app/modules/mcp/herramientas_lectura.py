@@ -14,6 +14,7 @@ from mcp.types import ToolAnnotations
 from sqlalchemy import select
 
 from app.core.config import get_settings
+from app.core.locale import normalizar_locale
 from app.core.ratelimit import TooManyRequestsError, consumir_por_conexion_mcp
 from app.modules.events import categories as events_categories
 from app.modules.events import repository as events_repository
@@ -21,6 +22,7 @@ from app.modules.events import session_types
 from app.modules.events.models import Event
 from app.modules.mcp import schemas
 from app.modules.mcp.contexto import ContextoMcp, ErrorDeHerramienta, contexto_actual, sesion
+from app.modules.mcp.herramientas_idioma import idioma_pedido
 from app.modules.mcp.scopes import Ambito
 from app.modules.nearby import service as nearby_service
 from app.modules.nearby.models import EventNearbyPlace
@@ -28,6 +30,12 @@ from app.modules.organizations import service as organizations_service
 from app.modules.registrations import repository as registrations_repository
 from app.modules.sponsors import repository as sponsors_repository
 from app.modules.sponsors.models import SponsorTier
+from app.modules.translations.campos import TipoDeEntidad
+from app.modules.translations.service import (
+    Traductor,
+    traductor_de_evento,
+    traductores_de_listado,
+)
 
 LECTURA = ToolAnnotations(read_only_hint=True, destructive_hint=False, open_world_hint=False)
 LIMITE_LISTADO = 50
@@ -52,24 +60,31 @@ def _uuid(valor: str) -> uuid.UUID:
         raise ErrorDeHerramienta("El evento no existe.") from exc
 
 
-def _resumen(evento: Event) -> schemas.EventoResumen:
+def _resumen(evento: Event, traductor: Traductor | None = None) -> schemas.EventoResumen:
+    """Resumen del evento; con `traductor`, el título y el lugar en su idioma."""
     base = get_settings().web_base_url.rstrip("/")
+    titulo, lugar = evento.title, evento.location_name
+    if traductor is not None:
+        titulo = traductor.campo("event", evento.id, "title", titulo, principal=True) or titulo
+        lugar = traductor.campo("event", evento.id, "location_name", lugar)
     return schemas.EventoResumen(
         id=str(evento.id),
         slug=evento.slug,
-        titulo=evento.title,
+        titulo=titulo,
         estado=evento.status,
         visibilidad=evento.visibility,
         inicio=evento.starts_at,
         fin=evento.ends_at,
         formato=evento.location_mode,
-        lugar=evento.location_name,
+        lugar=lugar,
         ciudad=evento.city,
         aforo=evento.capacity,
         modo_inscripcion=evento.registration_mode,
         categoria=evento.category.slug if evento.category else None,
         etiquetas=list(evento.tags),
         enlace_panel=f"{base}/dashboard/events/{evento.id}",
+        idioma_original=normalizar_locale(evento.source_locale),
+        idioma_servido=traductor.idioma_servido if traductor is not None else None,
     )
 
 
@@ -115,12 +130,15 @@ def registrar(mcp: MCPServer) -> None:
         estado: str | None = None,
         categoria: str | None = None,
         etiquetas: list[str] | None = None,
+        idioma: str | None = None,
     ) -> list[schemas.EventoResumen]:
         """Lista los eventos de la organización a los que tiene acceso esta
         conexión, del más reciente al más antiguo. `estado` filtra por
         draft, published, archived o cancelled; `categoria`, por el slug de una
         categoría (ver `listar_categorias`); `etiquetas`, por hasta 3 etiquetas
-        que el evento debe tener todas."""
+        que el evento debe tener todas. `idioma` (es-ES, en-US): devuelve los
+        títulos traducidos si lo están; si no, en su idioma original."""
+        locale = idioma_pedido(idioma)
         contexto = await preparar()
         contexto.exigir_ambito(Ambito.EVENTOS_LEER)
         filtro_etiquetas = _etiquetas_de_filtro(etiquetas)
@@ -140,7 +158,8 @@ def registrar(mcp: MCPServer) -> None:
             if contexto.event_ids is not None:
                 consulta = consulta.where(Event.id.in_(contexto.event_ids))
             eventos = list(await session.scalars(consulta.limit(LIMITE_LISTADO)))
-            return [_resumen(evento) for evento in eventos]
+            traductores = await traductores_de_listado(session, eventos, locale) if locale else {}
+            return [_resumen(evento, traductores.get(evento.id)) for evento in eventos]
 
     @mcp.tool(annotations=LECTURA)
     async def listar_tipos_de_sesion() -> list[schemas.TipoDeSesion]:
@@ -173,9 +192,12 @@ def registrar(mcp: MCPServer) -> None:
             return [schemas.Categoria(slug=c.slug, nombre=c.name) for c in activas]
 
     @mcp.tool(annotations=LECTURA)
-    async def ver_evento(event_id: str) -> schemas.EventoDetalle:
+    async def ver_evento(event_id: str, idioma: str | None = None) -> schemas.EventoDetalle:
         """Detalle de un evento: datos, sedes, agenda y patrocinadores (sin
-        importes). Para inscripciones usa `cifras_de_inscripcion`."""
+        importes). Para inscripciones usa `cifras_de_inscripcion`. `idioma`
+        (es-ES, en-US): devuelve cada texto traducido si su traducción está al
+        día; si no, el original (`textos_sin_traducir` dice cuántos)."""
+        locale = idioma_pedido(idioma)
         contexto = await preparar()
         contexto.exigir_ambito(Ambito.EVENTOS_LEER)
         async with sesion(contexto) as session:
@@ -205,36 +227,56 @@ def registrar(mcp: MCPServer) -> None:
             }
             base = get_settings().web_base_url.rstrip("/")
             organizacion = await organizations_service.public_ref(session, contexto.organization_id)
-            return schemas.EventoDetalle(
-                **_resumen(evento).model_dump(),
-                resumen=evento.summary,
-                descripcion=evento.description,
+            traductor = await traductor_de_evento(session, evento, locale) if locale else None
+
+            def texto(
+                tipo: TipoDeEntidad, entity_id: uuid.UUID, campo: str, valor: str | None
+            ) -> str | None:
+                if traductor is None:
+                    return valor
+                return traductor.campo(tipo, entity_id, campo, valor, principal=tipo == "event")
+
+            sitios = await nearby_service.listar(session, contexto.organization_id, evento.id)
+            detalle = schemas.EventoDetalle(
+                **_resumen(evento, traductor).model_dump(),
+                resumen=texto("event", evento.id, "summary", evento.summary),
+                descripcion=texto("event", evento.id, "description", evento.description),
                 zona_horaria=evento.timezone,
                 enlace_publico=(
                     f"{base}/{organizacion.slug}/{evento.slug}"
                     if evento.visibility != "private"
                     else None
                 ),
-                motivo_cancelacion=evento.cancellation_reason,
+                motivo_cancelacion=texto(
+                    "event", evento.id, "cancellation_reason", evento.cancellation_reason
+                ),
                 recordatorio=evento.reminder_enabled,
                 recordatorio_horas=evento.reminder_hours_before,
                 sitios_cercanos=[
-                    sitio_out(sitio)
-                    for sitio in await nearby_service.listar(
-                        session, contexto.organization_id, evento.id
+                    sitio_out(sitio).model_copy(
+                        update={
+                            "nombre": texto("nearby_place", sitio.id, "name", sitio.name),
+                            "nota": texto("nearby_place", sitio.id, "notes", sitio.notes),
+                        }
                     )
+                    for sitio in sitios
                 ],
                 sedes=[
-                    schemas.Sede(id=str(s.id), nombre=s.name, direccion=s.address) for s in sedes
+                    schemas.Sede(
+                        id=str(s.id),
+                        nombre=texto("venue", s.id, "name", s.name) or s.name,
+                        direccion=s.address,
+                    )
+                    for s in sedes
                 ],
                 sesiones=[
                     schemas.Sesion(
                         id=str(s.id),
-                        titulo=s.title,
+                        titulo=texto("session", s.id, "title", s.title) or s.title,
                         tipo=s.tipo.name,
                         inicio=s.starts_at,
                         fin=s.ends_at,
-                        sala=s.room,
+                        sala=texto("session", s.id, "room", s.room),
                         sede_id=str(s.venue_id) if s.venue_id else None,
                     )
                     for s in sesiones
@@ -242,7 +284,7 @@ def registrar(mcp: MCPServer) -> None:
                 patrocinadores=[
                     schemas.Patrocinador(
                         id=str(p.id),
-                        nombre=p.name,
+                        nombre=texto("sponsor", p.id, "name", p.name) or p.name,
                         nivel=niveles.get(p.tier_id),
                         web=p.website,
                         tipo_aportacion=p.contribution_type,
@@ -250,6 +292,11 @@ def registrar(mcp: MCPServer) -> None:
                     for p in patrocinadores
                 ],
             )
+            if traductor is not None:
+                detalle.idioma_servido = traductor.idioma_servido
+                detalle.idiomas_al_dia = list(traductor.idiomas_al_dia)
+                detalle.textos_sin_traducir = traductor.campos_pendientes
+            return detalle
 
     @mcp.tool(annotations=LECTURA)
     async def cifras_de_inscripcion(event_id: str) -> schemas.CifrasDeInscripcion:

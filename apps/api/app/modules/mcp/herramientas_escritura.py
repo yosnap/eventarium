@@ -40,6 +40,7 @@ from app.core.storage import get_storage
 from app.modules.events import cancelacion, session_types
 from app.modules.events import categories as events_categories
 from app.modules.events import service as events_service
+from app.modules.events.models import EventSession
 from app.modules.events.schemas import (
     EventCreate,
     EventSessionCreate,
@@ -47,6 +48,7 @@ from app.modules.events.schemas import (
     EventUpdate,
     EventVenueCreate,
 )
+from app.modules.mcp import herramientas_idioma as idiomas
 from app.modules.mcp import schemas
 from app.modules.mcp.contexto import ContextoMcp, ErrorDeHerramienta, sesion
 from app.modules.mcp.herramientas_lectura import (
@@ -58,7 +60,7 @@ from app.modules.mcp.herramientas_lectura import (
 from app.modules.mcp.scopes import Ambito
 from app.modules.registrations.models import EventRegistration
 from app.modules.sponsors import service as sponsors_service
-from app.modules.sponsors.models import SponsorTier
+from app.modules.sponsors.models import Sponsor, SponsorTier
 from app.modules.sponsors.schemas import SponsorCreate, SponsorUpdate
 
 ESCRITURA = ToolAnnotations(read_only_hint=False, destructive_hint=False, open_world_hint=False)
@@ -198,6 +200,7 @@ def registrar(mcp: MCPServer) -> None:
         etiquetas: list[str] | None = None,
         recordatorio: bool | None = None,
         recordatorio_horas: int | None = None,
+        idioma: str | None = None,
     ) -> schemas.EventoResumen:
         """Crea un evento **en borrador**. La persona lo revisa y lo publica
         desde Eventarium (o con `publicar_evento`, si la conexión lo permite).
@@ -206,7 +209,10 @@ def registrar(mcp: MCPServer) -> None:
         `listar_categorias`). `etiquetas`: hasta 10, de 2 a 30 caracteres.
         `recordatorio`: si se avisa a los inscritos antes del evento (por
         defecto, sí); `recordatorio_horas`: 2, 6, 12, 24, 48 o 72 horas antes
-        (por defecto 24, o 48 en eventos de pago)."""
+        (por defecto 24, o 48 en eventos de pago). `idioma` (es-ES, en-US): en el
+        que escribes el evento, su idioma original; por defecto, el de la
+        organización."""
+        locale = idiomas.idioma_pedido(idioma)
         contexto = await preparar()
         contexto.exigir_ambito(Ambito.EVENTOS_EDITAR)
         if contexto.event_ids is not None:
@@ -233,6 +239,7 @@ def registrar(mcp: MCPServer) -> None:
                 tags=etiquetas,
                 reminder_enabled=recordatorio,
                 reminder_hours_before=recordatorio_horas,
+                source_locale=locale,
             ),
         ).model_dump(exclude_unset=True)
         datos["status"] = "draft"
@@ -267,6 +274,7 @@ def registrar(mcp: MCPServer) -> None:
         mover_sesiones: bool = False,
         recordatorio: bool | None = None,
         recordatorio_horas: int | None = None,
+        idioma: str | None = None,
     ) -> schemas.EventoResumen:
         """Cambia los datos de un evento. No cambia su estado: para eso están
         `publicar_evento`, `despublicar_evento` y `cancelar_evento`.
@@ -279,7 +287,11 @@ def registrar(mcp: MCPServer) -> None:
         ajusta antes esas sesiones. `recordatorio` y `recordatorio_horas`:
         como en `crear_evento`. `visibilidad`: `public` (sale en listados y
         buscadores), `hidden` (solo con enlace: se abre por su URL, no sale en
-        ningún listado ni en buscadores; no es secreto) o `private` (no se abre)."""
+        ningún listado ni en buscadores; no es secreto) o `private` (no se abre).
+        `idioma` (es-ES, en-US): en el que vienen `titulo`, `resumen`,
+        `descripcion` y `lugar`. Si no es el original del evento, se guardan como
+        traducción manual a ese idioma y el original no cambia."""
+        locale = idiomas.idioma_pedido(idioma)
         contexto = await preparar()
         contexto.exigir_ambito(Ambito.EVENTOS_EDITAR)
         cambios = _sin_nulos(
@@ -309,13 +321,28 @@ def registrar(mcp: MCPServer) -> None:
             datos["mover_sesiones"] = True
         async with sesion(contexto) as session:
             evento = await _evento_permitido(session, contexto, event_id)
+            textos = idiomas.separar_textos("event", datos, locale, evento)
             if categoria is not None:
                 datos["category_id"] = await _id_de_categoria(session, categoria)
-            evento = await events_service.update_event(
-                session, organization_id=contexto.organization_id, event_id=evento.id, datos=datos
-            )
+            if datos:
+                evento = await events_service.update_event(
+                    session,
+                    organization_id=contexto.organization_id,
+                    event_id=evento.id,
+                    datos=datos,
+                )
+            if locale is not None:
+                await idiomas.guardar_traducciones(
+                    session, contexto, "event", evento, textos, locale
+                )
             respuesta = _resumen(evento)
-        await _auditar(contexto, "editar_evento", "event", respuesta.id, {"campos": sorted(datos)})
+        await _auditar(
+            contexto,
+            "editar_evento",
+            "event",
+            respuesta.id,
+            {"campos": sorted(datos), "traducidos": sorted(textos), "idioma": locale},
+        )
         return respuesta
 
     @mcp.tool(annotations=ESCRITURA)
@@ -380,11 +407,14 @@ def registrar(mcp: MCPServer) -> None:
         sala: str | None = None,
         descripcion: str | None = None,
         sede_id: str | None = None,
+        idioma: str | None = None,
     ) -> schemas.Sesion:
         """Añade una sesión a la agenda; debe caer dentro de las fechas del evento.
         `tipo`: nombre, id o clave base (talk, workshop, break, service, other) de un
         tipo activo de la organización (ver `listar_tipos_de_sesion`); sin él, el
-        primero activo que no es una pausa."""
+        primero activo que no es una pausa. `idioma`: el de los textos; tiene que
+        ser el original del evento (tradúcelos luego con `editar_sesion`)."""
+        locale = idiomas.idioma_pedido(idioma)
         contexto = await preparar()
         contexto.exigir_ambito(Ambito.EVENTOS_EDITAR)
         datos = _validar(
@@ -400,6 +430,7 @@ def registrar(mcp: MCPServer) -> None:
         ).model_dump(exclude_unset=True)
         async with sesion(contexto) as session:
             evento = await _evento_permitido(session, contexto, event_id)
+            idiomas.exigir_idioma_original(locale, evento)
             if tipo:
                 elegido = await session_types.por_texto(session, contexto.organization_id, tipo)
                 datos["session_type_id"] = str(elegido.id)
@@ -423,9 +454,13 @@ def registrar(mcp: MCPServer) -> None:
         sala: str | None = None,
         descripcion: str | None = None,
         sede_id: str | None = None,
+        idioma: str | None = None,
     ) -> schemas.Sesion:
         """Cambia una sesión de la agenda del evento indicado. `tipo`: nombre, id o
-        clave base de un tipo activo de la organización."""
+        clave base de un tipo activo de la organización. `idioma`: en el que vienen
+        `titulo`, `sala` y `descripcion`; si no es el original del evento, se
+        guardan como traducción manual y el original no cambia."""
+        locale = idiomas.idioma_pedido(idioma)
         contexto = await preparar()
         contexto.exigir_ambito(Ambito.EVENTOS_EDITAR)
         cambios = _sin_nulos(
@@ -441,16 +476,26 @@ def registrar(mcp: MCPServer) -> None:
         datos = _validar(EventSessionUpdate, cambios).model_dump(exclude_unset=True)
         async with sesion(contexto) as session:
             evento = await _evento_permitido(session, contexto, event_id)
+            textos = idiomas.separar_textos("session", datos, locale, evento)
             if tipo:
                 elegido = await session_types.por_texto(session, contexto.organization_id, tipo)
                 datos["session_type_id"] = str(elegido.id)
-            cambiada = await events_service.update_session(
-                session,
-                organization_id=contexto.organization_id,
-                event_id=evento.id,
-                session_id=_uuid(session_id),
-                datos=datos,
-            )
+            if datos:
+                cambiada = await events_service.update_session(
+                    session,
+                    organization_id=contexto.organization_id,
+                    event_id=evento.id,
+                    session_id=_uuid(session_id),
+                    datos=datos,
+                )
+            else:
+                cambiada = await idiomas.fila_del_evento(
+                    session, EventSession, evento, session_id, "sesión"
+                )
+            if locale is not None:
+                await idiomas.guardar_traducciones(
+                    session, contexto, "session", cambiada, textos, locale
+                )
             respuesta = _sesion_out(cambiada)
         await _auditar(
             contexto, "editar_sesion", "event_session", respuesta.id, {"event_id": event_id}
@@ -477,9 +522,15 @@ def registrar(mcp: MCPServer) -> None:
 
     @mcp.tool(annotations=ESCRITURA)
     async def anadir_sede(
-        event_id: str, nombre: str, direccion: str | None = None, aforo: int | None = None
+        event_id: str,
+        nombre: str,
+        direccion: str | None = None,
+        aforo: int | None = None,
+        idioma: str | None = None,
     ) -> schemas.Sede:
-        """Añade una sede a un evento (para eventos con varias sedes)."""
+        """Añade una sede a un evento (para eventos con varias sedes). `idioma`: el
+        del nombre; tiene que ser el original del evento."""
+        locale = idiomas.idioma_pedido(idioma)
         contexto = await preparar()
         contexto.exigir_ambito(Ambito.EVENTOS_EDITAR)
         datos = _validar(
@@ -487,6 +538,7 @@ def registrar(mcp: MCPServer) -> None:
         ).model_dump(exclude_unset=True)
         async with sesion(contexto) as session:
             evento = await _evento_permitido(session, contexto, event_id)
+            idiomas.exigir_idioma_original(locale, evento)
             sede = await events_service.create_venue(
                 session, organization_id=contexto.organization_id, event_id=evento.id, datos=datos
             )
@@ -524,10 +576,13 @@ def registrar(mcp: MCPServer) -> None:
         descripcion_aportacion: str | None = None,
         importe: float | None = None,
         web: str | None = None,
+        idioma: str | None = None,
     ) -> schemas.Patrocinador:
         """Añade un patrocinador a un evento. `tipo_aportacion`: monetaria
         (con `importe`) o en_especie (con `descripcion_aportacion`). El importe
-        nunca se devuelve en ninguna respuesta del MCP."""
+        nunca se devuelve en ninguna respuesta del MCP. `idioma`: el de los
+        textos; tiene que ser el original del evento."""
+        locale = idiomas.idioma_pedido(idioma)
         contexto = await preparar()
         contexto.exigir_ambito(Ambito.PATROCINADORES_EDITAR)
         datos = _validar(
@@ -544,6 +599,7 @@ def registrar(mcp: MCPServer) -> None:
         datos["tier_id"] = _uuid(datos["tier_id"])
         async with sesion(contexto) as session:
             evento = await _evento_permitido(session, contexto, event_id)
+            idiomas.exigir_idioma_original(locale, evento)
             patrocinador = await sponsors_service.create_sponsor(
                 session, organization_id=contexto.organization_id, event_id=evento.id, datos=datos
             )
@@ -571,8 +627,12 @@ def registrar(mcp: MCPServer) -> None:
         descripcion_aportacion: str | None = None,
         importe: float | None = None,
         web: str | None = None,
+        idioma: str | None = None,
     ) -> schemas.Patrocinador:
-        """Cambia un patrocinador del evento indicado."""
+        """Cambia un patrocinador del evento indicado. `idioma`: en el que vienen
+        `nombre` y `descripcion_aportacion`; si no es el original del evento, se
+        guardan como traducción manual y el original no cambia."""
+        locale = idiomas.idioma_pedido(idioma)
         contexto = await preparar()
         contexto.exigir_ambito(Ambito.PATROCINADORES_EDITAR)
         cambios = _sin_nulos(
@@ -590,13 +650,23 @@ def registrar(mcp: MCPServer) -> None:
             datos["tier_id"] = _uuid(datos["tier_id"])
         async with sesion(contexto) as session:
             evento = await _evento_permitido(session, contexto, event_id)
-            patrocinador = await sponsors_service.update_sponsor(
-                session,
-                organization_id=contexto.organization_id,
-                event_id=evento.id,
-                sponsor_id=_uuid(patrocinador_id),
-                datos=datos,
-            )
+            textos = idiomas.separar_textos("sponsor", datos, locale, evento)
+            if datos:
+                patrocinador = await sponsors_service.update_sponsor(
+                    session,
+                    organization_id=contexto.organization_id,
+                    event_id=evento.id,
+                    sponsor_id=_uuid(patrocinador_id),
+                    datos=datos,
+                )
+            else:
+                patrocinador = await idiomas.fila_del_evento(
+                    session, Sponsor, evento, patrocinador_id, "patrocinador"
+                )
+            if locale is not None:
+                await idiomas.guardar_traducciones(
+                    session, contexto, "sponsor", patrocinador, textos, locale
+                )
             nivel = await session.get(SponsorTier, patrocinador.tier_id)
             respuesta = schemas.Patrocinador(
                 id=str(patrocinador.id),
@@ -661,17 +731,24 @@ def registrar(mcp: MCPServer) -> None:
 
     @mcp.tool(annotations=DELICADA)
     async def cancelar_evento(
-        event_id: str, codigo_de_confirmacion: str | None = None, motivo: str | None = None
+        event_id: str,
+        codigo_de_confirmacion: str | None = None,
+        motivo: str | None = None,
+        idioma: str | None = None,
     ) -> schemas.ConfirmacionDeCancelacion | schemas.CancelacionHecha:
         """Cancela un evento publicado. **Definitivo**: cancela todas las
         inscripciones, reembolsa íntegramente lo cobrado y avisa a cada
         inscrito. Dos pasos: llámala primero sin `codigo_de_confirmacion` para
         ver a cuántas personas afecta y cuánto se reembolsa, confírmalo con la
-        persona y vuelve a llamarla con el código devuelto."""
+        persona y vuelve a llamarla con el código devuelto. `idioma`: el del
+        `motivo`; tiene que ser el original del evento."""
+        locale = idiomas.idioma_pedido(idioma)
         contexto = await preparar()
         contexto.exigir_ambito(Ambito.EVENTOS_CANCELAR)
         async with sesion(contexto) as session:
             evento = await _evento_permitido(session, contexto, event_id)
+            if motivo:
+                idiomas.exigir_idioma_original(locale, evento)
             resumen = await cancelacion.resumen_de_cancelacion(
                 session, organization_id=contexto.organization_id, event_id=evento.id
             )
