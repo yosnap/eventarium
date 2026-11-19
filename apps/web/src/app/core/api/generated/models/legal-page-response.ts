@@ -7,4 +7,9 @@
  */
 export interface LegalPageResponse {
   content: string;
+
+  /**
+   * Idioma del texto servido: `es-ES` si no hay versión en el idioma pedido.
+   */
+  served_locale?: 'es-ES' | 'en-US';
 }

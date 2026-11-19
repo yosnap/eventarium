@@ -9,7 +9,12 @@ export interface PlatformLegalPageItem {
   content: string;
 
   /**
-   * `true` si el admin ha editado esta página.
+   * `true` si el admin ha editado esta página en el idioma pedido.
    */
   is_custom: boolean;
+
+  /**
+   * Idioma del texto servido. Si se pidió otro y no hay versión escrita a mano, es `es-ES` y la web muestra el aviso de contenido original.
+   */
+  served_locale?: 'es-ES' | 'en-US';
 }
