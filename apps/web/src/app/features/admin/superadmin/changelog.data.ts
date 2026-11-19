@@ -33,6 +33,27 @@ export interface ChangelogVersion {
 
 export const CHANGELOG: readonly ChangelogVersion[] = [
   {
+    version: '0.34.0',
+    fecha: '2026-11-20',
+    secciones: [
+      {
+        categoria: 'agregado',
+        items: [
+          {
+            titulo: 'Páginas legales de la plataforma en inglés',
+            descripcion:
+              'En «Documentos legales» se elige el idioma y se escribe a mano la versión en inglés de cada página; el legal nunca pasa por la IA. Mientras falte, la web en inglés muestra la española con un aviso y no la ofrece a los buscadores en inglés.',
+          },
+          {
+            titulo: 'Idioma en el servidor MCP',
+            descripcion:
+              'Los asistentes conectados pueden leer los eventos en otro idioma y escribir traducciones a mano con el parámetro «idioma». La herramienta nueva «traducir_evento» consulta cuánto falta por traducir y lanza la traducción con la IA propia de la organización.',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.33.0',
     fecha: '2026-11-19',
     secciones: [

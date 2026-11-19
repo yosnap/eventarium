@@ -49,6 +49,7 @@ eventos concretos; en ese caso no puede crear eventos nuevos.
   `anadir_patrocinador`, `editar_patrocinador`.
 - Estado: `publicar_evento`, `despublicar_evento` (se niega si hay
   inscripciones vivas) y `cancelar_evento`.
+- Traducción: `traducir_evento` (ver «Idioma del contenido»).
 
 **Tipos de sesión.** Cada organización tiene su catálogo (Charla, Taller, Mesa
 redonda…; ver `listar_tipos_de_sesion`). `anadir_sesion` y `editar_sesion`
@@ -157,13 +158,34 @@ deciden los ámbitos y eventos elegidos al crear la clave.
 120 llamadas por minuto por conexión y 600 por IP. Al pasarse, la herramienta
 devuelve un error y el asistente debe esperar.
 
-## Idioma de las respuestas
+## Idioma del contenido
 
-El servidor MCP responde en español (`es-ES`). Sus mensajes de error propios
-(`ErrorDeHerramienta`) no pasan por el catálogo de traducciones, y la mayoría
-de los clientes MCP no mandan `Accept-Language`. Los datos de los eventos se
-devuelven tal como los escribió el organizador. Elegir el idioma desde las
-herramientas queda pendiente.
+Los mensajes propios del servidor (`ErrorDeHerramienta`) van siempre en español: no
+pasan por el catálogo de traducciones y la mayoría de los clientes MCP no mandan
+`Accept-Language`. El contenido de los eventos sí admite idioma, con el parámetro
+`idioma` (`es-ES` o `en-US`; también vale `en` o `es`). Cómo se guardan y sirven las
+traducciones está en [i18n.md](i18n.md).
+
+- **Lectura.** `listar_eventos` y `ver_evento` devuelven cada texto traducido si su
+  traducción está al día; si no, el original. Todas las respuestas de evento llevan
+  `idioma_original`. Con `idioma`, llevan también `idioma_servido`, y `ver_evento`
+  añade `idiomas_al_dia` y `textos_sin_traducir`.
+- **Editar.** `editar_evento` (título, resumen, descripción y lugar), `editar_sesion`
+  (título, sala y descripción) y `editar_patrocinador` (nombre y descripción de la
+  aportación) aceptan `idioma`, el idioma en que vienen los textos. Si no se indica o
+  es el original del evento, se escribe el original como siempre. Si es otro, los
+  textos se guardan como traducción manual, que la IA ya no toca, y el original no
+  cambia. Lo que no es texto (fechas, aforo…) se cambia en cualquier caso.
+- **Crear.** En `crear_evento`, `idioma` es el idioma original del nuevo evento (por
+  defecto, el de la organización). `anadir_sesion`, `anadir_sede`,
+  `anadir_patrocinador`, `anadir_sitio_cercano` y el `motivo` de `cancelar_evento`
+  tienen que escribirse en el idioma original del evento: con otro `idioma` se
+  rechazan, y lo creado se traduce después con la herramienta de editar.
+- **`traducir_evento`.** Con `accion="estado"` (ámbito `eventos:leer`), dice cuántos
+  textos del evento y de lo que cuelga de él hay que traducir a `idioma` y cuántos
+  están al día. Con `accion="lanzar"` (ámbito `eventos:editar`), además pone el
+  evento en la cola de traducción con IA. Solo funciona si la organización tiene su
+  propia clave de IA y respeta los mismos topes de coste que el panel.
 
 ## Detalles técnicos
 
