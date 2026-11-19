@@ -29,6 +29,11 @@ CAMPOS_PUBLICOS = {
     "province",
     "logo_url",
     "social_links",
+    # En qué idioma se sirve la descripción y en cuáles está al día.
+    "source_locale",
+    "up_to_date_locales",
+    "served_locale",
+    "pending_fields",
 }
 
 

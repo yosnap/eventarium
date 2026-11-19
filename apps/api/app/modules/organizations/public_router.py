@@ -14,12 +14,14 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Query
 
 from app.core.deps import SessionDep
+from app.core.locale import idioma_actual
 from app.core.ratelimit import PUBLICO_POR_IP, limit_per_ip
 from app.modules.events import service as events_service
 from app.modules.events.public_summary import resumen_publico
 from app.modules.events.schemas import PublicEventSummary
 from app.modules.organizations import service
 from app.modules.organizations.schemas import PublicOrganizationProfile
+from app.modules.translations.service import traductores_de_listado
 from app.shared.pagination import Page
 
 router = APIRouter(prefix="/public/organizations", tags=["público"])
@@ -60,9 +62,17 @@ async def list_public_organization_events(
         session, organizacion.id, upcoming=when == "upcoming", limit=limit, offset=offset
     )
     referencia = await service.public_ref(session, organizacion.id)
+    traductores = await traductores_de_listado(
+        session,
+        [evento for evento, *_ in filas],
+        idioma_actual(),
+        contexto_previo=organizacion.id,
+    )
     return Page(
         items=[
-            resumen_publico(evento, reservadas, precio, cover_url, referencia)
+            resumen_publico(
+                evento, reservadas, precio, cover_url, referencia, traductores[evento.id]
+            )
             for evento, reservadas, precio, cover_url in filas
         ],
         total=total,

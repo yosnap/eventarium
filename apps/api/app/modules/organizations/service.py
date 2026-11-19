@@ -14,6 +14,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import set_organization_context
+from app.core.locale import idioma_actual
 from app.core.storage import get_storage, public_url_versionada
 from app.modules.events import session_types
 from app.modules.media.models import Media
@@ -194,10 +195,16 @@ async def public_profile(
         if enlace.get("kind") and enlace.get("url")
     ]
     publica = organizacion.address_public
+    # Import local: `translations` importa los modelos de este módulo.
+    from app.modules.translations.service import traductor_de_organizacion
+
+    tr = await traductor_de_organizacion(session, organizacion, idioma_actual())
     return PublicOrganizationProfile(
         slug=organizacion.slug,
         name=organizacion.name,
-        description=organizacion.description,
+        description=tr.campo(
+            "organization", organizacion.id, "description", organizacion.description
+        ),
         website=organizacion.website,
         address=organizacion.address if publica else None,
         postal_code=organizacion.postal_code if publica else None,
@@ -205,4 +212,5 @@ async def public_profile(
         province=organizacion.province if publica else None,
         logo_url=await logo_url(session, branding),
         social_links=enlaces,
+        **tr.metadatos(),
     )

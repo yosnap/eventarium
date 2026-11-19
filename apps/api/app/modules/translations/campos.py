@@ -25,8 +25,9 @@ TipoDeEntidad = Literal[
 ]
 TIPOS: Final[tuple[TipoDeEntidad, ...]] = get_args(TipoDeEntidad)
 
-#: Campos traducibles de cada tipo. `member_profile` y `tag` tienen campos
-#: abiertos (`rol.campo` del perfil, la etiqueta normalizada) y se validan aparte.
+#: Campos traducibles de cada tipo. En `member_profile` son claves de
+#: `organization_members.profile_data`; `tag` tiene campo abierto (la etiqueta
+#: normalizada) y se valida aparte.
 CAMPOS: Final[dict[TipoDeEntidad, frozenset[str]]] = {
     "event": frozenset({"title", "summary", "description", "location_name", "cancellation_reason"}),
     "session": frozenset({"title", "description", "room"}),
@@ -36,7 +37,7 @@ CAMPOS: Final[dict[TipoDeEntidad, frozenset[str]]] = {
     "question": frozenset({"label", "options"}),
     "sponsor_tier": frozenset({"name", "benefits"}),
     "sponsor": frozenset({"name", "contribution_description"}),
-    "member_profile": frozenset(),
+    "member_profile": frozenset({"bio", "titular", "curriculum"}),
     "organization": frozenset({"description", "organizer_blurb"}),
     "policy_version": frozenset({"content"}),
     "nearby_place": frozenset({"name", "notes"}),
@@ -85,9 +86,6 @@ ORIGENES_PROTEGIDOS: Final[frozenset[Origen]] = frozenset({"manual", "revisada"}
 
 def campo_valido(tipo: TipoDeEntidad, campo: str) -> bool:
     """`campo` es traducible en `tipo`."""
-    if tipo == "member_profile":
-        rol, _, clave = campo.partition(".")
-        return bool(rol) and bool(clave) and len(campo) <= 200
     if tipo == "tag":
         return 0 < len(campo) <= 200 and campo == campo.strip().lower()
     return campo in CAMPOS[tipo]

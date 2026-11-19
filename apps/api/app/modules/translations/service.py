@@ -21,6 +21,7 @@ import uuid
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import and_, any_, delete, or_, select
 from sqlalchemy.dialects.postgresql import insert
@@ -149,13 +150,14 @@ class Traductor:
             return 0
         return len(self._pendientes.get(self.idioma, set()))
 
-    def metadatos(self) -> dict[str, object]:
-        """Los campos de idioma que añaden las respuestas públicas."""
+    def metadatos(self) -> dict[str, Any]:
+        """Los campos de idioma que añaden las respuestas públicas
+        (`ContentLocaleInfo`)."""
         return {
-            "idioma_origen": self.origen,
-            "idiomas_al_dia": self.idiomas_al_dia,
-            "idioma_servido": self.idioma_servido,
-            "campos_pendientes": self.campos_pendientes,
+            "source_locale": self.origen,
+            "up_to_date_locales": self.idiomas_al_dia,
+            "served_locale": self.idioma_servido,
+            "pending_fields": self.campos_pendientes,
         }
 
 
@@ -225,13 +227,17 @@ async def traductor_de_organizacion(
 
 
 async def traductores_de_listado(
-    session: AsyncSession, eventos: Sequence[Event], idioma: Locale
+    session: AsyncSession,
+    eventos: Sequence[Event],
+    idioma: Locale,
+    *,
+    contexto_previo: uuid.UUID | None = None,
 ) -> dict[uuid.UUID, Traductor]:
-    """Un traductor por evento de un listado de varias organizaciones.
+    """Un traductor por evento de un listado, de una o varias organizaciones.
 
     Agrupa por organización y fija el contexto de cada una antes de leer, así la
-    lectura sigue bajo RLS. Al terminar deja el contexto vacío, como estaba en un
-    listado público.
+    lectura sigue bajo RLS. Al terminar deja el contexto que había
+    (`contexto_previo`; vacío en el directorio público).
     """
     por_organizacion: dict[uuid.UUID, list[Event]] = {}
     for evento in eventos:
@@ -258,7 +264,7 @@ async def traductores_de_listado(
                 traductor._filas = filas
                 traductores[evento.id] = traductor
     finally:
-        await set_organization_context(session, None)
+        await set_organization_context(session, contexto_previo)
     return traductores
 
 

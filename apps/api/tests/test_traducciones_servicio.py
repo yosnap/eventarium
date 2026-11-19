@@ -66,7 +66,7 @@ def test_la_pagina_entera_traducida_esta_al_dia_en_los_dos_idiomas() -> None:
 
     assert traductor.idiomas_al_dia == ["es-ES", "en-US"]
     assert traductor.idioma_servido == "en-US"
-    assert traductor.metadatos()["campos_pendientes"] == 0
+    assert traductor.metadatos()["pending_fields"] == 0
 
 
 def test_en_el_idioma_de_origen_no_hay_pendientes() -> None:
@@ -98,8 +98,8 @@ def test_los_campos_y_las_transiciones_son_coherentes() -> None:
     assert TIPOS_DE_ORGANIZACION <= set(TIPOS)
     assert campo_valido("event", "title")
     assert not campo_valido("event", "slug")
-    assert campo_valido("member_profile", "speaker.bio")
-    assert not campo_valido("member_profile", "bio")
+    assert campo_valido("member_profile", "bio")
+    assert not campo_valido("member_profile", "web")
     assert not campo_valido("tag", "Con Mayúsculas")
     assert puede_pasar("pendiente", "en_curso")
     assert not puede_pasar("pendiente", "al_dia")

@@ -8,6 +8,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field
 
 from app.modules.theme_templates.schemas import PublicTheme
+from app.modules.translations.schemas import ContentLocaleInfo
 
 #: Tope por texto. Es una barrera contra abusos, no una regla de negocio: un
 #: documento legal largo cabe de sobra y cambiarlo no toca el esquema.
@@ -75,7 +76,7 @@ class PolicyUpdate(BaseModel):
     content: Annotated[str, Field(max_length=LIMITE_CARACTERES)] | None
 
 
-class PublicEventPolicies(BaseModel):
+class PublicEventPolicies(ContentLocaleInfo):
     """Textos vigentes de un evento, para su página pública y el formulario."""
 
     organization_name: str

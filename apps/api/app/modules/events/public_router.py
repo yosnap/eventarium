@@ -43,6 +43,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.database import set_organization_context
 from app.core.deps import SessionDep
+from app.core.locale import idioma_actual
 from app.core.mensajes import ErrorDeValidacion
 from app.core.ratelimit import PUBLICO_POR_IP, limit_per_ip
 from app.core.storage import get_storage, public_url_versionada
@@ -57,12 +58,14 @@ from app.modules.events.models import (
     Event,
     EventMember,
     EventSessionParticipant,
+    SessionType,
     SpeakerPublicProfile,
 )
 from app.modules.events.public_deps import EVENTO_PARA_MOSTRAR, ruta_de_evento
 from app.modules.events.public_summary import (
     campos_de_venta,
     categoria_publica,
+    etiquetas_mostradas,
     resumen_publico,
 )
 from app.modules.events.schemas import (
@@ -79,7 +82,7 @@ from app.modules.media.models import Media
 from app.modules.nearby import service as nearby_service
 from app.modules.nearby.schemas import PublicNearbyPlace
 from app.modules.organizations import service as organizations_service
-from app.modules.organizations.models import OrganizationMember
+from app.modules.organizations.models import Organization, OrganizationMember
 from app.modules.organizations.schemas import SLUG_PATTERN
 from app.modules.payments import service as payments_service
 from app.modules.registrations import repository as registrations_repository
@@ -91,6 +94,13 @@ from app.modules.sponsors.schemas import (
     PublicSponsorDetail,
     PublicSponsorHistoryItem,
     PublicSponsorTier,
+)
+from app.modules.translations.campos import campo_valido
+from app.modules.translations.service import (
+    Traductor,
+    traductor_de_evento,
+    traductor_de_organizacion,
+    traductores_de_listado,
 )
 from app.modules.users.models import User, UserSocialLink
 from app.modules.users.schemas import (
@@ -161,7 +171,7 @@ async def _sponsor_logo_url(session: AsyncSession, patrocinador: Sponsor) -> str
 
 
 async def _sesiones_publicas(
-    session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID
+    session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID, tr: Traductor
 ) -> list[PublicEventSession]:
     """Agenda completa de un evento, con los participantes de cada sesión.
 
@@ -212,12 +222,12 @@ async def _sesiones_publicas(
         PublicEventSession(
             id=str(sesion.id),
             session_type=sesion.session_type,
-            type=SessionTypeRef(**session_types.referencia(sesion.tipo)),
-            title=sesion.title,
-            description=sesion.description,
+            type=_tipo_de_sesion(sesion.tipo, tr),
+            title=tr.campo("session", sesion.id, "title", sesion.title) or sesion.title,
+            description=tr.campo("session", sesion.id, "description", sesion.description),
             starts_at=sesion.starts_at,
             ends_at=sesion.ends_at,
-            room=sesion.room,
+            room=tr.campo("session", sesion.id, "room", sesion.room),
             venue_id=str(sesion.venue_id) if sesion.venue_id else None,
             video_platform=sesion.video_platform,  # type: ignore[arg-type]
             video_url=sesion.video_url,
@@ -228,8 +238,14 @@ async def _sesiones_publicas(
     ]
 
 
+def _tipo_de_sesion(tipo: SessionType, tr: Traductor) -> SessionTypeRef:
+    referencia = session_types.referencia(tipo)
+    referencia["name"] = tr.campo("session_type", tipo.id, "name", tipo.name) or tipo.name
+    return SessionTypeRef(**referencia)
+
+
 async def _sedes_publicas(
-    session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID
+    session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID, tr: Traductor
 ) -> list[PublicVenue]:
     filas = (
         (await session.execute(repository.venues_query(organization_id, event_id))).scalars().all()
@@ -237,7 +253,7 @@ async def _sedes_publicas(
     return [
         PublicVenue(
             id=str(sede.id),
-            name=sede.name,
+            name=tr.campo("venue", sede.id, "name", sede.name) or sede.name,
             address=sede.address,
             capacity=sede.capacity,
             latitude=float(sede.latitude) if sede.latitude is not None else None,
@@ -296,14 +312,17 @@ async def list_public_events(
     )
     # El total que cumple los filtros, para paginar sin cambiar la forma de la respuesta.
     response.headers["X-Total-Count"] = str(total)
+    traductores = await traductores_de_listado(
+        session, [evento for evento, *_ in filas], idioma_actual()
+    )
     return [
-        resumen_publico(evento, reservadas, precio, cover_url, organizacion)
+        resumen_publico(evento, reservadas, precio, cover_url, organizacion, traductores[evento.id])
         for evento, reservadas, precio, cover_url, organizacion in filas
     ]
 
 
 async def _sponsor_tiers_publicos(
-    session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID
+    session: AsyncSession, organization_id: uuid.UUID, event_id: uuid.UUID, tr: Traductor
 ) -> list[PublicSponsorTier]:
     """Patrocinadores del evento agrupados por nivel y ordenados por
     `display_order` (Fase 5 del PRD, fase 2 de trabajo). Sin aportación: el
@@ -319,17 +338,25 @@ async def _sponsor_tiers_publicos(
     for patrocinador, nivel in filas:
         if nivel.id not in grupos:
             grupos[nivel.id] = PublicSponsorTier(
-                name=nivel.name, logo_size=nivel.logo_size, sponsors=[]
+                name=tr.campo("sponsor_tier", nivel.id, "name", nivel.name) or nivel.name,
+                logo_size=nivel.logo_size,
+                sponsors=[],
             )
             orden.append(nivel.id)
         grupos[nivel.id].sponsors.append(
             PublicSponsor(
                 id=str(patrocinador.id),
-                name=patrocinador.name,
+                name=tr.campo("sponsor", patrocinador.id, "name", patrocinador.name)
+                or patrocinador.name,
                 logo_url=await _sponsor_logo_url(session, patrocinador),
                 website=patrocinador.website,
                 contribution_type=patrocinador.contribution_type,
-                contribution_description=patrocinador.contribution_description,
+                contribution_description=tr.campo(
+                    "sponsor",
+                    patrocinador.id,
+                    "contribution_description",
+                    patrocinador.contribution_description,
+                ),
             )
         )
     return [grupos[tier_id] for tier_id in orden]
@@ -355,11 +382,13 @@ async def detalle_publico(session: AsyncSession, evento: Event) -> PublicEventDe
     vista previa del panel con cualquiera de la organización. Recibe el evento
     ya resuelto y nunca lo resuelve dentro: la vista previa trabaja con el
     contexto RLS de quien la pide, que una resolución pública sobrescribiría."""
-    sesiones = await _sesiones_publicas(session, evento.organization_id, evento.id)
-    sedes = await _sedes_publicas(session, evento.organization_id, evento.id)
+    idioma = idioma_actual()
+    tr = await traductor_de_evento(session, evento, idioma)
+    sesiones = await _sesiones_publicas(session, evento.organization_id, evento.id, tr)
+    sedes = await _sedes_publicas(session, evento.organization_id, evento.id, tr)
     cercanos = await nearby_service.listar(session, evento.organization_id, evento.id)
     niveles_con_patrocinadores = await _sponsor_tiers_publicos(
-        session, evento.organization_id, evento.id
+        session, evento.organization_id, evento.id, tr
     )
     reservadas = await registrations_repository.count_reserved_registrations(
         session, evento.organization_id, evento.id
@@ -377,29 +406,32 @@ async def detalle_publico(session: AsyncSession, evento: Event) -> PublicEventDe
             PublicNearbyPlace(
                 kind=sitio.kind,  # type: ignore[arg-type]
                 custom_kind=sitio.custom_kind,
-                name=sitio.name,
+                name=tr.campo("nearby_place", sitio.id, "name", sitio.name) or sitio.name,
                 address=sitio.address,
                 phone=sitio.phone,
                 website=sitio.website,
-                notes=sitio.notes,
+                notes=tr.campo("nearby_place", sitio.id, "notes", sitio.notes),
             )
             for sitio in cercanos
         ],
         slug=evento.slug,
-        category=categoria_publica(evento),
+        category=categoria_publica(evento, idioma),
         tags=list(evento.tags),
+        tag_labels=etiquetas_mostradas(evento, tr),
         organization=await organizations_service.public_ref(session, evento.organization_id),
         cancelled=evento.status == "cancelled",
-        cancellation_reason=evento.cancellation_reason,
-        title=evento.title,
-        summary=evento.summary,
-        description=evento.description,
+        cancellation_reason=tr.campo(
+            "event", evento.id, "cancellation_reason", evento.cancellation_reason
+        ),
+        title=tr.campo("event", evento.id, "title", evento.title) or evento.title,
+        summary=tr.campo("event", evento.id, "summary", evento.summary),
+        description=tr.campo("event", evento.id, "description", evento.description),
         cover_url=await _cover_url(session, evento),
         timezone=evento.timezone,
         starts_at=evento.starts_at,
         ends_at=evento.ends_at,
         location_mode=evento.location_mode,  # type: ignore[arg-type]
-        location_name=evento.location_name,
+        location_name=tr.campo("event", evento.id, "location_name", evento.location_name),
         location_address=evento.location_address,
         online_url=evento.online_url,
         capacity=evento.capacity,
@@ -414,6 +446,7 @@ async def detalle_publico(session: AsyncSession, evento: Event) -> PublicEventDe
         speakers=await _ponentes_publicos(session, evento.organization_id, evento.id),
         venues=sedes,
         sponsor_tiers=niveles_con_patrocinadores,
+        **tr.metadatos(),
     )
 
 
@@ -454,6 +487,7 @@ async def get_public_sponsor(
     if nivel is None:
         raise NotFoundError("El patrocinador no existe.")
 
+    tr = await traductor_de_evento(session, evento, idioma_actual())
     organizacion = await organizations_service.public_ref(session, evento.organization_id)
     filas_historial = (
         await session.execute(
@@ -466,15 +500,20 @@ async def get_public_sponsor(
     return PublicSponsorDetail(
         visibility=evento.visibility,  # type: ignore[arg-type]
         id=str(patrocinador.id),
-        name=patrocinador.name,
+        name=tr.campo("sponsor", patrocinador.id, "name", patrocinador.name) or patrocinador.name,
         logo_url=await _sponsor_logo_url(session, patrocinador),
         website=patrocinador.website,
         contribution_type=patrocinador.contribution_type,  # type: ignore[arg-type]
-        contribution_description=patrocinador.contribution_description,
-        tier_name=nivel.name,
-        tier_benefits=nivel.benefits,
+        contribution_description=tr.campo(
+            "sponsor",
+            patrocinador.id,
+            "contribution_description",
+            patrocinador.contribution_description,
+        ),
+        tier_name=tr.campo("sponsor_tier", nivel.id, "name", nivel.name) or nivel.name,
+        tier_benefits=tr.campo("sponsor_tier", nivel.id, "benefits", nivel.benefits),
         event_slug=evento.slug,
-        event_title=evento.title,
+        event_title=tr.campo("event", evento.id, "title", evento.title) or evento.title,
         organization=organizacion,
         history=[
             PublicSponsorHistoryItem(
@@ -487,6 +526,7 @@ async def get_public_sponsor(
             for otro_evento, otro_nivel in filas_historial
         ],
         theme=await service.tema_publico_del_evento(session, evento),
+        **tr.metadatos(),
     )
 
 
@@ -520,6 +560,7 @@ async def get_public_session(
     )
     if sesion is None:
         raise NotFoundError("La sesión no existe.")
+    tr = await traductor_de_evento(session, evento, idioma_actual())
 
     # El panel usa la misma consulta sin filtrar; aquí, solo cuentas activas.
     consulta = repository.session_participants_query(evento.organization_id, sesion.id).where(
@@ -544,21 +585,22 @@ async def get_public_session(
         visibility=evento.visibility,  # type: ignore[arg-type]
         id=str(sesion.id),
         session_type=sesion.session_type,
-        type=SessionTypeRef(**session_types.referencia(sesion.tipo)),
-        title=sesion.title,
-        description=sesion.description,
+        type=_tipo_de_sesion(sesion.tipo, tr),
+        title=tr.campo("session", sesion.id, "title", sesion.title) or sesion.title,
+        description=tr.campo("session", sesion.id, "description", sesion.description),
         starts_at=sesion.starts_at,
         ends_at=sesion.ends_at,
-        room=sesion.room,
+        room=tr.campo("session", sesion.id, "room", sesion.room),
         venue_id=str(sesion.venue_id) if sesion.venue_id else None,
         video_platform=sesion.video_platform,  # type: ignore[arg-type]
         video_url=sesion.video_url,
         materials=sesion.materials,
         participants=participantes,
         event_slug=evento.slug,
-        event_title=evento.title,
+        event_title=tr.campo("event", evento.id, "title", evento.title) or evento.title,
         organization=await organizations_service.public_ref(session, evento.organization_id),
         theme=await service.tema_publico_del_evento(session, evento),
+        **tr.metadatos(),
     )
 
 
@@ -607,10 +649,18 @@ async def get_public_speaker(public_slug: str, session: SessionDep) -> PublicSpe
     )
 
     organizacion = await organizations_service.public_ref(session, organization_id)
+    entidad_org = await session.get(Organization, organization_id)
+    if entidad_org is None:  # pragma: no cover - la resolvió la función SECURITY DEFINER
+        raise NotFoundError("El ponente no existe.")
+    tr = await traductor_de_organizacion(session, entidad_org, idioma_actual())
+    campos = filter_public_profile_fields(miembro.profile_data)
+    for clave, valor in campos.items():
+        if isinstance(valor, str) and campo_valido("member_profile", clave):
+            campos[clave] = tr.campo("member_profile", miembro.id, clave, valor)
     return PublicSpeakerProfile(
         display_name=_display_name(persona),
         public_slug=perfil.public_slug,
-        fields=filter_public_profile_fields(miembro.profile_data),
+        fields=campos,
         social_links=[SocialLinkResponse.model_validate(enlace) for enlace in enlaces],
         history=[
             PublicSpeakerHistoryItem(
@@ -624,4 +674,5 @@ async def get_public_speaker(public_slug: str, session: SessionDep) -> PublicSpe
             )
             for participacion, sesion, evento in historial_filas
         ],
+        **tr.metadatos(),
     )

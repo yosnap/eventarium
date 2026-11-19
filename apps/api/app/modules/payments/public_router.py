@@ -24,6 +24,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request
 
 from app.core.deps import SessionDep
+from app.core.locale import idioma_actual
 from app.core.ratelimit import (
     CHECKOUT_QUOTE_POR_IP,
     INSCRIPCION_POR_IP,
@@ -46,6 +47,7 @@ from app.modules.policies import service as policies_service
 from app.modules.registrations import repository as registrations_repository
 from app.modules.registrations.calendar import calendario_de_evento
 from app.modules.registrations.schemas import RegistrationAnswerInput
+from app.modules.translations.service import traductor_de_evento
 from app.shared.errors import NotFoundError, ValidationDomainError
 
 router = APIRouter(prefix="/public", tags=["público"])
@@ -72,11 +74,12 @@ async def list_public_ticket_types(
     tipos = await service.list_public_ticket_types(
         session, organization_id=evento.organization_id, event_id=evento.id
     )
+    tr = await traductor_de_evento(session, evento, idioma_actual())
     return [
         PublicTicketTypeResponse(
             id=str(tipo.id),
-            name=tipo.name,
-            description=tipo.description,
+            name=tr.campo("ticket_type", tipo.id, "name", tipo.name) or tipo.name,
+            description=tr.campo("ticket_type", tipo.id, "description", tipo.description),
             price_cents=tipo.price_cents,
             currency=tipo.currency,
         )
