@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
@@ -21,6 +21,7 @@ import {
 } from './organization-social-links';
 import type { Idioma } from '../../../core/i18n/idioma';
 import { PestanasDeIdioma } from '../../../shared/ui/pestanas-de-idioma';
+import { OfertaTraducirPublicados } from './oferta-traducir-publicados';
 import { OrganizationLanguages } from './organization-languages';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -63,6 +64,7 @@ const WEB_RE = /^https?:\/\/\S+$/;
     Card,
     Checkbox,
     Input,
+    OfertaTraducirPublicados,
     OrganizationLanguages,
     OrganizationSocialLinks,
     PestanasDeIdioma,
@@ -172,6 +174,7 @@ const WEB_RE = /^https?:\/\/\S+$/;
             <app-organization-social-links [(enlaces)]="socialLinks" />
 
             <app-organization-languages [(idiomas)]="contentLocales" [(origen)]="sourceLocale" />
+            <app-oferta-traducir-publicados #ofertaTraducir />
 
             @if (guardado()) {
               <app-alert tone="exito">{{ t('admin.organizacion.guardado') }}</app-alert>
@@ -246,6 +249,8 @@ export class OrganizationPage {
   protected readonly description = signal('');
   protected readonly organizacionId = signal<string | null>(null);
   protected readonly contentLocales = signal<readonly Idioma[]>(['es-ES']);
+  private idiomasGuardados: readonly Idioma[] = ['es-ES'];
+  private readonly ofertaTraducir = viewChild<OfertaTraducirPublicados>('ofertaTraducir');
   protected readonly sourceLocale = signal<Idioma>('es-ES');
   protected readonly website = signal('');
   protected readonly contactEmail = signal('');
@@ -279,6 +284,7 @@ export class OrganizationPage {
       this.description.set(organizacion.description ?? '');
       this.organizacionId.set(organizacion.id);
       this.contentLocales.set(organizacion.content_locales ?? ['es-ES']);
+      this.idiomasGuardados = organizacion.content_locales ?? ['es-ES'];
       this.sourceLocale.set(organizacion.source_locale ?? 'es-ES');
       this.website.set(organizacion.website ?? '');
       this.contactEmail.set(organizacion.contact_email ?? '');
@@ -377,6 +383,12 @@ export class OrganizationPage {
       // en la portada viene de `ThemingService`, resuelto por host, no de este PATCH.
       await this.theming.load();
       this.guardado.set(true);
+      // Un idioma recién activado: se ofrece traducir lo ya publicado.
+      const nuevo = this.contentLocales().find((idioma) => !this.idiomasGuardados.includes(idioma));
+      this.idiomasGuardados = this.contentLocales();
+      if (nuevo) {
+        void this.ofertaTraducir()?.ofrecer(nuevo);
+      }
     } catch (error) {
       this.error.set(
         error instanceof ApiError

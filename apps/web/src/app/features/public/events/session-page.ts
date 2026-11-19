@@ -42,6 +42,8 @@ import {
   idiomasDeLaRespuesta,
 } from '../../../core/seo/indexacion-por-idioma';
 import { AvisoContenidoOriginal } from '../../../shared/ui/aviso-contenido-original';
+import { traduccionEnVivo } from '../../../core/traducciones/traduccion-en-vivo';
+import { EnTraduccion } from '../../../shared/ui/esqueleto';
 
 interface PublicParticipant {
   readonly display_name: string;
@@ -93,6 +95,7 @@ const CLAVE_AGENDA = 'eventarium-agenda';
   selector: 'app-session-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    EnTraduccion,
     AvisoContenidoOriginal,
     EnlacePipe,
     DatePipe,
@@ -126,7 +129,11 @@ const CLAVE_AGENDA = 'eventarium-agenda';
                   · {{ sesion.room }}
                 }
               </span>
-              <h1>{{ sesion.title }}</h1>
+              <h1>
+                <app-en-traduccion [traduciendo]="traduciendo()">{{
+                  sesion.title
+                }}</app-en-traduccion>
+              </h1>
               <app-aviso-contenido-original [servido]="sesion.served_locale" />
 
               <div class="cuando">
@@ -143,7 +150,9 @@ const CLAVE_AGENDA = 'eventarium-agenda';
               </div>
 
               @if (sesion.description) {
-                <p class="prosa">{{ sesion.description }}</p>
+                <app-en-traduccion [traduciendo]="traduciendo()" [lineas]="3">
+                  <p class="prosa">{{ sesion.description }}</p>
+                </app-en-traduccion>
               }
 
               @if (sesion.participants.length > 0) {
@@ -450,6 +459,12 @@ export class SessionPage implements OnInit {
   private readonly sanitizer = inject(DomSanitizer);
 
   protected readonly sesion = signal<PublicSessionDetail | null>(null);
+  /** Mientras la IA traduce lo pendiente: esqueleto en vez del original. */
+  protected readonly traduciendo = traduccionEnVivo({
+    ruta: () => apiEvento(this.org(), this.slug()),
+    pendiente: () => this.sesion()?.translating ?? false,
+    recargar: () => this.cargar(),
+  });
   protected readonly cargando = signal(true);
   protected readonly noEncontrado = signal(false);
   protected readonly embed = signal<ReturnType<typeof resolveVideoEmbed>>(null);

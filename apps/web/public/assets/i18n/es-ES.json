@@ -1114,6 +1114,15 @@
         "ayuda": "Los idiomas en que publica la organización. Sus páginas, eventos y textos se ofrecen en cada uno; lo que no esté traducido se muestra en el original.",
         "origen": "Idioma en que escribe la organización",
         "origenAyuda": "El idioma original de los textos que son de la organización, como la descripción, las etiquetas o las políticas."
+      },
+      "ofertaTraducir": {
+        "titulo": "¿Traducimos tus eventos al {{ idioma }}?",
+        "texto": "Tienes {{ eventos }} eventos publicados con {{ textos }} textos sin traducir a este idioma. Podemos traducirlos ahora con tu clave de IA.",
+        "coste": "Coste estimado: {{ coste }} USD",
+        "nota": "Se traducen poco a poco, dentro de tus límites de gasto. Si prefieres esperar, cada evento se traducirá cuando alguien lo visite en ese idioma.",
+        "ahoraNo": "Ahora no",
+        "traducir": "Traducir ahora",
+        "error": "No se ha podido pedir la traducción. Inténtalo de nuevo."
       }
     },
     "branding": {
@@ -3109,6 +3118,45 @@
       "titulo": "Traducciones",
       "linea": "{{ idioma }}: {{ al_dia }} de {{ total }} textos al día",
       "ayuda": "Tradúcelos desde la pestaña de cada idioma en los formularios."
+    },
+    "traduciendo": "Traduciendo…",
+    "clavePropia": {
+      "titulo": "Traducción automática no disponible",
+      "texto": "Para traducir tus eventos automáticamente necesitas tu propia clave de IA. Mientras tanto puedes escribir las traducciones a mano.",
+      "configurar": "Configurar la clave de IA",
+      "comoHacerlo": "Cómo hacerlo, paso a paso"
+    }
+  },
+  "ayuda": {
+    "traduccion": {
+      "rotulo": "Ayuda",
+      "titulo": "Traducción automática de tus eventos",
+      "intro": "Eventarium traduce con IA el contenido de tus eventos a los idiomas que actives en tu organización. Para hacerlo usa tu propia clave de IA: así tú controlas el proveedor y el gasto.",
+      "paso1": {
+        "titulo": "1. Consigue una clave de IA",
+        "texto": "Crea una cuenta en uno de estos proveedores y genera una clave de API:",
+        "openrouter": "OpenRouter (openrouter.ai → Keys): da acceso a muchos modelos con una sola clave.",
+        "openai": "OpenAI (platform.openai.com → API keys).",
+        "anthropic": "Anthropic (console.anthropic.com → API Keys).",
+        "gemini": "Google Gemini (aistudio.google.com → Get API key)."
+      },
+      "paso2": {
+        "titulo": "2. Pégala en Eventarium",
+        "texto": "En la configuración de IA de tu organización elige el proveedor y el modelo, pega la clave y guarda. Puedes fijar un límite de gasto mensual.",
+        "enlace": "Abrir la configuración de IA"
+      },
+      "paso3": {
+        "titulo": "3. Activa los idiomas",
+        "texto": "En la ficha de tu organización, en «Idiomas del contenido», marca los idiomas en que quieres publicar. Al activar uno nuevo te ofreceremos traducir los eventos ya publicados, con el coste estimado."
+      },
+      "paso4": {
+        "titulo": "4. Listo",
+        "texto": "Cada vez que publiques o edites un evento, se traducirá en segundo plano. Puedes revisar y corregir cualquier traducción en la pestaña de cada idioma de los formularios."
+      },
+      "costeTitulo": "¿Cuánto cuesta?",
+      "coste": "Depende del proveedor y del modelo. Con un modelo económico, traducir un evento completo suele costar unos céntimos. La traducción nunca gasta más de la mitad de tu límite mensual de IA, para que no se quede sin presupuesto el resto de funciones.",
+      "sinClaveTitulo": "¿Y sin clave?",
+      "sinClave": "Puedes escribir tú las traducciones en la pestaña de cada idioma. Lo que no esté traducido se mostrará en el idioma original."
     }
   }
 }

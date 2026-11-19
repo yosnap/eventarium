@@ -17,6 +17,7 @@ import {
   TraduccionesService,
 } from '../../core/traducciones/traducciones.service';
 import { ThemingService } from '../../core/theming/theming.service';
+import { AvisoClavePropia } from './aviso-clave-propia';
 import { EditorDeTraducciones } from './editor-de-traducciones';
 
 let siguienteId = 0;
@@ -34,9 +35,12 @@ let siguienteId = 0;
 @Component({
   selector: 'app-pestanas-de-idioma',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, EditorDeTraducciones],
+  imports: [TranslocoDirective, AvisoClavePropia, EditorDeTraducciones],
   template: `
     <ng-container *transloco="let t; prefix: 'traducciones'">
+      @if (sinClavePropia()) {
+        <app-aviso-clave-propia />
+      }
       @if (pestanas().length > 1) {
         <div class="pestanas" role="tablist" [attr.aria-label]="t('pestanas')">
           @for (idioma of pestanas(); track idioma) {
@@ -88,6 +92,7 @@ let siguienteId = 0;
   `,
   styles: `
     .pestanas {
+      margin-top: var(--space-md);
       display: flex;
       flex-wrap: wrap;
       gap: var(--space-xs);
@@ -129,7 +134,14 @@ export class PestanasDeIdioma {
   private readonly variosIdiomas = computed(
     () => (this.theming.plataforma()?.enabled_locales?.length ?? 0) > 1,
   );
-  private readonly info = signal<Pick<Editor, 'locales' | 'source_locale'> | null>(null);
+  private readonly info = signal<Pick<
+    Editor,
+    'locales' | 'source_locale' | 'auto_translation_available'
+  > | null>(null);
+  /** Varios idiomas y sin clave propia: hay que avisar de que no se traducirá solo. */
+  protected readonly sinClavePropia = computed(
+    () => this.pestanas().length > 1 && this.info()?.auto_translation_available === false,
+  );
   /** Pestaña elegida; `null` es la del original (también tras cambiar de entidad). */
   private readonly elegida = signal<Idioma | null>(null);
   /** Idiomas cuyo editor ya se ha abierto: se conservan para no perder borradores. */
@@ -201,7 +213,11 @@ export class PestanasDeIdioma {
       // Cualquier idioma sirve para saber los de la organización y el original.
       const editor = await this.servicio.obtener(tipo, id, 'en-US');
       if (this.entityId() === id) {
-        this.info.set({ locales: editor.locales, source_locale: editor.source_locale });
+        this.info.set({
+          locales: editor.locales,
+          source_locale: editor.source_locale,
+          auto_translation_available: editor.auto_translation_available,
+        });
       }
     } catch {
       // Sin permiso de lectura o sin conexión: el formulario sigue funcionando.

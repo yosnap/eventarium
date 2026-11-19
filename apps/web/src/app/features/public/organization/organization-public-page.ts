@@ -30,6 +30,8 @@ import {
   idiomasDeLaRespuesta,
 } from '../../../core/seo/indexacion-por-idioma';
 import { AvisoContenidoOriginal } from '../../../shared/ui/aviso-contenido-original';
+import { traduccionEnVivo } from '../../../core/traducciones/traduccion-en-vivo';
+import { EnTraduccion } from '../../../shared/ui/esqueleto';
 
 interface PerfilPublico extends IdiomasDeLaRespuesta {
   readonly slug: string;
@@ -109,6 +111,7 @@ interface EstadoTransferido {
   selector: 'app-organization-public-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    EnTraduccion,
     AvisoContenidoOriginal,
     EnlacePipe,
     TranslocoDirective,
@@ -146,7 +149,9 @@ interface EstadoTransferido {
               <h1>{{ p.name }}</h1>
               <app-aviso-contenido-original [servido]="p.served_locale" />
               @if (p.description) {
-                <p class="cabecera__descripcion">{{ p.description }}</p>
+                <app-en-traduccion [traduciendo]="traduciendo()" [lineas]="3">
+                  <p class="cabecera__descripcion">{{ p.description }}</p>
+                </app-en-traduccion>
               }
               <dl class="ficha">
                 @if (p.website) {
@@ -462,6 +467,12 @@ export class OrganizationPublicPage implements OnInit {
 
   protected readonly rutaEvento = rutaEvento;
   protected readonly perfil = signal<PerfilPublico | null>(null);
+  /** Mientras la IA traduce lo pendiente: esqueleto en vez del original. */
+  protected readonly traduciendo = traduccionEnVivo({
+    ruta: () => `/public/organizations/${this.org()}`,
+    pendiente: () => this.perfil()?.translating ?? false,
+    recargar: () => this.cargar(),
+  });
   protected readonly proximos = signal<PaginaDeEventos>({ items: [], total: 0 });
   protected readonly pasados = signal<PaginaDeEventos>({ items: [], total: 0 });
   protected readonly cargando = signal(true);

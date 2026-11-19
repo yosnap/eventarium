@@ -87,6 +87,8 @@ export interface IdiomasDeLaRespuesta {
   readonly up_to_date_locales?: readonly string[];
   /** Idioma en que llega el contenido: el de la página o, sin traducir, el original. */
   readonly served_locale?: string;
+  /** La IA va a traducir lo pendiente: la página espera con un esqueleto. */
+  readonly translating?: boolean;
 }
 
 /**

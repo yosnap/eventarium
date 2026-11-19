@@ -1114,6 +1114,15 @@
         "ayuda": "The languages the organisation publishes in. Its pages, events and texts are offered in each of them; anything not translated is shown in the original.",
         "origen": "Language the organisation writes in",
         "origenAyuda": "The original language of the texts that belong to the organisation, such as the description, tags or policies."
+      },
+      "ofertaTraducir": {
+        "titulo": "Shall we translate your events into {{ idioma }}?",
+        "texto": "You have {{ eventos }} published events with {{ textos }} texts not translated into this language. We can translate them now with your AI key.",
+        "coste": "Estimated cost: {{ coste }} USD",
+        "nota": "They are translated gradually, within your spending limits. If you prefer to wait, each event will be translated when someone visits it in that language.",
+        "ahoraNo": "Not now",
+        "traducir": "Translate now",
+        "error": "The translation could not be requested. Please try again."
       }
     },
     "branding": {
@@ -3109,6 +3118,45 @@
       "titulo": "Translations",
       "linea": "{{ idioma }}: {{ al_dia }} of {{ total }} texts up to date",
       "ayuda": "Translate them from each language tab in the forms."
+    },
+    "traduciendo": "Translating…",
+    "clavePropia": {
+      "titulo": "Automatic translation not available",
+      "texto": "To translate your events automatically you need your own AI key. Meanwhile you can write the translations by hand.",
+      "configurar": "Set up the AI key",
+      "comoHacerlo": "How to do it, step by step"
+    }
+  },
+  "ayuda": {
+    "traduccion": {
+      "rotulo": "Help",
+      "titulo": "Automatic translation of your events",
+      "intro": "Eventarium uses AI to translate your events into the languages you enable for your organisation. It uses your own AI key, so you control the provider and the spending.",
+      "paso1": {
+        "titulo": "1. Get an AI key",
+        "texto": "Create an account with one of these providers and generate an API key:",
+        "openrouter": "OpenRouter (openrouter.ai → Keys): many models with a single key.",
+        "openai": "OpenAI (platform.openai.com → API keys).",
+        "anthropic": "Anthropic (console.anthropic.com → API Keys).",
+        "gemini": "Google Gemini (aistudio.google.com → Get API key)."
+      },
+      "paso2": {
+        "titulo": "2. Paste it into Eventarium",
+        "texto": "In your organisation's AI settings choose the provider and the model, paste the key and save. You can set a monthly spending limit.",
+        "enlace": "Open the AI settings"
+      },
+      "paso3": {
+        "titulo": "3. Enable the languages",
+        "texto": "In your organisation's profile, under “Content languages”, tick the languages you want to publish in. When you enable a new one we will offer to translate the events already published, with the estimated cost."
+      },
+      "paso4": {
+        "titulo": "4. Done",
+        "texto": "Every time you publish or edit an event it will be translated in the background. You can review and correct any translation in each language tab of the forms."
+      },
+      "costeTitulo": "How much does it cost?",
+      "coste": "It depends on the provider and the model. With an affordable model, translating a whole event usually costs a few cents. Translation never spends more than half of your monthly AI limit, so the other features keep their budget.",
+      "sinClaveTitulo": "And without a key?",
+      "sinClave": "You can write the translations yourself in each language tab. Anything not translated is shown in the original language."
     }
   }
 }

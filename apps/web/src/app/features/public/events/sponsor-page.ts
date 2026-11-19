@@ -34,6 +34,8 @@ import {
   idiomasDeLaRespuesta,
 } from '../../../core/seo/indexacion-por-idioma';
 import { AvisoContenidoOriginal } from '../../../shared/ui/aviso-contenido-original';
+import { traduccionEnVivo } from '../../../core/traducciones/traduccion-en-vivo';
+import { EnTraduccion } from '../../../shared/ui/esqueleto';
 
 type ContributionType = 'monetaria' | 'en_especie';
 
@@ -87,6 +89,7 @@ const CLAVE_TIPO_APORTACION: Record<ContributionType, string> = {
   selector: 'app-sponsor-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    EnTraduccion,
     AvisoContenidoOriginal,
     EnlacePipe,
     DatePipe,
@@ -133,7 +136,9 @@ const CLAVE_TIPO_APORTACION: Record<ContributionType, string> = {
                     <app-chip tone="neutro">{{ t(claveTipo(patrocinador)) }}</app-chip>
                   </div>
                   @if (patrocinador.contribution_description; as descripcion) {
-                    <p class="prosa">{{ descripcion }}</p>
+                    <app-en-traduccion [traduciendo]="traduciendo()" [lineas]="3">
+                      <p class="prosa">{{ descripcion }}</p>
+                    </app-en-traduccion>
                   }
                   @if (patrocinador.website) {
                     <div class="enlaces">
@@ -371,6 +376,12 @@ export class SponsorPage implements OnInit {
   private readonly transloco = inject(TranslocoService);
 
   protected readonly patrocinador = signal<PublicSponsorDetail | null>(null);
+  /** Mientras la IA traduce lo pendiente: esqueleto en vez del original. */
+  protected readonly traduciendo = traduccionEnVivo({
+    ruta: () => apiEvento(this.org(), this.slug()),
+    pendiente: () => this.patrocinador()?.translating ?? false,
+    recargar: () => this.cargar(),
+  });
   protected readonly cargando = signal(true);
   protected readonly noEncontrado = signal(false);
 

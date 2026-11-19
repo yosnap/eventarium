@@ -31,6 +31,8 @@ import {
   idiomasDeLaRespuesta,
 } from '../../../core/seo/indexacion-por-idioma';
 import { AvisoContenidoOriginal } from '../../../shared/ui/aviso-contenido-original';
+import { traduccionEnVivo } from '../../../core/traducciones/traduccion-en-vivo';
+import { EnTraduccion } from '../../../shared/ui/esqueleto';
 
 interface SocialLink {
   readonly kind: string;
@@ -101,6 +103,7 @@ function etiquetaEnlace(kind: string, traducir: (clave: string) => string): stri
   selector: 'app-speaker-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    EnTraduccion,
     AvisoContenidoOriginal,
     EnlacePipe,
     RouterLink,
@@ -196,7 +199,9 @@ function etiquetaEnlace(kind: string, traducir: (clave: string) => string): stri
           @if (perfil.fields['bio']; as bio) {
             <section appReveal>
               <h2>{{ t('publico.ponentes.bio') }}</h2>
-              <p class="prosa">{{ bio }}</p>
+              <app-en-traduccion [traduciendo]="traduciendo()" [lineas]="4">
+                <p class="prosa">{{ bio }}</p>
+              </app-en-traduccion>
             </section>
           }
 
@@ -480,6 +485,12 @@ export class SpeakerPage implements OnInit {
   private readonly transloco = inject(TranslocoService);
 
   protected readonly perfil = signal<PublicSpeakerProfile | null>(null);
+  /** Mientras la IA traduce lo pendiente: esqueleto en vez del original. */
+  protected readonly traduciendo = traduccionEnVivo({
+    ruta: () => `/public/speakers/${this.publicSlug()}`,
+    pendiente: () => this.perfil()?.translating ?? false,
+    recargar: () => this.cargar(),
+  });
   protected readonly cargando = signal(true);
   protected readonly noEncontrado = signal(false);
 
