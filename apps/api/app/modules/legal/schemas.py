@@ -22,6 +22,10 @@ class LegalPageResponse(BaseModel):
         default=DEFAULT_LOCALE,
         description="Idioma del texto servido: `es-ES` si no hay versión en el idioma pedido.",
     )
+    available_locales: list[Locale] = Field(
+        default_factory=lambda: [DEFAULT_LOCALE],
+        description="Idiomas con versión propia: los que la página anuncia a los buscadores.",
+    )
 
 
 class CookieConsentCreate(BaseModel):

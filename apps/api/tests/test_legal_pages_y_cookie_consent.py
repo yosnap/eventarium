@@ -124,7 +124,11 @@ async def test_la_version_en_ingles_se_escribe_a_mano_y_si_falta_se_sirve_la_esp
     espanola = (await cliente.get(f"{PUBLIC_LEGAL}/privacidad")).json()
 
     sin_version = await cliente.get(f"{PUBLIC_LEGAL}/privacidad?idioma=en-US")
-    assert sin_version.json() == {"content": espanola["content"], "served_locale": "es-ES"}
+    assert sin_version.json() == {
+        "content": espanola["content"],
+        "served_locale": "es-ES",
+        "available_locales": ["es-ES"],
+    }
 
     editar = await cliente.patch(
         PLATFORM_LEGAL_ADMIN,
@@ -136,6 +140,7 @@ async def test_la_version_en_ingles_se_escribe_a_mano_y_si_falta_se_sirve_la_esp
         "content": "Privacy policy written by hand.",
         "is_custom": True,
         "served_locale": "en-US",
+        "available_locales": ["es-ES", "en-US"],
     }
     # Las demás páginas siguen sin versión en inglés: se sirve la española.
     assert editar.json()["cookies_policy"]["served_locale"] == "es-ES"
@@ -147,9 +152,12 @@ async def test_la_version_en_ingles_se_escribe_a_mano_y_si_falta_se_sirve_la_esp
     assert en_ingles.json() == {
         "content": "Privacy policy written by hand.",
         "served_locale": "en-US",
+        "available_locales": ["es-ES", "en-US"],
     }
-    # La española no cambia.
-    assert (await cliente.get(f"{PUBLIC_LEGAL}/privacidad")).json() == espanola
+    # La española no cambia, pero ahora anuncia también la inglesa (hreflang recíproco).
+    tras_editar = (await cliente.get(f"{PUBLIC_LEGAL}/privacidad")).json()
+    assert tras_editar["content"] == espanola["content"]
+    assert tras_editar["available_locales"] == ["es-ES", "en-US"]
 
     borrar = await cliente.patch(
         PLATFORM_LEGAL_ADMIN,

@@ -39,7 +39,11 @@ router_cookie_consent = APIRouter(prefix="/public", tags=["público"])
 async def _pagina_publica(session: AsyncSession, clave: str, idioma: Locale) -> LegalPageResponse:
     paginas = await platform_service.legal_pages_publicas(session, idioma)
     pagina = getattr(paginas, _ATRIBUTO_DE_PAGINA[clave])
-    return LegalPageResponse(content=pagina.content, served_locale=pagina.served_locale)
+    return LegalPageResponse(
+        content=pagina.content,
+        served_locale=pagina.served_locale,
+        available_locales=pagina.available_locales,
+    )
 
 
 @router_public.get(

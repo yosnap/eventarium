@@ -189,7 +189,9 @@ export class PlatformLegalPage {
   }
 
   protected cambiarIdioma(idioma: Idioma): void {
-    if (idioma === this.idioma()) {
+    // Mientras se guarda no se cambia: la respuesta del guardado es de otro idioma
+    // y acabaría en los campos del nuevo (p. ej. el texto inglés como español).
+    if (idioma === this.idioma() || this.guardando()) {
       return;
     }
     this.idioma.set(idioma);
@@ -251,22 +253,24 @@ export class PlatformLegalPage {
       return limpio === '' ? null : limpio;
     };
 
+    const idioma = this.idioma();
     try {
-      this.volcar(
-        await firstValueFrom(
-          this.http.patch<PaginasLegales>(
-            this.api.url(CLAVE_LEGALES),
-            {
-              legal_notice_content: aTexto(this.avisoLegal()),
-              privacy_policy_content: aTexto(this.privacidad()),
-              cookies_policy_content: aTexto(this.cookies()),
-              registration_terms_content: aTexto(this.condicionesDeInscripcion()),
-              locale: this.idioma(),
-            },
-            { headers: this.api.serverForwardHeaders() },
-          ),
+      const paginas = await firstValueFrom(
+        this.http.patch<PaginasLegales>(
+          this.api.url(CLAVE_LEGALES),
+          {
+            legal_notice_content: aTexto(this.avisoLegal()),
+            privacy_policy_content: aTexto(this.privacidad()),
+            cookies_policy_content: aTexto(this.cookies()),
+            registration_terms_content: aTexto(this.condicionesDeInscripcion()),
+            locale: idioma,
+          },
+          { headers: this.api.serverForwardHeaders() },
         ),
       );
+      if (idioma === this.idioma()) {
+        this.volcar(paginas);
+      }
       this.guardado.set(true);
     } catch (fallo) {
       this.error.set(

@@ -19470,6 +19470,18 @@
             "title": "Served Locale",
             "description": "Idioma del texto servido: `es-ES` si no hay versión en el idioma pedido.",
             "default": "es-ES"
+          },
+          "available_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Available Locales",
+            "description": "Idiomas con versión propia: los que la página anuncia a los buscadores."
           }
         },
         "type": "object",
@@ -22544,6 +22556,18 @@
             "title": "Served Locale",
             "description": "Idioma del texto servido. Si se pidió otro y no hay versión escrita a mano, es `es-ES` y la web muestra el aviso de contenido original.",
             "default": "es-ES"
+          },
+          "available_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Available Locales",
+            "description": "Idiomas con versión propia de esta página (el español, siempre)."
           }
         },
         "type": "object",

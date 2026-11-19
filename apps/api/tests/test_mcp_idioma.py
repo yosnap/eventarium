@@ -4,11 +4,15 @@ herramienta `traducir_evento`."""
 from __future__ import annotations
 
 from datetime import timedelta
+from unittest.mock import AsyncMock, patch
 
 from httpx import AsyncClient
 
+from app.modules.translations import cola
+from tests.ai_gateway_test_helpers import configurar_organizacion
 from tests.conftest import OrganizacionDePrueba, iniciar_sesion
 from tests.mcp_test_helpers import AHORA, _crear_clave, _datos, _evento, _herramienta, _rpc
+from tests.test_events_public import _publicar
 
 ORGANIZACION = "/api/v1/organizations/me"
 
@@ -180,3 +184,44 @@ async def test_traducir_evento_da_el_estado_y_sin_clave_propia_no_lanza(
         cliente_mcp, clave, "traducir_evento", event_id=evento["id"], idioma="es-ES"
     )
     assert al_original["isError"] is True
+
+
+async def test_lanzar_con_clave_propia_encola_el_evento_publicado_y_no_el_borrador(
+    cliente: AsyncClient,
+    cliente_mcp: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    cifrado: str,
+) -> None:
+    cabeceras, evento, _ = await _bilingue(cliente, organizacion, "mcp-idioma-lanzar")
+    await configurar_organizacion(organizacion.id)
+    solo_lectura = (await _crear_clave(cliente, cabeceras, scopes=["eventos:leer"]))["api_key"]
+    edicion = (await _crear_clave(cliente, cabeceras, scopes=["eventos:leer", "eventos:editar"]))[
+        "api_key"
+    ]
+    argumentos = {"event_id": evento["id"], "idioma": "en-US"}
+
+    # Con solo lectura, se consulta pero no se lanza.
+    estado = _datos(await _herramienta(cliente_mcp, solo_lectura, "traducir_evento", **argumentos))
+    assert estado["traduccion_automatica"] is True
+    assert estado["pendientes_ia"] == 0  # un borrador no se traduce
+    sin_ambito = await _herramienta(
+        cliente_mcp, solo_lectura, "traducir_evento", accion="lanzar", **argumentos
+    )
+    assert sin_ambito["isError"] is True
+
+    borrador = await _herramienta(
+        cliente_mcp, edicion, "traducir_evento", accion="lanzar", **argumentos
+    )
+    assert borrador["isError"] is True
+    assert "publicarlo" in borrador["content"][0]["text"]
+
+    await _publicar(cliente, cabeceras, evento["id"])
+    with patch.object(cola, "pedir", new_callable=AsyncMock) as pedir:
+        lanzado = _datos(
+            await _herramienta(
+                cliente_mcp, edicion, "traducir_evento", accion="lanzar", **argumentos
+            )
+        )
+    assert lanzado["pendientes_ia"] >= 1
+    assert lanzado["en_cola"] is True
+    pedir.assert_awaited_once()

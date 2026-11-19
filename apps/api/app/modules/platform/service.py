@@ -118,14 +118,24 @@ async def legal_pages_publicas(
     """
     branding: PlatformBranding = await repository.get_platform_branding(session)
     sitio = _sitio_de_la_instalacion()
+    con_version = await repository.idiomas_con_version_legal(session)
 
     items: dict[str, PlatformLegalPageItem] = {}
     for clave in PLATFORM_LEGAL_PAGE_KINDS:
+        # La española existe siempre (plantilla o editada); las demás, si se escribieron.
+        disponibles = [
+            idioma
+            for idioma in LOCALES
+            if idioma == DEFAULT_LOCALE or (clave, idioma) in con_version
+        ]
         if locale != DEFAULT_LOCALE:
             traducida = await repository.get_platform_legal_page(session, clave, locale)
             if traducida is not None and traducida.content:
                 items[ATRIBUTO_DE_PAGINA[clave]] = PlatformLegalPageItem(
-                    content=traducida.content, is_custom=True, served_locale=locale
+                    content=traducida.content,
+                    is_custom=True,
+                    served_locale=locale,
+                    available_locales=disponibles,
                 )
                 continue
         fila = await repository.get_platform_legal_page(session, clave)
@@ -134,6 +144,7 @@ async def legal_pages_publicas(
             content=resolve_platform_legal_page(branding, sitio, clave, contenido_editado),
             is_custom=bool(contenido_editado) and locale == DEFAULT_LOCALE,
             served_locale=DEFAULT_LOCALE,
+            available_locales=disponibles,
         )
 
     return PlatformLegalPagesResponse(**items)

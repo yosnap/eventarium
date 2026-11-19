@@ -73,6 +73,10 @@ class PlatformLegalPageItem(BaseModel):
             "es `es-ES` y la web muestra el aviso de contenido original."
         ),
     )
+    available_locales: list[Locale] = Field(
+        default_factory=lambda: [DEFAULT_LOCALE],
+        description="Idiomas con versión propia de esta página (el español, siempre).",
+    )
 
 
 class PlatformLegalPagesResponse(BaseModel):

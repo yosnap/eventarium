@@ -35,7 +35,8 @@ TEXTOS: Final[dict[TipoDeEntidad, tuple[str, ...]]] = {
     "sponsor": ("name", "contribution_description"),
 }
 
-TRADUCIR = ToolAnnotations(read_only_hint=False, destructive_hint=False, open_world_hint=True)
+#: Consulta o encola: no borra nada y la llamada a la IA la hace después el worker.
+TRADUCIR = ToolAnnotations(read_only_hint=False, destructive_hint=False, open_world_hint=False)
 
 
 def idioma_pedido(valor: str | None) -> Locale | None:
@@ -63,14 +64,22 @@ def separar_textos(
     return {campo: datos.pop(campo) for campo in TEXTOS[tipo] if campo in datos}
 
 
-def exigir_idioma_original(idioma: Locale | None, evento: Event) -> None:
+def exigir_idioma_original(
+    idioma: Locale | None, evento: Event, *, se_edita_con: str | None = None
+) -> None:
     """Al crear algo, el texto tiene que estar en el idioma original del evento:
-    no hay original del que colgar una traducción."""
+    no hay original del que colgar una traducción. `se_edita_con` es la
+    herramienta que lo traduce después; sin ella, se traduce desde el panel."""
     origen = origen_de(evento)
     if idioma is not None and idioma != origen:
+        despues = (
+            f"tradúcelo después con `{se_edita_con}` e `idioma={idioma}`"
+            if se_edita_con
+            else "la traducción se escribe después desde el panel de Eventarium o la "
+            "hace la traducción automática"
+        )
         raise ErrorDeHerramienta(
-            f"Este evento se escribe en {origen}: crea el contenido en ese idioma y "
-            f"tradúcelo después con la herramienta de editar e `idioma={idioma}`."
+            f"Este evento se escribe en {origen}: crea el contenido en ese idioma; {despues}."
         )
 
 
@@ -141,7 +150,9 @@ def registrar(mcp: MCPServer) -> None:
         propia clave). `accion="estado"` dice cuántos textos del evento hay que
         traducir a `idioma` y cuántos están al día. `accion="lanzar"` además pone
         el evento en la cola: se traduce poco a poco en uno o dos minutos, dentro
-        de los topes de coste. Las traducciones escritas a mano no se tocan."""
+        de los topes de coste. Solo se traducen eventos publicados (o cancelados):
+        un borrador se traduce al publicarlo. Las traducciones escritas a mano no
+        se tocan, y `pendientes_ia` dice cuántos textos traduciría la IA ahora."""
         contexto = await preparar()
         contexto.exigir_ambito(Ambito.EVENTOS_EDITAR if accion == "lanzar" else Ambito.EVENTOS_LEER)
         locale = idioma_pedido(idioma)
@@ -161,6 +172,14 @@ def registrar(mcp: MCPServer) -> None:
                 )
             total, al_dia = (await panel.progreso_del_evento(session, entidad)).get(locale, (0, 0))
             clave_propia = await cola.clave_propia(session, contexto.organization_id)
+            # Lo que la IA traduciría ahora: nada en un borrador, ni lo escrito a
+            # mano, ni lo demasiado largo, ni lo que espera tras un error.
+            pendientes_ia = len(
+                await cola.pendientes(
+                    session, organizacion, cola.Ambito(contexto.organization_id, evento.id, locale)
+                )
+            )
+            publicado = evento.status in cola.ESTADOS_TRADUCIBLES
         en_cola = False
         if accion == "lanzar":
             if not clave_propia:
@@ -169,7 +188,13 @@ def registrar(mcp: MCPServer) -> None:
                     "de IA (en Eventarium, Configuración de IA). Mientras, puedes escribir "
                     "las traducciones a mano con las herramientas de editar e `idioma`."
                 )
-            if al_dia < total:
+            if not publicado:
+                raise ErrorDeHerramienta(
+                    "Los borradores no se traducen automáticamente: el evento se traducirá "
+                    "al publicarlo. Mientras, puedes escribir las traducciones a mano con las "
+                    "herramientas de editar e `idioma`."
+                )
+            if pendientes_ia:
                 await cola.pedir(contexto.organization_id, evento.id, [locale])
                 en_cola = True
             await _auditar(contexto, "traducir_evento", "event", event_id, {"idioma": locale})
@@ -179,6 +204,7 @@ def registrar(mcp: MCPServer) -> None:
             idioma=locale,
             textos=total,
             al_dia=al_dia,
+            pendientes_ia=pendientes_ia,
             en_cola=en_cola,
             traduccion_automatica=clave_propia,
         )

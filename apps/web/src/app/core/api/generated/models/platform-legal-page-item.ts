@@ -6,6 +6,11 @@
  * Una página legal de plataforma, con su contenido efectivo.
  */
 export interface PlatformLegalPageItem {
+
+  /**
+   * Idiomas con versión propia de esta página (el español, siempre).
+   */
+  available_locales?: Array<'es-ES' | 'en-US'>;
   content: string;
 
   /**

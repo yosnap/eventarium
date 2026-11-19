@@ -39,6 +39,8 @@ interface LegalPageResponse {
   readonly content: string;
   /** `es-ES` si no hay versión escrita a mano en el idioma de la página. */
   readonly served_locale?: Idioma;
+  /** Idiomas con versión propia: los que se anuncian a los buscadores (hreflang). */
+  readonly available_locales?: readonly Idioma[];
 }
 
 /**
@@ -140,7 +142,8 @@ export class LegalPage implements OnInit {
       title: this.transloco.translate(this.tituloClave()),
       contenidoDelOrganizador: true,
       idiomaOrigen: 'es-ES',
-      idiomasAlDia: servido === 'es-ES' ? ['es-ES'] : ['es-ES', servido],
+      // Las dos versiones se anuncian una a otra (hreflang recíproco).
+      idiomasAlDia: respuesta.available_locales ?? ['es-ES'],
     });
   }
 }

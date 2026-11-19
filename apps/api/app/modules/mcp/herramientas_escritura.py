@@ -430,7 +430,7 @@ def registrar(mcp: MCPServer) -> None:
         ).model_dump(exclude_unset=True)
         async with sesion(contexto) as session:
             evento = await _evento_permitido(session, contexto, event_id)
-            idiomas.exigir_idioma_original(locale, evento)
+            idiomas.exigir_idioma_original(locale, evento, se_edita_con="editar_sesion")
             if tipo:
                 elegido = await session_types.por_texto(session, contexto.organization_id, tipo)
                 datos["session_type_id"] = str(elegido.id)
@@ -599,7 +599,7 @@ def registrar(mcp: MCPServer) -> None:
         datos["tier_id"] = _uuid(datos["tier_id"])
         async with sesion(contexto) as session:
             evento = await _evento_permitido(session, contexto, event_id)
-            idiomas.exigir_idioma_original(locale, evento)
+            idiomas.exigir_idioma_original(locale, evento, se_edita_con="editar_patrocinador")
             patrocinador = await sponsors_service.create_sponsor(
                 session, organization_id=contexto.organization_id, event_id=evento.id, datos=datos
             )

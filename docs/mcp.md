@@ -180,12 +180,16 @@ traducciones está en [i18n.md](i18n.md).
   defecto, el de la organización). `anadir_sesion`, `anadir_sede`,
   `anadir_patrocinador`, `anadir_sitio_cercano` y el `motivo` de `cancelar_evento`
   tienen que escribirse en el idioma original del evento: con otro `idioma` se
-  rechazan, y lo creado se traduce después con la herramienta de editar.
+  rechazan. Las sesiones y los patrocinadores se traducen después con `editar_sesion` y
+  `editar_patrocinador`; las sedes, los sitios cercanos y el motivo de cancelación, desde el
+  panel o con la traducción automática.
 - **`traducir_evento`.** Con `accion="estado"` (ámbito `eventos:leer`), dice cuántos
   textos del evento y de lo que cuelga de él hay que traducir a `idioma` y cuántos
-  están al día. Con `accion="lanzar"` (ámbito `eventos:editar`), además pone el
-  evento en la cola de traducción con IA. Solo funciona si la organización tiene su
-  propia clave de IA y respeta los mismos topes de coste que el panel.
+  están al día, y `pendientes_ia` cuántos traduciría la IA ahora. Con
+  `accion="lanzar"` (ámbito `eventos:editar`), además pone el evento en la cola de
+  traducción con IA. Solo funciona si la organización tiene su propia clave de IA y el
+  evento está publicado o cancelado (un borrador se traduce al publicarlo), y respeta los
+  mismos topes de coste que el panel.
 
 ## Detalles técnicos
 

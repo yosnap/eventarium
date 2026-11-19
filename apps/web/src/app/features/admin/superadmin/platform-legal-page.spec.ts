@@ -131,4 +131,18 @@ describe('PlatformLegalPage', () => {
     peticion.flush(SIN_EDITAR);
     await guardado;
   });
+
+  it('mientras se guarda no cambia de idioma, para no mezclar versiones', async () => {
+    const fixture = await crearYCargar();
+
+    const guardado = fixture.componentInstance.guardar(new Event('submit'));
+    await avanzar(fixture);
+    fixture.componentInstance['cambiarIdioma']('en-US');
+    await avanzar(fixture);
+
+    expect(fixture.componentInstance.idioma()).toBe('es-ES');
+    http.expectNone(`${LEGALES_URL}?idioma=en-US`);
+    http.expectOne((r) => r.url === LEGALES_URL && r.method === 'PATCH').flush(SIN_EDITAR);
+    await guardado;
+  });
 });

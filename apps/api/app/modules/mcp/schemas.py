@@ -45,6 +45,9 @@ class EstadoDeTraduccion(BaseModel):
     # traducir a `idioma`, y cuántos están ya al día.
     textos: int
     al_dia: int
+    # Textos que la IA traduciría ahora: no cuenta un borrador, lo escrito a mano,
+    # lo demasiado largo ni lo que espera tras un error.
+    pendientes_ia: int
     # Se ha puesto en la cola de traducción automática en esta llamada.
     en_cola: bool
     # La organización tiene su propia clave de IA: se puede traducir con IA.
