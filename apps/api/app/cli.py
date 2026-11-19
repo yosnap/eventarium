@@ -24,7 +24,9 @@ from app.modules.organizations import service
 from app.modules.users.models import User
 from app.seed.demo import seed_demo
 
-app = typer.Typer(help="Utilidades de administración de la API de IA Week.", no_args_is_help=True)
+app = typer.Typer(
+    help="Utilidades de administración de la API de Eventarium.", no_args_is_help=True
+)
 
 
 @app.command()
