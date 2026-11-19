@@ -450,3 +450,16 @@ def test_los_textos_aislados_y_largos_no_comparten_lote() -> None:
     assert ia.tokens_de_salida([ia.Texto("t0", "x" * 100_000, False)]) == ia.MAX_TOKENS_SALIDA
     assert cola.CARACTERES_MAXIMOS_IA < 100_000
     assert {"member_profile", "policy_version"} <= cola.TIPOS_AISLADOS
+
+
+async def test_la_ficha_avisa_de_que_se_va_a_traducir_solo_con_clave_propia(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, cifrado: str
+) -> None:
+    await _evento_bilingue(cliente, organizacion)
+    url = f"{EVENTOS_DE_ACME}/con-ia"
+
+    assert (await cliente.get(url, headers=INGLES)).json()["translating"] is False
+    await configurar_organizacion(organizacion.id)
+    assert (await cliente.get(url, headers=INGLES)).json()["translating"] is True
+    # En el idioma original no hay nada que traducir.
+    assert (await cliente.get(url)).json()["translating"] is False

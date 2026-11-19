@@ -29,6 +29,7 @@ from sqlalchemy.sql.elements import ColumnElement
 
 from app.core.database import set_organization_context
 from app.core.locale import DEFAULT_LOCALE, LOCALES, Locale, normalizar_locale
+from app.modules.ai_gateway import service as ai_service
 from app.modules.events.models import Event, EventCategory
 from app.modules.organizations.models import Organization
 from app.modules.platform import repository as platform_repository
@@ -80,6 +81,9 @@ class Traductor:
     origen: Locale
     activos: tuple[Locale, ...]
     origen_organizacion: Locale | None = None
+    #: La organización traduce con IA (clave propia): lo pendiente se traducirá
+    #: al vuelo y la web puede esperar con un esqueleto en vez del original.
+    traduccion_automatica: bool = False
     _filas: dict[_Clave, tuple[str, str]] = field(default_factory=dict)
     _pendientes: dict[Locale, set[tuple[str, uuid.UUID, str]]] = field(default_factory=dict)
     _principal_visto: bool = False
@@ -209,6 +213,11 @@ class Traductor:
             return 0
         return len(self._pendientes.get(self.idioma, set()))
 
+    @property
+    def traduciendo(self) -> bool:
+        """Hay contenido pendiente en el idioma pedido que la IA va a traducir."""
+        return self.traduccion_automatica and self.campos_pendientes > 0
+
     def metadatos(self) -> dict[str, Any]:
         """Los campos de idioma que añaden las respuestas públicas
         (`ContentLocaleInfo`)."""
@@ -217,6 +226,7 @@ class Traductor:
             "up_to_date_locales": self.idiomas_al_dia,
             "served_locale": self.idioma_servido,
             "pending_fields": self.campos_pendientes,
+            "translating": self.traduciendo,
         }
 
 
@@ -282,7 +292,17 @@ async def _traductor(
     for necesario in (origen_org, origen):
         if necesario not in activos:
             activos = (necesario, *activos)
-    return Traductor(idioma=idioma, origen=origen, activos=activos, origen_organizacion=origen_org)
+    automatica = False
+    if organizacion is not None and idioma in activos and idioma != origen:
+        config = await ai_service.resolver_config_efectiva(session, organizacion.id)
+        automatica = config.origen == "propia" and config.usable
+    return Traductor(
+        idioma=idioma,
+        origen=origen,
+        activos=activos,
+        origen_organizacion=origen_org,
+        traduccion_automatica=automatica,
+    )
 
 
 async def traductor_de_evento(

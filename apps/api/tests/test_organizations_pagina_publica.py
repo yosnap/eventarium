@@ -34,6 +34,7 @@ CAMPOS_PUBLICOS = {
     "up_to_date_locales",
     "served_locale",
     "pending_fields",
+    "translating",
 }
 
 
