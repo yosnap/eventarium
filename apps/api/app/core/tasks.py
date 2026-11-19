@@ -854,12 +854,14 @@ async def barrer_traducciones_task() -> None:
     quietas, con un tope por barrido para mantener un ritmo asumible."""
     from app.modules.translations import cola
 
-    for ambito in await cola.barrer():
+    async def encolar(ambito: cola.Ambito) -> None:
         await traducir_contenido_task.kiq(
             str(ambito.organization_id),
             str(ambito.event_id) if ambito.event_id else None,
             ambito.locale,
         )
+
+    await cola.barrer(encolar)
 
 
 @broker.task(schedule=[{"cron": "45 3 * * *"}])

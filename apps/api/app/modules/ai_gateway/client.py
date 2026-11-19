@@ -264,6 +264,7 @@ async def _reservar(
     messages: list[dict[str, Any]],
     max_tokens: int | None,
     periodo: str,
+    exigir_clave_propia: bool = False,
 ) -> _Reserva:
     """Tramo 1: mutex, comprobaciones y reserva. Sale con el bloqueo soltado.
 
@@ -287,6 +288,10 @@ async def _reservar(
         # (b) Configuración efectiva: la misma función que pinta el panel.
         config = await service.resolver_config_efectiva(tx, organization_id)
         if not config.usable or config.provider is None or config.default_model is None:
+            raise SinConfiguracion()
+        # Quien lo pide (la traducción) no puede usar la clave de la plataforma:
+        # se comprueba aquí, en cada llamada, no solo al empezar el proceso.
+        if exigir_clave_propia and config.origen != "propia":
             raise SinConfiguracion()
 
         # (c) y (d): estimación, límite efectivo y reserva, todo bajo el
@@ -459,6 +464,7 @@ async def completar(
     temperature: float | None = None,
     response_format: dict[str, Any] | None = None,
     timeout: float = TIMEOUT_POR_DEFECTO_S,
+    exigir_clave_propia: bool = False,
 ) -> Resultado:
     """Pide una respuesta de IA a nombre de una organización.
 
@@ -484,6 +490,7 @@ async def completar(
         messages=messages,
         max_tokens=max_tokens,
         periodo=periodo,
+        exigir_clave_propia=exigir_clave_propia,
     )
 
     arranque = time.monotonic()

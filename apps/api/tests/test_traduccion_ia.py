@@ -16,9 +16,11 @@ from sqlalchemy import func, select, update
 
 from app.core.database import SessionApp, SessionMaintenance, set_organization_context
 from app.core.tasks import traducir_contenido_task
+from app.modules.ai_gateway.errores import SinConfiguracion
 from app.modules.organizations.models import Organization
 from app.modules.translations import cola, ia, service
 from app.modules.translations.models import ContentTranslation, TranslationRequest
+from app.shared.errors import ValidationDomainError
 from tests.ai_gateway_test_helpers import (
     ProveedorSimulado,
     configurar_organizacion,
@@ -251,14 +253,19 @@ async def test_guardar_un_texto_pide_su_traduccion_y_el_barrido_la_recoge(
     async with SessionMaintenance() as session:
         peticiones = (await session.scalars(select(TranslationRequest))).all()
     assert {(p.event_id, p.locale) for p in peticiones} >= {(uuid.UUID(evento["id"]), "en-US")}
+    encolados: list[cola.Ambito] = []
+
+    async def encolar(ambito: cola.Ambito) -> None:
+        encolados.append(ambito)
+
     # Recién pedida: espera la calma antes de traducir.
-    assert await cola.barrer() == []
+    assert await cola.barrer(encolar) == 0
     async with SessionMaintenance() as session, session.begin():
         await session.execute(
             update(TranslationRequest).values(requested_at=datetime.now(UTC) - timedelta(minutes=5))
         )
-    ambitos = await cola.barrer()
-    assert cola.Ambito(organizacion.id, uuid.UUID(evento["id"]), "en-US") in ambitos
+    await cola.barrer(encolar)
+    assert cola.Ambito(organizacion.id, uuid.UUID(evento["id"]), "en-US") in encolados
     async with SessionMaintenance() as session:
         quedan = await session.scalar(select(func.count()).select_from(TranslationRequest))
     assert quedan == 0
@@ -351,3 +358,95 @@ async def test_traducir_lo_publicado_estima_el_coste_y_lo_encola(
         }
     assert (uuid.UUID(evento["id"]), "en-US") in ambitos
     assert (None, "en-US") in ambitos
+
+
+async def test_si_encolar_falla_la_peticion_no_se_pierde(
+    organizacion: OrganizacionDePrueba,
+) -> None:
+    hace_rato = datetime.now(UTC) - timedelta(minutes=5)
+    await cola.pedir(organizacion.id, None, ["en-US"], ahora=hace_rato)
+
+    async def falla(_ambito: cola.Ambito) -> None:
+        raise ConnectionError("Redis caído")
+
+    assert await cola.barrer(falla) == 0
+    async with SessionMaintenance() as session:
+        assert await session.scalar(select(func.count()).select_from(TranslationRequest)) == 1
+
+
+async def test_el_barrido_reparte_entre_organizaciones(
+    organizacion: OrganizacionDePrueba, otra_organizacion: OrganizacionDePrueba
+) -> None:
+    hace_rato = datetime.now(UTC) - timedelta(minutes=5)
+    await cola.pedir(organizacion.id, None, ["en-US", "es-ES"], ahora=hace_rato)
+    async with SessionMaintenance() as session, session.begin():
+        await session.execute(
+            update(Organization)
+            .where(Organization.id == organizacion.id)
+            .values(content_locales=["es-ES", "en-US"])
+        )
+    await cola.pedir(otra_organizacion.id, None, ["en-US"], ahora=hace_rato)
+    encolados: list[cola.Ambito] = []
+
+    async def encolar(ambito: cola.Ambito) -> None:
+        encolados.append(ambito)
+
+    with patch.object(cola, "PETICIONES_POR_ORGANIZACION", 1):
+        await cola.barrer(encolar)
+
+    assert {a.organization_id for a in encolados} == {organizacion.id, otra_organizacion.id}
+    assert len(encolados) == 2
+
+
+async def test_una_traduccion_reservada_por_otra_tarea_no_se_escribe(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    cifrado: str,
+) -> None:
+    await configurar_organizacion(organizacion.id)
+    evento = await _evento_bilingue(cliente, organizacion)
+    async with SessionApp() as session, session.begin():
+        await set_organization_context(session, organizacion.id)
+        organizacion_fila = await session.get(Organization, organizacion.id)
+        assert organizacion_fila is not None
+        entidades = await cola._entidades(session, organizacion_fila, uuid.UUID(evento["id"]))  # noqa: SLF001
+        reservados = await cola._reservar(session, _ambito(organizacion, evento), entidades or [])  # noqa: SLF001
+    titulo = next(r for r in reservados if r.campo.campo == "title")
+
+    # Otra tarea la reservó después con otra firma: la traducción vieja no se escribe.
+    await cola._escribir(organizacion.id, {titulo.fila_id: ("Old day", "otra-firma")})  # noqa: SLF001
+
+    fila = next(f for f in await _filas(organizacion) if f.field == "title")
+    assert (fila.status, fila.value) == ("en_curso", "")
+    # Y no se puede marcar como revisada a medias: la web nunca serviría un vacío.
+    with pytest.raises(ValidationDomainError):
+        async with SessionApp() as session, session.begin():
+            await set_organization_context(session, organizacion.id)
+            await service.marcar_revisada(
+                session,
+                organization_id=organizacion.id,
+                tipo="event",
+                entity_id=uuid.UUID(evento["id"]),
+                campo="title",
+                locale="en-US",
+                original="Jornada de IA",
+                user_id=organizacion.owner_id,
+            )
+
+
+async def test_la_pasarela_exige_la_clave_propia_en_cada_llamada(
+    organizacion: OrganizacionDePrueba,
+    cifrado: str,
+    proveedor_simulado: ProveedorSimulado,
+) -> None:
+    await configurar_plataforma()
+
+    with pytest.raises(SinConfiguracion):
+        await ia.traducir(organizacion.id, [ia.Texto("t0", "Hola", True)], "es-ES", "en-US", [])
+    assert proveedor_simulado.peticiones == []
+
+
+def test_los_textos_aislados_y_largos_no_comparten_lote() -> None:
+    assert ia.tokens_de_salida([ia.Texto("t0", "x" * 100_000, False)]) == ia.MAX_TOKENS_SALIDA
+    assert cola.CARACTERES_MAXIMOS_IA < 100_000
+    assert {"member_profile", "policy_version"} <= cola.TIPOS_AISLADOS

@@ -71,10 +71,14 @@ async def _pedir_al_vuelo(session: AsyncSession, ambito: cola.Ambito) -> bool:
         return False
     if not await cola.clave_propia(session, ambito.organization_id):
         return False
+    if await _en_curso(session, ambito):
+        return True  # Ya hay una en marcha: no se encola otra.
+    # La cuota diaria cuenta traducciones, no visitas: si no hay nada pendiente
+    # (o es el idioma original), no se gasta.
+    if not await cola.pendientes(session, organizacion, ambito):
+        return False
     try:
         redis = get_redis()
-        if await redis.exists(cola.marca_en_cola(ambito)):
-            return True  # Ya hay una en marcha: no se encola otra.
         clave_dia = f"traduccion-vuelo:{ambito.organization_id}:{datetime.now(UTC):%Y%m%d}"
         usadas = await redis.incr(clave_dia)
         if usadas == 1:

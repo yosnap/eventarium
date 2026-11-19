@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -64,7 +64,16 @@ RESERVA_CADUCA = timedelta(minutes=15)
 #: Tiempo de calma tras el último guardado antes de traducir.
 DEBOUNCE = timedelta(seconds=60)
 #: Peticiones que procesa cada barrido: un ritmo que el servidor y la IA aguantan.
-PETICIONES_POR_BARRIDO = 10
+PETICIONES_POR_BARRIDO = 20
+#: Y como mucho tantas de una misma organización: ninguna acapara la cola.
+PETICIONES_POR_ORGANIZACION = 2
+#: Textos más largos que esto no se traducen con IA (la salida no cabría en una
+#: respuesta y se pagaría cada intento fallido): quedan para traducción manual.
+CARACTERES_MAXIMOS_IA = 20_000
+#: Tipos que van en su propio lote, uno por entidad: los escribe otra persona
+#: (la biografía, el propio ponente) o tienen efecto legal (las políticas), y no
+#: deben compartir llamada con el resto para que un texto no altere a otro.
+TIPOS_AISLADOS: frozenset[TipoDeEntidad] = frozenset({"member_profile", "policy_version"})
 #: Parte del límite mensual de IA que puede gastar la traducción (decisión del dueño).
 FRACCION_DEL_LIMITE = Decimal("0.5")
 #: Estados de un evento cuyo contenido se traduce: los borradores no.
@@ -277,6 +286,8 @@ async def _reservar(
         vistos.add(clave)
         if not _necesita(existentes.get((*clave, ambito.locale)), campo.original, ahora):
             continue
+        if len(campo.original) > CARACTERES_MAXIMOS_IA:
+            continue
         firma = huella(campo.original)
         event_id = None if campo.tipo in TIPOS_DE_ORGANIZACION else entidad.event_id
         valores = {
@@ -301,7 +312,9 @@ async def _reservar(
             )
             .on_conflict_do_update(
                 constraint="uq_content_translations_campo",
-                set_=valores,
+                # Sin tocar `value`: si alguien la marcara como revisada a mitad
+                # de camino, nunca quedaría un texto vacío.
+                set_={k: v for k, v in valores.items() if k != "value"},
                 # Carrera con otra tarea o con el organizador: solo se reserva si
                 # sigue siendo de la IA y nadie la tiene reservada.
                 where=(ContentTranslation.origin == "ia")
@@ -320,18 +333,26 @@ async def _reservar(
 
 async def _escribir(
     organization_id: uuid.UUID,
-    resultados: dict[uuid.UUID, str | None],
+    resultados: dict[uuid.UUID, tuple[str | None, str]],
     *,
     liberar: Sequence[uuid.UUID] = (),
 ) -> None:
-    """Guarda las traducciones (o el error) de los campos reservados. Solo
-    escribe sobre filas que siguen reservadas por esta tarea (`en_curso`)."""
+    """Guarda las traducciones (o el error) de los campos reservados.
+
+    `resultados` va por fila: (traducción o `None`, firma del original que se
+    tradujo). Solo escribe sobre filas que siguen reservadas **por esta tarea**:
+    si otra la reservó después (con otra firma), esta traducción ya es vieja."""
     ahora = datetime.now(UTC)
     async with SessionApp() as session, session.begin():
         await set_organization_context(session, organization_id)
-        for fila_id, valor in resultados.items():
+        for fila_id, (valor, firma) in resultados.items():
             fila = await session.get(ContentTranslation, fila_id, with_for_update=True)
-            if fila is None or fila.status != "en_curso" or fila.origin != "ia":
+            if (
+                fila is None
+                or fila.status != "en_curso"
+                or fila.origin != "ia"
+                or fila.source_hash != firma
+            ):
                 continue
             if valor is not None:
                 fila.value, fila.status, fila.error_count, fila.retry_after = (
@@ -444,38 +465,69 @@ async def procesar(ambito: Ambito) -> int:
     traducidos = 0
     por_clave = {f"t{i}": r for i, r in enumerate(reservados)}
     pendientes = set(por_clave)
-    # Un lote no mezcla idiomas de origen (en un evento en inglés, sus etiquetas
-    # pueden estar escritas en el idioma de la organización).
-    for origen in sorted({r.origen for r in reservados}):
+    sin_presupuesto = False
+    # Grupos: un lote no mezcla idiomas de origen (un evento en inglés puede
+    # tener etiquetas en el idioma de la organización), y los tipos aislados van
+    # cada entidad en su propio lote.
+    grupos: dict[tuple[str, uuid.UUID | None], list[str]] = {}
+    for clave, r in por_clave.items():
+        aislado = r.campo.entity_id if r.campo.tipo in TIPOS_AISLADOS else None
+        grupos.setdefault((r.origen, aislado), []).append(clave)
+    for (origen, _aislado), claves in sorted(grupos.items(), key=lambda g: str(g[0])):
         textos = [
-            ia.Texto(clave, r.campo.original, ia.es_de_una_linea(r.campo.tipo, r.campo.campo))
-            for clave, r in por_clave.items()
-            if r.origen == origen
+            ia.Texto(
+                clave,
+                por_clave[clave].campo.original,
+                ia.es_de_una_linea(por_clave[clave].campo.tipo, por_clave[clave].campo.campo),
+            )
+            for clave in claves
         ]
         for lote in ia.lotes(textos):
             async with SessionApp() as session, session.begin():
                 await set_organization_context(session, ambito.organization_id)
                 hay_presupuesto = await _queda_presupuesto(session, ambito.organization_id)
             if not hay_presupuesto:
+                sin_presupuesto = True
                 break
             try:
                 salida = await ia.traducir(
-                    ambito.organization_id, lote, origen, ambito.locale, no_traducir
+                    ambito.organization_id,
+                    lote,
+                    normalizar_locale(origen),
+                    ambito.locale,
+                    no_traducir,
                 )
             except Exception:
                 logger.warning("La traducción de un lote ha fallado.", exc_info=True)
                 salida = {texto.clave: None for texto in lote}
             await _escribir(
-                ambito.organization_id, {por_clave[c].fila_id: v for c, v in salida.items()}
+                ambito.organization_id,
+                {por_clave[c].fila_id: (v, por_clave[c].firma) for c, v in salida.items()},
             )
             traducidos += sum(1 for v in salida.values() if v is not None)
             pendientes -= set(salida)
+        if sin_presupuesto:
+            break
     if pendientes:
         # Sin presupuesto: se liberan para otra ocasión, sin marcarlos como error.
         await _escribir(
             ambito.organization_id, {}, liberar=[por_clave[c].fila_id for c in pendientes]
         )
+    if not sin_presupuesto:
+        await _volver_a_pedir_si_queda_algo(ambito)
     return traducidos
+
+
+async def _volver_a_pedir_si_queda_algo(ambito: Ambito) -> None:
+    """Si mientras se traducía cambió algún original, o había campos reservados
+    por otra tarea, se vuelve a apuntar el ámbito: el barrido lo recogerá. Lo que
+    está en espera por error no cuenta, así que no hay bucle."""
+    async with SessionApp() as session, session.begin():
+        await set_organization_context(session, ambito.organization_id)
+        organizacion = await session.get(Organization, ambito.organization_id)
+        quedan = await pendientes(session, organizacion, ambito) if organizacion is not None else []
+    if any(len(campo.original) <= CARACTERES_MAXIMOS_IA for campo, _ in quedan):
+        await pedir(ambito.organization_id, ambito.event_id, [ambito.locale])
 
 
 # ── Peticiones: encolar y barrer ────────────────────────────────────────────
@@ -516,26 +568,56 @@ async def pedir(
                 existente.requested_at = momento
 
 
-async def barrer() -> list[Ambito]:
-    """Toma las peticiones que llevan un rato quietas (hasta un tope por
-    barrido) y las borra. Devuelve los ámbitos que hay que procesar."""
+async def barrer(encolar: Callable[[Ambito], Awaitable[object]]) -> int:
+    """Encola las peticiones que llevan un rato quietas y las borra.
+
+    Como mucho `PETICIONES_POR_BARRIDO`, y no más de `PETICIONES_POR_ORGANIZACION`
+    de una misma organización, para que ninguna acapare la cola. Cada fila se
+    borra **después** de encolarla y en la misma transacción: si encolar falla
+    (Redis caído), la petición sigue ahí para el siguiente barrido.
+    """
     limite = datetime.now(UTC) - DEBOUNCE
+    orden = (
+        func.row_number()
+        .over(
+            partition_by=TranslationRequest.organization_id,
+            order_by=TranslationRequest.requested_at,
+        )
+        .label("orden")
+    )
+    candidatas = (
+        select(TranslationRequest.id, orden)
+        .where(TranslationRequest.requested_at <= limite)
+        .subquery()
+    )
+    encoladas = 0
     async with SessionMaintenance() as session, session.begin():
         filas = (
             await session.scalars(
                 select(TranslationRequest)
-                .where(TranslationRequest.requested_at <= limite)
+                .where(
+                    TranslationRequest.id.in_(
+                        select(candidatas.c.id).where(
+                            candidatas.c.orden <= PETICIONES_POR_ORGANIZACION
+                        )
+                    )
+                )
                 .order_by(TranslationRequest.requested_at)
                 .limit(PETICIONES_POR_BARRIDO)
                 .with_for_update(skip_locked=True)
             )
         ).all()
-        ambitos = [
-            Ambito(f.organization_id, f.event_id, normalizar_locale(f.locale)) for f in filas
-        ]
         for fila in filas:
+            try:
+                await encolar(
+                    Ambito(fila.organization_id, fila.event_id, normalizar_locale(fila.locale))
+                )
+            except Exception:
+                logger.warning("No se ha podido encolar una traducción.", exc_info=True)
+                continue
             await session.delete(fila)
-    return ambitos
+            encoladas += 1
+    return encoladas
 
 
 # ── Encolado automático al guardar ──────────────────────────────────────────
@@ -594,12 +676,15 @@ def _al_deshacer(session: Session, _transaccion: object) -> None:
 async def _pedir_tras_commit(session: Any) -> None:
     ambitos: set[tuple[uuid.UUID, uuid.UUID | None]] = session.info.pop(_AMBITOS, set())
     for organization_id, event_id in ambitos:
-        await pedir(organization_id, event_id, await _idiomas_a_traducir(organization_id))
+        await pedir(organization_id, event_id, await _idiomas_a_traducir(organization_id, event_id))
 
 
-async def _idiomas_a_traducir(organization_id: uuid.UUID) -> list[Locale]:
-    """Todos los idiomas de la organización: el origen de cada campo se descarta
-    al procesar. Vacío si solo publica en uno o no tiene clave propia."""
+async def _idiomas_a_traducir(
+    organization_id: uuid.UUID, event_id: uuid.UUID | None
+) -> list[Locale]:
+    """Los idiomas a los que hay algo que traducir en el ámbito: los de la
+    organización salvo aquel en que está escrito todo. Vacío si solo publica en
+    uno, no tiene clave propia o el evento es un borrador."""
     async with SessionApp() as session, session.begin():
         await set_organization_context(session, organization_id)
         organizacion = await session.get(Organization, organization_id)
@@ -608,7 +693,14 @@ async def _idiomas_a_traducir(organization_id: uuid.UUID) -> list[Locale]:
         activos = await idiomas_de_contenido(session, organizacion)
         if len(activos) < 2 or not await clave_propia(session, organization_id):
             return []
-        return list(activos)
+        origenes = {normalizar_locale(organizacion.source_locale)}
+        if event_id is not None:
+            evento = await session.get(Event, event_id)
+            if evento is None or evento.status not in ESTADOS_TRADUCIBLES:
+                return []
+            origenes.add(normalizar_locale(evento.source_locale))
+        # Un idioma que es el original de todo no tiene nada que traducir.
+        return [locale for locale in activos if origenes - {locale}]
 
 
 def instalar_encolado_automatico() -> None:

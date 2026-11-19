@@ -486,7 +486,9 @@ async def marcar_revisada(
             ContentTranslation.locale == locale,
         )
     )
-    if fila is None:
+    # Solo se revisa una traducción que existe de verdad: no una que la IA tiene a
+    # medias, que falló o que está vacía.
+    if fila is None or fila.status not in ("al_dia", "desactualizada") or not fila.value.strip():
         raise ValidationDomainError("No hay ninguna traducción que revisar.")
     fila.origin = "revisada"
     fila.status = "al_dia"
