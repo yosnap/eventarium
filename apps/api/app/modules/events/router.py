@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import CurrentUserDep, DbDep, PermissionsDep, require_permission
+from app.core.locale import normalizar_locale
 from app.core.permissions import Permission
 from app.core.ratelimit import PEDIR_BIO_POR_IP, limit_per_ip
 from app.core.storage import build_object_key, get_storage, public_url_versionada, validate_upload
@@ -90,6 +91,7 @@ async def _event_response(session: AsyncSession, evento: Event) -> EventResponse
     return EventResponse(
         id=str(evento.id),
         slug=evento.slug,
+        source_locale=normalizar_locale(evento.source_locale),
         category=(
             EventCategoryOut(
                 id=str(evento.category.id),

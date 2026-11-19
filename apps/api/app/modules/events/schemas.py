@@ -17,6 +17,7 @@ from pydantic import (
     model_validator,
 )
 
+from app.core.locale import DEFAULT_LOCALE, Locale
 from app.core.mensajes import marcar
 from app.modules.events.categories import normalizar_etiquetas
 from app.modules.nearby.schemas import PublicNearbyPlace
@@ -109,6 +110,8 @@ class EventCategoryOut(BaseModel):
     name: str
     display_order: int
     is_active: bool
+    # Nombre en otros idiomas; uno que falte cae a `name`.
+    name_i18n: dict[Locale, str] = Field(default_factory=dict)
 
 
 class PublicCategoryRef(BaseModel):
@@ -123,6 +126,7 @@ class EventCategoryCreate(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=80)]
     display_order: Annotated[int, Field(ge=0, le=10000)] = 0
     is_active: bool = True
+    name_i18n: dict[Locale, Annotated[str, Field(max_length=80)]] = Field(default_factory=dict)
 
 
 class EventCategoryUpdate(BaseModel):
@@ -131,6 +135,7 @@ class EventCategoryUpdate(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=80)] | None = None
     display_order: Annotated[int, Field(ge=0, le=10000)] | None = None
     is_active: bool | None = None
+    name_i18n: dict[Locale, Annotated[str, Field(max_length=80)]] | None = None
 
 
 def _etiquetas_normalizadas(valor: list[str]) -> list[str]:
@@ -154,6 +159,8 @@ class EventCreate(BaseModel):
 
     slug: Annotated[str, Field(min_length=2, max_length=160, pattern=SLUG_PATTERN)]
     title: Annotated[str, Field(min_length=1, max_length=200)]
+    # Idioma en que se escribe; sin él, el de la organización.
+    source_locale: Locale | None = None
     summary: str | None = None
     description: DescripcionDeEvento | None = None
     # Id de una categoría **activa** del catálogo, o `None` (sin categoría).
@@ -208,6 +215,7 @@ class EventUpdate(BaseModel):
     # intervalo que el inicio. Sin él, si alguna quedara fuera, la API responde
     # 409 (`sesiones_fuera_de_rango`) para que el panel pregunte.
     mover_sesiones: bool = False
+    source_locale: Locale | None = None
 
     title: Annotated[str, Field(min_length=1, max_length=200)] | None = None
     summary: str | None = None
@@ -297,6 +305,7 @@ class EventResponse(BaseModel):
     # panel la muestra igualmente para no borrarla al guardar.
     category: EventCategoryOut | None = None
     tags: list[str] = Field(default_factory=list)
+    source_locale: Locale = DEFAULT_LOCALE
     title: str
     summary: str | None
     description: str | None

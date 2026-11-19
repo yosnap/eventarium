@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.base import NO_VALUE
 
 from app.core.deps import CurrentUserDep, DbDep, PermissionsDep, require_permission
+from app.core.locale import DEFAULT_LOCALE, LOCALES, normalizar_locale
 from app.core.permissions import Permission
 from app.core.storage import build_object_key, get_storage, validate_upload
 from app.core.tasks import send_invitation_email
@@ -39,6 +40,7 @@ from app.modules.organizations.schemas import (
     OrganizationUpdate,
     PublicSocialLink,
 )
+from app.modules.platform import repository as platform_repository
 from app.modules.roles.models import Role
 from app.modules.roles.schemas import ProfileFieldResponse
 from app.modules.theme_templates import repository as theme_templates_repository
@@ -133,7 +135,24 @@ def organization_response(organizacion: Organization) -> OrganizationResponse:
         social_links=_redes_cargadas(organizacion),
         public_page_enabled=organizacion.public_page_enabled,
         is_active=organizacion.is_active,
+        content_locales=[
+            locale for locale in LOCALES if locale in (organizacion.content_locales or [])
+        ],
+        source_locale=normalizar_locale(organizacion.source_locale),
     )
+
+
+async def _validar_idiomas(session: DbDep, idiomas: list[str], origen: str) -> None:
+    """Los idiomas de la organización son de los activos en la plataforma, e
+    incluyen el idioma en que escribe."""
+    plataforma = await platform_repository.get_platform_branding(session)
+    activos = set(plataforma.enabled_locales or [DEFAULT_LOCALE])
+    if not set(idiomas) <= activos:
+        raise ValidationDomainError("La plataforma no tiene activo alguno de esos idiomas.")
+    if origen not in idiomas:
+        raise ValidationDomainError(
+            "El idioma en que escribe la organización tiene que estar entre sus idiomas."
+        )
 
 
 @router.patch(
@@ -149,6 +168,12 @@ async def update_me(
     if organizacion is None:
         raise NotFoundError("La organización no existe.")
     cambios = datos.model_dump(exclude_unset=True)
+    if "content_locales" in cambios or "source_locale" in cambios:
+        await _validar_idiomas(
+            session,
+            cambios.get("content_locales", organizacion.content_locales),
+            cambios.get("source_locale", organizacion.source_locale),
+        )
     redes = cambios.pop("social_links", None)
     for campo, valor in cambios.items():
         setattr(organizacion, campo, valor)
