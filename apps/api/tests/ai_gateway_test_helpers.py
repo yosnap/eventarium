@@ -32,7 +32,7 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import uuid
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
@@ -218,6 +218,9 @@ class ProveedorSimulado:
     #: Retardo artificial de la «llamada de red», en segundos. Lo usa el test
     #: que comprueba que el bloqueo de la reserva no se retiene durante ella.
     retardo_s: float = 0.0
+    #: Si está, calcula el cuerpo de cada respuesta a partir de la petición
+    #: (p. ej. traducir lo que llega); si no, se responde siempre `cuerpo`.
+    responder: Callable[[dict[str, Any]], dict[str, Any]] | None = None
 
     async def _manejar(self, peticion: httpx.Request) -> httpx.Response:
         import json
@@ -231,6 +234,8 @@ class ProveedorSimulado:
         )
         if self.retardo_s:
             await asyncio.sleep(self.retardo_s)
+        if self.responder is not None:
+            return httpx.Response(self.estado, json=self.responder(self.peticiones[-1].cuerpo))
         return httpx.Response(self.estado, json=self.cuerpo)
 
     @property
