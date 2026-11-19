@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import set_organization_context
+from app.core.mensajes import marcar
 from app.core.permissions import Permission
 from app.core.storage import get_storage, public_url_versionada
 from app.modules.events import categories, repository, session_types
@@ -63,7 +64,8 @@ async def _slug_repetido(session: AsyncSession, organization_id: uuid.UUID, slug
         sufijo = f"-{secrets.token_hex(3)}"
         candidato = f"{slug[: 160 - len(sufijo)]}{sufijo}"
     return ConflictError(
-        f"Ya existe un evento con el identificador «{slug}» en tu organización.",
+        "Ya existe un evento con el identificador «{slug}» en tu organización.",
+        params={"slug": slug},
         extra={"suggested_slug": candidato},
     )
 
@@ -258,6 +260,37 @@ def _al_minuto(momento: datetime) -> datetime:
 #: las sesiones con el evento (distinto de otros 409, que no se preguntan).
 CODIGO_SESIONES_FUERA_DE_RANGO = "sesiones_fuera_de_rango"
 _TITULOS_EN_EL_AVISO = 5
+#: Aviso de sesiones que quedarían fuera, según se muevan con el evento (`True`)
+#: o no, y según sean una, varias o más de las que se listan.
+_AVISOS_DE_SESIONES_FUERA: dict[bool, dict[str, str]] = {
+    True: {
+        "una": marcar(
+            "Aun moviéndolas con el evento, 1 sesión quedaría fuera de sus nuevas fechas: "
+            "{lista}. Ajústalas en la agenda o amplía el evento."
+        ),
+        "plural": marcar(
+            "Aun moviéndolas con el evento, {total} sesiones quedarían fuera de sus nuevas "
+            "fechas: {lista}. Ajústalas en la agenda o amplía el evento."
+        ),
+        "plural_y_mas": marcar(
+            "Aun moviéndolas con el evento, {total} sesiones quedarían fuera de sus nuevas "
+            "fechas: {lista} y {restantes} más. Ajústalas en la agenda o amplía el evento."
+        ),
+    },
+    False: {
+        "una": marcar(
+            "Con las fechas nuevas, 1 sesión de la agenda quedaría fuera del evento: {lista}."
+        ),
+        "plural": marcar(
+            "Con las fechas nuevas, {total} sesiones de la agenda quedarían fuera del evento: "
+            "{lista}."
+        ),
+        "plural_y_mas": marcar(
+            "Con las fechas nuevas, {total} sesiones de la agenda quedarían fuera del evento: "
+            "{lista} y {restantes} más."
+        ),
+    },
+}
 
 
 async def _ajustar_sesiones_al_rango(
@@ -300,19 +333,15 @@ async def _ajustar_sesiones_al_rango(
     if not fuera:
         return
     titulos = [sesion.title for sesion in fuera[:_TITULOS_EN_EL_AVISO]]
-    lista = ", ".join(f"«{titulo}»" for titulo in titulos)
-    if len(fuera) > len(titulos):
-        lista += f" y {len(fuera) - len(titulos)} más"
-    cuantas = "1 sesión" if len(fuera) == 1 else f"{len(fuera)} sesiones"
-    quedaria = "quedaría" if len(fuera) == 1 else "quedarían"
-    detalle = (
-        f"Aun moviéndolas con el evento, {cuantas} {quedaria} fuera de sus nuevas fechas: "
-        f"{lista}. Ajústalas en la agenda o amplía el evento."
-        if mover
-        else f"Con las fechas nuevas, {cuantas} de la agenda {quedaria} fuera del evento: {lista}."
-    )
+    restantes = len(fuera) - len(titulos)
+    plural = "plural_y_mas" if restantes else ("plural" if len(fuera) > 1 else "una")
     raise ConflictError(
-        detalle,
+        _AVISOS_DE_SESIONES_FUERA[mover][plural],  # mensaje marcado
+        params={
+            "total": len(fuera),
+            "lista": ", ".join(f"«{titulo}»" for titulo in titulos),
+            "restantes": restantes,
+        },
         extra={
             "code": CODIGO_SESIONES_FUERA_DE_RANGO,
             "sesiones_fuera": len(fuera),
@@ -445,7 +474,9 @@ async def update_event(
     try:
         await session.flush()
     except IntegrityError as exc:
-        raise ConflictError(f"Ya existe un evento con el identificador «{nuevo_slug}».") from exc
+        raise ConflictError(
+            "Ya existe un evento con el identificador «{slug}».", params={"slug": nuevo_slug}
+        ) from exc
     # Solo un evento publicado tiene a quién avisar: en borrador o archivado
     # la lista de espera no debe recibir ofertas de plaza.
     if aforo_cambia and evento.status == "published":
@@ -606,7 +637,8 @@ async def update_session(
         )
         events_schemas.validate_materials(datos.get("materials", sesion.materials))
     except ValueError as exc:
-        raise ValidationDomainError(str(exc)) from exc
+        # Mensajes de `validate_video_url` y `validate_materials`, ya marcados.
+        raise ValidationDomainError(str(exc)) from exc  # mensaje marcado
 
     pide_tipo = datos.get("session_type_id") is not None or (
         datos.get("session_type") is not None and datos["session_type"] != sesion.session_type
@@ -693,8 +725,9 @@ async def remove_event_member(
     )
     if activas > 0:
         raise ConflictError(
-            f"No se puede quitar del roster: tiene {activas} participación(es) activa(s) "
-            "en la agenda del evento."
+            "No se puede quitar del roster: tiene {activas} participación(es) activa(s) "
+            "en la agenda del evento.",
+            params={"activas": activas},
         )
 
     await session.delete(miembro)
@@ -848,7 +881,8 @@ async def delete_venue(
     en_uso = await repository.count_sessions_using_venue(session, organization_id, sede.id)
     if en_uso > 0:
         raise ConflictError(
-            f"No se puede borrar la sede: {en_uso} sesión(es) de la agenda la tienen asignada."
+            "No se puede borrar la sede: {en_uso} sesión(es) de la agenda la tienen asignada.",
+            params={"en_uso": en_uso},
         )
 
     await session.delete(sede)

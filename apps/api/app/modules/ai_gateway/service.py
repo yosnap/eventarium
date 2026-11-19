@@ -372,7 +372,8 @@ def _proveedor_del_catalogo(clave: str) -> catalogo.Proveedor:
     proveedor = catalogo.obtener(clave)
     if proveedor is None:
         raise ProveedorDesconocido(
-            f"«{clave}» no es un proveedor de IA admitido.",
+            "«{clave}» no es un proveedor de IA admitido.",
+            params={"clave": clave},
             extra={"proveedores": list(catalogo.CLAVES_DE_PROVEEDOR)},
         )
     return proveedor
@@ -444,7 +445,7 @@ async def _validar_modelo_en_vivo(
     """
     if proveedor.modelos_abiertos:
         if not proveedor.acepta_modelo(modelo):
-            raise ModeloDesconocido(f"«{modelo}» no puede estar vacío.")
+            raise ModeloDesconocido("«{modelo}» no puede estar vacío.", params={"modelo": modelo})
         return
 
     try:
@@ -454,14 +455,16 @@ async def _validar_modelo_en_vivo(
     except ListadoNoDisponible:
         if not proveedor.acepta_modelo(modelo):
             raise ModeloDesconocido(
-                f"«{modelo}» no es un modelo admitido de {proveedor.etiqueta}.",
+                "«{modelo}» no es un modelo admitido de {proveedor}.",
+                params={"modelo": modelo, "proveedor": proveedor.etiqueta},
                 extra={"modelos": [entrada.clave for entrada in proveedor.modelos]},
             ) from None
         return
 
     if not any(entrada.clave == modelo for entrada in modelos_en_vivo):
         raise ModeloDesconocido(
-            f"«{modelo}» no es un modelo admitido de {proveedor.etiqueta}.",
+            "«{modelo}» no es un modelo admitido de {proveedor}.",
+            params={"modelo": modelo, "proveedor": proveedor.etiqueta},
             extra={"modelos": [entrada.clave for entrada in modelos_en_vivo]},
         )
 
@@ -480,14 +483,16 @@ def _api_base_a_guardar(
     if not proveedor.api_base_editable:
         if enviado and api_base is not None:
             raise ApiBaseNoPermitido(
-                f"{proveedor.etiqueta} usa una dirección fija: no admite «api_base».",
+                "{proveedor} usa una dirección fija: no admite «api_base».",
+                params={"proveedor": proveedor.etiqueta},
                 extra={"api_base_efectivo": proveedor.api_base_fijo},
             )
         return None
 
     if api_base is None:
         raise ApiBaseRequerido(
-            f"{proveedor.etiqueta} necesita la dirección del endpoint («api_base»)."
+            "{proveedor} necesita la dirección del endpoint («api_base»).",
+            params={"proveedor": proveedor.etiqueta},
         )
     return validar_api_base(api_base, es_produccion=get_settings().app_env == "production")
 
@@ -674,7 +679,8 @@ def _servicio_del_catalogo(service_key: str) -> servicios.Servicio:
     servicio = servicios.SERVICIOS.get(service_key)
     if servicio is None:
         raise ServicioDesconocido(
-            f"«{service_key}» no es un servicio conmutable de la plataforma.",
+            "«{servicio}» no es un servicio conmutable de la plataforma.",
+            params={"servicio": service_key},
             extra={"servicios": list(servicios.CLAVES_DE_SERVICIO)},
         )
     return servicio

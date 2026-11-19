@@ -10,6 +10,8 @@
  * organización); `None` lo vacía.
  */
 export interface PlatformBrandingUpdate {
+  enabled_locales?: (Array<'es-ES' | 'en-US'> | null);
+  language_switcher_visible?: (boolean | null);
   name?: (string | null);
   social_links?: (Array<{
 [key: string]: any;

@@ -452,6 +452,93 @@ wheels = [
 ]
 
 [[package]]
+name = "eventarium-api"
+version = "0.32.0"
+source = { editable = "." }
+dependencies = [
+    { name = "aiobotocore" },
+    { name = "aiosmtplib" },
+    { name = "alembic" },
+    { name = "argon2-cffi" },
+    { name = "asyncpg" },
+    { name = "cryptography" },
+    { name = "fastapi" },
+    { name = "google-analytics-data" },
+    { name = "httpx" },
+    { name = "litellm" },
+    { name = "mcp" },
+    { name = "pillow" },
+    { name = "pydantic", extra = ["email"] },
+    { name = "pydantic-settings" },
+    { name = "pyjwt" },
+    { name = "pypdfium2" },
+    { name = "python-magic" },
+    { name = "python-multipart" },
+    { name = "redis" },
+    { name = "segno" },
+    { name = "sqlalchemy", extra = ["asyncio"] },
+    { name = "stripe", extra = ["async"] },
+    { name = "taskiq" },
+    { name = "taskiq-redis" },
+    { name = "typer" },
+    { name = "tzdata" },
+    { name = "uuid-utils" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pip-audit" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "ruff" },
+    { name = "types-aiobotocore", extra = ["s3"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aiobotocore", specifier = ">=3.10,<4.0" },
+    { name = "aiosmtplib", specifier = ">=5.1.2,<6.0" },
+    { name = "alembic", specifier = ">=1.14,<2.0" },
+    { name = "argon2-cffi", specifier = ">=23.1,<26.0" },
+    { name = "asyncpg", specifier = ">=0.30,<0.31" },
+    { name = "cryptography", specifier = ">=50.0,<51.0" },
+    { name = "fastapi", specifier = ">=0.115,<1.0" },
+    { name = "google-analytics-data", specifier = ">=0.19,<1.0" },
+    { name = "httpx", specifier = ">=0.28,<1.0" },
+    { name = "litellm", specifier = ">=1.100.4,<1.106.2" },
+    { name = "mcp", specifier = "==2.2.0" },
+    { name = "pillow", specifier = ">=13.0,<14.0" },
+    { name = "pydantic", extras = ["email"], specifier = ">=2.9,<3.0" },
+    { name = "pydantic-settings", specifier = ">=2.6,<3.0" },
+    { name = "pyjwt", specifier = ">=2.15.1,<3.0" },
+    { name = "pypdfium2", specifier = ">=5.0,<6.0" },
+    { name = "python-magic", specifier = ">=0.4.27,<0.5" },
+    { name = "python-multipart", specifier = ">=0.0.18,<0.1" },
+    { name = "redis", specifier = ">=5.2,<7.0" },
+    { name = "segno", specifier = ">=1.6,<2.0" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.36,<3.0" },
+    { name = "stripe", extras = ["async"], specifier = ">=15.6,<16.0" },
+    { name = "taskiq", specifier = ">=0.11,<1.0" },
+    { name = "taskiq-redis", specifier = ">=1.0,<2.0" },
+    { name = "typer", specifier = ">=0.15,<1.0" },
+    { name = "tzdata", specifier = ">=2026.5" },
+    { name = "uuid-utils", specifier = ">=0.10,<1.0" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32,<1.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=1.13,<2.0" },
+    { name = "pip-audit", specifier = ">=2.7,<3.0" },
+    { name = "pytest", specifier = ">=9.0.3,<10.0" },
+    { name = "pytest-asyncio", specifier = ">=0.24,<2.0" },
+    { name = "ruff", specifier = ">=0.8,<1.0" },
+    { name = "types-aiobotocore", extras = ["s3"], specifier = ">=3.0,<4.0" },
+]
+
+[[package]]
 name = "fastapi"
 version = "0.141.1"
 source = { registry = "https://pypi.org/simple" }
@@ -807,93 +894,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/02/e7/94f8232d4a74cc99514c13a9f995811485a6903d48e5d952771ef6322e30/hyperframe-6.1.0.tar.gz", hash = "sha256:f630908a00854a7adeabd6382b43923a4c4cd4b821fcb527e6ab9e15382a3b08", size = 26566, upload-time = "2025-01-22T21:41:49.302Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/48/30/47d0bf6072f7252e6521f3447ccfa40b421b6824517f82854703d0f5a98b/hyperframe-6.1.0-py3-none-any.whl", hash = "sha256:b03380493a519fce58ea5af42e4a42317bf9bd425596f7a0835ffce80f1a42e5", size = 13007, upload-time = "2025-01-22T21:41:47.295Z" },
-]
-
-[[package]]
-name = "ia-week-api"
-version = "0.30.0"
-source = { editable = "." }
-dependencies = [
-    { name = "aiobotocore" },
-    { name = "aiosmtplib" },
-    { name = "alembic" },
-    { name = "argon2-cffi" },
-    { name = "asyncpg" },
-    { name = "cryptography" },
-    { name = "fastapi" },
-    { name = "google-analytics-data" },
-    { name = "httpx" },
-    { name = "litellm" },
-    { name = "mcp" },
-    { name = "pillow" },
-    { name = "pydantic", extra = ["email"] },
-    { name = "pydantic-settings" },
-    { name = "pyjwt" },
-    { name = "pypdfium2" },
-    { name = "python-magic" },
-    { name = "python-multipart" },
-    { name = "redis" },
-    { name = "segno" },
-    { name = "sqlalchemy", extra = ["asyncio"] },
-    { name = "stripe", extra = ["async"] },
-    { name = "taskiq" },
-    { name = "taskiq-redis" },
-    { name = "typer" },
-    { name = "tzdata" },
-    { name = "uuid-utils" },
-    { name = "uvicorn", extra = ["standard"] },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "mypy" },
-    { name = "pip-audit" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "ruff" },
-    { name = "types-aiobotocore", extra = ["s3"] },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "aiobotocore", specifier = ">=3.10,<4.0" },
-    { name = "aiosmtplib", specifier = ">=5.1.2,<6.0" },
-    { name = "alembic", specifier = ">=1.14,<2.0" },
-    { name = "argon2-cffi", specifier = ">=23.1,<26.0" },
-    { name = "asyncpg", specifier = ">=0.30,<0.31" },
-    { name = "cryptography", specifier = ">=50.0,<51.0" },
-    { name = "fastapi", specifier = ">=0.115,<1.0" },
-    { name = "google-analytics-data", specifier = ">=0.19,<1.0" },
-    { name = "httpx", specifier = ">=0.28,<1.0" },
-    { name = "litellm", specifier = ">=1.100.4,<1.106.2" },
-    { name = "mcp", specifier = "==2.2.0" },
-    { name = "pillow", specifier = ">=13.0,<14.0" },
-    { name = "pydantic", extras = ["email"], specifier = ">=2.9,<3.0" },
-    { name = "pydantic-settings", specifier = ">=2.6,<3.0" },
-    { name = "pyjwt", specifier = ">=2.15.1,<3.0" },
-    { name = "pypdfium2", specifier = ">=5.0,<6.0" },
-    { name = "python-magic", specifier = ">=0.4.27,<0.5" },
-    { name = "python-multipart", specifier = ">=0.0.18,<0.1" },
-    { name = "redis", specifier = ">=5.2,<7.0" },
-    { name = "segno", specifier = ">=1.6,<2.0" },
-    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.36,<3.0" },
-    { name = "stripe", extras = ["async"], specifier = ">=15.6,<16.0" },
-    { name = "taskiq", specifier = ">=0.11,<1.0" },
-    { name = "taskiq-redis", specifier = ">=1.0,<2.0" },
-    { name = "typer", specifier = ">=0.15,<1.0" },
-    { name = "tzdata", specifier = ">=2026.5" },
-    { name = "uuid-utils", specifier = ">=0.10,<1.0" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32,<1.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "mypy", specifier = ">=1.13,<2.0" },
-    { name = "pip-audit", specifier = ">=2.7,<3.0" },
-    { name = "pytest", specifier = ">=9.0.3,<10.0" },
-    { name = "pytest-asyncio", specifier = ">=0.24,<2.0" },
-    { name = "ruff", specifier = ">=0.8,<1.0" },
-    { name = "types-aiobotocore", extras = ["s3"], specifier = ">=3.0,<4.0" },
 ]
 
 [[package]]

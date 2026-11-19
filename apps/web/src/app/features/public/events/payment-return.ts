@@ -11,6 +11,7 @@ import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 import type { EventoParaCalendario } from '../../../shared/calendar/calendar-links';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 
 type Estado = 'comprobando' | 'confirmado' | 'pendiente' | 'fallido' | 'error';
 
@@ -38,7 +39,7 @@ const ESPERAS_REINTENTO_AUTOMATICO_MS = [2000, 4000, 8000, 8000, 8000] as const;
 @Component({
   selector: 'app-payment-return',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, AddToCalendar, Alert, Button, Card, Reveal],
+  imports: [EnlacePipe, TranslocoDirective, RouterLink, AddToCalendar, Alert, Button, Card, Reveal],
   template: `
     <ng-container *transloco="let t">
       <div class="pagina">
@@ -87,7 +88,9 @@ const ESPERAS_REINTENTO_AUTOMATICO_MS = [2000, 4000, 8000, 8000, 8000] as const;
 
           @if (slug && org) {
             <p>
-              <a [routerLink]="volverAlEvento(org, slug)">{{ t('pago.retorno.volverAlEvento') }}</a>
+              <a [routerLink]="volverAlEvento(org, slug) | enlace">{{
+                t('pago.retorno.volverAlEvento')
+              }}</a>
             </p>
           }
         </app-card>
@@ -126,7 +129,8 @@ export class PaymentReturnPage implements OnDestroy {
   private temporizador: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
-    this.seo.set({ title: this.transloco.translate('pago.retorno.titulo') });
+    // Página de paso con datos de una compra concreta: no se indexa.
+    this.seo.set({ title: this.transloco.translate('pago.retorno.titulo'), noIndexar: true });
     const parametros = this.ruta.snapshot.queryParamMap;
     this.org = slugValido(parametros.get('org'));
     this.slug = slugValido(parametros.get('slug'));

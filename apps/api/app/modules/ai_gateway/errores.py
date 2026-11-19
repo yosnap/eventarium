@@ -21,6 +21,7 @@ import base64
 from typing import Any
 from urllib.parse import quote
 
+from app.core.mensajes import marcar
 from app.modules.ai_gateway import litellm_runtime
 from app.shared.errors import (
     ConflictError,
@@ -62,10 +63,16 @@ class ErrorDeConfiguracionDeIa(ValidationDomainError):
 
     code = "configuracion_de_ia_invalida"
 
-    def __init__(self, detail: str, *, extra: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self,
+        detail: str,
+        *,
+        params: dict[str, Any] | None = None,
+        extra: dict[str, Any] | None = None,
+    ) -> None:
         datos: dict[str, Any] = {"code": self.code}
         datos.update(extra or {})
-        super().__init__(detail, extra=datos)
+        super().__init__(detail, params=params, extra=datos)
 
 
 class ProveedorDesconocido(ErrorDeConfiguracionDeIa):
@@ -168,7 +175,8 @@ class SinConfiguracion(ServiceUnavailableError):
 
     def __init__(self, detail: str | None = None) -> None:
         super().__init__(
-            detail or "No hay ninguna configuración de IA disponible para esta organización.",
+            detail
+            or marcar("No hay ninguna configuración de IA disponible para esta organización."),
             extra={"code": self.error_code},
         )
 
@@ -235,7 +243,7 @@ class ServicioDesactivado(ServiceUnavailableError):
 
     def __init__(self, detail: str | None = None) -> None:
         super().__init__(
-            detail or "El servicio de IA está desactivado para esta organización.",
+            detail or marcar("El servicio de IA está desactivado para esta organización."),
             extra={"code": self.error_code},
         )
 
@@ -255,7 +263,8 @@ class LimiteDeGastoSuperado(ConflictError):
         datos: dict[str, Any] = {"code": self.error_code}
         datos.update(extra or {})
         super().__init__(
-            detail or "Se ha alcanzado el límite de gasto en IA de este periodo.", extra=datos
+            detail or marcar("Se ha alcanzado el límite de gasto en IA de este periodo."),
+            extra=datos,
         )
 
 
@@ -270,7 +279,7 @@ class ErrorDeProveedor(ExternalServiceError):
     def __init__(self, error_code: str, detail: str | None = None) -> None:
         self.error_code = error_code
         super().__init__(
-            detail or "El proveedor de IA no ha podido atender la petición.",
+            detail or marcar("El proveedor de IA no ha podido atender la petición."),
             extra={"code": error_code},
         )
 

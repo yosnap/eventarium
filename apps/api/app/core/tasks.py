@@ -16,8 +16,10 @@ from taskiq_redis import RedisAsyncResultBackend, RedisStreamBroker
 
 from app.core.cleanup import sweep_unverified_accounts
 from app.core.config import get_settings
-from app.core.email import get_email_provider
+from app.core.email import EmailAttachment, get_email_provider
 from app.core.email_template import neutralizar_texto_de_usuario
+from app.core.locale import Locale, fijar_idioma, normalizar_locale, ruta_web
+from app.core.mensajes import marcar, t
 from app.core.tenant import base_url_de_organizacion
 
 # Registro de todas las tablas en `Base.metadata` antes de que cualquier tarea
@@ -71,19 +73,57 @@ async def ping(mensaje: str = "pong") -> str:
     return mensaje
 
 
-@broker.task(retry_on_error=True, max_retries=5)
-async def send_verification_email(to_email: str, token: str) -> None:
-    """Envía el enlace de verificación de correo tras el registro."""
-    settings = get_settings()
-    enlace = f"{settings.web_base_url}/verificar-correo?token={token}"
+#: Los asuntos llevan nombres que escribe el usuario (organización, evento):
+#: se acotan para que no ocupen la bandeja entera.
+LONGITUD_MAXIMA_DEL_ASUNTO = 150
+
+
+def limpiar_asunto(asunto: str) -> str:
+    """El asunto en una sola línea y con longitud acotada.
+
+    Un salto de línea en un nombre escrito por un usuario no puede llegar a la
+    cabecera `Subject`: la partiría o, en el peor caso, añadiría cabeceras.
+    """
+    return " ".join(asunto.split())[:LONGITUD_MAXIMA_DEL_ASUNTO]
+
+
+def _idioma_del_envio(locale: str | None) -> Locale:
+    """Fija el idioma de la tarea para `t()` y la plantilla, y lo devuelve.
+
+    Sin `locale` (mensajes encolados antes de que existiera el argumento), español.
+    """
+    idioma = normalizar_locale(locale)
+    fijar_idioma(idioma)
+    return idioma
+
+
+def _enlace(base: str, idioma: Locale, ruta: str, token: str) -> str:
+    """Enlace a una página pública de la web, con la ruta traducida al idioma."""
+    return f"{base}{ruta_web(idioma, ruta)}?token={token}"
+
+
+async def _enviar(
+    to_email: str, asunto: str, cuerpo: str, attachments: list[EmailAttachment] | None = None
+) -> None:
     await get_email_provider().send(
-        to=to_email,
-        subject="Verifica tu correo",
-        body=(
+        to=to_email, subject=limpiar_asunto(asunto), body=cuerpo, attachments=attachments or []
+    )
+
+
+@broker.task(retry_on_error=True, max_retries=5)
+async def send_verification_email(to_email: str, token: str, *, locale: str | None = None) -> None:
+    """Envía el enlace de verificación de correo tras el registro."""
+    idioma = _idioma_del_envio(locale)
+    enlace = _enlace(get_settings().web_base_url, idioma, "verificar-correo", token)
+    await _enviar(
+        to_email,
+        t("Verifica tu correo"),
+        t(
             "Hola,\n\n"
             "Confirma tu correo para completar el registro:\n"
-            f"{enlace}\n\n"
-            "El enlace caduca en 24 horas. Si no has sido tú, ignora este mensaje."
+            "{enlace}\n\n"
+            "El enlace caduca en 24 horas. Si no has sido tú, ignora este mensaje.",
+            enlace=enlace,
         ),
     )
 
@@ -101,7 +141,13 @@ async def sweep_unverified_accounts_task() -> None:
 
 @broker.task(retry_on_error=True, max_retries=5)
 async def send_invitation_email(
-    to_email: str, token: str, organization_id: str, organization_name: str, role_name: str
+    to_email: str,
+    token: str,
+    organization_id: str,
+    organization_name: str,
+    role_name: str,
+    *,
+    locale: str | None = None,
 ) -> None:
     """Envía el enlace de invitación de equipo (fase 2 del plan de invitaciones).
 
@@ -112,43 +158,54 @@ async def send_invitation_email(
     El enlace va a la ruta propia `/invitacion`, nunca a
     `/recuperar-contrasena/nueva`.
     """
+    idioma = _idioma_del_envio(locale)
     base = await base_url_de_organizacion(uuid.UUID(organization_id))
-    enlace = f"{base}/invitacion?token={token}"
-    await get_email_provider().send(
-        to=to_email,
-        subject=f"Te han invitado a «{organization_name}»",
-        body=(
+    enlace = _enlace(base, idioma, "invitacion", token)
+    # Nombre escrito por un usuario: sin URLs que se conviertan en el botón del correo.
+    organizacion = neutralizar_texto_de_usuario(organization_name)
+    await _enviar(
+        to_email,
+        t("Te han invitado a «{organizacion}»", organizacion=organizacion),
+        t(
             "Hola,\n\n"
-            f"Te han invitado a unirte a «{organization_name}» con el rol «{role_name}».\n"
+            "Te han invitado a unirte a «{organizacion}» con el rol «{rol}».\n"
             "Para aceptar la invitación y crear tu contraseña, entra aquí:\n"
-            f"{enlace}\n\n"
+            "{enlace}\n\n"
             "El enlace caduca en 7 días. Si no esperabas esta invitación, puedes "
-            "ignorar este mensaje."
+            "ignorar este mensaje.",
+            organizacion=organizacion,
+            rol=role_name,
+            enlace=enlace,
         ),
     )
 
 
 @broker.task(retry_on_error=True, max_retries=5)
-async def send_password_reset_email(to_email: str, token: str) -> None:
+async def send_password_reset_email(
+    to_email: str, token: str, *, locale: str | None = None
+) -> None:
     """Envía el enlace de recuperación de contraseña."""
-    settings = get_settings()
-    enlace = f"{settings.web_base_url}/recuperar-contrasena/nueva?token={token}"
-    await get_email_provider().send(
-        to=to_email,
-        subject="Recupera tu contraseña",
-        body=(
+    idioma = _idioma_del_envio(locale)
+    enlace = _enlace(get_settings().web_base_url, idioma, "recuperar-contrasena/nueva", token)
+    await _enviar(
+        to_email,
+        t("Recupera tu contraseña"),
+        t(
             "Hola,\n\n"
             "Alguien ha pedido restablecer la contraseña de esta cuenta. Si has sido "
             "tú, elige una nueva desde este enlace:\n"
-            f"{enlace}\n\n"
+            "{enlace}\n\n"
             "El enlace caduca en 24 horas. Si no has sido tú, ignora este mensaje: tu "
-            "contraseña actual sigue siendo válida."
+            "contraseña actual sigue siendo válida.",
+            enlace=enlace,
         ),
     )
 
 
 @broker.task(retry_on_error=True, max_retries=5)
-async def send_mis_eventos_access_email(to_email: str, token: str) -> None:
+async def send_mis_eventos_access_email(
+    to_email: str, token: str, *, locale: str | None = None
+) -> None:
     """Envía el magic-link de «Mis eventos» (listado de inscripciones por email).
 
     Mismo mecanismo que `send_password_reset_email` (Redis + huella + TTL
@@ -156,41 +213,46 @@ async def send_mis_eventos_access_email(to_email: str, token: str) -> None:
     solo lista. El asunto y el cuerpo lo dicen explícitamente para no sonar a
     aviso de seguridad de cuenta.
     """
-    settings = get_settings()
-    enlace = f"{settings.web_base_url}/mis-eventos/ver?token={token}"
-    await get_email_provider().send(
-        to=to_email,
-        subject="Tus inscripciones a eventos",
-        body=(
+    idioma = _idioma_del_envio(locale)
+    enlace = _enlace(get_settings().web_base_url, idioma, "mis-eventos/ver", token)
+    await _enviar(
+        to_email,
+        t("Tus inscripciones a eventos"),
+        t(
             "Hola,\n\n"
             "Alguien ha pedido ver el listado de inscripciones a eventos de este "
             "correo. Si has sido tú, entra aquí:\n"
-            f"{enlace}\n\n"
+            "{enlace}\n\n"
             "El enlace caduca en 30 minutos y solo sirve una vez. Si no has sido "
-            "tú, ignora este mensaje."
+            "tú, ignora este mensaje.",
+            enlace=enlace,
         ),
     )
 
 
 @broker.task(retry_on_error=True, max_retries=5)
-async def send_email_change_warning(to_email: str, new_email: str) -> None:
+async def send_email_change_warning(
+    to_email: str, new_email: str, *, locale: str | None = None
+) -> None:
     """Avisa al correo **actual** de que se ha solicitado cambiarlo. Sin enlace ni token."""
-    await get_email_provider().send(
-        to=to_email,
-        subject="Se ha solicitado cambiar el correo de tu cuenta",
-        body=(
+    _idioma_del_envio(locale)
+    await _enviar(
+        to_email,
+        t("Se ha solicitado cambiar el correo de tu cuenta"),
+        t(
             "Hola,\n\n"
-            f"Alguien ha solicitado cambiar el correo de esta cuenta a {new_email}. El "
+            "Alguien ha solicitado cambiar el correo de esta cuenta a {correo}. El "
             "cambio no se aplicará hasta que se confirme desde esa dirección.\n\n"
             "Si no has sido tú, cambia tu contraseña cuanto antes: alguien con acceso "
-            "a tu sesión está intentando llevarse la cuenta a otro correo."
+            "a tu sesión está intentando llevarse la cuenta a otro correo.",
+            correo=new_email,
         ),
     )
 
 
 @broker.task(retry_on_error=True, max_retries=5)
 async def send_impersonation_notice(
-    to_email: str, *, reason: str, minutos: int, organizacion: str
+    to_email: str, *, reason: str, minutos: int, organizacion: str, locale: str | None = None
 ) -> None:
     """Avisa a la persona de que el equipo de la plataforma ha entrado a su cuenta.
 
@@ -200,36 +262,43 @@ async def send_impersonation_notice(
     enterarse (el registro de auditoría está restringido al personal de
     plataforma).
     """
-    await get_email_provider().send(
-        to=to_email,
-        subject="El equipo de la plataforma ha accedido a tu cuenta",
-        body=(
+    _idioma_del_envio(locale)
+    await _enviar(
+        to_email,
+        t("El equipo de la plataforma ha accedido a tu cuenta"),
+        t(
             "Hola,\n\n"
-            f"El equipo de soporte ha accedido a tu cuenta de {organizacion} durante "
-            f"unos {minutos} minutos para revisar una incidencia. El motivo indicado "
-            f"es: «{reason}».\n\n"
+            "El equipo de soporte ha accedido a tu cuenta de {organizacion} durante "
+            "unos {minutos} minutos para revisar una incidencia. El motivo indicado "
+            "es: «{motivo}».\n\n"
             "El acceso es de solo lectura: durante ese tiempo no se ha modificado "
             "nada de tu cuenta ni de tus eventos. Queda registrado quién lo hizo y "
             "cuándo.\n\n"
             "Si no esperabas este acceso, responde a este correo para que lo "
-            "revisemos."
+            "revisemos.",
+            organizacion=organizacion,
+            minutos=minutos,
+            motivo=reason,
         ),
     )
 
 
 @broker.task(retry_on_error=True, max_retries=5)
-async def send_email_change_confirmation(to_email: str, token: str) -> None:
+async def send_email_change_confirmation(
+    to_email: str, token: str, *, locale: str | None = None
+) -> None:
     """Envía el enlace de confirmación al correo **nuevo**."""
-    settings = get_settings()
-    enlace = f"{settings.web_base_url}/cuenta/confirmar-correo?token={token}"
-    await get_email_provider().send(
-        to=to_email,
-        subject="Confirma tu nuevo correo",
-        body=(
+    idioma = _idioma_del_envio(locale)
+    enlace = _enlace(get_settings().web_base_url, idioma, "cuenta/confirmar-correo", token)
+    await _enviar(
+        to_email,
+        t("Confirma tu nuevo correo"),
+        t(
             "Hola,\n\n"
             "Confirma que quieres usar este correo para tu cuenta:\n"
-            f"{enlace}\n\n"
-            "El enlace caduca en 24 horas. Si no has sido tú, ignora este mensaje."
+            "{enlace}\n\n"
+            "El enlace caduca en 24 horas. Si no has sido tú, ignora este mensaje.",
+            enlace=enlace,
         ),
     )
 
@@ -251,37 +320,46 @@ async def expire_waitlist_promotions_task() -> None:
 
 @broker.task(retry_on_error=True, max_retries=5)
 async def send_registration_verification_email(
-    to_email: str, token: str, organization_id: str
+    to_email: str, token: str, organization_id: str, *, locale: str | None = None
 ) -> None:
     """Envía el enlace de verificación de una inscripción a un evento."""
+    idioma = _idioma_del_envio(locale)
     base = await base_url_de_organizacion(uuid.UUID(organization_id))
-    enlace = f"{base}/verificar-inscripcion?token={token}"
-    await get_email_provider().send(
-        to=to_email,
-        subject="Verifica tu inscripción",
-        body=(
+    enlace = _enlace(base, idioma, "verificar-inscripcion", token)
+    await _enviar(
+        to_email,
+        t("Verifica tu inscripción"),
+        t(
             "Hola,\n\n"
             "Confirma tu correo para completar la inscripción:\n"
-            f"{enlace}\n\n"
-            "El enlace caduca en 24 horas. Si no has sido tú, ignora este mensaje."
+            "{enlace}\n\n"
+            "El enlace caduca en 24 horas. Si no has sido tú, ignora este mensaje.",
+            enlace=enlace,
         ),
     )
 
 
 def _cuerpo_con_cancelacion(intro: str, enlace_cancelacion: str) -> str:
-    """Cuerpo común a las tres plantillas que ofrecen autocancelación
-    (confirmación, lista de espera, promoción) — evita triplicar el mismo
-    párrafo de cancelación en cada tarea."""
-    return (
-        f"Hola,\n\n{intro}\n\n"
+    """Cuerpo común a las plantillas que ofrecen autocancelación
+    (confirmación, lista de espera, enlace de pago) — evita repetir el mismo
+    párrafo de cancelación en cada tarea. `intro` llega ya traducida."""
+    return t(
+        "Hola,\n\n{intro}\n\n"
         "Si no puedes asistir, cancela tu inscripción desde este enlace:\n"
-        f"{enlace_cancelacion}"
+        "{enlace}",
+        intro=intro,
+        enlace=enlace_cancelacion,
     )
 
 
 @broker.task(retry_on_error=True, max_retries=5)
 async def send_registration_confirmed_email(
-    to_email: str, organization_id: str, cancel_token: str, qr_token: str | None = None
+    to_email: str,
+    organization_id: str,
+    cancel_token: str,
+    qr_token: str | None = None,
+    *,
+    locale: str | None = None,
 ) -> None:
     """Confirmación de inscripción (alta directa, verificación o aprobación),
     con la entrada QR incrustada (fase 4 del PRD, fase 4 de trabajo).
@@ -296,17 +374,21 @@ async def send_registration_confirmed_email(
     ser procesado por un worker ya actualizado — con un valor por defecto ese
     mensaje se entrega igual, sin el QR incrustado, en vez de fallar.
     """
+    idioma = _idioma_del_envio(locale)
     base = await base_url_de_organizacion(uuid.UUID(organization_id))
-    enlace_cancelacion = f"{base}/cancelar-inscripcion?token={cancel_token}"
-    enlace_mi_entrada = f"{base}/mi-entrada?token={cancel_token}"
-    await get_email_provider().send(
-        to=to_email,
-        subject="Tu inscripción está confirmada",
-        body=_cuerpo_con_cancelacion(
-            "Tu inscripción ha quedado confirmada. ¡Te esperamos! Tu entrada es el "
-            "código QR de este correo: muéstrala en la puerta el día del evento.\n\n"
-            "Si pierdes este correo o no ves la imagen, puedes volver a verla aquí:\n"
-            f"{enlace_mi_entrada}",
+    enlace_cancelacion = _enlace(base, idioma, "cancelar-inscripcion", cancel_token)
+    enlace_mi_entrada = _enlace(base, idioma, "mi-entrada", cancel_token)
+    await _enviar(
+        to_email,
+        t("Tu inscripción está confirmada"),
+        _cuerpo_con_cancelacion(
+            t(
+                "Tu inscripción ha quedado confirmada. ¡Te esperamos! Tu entrada es el "
+                "código QR de este correo: muéstrala en la puerta el día del evento.\n\n"
+                "Si pierdes este correo o no ves la imagen, puedes volver a verla aquí:\n"
+                "{enlace}",
+                enlace=enlace_mi_entrada,
+            ),
             enlace_cancelacion,
         ),
         attachments=[adjunto_qr(qr_token)] if qr_token is not None else [],
@@ -315,17 +397,20 @@ async def send_registration_confirmed_email(
 
 @broker.task(retry_on_error=True, max_retries=5)
 async def send_registration_waitlisted_email(
-    to_email: str, organization_id: str, cancel_token: str
+    to_email: str, organization_id: str, cancel_token: str, *, locale: str | None = None
 ) -> None:
     """Entrada en lista de espera (alta directa, verificación o aprobación)."""
+    idioma = _idioma_del_envio(locale)
     base = await base_url_de_organizacion(uuid.UUID(organization_id))
-    enlace_cancelacion = f"{base}/cancelar-inscripcion?token={cancel_token}"
-    await get_email_provider().send(
-        to=to_email,
-        subject="Estás en la lista de espera",
-        body=_cuerpo_con_cancelacion(
-            "El aforo está completo; te hemos añadido a la lista de espera. Te "
-            "avisaremos por correo si se libera una plaza.",
+    enlace_cancelacion = _enlace(base, idioma, "cancelar-inscripcion", cancel_token)
+    await _enviar(
+        to_email,
+        t("Estás en la lista de espera"),
+        _cuerpo_con_cancelacion(
+            t(
+                "El aforo está completo; te hemos añadido a la lista de espera. Te "
+                "avisaremos por correo si se libera una plaza."
+            ),
             enlace_cancelacion,
         ),
     )
@@ -333,7 +418,7 @@ async def send_registration_waitlisted_email(
 
 @broker.task(retry_on_error=True, max_retries=5)
 async def send_registration_rejected_email(
-    to_email: str, organization_id: str, reason: str | None = None
+    to_email: str, organization_id: str, reason: str | None = None, *, locale: str | None = None
 ) -> None:
     """Rechazo de una inscripción `pending_approval` por el organizador.
 
@@ -353,29 +438,30 @@ async def send_registration_rejected_email(
     compartida por todas las tareas del sistema (ajustar eso es una decisión
     de infraestructura aparte, no específica de este correo).
     """
-    cuerpo = (
+    _idioma_del_envio(locale)
+    cuerpo = t(
         "Hola,\n\n"
         "El organizador del evento no ha aprobado tu inscripción. Si crees que "
         "es un error, contacta directamente con la organización."
     )
-    motivo = reason.strip() if reason else None
+    # Texto libre del organizador: sin URLs que se conviertan en el botón del correo.
+    motivo = neutralizar_texto_de_usuario(reason) if reason else None
     if motivo:
-        cuerpo += f"\n\nMensaje del organizador:\n{motivo}"
-    await get_email_provider().send(
-        to=to_email,
-        subject="Tu inscripción no ha sido aprobada",
-        body=cuerpo,
-    )
+        cuerpo += "\n\n" + t("Mensaje del organizador:\n{motivo}", motivo=motivo)
+    await _enviar(to_email, t("Tu inscripción no ha sido aprobada"), cuerpo)
 
 
 @broker.task(retry_on_error=True, max_retries=5)
-async def send_registration_pending_approval_email(to_email: str, organization_id: str) -> None:
+async def send_registration_pending_approval_email(
+    to_email: str, organization_id: str, *, locale: str | None = None
+) -> None:
     """Inscripción recibida en un evento con aprobación: queda a la espera de
     que el organizador la acepte o la rechace (ambos casos tienen su correo)."""
-    await get_email_provider().send(
-        to=to_email,
-        subject="Hemos recibido tu inscripción",
-        body=(
+    _idioma_del_envio(locale)
+    await _enviar(
+        to_email,
+        t("Hemos recibido tu inscripción"),
+        t(
             "Hola,\n\n"
             "Hemos recibido tu inscripción. El organizador del evento la revisará y te "
             "avisaremos por correo en cuanto la apruebe o la rechace."
@@ -384,9 +470,9 @@ async def send_registration_pending_approval_email(to_email: str, organization_i
 
 
 _ESTADO_PARA_EL_ORGANIZADOR = {
-    "confirmed": "confirmada",
-    "waitlisted": "en lista de espera (el aforo está completo)",
-    "pending_approval": "pendiente de tu aprobación",
+    "confirmed": marcar("confirmada"),
+    "waitlisted": marcar("en lista de espera (el aforo está completo)"),
+    "pending_approval": marcar("pendiente de tu aprobación"),
 }
 
 
@@ -401,6 +487,8 @@ async def send_registration_received_organizer_email(
     participant_email: str,
     status: str,
     paid: bool = False,
+    *,
+    locale: str | None = None,
 ) -> None:
     """Aviso a quien gestiona las inscripciones de una organización: alguien
     se ha inscrito (o ha pagado su entrada). Un destinatario por tarea, para
@@ -410,39 +498,40 @@ async def send_registration_received_organizer_email(
     convierte en botón (`detectar_accion`), y el nombre del participante lo
     escribe un anónimo — se neutraliza para que no pueda ocupar ese lugar.
     """
+    _idioma_del_envio(locale)
     base = await base_url_de_organizacion(uuid.UUID(organization_id))
+    # El panel no lleva prefijo de idioma: sale en el idioma de la cuenta.
     enlace = f"{base}/dashboard/events/{event_id}/registrations/{registration_id}"
     titulo = neutralizar_texto_de_usuario(event_title)
     pendiente = status == "pending_approval"
     if pendiente:
-        asunto = f"Inscripción pendiente de aprobar en {titulo}"
-        entrada = f"Alguien quiere inscribirse en «{titulo}» y necesita tu aprobación."
+        asunto = t("Inscripción pendiente de aprobar en {titulo}", titulo=titulo)
+        entrada = t(
+            "Alguien quiere inscribirse en «{titulo}» y necesita tu aprobación.", titulo=titulo
+        )
     elif paid:
-        asunto = f"Entrada pagada en {titulo}"
-        entrada = f"Se ha pagado una entrada de «{titulo}»."
+        asunto = t("Entrada pagada en {titulo}", titulo=titulo)
+        entrada = t("Se ha pagado una entrada de «{titulo}».", titulo=titulo)
     else:
-        asunto = f"Nueva inscripción en {titulo}"
-        entrada = f"Hay una inscripción nueva en «{titulo}»."
-    estado = _ESTADO_PARA_EL_ORGANIZADOR.get(status, status)
-    await get_email_provider().send(
-        to=to_email,
-        subject=asunto,
-        body=(
-            f"{enlace}\n\n"
-            f"{entrada}\n\n"
-            f"Nombre: {neutralizar_texto_de_usuario(participant_name)}\n"
-            # El correo llega validado como dirección (sin espacios ni esquema):
-            # se deja tal cual para que se pueda copiar o pulsar.
-            f"Correo: {participant_email}\n"
-            f"Estado: {estado}"
-            + ("\n\nAbre la inscripción para aprobarla o rechazarla." if pendiente else "")
-        ),
+        asunto = t("Nueva inscripción en {titulo}", titulo=titulo)
+        entrada = t("Hay una inscripción nueva en «{titulo}».", titulo=titulo)
+    estado = _ESTADO_PARA_EL_ORGANIZADOR.get(status)
+    cuerpo = f"{enlace}\n\n{entrada}\n\n" + t(
+        "Nombre: {nombre}\nCorreo: {correo}\nEstado: {estado}",
+        nombre=neutralizar_texto_de_usuario(participant_name),
+        # El correo llega validado como dirección (sin espacios ni esquema):
+        # se deja tal cual para que se pueda copiar o pulsar.
+        correo=participant_email,
+        estado=t(estado) if estado is not None else status,  # mensaje marcado
     )
+    if pendiente:
+        cuerpo += "\n\n" + t("Abre la inscripción para aprobarla o rechazarla.")
+    await _enviar(to_email, asunto, cuerpo)
 
 
 @broker.task(retry_on_error=True, max_retries=5)
 async def send_registration_cancelled_email(
-    to_email: str, organization_id: str, reembolso: str | None = None
+    to_email: str, organization_id: str, reembolso: str | None = None, *, locale: str | None = None
 ) -> None:
     """Cancelación de una inscripción, por el organizador o por autocancelación.
 
@@ -453,32 +542,29 @@ async def send_registration_cancelled_email(
     para un evento gratuito o un pago que nunca llegó a cobrarse — mismo
     correo que antes de esta fase.
     """
-    cuerpo = (
+    _idioma_del_envio(locale)
+    cuerpo = t(
         "Hola,\n\n"
         "Tu inscripción a este evento ha quedado cancelada. Si no has sido tú, "
         "contacta con la organización del evento."
     )
     if reembolso == "en_curso":
-        cuerpo += (
-            "\n\nEstamos tramitando el reembolso de tu pago; lo recibirás en los "
+        cuerpo += "\n\n" + t(
+            "Estamos tramitando el reembolso de tu pago; lo recibirás en los "
             "próximos días en el mismo medio de pago."
         )
     elif reembolso == "reembolsado":
-        cuerpo += (
-            "\n\nSe te ha devuelto el importe completo de tu pago; lo verás en los "
+        cuerpo += "\n\n" + t(
+            "Se te ha devuelto el importe completo de tu pago; lo verás en los "
             "próximos días en el mismo medio de pago."
         )
     elif reembolso == "sin_reembolso":
-        cuerpo += (
-            "\n\nTu pago no se reembolsa automáticamente por la política de plazo de "
+        cuerpo += "\n\n" + t(
+            "Tu pago no se reembolsa automáticamente por la política de plazo de "
             "cancelación de este evento. Contacta con la organización si crees que "
             "debería reembolsarse."
         )
-    await get_email_provider().send(
-        to=to_email,
-        subject="Tu inscripción ha sido cancelada",
-        body=cuerpo,
-    )
+    await _enviar(to_email, t("Tu inscripción ha sido cancelada"), cuerpo)
 
 
 @broker.task(retry_on_error=True, max_retries=5)
@@ -488,23 +574,25 @@ async def send_event_cancelled_email(
     titulo: str,
     motivo: str | None,
     con_reembolso: bool,
+    *,
+    locale: str | None = None,
 ) -> None:
     """La organización ha cancelado el evento. Lo encola el barrido de
     `events/cancelacion.py`, una vez por inscripción cancelada con el evento."""
-    cuerpo = f"Hola,\n\nLa organización ha cancelado el evento «{titulo}»."
+    _idioma_del_envio(locale)
+    # Textos escritos por el organizador: sin URLs que se conviertan en el botón.
+    titulo = neutralizar_texto_de_usuario(titulo)
+    motivo = neutralizar_texto_de_usuario(motivo) if motivo else None
+    cuerpo = t("Hola,\n\nLa organización ha cancelado el evento «{titulo}».", titulo=titulo)
     if motivo:
-        cuerpo += f"\n\nMotivo:\n{motivo}"
-    cuerpo += "\n\nTu inscripción queda cancelada y tu entrada deja de ser válida."
+        cuerpo += "\n\n" + t("Motivo:\n{motivo}", motivo=motivo)
+    cuerpo += "\n\n" + t("Tu inscripción queda cancelada y tu entrada deja de ser válida.")
     if con_reembolso:
-        cuerpo += (
-            "\n\nTe devolvemos el importe íntegro de tu pago; lo recibirás en los "
+        cuerpo += "\n\n" + t(
+            "Te devolvemos el importe íntegro de tu pago; lo recibirás en los "
             "próximos días en el mismo medio de pago."
         )
-    await get_email_provider().send(
-        to=to_email,
-        subject=f"Evento cancelado: {titulo}",
-        body=cuerpo,
-    )
+    await _enviar(to_email, t("Evento cancelado: {titulo}", titulo=titulo), cuerpo)
 
 
 @broker.task(retry_on_error=True, max_retries=5)
@@ -527,7 +615,13 @@ async def resume_event_cancellations_task() -> None:
 
 @broker.task(retry_on_error=True, max_retries=5)
 async def send_registration_payment_link_email(
-    to_email: str, organization_id: str, checkout_url: str, cancel_token: str, expira_el: str
+    to_email: str,
+    organization_id: str,
+    checkout_url: str,
+    cancel_token: str,
+    expira_el: str,
+    *,
+    locale: str | None = None,
 ) -> None:
     """Enlace de pago de los caminos 2, 3 y 4 (fase 6 del PRD, fase 4 de
     trabajo): verificación de email, aprobación manual y promoción de lista
@@ -535,14 +629,19 @@ async def send_registration_payment_link_email(
     `dispatch_pending_payment_links_task`, nunca dentro de la petición que
     verificó/aprobó/promovió: sería una llamada de red a
     Stripe bajo bloqueos de fila."""
+    idioma = _idioma_del_envio(locale)
     base = await base_url_de_organizacion(uuid.UUID(organization_id))
-    enlace_cancelacion = f"{base}/cancelar-inscripcion?token={cancel_token}"
-    await get_email_provider().send(
-        to=to_email,
-        subject="Completa el pago de tu entrada",
-        body=_cuerpo_con_cancelacion(
-            "Tu plaza está reservada. Complétala pagando tu entrada antes de "
-            f"{expira_el} desde este enlace:\n{checkout_url}",
+    enlace_cancelacion = _enlace(base, idioma, "cancelar-inscripcion", cancel_token)
+    await _enviar(
+        to_email,
+        t("Completa el pago de tu entrada"),
+        _cuerpo_con_cancelacion(
+            t(
+                "Tu plaza está reservada. Complétala pagando tu entrada antes de "
+                "{expira_el} desde este enlace:\n{enlace}",
+                expira_el=expira_el,
+                enlace=checkout_url,
+            ),
             enlace_cancelacion,
         ),
     )
@@ -721,29 +820,35 @@ async def send_waitlist_promotion_email(
     confirm_token: str,
     cancel_token: str,
     expira_el: str,
+    *,
+    locale: str | None = None,
 ) -> None:
     """Promoción desde la lista de espera: hay que confirmar antes de `expira_el`
     (ya formateado en texto legible) o la plaza pasa a la siguiente persona."""
+    idioma = _idioma_del_envio(locale)
     base = await base_url_de_organizacion(uuid.UUID(organization_id))
-    enlace_confirmar = f"{base}/confirmar-promocion?token={confirm_token}"
-    enlace_cancelacion = f"{base}/cancelar-inscripcion?token={cancel_token}"
-    await get_email_provider().send(
-        to=to_email,
-        subject="Se ha liberado una plaza: confirma tu inscripción",
-        body=(
+    enlace_confirmar = _enlace(base, idioma, "confirmar-promocion", confirm_token)
+    enlace_cancelacion = _enlace(base, idioma, "cancelar-inscripcion", cancel_token)
+    await _enviar(
+        to_email,
+        t("Se ha liberado una plaza: confirma tu inscripción"),
+        t(
             "Hola,\n\n"
             "Se ha liberado una plaza y te toca a ti. Confirma tu inscripción antes "
-            f"del {expira_el} (hora del evento) desde este enlace:\n{enlace_confirmar}\n\n"
+            "del {expira_el} (hora del evento) desde este enlace:\n{enlace_confirmar}\n\n"
             "Si no confirmas a tiempo, pasaremos a la siguiente persona en la lista "
             "de espera.\n\n"
-            f"Si ya no quieres asistir, cancela tu inscripción aquí:\n{enlace_cancelacion}"
+            "Si ya no quieres asistir, cancela tu inscripción aquí:\n{enlace_cancelacion}",
+            expira_el=expira_el,
+            enlace_confirmar=enlace_confirmar,
+            enlace_cancelacion=enlace_cancelacion,
         ),
     )
 
 
 @broker.task(retry_on_error=True, max_retries=5)
 async def send_speaker_bio_request_email(
-    to_email: str, organization_id: str, event_name: str
+    to_email: str, organization_id: str, event_name: str, *, locale: str | None = None
 ) -> None:
     """Aviso al ponente de que el organizador necesita su ficha completa.
 
@@ -752,18 +857,24 @@ async def send_speaker_bio_request_email(
     La persona destinataria ya tiene cuenta en la organización: el mensaje
     no crea credenciales ni enlaces de acceso, solo recuerda la tarea.
     """
+    _idioma_del_envio(locale)
     base = await base_url_de_organizacion(uuid.UUID(organization_id))
-    # El ancla lleva directo a la ficha de ponente dentro de la cuenta.
+    # El ancla lleva directo a la ficha de ponente dentro de la cuenta (el panel
+    # no lleva prefijo de idioma).
     enlace = f"{base}/dashboard/account#ficha"
-    await get_email_provider().send(
-        to=to_email,
-        subject=f"Falta tu ficha para «{event_name}»",
-        body=(
+    # Nombre escrito por el organizador: sin URLs que se conviertan en el botón.
+    evento = neutralizar_texto_de_usuario(event_name)
+    await _enviar(
+        to_email,
+        t("Falta tu ficha para «{evento}»", evento=evento),
+        t(
             "Hola,\n\n"
-            f"Para publicar el programa de «{event_name}» falta completar tu ficha "
+            "Para publicar el programa de «{evento}» falta completar tu ficha "
             "de ponente (biografía, titular y demás datos de perfil).\n\n"
             "Puedes completarla desde tu cuenta:\n"
-            f"{enlace}\n\n"
-            "Si tienes cualquier duda, responde directamente a la organización."
+            "{enlace}\n\n"
+            "Si tienes cualquier duda, responde directamente a la organización.",
+            evento=evento,
+            enlace=enlace,
         ),
     )

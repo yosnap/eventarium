@@ -10,6 +10,7 @@ import es from '../../../../public/assets/i18n/es-ES.json';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../testing/axe';
 import { ThemingService } from '../../core/theming/theming.service';
 import { PublicShell } from './public-shell';
+import { IDIOMAS } from '../../core/i18n/idioma';
 
 describe('PublicShell', () => {
   let http: HttpTestingController;
@@ -33,6 +34,8 @@ describe('PublicShell', () => {
           useValue: {
             branding: signal(null),
             error: signal(null),
+            idiomasActivos: signal(IDIOMAS),
+            selectorDeIdiomaVisible: signal(true),
             plataforma: signal({
               name: 'Eventarium',
               logo_url: null,

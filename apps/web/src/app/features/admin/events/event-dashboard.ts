@@ -7,6 +7,7 @@ import {
   inject,
   input,
   signal,
+  LOCALE_ID,
 } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
@@ -19,6 +20,7 @@ import { Chip, ChipTone } from '../../../shared/ui/chip';
 import { EventPoliciesWarning } from '../policies/event-policies-warning';
 import { EventDetails } from './event-details';
 import { EventoMetricas, PiezaDelEvento } from './event-metrics.types';
+import { formatearPrecio } from '../../../shared/text/formatear-precio';
 
 /** Una fila del embudo, ya resuelta para pintar. */
 interface Escalon {
@@ -281,6 +283,8 @@ interface Escalon {
   `,
 })
 export class EventDashboard implements OnInit {
+  /** Idioma de la visita, para fechas e importes. */
+  private readonly idioma = inject(LOCALE_ID);
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
 
@@ -383,9 +387,6 @@ export class EventDashboard implements OnInit {
   }
 
   protected formatearCents(cents: number, moneda: string): string {
-    return new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency: moneda.toUpperCase(),
-    }).format(cents / 100);
+    return formatearPrecio(cents, moneda.toUpperCase(), this.idioma);
   }
 }

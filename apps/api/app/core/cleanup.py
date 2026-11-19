@@ -30,6 +30,8 @@ from sqlalchemy import text
 
 from app.core.database import maintenance_session
 from app.core.email import get_email_provider
+from app.core.locale import fijar_idioma, idioma_actual, normalizar_locale
+from app.core.mensajes import t
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +42,7 @@ async def sweep_unverified_accounts() -> None:
         pendientes_de_aviso = (
             await session.execute(
                 text(
-                    "SELECT id, email FROM users "
+                    "SELECT id, email, locale FROM users "
                     "WHERE email_verified_at IS NULL "
                     "  AND verification_warning_sent_at IS NULL "
                     "  AND created_at <= now() - interval '5 days' "
@@ -54,28 +56,42 @@ async def sweep_unverified_accounts() -> None:
             )
         ).all()
 
-        for user_id, email in pendientes_de_aviso:
-            try:
-                await get_email_provider().send(
-                    to=email,
-                    subject="Tu cuenta se eliminará en 2 días si no verificas tu correo",
-                    body=(
-                        "Hola,\n\n"
-                        "Creaste una cuenta hace 5 días y tu correo sigue sin verificar. "
-                        "Si no lo verificas en los próximos 2 días, la cuenta se eliminará "
-                        "automáticamente.\n\n"
-                        "Si no fuiste tú, no hace falta que hagas nada: se eliminará sola."
-                    ),
+        # Importación diferida: `tasks.py` importa este módulo para registrar el barrido.
+        from app.core.tasks import limpiar_asunto
+
+        idioma_previo = idioma_actual()
+        try:
+            for user_id, email, locale in pendientes_de_aviso:
+                # Cada aviso en el idioma de su cuenta (`t()` y la plantilla lo leen
+                # del contexto).
+                fijar_idioma(normalizar_locale(locale))
+                try:
+                    await get_email_provider().send(
+                        to=email,
+                        subject=limpiar_asunto(
+                            t("Tu cuenta se eliminará en 2 días si no verificas tu correo")
+                        ),
+                        body=t(
+                            "Hola,\n\n"
+                            "Creaste una cuenta hace 5 días y tu correo sigue sin verificar. "
+                            "Si no lo verificas en los próximos 2 días, la cuenta se eliminará "
+                            "automáticamente.\n\n"
+                            "Si no fuiste tú, no hace falta que hagas nada: se eliminará sola."
+                        ),
+                    )
+                except Exception:
+                    # Un fallo de envío no debe bloquear el resto del barrido; se
+                    # reintentará en la siguiente pasada, dentro de los 2 días de margen.
+                    logger.exception(
+                        "No se pudo enviar el aviso de cuenta sin verificar a %s", email
+                    )
+                    continue
+                await session.execute(
+                    text("UPDATE users SET verification_warning_sent_at = now() WHERE id = :id"),
+                    {"id": user_id},
                 )
-            except Exception:
-                # Un fallo de envío no debe bloquear el resto del barrido; se
-                # reintentará en la siguiente pasada, dentro de los 2 días de margen.
-                logger.exception("No se pudo enviar el aviso de cuenta sin verificar a %s", email)
-                continue
-            await session.execute(
-                text("UPDATE users SET verification_warning_sent_at = now() WHERE id = :id"),
-                {"id": user_id},
-            )
+        finally:
+            fijar_idioma(idioma_previo)
         await session.commit()
 
         borradas = (

@@ -99,11 +99,16 @@ async def create_organization(
     """
     slug_limpio = slug.strip().lower()
     if slug_limpio in RESERVED_SLUGS:
-        raise ConflictError(f"El identificador «{slug_limpio}» está reservado.")
+        raise ConflictError(
+            "El identificador «{slug}» está reservado.", params={"slug": slug_limpio}
+        )
 
     existente = await session.scalar(select(Organization).where(Organization.slug == slug_limpio))
     if existente is not None:
-        raise ConflictError(f"Ya existe una organización con el identificador «{slug_limpio}».")
+        raise ConflictError(
+            "Ya existe una organización con el identificador «{slug}».",
+            params={"slug": slug_limpio},
+        )
 
     organizacion = Organization(
         slug=slug_limpio,

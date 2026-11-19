@@ -5,6 +5,8 @@ import { firstValueFrom } from 'rxjs';
 import { ApiError } from '../api/error.interceptor';
 import { ApiService } from '../api/api.service';
 import { ProfileField } from '../../shared/ui/dynamic-field.model';
+import { IdiomaService } from '../i18n/idioma.service';
+import { LocaleDeCuenta } from '../i18n/locale-de-cuenta';
 
 export interface UsuarioAutenticado {
   readonly id: string;
@@ -26,6 +28,8 @@ export interface UsuarioAutenticado {
    * `organization_id`: no viaja en `UserSummary` del login, solo en
    * `CurrentUserResponse`. */
   readonly notify_similar_events?: boolean;
+  /** Idioma de la cuenta. Mismo motivo de ausencia que `organization_id`. */
+  readonly locale?: LocaleDeCuenta;
   /** Permisos en la organización activa. Mismo motivo de ausencia que
    * `organization_id`: no viaja en el login, solo en `/users/me`. `undefined`
    * significa «todavía no cargados», nunca «sin permisos» (eso es `[]`). */
@@ -116,6 +120,7 @@ export interface EstadoDePerfilPublico {
 export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
+  private readonly idioma = inject(IdiomaService);
 
   private readonly token = signal<string | null>(null);
   private readonly usuario = signal<UsuarioAutenticado | null>(null);
@@ -205,6 +210,8 @@ export class AuthService {
         // La sesión pudo cerrarse mientras tanto: no se resucita su usuario.
         if (this.generacionSesion === generacionAlEmpezar && this.tokenEfectivo() === token) {
           this.usuario.set(respuesta);
+          // Los paneles siguen el idioma de la cuenta: si no coincide, recarga una vez.
+          this.idioma.sincronizarConCuenta(respuesta.locale);
         }
         return respuesta;
       } finally {
@@ -331,12 +338,18 @@ export class AuthService {
     return renovacion;
   }
 
-  async register(email: string, password: string, turnstileToken: string): Promise<void> {
+  async register(
+    email: string,
+    password: string,
+    turnstileToken: string,
+    locale: LocaleDeCuenta,
+  ): Promise<void> {
     await firstValueFrom(
       this.http.post<RespuestaGenerica>(this.api.url('/auth/register'), {
         email,
         password,
         turnstile_token: turnstileToken,
+        locale,
       }),
     );
   }
@@ -442,7 +455,7 @@ export class AuthService {
   async updateMe(datos: {
     firstName?: string;
     lastName?: string;
-    locale?: string;
+    locale?: LocaleDeCuenta;
     notifySimilarEvents?: boolean;
   }): Promise<void> {
     const respuesta = await firstValueFrom(
@@ -456,6 +469,9 @@ export class AuthService {
       }),
     );
     this.usuario.set(respuesta);
+    if (datos.locale !== undefined) {
+      this.idioma.sincronizarConCuenta(respuesta.locale);
+    }
   }
 
   /** Exige la contraseña actual. El cambio no se aplica hasta confirmarlo por correo. */

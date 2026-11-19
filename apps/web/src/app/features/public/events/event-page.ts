@@ -12,6 +12,7 @@ import {
   input,
   makeStateKey,
   signal,
+  LOCALE_ID,
 } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
@@ -43,6 +44,8 @@ import { type Speaker, EventSpeakersSection } from './sections/event-speakers-se
 import { DirectionsLink } from '../../../shared/ui/directions-link';
 import { EventNearbySection } from './sections/event-nearby-section';
 import { AvisoVentaEntradas, avisoDeVenta } from './aviso-venta-entradas';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
+import { IdiomaService } from '../../../core/i18n/idioma.service';
 
 /** `starts_at` (UTC) al día calendario en la zona del evento, sin arrastrar la
  * zona horaria del entorno de ejecución (navegador o SSR) al agrupar por fecha:
@@ -89,6 +92,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
   selector: 'app-event-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    EnlacePipe,
     AvisoVentaEntradas,
     DatePipe,
     DirectionsLink,
@@ -161,7 +165,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                     @if (evento.category; as categoria) {
                       <a
                         class="clasificacion__categoria"
-                        routerLink="/eventos"
+                        [routerLink]="'/eventos' | enlace"
                         [queryParams]="{ categoria: categoria.slug }"
                         >{{ categoria.name }}</a
                       >
@@ -169,7 +173,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                     @for (etiqueta of evento.tags ?? []; track etiqueta) {
                       <a
                         class="clasificacion__etiqueta"
-                        routerLink="/eventos"
+                        [routerLink]="'/eventos' | enlace"
                         [queryParams]="{ etiqueta: etiqueta }"
                         >#{{ etiqueta }}</a
                       >
@@ -277,14 +281,14 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                     @if (avisoVenta(); as aviso) {
                       <app-aviso-venta-entradas [aviso]="aviso" />
                     } @else {
-                      <a class="ficha__inscribirse" [routerLink]="ruta('inscribirse')">
+                      <a class="ficha__inscribirse" [routerLink]="ruta('inscribirse') | enlace">
                         {{ t('publico.eventos.inscribirse') }}
                       </a>
                       <p class="ficha__nota">{{ t('publico.eventos.ficha.sinCuenta') }}</p>
                     }
                   }
                   <p class="ficha__nota">
-                    <a [routerLink]="ruta('politicas')">
+                    <a [routerLink]="ruta('politicas') | enlace">
                       {{ t('publico.politicas.enlace') }}
                     </a>
                   </p>
@@ -304,7 +308,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                   @if (evento.venues.length > 1) {
                     <p class="hint">
                       {{ t('publico.eventos.multisede.pregunta') }}
-                      <a class="mark" [routerLink]="ruta('programa')">
+                      <a class="mark" [routerLink]="ruta('programa') | enlace">
                         {{ t('publico.eventos.multisede.enlace') }}
                       </a>
                     </p>
@@ -362,7 +366,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                     <ul class="tier__logos" [class]="'tamano-' + nivel.logo_size">
                       @for (patrocinador of nivel.sponsors; track $index + patrocinador.name) {
                         <li>
-                          <a [routerLink]="ruta('patrocinadores', patrocinador.id)">
+                          <a [routerLink]="ruta('patrocinadores', patrocinador.id) | enlace">
                             @if (patrocinador.logo_url) {
                               <img [src]="patrocinador.logo_url" [alt]="patrocinador.name" />
                             } @else {
@@ -704,6 +708,8 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
   `,
 })
 export class EventPage implements OnInit {
+  /** Idioma de la visita, para fechas e importes. */
+  private readonly idioma = inject(LOCALE_ID);
   // Sin valor en la vista previa, que llega por `eventId` (`/vista-previa/:eventId`).
   readonly org = input<string | undefined>('');
   readonly slug = input<string | undefined>('');
@@ -714,6 +720,7 @@ export class EventPage implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly documento = inject(DOCUMENT);
+  private readonly idiomaDeLaPagina = inject(IdiomaService);
   private readonly transferState = inject(TransferState);
   private readonly aplicarTema = temaDeEvento();
   private readonly tareasPendientes = inject(PendingTasks);
@@ -778,7 +785,7 @@ export class EventPage implements OnInit {
     const anadir = (personas: readonly PublicParticipant[]): void => {
       const nuevas = personas
         .filter((persona) => !vistos.has(persona.ref))
-        .sort((a, b) => a.display_name.localeCompare(b.display_name, 'es'));
+        .sort((a, b) => a.display_name.localeCompare(b.display_name, this.idioma));
       for (const persona of nuevas) {
         if (vistos.has(persona.ref)) continue;
         vistos.set(persona.ref, {
@@ -801,7 +808,7 @@ export class EventPage implements OnInit {
   /** Absoluta y sin ancla ni query: es lo que se comparte. En el SSR,
    * `location` ya es la URL pública de la petición. */
   protected urlPublica(evento: PublicEventDetail): string {
-    return `${this.documento.location.origin}${urlEvento(evento.organization.slug, evento.slug)}`;
+    return `${this.documento.location.origin}${this.idiomaDeLaPagina.enlace(urlEvento(evento.organization.slug, evento.slug))}`;
   }
 
   protected migasDePan(evento: PublicEventDetail): BreadcrumbItem[] {
@@ -840,7 +847,7 @@ export class EventPage implements OnInit {
   /** Sin entradas a la venta en un evento de pago: aviso en lugar del botón. */
   protected readonly avisoVenta = computed(() => {
     const evento = this.evento();
-    return evento ? avisoDeVenta(evento, null) : null;
+    return evento ? avisoDeVenta(evento, null, false, Date.now(), this.idioma) : null;
   });
 
   /** «Desde X €» con el tipo de entrada vigente más barato
@@ -852,7 +859,7 @@ export class EventPage implements OnInit {
     if (!evento || evento.price_from_cents === null || evento.price_currency === null) {
       return null;
     }
-    return formatearPrecio(evento.price_from_cents, evento.price_currency);
+    return formatearPrecio(evento.price_from_cents, evento.price_currency, this.idioma);
   });
 
   /** Ocupación del aforo en porcentaje entero, acotada a 100: `reserved_count`
@@ -961,6 +968,7 @@ export class EventPage implements OnInit {
     // cuando no hay tema propio es lo que deja pasar la de la organización.
     this.aplicarTema(evento.theme);
     this.seo.set({
+      contenidoDelOrganizador: true,
       title: evento.title,
       description: evento.summary ?? this.transloco.translate('publico.eventos.sinResumen'),
       image: evento.cover_url,

@@ -1,7 +1,7 @@
 [project]
-name = "ia-week-api"
-version = "0.30.0"
-description = "API de la plataforma de eventos IA Week"
+name = "eventarium-api"
+version = "0.32.0"
+description = "API de Eventarium, la plataforma de eventos"
 requires-python = ">=3.12,<3.13"
 license = { text = "MIT" }
 dependencies = [

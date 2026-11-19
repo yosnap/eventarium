@@ -62,7 +62,9 @@ async def create_event_category(
     datos: EventCategoryCreate, superadmin: Superadmin, session: MaintenanceDb
 ) -> EventCategoryOut:
     if await categories.get_category_by_slug(session, datos.slug) is not None:
-        raise ConflictError(f"Ya existe una categoría con el identificador «{datos.slug}».")
+        raise ConflictError(
+            "Ya existe una categoría con el identificador «{slug}».", params={"slug": datos.slug}
+        )
     categoria = EventCategory(
         id=new_uuid7(),
         slug=datos.slug,
@@ -76,7 +78,7 @@ async def create_event_category(
     except IntegrityError as exc:
         # Dos superadmins creando el mismo identificador a la vez.
         raise ConflictError(
-            f"Ya existe una categoría con el identificador «{datos.slug}»."
+            "Ya existe una categoría con el identificador «{slug}».", params={"slug": datos.slug}
         ) from exc
     await registrar_auditoria(
         session,

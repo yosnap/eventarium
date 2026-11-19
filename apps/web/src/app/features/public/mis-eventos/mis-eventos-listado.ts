@@ -6,6 +6,8 @@ import {
   input,
   signal,
   viewChildren,
+  LOCALE_ID,
+  inject,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
@@ -13,6 +15,8 @@ import { TranslocoDirective } from '@jsverse/transloco';
 import type { MyRegistrationItem } from '../../../core/registrations/registrations.service';
 import { rutaEvento } from '../../../core/routing/rutas-publicas';
 import { AddToCalendar } from '../../../shared/ui/add-to-calendar';
+import { formatearFecha } from '../../../shared/text/formatear-fecha';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 
 type Pestana = 'proximos' | 'pasados';
 const PESTANAS: readonly Pestana[] = ['proximos', 'pasados'];
@@ -45,7 +49,7 @@ function claveDeEstado(valor: string): string {
 @Component({
   selector: 'app-mis-eventos-listado',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, TranslocoDirective, AddToCalendar],
+  imports: [EnlacePipe, RouterLink, TranslocoDirective, AddToCalendar],
   template: `
     <ng-container *transloco="let t">
       <div class="pestanas" role="tablist" [attr.aria-label]="t('publico.misEventos.pestanasAria')">
@@ -82,14 +86,14 @@ function claveDeEstado(valor: string): string {
             <p class="vacio">
               {{ t('publico.misEventos.vacio.' + pestana) }}
               @if (pestana === 'proximos') {
-                <a routerLink="/eventos">{{ t('publico.misEventos.verEventos') }}</a>
+                <a [routerLink]="'/eventos' | enlace">{{ t('publico.misEventos.verEventos') }}</a>
               }
             </p>
           } @else {
             <ul class="listado" [class.listado--pasado]="pestana === 'pasados'">
               @for (fila of filas; track fila.organization.slug + fila.event_slug + fila.status) {
                 <li>
-                  <a [routerLink]="rutaEvento(fila.organization.slug, fila.event_slug)">{{
+                  <a [routerLink]="rutaEvento(fila.organization.slug, fila.event_slug) | enlace">{{
                     fila.event_title
                   }}</a>
                   <span class="detalle">
@@ -179,6 +183,8 @@ function claveDeEstado(valor: string): string {
   `,
 })
 export class MisEventosListado {
+  /** Idioma de la visita, para fechas e importes. */
+  private readonly idioma = inject(LOCALE_ID);
   readonly inscripciones = input.required<readonly MyRegistrationItem[]>();
 
   protected readonly rutaEvento = rutaEvento;
@@ -205,15 +211,11 @@ export class MisEventosListado {
    * nombres IANA (`Europe/Madrid`) y caería en silencio a la hora local. Mismo
    * criterio que `cancel-registration-page.ts`. */
   protected fechaDe(fila: MyRegistrationItem): string {
-    const opciones: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' };
-    const inicio = new Date(fila.starts_at);
-    try {
-      return new Intl.DateTimeFormat('es-ES', { ...opciones, timeZone: fila.timezone }).format(
-        inicio,
-      );
-    } catch {
-      return new Intl.DateTimeFormat('es-ES', opciones).format(inicio);
-    }
+    return formatearFecha(fila.starts_at, this.idioma, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: fila.timezone,
+    });
   }
 
   protected seleccionar(indice: number, enfocar: boolean): void {

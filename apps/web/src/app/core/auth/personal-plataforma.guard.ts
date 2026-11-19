@@ -3,6 +3,7 @@ import { CanActivateFn, Router, UrlTree } from '@angular/router';
 
 import { ApiService } from '../api/api.service';
 import { esPersonalDePlataforma, AuthService, UsuarioAutenticado } from './auth.service';
+import { IdiomaService } from '../i18n/idioma.service';
 
 /**
  * Resuelve quién entra, o a dónde rebotarlo si no hay sesión utilizable.
@@ -19,6 +20,7 @@ export async function usuarioDelPanelDePlataforma(): Promise<UsuarioAutenticado 
   const auth = inject(AuthService);
   const api = inject(ApiService);
   const router = inject(Router);
+  const idioma = inject(IdiomaService);
 
   // El panel es solo cliente: en SSR no hay sesión que consultar. `authGuard`,
   // en el padre, ya deniega aquí; esto solo necesita no romper esa ruta.
@@ -37,12 +39,12 @@ export async function usuarioDelPanelDePlataforma(): Promise<UsuarioAutenticado 
   // `/acceder`, porque `loadCurrentUser()` fallaba sin `Authorization` antes
   // de que nada intentara refrescar el token.
   if (!(await auth.refresh())) {
-    return router.createUrlTree(['/acceder']);
+    return router.createUrlTree(idioma.enlace(['/acceder']));
   }
   try {
     return await auth.loadCurrentUser();
   } catch {
-    return router.createUrlTree(['/acceder']);
+    return router.createUrlTree(idioma.enlace(['/acceder']));
   }
 }
 

@@ -7,6 +7,7 @@ import {
   computed,
   inject,
   signal,
+  LOCALE_ID,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
@@ -21,6 +22,7 @@ import { KpiCard } from '../../../shared/ui/kpi-card';
 import { PageHeader } from '../../../shared/ui/page-header';
 import { Panel } from '../../../shared/ui/panel';
 import { MetricasDeOrganizacion } from './organization-metrics.types';
+import { formatearPrecio } from '../../../shared/text/formatear-precio';
 
 /** Una petición pendiente, resuelta para pintar. */
 interface Pendiente {
@@ -294,6 +296,8 @@ interface KpiVisible {
   `,
 })
 export class DashboardPage implements OnInit {
+  /** Idioma de la visita, para fechas e importes. */
+  private readonly idioma = inject(LOCALE_ID);
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
@@ -472,8 +476,6 @@ export class DashboardPage implements OnInit {
   }
 
   protected formatearCents(cents: number): string {
-    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(
-      cents / 100,
-    );
+    return formatearPrecio(cents, 'EUR', this.idioma);
   }
 }

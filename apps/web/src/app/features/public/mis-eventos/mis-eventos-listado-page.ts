@@ -9,6 +9,7 @@ import {
 import { MisEventosListado } from './mis-eventos-listado';
 import { Alert } from '../../../shared/ui/alert';
 import { Reveal } from '../../../shared/ui/reveal.directive';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 
 type Estado = 'comprobando' | 'conInscripciones' | 'sinInscripciones' | 'tokenInvalido';
 
@@ -25,7 +26,7 @@ type Estado = 'comprobando' | 'conInscripciones' | 'sinInscripciones' | 'tokenIn
 @Component({
   selector: 'app-mis-eventos-listado-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Reveal, MisEventosListado],
+  imports: [EnlacePipe, TranslocoDirective, RouterLink, Alert, Reveal, MisEventosListado],
   template: `
     <ng-container *transloco="let t">
       <div class="ancho-maximo envoltura" appReveal>
@@ -40,7 +41,9 @@ type Estado = 'comprobando' | 'conInscripciones' | 'sinInscripciones' | 'tokenIn
               <app-alert tone="error" [title]="t('publico.misEventos.errorTitulo')">
                 {{ t('publico.misEventos.tokenInvalido') }}
                 <p>
-                  <a routerLink="/mis-eventos">{{ t('publico.misEventos.pedirOtro') }}</a>
+                  <a [routerLink]="'/mis-eventos' | enlace">{{
+                    t('publico.misEventos.pedirOtro')
+                  }}</a>
                 </p>
               </app-alert>
             }

@@ -112,7 +112,9 @@ async def aprobar(
         a.value for a in datos.scopes if solicitud["scopes"] and a.value not in solicitud["scopes"]
     ]
     if fuera:
-        raise ValidationDomainError(f"El asistente no ha pedido: {', '.join(fuera)}.")
+        raise ValidationDomainError(
+            "El asistente no ha pedido: {permisos}.", params={"permisos": ", ".join(fuera)}
+        )
     conexion = await service.crear_conexion_oauth(
         session,
         organization_id=usuario.organization_id,

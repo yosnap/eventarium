@@ -1,9 +1,8 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  DestroyRef,
   ElementRef,
-  afterNextRender,
+  afterRenderEffect,
   inject,
   viewChild,
 } from '@angular/core';
@@ -17,6 +16,9 @@ import { AccessMenu } from '../../shared/ui/access-menu';
 import { BrandLockup } from '../../shared/ui/brand-lockup';
 import { Button } from '../../shared/ui/button';
 import { ThemeToggle } from '../../shared/ui/theme-toggle';
+import { EnlacePipe } from '../../core/i18n/enlace.pipe';
+import { SelectorIdioma } from '../../shared/ui/selector-idioma';
+import { AvisoIdioma } from './aviso-idioma';
 
 /**
  * Estructura de la web pública: cabecera con la marca de la organización, contenido y
@@ -27,6 +29,9 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
   selector: 'app-public-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    AvisoIdioma,
+    SelectorIdioma,
+    EnlacePipe,
     RouterOutlet,
     RouterLink,
     TranslocoDirective,
@@ -40,17 +45,19 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
     <ng-container *transloco="let t">
       <a class="skip-link" href="#contenido">{{ t('comun.saltarAlContenido') }}</a>
 
+      <app-aviso-idioma />
+
       <header #cabecera>
         <div class="ancho-maximo header-en">
-          <a routerLink="/" class="marca">
+          <a [routerLink]="'/' | enlace" class="marca">
             <app-brand-lockup />
           </a>
           <div class="bloque-derecho">
             <nav [attr.aria-label]="t('publico.navegacion')">
               <!-- Sin «Inicio»: el logo ya enlaza a la raíz (la landing de la
                    instalación); aquí solo van el directorio y «Mis eventos». -->
-              <a routerLink="/eventos">{{ t('publico.eventos.listadoTitulo') }}</a>
-              <a routerLink="/mis-eventos">{{ t('publico.misEventos.enlaceNav') }}</a>
+              <a [routerLink]="'/eventos' | enlace">{{ t('publico.eventos.listadoTitulo') }}</a>
+              <a [routerLink]="'/mis-eventos' | enlace">{{ t('publico.misEventos.enlaceNav') }}</a>
             </nav>
             <div class="controles-usuario">
               <!-- Mismo destino con o sin sesión: el guard del panel manda a
@@ -59,6 +66,7 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
               <a routerLink="/dashboard/events/nuevo" class="crear-evento">
                 {{ t('publico.crearEvento') }}
               </a>
+              <app-selector-idioma [compacto]="true" />
               <app-theme-toggle />
               <app-access-menu />
             </div>
@@ -96,21 +104,22 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
           <nav [attr.aria-label]="t('publico.enlacesLegales')" class="enlaces-legales">
             <ul>
               <li>
-                <a routerLink="/legal/aviso-legal">{{ t('legal.avisoLegal') }}</a>
+                <a [routerLink]="'/legal/aviso-legal' | enlace">{{ t('legal.avisoLegal') }}</a>
               </li>
               <li>
-                <a routerLink="/legal/privacidad">{{ t('legal.privacidad') }}</a>
+                <a [routerLink]="'/legal/privacidad' | enlace">{{ t('legal.privacidad') }}</a>
               </li>
               <li>
-                <a routerLink="/legal/cookies">{{ t('legal.cookies') }}</a>
+                <a [routerLink]="'/legal/cookies' | enlace">{{ t('legal.cookies') }}</a>
               </li>
               <li>
-                <a routerLink="/legal/condiciones-de-inscripcion">
+                <a [routerLink]="'/legal/condiciones-de-inscripcion' | enlace">
                   {{ t('legal.condicionesInscripcion') }}
                 </a>
               </li>
             </ul>
           </nav>
+          <app-selector-idioma />
           <app-button variant="terciario" [compacto]="true" (pulsado)="gestionarCookies()">
             {{ t('cookies.gestionar') }}
           </app-button>
@@ -230,16 +239,16 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
     /* Móvil: el bloque derecho no cabe en una línea (en 360 px medía 362 y
        empujaba el menú de acceso fuera de la pantalla, con scroll lateral en
        todo el sitio). Dos filas que siguen el orden del marcado (y del foco):
-       marca + enlaces arriba; «Crear evento», tema y acceso debajo, a la
+       marca + enlaces arriba; «Crear evento», idioma, tema y acceso debajo, a la
        derecha. \`display: contents\` deja a los hijos de los dos grupos
        colocarse en la rejilla sin tocar el marcado. */
     @media (max-width: 40rem) {
       .header-en {
         display: grid;
-        grid-template-columns: auto minmax(0, 1fr) auto auto;
+        grid-template-columns: auto minmax(0, 1fr) auto auto auto;
         grid-template-areas:
-          'marca nav nav nav'
-          '. crear tema acceso';
+          'marca nav nav nav nav'
+          '. crear idioma tema acceso';
         column-gap: 0.5rem;
         row-gap: 0.25rem;
         padding-block: 0.5rem;
@@ -262,9 +271,18 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
       header nav a {
         white-space: nowrap;
       }
+      /* En otros idiomas el texto es más largo: se parte en dos líneas en vez
+         de empujar los controles fuera de la pantalla. */
       .crear-evento {
         grid-area: crear;
         justify-self: end;
+        min-width: 0;
+        white-space: normal;
+        text-align: center;
+        line-height: 1.15;
+      }
+      app-selector-idioma {
+        grid-area: idioma;
       }
       app-theme-toggle {
         grid-area: tema;
@@ -321,7 +339,7 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
 export class PublicShell {
   protected readonly theming = inject(ThemingService);
   private readonly consentimiento = inject(CookieConsentService);
-  private readonly cabecera = viewChild.required<ElementRef<HTMLElement>>('cabecera');
+  private readonly cabecera = viewChild<ElementRef<HTMLElement>>('cabecera');
 
   constructor() {
     // Publica el alto real de la cabecera fija en `--alto-cabecera-publica`
@@ -329,9 +347,15 @@ export class PublicShell {
     // ocupa dos filas, o tres si los enlaces se parten: un valor fijo en CSS
     // dejaría el contenido pegado tapado por la cabecera. Solo en el
     // navegador; en el servidor manda el valor por defecto del CSS.
-    const destroyRef = inject(DestroyRef);
-    afterNextRender(() => {
-      const cabecera = this.cabecera().nativeElement;
+    //
+    // Se vuelve a enganchar cada vez que cambia el elemento: `*transloco`
+    // recrea la vista al cargar los textos, y un observador sobre la cabecera
+    // anterior (ya fuera del documento) publicaría 0 px para siempre.
+    afterRenderEffect((alLimpiar) => {
+      const cabecera = this.cabecera()?.nativeElement;
+      if (!cabecera) {
+        return;
+      }
       const publicar = (): void =>
         document.documentElement.style.setProperty(
           '--alto-cabecera-publica',
@@ -343,7 +367,7 @@ export class PublicShell {
       }
       const observador = new ResizeObserver(publicar);
       observador.observe(cabecera);
-      destroyRef.onDestroy(() => observador.disconnect());
+      alLimpiar(() => observador.disconnect());
     });
   }
 

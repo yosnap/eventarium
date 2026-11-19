@@ -1,33 +1,51 @@
 import { Injectable } from '@angular/core';
 import { Translation, TranslocoLoader } from '@jsverse/transloco';
-import { Observable, of } from 'rxjs';
+import { Observable, from, of } from 'rxjs';
 
 import esES from '../../../../public/assets/i18n/es-ES.json';
+import { environment } from '../../../environments/environment';
+import { IDIOMA_POR_DEFECTO, Idioma, esIdioma } from './idioma';
+import { pseudoIdiomaPedido, pseudoTraduccion } from './pseudo-idioma';
 
 /**
- * Traducciones incluidas en el paquete.
+ * Traducciones de la interfaz.
  *
- * Se importan en lugar de descargarlas por HTTP. Cargarlas por red obliga a construir
- * una URL absoluta durante el renderizado en servidor, y cualquier fallo ahí tumba la
- * página entera con «Unable to load translation». Al importarlas, servidor y navegador
- * usan exactamente lo mismo, no hay petición que falle y se ahorra una ida y vuelta
- * antes del primer pintado.
+ * - El idioma por defecto va dentro del paquete principal: quien navega en español
+ *   no espera ninguna descarga y el SSR no depende de una URL absoluta.
+ * - Cada otro idioma es un chunk aparte (`import()`), del mismo origen y cacheable:
+ *   quien navega en español no descarga el inglés.
  *
- * El fichero JSON sigue siendo la única fuente: para añadir un idioma, se añade su
- * fichero y su entrada en este mapa.
+ * El mapa es cerrado e indexado por el catálogo: ningún valor del cliente decide qué
+ * fichero se carga. Si un idioma no carga, se muestra en español en vez de romper la
+ * página (en SSR, un error aquí sería un 500).
  */
-const TRADUCCIONES: Readonly<Record<string, Translation>> = {
-  'es-ES': esES as Translation,
+const CARGADORES: Readonly<Partial<Record<Idioma, () => Promise<unknown>>>> = {
+  'en-US': () => import('../../../../public/assets/i18n/en-US.json'),
 };
+
+function comoTraduccion(modulo: unknown): Translation {
+  const valor = (modulo as { default?: unknown }).default ?? modulo;
+  return (valor ?? {}) as Translation;
+}
 
 @Injectable({ providedIn: 'root' })
 export class TraduccionesLoader implements TranslocoLoader {
   getTranslation(idioma: string): Observable<Translation> {
-    const traduccion = TRADUCCIONES[idioma];
-    if (!traduccion) {
-      throw new Error(`No hay traducciones para «${idioma}».`);
+    if (!esIdioma(idioma)) {
+      throw new Error(`«${idioma}» no es un idioma de la aplicación.`);
     }
-    // El contrato de Transloco espera un Observable, aunque el valor ya esté disponible.
-    return of(traduccion);
+    const cargar = CARGADORES[idioma];
+    if (idioma === IDIOMA_POR_DEFECTO || !cargar) {
+      if (idioma === IDIOMA_POR_DEFECTO && !environment.production && pseudoIdiomaPedido()) {
+        return of(pseudoTraduccion(esES as Translation));
+      }
+      return of(idioma === IDIOMA_POR_DEFECTO ? (esES as Translation) : {});
+    }
+    return from(
+      cargar().then(comoTraduccion, (error: unknown) => {
+        console.error(`[i18n] no se han podido cargar los textos en «${idioma}»`, error);
+        return {} as Translation;
+      }),
+    );
   }
 }

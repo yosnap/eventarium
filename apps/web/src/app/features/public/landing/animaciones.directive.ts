@@ -14,6 +14,7 @@ import { type GsapCargado, GsapLoader } from './gsap';
  * `reduce` no se crea ningún tween ni ScrollTrigger: el contenido queda tal
  * como lo sirvió el SSR. */
 const SIN_REDUCIR_MOVIMIENTO = '(prefers-reduced-motion: no-preference)';
+const REDUCIR_MOVIMIENTO = '(prefers-reduced-motion: reduce)';
 
 /**
  * Carga GSAP tras el primer render (nunca en SSR ni antes de hidratar, así el
@@ -36,14 +37,32 @@ abstract class AnimacionConScroll {
         contexto?.revert();
       });
       void carga.then((gsap) => {
-        if (!gsap || destruido) return;
+        if (destruido) return;
+        if (!gsap) {
+          // Sin GSAP no hay animación: lo que esperaba oculto se muestra ya.
+          this.mostrarSinAnimar();
+          return;
+        }
         contexto = gsap.gsap.matchMedia();
         contexto.add(SIN_REDUCIR_MOVIMIENTO, () => this.animar(gsap));
+        contexto.add(REDUCIR_MOVIMIENTO, () => this.mostrarSinAnimar());
       });
     });
   }
 
   protected abstract animar(gsap: GsapCargado): void;
+
+  /** Lo que parte oculto por CSS (ver `styles.css`) y no se va a animar. */
+  protected mostrarSinAnimar(): void {
+    // Por defecto nada: solo lo necesitan las animaciones que parten ocultas.
+  }
+}
+
+/** Quita el estado inicial que fija `styles.css` antes de que cargue GSAP. */
+function marcarLista(elementos: Iterable<HTMLElement>): void {
+  for (const elemento of elementos) {
+    elemento.classList.add('animacion-lista');
+  }
 }
 
 /**
@@ -92,17 +111,30 @@ const MARGEN_ENTRADA_MS = 2500;
 export class HeroEscena extends AnimacionConScroll {
   private readonly creadoEn = performance.now();
 
+  protected override mostrarSinAnimar(): void {
+    marcarLista(this.elemento.querySelectorAll<HTMLElement>('[data-entrada]'));
+  }
+
   protected animar({ gsap }: GsapCargado): void {
     const piezas = this.elemento.querySelectorAll<HTMLElement>('[data-entrada]');
     if (piezas.length > 0 && performance.now() - this.creadoEn < MARGEN_ENTRADA_MS) {
-      gsap.from(piezas, {
-        opacity: 0,
-        y: 28,
-        duration: 0.9,
-        ease: 'power3.out',
-        stagger: 0.09,
-        clearProps: 'opacity,transform',
-      });
+      // Parten de opacidad 0 desde el primer pintado (`styles.css`): la entrada
+      // solo las hace aparecer, nunca las oculta después de haberse visto.
+      gsap.fromTo(
+        piezas,
+        { opacity: 0, y: 28 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.9,
+          ease: 'power3.out',
+          stagger: 0.09,
+          clearProps: 'opacity,transform',
+          onStart: () => marcarLista(piezas),
+        },
+      );
+    } else {
+      marcarLista(piezas);
     }
     const contenido = this.elemento.querySelector<HTMLElement>('[data-hero-contenido]');
     if (contenido) {
@@ -164,6 +196,10 @@ export class Apilado extends AnimacionConScroll {
  */
 @Directive({ selector: '[appTextoRevelado]' })
 export class TextoRevelado extends AnimacionConScroll {
+  protected override mostrarSinAnimar(): void {
+    marcarLista([this.elemento]);
+  }
+
   protected animar({ gsap }: GsapCargado): void {
     const recorrido = document.createTreeWalker(this.elemento, NodeFilter.SHOW_TEXT);
     const nodos: Text[] = [];
@@ -195,5 +231,8 @@ export class TextoRevelado extends AnimacionConScroll {
         },
       },
     );
+    // `fromTo` ya ha dejado cada palabra atenuada (`immediateRender`): se quita el
+    // atenuado del bloque entero que `styles.css` fija desde el primer pintado.
+    marcarLista([this.elemento]);
   }
 }

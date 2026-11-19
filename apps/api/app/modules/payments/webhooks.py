@@ -78,7 +78,8 @@ async def stripe_webhook(request: Request) -> Response:
     try:
         evento = stripe_gateway.verificar_firma_webhook(payload=cuerpo, firma=firma)
     except ExternalServiceError as exc:
-        raise DomainError(exc.detail) from exc
+        # El único fallo que traduce `verificar_firma_webhook`: firma no válida.
+        raise DomainError("Firma de webhook no valida.") from exc
 
     # `stripe.Event` es un `StripeObject`, no un `dict`: `.get()` choca con su
     # propio bloqueo de métodos de `dict` (ver `stripe._stripe_object`).

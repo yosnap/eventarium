@@ -21,6 +21,10 @@ export interface PlatformBranding {
   readonly social_links: readonly SocialLink[];
   readonly theme_template_id: string | null;
   readonly theme: PlantillaDeTema | null;
+  /** Idiomas que ofrece la web pública (`/admin/idiomas`). Opcional: una respuesta
+   * anterior a estos ajustes no los trae y entonces cuentan todos. */
+  readonly enabled_locales?: readonly string[];
+  readonly language_switcher_visible?: boolean;
 }
 
 /** Respuesta de `GET /api/v1/tenant/branding`. */

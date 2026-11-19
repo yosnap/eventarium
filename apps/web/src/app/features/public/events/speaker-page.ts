@@ -25,6 +25,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Breadcrumb, type BreadcrumbItem } from '../../../shared/ui/breadcrumb';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 import { rolLegible } from './event-page.types';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 
 interface SocialLink {
   readonly kind: string;
@@ -94,7 +95,7 @@ function etiquetaEnlace(kind: string, traducir: (clave: string) => string): stri
 @Component({
   selector: 'app-speaker-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, TranslocoDirective, Alert, Breadcrumb, Reveal],
+  imports: [EnlacePipe, RouterLink, TranslocoDirective, Alert, Breadcrumb, Reveal],
   template: `
     <ng-container *transloco="let t">
       @if (cargando()) {
@@ -168,7 +169,9 @@ function etiquetaEnlace(kind: string, traducir: (clave: string) => string): stri
                   <span class="muted">{{ t('publico.ponentes.proxima') }}</span>
                   <a
                     class="valor-acento"
-                    [routerLink]="rutaEvento(proxima.organization.slug, proxima.event_slug)"
+                    [routerLink]="
+                      rutaEvento(proxima.organization.slug, proxima.event_slug) | enlace
+                    "
                     >{{ proxima.event_title }}</a
                   >
                 </div>
@@ -201,7 +204,7 @@ function etiquetaEnlace(kind: string, traducir: (clave: string) => string): stri
                   >
                     <div class="edicion__cabecera">
                       <h3>
-                        <a [routerLink]="rutaEvento(edicion.org, edicion.slug)">{{
+                        <a [routerLink]="rutaEvento(edicion.org, edicion.slug) | enlace">{{
                           edicion.title
                         }}</a>
                       </h3>
@@ -215,6 +218,7 @@ function etiquetaEnlace(kind: string, traducir: (clave: string) => string): stri
                           class="charla"
                           [routerLink]="
                             rutaEvento(edicion.org, edicion.slug, 'sesiones', sesion.session_id)
+                              | enlace
                           "
                         >
                           {{ sesion.session_title }}
@@ -581,6 +585,7 @@ export class SpeakerPage implements OnInit {
   private aplicar(perfil: PublicSpeakerProfile): void {
     this.perfil.set(perfil);
     this.seo.set({
+      contenidoDelOrganizador: true,
       title: perfil.display_name,
       description: perfil.fields['bio'] ?? this.transloco.translate('publico.eventos.sinResumen'),
     });

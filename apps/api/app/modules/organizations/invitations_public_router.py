@@ -41,7 +41,9 @@ router = APIRouter(prefix="/public/invitations", tags=["invitaciones"])
 async def get_invitation(token: str, session: SessionDep) -> InvitationPublicResponse:
     resuelto = await invitations_service.resolve_invitation_token(session, token)
     if resuelto.state != InvitationTokenState.VALIDA:
-        raise NotFoundError(invitations_service.mensaje_de_estado(resuelto.state))
+        raise NotFoundError(
+            invitations_service.mensaje_de_estado(resuelto.state)
+        )  # mensaje marcado
     return InvitationPublicResponse(
         organization_name=resuelto.organization_name or "",
         role_name=resuelto.role_name or "",
@@ -74,6 +76,7 @@ async def accept_invitation(
         first_name=datos.first_name,
         last_name=datos.last_name,
         password=datos.password,
+        locale=datos.locale,
     )
     organizacion = await session.get(Organization, miembro.organization_id)
     if organizacion is None:  # pragma: no cover - ya se acaba de crear la membresía sobre ella

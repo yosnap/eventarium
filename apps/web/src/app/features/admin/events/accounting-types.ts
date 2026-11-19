@@ -153,8 +153,8 @@ export interface ReceiptDraft {
 export const MOTOR_PENDIENTE = 'ai_gateway';
 
 /**
- * Formato compartido por todas las cifras de contabilidad: es-ES con
- * separador de miles y coma decimal, siempre dos decimales.
+ * Formato compartido por todas las cifras de contabilidad, en el idioma del
+ * panel: con separador de miles y siempre dos decimales.
  *
  * Sin separador de miles (`(cents/100).toFixed(2)`) las cifras eran cadenas
  * ininterrumpibles («21485000.00», sin un solo punto de ruptura) cuyo
@@ -164,13 +164,11 @@ export const MOTOR_PENDIENTE = 'ai_gateway';
  * El símbolo no va aquí: quien llama añade « €» (y varias traducciones ya lo
  * llevan), y `aCents()` de esta misma ficha sigue entendiendo el resultado.
  */
-const FORMATO_EURO = new Intl.NumberFormat('es-ES', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-export function euros(cents: number): string {
-  return FORMATO_EURO.format(cents / 100);
+export function euros(cents: number, idioma: string): string {
+  return new Intl.NumberFormat(idioma, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(cents / 100);
 }
 
 /** Un único separador seguido de exactamente 3 dígitos y nada más detrás es
@@ -221,9 +219,9 @@ export function aCents(texto: string): number | null {
 }
 
 /** Cifra con signo explícito, para las líneas de previsión (`+`/`−`). */
-export function eurosConSigno(cents: number): string {
+export function eurosConSigno(cents: number, idioma: string): string {
   const signo = cents > 0 ? '+ ' : cents < 0 ? '− ' : '';
-  return `${signo}${euros(Math.abs(cents))} €`;
+  return `${signo}${euros(Math.abs(cents), idioma)} €`;
 }
 
 /** Nombre de una partida por id, con el rótulo de «sin partida» ya traducido

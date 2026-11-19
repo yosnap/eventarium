@@ -6,6 +6,7 @@ import { TranslocoDirective } from '@jsverse/transloco';
 import { Chip } from '../../../../shared/ui/chip';
 import { Reveal } from '../../../../shared/ui/reveal.directive';
 import { EnDirectoService, type EventoEnDirecto } from '../en-directo.service';
+import { EnlacePipe } from '../../../../core/i18n/enlace.pipe';
 
 const CLAVE_FORMATO: Record<EventoEnDirecto['location_mode'], string> = {
   in_person: 'publico.eventos.formato.presencial',
@@ -16,7 +17,7 @@ const CLAVE_FORMATO: Record<EventoEnDirecto['location_mode'], string> = {
 @Component({
   selector: 'app-landing-en-directo',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Chip, Reveal],
+  imports: [EnlacePipe, TranslocoDirective, RouterLink, Chip, Reveal],
   template: `
     <ng-container *transloco="let t">
       <section class="landing-seccion" aria-labelledby="landing-directo-titulo">
@@ -35,7 +36,7 @@ const CLAVE_FORMATO: Record<EventoEnDirecto['location_mode'], string> = {
               <li appReveal [index]="i">
                 <a
                   class="landing-directo-tarjeta"
-                  [routerLink]="rutaEvento(evento.organization.slug, evento.slug)"
+                  [routerLink]="rutaEvento(evento.organization.slug, evento.slug) | enlace"
                 >
                   <span class="landing-directo-portada">
                     @if (evento.cover_url) {
@@ -64,7 +65,9 @@ const CLAVE_FORMATO: Record<EventoEnDirecto['location_mode'], string> = {
         } @else if (!servicio.cargando()) {
           <div class="landing-vacio">
             <p>{{ t('publico.landing.enDirecto.vacio') }}</p>
-            <a routerLink="/eventos">{{ t('publico.landing.enDirecto.vacioEnlace') }}</a>
+            <a [routerLink]="'/eventos' | enlace">{{
+              t('publico.landing.enDirecto.vacioEnlace')
+            }}</a>
           </div>
         }
       </section>

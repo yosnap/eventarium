@@ -14297,6 +14297,14 @@
           "notify_similar_events": {
             "type": "boolean",
             "title": "Notify Similar Events"
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Locale"
           }
         },
         "type": "object",
@@ -14310,7 +14318,8 @@
           "organization_id",
           "roles",
           "permissions",
-          "notify_similar_events"
+          "notify_similar_events",
+          "locale"
         ],
         "title": "CurrentUserResponse",
         "description": "Usuario autenticado en el contexto de la organización actual."
@@ -18382,6 +18391,16 @@
             "minLength": 8,
             "title": "Password",
             "description": "Contraseña: mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial"
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Locale",
+            "description": "Idioma de la cuenta. Si no se indica, 'es-ES'.",
+            "default": "es-ES"
           }
         },
         "type": "object",
@@ -21369,6 +21388,22 @@
                 "type": "null"
               }
             ]
+          },
+          "enabled_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Enabled Locales"
+          },
+          "language_switcher_visible": {
+            "type": "boolean",
+            "title": "Language Switcher Visible",
+            "default": true
           }
         },
         "type": "object",
@@ -21434,6 +21469,22 @@
                 "type": "null"
               }
             ]
+          },
+          "enabled_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Enabled Locales"
+          },
+          "language_switcher_visible": {
+            "type": "boolean",
+            "title": "Language Switcher Visible",
+            "default": true
           }
         },
         "type": "object",
@@ -21483,6 +21534,35 @@
               }
             ],
             "title": "Theme Template Id"
+          },
+          "enabled_locales": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "es-ES",
+                    "en-US"
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled Locales"
+          },
+          "language_switcher_visible": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language Switcher Visible"
           }
         },
         "type": "object",
@@ -24103,6 +24183,16 @@
             "type": "string",
             "title": "Turnstile Token",
             "description": "Token del widget de Turnstile"
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Locale",
+            "description": "Idioma de la cuenta. Si no se indica, 'es-ES'.",
+            "default": "es-ES"
           }
         },
         "type": "object",
@@ -27569,15 +27659,10 @@
             "title": "Last Name"
           },
           "locale": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 10,
-                "minLength": 2
-              },
-              {
-                "type": "null"
-              }
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
             ],
             "title": "Locale"
           },

@@ -6,6 +6,7 @@ import uuid
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
+from app.core.locale import DEFAULT_LOCALE, Locale
 from app.core.security import password_meets_complexity
 
 
@@ -64,6 +65,9 @@ class RegisterRequest(BaseModel):
         ),
     )
     turnstile_token: str = Field(description="Token del widget de Turnstile")
+    locale: Locale = Field(
+        default=DEFAULT_LOCALE, description="Idioma de la cuenta. Si no se indica, 'es-ES'."
+    )
 
     @field_validator("password")
     @classmethod

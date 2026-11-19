@@ -1,0 +1,30 @@
+{
+  "en-US": {
+    "evento": "event",
+    "inscripción": "registration",
+    "inscribirse": "register",
+    "entrada": "ticket",
+    "tipo de entrada": "ticket type",
+    "aforo": "capacity",
+    "lista de espera": "waitlist",
+    "organización": "organization",
+    "organizador": "organizer",
+    "ponente": "speaker",
+    "sesión": "session",
+    "programa": "schedule",
+    "sede": "venue",
+    "patrocinador": "sponsor",
+    "nivel de patrocinio": "sponsorship tier",
+    "panel": "dashboard",
+    "Mis eventos": "My events",
+    "políticas": "policies",
+    "acreditación": "check-in",
+    "justificante": "receipt",
+    "contabilidad": "accounting",
+    "presupuesto": "budget",
+    "reembolso": "refund",
+    "código de descuento": "discount code",
+    "plataforma": "platform",
+    "superadministrador": "superadmin"
+  }
+}

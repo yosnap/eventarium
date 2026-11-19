@@ -1,9 +1,18 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  input,
+  signal,
+  LOCALE_ID,
+} from '@angular/core';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
 import { Button } from '../../../shared/ui/button';
 import { Chip, ChipTone } from '../../../shared/ui/chip';
 import { ChangelogCategoria, ChangelogVersion } from './changelog.data';
+import { formatearFecha } from '../../../shared/text/formatear-fecha';
 
 const VERSIONES_POR_PAGINA = 6;
 
@@ -206,6 +215,8 @@ const VERSIONES_POR_PAGINA = 6;
   `,
 })
 export class ChangelogPanel {
+  /** Idioma de la visita, para fechas e importes. */
+  private readonly idioma = inject(LOCALE_ID);
   private readonly transloco = inject(TranslocoService);
 
   readonly versiones = input.required<readonly ChangelogVersion[]>();
@@ -260,6 +271,6 @@ export class ChangelogPanel {
   }
 
   protected fecha(iso: string): string {
-    return new Intl.DateTimeFormat('es-ES', { dateStyle: 'long' }).format(new Date(iso));
+    return formatearFecha(iso, this.idioma, { dateStyle: 'long' });
   }
 }

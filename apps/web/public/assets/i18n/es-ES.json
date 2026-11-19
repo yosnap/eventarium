@@ -1,6 +1,7 @@
 {
   "comun": {
     "saltarAlContenido": "Saltar al contenido principal",
+    "idioma": "Idioma",
     "cargando": "Cargando…",
     "cerrar": "Cerrar",
     "volver": "Volver",
@@ -1294,6 +1295,8 @@
         "nombre": "Nombre",
         "apellidos": "Apellidos",
         "exito": "Perfil actualizado.",
+        "idioma": "Idioma",
+        "idiomaPista": "Idioma del panel y de los correos que recibes. Al guardar, el panel se recarga en el idioma elegido.",
         "avisarmeEventosSimilares": "Avisarme de eventos similares",
         "avisarmeEventosSimilaresPista": "Guardamos tu preferencia ya; todavía no enviamos avisos automáticos."
       },
@@ -2320,6 +2323,20 @@
       "cabeceraMarca": "cobra las inscripciones de pago"
     },
     "plataforma": {
+      "idiomas": {
+        "titulo": "Idiomas",
+        "rotulo": "Idiomas",
+        "descripcion": "Idiomas en los que se ofrece la web pública y selector de idioma de la cabecera y el pie. El español es el idioma por defecto y no se puede desactivar.",
+        "activos": "Idiomas activos",
+        "activosLeyenda": "La web pública se ofrece en",
+        "porDefecto": "Idioma por defecto: sus páginas no llevan prefijo en la URL.",
+        "prefijo": "Sus páginas cuelgan de {{ prefijo }}. Si lo desactivas, esas direcciones dan error 404.",
+        "selector": "Mostrar el selector de idioma",
+        "selectorPista": "En la cabecera y el pie de la web pública. Si lo ocultas, los idiomas activos siguen disponibles en sus direcciones.",
+        "guardado": "Ajustes de idioma guardados.",
+        "errorCarga": "No hemos podido cargar los ajustes de idioma.",
+        "errorGuardar": "No hemos podido guardar los ajustes de idioma."
+      },
       "identidad": {
         "titulo": "Identidad de la plataforma",
         "descripcion": "Nombre, logotipo y favicon de la web de Eventarium. Es la marca de la instalación, no la de una organización. La plantilla del chrome se elige en «Plantillas de tema».",

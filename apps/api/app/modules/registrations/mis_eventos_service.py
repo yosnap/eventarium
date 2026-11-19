@@ -11,6 +11,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.locale import idioma_actual
 from app.core.tasks import (
     send_mis_eventos_access_email,
 )
@@ -47,7 +48,8 @@ async def request_mis_eventos_access(session: AsyncSession, *, email: str) -> No
         token = await generate_token(
             PROPOSITO_MIS_EVENTOS_ACCESO, email_normalizado, ttl=TTL_MIS_EVENTOS_ACCESO
         )
-        await send_mis_eventos_access_email.kiq(email_normalizado, token)
+        # Puede no haber cuenta detrás del correo: el idioma de la página que lo pide.
+        await send_mis_eventos_access_email.kiq(email_normalizado, token, locale=idioma_actual())
 
 
 async def list_mis_eventos(session: AsyncSession, *, token: str) -> list[MyRegistrationItem]:

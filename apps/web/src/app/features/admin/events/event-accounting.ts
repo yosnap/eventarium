@@ -7,6 +7,7 @@ import {
   inject,
   input,
   signal,
+  LOCALE_ID,
 } from '@angular/core';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
@@ -92,7 +93,7 @@ interface KpiVisible {
               : t('admin.events.accounting.cabecera.negativoInicio')
           }}
           <span class="mark">{{
-            t('admin.events.accounting.cabecera.saldoMarca', { saldo: euros(saldo()) })
+            t('admin.events.accounting.cabecera.saldoMarca', { saldo: this.euros(saldo()) })
           }}</span>
           <div acciones>
             <app-button variant="secundario" type="button" (pulsado)="exportar('csv')">
@@ -153,8 +154,8 @@ interface KpiVisible {
               @for (punto of r.evolucion_temporal; track punto.periodo) {
                 <tr>
                   <td>{{ punto.periodo }}</td>
-                  <td class="numerica">{{ euros(punto.ingresos_cents) }} €</td>
-                  <td class="numerica">{{ euros(punto.gastos_cents) }} €</td>
+                  <td class="numerica">{{ this.euros(punto.ingresos_cents) }} €</td>
+                  <td class="numerica">{{ this.euros(punto.gastos_cents) }} €</td>
                 </tr>
               }
             </app-data-table>
@@ -271,6 +272,7 @@ interface KpiVisible {
   `,
 })
 export class EventAccounting implements OnInit {
+  private readonly idioma = inject(LOCALE_ID);
   readonly eventId = input.required<string>();
 
   private readonly http = inject(HttpClient);
@@ -291,7 +293,7 @@ export class EventAccounting implements OnInit {
   protected readonly creandoPartida = signal(false);
   protected readonly errorPartida = signal<string | null>(null);
 
-  protected readonly euros = euros;
+  protected readonly euros = (cents: number): string => euros(cents, this.idioma);
 
   protected readonly totalIngresos = computed(() => this.ingresos()?.total_ingresos_cents ?? 0);
   protected readonly totalComprometido = computed(() =>
@@ -355,29 +357,29 @@ export class EventAccounting implements OnInit {
     return [
       {
         rotulo: t('admin.events.accounting.kpis.presupuesto'),
-        valor: `${euros(r.total_budgeted_cents)} €`,
+        valor: `${this.euros(r.total_budgeted_cents)} €`,
         descriptor: r.budget_approved_at
           ? t('admin.events.accounting.kpis.presupuestoDescriptor', {
-              fecha: fechaRelativa(r.budget_approved_at),
+              fecha: fechaRelativa(r.budget_approved_at, this.idioma),
             })
           : null,
         tono: null,
       },
       {
         rotulo: t('admin.events.accounting.kpis.ejecutadoMetalico'),
-        valor: `${euros(this.ejecutadoMetalico())} €`,
+        valor: `${this.euros(this.ejecutadoMetalico())} €`,
         descriptor: null,
         tono: null,
       },
       {
         rotulo: t('admin.events.accounting.kpis.ejecutadoEnEspecie'),
-        valor: `${euros(r.ejecutado_en_especie_cents)} €`,
+        valor: `${this.euros(r.ejecutado_en_especie_cents)} €`,
         descriptor: null,
         tono: null,
       },
       {
         rotulo: t('admin.events.accounting.kpis.ejecutadoTotal'),
-        valor: `${euros(this.ejecutadoTotal())} €`,
+        valor: `${this.euros(this.ejecutadoTotal())} €`,
         descriptor:
           pctEjecutado !== null
             ? pctEjecutado === 0 && this.ejecutadoTotal() > 0
@@ -392,19 +394,19 @@ export class EventAccounting implements OnInit {
       },
       {
         rotulo: t('admin.events.accounting.kpis.ingresos'),
-        valor: `${euros(this.totalIngresos())} €`,
+        valor: `${this.euros(this.totalIngresos())} €`,
         descriptor: null,
         tono: null,
       },
       {
         rotulo: t('admin.events.accounting.kpis.comprometido'),
-        valor: `${euros(this.totalComprometido())} €`,
+        valor: `${this.euros(this.totalComprometido())} €`,
         descriptor: null,
         tono: null,
       },
       {
         rotulo: t('admin.events.accounting.kpis.saldo'),
-        valor: euros(this.saldo()) + ' €',
+        valor: this.euros(this.saldo()) + ' €',
         descriptor: t('admin.events.accounting.kpis.saldoDescriptor'),
         tono: this.saldo() >= 0 ? 'accent' : 'warn',
       },
@@ -412,13 +414,13 @@ export class EventAccounting implements OnInit {
         rotulo: t('admin.events.accounting.kpis.contingencia'),
         valor:
           r.disponible_contingencia_cents !== null
-            ? `${euros(r.disponible_contingencia_cents)} €`
+            ? `${this.euros(r.disponible_contingencia_cents)} €`
             : '—',
         descriptor:
           r.contingency_fund_cents !== null
             ? t('admin.events.accounting.kpis.contingenciaDescriptor', {
-                fondo: euros(r.contingency_fund_cents),
-                consumido: euros(r.consumido_contingencia_cents),
+                fondo: this.euros(r.contingency_fund_cents),
+                consumido: this.euros(r.consumido_contingencia_cents),
               })
             : null,
         tono:

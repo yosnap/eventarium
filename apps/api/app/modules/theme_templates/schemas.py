@@ -15,6 +15,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.core.mensajes import ErrorDeValidacion
 from app.modules.theme_templates.accent_palette import UMBRAL_CROMA_MINIMO, hex_a_oklch
 
 MODOS_DE_PLANTILLA: tuple[str, str] = ("dark", "light")
@@ -104,6 +105,7 @@ def validar_tokens_de_plantilla(tokens: dict[str, Any]) -> dict[str, dict[str, s
     problema encontrado (Pydantic lo traduce a 422)."""
     claves_de_modo = set(tokens.keys())
     if claves_de_modo != set(MODOS_DE_PLANTILLA):
+        # mensaje interno: validación técnica del panel de plataforma.
         raise ValueError(
             f"«tokens» debe declarar exactamente los modos {MODOS_DE_PLANTILLA}, "
             f"y llegaron: {sorted(claves_de_modo)}."
@@ -112,23 +114,28 @@ def validar_tokens_de_plantilla(tokens: dict[str, Any]) -> dict[str, dict[str, s
     for modo in MODOS_DE_PLANTILLA:
         valores = tokens[modo]
         if not isinstance(valores, dict):
+            # mensaje interno: validación técnica del panel de plataforma.
             raise ValueError(f"El modo «{modo}» debe ser un objeto de token → color.")
 
         claves = set(valores.keys())
         faltantes = TOKENS_DE_PLANTILLA - claves
         desconocidas = claves - TOKENS_DE_PLANTILLA
         if faltantes:
+            # mensaje interno: validación técnica del panel de plataforma.
             raise ValueError(f"Faltan tokens en el modo «{modo}»: {sorted(faltantes)}.")
         if desconocidas:
+            # mensaje interno: validación técnica del panel de plataforma.
             raise ValueError(f"Tokens desconocidos en el modo «{modo}»: {sorted(desconocidas)}.")
 
         for token, valor in valores.items():
             if not isinstance(valor, str):
+                # mensaje interno: validación técnica del panel de plataforma.
                 raise ValueError(
                     f"El token «{token}» del modo «{modo}» debe ser una cadena de texto."
                 )
             if token in FAMILIAS_POR_TOKEN:
                 if valor.strip() not in FAMILIAS_POR_TOKEN[token]:
+                    # mensaje interno: validación técnica del panel de plataforma.
                     raise ValueError(
                         f"El token «{token}» del modo «{modo}» declara «{valor}», que no "
                         "es una familia autoalojada. Familias admitidas: "
@@ -136,12 +143,14 @@ def validar_tokens_de_plantilla(tokens: dict[str, Any]) -> dict[str, dict[str, s
                     )
             elif token in TOKENS_DE_SOMBRA:
                 if not es_formato_de_sombra_valido(valor):
+                    # mensaje interno: validación técnica del panel de plataforma.
                     raise ValueError(
                         f"El token «{token}» del modo «{modo}» tiene un formato de "
                         f"box-shadow no admitido: «{valor}». Se espera un box-shadow "
                         "completo con un color hex u oklch(...) embebido."
                     )
             elif not es_formato_de_color_valido(valor):
+                # mensaje interno: validación técnica del panel de plataforma.
                 raise ValueError(
                     f"El token «{token}» del modo «{modo}» tiene un formato de color no "
                     f"admitido: «{valor}». Se admite hex de 6 dígitos u oklch(...)."
@@ -165,14 +174,26 @@ def validar_theme_overrides(overrides: dict[str, Any] | None) -> dict[str, str] 
     if overrides is None:
         return None
 
+    # Lo edita el organizador desde la ficha del evento: mensajes traducibles,
+    # con los datos como parámetros.
     desconocidas = set(overrides.keys()) - CLAVES_DE_OVERRIDE
     if desconocidas:
-        raise ValueError(f"Claves de personalización desconocidas: {sorted(desconocidas)}.")
+        raise ErrorDeValidacion(
+            "Claves de personalización desconocidas: {claves}. Admitidas: {admitidas}.",
+            params={
+                "claves": ", ".join(sorted(desconocidas)),
+                "admitidas": ", ".join(sorted(CLAVES_DE_OVERRIDE)),
+            },
+        )
 
     if "accent" in overrides:
         valor = overrides["accent"]
         if not isinstance(valor, str) or not _HEX_6_SOLO_RE.match(valor.strip()):
-            raise ValueError(f"«accent» debe ser un color hex de 6 dígitos, y llegó «{valor!r}».")
+            raise ErrorDeValidacion(
+                "El color de acento debe ser un color hex de 6 dígitos (#rrggbb), "
+                "y llegó «{valor}».",
+                params={"valor": valor},
+            )
         _, croma, _ = hex_a_oklch(valor.strip())
         if croma < UMBRAL_CROMA_MINIMO:
             raise ValueError(
@@ -184,9 +205,14 @@ def validar_theme_overrides(overrides: dict[str, Any] | None) -> dict[str, str] 
         if token in overrides:
             valor = overrides[token]
             if not isinstance(valor, str) or valor.strip() not in familias:
-                raise ValueError(
-                    f"«{token}» declara «{valor!r}», que no es una familia autoalojada. "
-                    f"Admitidas: {sorted(familias)}."
+                raise ErrorDeValidacion(
+                    "«{token}» declara «{valor}», que no es una familia autoalojada. "
+                    "Admitidas: {admitidas}.",
+                    params={
+                        "token": token,
+                        "valor": valor,
+                        "admitidas": ", ".join(sorted(familias)),
+                    },
                 )
 
     return overrides

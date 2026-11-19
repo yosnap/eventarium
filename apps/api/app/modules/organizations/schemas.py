@@ -7,6 +7,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
+from app.core.codigos_de_idioma import IDENTIFICADORES_DE_IDIOMA
+from app.core.locale import DEFAULT_LOCALE, Locale
 from app.core.security import password_meets_complexity
 from app.modules.roles.schemas import ProfileFieldResponse
 
@@ -33,12 +35,22 @@ _RUTAS_DE_LA_APLICACION = frozenset(
         "cancelar-inscripcion", "check-in", "confirmar-promocion", "contabilidad",
         "correo", "crear-organizacion", "cuenta", "dashboard", "descuentos", "diseno",
         "editar", "entradas", "espacio-de-trabajo", "estilo", "eventos", "events", "ia",
-        "identidad", "inscripciones", "invitacion", "legal", "legales", "mcp", "members",
+        "identidad", "idiomas", "inscripciones", "invitacion", "legal", "legales", "mcp", "members",
         "mi-entrada", "mis-eventos", "oauth", "organization", "pago", "patrocinadores",
         "payments", "plantillas", "politicas", "ponentes", "recuperar-contrasena",
         "registrations", "registro", "roles", "servicios", "session-types", "sponsor-tiers",
         "stripe",
         "suplantar", "usuarios", "verificar-correo", "verificar-inscripcion", "vista-previa",
+    }
+)  # fmt: skip
+# Las mismas rutas públicas en los otros idiomas (`core/i18n/rutas-traducidas.ts`):
+# bajo `/en/` también compiten con el identificador de una organización.
+_RUTAS_EN_OTROS_IDIOMAS = frozenset(
+    {
+        "account", "cancel-registration", "confirm-promotion", "create-organization",
+        "events", "forgot-password", "invitation", "legal", "login", "my-events",
+        "my-ticket", "payment", "preview", "signup", "speakers", "verify-email",
+        "verify-registration",
     }
 )  # fmt: skip
 _RUTAS_DEL_PROXY = frozenset({"healthz", ".well-known", "media"})
@@ -83,6 +95,8 @@ RESERVED_SLUGS = (
     | _RUTAS_DE_LA_APLICACION
     | _RUTAS_DEL_PROXY
     | _TERMINOS_DE_CONFIANZA
+    | IDENTIFICADORES_DE_IDIOMA
+    | _RUTAS_EN_OTROS_IDIOMAS
 )
 
 
@@ -339,6 +353,9 @@ class InvitationAcceptRequest(BaseModel):
         description=(
             "Contraseña: mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial"
         ),
+    )
+    locale: Locale = Field(
+        default=DEFAULT_LOCALE, description="Idioma de la cuenta. Si no se indica, 'es-ES'."
     )
 
     @field_validator("password")

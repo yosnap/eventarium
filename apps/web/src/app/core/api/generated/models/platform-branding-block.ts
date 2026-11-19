@@ -11,7 +11,9 @@ import { ResolvedTheme } from '../models/resolved-theme';
  * esta — solo la de la instalación.
  */
 export interface PlatformBrandingBlock {
+  enabled_locales?: Array<'es-ES' | 'en-US'>;
   favicon_url?: (string | null);
+  language_switcher_visible?: boolean;
   logo_url?: (string | null);
   name: string;
   social_links?: Array<{

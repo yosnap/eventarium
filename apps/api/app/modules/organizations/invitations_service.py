@@ -22,7 +22,9 @@ from enum import StrEnum
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import set_organization_context
+from app.core.database import maintenance_session, set_organization_context
+from app.core.locale import DEFAULT_LOCALE, Locale, idioma_actual, normalizar_locale
+from app.core.mensajes import marcar
 from app.core.permissions import Permission
 from app.core.security import hash_password
 from app.modules.auth.verification import (
@@ -139,7 +141,9 @@ async def create_invitation(
     # Correo sin cuenta → cuenta sin contraseña (lo que `add_member` ya hacía)
     # más la invitación como estado. Sin membresía todavía: esa nace al
     # aceptar (fase 2), no aquí.
-    usuario = User(email=correo, is_active=True)
+    # Hasta que acepte y elija el suyo, la cuenta tiene el idioma de quien invita:
+    # el reenvío de la invitación sale así en el mismo idioma que la primera.
+    usuario = User(email=correo, is_active=True, locale=idioma_actual())
     session.add(usuario)
     await session.flush()
 
@@ -163,6 +167,23 @@ async def create_invitation(
     await session.flush()
 
     return InvitationResult(member=None, invitation=invitacion, token=token)
+
+
+async def idioma_de_la_invitacion(email: str) -> Locale:
+    """Idioma del correo de invitación: el de la cuenta con ese correo si ya
+    existe (`users.locale`); si no, el de la petición.
+
+    Con la sesión de mantenimiento, como `auth.service.idioma_de_cuenta`: bajo
+    RLS quien invita no ve la fila de alguien que aún no está en su
+    organización. La cuenta que `create_invitation` acaba de crear en la
+    transacción en curso no es visible desde aquí, y cae en el de la petición,
+    que es el mismo con el que se ha creado.
+    """
+    async with maintenance_session() as session:
+        valor = await session.scalar(
+            text("SELECT locale FROM users WHERE lower(email) = lower(:email)"), {"email": email}
+        )
+    return normalizar_locale(valor) if valor is not None else idioma_actual()
 
 
 async def _validar_evento(
@@ -389,10 +410,10 @@ def mensaje_de_estado(state: InvitationTokenState) -> str:
 
 
 _MENSAJE_TOKEN_INVALIDO: dict[InvitationTokenState, str] = {
-    InvitationTokenState.INVALIDA: "El enlace de invitación no es válido.",
-    InvitationTokenState.CADUCADA: "Esta invitación ha caducado. Pide que te envíen otra.",
-    InvitationTokenState.REVOCADA: "Esta invitación ha sido revocada.",
-    InvitationTokenState.ACEPTADA: "Esta invitación ya se aceptó.",
+    InvitationTokenState.INVALIDA: marcar("El enlace de invitación no es válido."),
+    InvitationTokenState.CADUCADA: marcar("Esta invitación ha caducado. Pide que te envíen otra."),
+    InvitationTokenState.REVOCADA: marcar("Esta invitación ha sido revocada."),
+    InvitationTokenState.ACEPTADA: marcar("Esta invitación ya se aceptó."),
     InvitationTokenState.VALIDA: "",  # nunca se usa: rama tratada aparte abajo
 }
 
@@ -404,13 +425,17 @@ async def accept_invitation(
     first_name: str,
     last_name: str,
     password: str,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> OrganizationMember:
-    """Fija nombre y contraseña, y crea la membresía. Idempotente.
+    """Fija nombre, contraseña e idioma, y crea la membresía. Idempotente.
 
     Aceptar dos veces con el mismo token no duplica la membresía: si la
     invitación ya está `aceptada`, se devuelve la fila existente sin volver a
     tocar la cuenta ni el rol — es justo lo que exige la fase 2 (doble clic,
-    recarga tras aceptar).
+    recarga tras aceptar), e incluye no reescribir `locale`.
+
+    `locale` tiene valor por defecto porque `test_invitaciones_ponente.py`
+    (fuera de esta fase) llama a esta función sin ese argumento.
     """
     resuelto = await resolve_invitation_token(session, token)
 
@@ -429,7 +454,7 @@ async def accept_invitation(
         raise ConflictError("Esta invitación ya se aceptó.")
 
     if resuelto.state != InvitationTokenState.VALIDA or resuelto.invitation is None:
-        raise ValidationDomainError(_MENSAJE_TOKEN_INVALIDO[resuelto.state])
+        raise ValidationDomainError(_MENSAJE_TOKEN_INVALIDO[resuelto.state])  # mensaje marcado
 
     if resuelto.account_has_password:
         # No debería llegarse aquí (la fase 1 no emite token si el correo ya
@@ -481,12 +506,13 @@ async def accept_invitation(
     )
 
     await session.execute(
-        text("SELECT app_accept_invited_user(:id, :hash, :first_name, :last_name)"),
+        text("SELECT app_accept_invited_user(:id, :hash, :first_name, :last_name, :locale)"),
         {
             "id": usuario_id,
             "hash": hash_password(password),
             "first_name": first_name.strip(),
             "last_name": last_name.strip(),
+            "locale": locale,
         },
     )
 

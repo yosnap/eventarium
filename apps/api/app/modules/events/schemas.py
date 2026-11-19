@@ -17,6 +17,7 @@ from pydantic import (
     model_validator,
 )
 
+from app.core.mensajes import marcar
 from app.modules.events.categories import normalizar_etiquetas
 from app.modules.nearby.schemas import PublicNearbyPlace
 from app.modules.organizations.schemas import SLUG_PATTERN, PublicOrganizationRef
@@ -52,6 +53,22 @@ _DOMINIOS_POR_PLATAFORMA: dict[str, tuple[str, ...]] = {
     "vimeo": ("vimeo.com",),
     "twitch": ("twitch.tv",),
 }
+# Un mensaje por plataforma, para que cada uno sea un literal traducible.
+_ENLACE_FUERA_DE_LA_PLATAFORMA: dict[str, str] = {
+    "youtube": marcar(
+        "El enlace del vídeo debe pertenecer a youtube.com o youtu.be para la plataforma «youtube»."
+    ),
+    "vimeo": marcar("El enlace del vídeo debe pertenecer a vimeo.com para la plataforma «vimeo»."),
+    "twitch": marcar(
+        "El enlace del vídeo debe pertenecer a twitch.tv para la plataforma «twitch»."
+    ),
+}
+# `null` explícito en campos de `EventUpdate` que no lo admiten.
+_NO_ADMITE_NULL: dict[str, str] = {
+    "contingency_fund_percent": marcar("`contingency_fund_percent` no admite `null`."),
+    "reminder_enabled": marcar("`reminder_enabled` no admite `null`."),
+    "reminder_hours_before": marcar("`reminder_hours_before` no admite `null`."),
+}
 
 
 def _validar_rango_de_fechas(starts_at: datetime, ends_at: datetime) -> None:
@@ -66,16 +83,13 @@ def validate_video_url(platform: str | None, url: str | None) -> None:
     if url is None:
         return
     if not url.startswith("https://"):
-        raise ValueError("El enlace del vídeo debe usar https.")
+        raise ValueError(marcar("El enlace del vídeo debe usar https."))
     dominios = _DOMINIOS_POR_PLATAFORMA.get(platform or "")
     if dominios is None:
         return
     host = (urlparse(url).hostname or "").lower()
     if not any(host == dominio or host.endswith(f".{dominio}") for dominio in dominios):
-        raise ValueError(
-            f"El enlace del vídeo debe pertenecer a {' o '.join(dominios)} "
-            f"para la plataforma «{platform}»."
-        )
+        raise ValueError(_ENLACE_FUERA_DE_LA_PLATAFORMA[platform or ""])  # mensaje marcado
 
 
 def validate_materials(materials: list[dict[str, Any]]) -> None:
@@ -83,7 +97,7 @@ def validate_materials(materials: list[dict[str, Any]]) -> None:
     for material in materials:
         url = material.get("url")
         if url is not None and not str(url).startswith("https://"):
-            raise ValueError("El enlace de cada material debe usar https.")
+            raise ValueError(marcar("El enlace de cada material debe usar https."))
 
 
 class EventCategoryOut(BaseModel):
@@ -267,9 +281,9 @@ class EventUpdate(BaseModel):
         # rompería la constraint `NOT NULL` — y ese `IntegrityError` lo
         # capturaba la rama de conflicto de `slug`, devolviendo un 409 con el
         # mensaje falso "ya existe un evento con el identificador «None»".
-        for campo in ("contingency_fund_percent", "reminder_enabled", "reminder_hours_before"):
+        for campo, mensaje in _NO_ADMITE_NULL.items():
             if campo in self.model_fields_set and getattr(self, campo) is None:
-                raise ValueError(f"`{campo}` no admite `null`.")
+                raise ValueError(mensaje)  # mensaje marcado
         return self
 
 

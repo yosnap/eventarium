@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import set_organization_context
+from app.core.mensajes import marcar
 from app.modules.auth.verification import PROPOSITO_CANCELACION_INSCRIPCION, peek_token
 from app.modules.events.models import Event
 from app.modules.payments import refunds_service
@@ -21,7 +22,7 @@ from app.modules.registrations.models import EventRegistration
 from app.modules.registrations.schemas import CancelPreviewResponse
 from app.shared.errors import ValidationDomainError
 
-_INVALIDO = "El enlace de cancelación no es válido o ha caducado."
+_INVALIDO = marcar("El enlace de cancelación no es válido o ha caducado.")
 
 
 async def vista_previa_de_cancelacion(
@@ -29,7 +30,7 @@ async def vista_previa_de_cancelacion(
 ) -> CancelPreviewResponse:
     bruto = await peek_token(PROPOSITO_CANCELACION_INSCRIPCION, token)
     if bruto is None:
-        raise ValidationDomainError(_INVALIDO)
+        raise ValidationDomainError(_INVALIDO)  # mensaje marcado
     registration_id = uuid.UUID(bruto)
     organization_id = await repository.resolve_registration_organization(session, registration_id)
     await set_organization_context(session, organization_id)
@@ -37,7 +38,7 @@ async def vista_previa_de_cancelacion(
     inscripcion = await session.get(EventRegistration, registration_id)
     evento = await session.get(Event, inscripcion.event_id) if inscripcion is not None else None
     if inscripcion is None or evento is None:
-        raise ValidationDomainError(_INVALIDO)
+        raise ValidationDomainError(_INVALIDO)  # mensaje marcado
 
     cancelable = inscripcion.status not in ("cancelled", "rejected")
     reembolso = (

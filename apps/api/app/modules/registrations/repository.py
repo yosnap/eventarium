@@ -14,6 +14,7 @@ from typing import Any
 from sqlalchemy import Select, and_, case, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.locale import DEFAULT_LOCALE
 from app.core.permissions import Permission
 from app.modules.events.models import Event
 from app.modules.organizations.models import Organization, OrganizationMember
@@ -504,15 +505,17 @@ async def guardar_aceptacion_de_politicas(
 
 async def correos_que_gestionan_inscripciones(
     session: AsyncSession, organization_id: uuid.UUID
-) -> list[str]:
-    """A quién avisar de una inscripción nueva: cada persona (una vez, aunque
-    tenga varios roles) con `registrations:write` en la organización, con la
-    cuenta activa y el correo verificado. Si no hay nadie, el correo de
-    contacto de la organización; si tampoco lo hay, nadie."""
-    correos = list(
-        (
-            await session.scalars(
-                select(User.email)
+) -> list[tuple[str, str]]:
+    """A quién avisar de una inscripción nueva, con el idioma de cada cuenta:
+    cada persona (una vez, aunque tenga varios roles) con `registrations:write`
+    en la organización, con la cuenta activa y el correo verificado. Si no hay
+    nadie, el correo de contacto de la organización, en el idioma por defecto
+    (no es una cuenta); si tampoco lo hay, nadie."""
+    correos = [
+        (correo, idioma)
+        for correo, idioma in (
+            await session.execute(
+                select(User.email, User.locale)
                 .distinct()
                 .join(OrganizationMember, OrganizationMember.user_id == User.id)
                 .join(RolePermission, RolePermission.role_id == OrganizationMember.role_id)
@@ -525,10 +528,10 @@ async def correos_que_gestionan_inscripciones(
                 .order_by(User.email)
             )
         ).all()
-    )
+    ]
     if correos:
         return correos
     contacto = await session.scalar(
         select(Organization.contact_email).where(Organization.id == organization_id)
     )
-    return [contacto] if contacto else []
+    return [(contacto, DEFAULT_LOCALE)] if contacto else []

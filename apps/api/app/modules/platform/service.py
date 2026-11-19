@@ -11,6 +11,7 @@ from __future__ import annotations
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.locale import LOCALES
 from app.core.storage import get_storage, public_url_versionada
 from app.modules.media.models import PlatformMedia
 from app.modules.platform import repository
@@ -78,6 +79,10 @@ async def branding_publico(session: AsyncSession) -> PlatformBrandingResponse:
         favicon_url=favicon_url,
         social_links=list(branding.social_links or []),
         theme_template_id=str(branding.theme_template_id) if branding.theme_template_id else None,
+        enabled_locales=[
+            locale for locale in LOCALES if locale in (branding.enabled_locales or [])
+        ],
+        language_switcher_visible=branding.language_switcher_visible,
         theme=(
             ThemeResolved(
                 id=str(tema.id),

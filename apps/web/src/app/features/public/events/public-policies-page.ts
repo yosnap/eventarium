@@ -24,6 +24,7 @@ import {
 import { seoDePagina } from '../../../core/seo/meta.service';
 import { MarkdownSeguro } from '../../../shared/legal/markdown-seguro';
 import { Alert } from '../../../shared/ui/alert';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 
 /**
  * Políticas y condiciones de un evento, tal como las fija su organizador.
@@ -37,12 +38,12 @@ import { Alert } from '../../../shared/ui/alert';
 @Component({
   selector: 'app-public-policies-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, DatePipe, MarkdownSeguro, Alert],
+  imports: [EnlacePipe, TranslocoDirective, RouterLink, DatePipe, MarkdownSeguro, Alert],
   template: `
     <ng-container *transloco="let t">
       <div class="ancho-maximo">
         <p class="volver">
-          <a [routerLink]="rutaAlEvento()">← {{ t('comun.volver') }}</a>
+          <a [routerLink]="rutaAlEvento() | enlace">← {{ t('comun.volver') }}</a>
         </p>
         <h1>{{ t('publico.politicas.titulo') }}</h1>
 
@@ -54,7 +55,7 @@ import { Alert } from '../../../shared/ui/alert';
           @if (d.policies.length === 0) {
             <p>{{ t('publico.politicas.sinTextos') }}</p>
             <p>
-              <a routerLink="/legal/condiciones-de-inscripcion">
+              <a [routerLink]="'/legal/condiciones-de-inscripcion' | enlace">
                 {{ t('publico.politicas.generales') }}
               </a>
             </p>

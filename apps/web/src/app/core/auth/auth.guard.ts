@@ -3,6 +3,7 @@ import { CanActivateFn, Router } from '@angular/router';
 
 import { ApiService } from '../api/api.service';
 import { AuthService } from './auth.service';
+import { IdiomaService } from '../i18n/idioma.service';
 
 /**
  * Protege las rutas del panel.
@@ -14,6 +15,7 @@ export const authGuard: CanActivateFn = async (_ruta, estado) => {
   const auth = inject(AuthService);
   const api = inject(ApiService);
   const router = inject(Router);
+  const idioma = inject(IdiomaService);
 
   // El panel es solo cliente: en SSR no hay cookie que consultar.
   if (api.isServer) {
@@ -28,7 +30,7 @@ export const authGuard: CanActivateFn = async (_ruta, estado) => {
     return true;
   }
 
-  return router.createUrlTree(['/acceder'], {
+  return router.createUrlTree(idioma.enlace(['/acceder']), {
     queryParams: { redirigir: estado.url },
   });
 };

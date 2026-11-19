@@ -117,7 +117,9 @@ def reescalar_imagen(contenido: bytes, mime: str, *, ancho_maximo_px: int) -> by
 
     formato = FORMATO_DE_PILLOW.get(mime)
     if formato is None:
-        raise DocumentoIlegible(f"Tipo de justificante no rasterizable: {mime}.")
+        raise DocumentoIlegible(
+            "Tipo de justificante no rasterizable: {mime}.", params={"mime": mime}
+        )
     try:
         with Image.open(io.BytesIO(contenido)) as imagen:
             if imagen.width <= ancho_maximo_px:
@@ -163,6 +165,8 @@ def preparar_para_ocr(
 
     extension = ALLOWED_IMAGE_MIMES.get(mime)
     if extension is None:
-        raise DocumentoIlegible(f"Tipo de justificante no rasterizable: {mime}.")
+        raise DocumentoIlegible(
+            "Tipo de justificante no rasterizable: {mime}.", params={"mime": mime}
+        )
     ajustada = reescalar_imagen(contenido, mime, ancho_maximo_px=ancho_maximo_px)
     return [ImagenParaOcr(contenido=ajustada, mime=mime, extension=extension)]

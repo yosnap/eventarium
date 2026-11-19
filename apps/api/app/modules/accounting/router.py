@@ -329,7 +329,9 @@ def uuid_o_422(valor: str, etiqueta: str) -> uuid.UUID:
     try:
         return uuid.UUID(valor)
     except ValueError as exc:
-        raise ValidationDomainError(f"«{etiqueta}» no es un identificador válido.") from exc
+        raise ValidationDomainError(
+            "«{etiqueta}» no es un identificador válido.", params={"etiqueta": etiqueta}
+        ) from exc
 
 
 @router.get(

@@ -245,6 +245,10 @@ jobs:
         working-directory: apps/web
         run: pnpm lint
 
+      - name: Traducciones de la interfaz
+        working-directory: apps/web
+        run: pnpm i18n:comprobar
+
       - name: Formato
         working-directory: apps/web
         run: pnpm format:check

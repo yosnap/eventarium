@@ -5,6 +5,8 @@ import { TranslocoDirective } from '@jsverse/transloco';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import type { PublicEventDetail } from './event-page.types';
+import { formatearFecha } from '../../../shared/text/formatear-fecha';
+import { IDIOMA_POR_DEFECTO } from '../../../core/i18n/idioma';
 
 /** Por qué un evento de pago no deja comprar ahora mismo. */
 export type MotivoSinVenta = 'cargando' | 'abre' | 'cerrada' | 'recargar' | 'error';
@@ -20,17 +22,6 @@ type EventoConVenta = Pick<
   'registration_mode' | 'ticket_sales' | 'ticket_sales_opens_at' | 'timezone'
 >;
 
-/** En la zona del evento, no en la del navegador: `DatePipe` no acepta nombres
- * IANA (`Europe/Madrid`) y caería en silencio a la hora local. */
-function fechaDeApertura(iso: string, zona: string): string {
-  const opciones: Intl.DateTimeFormatOptions = { dateStyle: 'long', timeStyle: 'short' };
-  try {
-    return new Intl.DateTimeFormat('es-ES', { ...opciones, timeZone: zona }).format(new Date(iso));
-  } catch {
-    return new Intl.DateTimeFormat('es-ES', opciones).format(new Date(iso));
-  }
-}
-
 /**
  * Aviso que sustituye la compra en un evento de pago sin entradas a la venta
  * ahora mismo, o `null` si se puede comprar (o el evento no es de pago).
@@ -45,6 +36,7 @@ export function avisoDeVenta(
   tiposVendibles: number | null,
   errorAlCargarTipos = false,
   ahora = Date.now(),
+  idioma: string = IDIOMA_POR_DEFECTO,
 ): AvisoDeVenta | null {
   if (evento.registration_mode !== 'paid' || (tiposVendibles ?? 0) > 0) {
     return null;
@@ -54,7 +46,14 @@ export function avisoDeVenta(
   }
   const abre = evento.ticket_sales_opens_at;
   if (evento.ticket_sales === 'upcoming' && abre && Date.parse(abre) > ahora) {
-    return { motivo: 'abre', fecha: fechaDeApertura(abre, evento.timezone) };
+    return {
+      motivo: 'abre',
+      fecha: formatearFecha(abre, idioma, {
+        dateStyle: 'long',
+        timeStyle: 'short',
+        timeZone: evento.timezone,
+      }),
+    };
   }
   if (evento.ticket_sales === 'closed') {
     return { motivo: 'cerrada', fecha: null };

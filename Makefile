@@ -1,4 +1,4 @@
-# Comandos de desarrollo de la plataforma IA Week.
+# Comandos de desarrollo de Eventarium.
 # Requisitos: docker, uv, pnpm, libmagic (ver docs/desarrollo.md).
 
 SHELL := /bin/bash

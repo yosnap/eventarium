@@ -95,7 +95,8 @@ async def create_organization(
     slug_limpio = datos.slug.strip().lower()
     if not _slug_valido(slug_limpio):
         raise ValidationDomainError(
-            f"El identificador «{slug_limpio}» no es válido o está reservado."
+            "El identificador «{slug}» no es válido o está reservado.",
+            params={"slug": slug_limpio},
         )
 
     organization_id = new_uuid7()
@@ -108,7 +109,9 @@ async def create_organization(
         # Condición de carrera con otra creación simultánea del mismo slug: el
         # `UNIQUE` de la base de datos es la única fuente de verdad, `check-slug` es
         # solo ayuda de UX.
-        raise ConflictError(f"El identificador «{slug_limpio}» ya está en uso.") from exc
+        raise ConflictError(
+            "El identificador «{slug}» ya está en uso.", params={"slug": slug_limpio}
+        ) from exc
 
     # La organización ya existe: se fija el contexto RLS a ella y el resto se hace con
     # el rol normal de la API, reutilizando exactamente el mismo código que el alta

@@ -3,6 +3,7 @@ import type { CanActivateFn, UrlMatchResult, UrlSegment } from '@angular/router'
 import { Router } from '@angular/router';
 
 import { PATRON_SLUG } from '../../../core/routing/rutas-publicas';
+import { IdiomaService } from '../../../core/i18n/idioma.service';
 
 /**
  * `/eventos/{slug}` y todo lo que cuelga de él (no el directorio `/eventos`):
@@ -15,7 +16,8 @@ import { PATRON_SLUG } from '../../../core/routing/rutas-publicas';
  * `/{org}` y `/{org}/{evento}`. Un guard que devuelve un `UrlTree` sí produce la
  * redirección real en el servidor sin afectar al resto.
  */
-export const enlaceAntiguoALaPortada: CanActivateFn = () => inject(Router).parseUrl('/');
+export const enlaceAntiguoALaPortada: CanActivateFn = () =>
+  inject(Router).parseUrl(inject(IdiomaService).enlace('/'));
 
 export function coincideConEnlaceAntiguo(segmentos: UrlSegment[]): UrlMatchResult | null {
   if (segmentos.length < 2 || segmentos[0].path !== 'eventos') {

@@ -671,15 +671,18 @@ async def request_speaker_bio(
     session: DbDep,
     organization_member_id: str,
 ) -> None:
-    correo = await speakers_repository.obtener_email_de_miembro_del_evento(
+    destinatario = await speakers_repository.obtener_correo_e_idioma_de_ponente(
         session,
         organization_id=evento.organization_id,
         event_id=evento.id,
         organization_member_id=uuid.UUID(organization_member_id),
     )
-    if correo is None:
+    if destinatario is None:
         raise NotFoundError("La persona no está en el roster de este evento.")
-    await send_speaker_bio_request_email.kiq(correo, str(evento.organization_id), evento.title)
+    correo, idioma = destinatario
+    await send_speaker_bio_request_email.kiq(
+        correo, str(evento.organization_id), evento.title, locale=idioma
+    )
 
 
 @router.get(
@@ -832,6 +835,7 @@ async def create_event_invitation(
             str(usuario.organization_id),
             organizacion.name,
             rol.name,
+            locale=await invitations_service.idioma_de_la_invitacion(resultado.invitation.email),
         )
     return InvitationCreateResponse(
         status="invited",

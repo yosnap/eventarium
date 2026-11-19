@@ -7,6 +7,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, BeforeValidator, Field, model_validator
 
+from app.core.mensajes import marcar
+
 NearbyKind = Literal["hotel", "restaurant", "bar", "parking", "transport", "pharmacy", "other"]
 _TELEFONO = r"^\+?[0-9 ().-]{6,20}$"
 _WEB = r"^https?://"
@@ -36,6 +38,13 @@ class NearbyPlaceCreate(_Campos):
         return self
 
 
+# `null` explícito en campos obligatorios de `NearbyPlaceUpdate`.
+_NO_ADMITE_NULL: dict[str, str] = {
+    "kind": marcar("`kind` no admite `null`."),
+    "name": marcar("`name` no admite `null`."),
+}
+
+
 class NearbyPlaceUpdate(_Campos):
     kind: NearbyKind | None = None
     name: (
@@ -44,9 +53,9 @@ class NearbyPlaceUpdate(_Campos):
 
     @model_validator(mode="after")
     def _sin_nulos_en_obligatorios(self) -> NearbyPlaceUpdate:
-        for campo in ("kind", "name"):
+        for campo, mensaje in _NO_ADMITE_NULL.items():
             if campo in self.model_fields_set and getattr(self, campo) is None:
-                raise ValueError(f"`{campo}` no admite `null`.")
+                raise ValueError(mensaje)  # mensaje marcado
         return self
 
 

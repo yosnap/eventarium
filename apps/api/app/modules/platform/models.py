@@ -16,9 +16,9 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, String, Text
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, String, Text
 from sqlalchemy import text as sa_text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -79,6 +79,17 @@ class PlatformBranding(Base, TimestampMixin):
     )
     social_links: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB, nullable=False, default=list, server_default=sa_text("'[]'::jsonb")
+    )
+    # Idiomas que ofrece la web pública; siempre incluye el de por defecto
+    # (`ck_platform_branding_enabled_locales`, migración `0072`).
+    enabled_locales: Mapped[list[str]] = mapped_column(
+        ARRAY(String(10)),
+        nullable=False,
+        default=lambda: ["es-ES", "en-US"],
+        server_default=sa_text("ARRAY['es-ES','en-US']::varchar[]"),
+    )
+    language_switcher_visible: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=sa_text("true")
     )
 
 

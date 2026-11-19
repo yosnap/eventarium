@@ -25,7 +25,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.database import set_organization_context
+from app.core.database import maintenance_session, set_organization_context
+from app.core.locale import Locale, normalizar_locale
 from app.core.redis_client import require_redis
 from app.core.security import (
     create_access_token,
@@ -448,7 +449,9 @@ async def _password_filtrada(password: str) -> bool:
     return False
 
 
-async def register_user(session: AsyncSession, *, email: str, password: str) -> None:
+async def register_user(
+    session: AsyncSession, *, email: str, password: str, locale: Locale
+) -> None:
     """Registra una cuenta y encola el correo de verificación.
 
     Siempre se comporta igual exista o no la cuenta ya: la respuesta al llamador no
@@ -482,11 +485,12 @@ async def register_user(session: AsyncSession, *, email: str, password: str) -> 
     user_id = new_uuid7()
     try:
         await session.execute(
-            text("SELECT app_create_unverified_user(:id, :email, :hash)"),
+            text("SELECT app_create_unverified_user(:id, :email, :hash, :locale)"),
             {
                 "id": user_id,
                 "email": email,
                 "hash": password_hash,
+                "locale": locale,
             },
         )
     except IntegrityError:
@@ -494,7 +498,22 @@ async def register_user(session: AsyncSession, *, email: str, password: str) -> 
         # `UNIQUE` de la base de datos es la única fuente de verdad. Misma respuesta.
         return
 
-    await enqueue_verification_email(user_id, email)
+    await enqueue_verification_email(user_id, email, locale=locale)
+
+
+async def idioma_de_cuenta(user_id: uuid.UUID) -> Locale:
+    """Idioma de la cuenta (`users.locale`), para escribirle en él.
+
+    Con la sesión de mantenimiento: quien pide el correo (recuperación,
+    reenvío, `superadmin`) no suele tener contexto RLS que le deje leer la fila,
+    y las funciones `SECURITY DEFINER` de búsqueda no devuelven el idioma. Solo
+    lee esa columna de esa fila. Sin cuenta, el idioma por defecto.
+    """
+    async with maintenance_session() as session:
+        valor = await session.scalar(
+            text("SELECT locale FROM users WHERE id = :id"), {"id": user_id}
+        )
+    return normalizar_locale(valor)
 
 
 async def verify_email(session: AsyncSession, *, token: str) -> uuid.UUID:
@@ -527,16 +546,22 @@ async def resend_verification(session: AsyncSession, *, email: str) -> None:
         await enqueue_verification_email(fila[0], email)
 
 
-async def enqueue_verification_email(user_id: uuid.UUID, email: str) -> None:
+async def enqueue_verification_email(
+    user_id: uuid.UUID, email: str, *, locale: Locale | None = None
+) -> None:
     """Genera un enlace de verificación nuevo y encola su envío.
 
     Sin comprobaciones propias: quien llama ya sabe que la cuenta existe y no
     está verificada (registro, reenvío público, banner del propio usuario o
     `/admin/usuarios`). Cada enlace nuevo anula el anterior: solo sirve el del
     último correo recibido.
+
+    `locale` solo hace falta en el registro, cuando la cuenta aún no se ha
+    confirmado en la base de datos; el resto lo lee de la cuenta.
     """
+    idioma = locale or await idioma_de_cuenta(user_id)
     token = await generate_single_token(PROPOSITO_VERIFICACION_CORREO, str(user_id), str(user_id))
-    await send_verification_email.kiq(email, token)
+    await send_verification_email.kiq(email, token, locale=idioma)
 
 
 async def verification_status(
@@ -596,8 +621,9 @@ async def change_email_request(
         raise ConflictError("Ese correo ya está en uso.")
 
     token = await generate_token(PROPOSITO_CAMBIO_CORREO, f"{user_id}:{nuevo}")
-    await send_email_change_warning.kiq(current_email, nuevo)
-    await send_email_change_confirmation.kiq(nuevo, token)
+    idioma = await idioma_de_cuenta(user_id)
+    await send_email_change_warning.kiq(current_email, nuevo, locale=idioma)
+    await send_email_change_confirmation.kiq(nuevo, token, locale=idioma)
 
 
 async def change_email_confirm(session: AsyncSession, *, token: str) -> uuid.UUID:
@@ -678,7 +704,7 @@ async def forgot_password(session: AsyncSession, *, email: str) -> None:
     ).first()
     if fila is not None:
         token = await generate_token(PROPOSITO_RECUPERAR_CONTRASENA, str(fila[0]))
-        await send_password_reset_email.kiq(email, token)
+        await send_password_reset_email.kiq(email, token, locale=await idioma_de_cuenta(fila[0]))
 
 
 async def reset_password(session: AsyncSession, *, token: str, new_password: str) -> None:

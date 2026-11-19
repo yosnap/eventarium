@@ -1,6 +1,13 @@
 import { DatePipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  signal,
+  LOCALE_ID,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { Select, type SelectOption } from '../../../shared/ui/select';
@@ -132,6 +139,8 @@ interface Page<T> {
   `,
 })
 export class EventsPage {
+  /** Idioma de la visita, para fechas e importes. */
+  private readonly idioma = inject(LOCALE_ID);
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
@@ -178,7 +187,7 @@ export class EventsPage {
     if (evento.price_from_cents == null || !evento.price_currency) {
       return traducir('admin.events.precioSinEntradas');
     }
-    const precio = formatearPrecio(evento.price_from_cents, evento.price_currency);
+    const precio = formatearPrecio(evento.price_from_cents, evento.price_currency, this.idioma);
     return evento.price_multiple ? traducir('admin.events.precioDesde', { precio }) : precio;
   }
 

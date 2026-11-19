@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  input,
+  LOCALE_ID,
+  inject,
+} from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
 
 import { Panel } from '../../../shared/ui/panel';
@@ -118,8 +125,9 @@ export class AccountingForecastPanel {
   readonly cobradoCents = input.required<number>();
   readonly pagadoCents = input.required<number>();
 
-  protected readonly euros = euros;
-  protected readonly eurosConSigno = eurosConSigno;
+  private readonly idioma = inject(LOCALE_ID);
+  protected readonly euros = (cents: number): string => euros(cents, this.idioma);
+  protected readonly eurosConSigno = (cents: number): string => eurosConSigno(cents, this.idioma);
 
   protected readonly cajaHoyCents = computed(() => this.cobradoCents() - this.pagadoCents());
 }

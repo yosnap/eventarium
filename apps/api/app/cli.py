@@ -24,7 +24,9 @@ from app.modules.organizations import service
 from app.modules.users.models import User
 from app.seed.demo import seed_demo
 
-app = typer.Typer(help="Utilidades de administración de la API de IA Week.", no_args_is_help=True)
+app = typer.Typer(
+    help="Utilidades de administración de la API de Eventarium.", no_args_is_help=True
+)
 
 
 @app.command()
@@ -257,6 +259,77 @@ def rotate_ai_encryption_key(
         fg=typer.colors.YELLOW,
         bold=True,
     )
+
+
+@app.command("traducir-interfaz")
+def traducir_interfaz(
+    organizacion: str = typer.Option(
+        ...,
+        "--organizacion",
+        help="Identificador de la organización a cuyo nombre se registra el gasto de IA.",
+    ),
+    idioma: str = typer.Option("en-US", "--idioma", help="Idioma de destino."),
+    simular: bool = typer.Option(
+        False, "--simular", help="Solo cuenta lo que haría, sin llamar a la IA."
+    ),
+    a_la_vez: int = typer.Option(
+        2, "--a-la-vez", help="Lotes que se piden a la vez (según lo que admita el proveedor)."
+    ),
+) -> None:
+    """Traduce con IA los textos de la interfaz web y los mensajes de la API pendientes.
+
+    Usa la IA configurada para la organización o, si hereda, la de la plataforma
+    (`/admin`). El gasto queda en el uso de IA de esa organización.
+    """
+    from app.core.locale import DEFAULT_LOCALE, LOCALES
+    from app.modules.organizations.models import Organization
+    from app.traduccion_de_interfaz import (
+        traducir,
+        traducir_servidor,
+        traductor_de_la_pasarela,
+    )
+
+    if idioma not in LOCALES or idioma == DEFAULT_LOCALE:
+        raise typer.BadParameter(f"«{idioma}» no es un idioma de destino del catálogo.")
+
+    async def _ejecutar() -> None:
+        async with maintenance_session() as session:
+            organization_id = await session.scalar(
+                select(Organization.id).where(Organization.slug == organizacion)
+            )
+        if organization_id is None:
+            raise typer.BadParameter(f"No existe la organización «{organizacion}».")
+        traductor = None if simular else traductor_de_la_pasarela(organization_id)
+        for titulo, funcion in (
+            ("Interfaz web", traducir),
+            ("Mensajes de la API", traducir_servidor),
+        ):
+            informe = await funcion(idioma, traductor, simular=simular, a_la_vez=a_la_vez)
+            typer.secho(titulo, bold=True)
+            typer.echo(f"  Por traducir: {informe.pendientes}")
+            if not simular:
+                typer.echo(f"  Traducidas: {informe.traducidas}")
+            if informe.sin_respuesta:
+                typer.secho(
+                    f"  Sin respuesta de la IA: {informe.sin_respuesta}. "
+                    "Vuelve a ejecutarlo para completarlas.",
+                    fg=typer.colors.YELLOW,
+                )
+            if informe.rechazadas:
+                typer.secho(
+                    f"  Rechazadas (variables distintas o vacías): {', '.join(informe.rechazadas)}",
+                    fg=typer.colors.YELLOW,
+                )
+            if informe.revisar:
+                typer.secho(
+                    "  Corregidas a mano cuyo original cambió (no se tocan, revísalas): "
+                    + ", ".join(informe.revisar),
+                    fg=typer.colors.YELLOW,
+                )
+            if informe.sobrantes:
+                typer.echo(f"  Ya no existen en español (se quitan): {len(informe.sobrantes)}")
+
+    asyncio.run(_ejecutar())
 
 
 if __name__ == "__main__":

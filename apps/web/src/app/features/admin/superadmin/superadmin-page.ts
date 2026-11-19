@@ -6,6 +6,7 @@ import {
   inject,
   signal,
   viewChild,
+  LOCALE_ID,
 } from '@angular/core';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { Dialog } from '../../../shared/ui/dialog';
@@ -27,6 +28,7 @@ import { Panel } from '../../../shared/ui/panel';
 import { ChangelogPanel } from './changelog-panel';
 import { CHANGELOG } from './changelog.data';
 import { MetricasDePlataforma } from './platform-metrics.types';
+import { formatearFecha } from '../../../shared/text/formatear-fecha';
 
 /** Un KPI ya resuelto (etiqueta y valor traducidos/formateados), listo para pintar. */
 interface KpiVisible {
@@ -385,6 +387,8 @@ const AUDIT_LOG_URL = '/admin/audit-log';
   `,
 })
 export class SuperadminPage {
+  /** Idioma de la visita, para fechas e importes. */
+  private readonly idioma = inject(LOCALE_ID);
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
@@ -517,16 +521,13 @@ export class SuperadminPage {
     if (!valor) {
       return '—';
     }
-    return new Intl.DateTimeFormat('es-ES', { dateStyle: 'short' }).format(new Date(valor));
+    return formatearFecha(valor, this.idioma, { dateStyle: 'short' });
   }
 
   /** Fecha y hora local de una entrada de auditoría: el ISO crudo con nanosegundos
    * y zona UTC no se lee de un vistazo, y es el dato que se mira primero. */
   protected fechaHora(iso: string): string {
-    return new Intl.DateTimeFormat('es-ES', {
-      dateStyle: 'short',
-      timeStyle: 'short',
-    }).format(new Date(iso));
+    return formatearFecha(iso, this.idioma, { dateStyle: 'short', timeStyle: 'short' });
   }
 
   /**

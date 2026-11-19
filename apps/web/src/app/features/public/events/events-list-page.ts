@@ -11,6 +11,7 @@ import {
   inject,
   makeStateKey,
   signal,
+  LOCALE_ID,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -29,6 +30,7 @@ import { Button } from '../../../shared/ui/button';
 import { Chip } from '../../../shared/ui/chip';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 import { Select, type SelectOption } from '../../../shared/ui/select';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 
 type LocationMode = 'in_person' | 'online' | 'hybrid';
 type FiltroModo = 'todos' | LocationMode;
@@ -148,7 +150,17 @@ function normalizarCiudad(ciudad: string): string {
 @Component({
   selector: 'app-events-list-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, RouterLink, TranslocoDirective, Alert, Button, Chip, Select, Reveal],
+  imports: [
+    EnlacePipe,
+    DatePipe,
+    RouterLink,
+    TranslocoDirective,
+    Alert,
+    Button,
+    Chip,
+    Select,
+    Reveal,
+  ],
   template: `
     <ng-container *transloco="let t">
       <section class="hero">
@@ -298,7 +310,7 @@ function normalizarCiudad(ciudad: string): string {
                 ) {
                   <a
                     class="ev"
-                    [routerLink]="rutaEvento(evento.organization.slug, evento.slug)"
+                    [routerLink]="rutaEvento(evento.organization.slug, evento.slug) | enlace"
                     appReveal
                     [index]="indice"
                   >
@@ -631,6 +643,8 @@ function normalizarCiudad(ciudad: string): string {
   `,
 })
 export class EventsListPage implements OnInit {
+  /** Idioma de la visita, para fechas e importes. */
+  private readonly idioma = inject(LOCALE_ID);
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transferState = inject(TransferState);
@@ -677,7 +691,7 @@ export class EventsListPage implements OnInit {
       const clave = normalizarCiudad(evento.city);
       if (!vistas.has(clave)) vistas.set(clave, evento.city);
     }
-    return [...vistas.values()].sort((a, b) => a.localeCompare(b, 'es'));
+    return [...vistas.values()].sort((a, b) => a.localeCompare(b, this.idioma));
   });
 
   /** Opciones del select de ciudad, con "todas" como primera opción
@@ -833,7 +847,7 @@ export class EventsListPage implements OnInit {
     if (evento.price_from_cents === null || evento.price_currency === null) {
       return traducir('publico.eventos.precio.pago');
     }
-    const precio = formatearPrecio(evento.price_from_cents, evento.price_currency);
+    const precio = formatearPrecio(evento.price_from_cents, evento.price_currency, this.idioma);
     return evento.price_multiple ? traducir('publico.eventos.precio.desde', { precio }) : precio;
   }
 

@@ -121,6 +121,12 @@ async def update_platform_identity(
     if datos.theme_template_id is not None:
         branding.theme_template_id = await _resolver_plantilla(session, datos.theme_template_id)
 
+    if datos.enabled_locales is not None:
+        branding.enabled_locales = list(datos.enabled_locales)
+
+    if datos.language_switcher_visible is not None:
+        branding.language_switcher_visible = datos.language_switcher_visible
+
     session.add(branding)
     await session.flush()
 
@@ -131,7 +137,11 @@ async def update_platform_identity(
         action="platform_identity.updated",
         entity_type="platform_branding",
         entity_id=str(branding.singleton),
-        detail={"name": branding.name},
+        detail={
+            "name": branding.name,
+            "enabled_locales": list(branding.enabled_locales),
+            "language_switcher_visible": branding.language_switcher_visible,
+        },
     )
     return await _branding(session)
 
@@ -144,7 +154,7 @@ async def _resolver_plantilla(session: AsyncSession, valor: str) -> uuid.UUID | 
         plantilla_id = uuid.UUID(valor)
     except ValueError as exc:
         raise ValidationDomainError(
-            f"«{valor}» no es un identificador de plantilla válido."
+            "«{valor}» no es un identificador de plantilla válido.", params={"valor": valor}
         ) from exc
     if await theme_templates_repository.get_theme_template(session, plantilla_id) is None:
         raise ValidationDomainError("La plantilla de tema no existe.")
