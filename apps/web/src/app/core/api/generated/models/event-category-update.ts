@@ -9,4 +9,7 @@ export interface EventCategoryUpdate {
   display_order?: (number | null);
   is_active?: (boolean | null);
   name?: (string | null);
+  name_i18n?: ({
+[key: string]: string;
+} | null);
 }

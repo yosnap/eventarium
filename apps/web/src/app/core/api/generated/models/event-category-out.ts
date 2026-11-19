@@ -10,5 +10,8 @@ export interface EventCategoryOut {
   id: string;
   is_active: boolean;
   name: string;
+  name_i18n?: {
+[key: string]: string;
+};
   slug: string;
 }

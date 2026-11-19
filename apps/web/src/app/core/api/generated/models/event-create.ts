@@ -22,6 +22,7 @@ export interface EventCreate {
   reminder_enabled?: boolean;
   reminder_hours_before?: (2 | 6 | 12 | 24 | 48 | 72 | null);
   slug: string;
+  source_locale?: ('es-ES' | 'en-US' | null);
   starts_at: string;
   status?: 'draft' | 'published' | 'archived';
   summary?: (string | null);

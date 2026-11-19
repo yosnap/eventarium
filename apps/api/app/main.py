@@ -77,6 +77,7 @@ from app.modules.sponsors.router import router_tiers as sponsor_tiers_router
 from app.modules.tenant.router import router as tenant_router
 from app.modules.tickets.public_router import router as tickets_public_router
 from app.modules.tickets.router import router as tickets_router
+from app.modules.translations.router import router as translations_router
 from app.modules.users.router import router as users_router
 from app.shared.errors import DomainError, register_exception_handlers
 
@@ -229,6 +230,7 @@ def create_app() -> FastAPI:
     api.include_router(legal_public_router)
     api.include_router(cookie_consent_router)
     api.include_router(accounting_router)
+    api.include_router(translations_router)
     api.include_router(accounting_drafts_router)
     api.include_router(ai_gateway_router)
     api.include_router(ai_catalog_router)

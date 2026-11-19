@@ -9,7 +9,8 @@ ya la tienen la conservan.
 from __future__ import annotations
 
 import uuid
-from typing import Annotated
+from collections.abc import Mapping
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.exc import IntegrityError
@@ -17,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import registrar_auditoria
 from app.core.deps import SCOPE_SESION, CurrentUser, get_maintenance_db, require_superadmin
+from app.core.locale import LOCALES, Locale
 from app.modules.events import categories
 from app.modules.events.models import EventCategory
 from app.modules.events.schemas import (
@@ -40,7 +42,17 @@ def _out(categoria: EventCategory) -> EventCategoryOut:
         name=categoria.name,
         display_order=categoria.display_order,
         is_active=categoria.is_active,
+        name_i18n=_traducciones(categoria.name_i18n),
     )
+
+
+def _traducciones(valor: Mapping[Any, str] | None) -> dict[Locale, str]:
+    """Solo idiomas del catálogo y sin textos vacíos."""
+    return {
+        locale: texto.strip()
+        for locale, texto in (valor or {}).items()
+        if locale in LOCALES and texto and texto.strip()
+    }
 
 
 @router.get(
@@ -71,6 +83,7 @@ async def create_event_category(
         name=datos.name,
         display_order=datos.display_order,
         is_active=datos.is_active,
+        name_i18n=_traducciones(datos.name_i18n),
     )
     session.add(categoria)
     try:
@@ -113,7 +126,7 @@ async def update_event_category(
         raise NotFoundError("La categoría no existe.")
     for campo, valor in datos.model_dump(exclude_unset=True).items():
         if valor is not None:
-            setattr(categoria, campo, valor)
+            setattr(categoria, campo, _traducciones(valor) if campo == "name_i18n" else valor)
     await session.flush()
     await registrar_auditoria(
         session,

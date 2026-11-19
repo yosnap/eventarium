@@ -11,6 +11,7 @@ export interface OrganizationResponse {
   address_public?: boolean;
   city?: (string | null);
   contact_email?: (string | null);
+  content_locales?: Array<'es-ES' | 'en-US'>;
   description?: (string | null);
   id: string;
   is_active: boolean;
@@ -21,5 +22,6 @@ export interface OrganizationResponse {
   public_page_enabled: boolean;
   slug: string;
   social_links?: Array<PublicSocialLink>;
+  source_locale?: 'es-ES' | 'en-US';
   website?: (string | null);
 }

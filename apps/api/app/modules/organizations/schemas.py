@@ -126,6 +126,9 @@ class OrganizationResponse(BaseModel):
     # tipos en vez de devolver un `false` falso.
     public_page_enabled: bool
     is_active: bool
+    # Idiomas en que publica su contenido y en cuál lo escribe.
+    content_locales: list[Locale] = Field(default_factory=lambda: [DEFAULT_LOCALE])
+    source_locale: Locale = DEFAULT_LOCALE
 
 
 class OrganizationUpdate(BaseModel):
@@ -144,6 +147,8 @@ class OrganizationUpdate(BaseModel):
     address_public: bool | None = None
     social_links: list[SocialLinkInput] | None = None
     public_page_enabled: bool | None = None
+    content_locales: Annotated[list[Locale], Field(min_length=1)] | None = None
+    source_locale: Locale | None = None
 
     @field_validator("social_links")
     @classmethod
@@ -156,7 +161,7 @@ class OrganizationUpdate(BaseModel):
         # Una dirección de solo espacios se guarda como «sin dirección».
         return (valor.strip() or None) if valor is not None else None
 
-    @field_validator("public_page_enabled", "address_public")
+    @field_validator("public_page_enabled", "address_public", "content_locales", "source_locale")
     @classmethod
     def _sin_null_en_el_interruptor(cls, valor: bool | None) -> bool | None:
         # Columna `NOT NULL`: un `null` explícito no significa «sin cambios»

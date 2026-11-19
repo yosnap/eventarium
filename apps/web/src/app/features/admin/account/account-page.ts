@@ -66,6 +66,7 @@ const TIPOS_DE_ENLACE = ['twitter', 'linkedin', 'instagram', 'web'] as const;
         <section id="ficha">
           @for (membresia of membresiasPublicables(); track membresia.organization_member_id) {
             <app-card [heading]="t('admin.cuenta.ficha.titulo', { rol: membresia.role_name })">
+              <p class="aviso-traduccion">{{ t('admin.cuenta.ficha.avisoTraduccion') }}</p>
               <app-member-profile-form
                 [organizationMemberId]="membresia.organization_member_id"
                 [prefijo]="'ficha-' + membresia.organization_member_id"

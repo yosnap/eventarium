@@ -38,6 +38,7 @@ export interface EventListItem {
   reminder_enabled: boolean;
   reminder_hours_before: number;
   slug: string;
+  source_locale?: 'es-ES' | 'en-US';
   starts_at: string;
   status: 'draft' | 'published' | 'archived' | 'cancelled';
   summary: (string | null);

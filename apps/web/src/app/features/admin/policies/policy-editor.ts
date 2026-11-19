@@ -15,6 +15,7 @@ import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Textarea } from '../../../shared/ui/textarea';
 import { LIMITE_CARACTERES } from './policies-types';
+import { PestanasDeIdioma } from '../../../shared/ui/pestanas-de-idioma';
 
 let contadorDeEditores = 0;
 
@@ -29,80 +30,82 @@ let contadorDeEditores = 0;
 @Component({
   selector: 'app-policy-editor',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, MarkdownSeguro, Alert, Button, Textarea],
+  imports: [TranslocoDirective, MarkdownSeguro, Alert, Button, PestanasDeIdioma, Textarea],
   template: `
     <ng-container *transloco="let t">
-      <div class="pestanas" role="tablist" [attr.aria-label]="etiqueta()">
-        <button
-          type="button"
-          role="tab"
-          [id]="id + '-tab-escribir'"
-          [attr.aria-controls]="id + '-escribir'"
-          [attr.aria-selected]="pestana() === 'escribir'"
-          (click)="pestana.set('escribir')"
-        >
-          {{ t('admin.politicas.escribir') }}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          [id]="id + '-tab-vista'"
-          [attr.aria-controls]="id + '-vista'"
-          [attr.aria-selected]="pestana() === 'vista'"
-          (click)="pestana.set('vista')"
-        >
-          {{ t('admin.politicas.vistaPrevia') }}
-        </button>
-      </div>
-
-      <div class="columnas" [class.muestra-vista]="pestana() === 'vista'">
-        <div
-          class="escribir"
-          role="tabpanel"
-          [id]="id + '-escribir'"
-          [attr.aria-labelledby]="id + '-tab-escribir'"
-        >
-          <app-textarea
-            [label]="etiqueta()"
-            [rows]="14"
-            [hint]="t('admin.politicas.ayudaMarkdown')"
-            [error]="demasiadoLargo() ? t('admin.politicas.demasiadoLargo') : null"
-            [(value)]="texto"
-          />
-          <p class="contador" [class.excedido]="demasiadoLargo()">
-            {{ t('admin.politicas.contador', { usados: texto().length, limite: limite }) }}
-          </p>
+      <app-pestanas-de-idioma tipo="policy_version" [entityId]="versionId()">
+        <div class="pestanas" role="tablist" [attr.aria-label]="etiqueta()">
+          <button
+            type="button"
+            role="tab"
+            [id]="id + '-tab-escribir'"
+            [attr.aria-controls]="id + '-escribir'"
+            [attr.aria-selected]="pestana() === 'escribir'"
+            (click)="pestana.set('escribir')"
+          >
+            {{ t('admin.politicas.escribir') }}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            [id]="id + '-tab-vista'"
+            [attr.aria-controls]="id + '-vista'"
+            [attr.aria-selected]="pestana() === 'vista'"
+            (click)="pestana.set('vista')"
+          >
+            {{ t('admin.politicas.vistaPrevia') }}
+          </button>
         </div>
-        <div
-          class="vista"
-          role="tabpanel"
-          [id]="id + '-vista'"
-          [attr.aria-labelledby]="id + '-tab-vista'"
-        >
-          @if (texto().trim()) {
-            <app-markdown-seguro [texto]="texto()" />
-          } @else {
-            <p class="vacio">{{ t('admin.politicas.vistaVacia') }}</p>
-          }
-        </div>
-      </div>
 
-      @if (afectaAEventoPublicado()) {
-        <app-alert tone="info">{{ t('admin.politicas.avisoEventoPublicado') }}</app-alert>
-      }
-      @if (error(); as mensaje) {
-        <app-alert tone="error">{{ mensaje }}</app-alert>
-      }
-      <div class="acciones">
-        <app-button
-          [loading]="guardando()"
-          [disabled]="!sePuedeGuardar()"
-          (pulsado)="guardar.emit(texto())"
-        >
-          {{ guardando() ? t('admin.politicas.guardando') : t('comun.guardar') }}
-        </app-button>
-        <ng-content select="[acciones]" />
-      </div>
+        <div class="columnas" [class.muestra-vista]="pestana() === 'vista'">
+          <div
+            class="escribir"
+            role="tabpanel"
+            [id]="id + '-escribir'"
+            [attr.aria-labelledby]="id + '-tab-escribir'"
+          >
+            <app-textarea
+              [label]="etiqueta()"
+              [rows]="14"
+              [hint]="t('admin.politicas.ayudaMarkdown')"
+              [error]="demasiadoLargo() ? t('admin.politicas.demasiadoLargo') : null"
+              [(value)]="texto"
+            />
+            <p class="contador" [class.excedido]="demasiadoLargo()">
+              {{ t('admin.politicas.contador', { usados: texto().length, limite: limite }) }}
+            </p>
+          </div>
+          <div
+            class="vista"
+            role="tabpanel"
+            [id]="id + '-vista'"
+            [attr.aria-labelledby]="id + '-tab-vista'"
+          >
+            @if (texto().trim()) {
+              <app-markdown-seguro [texto]="texto()" />
+            } @else {
+              <p class="vacio">{{ t('admin.politicas.vistaVacia') }}</p>
+            }
+          </div>
+        </div>
+
+        @if (afectaAEventoPublicado()) {
+          <app-alert tone="info">{{ t('admin.politicas.avisoEventoPublicado') }}</app-alert>
+        }
+        @if (error(); as mensaje) {
+          <app-alert tone="error">{{ mensaje }}</app-alert>
+        }
+        <div class="acciones">
+          <app-button
+            [loading]="guardando()"
+            [disabled]="!sePuedeGuardar()"
+            (pulsado)="guardar.emit(texto())"
+          >
+            {{ guardando() ? t('admin.politicas.guardando') : t('comun.guardar') }}
+          </app-button>
+          <ng-content select="[acciones]" />
+        </div>
+      </app-pestanas-de-idioma>
     </ng-container>
   `,
   styles: `
@@ -174,6 +177,8 @@ let contadorDeEditores = 0;
 export class PolicyEditor {
   /** Nombre visible del documento (etiqueta del campo). */
   readonly etiqueta = input.required<string>();
+  /** Versión vigente del texto: la que se traduce en las pestañas de idioma. */
+  readonly versionId = input<string | null>(null);
   /** Texto guardado; se copia al editor cada vez que cambia. */
   readonly valor = input('');
   readonly guardando = input(false);

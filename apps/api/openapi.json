@@ -11386,6 +11386,264 @@
         }
       }
     },
+    "/api/v1/translations/{entity_type}/{entity_id}": {
+      "get": {
+        "tags": [
+          "traducciones"
+        ],
+        "summary": "Textos de una entidad en un idioma",
+        "operationId": "get_translations_api_v1_translations__entity_type___entity_id__get",
+        "parameters": [
+          {
+            "name": "entity_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Entity Type"
+            }
+          },
+          {
+            "name": "entity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Entity Id"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "description": "Idioma de la traducción",
+              "title": "Locale"
+            },
+            "description": "Idioma de la traducción"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationEditor"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "traducciones"
+        ],
+        "summary": "Guardar las traducciones escritas a mano",
+        "operationId": "save_translations_api_v1_translations__entity_type___entity_id__put",
+        "parameters": [
+          {
+            "name": "entity_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Entity Type"
+            }
+          },
+          {
+            "name": "entity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Entity Id"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "description": "Idioma de la traducción",
+              "title": "Locale"
+            },
+            "description": "Idioma de la traducción"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TranslationSave"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationEditor"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/translations/{entity_type}/{entity_id}/review": {
+      "post": {
+        "tags": [
+          "traducciones"
+        ],
+        "summary": "Marcar una traducción como revisada",
+        "operationId": "review_translation_api_v1_translations__entity_type___entity_id__review_post",
+        "parameters": [
+          {
+            "name": "entity_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Entity Type"
+            }
+          },
+          {
+            "name": "entity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Entity Id"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "description": "Idioma de la traducción",
+              "title": "Locale"
+            },
+            "description": "Idioma de la traducción"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TranslationReview"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationEditor"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/translations/events/{event_id}/summary": {
+      "get": {
+        "tags": [
+          "traducciones"
+        ],
+        "summary": "Cuántos textos del evento están al día en cada idioma",
+        "operationId": "event_translation_summary_api_v1_translations_events__event_id__summary_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventTranslationSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/accounting/events/{event_id}/expense-drafts": {
       "post": {
         "tags": [
@@ -15193,6 +15451,20 @@
             "type": "boolean",
             "title": "Is Active",
             "default": true
+          },
+          "name_i18n": {
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "propertyNames": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "object",
+            "title": "Name I18N"
           }
         },
         "type": "object",
@@ -15223,6 +15495,19 @@
           "is_active": {
             "type": "boolean",
             "title": "Is Active"
+          },
+          "name_i18n": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "object",
+            "title": "Name I18N"
           }
         },
         "type": "object",
@@ -15274,6 +15559,27 @@
               }
             ],
             "title": "Is Active"
+          },
+          "name_i18n": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string",
+                  "maxLength": 80
+                },
+                "propertyNames": {
+                  "enum": [
+                    "es-ES",
+                    "en-US"
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name I18N"
           }
         },
         "type": "object",
@@ -15294,6 +15600,21 @@
             "maxLength": 200,
             "minLength": 1,
             "title": "Title"
+          },
+          "source_locale": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "es-ES",
+                  "en-US"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Locale"
           },
           "summary": {
             "anyOf": [
@@ -15564,6 +15885,15 @@
             },
             "type": "array",
             "title": "Tags"
+          },
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale",
+            "default": "es-ES"
           },
           "title": {
             "type": "string",
@@ -16085,6 +16415,15 @@
             },
             "type": "array",
             "title": "Tags"
+          },
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale",
+            "default": "es-ES"
           },
           "title": {
             "type": "string",
@@ -16850,12 +17189,53 @@
         "title": "EventSpeakersViewOut",
         "description": "Vista agregada de ponentes, con el total de sesiones del evento."
       },
+      "EventTranslationSummary": {
+        "properties": {
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale"
+          },
+          "locales": {
+            "items": {
+              "$ref": "#/components/schemas/LocaleProgress"
+            },
+            "type": "array",
+            "title": "Locales"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_locale",
+          "locales"
+        ],
+        "title": "EventTranslationSummary",
+        "description": "«Inglés: 12/14 campos al día» en la ficha del evento."
+      },
       "EventUpdate": {
         "properties": {
           "mover_sesiones": {
             "type": "boolean",
             "title": "Mover Sesiones",
             "default": false
+          },
+          "source_locale": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "es-ES",
+                  "en-US"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Locale"
           },
           "title": {
             "anyOf": [
@@ -18605,6 +18985,33 @@
         "title": "LegalPageResponse",
         "description": "Contenido efectivo (editado o de plantilla) de una página legal."
       },
+      "LocaleProgress": {
+        "properties": {
+          "locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Locale"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "up_to_date": {
+            "type": "integer",
+            "title": "Up To Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "locale",
+          "total",
+          "up_to_date"
+        ],
+        "title": "LocaleProgress"
+      },
       "LoginRequest": {
         "properties": {
           "email": {
@@ -20231,6 +20638,26 @@
           "is_active": {
             "type": "boolean",
             "title": "Is Active"
+          },
+          "content_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Content Locales"
+          },
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale",
+            "default": "es-ES"
           }
         },
         "type": "object",
@@ -20443,6 +20870,40 @@
               }
             ],
             "title": "Public Page Enabled"
+          },
+          "content_locales": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "es-ES",
+                    "en-US"
+                  ]
+                },
+                "type": "array",
+                "minItems": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Locales"
+          },
+          "source_locale": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "es-ES",
+                  "en-US"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Locale"
           }
         },
         "type": "object",
@@ -27928,6 +28389,200 @@
         ],
         "title": "TokenResponse",
         "description": "Access token. El refresh viaja en una cookie `HttpOnly` y no se expone aquí."
+      },
+      "TranslationEditor": {
+        "properties": {
+          "locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Locale"
+          },
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale"
+          },
+          "locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Locales"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TranslationItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "locale",
+          "source_locale",
+          "locales",
+          "items"
+        ],
+        "title": "TranslationEditor",
+        "description": "Los textos de una entidad en un idioma, para su pestaña del formulario."
+      },
+      "TranslationInput": {
+        "properties": {
+          "entity_type": {
+            "type": "string",
+            "maxLength": 30,
+            "title": "Entity Type"
+          },
+          "entity_id": {
+            "type": "string",
+            "maxLength": 36,
+            "title": "Entity Id"
+          },
+          "field": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Field"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entity_type",
+          "entity_id",
+          "field"
+        ],
+        "title": "TranslationInput"
+      },
+      "TranslationItem": {
+        "properties": {
+          "entity_type": {
+            "type": "string",
+            "title": "Entity Type"
+          },
+          "entity_id": {
+            "type": "string",
+            "title": "Entity Id"
+          },
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "original": {
+            "type": "string",
+            "title": "Original"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ia",
+                  "manual",
+                  "revisada"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "al_dia",
+              "desactualizada",
+              "pendiente"
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entity_type",
+          "entity_id",
+          "field",
+          "original",
+          "status"
+        ],
+        "title": "TranslationItem",
+        "description": "Un texto traducible tal como lo ve el panel."
+      },
+      "TranslationReview": {
+        "properties": {
+          "entity_type": {
+            "type": "string",
+            "maxLength": 30,
+            "title": "Entity Type"
+          },
+          "entity_id": {
+            "type": "string",
+            "maxLength": 36,
+            "title": "Entity Id"
+          },
+          "field": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Field"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entity_type",
+          "entity_id",
+          "field"
+        ],
+        "title": "TranslationReview"
+      },
+      "TranslationSave": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TranslationInput"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "TranslationSave"
       },
       "UserMeUpdate": {
         "properties": {

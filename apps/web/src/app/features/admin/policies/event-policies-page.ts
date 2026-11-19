@@ -74,6 +74,9 @@ type Modo = 'heredar' | 'propio';
             @if (modoDe(politica) === 'propio' && puedeEditar()) {
               <app-policy-editor
                 [etiqueta]="t('admin.politicas.tipos.' + politica.kind)"
+                [versionId]="
+                  politica.origin === 'evento' ? (politica.current?.version_id ?? null) : null
+                "
                 [valor]="politica.origin === 'evento' ? (politica.current?.content ?? '') : ''"
                 [guardando]="guardandoTipo() === politica.kind"
                 [error]="errores()[politica.kind] ?? null"

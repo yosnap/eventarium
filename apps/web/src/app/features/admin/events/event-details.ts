@@ -21,6 +21,7 @@ import { capitalizarClaveDeTraduccion } from '../../../shared/text/capitalizar-c
 import { PORTADA_ACEPTADOS } from '../../../shared/uploads/image-upload-constraints';
 import { EventCancelCard } from './event-cancel-card';
 import { EventNearbyPlaces } from './event-nearby-places';
+import { EventTranslationSummary } from './event-translation-summary';
 
 type EventStatus = 'draft' | 'published' | 'archived' | 'cancelled';
 
@@ -54,6 +55,7 @@ interface EventoResumen {
     Card,
     MediaPicker,
     EventCancelCard,
+    EventTranslationSummary,
   ],
   template: `
     <ng-container *transloco="let t">
@@ -66,6 +68,7 @@ interface EventoResumen {
           @if (cargando()) {
             <p>{{ t('comun.cargando') }}</p>
           } @else {
+            <app-event-translation-summary [eventId]="eventId()" />
             <div class="estado-cancelar">
               <app-card [heading]="t('admin.events.formulario.estadoActual')">
                 <p>

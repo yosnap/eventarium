@@ -17,6 +17,7 @@ import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
 import { AddressMap } from '../../../shared/ui/address-map';
+import { PestanasDeIdioma } from '../../../shared/ui/pestanas-de-idioma';
 
 interface EventVenue {
   readonly id: string;
@@ -47,7 +48,7 @@ function vacio(): {
 @Component({
   selector: 'app-event-venues',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Input, AddressMap],
+  imports: [PestanasDeIdioma, TranslocoDirective, Alert, Button, Card, Input, AddressMap],
   template: `
     <ng-container *transloco="let t">
       <app-card [heading]="t('admin.events.venues.titulo')">
@@ -97,72 +98,74 @@ function vacio(): {
             }
           </div>
 
-          <form (submit)="guardar($event)" novalidate class="formulario">
-            <h3>
-              {{
-                editandoId()
-                  ? t('admin.events.venues.editarSede')
-                  : t('admin.events.venues.anadirSede')
-              }}
-            </h3>
-
-            <app-input
-              fieldId="sede-nombre"
-              [label]="t('admin.events.venues.nombre')"
-              [required]="true"
-              [(value)]="nombre"
-            />
-
-            <app-address-map
-              fieldId="sede-direccion"
-              [label]="t('admin.events.venues.direccion')"
-              [(value)]="direccion"
-              [initialLatitude]="latitudInicial()"
-              [initialLongitude]="longitudInicial()"
-            />
-
-            <div class="campo-numero">
-              <label for="sede-aforo">{{ t('admin.events.venues.aforo') }}</label>
-              <input
-                id="sede-aforo"
-                type="number"
-                inputmode="numeric"
-                min="1"
-                [value]="aforo()"
-                (input)="aforo.set(alNumero($event))"
-              />
-            </div>
-
-            <div class="campo-numero">
-              <label for="sede-orden">{{ t('admin.events.venues.orden') }}</label>
-              <input
-                id="sede-orden"
-                type="number"
-                inputmode="numeric"
-                [value]="orden()"
-                (input)="orden.set(alNumero($event))"
-              />
-            </div>
-
-            @if (formError(); as mensaje) {
-              <app-alert tone="error">{{ mensaje }}</app-alert>
-            }
-
-            <div class="acciones-finales">
-              @if (editandoId()) {
-                <app-button variant="secundario" type="button" (pulsado)="cancelarEdicion()">
-                  {{ t('admin.roles.cancelar') }}
-                </app-button>
-              }
-              <app-button type="submit" [loading]="guardando()">
+          <app-pestanas-de-idioma tipo="venue" [entityId]="editandoId()">
+            <form (submit)="guardar($event)" novalidate class="formulario">
+              <h3>
                 {{
                   editandoId()
-                    ? t('admin.events.venues.guardarCambios')
+                    ? t('admin.events.venues.editarSede')
                     : t('admin.events.venues.anadirSede')
                 }}
-              </app-button>
-            </div>
-          </form>
+              </h3>
+
+              <app-input
+                fieldId="sede-nombre"
+                [label]="t('admin.events.venues.nombre')"
+                [required]="true"
+                [(value)]="nombre"
+              />
+
+              <app-address-map
+                fieldId="sede-direccion"
+                [label]="t('admin.events.venues.direccion')"
+                [(value)]="direccion"
+                [initialLatitude]="latitudInicial()"
+                [initialLongitude]="longitudInicial()"
+              />
+
+              <div class="campo-numero">
+                <label for="sede-aforo">{{ t('admin.events.venues.aforo') }}</label>
+                <input
+                  id="sede-aforo"
+                  type="number"
+                  inputmode="numeric"
+                  min="1"
+                  [value]="aforo()"
+                  (input)="aforo.set(alNumero($event))"
+                />
+              </div>
+
+              <div class="campo-numero">
+                <label for="sede-orden">{{ t('admin.events.venues.orden') }}</label>
+                <input
+                  id="sede-orden"
+                  type="number"
+                  inputmode="numeric"
+                  [value]="orden()"
+                  (input)="orden.set(alNumero($event))"
+                />
+              </div>
+
+              @if (formError(); as mensaje) {
+                <app-alert tone="error">{{ mensaje }}</app-alert>
+              }
+
+              <div class="acciones-finales">
+                @if (editandoId()) {
+                  <app-button variant="secundario" type="button" (pulsado)="cancelarEdicion()">
+                    {{ t('admin.roles.cancelar') }}
+                  </app-button>
+                }
+                <app-button type="submit" [loading]="guardando()">
+                  {{
+                    editandoId()
+                      ? t('admin.events.venues.guardarCambios')
+                      : t('admin.events.venues.anadirSede')
+                  }}
+                </app-button>
+              </div>
+            </form>
+          </app-pestanas-de-idioma>
         </div>
       </app-card>
     </ng-container>

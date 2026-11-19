@@ -38,7 +38,7 @@ CAMPOS: Final[dict[TipoDeEntidad, frozenset[str]]] = {
     "sponsor_tier": frozenset({"name", "benefits"}),
     "sponsor": frozenset({"name", "contribution_description"}),
     "member_profile": frozenset({"bio", "titular", "curriculum"}),
-    "organization": frozenset({"description", "organizer_blurb"}),
+    "organization": frozenset({"description"}),
     "policy_version": frozenset({"content"}),
     "nearby_place": frozenset({"name", "notes"}),
     "tag": frozenset(),

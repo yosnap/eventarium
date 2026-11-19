@@ -502,17 +502,19 @@ async def borrar_campos(
     tipo: TipoDeEntidad,
     entity_id: uuid.UUID,
     campos: Collection[str],
+    locale: Locale | None = None,
 ) -> None:
-    """Borra las traducciones de unos campos de una entidad, en todos los
-    idiomas: cuando el original se vacía, su traducción no se conserva."""
-    await session.execute(
-        delete(ContentTranslation).where(
-            ContentTranslation.organization_id == organization_id,
-            ContentTranslation.entity_type == tipo,
-            ContentTranslation.entity_id == entity_id,
-            ContentTranslation.field.in_(list(campos)),
-        )
-    )
+    """Borra las traducciones de unos campos de una entidad: en un idioma, o en
+    todos (cuando el original se vacía, su traducción no se conserva)."""
+    condiciones = [
+        ContentTranslation.organization_id == organization_id,
+        ContentTranslation.entity_type == tipo,
+        ContentTranslation.entity_id == entity_id,
+        ContentTranslation.field.in_(list(campos)),
+    ]
+    if locale is not None:
+        condiciones.append(ContentTranslation.locale == locale)
+    await session.execute(delete(ContentTranslation).where(*condiciones))
 
 
 async def borrar_etiquetas_sin_uso(session: AsyncSession) -> int:

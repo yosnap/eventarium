@@ -1058,7 +1058,8 @@
       "vacio": "No categories yet. Add the first one.",
       "nota": "Categories are not deleted: when you deactivate one, it can no longer be assigned or shown on the public website, but events that already have it will keep it.",
       "datosInvalidos": "Enter a name and an integer order between 0 and 10000.",
-      "error": "We couldn't complete the operation."
+      "error": "We couldn't complete the operation.",
+      "nombreEn": "Name in {{ idioma }}"
     },
     "organizacion": {
       "titulo": "Organization",
@@ -1107,6 +1108,12 @@
         "libreUrl": "Other link: URL",
         "libreIncompleto": "The other link requires a name and URL.",
         "urlInvalida": "The {{red}} link must start with https://"
+      },
+      "idiomas": {
+        "titulo": "Content languages",
+        "ayuda": "The languages the organisation publishes in. Its pages, events and texts are offered in each of them; anything not translated is shown in the original.",
+        "origen": "Language the organisation writes in",
+        "origenAyuda": "The original language of the texts that belong to the organisation, such as the description, tags or policies."
       }
     },
     "branding": {
@@ -1340,7 +1347,8 @@
       "cabeceraInicio": "Your profile and credentials,",
       "cabeceraMarca": "on a single page",
       "ficha": {
-        "titulo": "My {{rol}} profile"
+        "titulo": "My {{rol}} profile",
+        "avisoTraduccion": "If the organisation publishes in several languages, your biography and headline may be translated automatically with AI to show them in those languages."
       }
     },
     "events": {
@@ -1453,7 +1461,10 @@
           "public": "Appears on your organization's page, in the event directory, and in search engines.",
           "hidden": "Anyone with the link can open it, but it won't appear in any lists or search engines. It's not a secret: do not use it for confidential information.",
           "private": "No one can open it, even with the link. Those already registered will keep their ticket, but won't be able to view the event details."
-        }
+        },
+        "idioma": "Event language",
+        "idiomaAyuda": "The language you write the event texts in. Other languages are translated from it.",
+        "idiomaDeLaOrganizacion": "The organisation's language"
       },
       "agenda": {
         "titulo": "Schedule",
@@ -3055,6 +3066,49 @@
       "sinPermiso": "Your role does not allow connecting assistants. Ask the organization owner for the 'Connect assistants via MCP' permission.",
       "error": "We couldn't complete the operation.",
       "pide": "The assistant is requesting:"
+    }
+  },
+  "traducciones": {
+    "pestanas": "Content languages",
+    "original": "original",
+    "sinTextos": "This content has no texts to translate yet.",
+    "cargando": "Loading translations…",
+    "guardar": "Save translations",
+    "marcarRevisada": "Mark as reviewed",
+    "opcion": "Option “{{ valor }}”",
+    "error": "The translations could not be loaded or saved. Please try again.",
+    "estado": {
+      "al_dia": "Up to date",
+      "desactualizada": "Outdated",
+      "pendiente": "Not translated"
+    },
+    "origen": {
+      "ia": "Translated with AI",
+      "manual": "Written by hand",
+      "revisada": "Reviewed"
+    },
+    "campos": {
+      "title": "Title",
+      "summary": "Summary",
+      "description": "Description",
+      "location_name": "Venue name",
+      "cancellation_reason": "Cancellation reason",
+      "room": "Room",
+      "name": "Name",
+      "label": "Question",
+      "benefits": "Benefits",
+      "contribution_description": "Contribution description",
+      "notes": "Notes",
+      "content": "Text",
+      "bio": "Biography",
+      "titular": "Headline",
+      "curriculum": "CV",
+      "organizer_blurb": "Organiser introduction"
+    },
+    "resumen": {
+      "titulo": "Translations",
+      "linea": "{{ idioma }}: {{ al_dia }} of {{ total }} texts up to date",
+      "ayuda": "Translate them from each language tab in the forms."
     }
   }
 }

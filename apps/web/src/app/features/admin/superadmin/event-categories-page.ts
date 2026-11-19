@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
@@ -12,6 +12,8 @@ import { Card } from '../../../shared/ui/card';
 import { Checkbox } from '../../../shared/ui/checkbox';
 import { Input } from '../../../shared/ui/input';
 import { PageHeader } from '../../../shared/ui/page-header';
+import { IDIOMA_POR_DEFECTO, NOMBRE_DEL_IDIOMA, type Idioma } from '../../../core/i18n/idioma';
+import { ThemingService } from '../../../core/theming/theming.service';
 
 interface Categoria {
   readonly id: string;
@@ -19,6 +21,7 @@ interface Categoria {
   readonly name: string;
   readonly display_order: number;
   readonly is_active: boolean;
+  readonly name_i18n?: Readonly<Record<string, string>>;
 }
 
 /** Copia editable de una categoría: los campos de la fila mientras se edita. */
@@ -27,6 +30,8 @@ interface FilaEditable {
   readonly nombre: string;
   readonly orden: string;
   readonly activa: boolean;
+  /** Nombre en los demás idiomas activos; vacío cae al original. */
+  readonly traducciones: Readonly<Record<string, string>>;
 }
 
 /**
@@ -79,6 +84,13 @@ interface FilaEditable {
                   [value]="fila.nombre"
                   (valueChange)="editar(fila.categoria.id, { nombre: $event })"
                 />
+                @for (idioma of otrosIdiomas(); track idioma) {
+                  <app-input
+                    [label]="t('nombreEn', { idioma: nombreDelIdioma(idioma) })"
+                    [value]="fila.traducciones[idioma] || ''"
+                    (valueChange)="traducir(fila.categoria.id, idioma, $event)"
+                  />
+                }
                 <app-input
                   [label]="t('orden')"
                   [etiquetaOculta]="true"
@@ -159,6 +171,11 @@ export class EventCategoriesPage {
 
   protected readonly slugNuevo = signal('');
   protected readonly nombreNuevo = signal('');
+  /** Idiomas activos distintos del de la plataforma: los del nombre traducido. */
+  private readonly theming = inject(ThemingService);
+  protected readonly otrosIdiomas = computed(() =>
+    this.theming.idiomasActivos().filter((idioma) => idioma !== IDIOMA_POR_DEFECTO),
+  );
   protected readonly ordenNuevo = signal('0');
   protected readonly creando = signal(false);
   protected readonly errorSlug = signal<string | null>(null);
@@ -174,6 +191,7 @@ export class EventCategoriesPage {
       nombre: categoria.name,
       orden: String(categoria.display_order),
       activa: categoria.is_active,
+      traducciones: { ...(categoria.name_i18n ?? {}) },
     };
   }
 
@@ -208,8 +226,30 @@ export class EventCategoriesPage {
     );
   }
 
+  protected traducir(id: string, idioma: Idioma, valor: string): void {
+    this.filas.update((filas) =>
+      filas.map((f) =>
+        f.categoria.id === id ? { ...f, traducciones: { ...f.traducciones, [idioma]: valor } } : f,
+      ),
+    );
+  }
+
+  protected nombreDelIdioma(idioma: Idioma): string {
+    return NOMBRE_DEL_IDIOMA[idioma];
+  }
+
+  private traduccionesLimpias(fila: FilaEditable): Record<string, string> {
+    return Object.fromEntries(
+      Object.entries(fila.traducciones)
+        .map(([idioma, texto]) => [idioma, texto.trim()])
+        .filter(([, texto]) => texto),
+    );
+  }
+
   protected hayCambios(fila: FilaEditable): boolean {
     return (
+      JSON.stringify(this.traduccionesLimpias(fila)) !==
+        JSON.stringify(fila.categoria.name_i18n ?? {}) ||
       fila.nombre.trim() !== fila.categoria.name ||
       fila.orden !== String(fila.categoria.display_order) ||
       fila.activa !== fila.categoria.is_active
@@ -271,6 +311,7 @@ export class EventCategoriesPage {
           name: nombre,
           display_order: orden,
           is_active: fila.activa,
+          name_i18n: this.traduccionesLimpias(fila),
         }),
       );
       this.filas.update((filas) =>
