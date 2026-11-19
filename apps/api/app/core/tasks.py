@@ -814,6 +814,17 @@ async def purge_ai_usage_records_task() -> None:
         )
 
 
+@broker.task(schedule=[{"cron": "45 3 * * *"}])
+async def purge_unused_tag_translations_task() -> None:
+    """Diaria: borra las traducciones de etiquetas que ya no lleva ningún evento
+    de su organización. Las demás traducciones se borran con su fila."""
+    from app.core.database import maintenance_session
+    from app.modules.translations import service as translations_service
+
+    async with maintenance_session() as session:
+        await translations_service.borrar_etiquetas_sin_uso(session)
+
+
 @broker.task(retry_on_error=True, max_retries=5)
 async def send_waitlist_promotion_email(
     to_email: str,
