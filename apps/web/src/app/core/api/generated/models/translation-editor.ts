@@ -7,6 +7,7 @@ import { TranslationItem } from '../models/translation-item';
  * Los textos de una entidad en un idioma, para su pestaña del formulario.
  */
 export interface TranslationEditor {
+  auto_translation_available?: boolean;
   items: Array<TranslationItem>;
   locale: 'es-ES' | 'en-US';
   locales: Array<'es-ES' | 'en-US'>;

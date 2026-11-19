@@ -11386,6 +11386,103 @@
         }
       }
     },
+    "/api/v1/translations/published/estimate": {
+      "get": {
+        "tags": [
+          "traducciones"
+        ],
+        "summary": "Coste orientativo de traducir los eventos publicados a un idioma",
+        "operationId": "estimate_published_translation_api_v1_translations_published_estimate_get",
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "description": "Idioma de la traducción",
+              "title": "Locale"
+            },
+            "description": "Idioma de la traducción"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedTranslationEstimate"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/translations/published": {
+      "post": {
+        "tags": [
+          "traducciones"
+        ],
+        "summary": "Traducir los eventos publicados a un idioma",
+        "description": "Los encola; se traducen poco a poco, dentro de los topes de coste.",
+        "operationId": "translate_published_api_v1_translations_published_post",
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "description": "Idioma de la traducción",
+              "title": "Locale"
+            },
+            "description": "Idioma de la traducción"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedTranslationQueued"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/translations/{entity_type}/{entity_id}": {
       "get": {
         "tags": [
@@ -11627,6 +11724,362 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/EventTranslationSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/organizations/{org_slug}/events/{slug}/translations": {
+      "post": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Pedir la traducción al vuelo de un evento",
+        "operationId": "request_event_translation_api_v1_public_organizations__org_slug__events__slug__translations_post",
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "description": "Idioma de la página",
+              "title": "Locale"
+            },
+            "description": "Idioma de la página"
+          },
+          {
+            "name": "org_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationRequestResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/organizations/{org_slug}/events/{slug}/translations/status": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Si la traducción al vuelo de un evento sigue en marcha",
+        "operationId": "event_translation_status_api_v1_public_organizations__org_slug__events__slug__translations_status_get",
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "description": "Idioma de la página",
+              "title": "Locale"
+            },
+            "description": "Idioma de la página"
+          },
+          {
+            "name": "org_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/organizations/{org_slug}/translations": {
+      "post": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Pedir la traducción al vuelo de la página de una organización",
+        "operationId": "request_organization_translation_api_v1_public_organizations__org_slug__translations_post",
+        "parameters": [
+          {
+            "name": "org_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Org Slug"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "description": "Idioma de la página",
+              "title": "Locale"
+            },
+            "description": "Idioma de la página"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationRequestResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/organizations/{org_slug}/translations/status": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Si la traducción al vuelo de una organización sigue en marcha",
+        "operationId": "organization_translation_status_api_v1_public_organizations__org_slug__translations_status_get",
+        "parameters": [
+          {
+            "name": "org_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Org Slug"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "description": "Idioma de la página",
+              "title": "Locale"
+            },
+            "description": "Idioma de la página"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/speakers/{public_slug}/translations": {
+      "post": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Pedir la traducción al vuelo del perfil de un ponente",
+        "operationId": "request_speaker_translation_api_v1_public_speakers__public_slug__translations_post",
+        "parameters": [
+          {
+            "name": "public_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Public Slug"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "description": "Idioma de la página",
+              "title": "Locale"
+            },
+            "description": "Idioma de la página"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationRequestResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/speakers/{public_slug}/translations/status": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Si la traducción al vuelo del perfil de un ponente sigue en marcha",
+        "operationId": "speaker_translation_status_api_v1_public_speakers__public_slug__translations_status_get",
+        "parameters": [
+          {
+            "name": "public_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Public Slug"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "description": "Idioma de la página",
+              "title": "Locale"
+            },
+            "description": "Idioma de la página"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationStatus"
                 }
               }
             }
@@ -17205,6 +17658,11 @@
             },
             "type": "array",
             "title": "Locales"
+          },
+          "auto_translation_available": {
+            "type": "boolean",
+            "title": "Auto Translation Available",
+            "default": false
           }
         },
         "type": "object",
@@ -22888,6 +23346,18 @@
             "title": "Pending Fields",
             "default": 0
           },
+          "translating": {
+            "type": "boolean",
+            "title": "Translating",
+            "default": false
+          },
+          "translating_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Translating Fields"
+          },
           "slug": {
             "type": "string",
             "title": "Slug"
@@ -23261,6 +23731,18 @@
             "title": "Pending Fields",
             "default": 0
           },
+          "translating": {
+            "type": "boolean",
+            "title": "Translating",
+            "default": false
+          },
+          "translating_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Translating Fields"
+          },
           "organization_name": {
             "type": "string",
             "title": "Organization Name"
@@ -23463,6 +23945,18 @@
             "type": "integer",
             "title": "Pending Fields",
             "default": 0
+          },
+          "translating": {
+            "type": "boolean",
+            "title": "Translating",
+            "default": false
+          },
+          "translating_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Translating Fields"
           },
           "slug": {
             "type": "string",
@@ -23810,6 +24304,18 @@
             "title": "Pending Fields",
             "default": 0
           },
+          "translating": {
+            "type": "boolean",
+            "title": "Translating",
+            "default": false
+          },
+          "translating_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Translating Fields"
+          },
           "slug": {
             "type": "string",
             "title": "Slug"
@@ -24106,6 +24612,18 @@
             "title": "Pending Fields",
             "default": 0
           },
+          "translating": {
+            "type": "boolean",
+            "title": "Translating",
+            "default": false
+          },
+          "translating_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Translating Fields"
+          },
           "id": {
             "type": "string",
             "title": "Id"
@@ -24370,6 +24888,18 @@
             "title": "Pending Fields",
             "default": 0
           },
+          "translating": {
+            "type": "boolean",
+            "title": "Translating",
+            "default": false
+          },
+          "translating_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Translating Fields"
+          },
           "display_name": {
             "type": "string",
             "title": "Display Name"
@@ -24508,6 +25038,18 @@
             "type": "integer",
             "title": "Pending Fields",
             "default": 0
+          },
+          "translating": {
+            "type": "boolean",
+            "title": "Translating",
+            "default": false
+          },
+          "translating_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Translating Fields"
           },
           "id": {
             "type": "string",
@@ -24833,6 +25375,55 @@
         ],
         "title": "PublicVenue",
         "description": "Sede tal y como se muestra en la página pública del evento, sin campos\nde auditoría (`display_order`/`geocoded_at` son detalle interno)."
+      },
+      "PublishedTranslationEstimate": {
+        "properties": {
+          "events": {
+            "type": "integer",
+            "title": "Events"
+          },
+          "texts": {
+            "type": "integer",
+            "title": "Texts"
+          },
+          "estimated_cost_usd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Cost Usd"
+          },
+          "auto_translation_available": {
+            "type": "boolean",
+            "title": "Auto Translation Available"
+          }
+        },
+        "type": "object",
+        "required": [
+          "events",
+          "texts",
+          "estimated_cost_usd",
+          "auto_translation_available"
+        ],
+        "title": "PublishedTranslationEstimate",
+        "description": "Lo que costaría traducir ahora los eventos publicados a un idioma."
+      },
+      "PublishedTranslationQueued": {
+        "properties": {
+          "events": {
+            "type": "integer",
+            "title": "Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "events"
+        ],
+        "title": "PublishedTranslationQueued"
       },
       "QuestionChoice": {
         "properties": {
@@ -28425,6 +29016,11 @@
             },
             "type": "array",
             "title": "Items"
+          },
+          "auto_translation_available": {
+            "type": "boolean",
+            "title": "Auto Translation Available",
+            "default": false
           }
         },
         "type": "object",
@@ -28541,6 +29137,20 @@
         "title": "TranslationItem",
         "description": "Un texto traducible tal como lo ve el panel."
       },
+      "TranslationRequestResult": {
+        "properties": {
+          "queued": {
+            "type": "boolean",
+            "title": "Queued"
+          }
+        },
+        "type": "object",
+        "required": [
+          "queued"
+        ],
+        "title": "TranslationRequestResult",
+        "description": "`queued`: hay traducción en marcha y merece la pena consultar el estado."
+      },
       "TranslationReview": {
         "properties": {
           "entity_type": {
@@ -28557,6 +29167,18 @@
             "type": "string",
             "maxLength": 200,
             "title": "Field"
+          },
+          "original": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original"
           }
         },
         "type": "object",
@@ -28583,6 +29205,19 @@
           "items"
         ],
         "title": "TranslationSave"
+      },
+      "TranslationStatus": {
+        "properties": {
+          "in_progress": {
+            "type": "boolean",
+            "title": "In Progress"
+          }
+        },
+        "type": "object",
+        "required": [
+          "in_progress"
+        ],
+        "title": "TranslationStatus"
       },
       "UserMeUpdate": {
         "properties": {

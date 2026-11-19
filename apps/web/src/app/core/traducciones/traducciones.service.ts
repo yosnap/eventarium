@@ -36,6 +36,8 @@ export interface EditorDeTraducciones {
   /** Idiomas en que publica la organización: con uno solo no hay pestañas. */
   readonly locales: readonly Idioma[];
   readonly items: readonly TextoTraducible[];
+  /** La organización tiene clave de IA propia: si no, no hay traducción automática. */
+  readonly auto_translation_available?: boolean;
 }
 
 export interface CambioDeTraduccion {
@@ -49,6 +51,7 @@ export interface CambioDeTraduccion {
 export interface ResumenDeTraduccion {
   readonly source_locale: Idioma;
   readonly locales: readonly { locale: Idioma; total: number; up_to_date: number }[];
+  readonly auto_translation_available?: boolean;
 }
 
 /** Traducciones del contenido del organizador (`/translations`). */

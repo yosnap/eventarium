@@ -23,6 +23,7 @@ import { PageHeader } from '../../../shared/ui/page-header';
 import { Panel } from '../../../shared/ui/panel';
 import { MetricasDeOrganizacion } from './organization-metrics.types';
 import { formatearPrecio } from '../../../shared/text/formatear-precio';
+import { AvisoTraduccionEscritorio } from './aviso-traduccion-escritorio';
 
 /** Una petición pendiente, resuelta para pintar. */
 interface Pendiente {
@@ -56,6 +57,7 @@ interface KpiVisible {
   selector: 'app-dashboard-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    AvisoTraduccionEscritorio,
     TranslocoDirective,
     RouterLink,
     DatePipe,
@@ -80,6 +82,7 @@ interface KpiVisible {
           {{ t('admin.escritorioPagina.cabeceraAlDia') }}
         }
       </app-page-header>
+      <app-aviso-traduccion-escritorio />
 
       @if (error(); as mensaje) {
         <app-alert tone="error">{{ t(mensaje) }}</app-alert>

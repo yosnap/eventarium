@@ -450,3 +450,48 @@ def test_los_textos_aislados_y_largos_no_comparten_lote() -> None:
     assert ia.tokens_de_salida([ia.Texto("t0", "x" * 100_000, False)]) == ia.MAX_TOKENS_SALIDA
     assert cola.CARACTERES_MAXIMOS_IA < 100_000
     assert {"member_profile", "policy_version"} <= cola.TIPOS_AISLADOS
+
+
+async def test_la_ficha_avisa_de_que_se_va_a_traducir_solo_con_clave_propia(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, cifrado: str
+) -> None:
+    await _evento_bilingue(cliente, organizacion)
+    url = f"{EVENTOS_DE_ACME}/con-ia"
+
+    assert (await cliente.get(url, headers=INGLES)).json()["translating"] is False
+    await configurar_organizacion(organizacion.id)
+    assert (await cliente.get(url, headers=INGLES)).json()["translating"] is True
+    # En el idioma original no hay nada que traducir.
+    assert (await cliente.get(url)).json()["translating"] is False
+
+
+async def test_una_traduccion_manual_desfasada_no_deja_esperando_a_la_web(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, cifrado: str
+) -> None:
+    """La IA no tocará una traducción manual: la ficha no pide esqueleto por ella."""
+    await configurar_organizacion(organizacion.id)
+    evento = await _evento_bilingue(cliente, organizacion)
+    for campo, original in (("title", "Jornada de IA"), ("summary", "Un día entero")):
+        async with SessionApp() as session, session.begin():
+            await set_organization_context(session, organizacion.id)
+            await service.guardar_manual(
+                session,
+                organization_id=organizacion.id,
+                event_id=uuid.UUID(evento["id"]),
+                tipo="event",
+                entity_id=uuid.UUID(evento["id"]),
+                campo=campo,
+                locale="en-US",
+                valor="Hand-written",
+                original=original,
+                origen_del_contenido="es-ES",
+                idiomas_activos=("es-ES", "en-US"),
+                user_id=organizacion.owner_id,
+            )
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    await cliente.patch(f"{EVENTS}/{evento['id']}", headers=cabeceras, json={"title": "Otra"})
+
+    ficha = (await cliente.get(f"{EVENTOS_DE_ACME}/con-ia", headers=INGLES)).json()
+
+    assert ficha["title"] == "Otra"
+    assert "title" not in ficha["translating_fields"]

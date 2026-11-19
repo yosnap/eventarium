@@ -48,6 +48,8 @@ import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 import { IdiomaService } from '../../../core/i18n/idioma.service';
 import { idiomasDeLaRespuesta } from '../../../core/seo/indexacion-por-idioma';
 import { AvisoContenidoOriginal } from '../../../shared/ui/aviso-contenido-original';
+import { traduccionEnVivo } from '../../../core/traducciones/traduccion-en-vivo';
+import { EnTraduccion } from '../../../shared/ui/esqueleto';
 
 /** `starts_at` (UTC) al día calendario en la zona del evento, sin arrastrar la
  * zona horaria del entorno de ejecución (navegador o SSR) al agrupar por fecha:
@@ -94,6 +96,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
   selector: 'app-event-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    EnTraduccion,
     AvisoContenidoOriginal,
     EnlacePipe,
     AvisoVentaEntradas,
@@ -162,8 +165,14 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                 @if (evento.cover_url) {
                   <img class="portada" [src]="evento.cover_url" [alt]="evento.title" />
                 }
-                <h1>{{ evento.title }}</h1>
-                <app-aviso-contenido-original [servido]="evento.served_locale" />
+                <h1>
+                  <app-en-traduccion [traduciendo]="traduccion.bloque('title')" [anunciar]="true">{{
+                    evento.title
+                  }}</app-en-traduccion>
+                </h1>
+                @if (!traduccion.activa()) {
+                  <app-aviso-contenido-original [servido]="evento.served_locale" />
+                }
                 @if (evento.category || (evento.tags && evento.tags.length > 0)) {
                   <nav class="clasificacion" [attr.aria-label]="t('publico.eventos.clasificacion')">
                     @if (evento.category; as categoria) {
@@ -185,17 +194,21 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                   </nav>
                 }
                 @if (evento.summary) {
-                  <p class="hero__lede">{{ evento.summary }}</p>
+                  <app-en-traduccion [traduciendo]="traduccion.bloque('summary')" [lineas]="2">
+                    <p class="hero__lede">{{ evento.summary }}</p>
+                  </app-en-traduccion>
                 }
                 @if (evento.description) {
                   <!-- Markdown del editor del panel, saneado: nunca [innerHTML]
                        directo con texto de la organización. Los saltos simples
                        se respetan por las descripciones escritas en texto plano. -->
-                  <app-markdown-seguro
-                    class="hero__descripcion"
-                    [texto]="evento.description"
-                    [saltosDeLinea]="true"
-                  />
+                  <app-en-traduccion [traduciendo]="traduccion.bloque('description')" [lineas]="4">
+                    <app-markdown-seguro
+                      class="hero__descripcion"
+                      [texto]="evento.description"
+                      [saltosDeLinea]="true"
+                    />
+                  </app-en-traduccion>
                 }
                 @if (!evento.cancelled) {
                   <app-share-links
@@ -460,256 +473,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
       }
     </ng-container>
   `,
-  styles: `
-    .aviso-vista-previa {
-      margin-block: var(--sp-4);
-    }
-    .hero {
-      padding: var(--sp-8) 0 var(--sp-7);
-      border-bottom: 1px solid var(--border);
-    }
-    .hero app-breadcrumb {
-      display: block;
-      margin-bottom: var(--sp-5);
-    }
-    .hero__grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1.35fr) minmax(18.75rem, 0.65fr);
-      gap: var(--sp-7);
-      align-items: start;
-    }
-    .hero__kicker {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--sp-4);
-      align-items: center;
-      margin-bottom: var(--sp-5);
-    }
-    .portada {
-      width: 100%;
-      max-height: 20rem;
-      object-fit: cover;
-      border-radius: var(--radius-lg);
-      margin-bottom: var(--sp-4);
-    }
-    h1 {
-      margin: 0;
-    }
-    .hero__lede {
-      max-width: 56ch;
-      color: var(--muted);
-      margin-top: var(--sp-5);
-    }
-    .hero__descripcion {
-      display: block;
-      max-width: 64ch;
-      margin-top: var(--sp-5);
-    }
-    .hero__compartir {
-      display: block;
-      margin-top: var(--sp-5);
-    }
-    .ficha {
-      display: grid;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      background-color: var(--surface);
-    }
-    .ficha__fila {
-      display: flex;
-      justify-content: space-between;
-      gap: var(--sp-4);
-      padding: 14px var(--sp-5);
-      border-bottom: 1px solid var(--border);
-    }
-    .ficha__fila:last-of-type {
-      border-bottom: 0;
-    }
-    .ficha__etiqueta {
-      color: var(--muted);
-    }
-    /* Único valor de la ficha con refuerzo visual propio: es el dato que más
-       empuja a la persona a inscribirse, así que se destaca en verde y con
-       más peso que el resto de filas (texto plano en gris). */
-    .ficha__precio {
-      color: var(--accent);
-      font-weight: 700;
-      font-size: 1.25rem;
-    }
-    .ficha__cta {
-      padding: var(--sp-5);
-      border-top: 1px solid var(--border);
-      background-color: var(--surface-2);
-      border-radius: 0 0 var(--radius-md) var(--radius-md);
-      display: grid;
-      gap: var(--sp-4);
-    }
-    /* .seats (evento-iawic.html:21): barra de ocupación del aforo. */
-    .ficha__aforo {
-      display: grid;
-      gap: 2px;
-    }
-    .seats {
-      height: 6px;
-      border: 1px solid var(--border-strong);
-      border-radius: 2px;
-      overflow: hidden;
-      background-color: var(--bg);
-      margin: 10px 0 8px;
-    }
-    .seats > span {
-      display: block;
-      height: 100%;
-      background-color: var(--accent);
-    }
-    .ficha__nota {
-      margin: 0;
-      text-align: center;
-      font-size: var(--fs-sm);
-      color: var(--muted);
-    }
-    .pendiente {
-      color: var(--muted);
-      font-style: italic;
-    }
-    .ficha__inscribirse {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      min-height: 2.75rem;
-      padding: 0 1.25rem;
-      border-radius: var(--radius-sm);
-      background-color: var(--accent);
-      color: var(--on-accent);
-      font-weight: 700;
-      text-decoration: none;
-      transition: background-color 0.15s ease;
-    }
-    .ficha__inscribirse:hover {
-      background-color: var(--accent-hi);
-    }
-    .seccion {
-      padding: var(--sp-8) 0;
-    }
-    .seccion__cabecera {
-      margin-bottom: var(--sp-6);
-    }
-    .seccion__cabecera h2 {
-      margin-top: var(--sp-1);
-    }
-    .vacio {
-      color: var(--muted);
-    }
-    .tier {
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      margin-bottom: var(--sp-4);
-      overflow: hidden;
-    }
-    .tier__cabecera {
-      display: flex;
-      align-items: center;
-      gap: var(--sp-4);
-      padding: 12px var(--sp-5);
-      background-color: var(--surface-2);
-      border-bottom: 1px solid var(--border);
-    }
-    /* .tier__bar (evento-iawic.html:47-49): presencia del nivel, no una métrica. */
-    .tier__barra {
-      flex: 1;
-      max-width: 13.75rem;
-      height: 8px;
-      border: 1px solid var(--border-strong);
-      border-radius: 2px;
-      background-color: var(--bg);
-      overflow: hidden;
-    }
-    .tier__barra > span {
-      display: block;
-      height: 100%;
-      background-color: var(--muted);
-    }
-    .tier--large .tier__barra > span {
-      background-color: var(--accent);
-    }
-    .tier__logos {
-      list-style: none;
-      margin: 0;
-      padding: var(--sp-5);
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: var(--sp-4);
-    }
-    .tier__logos img {
-      display: block;
-      width: auto;
-      object-fit: contain;
-    }
-    .tier__logos.tamano-large img {
-      height: 4.5rem;
-    }
-    .tier__logos.tamano-medium img {
-      height: 3rem;
-    }
-    .tier__logos.tamano-small img {
-      height: 2rem;
-    }
-    .tier__logos a {
-      display: inline-block;
-    }
-    .clasificacion {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--sp-2) var(--sp-3);
-      margin-top: var(--sp-3);
-    }
-    .clasificacion a {
-      text-decoration: none;
-    }
-    .clasificacion__categoria {
-      padding: 2px 10px;
-      border: 1px solid var(--accent);
-      border-radius: 999px;
-      font-family: var(--font-mono);
-      font-size: var(--fs-label);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--accent);
-    }
-    .clasificacion__etiqueta {
-      font-size: var(--fs-sm);
-      color: var(--muted);
-    }
-    .clasificacion a:hover {
-      text-decoration: underline;
-    }
-    .lugar__direccion {
-      color: var(--muted);
-      white-space: pre-line;
-    }
-    /* .cols2 (evento-iawic.html:58): dos columnas que se apilan en pantalla estrecha. */
-    .lugar__grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(18.75rem, 1fr));
-      gap: var(--sp-6);
-    }
-    .lugar__grid h2 {
-      margin: 12px 0 20px;
-    }
-    /* Sustituye al esquema SVG de .map (evento-iawic.html:61): mapa real
-       (Leaflet, componente app-venue-map) en el mismo hueco visual. */
-    .lugar__mapa {
-      display: block;
-      margin-top: var(--sp-5);
-    }
-    @media (max-width: 56.25rem) {
-      .hero__grid {
-        grid-template-columns: minmax(0, 1fr);
-      }
-    }
-  `,
+  styleUrl: './event-page.css',
 })
 export class EventPage implements OnInit {
   /** Idioma de la visita, para fechas e importes. */
@@ -735,6 +499,13 @@ export class EventPage implements OnInit {
   private readonly viewportScroller = inject(ViewportScroller);
 
   protected readonly evento = signal<PublicEventDetail | null>(null);
+  /** Mientras la IA traduce lo pendiente: esqueleto en vez del original. */
+  protected readonly traduccion = traduccionEnVivo({
+    ruta: () => (this.eventId() ? null : apiEvento(this.org() ?? '', this.slug() ?? '')),
+    pendiente: () => this.evento()?.translating ?? false,
+    campos: () => this.evento()?.translating_fields ?? [],
+    recargar: () => this.cargar(true),
+  });
   protected readonly cargando = signal(true);
   protected readonly noEncontrado = signal(false);
   /** En la vista previa, un fallo que no es «no existe» (permiso retirado, red,
@@ -906,7 +677,8 @@ export class EventPage implements OnInit {
     void this.tareasPendientes.run(() => this.cargar());
   }
 
-  private async cargar(): Promise<void> {
+  /** `silencioso`: recarga tras traducir; si falla, se queda lo que ya se ve. */
+  private async cargar(silencioso = false): Promise<void> {
     const eventId = this.eventId();
     if (eventId) {
       await this.cargarVistaPrevia(eventId);
@@ -935,6 +707,9 @@ export class EventPage implements OnInit {
         this.transferState.set(clave, evento);
       }
     } catch (error) {
+      if (silencioso) {
+        return;
+      }
       if (error instanceof ApiError && error.status === 404) {
         this.noEncontrado.set(true);
         this.notFound.mark();

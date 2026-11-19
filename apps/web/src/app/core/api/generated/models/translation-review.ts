@@ -5,4 +5,5 @@ export interface TranslationReview {
   entity_id: string;
   entity_type: string;
   field: string;
+  original?: (string | null);
 }

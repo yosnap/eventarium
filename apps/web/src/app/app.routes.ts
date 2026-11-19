@@ -581,6 +581,15 @@ export const routes: Routes = [
           import('./features/admin/organization/ai-settings').then((m) => m.OrganizationAiSettings),
       },
       {
+        // Ayuda de la traducción automática: la enlazan los avisos de clave propia.
+        path: 'ayuda/traduccion',
+        canActivate: [guardDe('ayuda/traduccion')],
+        loadComponent: () =>
+          import('./features/admin/ayuda/traduccion-automatica-page').then(
+            (m) => m.TraduccionAutomaticaPage,
+          ),
+      },
+      {
         path: 'account',
         canActivate: [guardDe('account')],
         loadComponent: () =>

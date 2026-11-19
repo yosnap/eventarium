@@ -24,6 +24,8 @@ export interface PublicSponsorDetail {
   theme?: (PublicTheme | null);
   tier_benefits: (string | null);
   tier_name: string;
+  translating?: boolean;
+  translating_fields?: Array<string>;
   up_to_date_locales?: Array<'es-ES' | 'en-US'>;
   visibility?: 'public' | 'hidden' | 'private';
   website: (string | null);

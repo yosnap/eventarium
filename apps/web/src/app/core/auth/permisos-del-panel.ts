@@ -72,6 +72,8 @@ export const REQUISITOS_DEL_PANEL = {
   stripe: p('payments:read'),
   ia: { rol: 'owner' },
   account: 'ninguno',
+  // Ayuda de la traducción automática: la enlazan los avisos del panel.
+  'ayuda/traduccion': 'gestion',
   mcp: p('mcp:connect'),
 } as const satisfies Record<string, RequisitoDePanel>;
 

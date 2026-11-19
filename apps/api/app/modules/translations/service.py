@@ -29,10 +29,12 @@ from sqlalchemy.sql.elements import ColumnElement
 
 from app.core.database import set_organization_context
 from app.core.locale import DEFAULT_LOCALE, LOCALES, Locale, normalizar_locale
+from app.modules.ai_gateway import service as ai_service
 from app.modules.events.models import Event, EventCategory
 from app.modules.organizations.models import Organization
 from app.modules.platform import repository as platform_repository
 from app.modules.translations.campos import (
+    CARACTERES_MAXIMOS_IA,
     PREFIJO_OPCION,
     TIPOS_DE_ORGANIZACION,
     TipoDeEntidad,
@@ -80,8 +82,16 @@ class Traductor:
     origen: Locale
     activos: tuple[Locale, ...]
     origen_organizacion: Locale | None = None
+    #: La organización traduce con IA (clave propia): lo pendiente se traducirá
+    #: al vuelo y la web puede esperar con un esqueleto en vez del original.
+    traduccion_automatica: bool = False
     _filas: dict[_Clave, tuple[str, str]] = field(default_factory=dict)
     _pendientes: dict[Locale, set[tuple[str, uuid.UUID, str]]] = field(default_factory=dict)
+    #: Campos con traducción que la IA no tocará ahora: escrita a mano o revisada
+    #: (aunque esté desactualizada) o en espera tras un error.
+    _bloqueadas: set[_Clave] = field(default_factory=set)
+    #: Lo pendiente en el idioma pedido que la IA sí va a traducir: (campo, principal).
+    _pendientes_ia: set[tuple[str, uuid.UUID, str, bool]] = field(default_factory=set)
     _principal_visto: bool = False
     _principal_pendiente: bool = False
     _tipos_servidos: set[str] = field(default_factory=set)
@@ -125,6 +135,12 @@ class Traductor:
                 falta_en_el_pedido = falta_en_el_pedido or locale == self.idioma
                 if contar:
                     self._pendientes.setdefault(locale, set()).add((tipo, entity_id, campo))
+                    if (
+                        locale == self.idioma
+                        and (tipo, entity_id, campo, locale) not in self._bloqueadas
+                        and len(original) <= CARACTERES_MAXIMOS_IA
+                    ):
+                        self._pendientes_ia.add((tipo, entity_id, campo, principal))
         if principal:
             self._principal_visto = True
             self._principal_pendiente = self._principal_pendiente or falta_en_el_pedido
@@ -209,6 +225,21 @@ class Traductor:
             return 0
         return len(self._pendientes.get(self.idioma, set()))
 
+    @property
+    def traduciendo(self) -> bool:
+        """Hay contenido pendiente en el idioma pedido que la IA va a traducir.
+        Lo que no traducirá (manual desfasada, error en espera, demasiado largo)
+        no cuenta: la web nunca espera algo que no va a llegar."""
+        return self.traduccion_automatica and bool(self._pendientes_ia)
+
+    @property
+    def campos_traduciendose(self) -> list[str]:
+        """Campos principales de la página que se están traduciendo: la web pinta
+        el esqueleto solo en esos bloques."""
+        if not self.traduccion_automatica:
+            return []
+        return sorted({campo for _, _, campo, principal in self._pendientes_ia if principal})
+
     def metadatos(self) -> dict[str, Any]:
         """Los campos de idioma que añaden las respuestas públicas
         (`ContentLocaleInfo`)."""
@@ -217,6 +248,8 @@ class Traductor:
             "up_to_date_locales": self.idiomas_al_dia,
             "served_locale": self.idioma_servido,
             "pending_fields": self.campos_pendientes,
+            "translating": self.traduciendo,
+            "translating_fields": self.campos_traduciendose,
         }
 
 
@@ -232,12 +265,14 @@ async def _cargar_filas(
     *,
     event_ids: Collection[uuid.UUID] = (),
     de_organizacion: DeOrganizacion | None = None,
-) -> dict[_Clave, tuple[str, str]]:
+) -> tuple[dict[_Clave, tuple[str, str]], set[_Clave]]:
     """Traducciones al día de los eventos indicados y de lo que se pida de la
-    organización. Nunca carga más tipos de los que la página va a mostrar."""
+    organización, y las claves que la IA no va a tocar ahora (manuales,
+    revisadas o con error en espera). Nunca carga más tipos de los que la página
+    va a mostrar."""
     locales = tuple(locales)
     if not locales:
-        return {}
+        return {}, set()
     ambitos: list[ColumnElement[bool]] = []
     if event_ids:
         ambitos.append(ContentTranslation.event_id.in_(list(event_ids)))
@@ -252,7 +287,7 @@ async def _cargar_filas(
             condiciones.append(ContentTranslation.entity_id.in_(list(ids)))
         ambitos.append(and_(*condiciones))
     if not ambitos:
-        return {}
+        return {}, set()
     filas = await session.execute(
         select(
             ContentTranslation.entity_type,
@@ -261,14 +296,24 @@ async def _cargar_filas(
             ContentTranslation.locale,
             ContentTranslation.value,
             ContentTranslation.source_hash,
+            ContentTranslation.status,
+            ContentTranslation.origin,
+            ContentTranslation.retry_after,
         ).where(
             ContentTranslation.organization_id == organization_id,
             ContentTranslation.locale.in_(locales),
-            ContentTranslation.status == "al_dia",
             or_(*ambitos),
         )
     )
-    return {(t, e, f, loc): (valor, firma) for t, e, f, loc, valor, firma in filas}
+    ahora = datetime.now(UTC)
+    al_dia: dict[_Clave, tuple[str, str]] = {}
+    bloqueadas: set[_Clave] = set()
+    for t, e, f, loc, valor, firma, estado, origen, reintento in filas:
+        if estado == "al_dia":
+            al_dia[(t, e, f, loc)] = (valor, firma)
+        if origen != "ia" or (estado == "error" and reintento and reintento > ahora):
+            bloqueadas.add((t, e, f, loc))
+    return al_dia, bloqueadas
 
 
 async def _traductor(
@@ -282,7 +327,17 @@ async def _traductor(
     for necesario in (origen_org, origen):
         if necesario not in activos:
             activos = (necesario, *activos)
-    return Traductor(idioma=idioma, origen=origen, activos=activos, origen_organizacion=origen_org)
+    automatica = False
+    if organizacion is not None and idioma in activos and idioma != origen:
+        config = await ai_service.resolver_config_efectiva(session, organizacion.id)
+        automatica = config.origen == "propia" and config.usable
+    return Traductor(
+        idioma=idioma,
+        origen=origen,
+        activos=activos,
+        origen_organizacion=origen_org,
+        traduccion_automatica=automatica,
+    )
 
 
 async def traductor_de_evento(
@@ -303,7 +358,7 @@ async def traductor_de_evento(
     traductor = await _traductor(
         session, organizacion, idioma, normalizar_locale(evento.source_locale)
     )
-    traductor._filas = await _cargar_filas(
+    traductor._filas, traductor._bloqueadas = await _cargar_filas(
         session,
         evento.organization_id,
         traductor.destinos,
@@ -326,7 +381,7 @@ async def traductor_de_organizacion(
     traductor = await _traductor(
         session, organizacion, idioma, normalizar_locale(organizacion.source_locale)
     )
-    traductor._filas = await _cargar_filas(
+    traductor._filas, traductor._bloqueadas = await _cargar_filas(
         session,
         organizacion.id,
         traductor.destinos,
@@ -367,7 +422,7 @@ async def traductores_de_listado(
             await set_organization_context(session, organization_id)
             organizacion = await session.get(Organization, organization_id)
             base = await _traductor(session, organizacion, idioma, DEFAULT_LOCALE)
-            filas = await _cargar_filas(
+            filas, bloqueadas = await _cargar_filas(
                 session,
                 organization_id,
                 base.activos,
@@ -383,6 +438,7 @@ async def traductores_de_listado(
                     origen_organizacion=base.origen_organizacion,
                 )
                 traductor._filas = filas
+                traductor._bloqueadas = bloqueadas
                 traductores[evento.id] = traductor
     finally:
         await set_organization_context(

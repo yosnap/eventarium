@@ -22,6 +22,12 @@ class ContentLocaleInfo(BaseModel):
     served_locale: Locale = DEFAULT_LOCALE
     # Campos que se muestran en el original porque falta su traducción.
     pending_fields: int = 0
+    # La IA va a traducir lo pendiente: la web muestra un esqueleto y pide la
+    # traducción al vuelo en vez de enseñar el original.
+    translating: bool = False
+    # Campos principales que se están traduciendo (`title`, `description`…): la
+    # web pinta el esqueleto solo en esos bloques.
+    translating_fields: list[str] = Field(default_factory=list)
 
 
 class TranslationItem(BaseModel):

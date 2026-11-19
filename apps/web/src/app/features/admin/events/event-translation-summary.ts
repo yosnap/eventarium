@@ -15,13 +15,14 @@ import {
   TraduccionesService,
 } from '../../../core/traducciones/traducciones.service';
 import { ThemingService } from '../../../core/theming/theming.service';
+import { AvisoClavePropia } from '../../../shared/ui/aviso-clave-propia';
 import { Card } from '../../../shared/ui/card';
 
 /** «English: 12/14 textos al día» en la ficha del evento, por cada idioma. */
 @Component({
   selector: 'app-event-translation-summary',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Card],
+  imports: [TranslocoDirective, AvisoClavePropia, Card],
   template: `
     @if (resumen(); as r) {
       @if (r.locales.length > 0) {
@@ -40,6 +41,9 @@ import { Card } from '../../../shared/ui/card';
             }
           </ul>
           <p class="ayuda">{{ t('ayuda') }}</p>
+          @if (r.auto_translation_available === false) {
+            <app-aviso-clave-propia />
+          }
         </app-card>
       }
     }
