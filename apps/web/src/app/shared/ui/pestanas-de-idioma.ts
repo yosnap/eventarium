@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
 
-import { IDIOMAS, NOMBRE_DEL_IDIOMA, type Idioma } from '../../core/i18n/idioma';
+import { NOMBRE_DEL_IDIOMA, type Idioma } from '../../core/i18n/idioma';
 import {
   type EditorDeTraducciones as Editor,
   type TipoTraducible,
@@ -19,12 +19,17 @@ import {
 import { ThemingService } from '../../core/theming/theming.service';
 import { EditorDeTraducciones } from './editor-de-traducciones';
 
+let siguienteId = 0;
+
 /**
  * Pestañas de idioma de un formulario del panel. La del idioma original muestra
  * el formulario de siempre (el contenido proyectado, que sigue en el DOM para no
- * perder lo que se esté escribiendo); las demás, el editor de traducciones.
+ * perder lo que se esté escribiendo); las demás, el editor de traducciones, que
+ * tampoco se destruye al cambiar de pestaña.
+ *
  * Sin entidad guardada todavía, o si la plataforma o la organización publican en
- * un solo idioma, no se muestran pestañas (ni se pregunta a la API).
+ * un solo idioma, no se muestran pestañas (ni se pregunta a la API) y el
+ * formulario se ve siempre.
  */
 @Component({
   selector: 'app-pestanas-de-idioma',
@@ -38,9 +43,13 @@ import { EditorDeTraducciones } from './editor-de-traducciones';
             <button
               type="button"
               role="tab"
+              [id]="id + '-tab-' + idioma"
+              [attr.aria-controls]="id + '-panel-' + idioma"
               [attr.aria-selected]="idioma === activa()"
+              [attr.tabindex]="idioma === activa() ? 0 : -1"
               [class.activa]="idioma === activa()"
-              (click)="activa.set(idioma)"
+              (click)="elegir(idioma)"
+              (keydown)="teclado($event, idioma)"
             >
               {{ nombre(idioma) }}
               @if (idioma === origen()) {
@@ -50,16 +59,30 @@ import { EditorDeTraducciones } from './editor-de-traducciones';
           }
         </div>
       }
-      <div [hidden]="activa() !== origen()">
+      <div
+        [id]="id + '-panel-' + origen()"
+        [attr.role]="pestanas().length > 1 ? 'tabpanel' : null"
+        [attr.aria-labelledby]="pestanas().length > 1 ? id + '-tab-' + origen() : null"
+        [hidden]="activa() !== origen()"
+      >
         <ng-content />
       </div>
-      @if (activa() !== origen() && entityId(); as id) {
-        <app-editor-de-traducciones
-          [tipo]="tipo()"
-          [entityId]="id"
-          [locale]="activa()"
-          [etiquetas]="etiquetas()"
-        />
+      @if (entityId(); as entidad) {
+        @for (idioma of visitadas(); track idioma) {
+          <div
+            role="tabpanel"
+            [id]="id + '-panel-' + idioma"
+            [attr.aria-labelledby]="id + '-tab-' + idioma"
+            [hidden]="activa() !== idioma"
+          >
+            <app-editor-de-traducciones
+              [tipo]="tipo()"
+              [entityId]="entidad"
+              [locale]="idioma"
+              [etiquetas]="etiquetas()"
+            />
+          </div>
+        }
       }
     </ng-container>
   `,
@@ -99,6 +122,7 @@ export class PestanasDeIdioma {
   readonly entityId = input<string | null>(null);
   readonly etiquetas = input<Readonly<Record<string, string>>>({});
 
+  protected readonly id = `pestanas-idioma-${siguienteId++}`;
   private readonly servicio = inject(TraduccionesService);
   private readonly theming = inject(ThemingService);
   /** La plataforma ofrece más de un idioma: si no, no hay nada que traducir. */
@@ -106,8 +130,12 @@ export class PestanasDeIdioma {
     () => (this.theming.plataforma()?.enabled_locales?.length ?? 0) > 1,
   );
   private readonly info = signal<Pick<Editor, 'locales' | 'source_locale'> | null>(null);
+  /** Pestaña elegida; `null` es la del original (también tras cambiar de entidad). */
+  private readonly elegida = signal<Idioma | null>(null);
+  /** Idiomas cuyo editor ya se ha abierto: se conservan para no perder borradores. */
+  protected readonly visitadas = signal<readonly Idioma[]>([]);
 
-  protected readonly origen = computed<Idioma>(() => this.info()?.source_locale ?? IDIOMAS[0]);
+  protected readonly origen = computed<Idioma | null>(() => this.info()?.source_locale ?? null);
   protected readonly pestanas = computed<readonly Idioma[]>(() => {
     const info = this.info();
     if (!info) {
@@ -115,7 +143,10 @@ export class PestanasDeIdioma {
     }
     return [info.source_locale, ...info.locales.filter((idioma) => idioma !== info.source_locale)];
   });
-  protected readonly activa = signal<Idioma>(IDIOMAS[0]);
+  protected readonly activa = computed(() => {
+    const elegida = this.elegida();
+    return elegida && this.pestanas().includes(elegida) ? elegida : this.origen();
+  });
 
   constructor() {
     effect(() => {
@@ -128,16 +159,50 @@ export class PestanasDeIdioma {
     return NOMBRE_DEL_IDIOMA[idioma];
   }
 
+  protected elegir(idioma: Idioma): void {
+    this.elegida.set(idioma === this.origen() ? null : idioma);
+    if (idioma !== this.origen() && !this.visitadas().includes(idioma)) {
+      this.visitadas.update((visitadas) => [...visitadas, idioma]);
+    }
+  }
+
+  /** Flechas, Inicio y Fin mueven entre pestañas (patrón ARIA de pestañas). */
+  protected teclado(evento: KeyboardEvent, actual: Idioma): void {
+    const pestanas = this.pestanas();
+    const indice = pestanas.indexOf(actual);
+    const destino =
+      evento.key === 'ArrowRight'
+        ? pestanas[(indice + 1) % pestanas.length]
+        : evento.key === 'ArrowLeft'
+          ? pestanas[(indice - 1 + pestanas.length) % pestanas.length]
+          : evento.key === 'Home'
+            ? pestanas[0]
+            : evento.key === 'End'
+              ? pestanas[pestanas.length - 1]
+              : undefined;
+    if (!destino) {
+      return;
+    }
+    evento.preventDefault();
+    this.elegir(destino);
+    document.getElementById(`${this.id}-tab-${destino}`)?.focus();
+  }
+
   private async conocerIdiomas(tipo: TipoTraducible, id: string | null): Promise<void> {
+    // Otra entidad (o un alta): se vuelve al formulario original y se descartan
+    // los editores de la anterior.
     this.info.set(null);
+    this.elegida.set(null);
+    this.visitadas.set([]);
     if (!id) {
       return;
     }
     try {
       // Cualquier idioma sirve para saber los de la organización y el original.
-      const editor = await this.servicio.obtener(tipo, id, IDIOMAS[IDIOMAS.length - 1]);
-      this.info.set({ locales: editor.locales, source_locale: editor.source_locale });
-      this.activa.set(editor.source_locale);
+      const editor = await this.servicio.obtener(tipo, id, 'en-US');
+      if (this.entityId() === id) {
+        this.info.set({ locales: editor.locales, source_locale: editor.source_locale });
+      }
     } catch {
       // Sin permiso de lectura o sin conexión: el formulario sigue funcionando.
       this.info.set(null);

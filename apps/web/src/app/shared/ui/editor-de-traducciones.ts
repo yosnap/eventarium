@@ -22,6 +22,7 @@ import { Button } from './button';
 import { Chip, type ChipTone } from './chip';
 
 const PREFIJO_OPCION = 'option:';
+let siguienteId = 0;
 
 const clave = (texto: Pick<TextoTraducible, 'entity_type' | 'entity_id' | 'field'>): string =>
   `${texto.entity_type}|${texto.entity_id}|${texto.field}`;
@@ -54,11 +55,11 @@ const clave = (texto: Pick<TextoTraducible, 'entity_type' | 'entity_id' | 'field
                   }
                 </div>
                 <p class="original">{{ texto.original }}</p>
-                <label class="visually-hidden" [for]="'trad-' + $index">{{
+                <label class="visually-hidden" [for]="id + '-' + $index">{{
                   etiqueta(texto)
                 }}</label>
                 <textarea
-                  [id]="'trad-' + $index"
+                  [id]="id + '-' + $index"
                   [rows]="texto.original.length > 120 ? 5 : 2"
                   [value]="borrador(texto)"
                   (input)="escribir(texto, $any($event.target).value)"
@@ -148,6 +149,7 @@ export class EditorDeTraducciones {
   protected readonly guardando = signal(false);
   private readonly borradores = signal<Readonly<Record<string, string>>>({});
   protected readonly clave = clave;
+  protected readonly id = `traduccion-${siguienteId++}`;
 
   protected readonly cambios = computed(() => {
     const e = this.editor();
@@ -211,23 +213,34 @@ export class EditorDeTraducciones {
 
   protected guardar(): void {
     const cambios = this.cambios();
-    void this.cargar(() =>
-      this.servicio.guardar(this.tipo(), this.entityId(), this.locale(), cambios),
+    void this.cargar(
+      () => this.servicio.guardar(this.tipo(), this.entityId(), this.locale(), cambios),
+      cambios.map(clave),
     );
   }
 
   protected revisar(texto: TextoTraducible): void {
-    void this.cargar(() =>
-      this.servicio.revisar(this.tipo(), this.entityId(), this.locale(), texto),
+    void this.cargar(
+      () => this.servicio.revisar(this.tipo(), this.entityId(), this.locale(), texto),
+      [clave(texto)],
     );
   }
 
-  private async cargar(peticion: () => Promise<Editor>): Promise<void> {
+  /** Hace la petición y descarta solo los borradores de `resueltos` (los que
+   * ya se han guardado o revisado); los demás siguen escritos. */
+  private async cargar(
+    peticion: () => Promise<Editor>,
+    resueltos: readonly string[] | null = null,
+  ): Promise<void> {
     this.guardando.set(true);
     this.error.set(null);
     try {
       this.editor.set(await peticion());
-      this.borradores.set({});
+      this.borradores.update((actuales) =>
+        resueltos === null
+          ? {}
+          : Object.fromEntries(Object.entries(actuales).filter(([k]) => !resueltos.includes(k))),
+      );
     } catch {
       this.error.set(this.transloco.translate('traducciones.error'));
     } finally {

@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, model } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
 
-import { NOMBRE_DEL_IDIOMA, type Idioma } from '../../../core/i18n/idioma';
+import { IDIOMAS, NOMBRE_DEL_IDIOMA, type Idioma } from '../../../core/i18n/idioma';
 import { ThemingService } from '../../../core/theming/theming.service';
 import { Checkbox } from '../../../shared/ui/checkbox';
 import { Select, type SelectOption } from '../../../shared/ui/select';
@@ -73,6 +73,8 @@ export class OrganizationLanguages {
     } else if (idioma !== this.origen()) {
       actuales.delete(idioma);
     }
-    this.idiomas.set(this.disponibles().filter((disponible) => actuales.has(disponible)));
+    // En el orden del catálogo, conservando los que la plataforma haya desactivado:
+    // la organización no los pierde por guardar otra cosa.
+    this.idiomas.set(IDIOMAS.filter((candidato) => actuales.has(candidato)));
   }
 }

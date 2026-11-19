@@ -82,12 +82,18 @@ export class TraduccionesService {
     tipo: TipoTraducible,
     id: string,
     locale: Idioma,
-    texto: Pick<TextoTraducible, 'entity_type' | 'entity_id' | 'field'>,
+    texto: Pick<TextoTraducible, 'entity_type' | 'entity_id' | 'field' | 'original'>,
   ): Promise<EditorDeTraducciones> {
     return firstValueFrom(
       this.http.post<EditorDeTraducciones>(
         `${this.url(tipo, id)}/review`,
-        { entity_type: texto.entity_type, entity_id: texto.entity_id, field: texto.field },
+        {
+          entity_type: texto.entity_type,
+          entity_id: texto.entity_id,
+          field: texto.field,
+          // El original que se ve: si cambió mientras tanto, la API responde 409.
+          original: texto.original,
+        },
         { params: { locale } },
       ),
     );

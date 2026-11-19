@@ -590,6 +590,7 @@ export class EventForm {
   protected readonly etiquetas = signal<string[]>([]);
   /** Idioma en que se escribe el evento; vacío en un alta: el de la organización. */
   protected readonly idiomaOrigen = signal('');
+  private idiomaOrigenGuardado = '';
   protected readonly opcionesDeIdioma = computed(() => [
     {
       value: '',
@@ -751,6 +752,7 @@ export class EventForm {
       this.categoriaActual.set(evento.category);
       this.etiquetas.set([...evento.tags]);
       this.idiomaOrigen.set(evento.source_locale ?? '');
+      this.idiomaOrigenGuardado = evento.source_locale ?? '';
     } catch (error) {
       this.error.set(
         error instanceof ApiError
@@ -937,7 +939,11 @@ export class EventForm {
       // Siempre explícitos: `null` quita la categoría, `[]` las etiquetas.
       category_id: this.categoria() || null,
       tags: [...this.etiquetas()],
-      ...(this.idiomaOrigen() ? { source_locale: this.idiomaOrigen() } : {}),
+      // Solo si cambia: reenviar el de siempre no debe fallar si la organización ya no
+      // publica en él.
+      ...(this.idiomaOrigen() && this.idiomaOrigen() !== this.idiomaOrigenGuardado
+        ? { source_locale: this.idiomaOrigen() }
+        : {}),
     };
     await this.enviar(payload);
   }

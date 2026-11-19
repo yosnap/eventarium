@@ -91,4 +91,31 @@ describe('PestanasDeIdioma', () => {
     http.expectNone(URL);
     expect(fixture.nativeElement.querySelectorAll('[role="tab"]').length).toBe(0);
   });
+
+  it('al volver a un alta tras editar, el formulario se ve aunque estuviera en otra pestaña', async () => {
+    const fixture = await crear(['es-ES', 'en-US']);
+    (fixture.nativeElement.querySelectorAll('[role="tab"]')[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+    http.expectOne(URL).flush({ locale: 'en-US', source_locale: 'es-ES', locales: [], items: [] });
+
+    fixture.componentRef.setInput('entityId', null);
+    fixture.detectChanges();
+    await vaciar();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('[role="tab"]').length).toBe(0);
+    const formulario = fixture.nativeElement.querySelector('div') as HTMLElement;
+    expect(formulario.hidden).toBe(false);
+  });
+
+  it('las flechas mueven entre pestañas', async () => {
+    const fixture = await crear(['es-ES', 'en-US']);
+    const primera = fixture.nativeElement.querySelector('[role="tab"]') as HTMLButtonElement;
+    primera.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+    fixture.detectChanges();
+    http.expectOne(URL).flush({ locale: 'en-US', source_locale: 'es-ES', locales: [], items: [] });
+    const pestanas = fixture.nativeElement.querySelectorAll('[role="tab"]');
+    expect(pestanas[1].getAttribute('aria-selected')).toBe('true');
+    expect(pestanas[0].getAttribute('tabindex')).toBe('-1');
+  });
 });
