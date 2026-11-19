@@ -17,6 +17,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request, status
 
 from app.core.deps import SessionDep, VerifiedUserDep, get_token_claims
+from app.core.mensajes import marcar, t
 from app.core.ratelimit import (
     CANCELACION_INSCRIPCION_POR_IP,
     CONFIRMACION_PROMOCION_POR_IP,
@@ -56,10 +57,12 @@ from app.shared.errors import ConflictError, PermissionDeniedError
 router = APIRouter(prefix="/public", tags=["público"])
 
 _MENSAJES_POR_ESTADO = {
-    "confirmed": "Tu inscripción está confirmada.",
-    "pending_approval": "Tu inscripción está pendiente de aprobación por parte del organizador.",
-    "pending_payment": "Tu plaza está reservada; completa el pago para confirmarla.",
-    "waitlisted": "El aforo está completo; te hemos añadido a la lista de espera.",
+    "confirmed": marcar("Tu inscripción está confirmada."),
+    "pending_approval": marcar(
+        "Tu inscripción está pendiente de aprobación por parte del organizador."
+    ),
+    "pending_payment": marcar("Tu plaza está reservada; completa el pago para confirmarla."),
+    "waitlisted": marcar("El aforo está completo; te hemos añadido a la lista de espera."),
 }
 
 
@@ -135,7 +138,9 @@ async def create_registration(
         accepted_policy_version_ids=datos.accepted_policy_version_ids,
     )
     return RegistrationMessageResponse(
-        message="Si los datos son correctos, en breve recibirás un correo con los siguientes pasos."
+        message=t(
+            "Si los datos son correctos, en breve recibirás un correo con los siguientes pasos."
+        )
     )
 
 
@@ -151,7 +156,11 @@ async def verify_registration(
 ) -> VerifyRegistrationResponse:
     inscripcion = await service.verify_registration(session, token=datos.token)
     return VerifyRegistrationResponse(
-        message=_MENSAJES_POR_ESTADO.get(inscripcion.status, "Inscripción verificada."),
+        message=(
+            t(_MENSAJES_POR_ESTADO[inscripcion.status])  # mensaje marcado
+            if inscripcion.status in _MENSAJES_POR_ESTADO
+            else t("Inscripción verificada.")
+        ),
         status=inscripcion.status,
         event=await calendario_de_inscripcion(session, inscripcion),
     )
@@ -172,7 +181,7 @@ async def confirm_waitlist_promotion(
 ) -> ConfirmWaitlistPromotionResponse:
     inscripcion = await service.confirm_waitlist_promotion(session, token=datos.token)
     return ConfirmWaitlistPromotionResponse(
-        message="Tu plaza está confirmada.",
+        message=t("Tu plaza está confirmada."),
         event=await calendario_de_inscripcion(session, inscripcion),
     )
 
@@ -208,7 +217,7 @@ async def cancel_registration(
     datos: CancelRegistrationRequest, session: SessionDep
 ) -> CancelRegistrationResponse:
     await service.cancel_registration_by_token(session, token=datos.token)
-    return CancelRegistrationResponse(message="Tu inscripción ha sido cancelada.")
+    return CancelRegistrationResponse(message=t("Tu inscripción ha sido cancelada."))
 
 
 @router.post(
@@ -227,7 +236,7 @@ async def solicitar_mis_eventos(
     await require_turnstile(request, datos.turnstile_token)
     await mis_eventos_service.request_mis_eventos_access(session, email=str(datos.email))
     return RegistrationMessageResponse(
-        message="Si ese correo tiene inscripciones, en breve recibirás un enlace."
+        message=t("Si ese correo tiene inscripciones, en breve recibirás un enlace.")
     )
 
 

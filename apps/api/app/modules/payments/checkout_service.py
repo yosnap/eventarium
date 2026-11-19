@@ -34,7 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import SessionApp, maintenance_session, set_organization_context
 from app.core.fechas import fecha_y_hora
 from app.core.locale import Locale, normalizar_locale, ruta_web
-from app.core.mensajes import t
+from app.core.mensajes import marcar, t
 from app.core.tenant import base_url_de_organizacion
 from app.core.tras_commit import despachar_tras_commit
 from app.modules.events.models import Event
@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 
 # Nunca revela si el email ya estaba inscrito, ni en qué estado — mismo
 # mensaje que el resto del embudo público (`registrations/public_router.py`).
-MENSAJE_GENERICO = (
+MENSAJE_GENERICO = marcar(
     "Si los datos son correctos, en breve recibirás un correo con los siguientes pasos."
 )
 
@@ -136,7 +136,10 @@ async def iniciar_compra(
                 # Sale sin `despachar_tras_commit`: en este punto no puede haber
                 # nada apuntado (un alta de pago nunca nace confirmada). Si algún
                 # día lo hubiera, habría que despachar también aquí.
-                return ResultadoCompra(message=MENSAJE_GENERICO, checkout_url=None)
+                return ResultadoCompra(
+                    message=t(MENSAJE_GENERICO),  # mensaje marcado
+                    checkout_url=None,
+                )
 
             ahora = datetime.now(UTC)
             tipo = await repository.lock_ticket_type(session, event.organization_id, ticket_type_id)
@@ -229,7 +232,10 @@ async def iniciar_compra(
             # `pending_payment` por verificación, aprobación o promoción
             # (caminos 2, 3 y 4, `dispatch_pending_payment_links_task`). El
             # pago ya quedó creado arriba, en `pending`, sin sesión de Stripe.
-            return ResultadoCompra(message=MENSAJE_GENERICO, checkout_url=None)
+            return ResultadoCompra(
+                message=t(MENSAJE_GENERICO),  # mensaje marcado
+                checkout_url=None,
+            )
 
         async with session.begin():
             # T2, transacción propia: nunca comparte bloqueos con T1. `SET
@@ -238,7 +244,10 @@ async def iniciar_compra(
             # perdió.
             await set_organization_context(session, event.organization_id)
             checkout_url = await crear_sesion_de_pago(session, payment_id=payment_id, locale=idioma)
-        return ResultadoCompra(message=MENSAJE_GENERICO, checkout_url=checkout_url)
+        return ResultadoCompra(
+            message=t(MENSAJE_GENERICO),  # mensaje marcado
+            checkout_url=checkout_url,
+        )
 
 
 async def crear_sesion_de_pago(

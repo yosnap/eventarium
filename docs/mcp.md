@@ -157,6 +157,14 @@ deciden los ámbitos y eventos elegidos al crear la clave.
 120 llamadas por minuto por conexión y 600 por IP. Al pasarse, la herramienta
 devuelve un error y el asistente debe esperar.
 
+## Idioma de las respuestas
+
+El servidor MCP responde en español (`es-ES`). Sus mensajes de error propios
+(`ErrorDeHerramienta`) no pasan por el catálogo de traducciones, y la mayoría
+de los clientes MCP no mandan `Accept-Language`. Los datos de los eventos se
+devuelven tal como los escribió el organizador. Elegir el idioma desde las
+herramientas queda pendiente.
+
 ## Detalles técnicos
 
 - Código en `apps/api/app/modules/mcp/` (herramientas, verificación, ámbitos)

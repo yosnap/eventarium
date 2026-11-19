@@ -66,6 +66,9 @@ h2 {
   line-height: 1.02;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+  /* Una palabra más larga que la pantalla (otro idioma, un nombre propio) se
+     parte en vez de ensanchar la página en el móvil. */
+  overflow-wrap: break-word;
 }
 h1 {
   font-size: var(--fs-h1);

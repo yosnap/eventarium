@@ -24,8 +24,26 @@ const RUTAS_FIJAS = [
   '/legal/condiciones-de-inscripcion',
 ];
 
+/** Las mismas páginas en inglés: los textos son más largos que en español. */
+const RUTAS_EN_INGLES = [
+  '/en',
+  '/en/events',
+  `/en/${ORG}/${EVENTO}`,
+  `/en/${ORG}/${EVENTO}/schedule`,
+  `/en/${ORG}/${EVENTO}/register`,
+  `/en/${ORG}/${EVENTO}/policies`,
+  '/en/login',
+  '/en/signup',
+  '/en/forgot-password',
+  '/en/my-events',
+  '/en/legal/legal-notice',
+  '/en/legal/privacy',
+  '/en/legal/cookies',
+  '/en/legal/registration-terms',
+];
+
 test.describe('Páginas públicas en un móvil de 360 px', () => {
-  for (const ruta of RUTAS_FIJAS) {
+  for (const ruta of [...RUTAS_FIJAS, ...RUTAS_EN_INGLES]) {
     test(`sin desborde horizontal: ${ruta}`, async ({ page }) => {
       await page.goto(ruta);
       await esperarSinDesborde(page, ruta);
