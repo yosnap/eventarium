@@ -335,6 +335,26 @@ Ejemplo de programación diaria:
 15 3 * * * cd /opt/eventarium && DESTINO=/var/backups/eventarium infra/scripts/backup.sh >> /var/log/eventarium-backup.log 2>&1
 ```
 
+### Producción en Dokploy (sin SSH)
+
+En la instalación de Dokploy, la copia diaria es la tarea programada `eventarium-backup-diario`
+(tipo *compose*, servicio `postgres`, todos los días a las 03:30, hora de Madrid):
+
+- Vuelca la base con `pg_dump -Fc` en `/var/lib/postgresql/backups/eventarium-AAAAMMDD-HHMMSS.dump`.
+  Está dentro del volumen persistente de Postgres y fuera de `PGDATA`, así que sobrevive a que se
+  recree el contenedor.
+- Comprueba cada copia con `pg_restore --list` y anota en el log de la tarea la versión del esquema.
+- Borra las copias de más de 14 días.
+
+**Limitación:** la copia está en el mismo disco que la base. Protege de errores y borrados, no de
+perder el servidor. Falta añadir una copia fuera del servidor, en un bucket S3 propio de
+Eventarium; los destinos S3 que hay en Dokploy son de otros proyectos.
+
+Para restaurar una de estas copias, para `api`, `worker` y `scheduler` y ejecuta, desde una tarea
+de tipo *compose* sobre `postgres`:
+`pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists /var/lib/postgresql/backups/<fichero>.dump`.
+Después aplica la nota de roles de la sección siguiente.
+
 ### Restauración
 
 ```bash
