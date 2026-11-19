@@ -33,6 +33,32 @@ export interface ChangelogVersion {
 
 export const CHANGELOG: readonly ChangelogVersion[] = [
   {
+    version: '0.33.0',
+    fecha: '2026-11-19',
+    secciones: [
+      {
+        categoria: 'agregado',
+        items: [
+          {
+            titulo: 'Contenido del organizador en varios idiomas',
+            descripcion:
+              'Cada organización elige en qué idiomas publica y en cuál escribe. Los eventos, sesiones, entradas, preguntas, patrocinadores, sedes, políticas, perfiles y etiquetas se pueden traducir desde la pestaña de cada idioma de los formularios. Lo que no está traducido se muestra en el original, con un aviso.',
+          },
+          {
+            titulo: 'Traducción automática con IA',
+            descripcion:
+              'Con su propia clave de IA, la organización ve sus eventos traducidos solos al publicar y al editar, y también al vuelo mientras alguien navega en otro idioma. La traducción gasta como mucho la mitad del límite mensual de IA y nunca toca lo que se ha escrito o revisado a mano.',
+          },
+          {
+            titulo: 'Indexación por idioma',
+            descripcion:
+              'Las páginas traducidas se anuncian a los buscadores en cada idioma (canonical y hreflang); las que aún no lo están apuntan al original.',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.32.0',
     fecha: '2026-11-19',
     secciones: [
