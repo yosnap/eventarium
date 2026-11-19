@@ -11,6 +11,7 @@ from app.core.codigos_de_idioma import IDENTIFICADORES_DE_IDIOMA
 from app.core.locale import DEFAULT_LOCALE, Locale
 from app.core.security import password_meets_complexity
 from app.modules.roles.schemas import ProfileFieldResponse
+from app.modules.translations.schemas import ContentLocaleInfo
 
 SLUG_PATTERN = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
 
@@ -427,7 +428,7 @@ class PublicSocialLink(BaseModel):
     label: str | None = None
 
 
-class PublicOrganizationProfile(BaseModel):
+class PublicOrganizationProfile(ContentLocaleInfo):
     """Lo único que una organización hace público con su página `/{slug}`.
 
     Esquema explícito, sin `from_attributes` y sin reutilizar

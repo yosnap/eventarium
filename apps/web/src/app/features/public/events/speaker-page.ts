@@ -26,6 +26,11 @@ import { Breadcrumb, type BreadcrumbItem } from '../../../shared/ui/breadcrumb';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 import { rolLegible } from './event-page.types';
 import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
+import {
+  IdiomasDeLaRespuesta,
+  idiomasDeLaRespuesta,
+} from '../../../core/seo/indexacion-por-idioma';
+import { AvisoContenidoOriginal } from '../../../shared/ui/aviso-contenido-original';
 
 interface SocialLink {
   readonly kind: string;
@@ -42,7 +47,7 @@ interface HistoryItem {
   readonly role_key: string;
 }
 
-interface PublicSpeakerProfile {
+interface PublicSpeakerProfile extends IdiomasDeLaRespuesta {
   readonly display_name: string;
   readonly public_slug: string;
   readonly fields: Record<string, string>;
@@ -95,7 +100,15 @@ function etiquetaEnlace(kind: string, traducir: (clave: string) => string): stri
 @Component({
   selector: 'app-speaker-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [EnlacePipe, RouterLink, TranslocoDirective, Alert, Breadcrumb, Reveal],
+  imports: [
+    AvisoContenidoOriginal,
+    EnlacePipe,
+    RouterLink,
+    TranslocoDirective,
+    Alert,
+    Breadcrumb,
+    Reveal,
+  ],
   template: `
     <ng-container *transloco="let t">
       @if (cargando()) {
@@ -114,6 +127,7 @@ function etiquetaEnlace(kind: string, traducir: (clave: string) => string): stri
                 <div class="mono-mark" aria-hidden="true">{{ iniciales(perfil.display_name) }}</div>
                 <div>
                   <h1>{{ perfil.display_name }}</h1>
+                  <app-aviso-contenido-original [servido]="perfil.served_locale" />
                   @if (perfil.fields['titular']; as titular) {
                     <p class="titular">{{ titular }}</p>
                   }
@@ -586,6 +600,7 @@ export class SpeakerPage implements OnInit {
     this.perfil.set(perfil);
     this.seo.set({
       contenidoDelOrganizador: true,
+      ...idiomasDeLaRespuesta(perfil),
       title: perfil.display_name,
       description: perfil.fields['bio'] ?? this.transloco.translate('publico.eventos.sinResumen'),
     });

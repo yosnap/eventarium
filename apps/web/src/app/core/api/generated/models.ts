@@ -222,6 +222,7 @@ export type { PublicSponsorTier } from './models/public-sponsor-tier';
 export type { PublicTheme } from './models/public-theme';
 export type { PublicTicketTypeResponse } from './models/public-ticket-type-response';
 export type { PublicVenue } from './models/public-venue';
+export type { QuestionChoice } from './models/question-choice';
 export type { RedireccionOut } from './models/redireccion-out';
 export type { RefundAcceptedResponse } from './models/refund-accepted-response';
 export type { RefundRequest } from './models/refund-request';

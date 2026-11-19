@@ -23,6 +23,10 @@ export interface PoliticasPublicas {
   readonly policies: readonly PoliticaPublica[];
   /** Plantilla del evento, para que la página conserve su aspecto. */
   readonly theme?: PlantillaDeTema | null;
+  /** Algún texto se muestra traducido; vale legalmente el original. */
+  readonly translated?: boolean;
+  /** Idioma en que están escritos los originales. */
+  readonly original_locale?: string;
 }
 
 /** Código del 409 cuando lo aceptado no cuadra con los textos vigentes. */

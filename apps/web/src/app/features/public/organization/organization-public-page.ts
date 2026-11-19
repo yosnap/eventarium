@@ -25,8 +25,13 @@ import { Chip } from '../../../shared/ui/chip';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 import { ICONOS_REDES } from '../../../shared/ui/share-links-iconos';
 import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
+import {
+  IdiomasDeLaRespuesta,
+  idiomasDeLaRespuesta,
+} from '../../../core/seo/indexacion-por-idioma';
+import { AvisoContenidoOriginal } from '../../../shared/ui/aviso-contenido-original';
 
-interface PerfilPublico {
+interface PerfilPublico extends IdiomasDeLaRespuesta {
   readonly slug: string;
   readonly name: string;
   readonly description: string | null;
@@ -48,6 +53,8 @@ interface EventoDeLaOrganizacion {
   readonly cancelled?: boolean;
   readonly category?: { readonly slug: string; readonly name: string } | null;
   readonly tags?: readonly string[];
+  /** Texto de cada etiqueta en el idioma de la página (solo las que cambian). */
+  readonly tag_labels?: Readonly<Record<string, string>>;
   readonly organization: { readonly slug: string };
   readonly title: string;
   readonly summary: string | null;
@@ -101,7 +108,17 @@ interface EstadoTransferido {
 @Component({
   selector: 'app-organization-public-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [EnlacePipe, TranslocoDirective, DatePipe, RouterLink, Alert, Button, Chip, Reveal],
+  imports: [
+    AvisoContenidoOriginal,
+    EnlacePipe,
+    TranslocoDirective,
+    DatePipe,
+    RouterLink,
+    Alert,
+    Button,
+    Chip,
+    Reveal,
+  ],
   template: `
     <ng-container *transloco="let t">
       @if (cargando()) {
@@ -127,6 +144,7 @@ interface EstadoTransferido {
             <div class="cabecera__datos">
               <p class="etiqueta-acento">{{ t('publico.organizacion.rotulo') }}</p>
               <h1>{{ p.name }}</h1>
+              <app-aviso-contenido-original [servido]="p.served_locale" />
               @if (p.description) {
                 <p class="cabecera__descripcion">{{ p.description }}</p>
               }
@@ -243,7 +261,7 @@ interface EstadoTransferido {
                               <strong>{{ evento.category.name }}</strong>
                             }
                             @for (etiqueta of evento.tags ?? []; track etiqueta) {
-                              #{{ etiqueta }}
+                              #{{ evento.tag_labels?.[etiqueta] ?? etiqueta }}
                             }
                           </span>
                         }
@@ -562,6 +580,7 @@ export class OrganizationPublicPage implements OnInit {
     this.pasados.set(estado.pasados);
     this.seo.set({
       contenidoDelOrganizador: true,
+      ...idiomasDeLaRespuesta(estado.perfil),
       title: estado.perfil.name,
       description:
         estado.perfil.description ??

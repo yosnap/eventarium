@@ -23,6 +23,7 @@ from app.modules.nearby.schemas import PublicNearbyPlace
 from app.modules.organizations.schemas import SLUG_PATTERN, PublicOrganizationRef
 from app.modules.sponsors.schemas import PublicSponsorTier
 from app.modules.theme_templates.schemas import PublicTheme, validar_theme_overrides
+from app.modules.translations.schemas import ContentLocaleInfo
 
 EventStatus = Literal["draft", "published", "archived", "cancelled"]
 # Lo que se acepta al crear o editar: `cancelled` no está porque solo se llega
@@ -607,7 +608,7 @@ class PublicParticipant(BaseModel):
     ref: str
 
 
-class PublicEventSummary(BaseModel):
+class PublicEventSummary(ContentLocaleInfo):
     """Evento tal y como aparece en el listado público.
 
     `reserved_count` es el número de plazas realmente reservadas: `confirmed` +
@@ -621,6 +622,9 @@ class PublicEventSummary(BaseModel):
     organization: PublicOrganizationRef
     category: PublicCategoryRef | None = None
     tags: list[str] = Field(default_factory=list)
+    # Texto que se muestra de cada etiqueta en el idioma servido, solo de las que
+    # cambian; `tags` sigue llevando el original, que es el que filtra.
+    tag_labels: dict[str, str] = Field(default_factory=dict)
     # El evento está cancelado: en la página de su organización sigue apareciendo,
     # marcado. El directorio general no lista los cancelados.
     cancelled: bool = False
@@ -679,7 +683,7 @@ class PublicEventSession(BaseModel):
     participants: list[PublicParticipant]
 
 
-class PublicSessionDetail(PublicEventSession):
+class PublicSessionDetail(PublicEventSession, ContentLocaleInfo):
     """La misma sesión, con el enlace a su evento padre para la página propia."""
 
     event_slug: str
@@ -704,7 +708,7 @@ class PublicVenue(BaseModel):
     longitude: float | None
 
 
-class PublicEventDetail(BaseModel):
+class PublicEventDetail(ContentLocaleInfo):
     """Evento publicado con su agenda completa, para la página pública de detalle.
 
     También sirve a un evento cancelado, que sigue visible con su aviso:
@@ -715,6 +719,9 @@ class PublicEventDetail(BaseModel):
     organization: PublicOrganizationRef
     category: PublicCategoryRef | None = None
     tags: list[str] = Field(default_factory=list)
+    # Texto que se muestra de cada etiqueta en el idioma servido, solo de las que
+    # cambian; `tags` sigue llevando el original, que es el que filtra.
+    tag_labels: dict[str, str] = Field(default_factory=dict)
     cancelled: bool = False
     cancellation_reason: str | None = None
     # `hidden` = «solo con enlace»: la web lo marca `noindex` en todas sus páginas.

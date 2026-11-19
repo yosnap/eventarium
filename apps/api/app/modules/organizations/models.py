@@ -16,7 +16,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -34,6 +34,19 @@ class Organization(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     legal_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Idiomas en que la organización publica su contenido (subconjunto de los
+    # activos de la plataforma). Un idioma que no esté aquí se sirve en el original.
+    content_locales: Mapped[list[str]] = mapped_column(
+        ARRAY(String(10)),
+        nullable=False,
+        default=lambda: ["es-ES"],
+        server_default=text("ARRAY['es-ES']::varchar[]"),
+    )
+    # Idioma en que escribe la organización lo que no cuelga de un evento
+    # (etiquetas, tipos de sesión, niveles de patrocinio, políticas y perfiles).
+    source_locale: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="es-ES", server_default="es-ES"
+    )
     website: Mapped[str | None] = mapped_column(String(300), nullable=True)
     contact_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     # Calle y número; código postal, ciudad y provincia van aparte.

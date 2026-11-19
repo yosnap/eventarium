@@ -37,6 +37,7 @@ from app.modules.media import service as media_service
 from app.modules.media.models import Media
 from app.modules.organizations import repository as organizations_repository
 from app.modules.organizations import service as organizations_service
+from app.modules.organizations.models import Organization
 from app.modules.organizations.schemas import PublicOrganizationRef
 from app.modules.payments import repository as payments_repository
 from app.modules.payments import service as payments_service
@@ -185,6 +186,11 @@ async def create_event(
             **datos,
             "reminder_hours_before": 48 if datos.get("registration_mode") == "paid" else 24,
         }
+    if "source_locale" not in datos:
+        # El evento se escribe, por defecto, en el idioma de su organización.
+        organizacion = await session.get(Organization, organization_id)
+        if organizacion is not None:
+            datos = {**datos, "source_locale": organizacion.source_locale}
     evento = Event(organization_id=organization_id, **datos)
     try:
         # Punto de guardado: tras un `IntegrityError` la transacción sigue

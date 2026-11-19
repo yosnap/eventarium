@@ -30,6 +30,7 @@ import {
   type RegistrationAnswerInput,
   type RegistrationQuestion,
   RegistrationsService,
+  opcionesDePregunta,
 } from '../../../core/registrations/registrations.service';
 import { Alert } from '../../../shared/ui/alert';
 import { Breadcrumb, type BreadcrumbItem } from '../../../shared/ui/breadcrumb';
@@ -47,6 +48,7 @@ import { precioDelResumen, precioEnEuros } from './precio-de-inscripcion';
 import { RegistrationConsents } from './registration-consents';
 import { CODIGO_POLITICAS_CAMBIADAS } from '../../../core/policies/public-policies.service';
 import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
+import { idiomasDeLaRespuesta } from '../../../core/seo/indexacion-por-idioma';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -191,12 +193,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                             <app-radio-group
                               [nombre]="'pregunta-' + pregunta.id"
                               [etiqueta]="etiquetaConObligatoria(pregunta)"
-                              [opciones]="
-                                (pregunta.options ?? []).map((opcion) => ({
-                                  valor: opcion,
-                                  etiqueta: opcion,
-                                }))
-                              "
+                              [opciones]="opciones(pregunta)"
                               [valor]="valorTexto(pregunta.id)"
                               (valorChange)="fijarTexto(pregunta.id, $event)"
                             />
@@ -208,11 +205,11 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                         @case ('multiple_choice') {
                           <fieldset [id]="'insc-pregunta-' + pregunta.id" tabindex="-1">
                             <legend>{{ etiquetaConObligatoria(pregunta) }}</legend>
-                            @for (opcion of pregunta.options ?? []; track opcion) {
+                            @for (opcion of opciones(pregunta); track opcion.valor) {
                               <app-checkbox
-                                [label]="opcion"
-                                [checked]="valorLista(pregunta.id).includes(opcion)"
-                                (checkedChange)="alternarOpcion(pregunta.id, opcion)"
+                                [label]="opcion.etiqueta"
+                                [checked]="valorLista(pregunta.id).includes(opcion.valor)"
+                                (checkedChange)="alternarOpcion(pregunta.id, opcion.valor)"
                               />
                             }
                             @if (erroresPreguntas()[pregunta.id]; as mensaje) {
@@ -717,6 +714,7 @@ export class RegistrationPage implements OnInit {
       this.aplicarTema(evento.theme);
       this.seo.set({
         contenidoDelOrganizador: true,
+        ...idiomasDeLaRespuesta(evento),
         title: `${titulo} · ${evento.title}`,
         description: evento.summary ?? this.transloco.translate('publico.eventos.sinResumen'),
         image: evento.cover_url,
@@ -814,6 +812,10 @@ export class RegistrationPage implements OnInit {
     } finally {
       this.cargandoPresupuesto.set(false);
     }
+  }
+
+  protected opciones(pregunta: RegistrationQuestion): { valor: string; etiqueta: string }[] {
+    return opcionesDePregunta(pregunta);
   }
 
   protected etiquetaConObligatoria(pregunta: RegistrationQuestion): string {

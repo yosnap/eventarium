@@ -13,6 +13,7 @@ from app.core.permissions import Permission
 from app.core.security import password_meets_complexity
 from app.modules.organizations.schemas import SLUG_PATTERN, PublicOrganizationRef
 from app.modules.roles.schemas import ProfileFieldResponse
+from app.modules.translations.schemas import ContentLocaleInfo
 
 # Lista blanca fija de `profile_data` que se sirve en el perfil público de un
 # ponente. Nunca se vuelca `profile_data` completo: un campo a medida que una
@@ -226,7 +227,7 @@ class PublicSpeakerHistoryItem(BaseModel):
     role_key: str
 
 
-class PublicSpeakerProfile(BaseModel):
+class PublicSpeakerProfile(ContentLocaleInfo):
     """Perfil público de un ponente tal y como lo ve cualquier visitante."""
 
     display_name: str

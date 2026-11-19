@@ -45,6 +45,7 @@ from app.modules.roles import models as _role_models  # noqa: F401
 from app.modules.sponsors import models as _sponsor_models  # noqa: F401
 from app.modules.tickets import models as _ticket_models  # noqa: F401
 from app.modules.tickets.service import adjunto_qr
+from app.modules.translations import models as _translation_models  # noqa: F401
 from app.modules.users import models as _user_models  # noqa: F401
 
 _settings = get_settings()
@@ -811,6 +812,17 @@ async def purge_ai_usage_records_task() -> None:
         await ai_repository.purgar_usos_antiguos(
             session, dias=get_settings().ai_usage_retention_days
         )
+
+
+@broker.task(schedule=[{"cron": "45 3 * * *"}])
+async def purge_unused_tag_translations_task() -> None:
+    """Diaria: borra las traducciones de etiquetas que ya no lleva ningún evento
+    de su organización. Las demás traducciones se borran con su fila."""
+    from app.core.database import maintenance_session
+    from app.modules.translations import service as translations_service
+
+    async with maintenance_session() as session:
+        await translations_service.borrar_etiquetas_sin_uso(session)
 
 
 @broker.task(retry_on_error=True, max_retries=5)

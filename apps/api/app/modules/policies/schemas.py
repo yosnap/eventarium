@@ -7,7 +7,9 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
+from app.core.locale import DEFAULT_LOCALE, Locale
 from app.modules.theme_templates.schemas import PublicTheme
+from app.modules.translations.schemas import ContentLocaleInfo
 
 #: Tope por texto. Es una barrera contra abusos, no una regla de negocio: un
 #: documento legal largo cabe de sobra y cambiarlo no toca el esquema.
@@ -75,13 +77,18 @@ class PolicyUpdate(BaseModel):
     content: Annotated[str, Field(max_length=LIMITE_CARACTERES)] | None
 
 
-class PublicEventPolicies(BaseModel):
+class PublicEventPolicies(ContentLocaleInfo):
     """Textos vigentes de un evento, para su página pública y el formulario."""
 
     organization_name: str
     #: Solo los tipos con texto vigente, en orden de muestra. Vacía si el
     #: evento no tiene ninguno (aplican las condiciones generales).
     policies: list[PolicyVersionOut]
+    #: Algún texto se muestra traducido. Vale legalmente el original, que es
+    #: contra el que se registra la aceptación.
+    translated: bool = False
+    #: Idioma en que están escritos los originales (el de la organización).
+    original_locale: Locale = DEFAULT_LOCALE
     # Plantilla del evento padre, ya resuelta: la página la aplica igual que la
     # ficha del evento para no cambiar de aspecto al navegar dentro de él.
     theme: PublicTheme | None = None

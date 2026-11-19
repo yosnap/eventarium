@@ -35,6 +35,7 @@ import { VenueGridSection } from './sections/venue-grid-section';
 import { VenueListSection } from './sections/venue-list-section';
 import { DirectionsLink } from '../../../shared/ui/directions-link';
 import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
+import { idiomasDeLaRespuesta } from '../../../core/seo/indexacion-por-idioma';
 
 /** Día de programa ya agrupado: fecha calendario en la zona del evento. */
 interface DiaDePrograma {
@@ -578,6 +579,7 @@ export class EventVenuesPage implements OnInit {
     this.sedesVisibles.set(evento.venues.map((sede) => sede.id));
     this.seo.set({
       contenidoDelOrganizador: true,
+      ...idiomasDeLaRespuesta(evento),
       title: `${evento.title} · ${this.traducir('publico.eventos.multisede.rotulo')}`,
       description: evento.summary ?? this.traducir('publico.eventos.sinResumen'),
       image: evento.cover_url,

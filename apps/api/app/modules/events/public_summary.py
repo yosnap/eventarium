@@ -4,18 +4,27 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.core.locale import Locale
 from app.modules.events.models import Event
 from app.modules.events.schemas import PublicCategoryRef, PublicEventSummary
 from app.modules.organizations.schemas import PublicOrganizationRef
 from app.modules.payments import service as payments_service
+from app.modules.translations.service import Traductor, nombre_de_categoria
 
 
-def categoria_publica(evento: Event) -> PublicCategoryRef | None:
+def categoria_publica(evento: Event, idioma: Locale) -> PublicCategoryRef | None:
     """Solo se muestra una categoría activa: una desactivada deja de aparecer."""
     categoria = evento.category
     if categoria is None or not categoria.is_active:
         return None
-    return PublicCategoryRef(slug=categoria.slug, name=categoria.name)
+    return PublicCategoryRef(slug=categoria.slug, name=nombre_de_categoria(categoria, idioma))
+
+
+def etiquetas_mostradas(evento: Event, tr: Traductor) -> dict[str, str]:
+    """Etiqueta original → texto que se muestra. El original sigue siendo el
+    identificador de filtros y URLs; solo se incluyen las que cambian."""
+    mostradas = {valor: tr.etiqueta(evento.organization_id, valor) for valor in evento.tags}
+    return {valor: texto for valor, texto in mostradas.items() if texto != valor}
 
 
 def resumen_publico(
@@ -24,27 +33,30 @@ def resumen_publico(
     venta: payments_service.VentaPublica | None,
     cover_url: str | None,
     organizacion: PublicOrganizationRef,
+    tr: Traductor,
 ) -> PublicEventSummary:
     return PublicEventSummary(
         slug=evento.slug,
         organization=organizacion,
-        category=categoria_publica(evento),
+        category=categoria_publica(evento, tr.idioma),
         tags=list(evento.tags),
+        tag_labels=etiquetas_mostradas(evento, tr),
         cancelled=evento.status == "cancelled",
-        title=evento.title,
-        summary=evento.summary,
+        title=tr.campo("event", evento.id, "title", evento.title) or evento.title,
+        summary=tr.campo("event", evento.id, "summary", evento.summary),
         cover_url=cover_url,
         timezone=evento.timezone,
         starts_at=evento.starts_at,
         ends_at=evento.ends_at,
         location_mode=evento.location_mode,  # type: ignore[arg-type]
-        location_name=evento.location_name,
+        location_name=tr.campo("event", evento.id, "location_name", evento.location_name),
         city=evento.city,
         registration_mode=evento.registration_mode,  # type: ignore[arg-type]
         registration_opens_at=evento.registration_opens_at,
         capacity=evento.capacity,
         reserved_count=reservadas,
         **campos_de_venta(evento, venta),
+        **tr.metadatos(),
     )
 
 

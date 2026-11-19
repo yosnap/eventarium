@@ -465,7 +465,9 @@
         "reembolsos": "Política de reembolsos",
         "privacidad": "Política de privacidad",
         "otras": "Otras condiciones"
-      }
+      },
+      "traduccionOrientativa": "Traducción orientativa: el texto que vale legalmente es el original.",
+      "verOriginal": "Ver el original"
     },
     "compartir": {
       "titulo": "Compartir",
@@ -481,7 +483,8 @@
       "recargar": "La venta de entradas ha cambiado desde que abriste la página.",
       "error": "No hemos podido cargar las entradas.",
       "botonRecargar": "Recargar la página"
-    }
+    },
+    "contenidoOriginal": "Este contenido se muestra en su idioma original."
   },
   "registro": {
     "titulo": "Crear una cuenta",

@@ -37,6 +37,11 @@ import {
 } from './event-page.types';
 import { resolveVideoEmbed } from './video-embed';
 import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
+import {
+  IdiomasDeLaRespuesta,
+  idiomasDeLaRespuesta,
+} from '../../../core/seo/indexacion-por-idioma';
+import { AvisoContenidoOriginal } from '../../../shared/ui/aviso-contenido-original';
 
 interface PublicParticipant {
   readonly display_name: string;
@@ -44,7 +49,7 @@ interface PublicParticipant {
   readonly public_slug: string | null;
 }
 
-interface PublicSessionDetail {
+interface PublicSessionDetail extends IdiomasDeLaRespuesta {
   /** `hidden` = «solo con enlace»: se marca `noindex`. */
   readonly visibility?: 'public' | 'hidden' | 'private';
   readonly id: string;
@@ -88,6 +93,7 @@ const CLAVE_AGENDA = 'eventarium-agenda';
   selector: 'app-session-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    AvisoContenidoOriginal,
     EnlacePipe,
     DatePipe,
     RouterLink,
@@ -121,6 +127,7 @@ const CLAVE_AGENDA = 'eventarium-agenda';
                 }
               </span>
               <h1>{{ sesion.title }}</h1>
+              <app-aviso-contenido-original [servido]="sesion.served_locale" />
 
               <div class="cuando">
                 <span
@@ -595,6 +602,7 @@ export class SessionPage implements OnInit {
     );
     this.seo.set({
       contenidoDelOrganizador: true,
+      ...idiomasDeLaRespuesta(sesion),
       title: `${sesion.title} · ${sesion.event_title}`,
       description: sesion.description ?? this.transloco.translate('publico.eventos.sinResumen'),
       noIndexar: sesion.visibility === 'hidden',
