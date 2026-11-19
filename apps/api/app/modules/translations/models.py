@@ -85,3 +85,17 @@ class ContentTranslation(Base, TimestampMixin):
         ),
         nullable=True,
     )
+
+
+class TranslationRequest(Base):
+    """Petición pendiente de traducir un ámbito (un evento, o lo que es de la
+    organización si `event_id` es nulo) a un idioma. Solo la usa el rol de
+    mantenimiento; ver la migración `0075`."""
+
+    __tablename__ = "translation_requests"
+
+    id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=new_uuid7)
+    organization_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
+    event_id: Mapped[uuid.UUID | None] = mapped_column(PgUUID(as_uuid=True), nullable=True)
+    locale: Mapped[str] = mapped_column(String(10), nullable=False)
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

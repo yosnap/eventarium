@@ -416,6 +416,7 @@
   "Nueva inscripción en {titulo}": "New registration for {titulo}",
   "Otra persona ha guardado este texto a la vez; recarga y vuelve a intentarlo.": "Someone else has saved this text at the same time; reload and try again.",
   "Para cancelar un evento usa la acción «Cancelar evento».": "To cancel an event, use the 'Cancel event' action.",
+  "Para traducir automáticamente necesitas tu propia clave de IA.": "To translate automatically you need your own AI key.",
   "Permiso denegado": "Permission denied",
   "Permiso desconocido: {permiso}.": "Unknown permission: {permiso}.",
   "Presupuesto": "Budget",
