@@ -37,6 +37,9 @@ import {
   MAX_ETIQUETAS,
   analizarEtiquetas,
 } from '../../../core/eventos/etiquetas';
+import { PestanasDeIdioma } from '../../../shared/ui/pestanas-de-idioma';
+import { NOMBRE_DEL_IDIOMA } from '../../../core/i18n/idioma';
+import { ThemingService } from '../../../core/theming/theming.service';
 
 type LocationMode = 'in_person' | 'online' | 'hybrid';
 type RegistrationMode = 'free' | 'approval' | 'paid';
@@ -72,6 +75,7 @@ interface EventoBase {
   readonly reminder_hours_before: number;
   readonly category: CategoriaDelCatalogo | null;
   readonly tags: readonly string[];
+  readonly source_locale?: string;
 }
 
 interface CategoriaDelCatalogo {
@@ -141,6 +145,7 @@ function zonasHorariasDisponibles(): readonly string[] {
     EventDetails,
     EventReminderSettings,
     PageHeader,
+    PestanasDeIdioma,
     Select,
     RichTextEditor,
     TagsInput,
@@ -159,227 +164,239 @@ function zonasHorariasDisponibles(): readonly string[] {
         <p>{{ t('comun.cargando') }}</p>
       } @else {
         <ng-template #formulario>
-          <form (submit)="guardar($event)" novalidate>
-            <app-error-summary
-              [errores]="resumenDeErrores()"
-              [titulo]="t('comun.corrigeErrores')"
-            />
+          <app-pestanas-de-idioma tipo="event" [entityId]="eventId()">
+            <form (submit)="guardar($event)" novalidate>
+              <app-error-summary
+                [errores]="resumenDeErrores()"
+                [titulo]="t('comun.corrigeErrores')"
+              />
 
-            <app-card>
-              <div class="rejilla">
-                <app-input
-                  class="campo-ancho"
-                  fieldId="evento-titulo"
-                  [label]="t('admin.events.formulario.titulo')"
-                  [required]="true"
-                  [error]="errores().title"
-                  [value]="title()"
-                  (valueChange)="alCambiarTitulo($event)"
-                  (blurred)="validar('title')"
-                />
-                <app-input
-                  class="campo-ancho"
-                  fieldId="evento-slug"
-                  [label]="t('admin.events.formulario.slug')"
-                  [required]="true"
-                  [hint]="t('admin.events.formulario.slugAyuda')"
-                  [error]="errores().slug"
-                  [value]="slug()"
-                  (valueChange)="alCambiarSlug($event)"
-                  (blurred)="validar('slug')"
-                />
+              <app-card>
+                <div class="rejilla">
+                  <app-input
+                    class="campo-ancho"
+                    fieldId="evento-titulo"
+                    [label]="t('admin.events.formulario.titulo')"
+                    [required]="true"
+                    [error]="errores().title"
+                    [value]="title()"
+                    (valueChange)="alCambiarTitulo($event)"
+                    (blurred)="validar('title')"
+                  />
+                  <app-input
+                    class="campo-ancho"
+                    fieldId="evento-slug"
+                    [label]="t('admin.events.formulario.slug')"
+                    [required]="true"
+                    [hint]="t('admin.events.formulario.slugAyuda')"
+                    [error]="errores().slug"
+                    [value]="slug()"
+                    (valueChange)="alCambiarSlug($event)"
+                    (blurred)="validar('slug')"
+                  />
 
-                <app-datetime-picker
-                  fieldId="evento-inicio"
-                  [label]="t('admin.events.formulario.inicio')"
-                  [required]="true"
-                  [error]="errores().startsAt"
-                  [(value)]="startsAt"
-                  [(horaPendiente)]="horaInicioPendiente"
-                  (blurred)="validar('startsAt')"
-                />
-                <app-datetime-picker
-                  fieldId="evento-fin"
-                  [label]="t('admin.events.formulario.fin')"
-                  [required]="true"
-                  [error]="errores().endsAt"
-                  [(value)]="endsAt"
-                  [(horaPendiente)]="horaFinPendiente"
-                  (blurred)="validar('endsAt')"
-                />
-                <app-input
-                  fieldId="evento-ciudad"
-                  [label]="t('admin.events.formulario.ciudad')"
-                  [(value)]="city"
-                />
+                  <app-datetime-picker
+                    fieldId="evento-inicio"
+                    [label]="t('admin.events.formulario.inicio')"
+                    [required]="true"
+                    [error]="errores().startsAt"
+                    [(value)]="startsAt"
+                    [(horaPendiente)]="horaInicioPendiente"
+                    (blurred)="validar('startsAt')"
+                  />
+                  <app-datetime-picker
+                    fieldId="evento-fin"
+                    [label]="t('admin.events.formulario.fin')"
+                    [required]="true"
+                    [error]="errores().endsAt"
+                    [(value)]="endsAt"
+                    [(horaPendiente)]="horaFinPendiente"
+                    (blurred)="validar('endsAt')"
+                  />
+                  <app-input
+                    fieldId="evento-ciudad"
+                    [label]="t('admin.events.formulario.ciudad')"
+                    [(value)]="city"
+                  />
 
-                <!-- Categoría y etiquetas en su propia fila de dos columnas: en la
+                  <!-- Categoría y etiquetas en su propia fila de dos columnas: en la
                      rejilla general la categoría caía junto a fechas y ciudad y
                      descuadraba esa fila. -->
-                <div class="campo-ancho fila-clasificacion">
-                  <app-select
-                    fieldId="evento-categoria"
-                    [label]="t('admin.events.formulario.categoria')"
-                    [options]="opcionesDeCategoria()"
-                    [(value)]="categoria"
-                  />
-                  <app-tags-input
-                    fieldId="evento-etiquetas"
-                    [label]="t('admin.events.formulario.etiquetas')"
-                    [hint]="t('admin.events.formulario.etiquetasAyuda')"
-                    [placeholder]="t('admin.events.formulario.etiquetasPlaceholder')"
-                    [textoQuitar]="t('admin.events.formulario.quitarEtiqueta')"
-                    [maximo]="maximoEtiquetas"
-                    [normalizar]="normalizarEtiqueta"
-                    [validar]="validarEtiqueta"
-                    [sugerencias]="sugerenciasDeEtiquetas()"
-                    [(value)]="etiquetas"
-                    (buscar)="buscarEtiquetas($event)"
-                  />
-                </div>
-                <app-input
-                  class="campo-ancho"
-                  fieldId="evento-resumen"
-                  [label]="t('admin.events.formulario.resumen')"
-                  [hint]="t('admin.events.formulario.resumenAyuda')"
-                  [(value)]="summary"
-                />
-                <app-rich-text-editor
-                  class="campo-ancho"
-                  fieldId="evento-descripcion"
-                  [label]="t('admin.events.formulario.descripcion')"
-                  [longitudMaxima]="longitudMaximaDescripcion"
-                  [error]="errores().description"
-                  [(value)]="description"
-                />
-
-                <app-select
-                  fieldId="evento-modalidad"
-                  [label]="t('admin.events.formulario.modalidad')"
-                  [options]="opcionesDeModalidad()"
-                  [value]="locationMode()"
-                  (valueChange)="locationMode.set($any($event))"
-                />
-                <app-select
-                  fieldId="evento-zona-horaria"
-                  [label]="t('admin.events.formulario.zonaHoraria')"
-                  [options]="opcionesDeZonaHoraria()"
-                  [buscable]="true"
-                  [(value)]="timezone"
-                />
-
-                <app-select
-                  fieldId="evento-modo-inscripcion"
-                  [label]="t('admin.events.formulario.modoInscripcion')"
-                  [options]="opcionesDeModoDeInscripcion()"
-                  [hint]="t('admin.events.formulario.modoAyuda.' + registrationMode())"
-                  [value]="registrationMode()"
-                  (valueChange)="alCambiarModo($any($event))"
-                />
-                <app-select
-                  fieldId="evento-visibilidad"
-                  [label]="t('admin.events.formulario.visibilidad')"
-                  [options]="opcionesDeVisibilidad()"
-                  [hint]="t('admin.events.formulario.visibilidadAyuda.' + visibility())"
-                  [value]="visibility()"
-                  (valueChange)="visibility.set($any($event))"
-                />
-                <div class="campo-numero">
-                  <label for="evento-aforo">{{ t('admin.events.formulario.aforo') }}</label>
-                  <input
-                    id="evento-aforo"
-                    type="number"
-                    inputmode="numeric"
-                    min="1"
-                    [value]="capacity() ?? ''"
-                    [attr.aria-invalid]="errores().capacity ? 'true' : null"
-                    [attr.aria-describedby]="
-                      errores().capacity ? 'evento-aforo-error' : 'evento-aforo-ayuda'
-                    "
-                    (input)="alCambiarAforo($event)"
-                    (blur)="validar('capacity')"
-                  />
-                  @if (errores().capacity; as mensaje) {
-                    <p id="evento-aforo-error" class="error-campo">{{ mensaje }}</p>
-                  } @else {
-                    <p id="evento-aforo-ayuda" class="ayuda-campo">
-                      {{ t('admin.events.formulario.aforoAyuda') }}
-                    </p>
+                  @if (opcionesDeIdioma().length > 2) {
+                    <app-select
+                      class="campo-ancho"
+                      fieldId="evento-idioma"
+                      [label]="t('admin.events.formulario.idioma')"
+                      [hint]="t('admin.events.formulario.idiomaAyuda')"
+                      [options]="opcionesDeIdioma()"
+                      [(value)]="idiomaOrigen"
+                    />
                   }
-                </div>
-
-                <app-event-reminder-settings
-                  class="campo-ancho"
-                  [dePago]="registrationMode() === 'paid'"
-                  [(activado)]="reminderEnabled"
-                  [(horas)]="reminderHours"
-                  [(horasElegidas)]="reminderHoursElegidas"
-                />
-
-                @if (locationMode() !== 'online') {
-                  <app-address-map
+                  <div class="campo-ancho fila-clasificacion">
+                    <app-select
+                      fieldId="evento-categoria"
+                      [label]="t('admin.events.formulario.categoria')"
+                      [options]="opcionesDeCategoria()"
+                      [(value)]="categoria"
+                    />
+                    <app-tags-input
+                      fieldId="evento-etiquetas"
+                      [label]="t('admin.events.formulario.etiquetas')"
+                      [hint]="t('admin.events.formulario.etiquetasAyuda')"
+                      [placeholder]="t('admin.events.formulario.etiquetasPlaceholder')"
+                      [textoQuitar]="t('admin.events.formulario.quitarEtiqueta')"
+                      [maximo]="maximoEtiquetas"
+                      [normalizar]="normalizarEtiqueta"
+                      [validar]="validarEtiqueta"
+                      [sugerencias]="sugerenciasDeEtiquetas()"
+                      [(value)]="etiquetas"
+                      (buscar)="buscarEtiquetas($event)"
+                    />
+                  </div>
+                  <app-input
                     class="campo-ancho"
-                    fieldId="evento-direccion"
-                    [label]="t('admin.events.formulario.direccion')"
-                    [(value)]="locationAddress"
-                    [initialLatitude]="latitud()"
-                    [initialLongitude]="longitud()"
+                    fieldId="evento-resumen"
+                    [label]="t('admin.events.formulario.resumen')"
+                    [hint]="t('admin.events.formulario.resumenAyuda')"
+                    [(value)]="summary"
                   />
-                }
+                  <app-rich-text-editor
+                    class="campo-ancho"
+                    fieldId="evento-descripcion"
+                    [label]="t('admin.events.formulario.descripcion')"
+                    [longitudMaxima]="longitudMaximaDescripcion"
+                    [error]="errores().description"
+                    [(value)]="description"
+                  />
 
-                <div class="campo-numero">
-                  <label for="evento-ventana-pago">{{
-                    t('admin.events.formulario.ventanaDePago')
-                  }}</label>
-                  <input
-                    id="evento-ventana-pago"
-                    type="number"
-                    inputmode="numeric"
-                    [min]="ventanaDePagoMin"
-                    [max]="ventanaDePagoMax"
-                    [value]="paymentWindow()"
-                    [attr.aria-invalid]="errores().paymentWindow ? 'true' : null"
-                    [attr.aria-describedby]="
-                      errores().paymentWindow
-                        ? 'evento-ventana-pago-error'
-                        : 'evento-ventana-pago-ayuda'
-                    "
-                    (input)="alCambiarVentanaDePago($event)"
-                    (blur)="validar('paymentWindow')"
+                  <app-select
+                    fieldId="evento-modalidad"
+                    [label]="t('admin.events.formulario.modalidad')"
+                    [options]="opcionesDeModalidad()"
+                    [value]="locationMode()"
+                    (valueChange)="locationMode.set($any($event))"
                   />
-                  @if (errores().paymentWindow; as mensaje) {
-                    <p id="evento-ventana-pago-error" class="error-campo">{{ mensaje }}</p>
-                  } @else {
-                    <p id="evento-ventana-pago-ayuda" class="ayuda-campo">
-                      {{ t('admin.events.formulario.ventanaDePagoAyuda') }}
-                    </p>
+                  <app-select
+                    fieldId="evento-zona-horaria"
+                    [label]="t('admin.events.formulario.zonaHoraria')"
+                    [options]="opcionesDeZonaHoraria()"
+                    [buscable]="true"
+                    [(value)]="timezone"
+                  />
+
+                  <app-select
+                    fieldId="evento-modo-inscripcion"
+                    [label]="t('admin.events.formulario.modoInscripcion')"
+                    [options]="opcionesDeModoDeInscripcion()"
+                    [hint]="t('admin.events.formulario.modoAyuda.' + registrationMode())"
+                    [value]="registrationMode()"
+                    (valueChange)="alCambiarModo($any($event))"
+                  />
+                  <app-select
+                    fieldId="evento-visibilidad"
+                    [label]="t('admin.events.formulario.visibilidad')"
+                    [options]="opcionesDeVisibilidad()"
+                    [hint]="t('admin.events.formulario.visibilidadAyuda.' + visibility())"
+                    [value]="visibility()"
+                    (valueChange)="visibility.set($any($event))"
+                  />
+                  <div class="campo-numero">
+                    <label for="evento-aforo">{{ t('admin.events.formulario.aforo') }}</label>
+                    <input
+                      id="evento-aforo"
+                      type="number"
+                      inputmode="numeric"
+                      min="1"
+                      [value]="capacity() ?? ''"
+                      [attr.aria-invalid]="errores().capacity ? 'true' : null"
+                      [attr.aria-describedby]="
+                        errores().capacity ? 'evento-aforo-error' : 'evento-aforo-ayuda'
+                      "
+                      (input)="alCambiarAforo($event)"
+                      (blur)="validar('capacity')"
+                    />
+                    @if (errores().capacity; as mensaje) {
+                      <p id="evento-aforo-error" class="error-campo">{{ mensaje }}</p>
+                    } @else {
+                      <p id="evento-aforo-ayuda" class="ayuda-campo">
+                        {{ t('admin.events.formulario.aforoAyuda') }}
+                      </p>
+                    }
+                  </div>
+
+                  <app-event-reminder-settings
+                    class="campo-ancho"
+                    [dePago]="registrationMode() === 'paid'"
+                    [(activado)]="reminderEnabled"
+                    [(horas)]="reminderHours"
+                    [(horasElegidas)]="reminderHoursElegidas"
+                  />
+
+                  @if (locationMode() !== 'online') {
+                    <app-address-map
+                      class="campo-ancho"
+                      fieldId="evento-direccion"
+                      [label]="t('admin.events.formulario.direccion')"
+                      [(value)]="locationAddress"
+                      [initialLatitude]="latitud()"
+                      [initialLongitude]="longitud()"
+                    />
                   }
+
+                  <div class="campo-numero">
+                    <label for="evento-ventana-pago">{{
+                      t('admin.events.formulario.ventanaDePago')
+                    }}</label>
+                    <input
+                      id="evento-ventana-pago"
+                      type="number"
+                      inputmode="numeric"
+                      [min]="ventanaDePagoMin"
+                      [max]="ventanaDePagoMax"
+                      [value]="paymentWindow()"
+                      [attr.aria-invalid]="errores().paymentWindow ? 'true' : null"
+                      [attr.aria-describedby]="
+                        errores().paymentWindow
+                          ? 'evento-ventana-pago-error'
+                          : 'evento-ventana-pago-ayuda'
+                      "
+                      (input)="alCambiarVentanaDePago($event)"
+                      (blur)="validar('paymentWindow')"
+                    />
+                    @if (errores().paymentWindow; as mensaje) {
+                      <p id="evento-ventana-pago-error" class="error-campo">{{ mensaje }}</p>
+                    } @else {
+                      <p id="evento-ventana-pago-ayuda" class="ayuda-campo">
+                        {{ t('admin.events.formulario.ventanaDePagoAyuda') }}
+                      </p>
+                    }
+                  </div>
                 </div>
+              </app-card>
+
+              @if (exito()) {
+                <app-alert tone="exito">{{ t('admin.events.formulario.exito') }}</app-alert>
+              }
+              @if (error(); as mensaje) {
+                <app-alert tone="error">{{ mensaje }}</app-alert>
+              }
+
+              <div class="acciones-finales">
+                <a routerLink="/dashboard/events">
+                  <app-button variant="secundario" type="button">{{
+                    t('admin.roles.cancelar')
+                  }}</app-button>
+                </a>
+                <app-button type="submit" [loading]="guardando()">
+                  {{
+                    guardando()
+                      ? t('admin.events.formulario.guardando')
+                      : t('admin.events.formulario.guardar')
+                  }}
+                </app-button>
               </div>
-            </app-card>
-
-            @if (exito()) {
-              <app-alert tone="exito">{{ t('admin.events.formulario.exito') }}</app-alert>
-            }
-            @if (error(); as mensaje) {
-              <app-alert tone="error">{{ mensaje }}</app-alert>
-            }
-
-            <div class="acciones-finales">
-              <a routerLink="/dashboard/events">
-                <app-button variant="secundario" type="button">{{
-                  t('admin.roles.cancelar')
-                }}</app-button>
-              </a>
-              <app-button type="submit" [loading]="guardando()">
-                {{
-                  guardando()
-                    ? t('admin.events.formulario.guardando')
-                    : t('admin.events.formulario.guardar')
-                }}
-              </app-button>
-            </div>
-          </form>
+            </form>
+          </app-pestanas-de-idioma>
         </ng-template>
 
         <!-- Al editar, la ficha coloca el formulario junto a portada y estado. -->
@@ -520,6 +537,7 @@ export class EventForm {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
+  private readonly theming = inject(ThemingService);
   private readonly route = inject(ActivatedRoute);
   private readonly eventScope = inject(EventScope);
 
@@ -570,6 +588,18 @@ export class EventForm {
    * mostrando para no borrarla al guardar otros cambios. */
   private readonly categoriaActual = signal<CategoriaDelCatalogo | null>(null);
   protected readonly etiquetas = signal<string[]>([]);
+  /** Idioma en que se escribe el evento; vacío en un alta: el de la organización. */
+  protected readonly idiomaOrigen = signal('');
+  protected readonly opcionesDeIdioma = computed(() => [
+    {
+      value: '',
+      label: this.transloco.translate('admin.events.formulario.idiomaDeLaOrganizacion'),
+    },
+    ...this.theming.idiomasActivos().map((idioma) => ({
+      value: idioma,
+      label: NOMBRE_DEL_IDIOMA[idioma],
+    })),
+  ]);
   protected readonly sugerenciasDeEtiquetas = signal<readonly string[]>([]);
   private ultimaBusquedaDeEtiquetas = '';
   protected readonly maximoEtiquetas = MAX_ETIQUETAS;
@@ -720,6 +750,7 @@ export class EventForm {
       this.categoria.set(evento.category?.id ?? '');
       this.categoriaActual.set(evento.category);
       this.etiquetas.set([...evento.tags]);
+      this.idiomaOrigen.set(evento.source_locale ?? '');
     } catch (error) {
       this.error.set(
         error instanceof ApiError
@@ -906,6 +937,7 @@ export class EventForm {
       // Siempre explícitos: `null` quita la categoría, `[]` las etiquetas.
       category_id: this.categoria() || null,
       tags: [...this.etiquetas()],
+      ...(this.idiomaOrigen() ? { source_locale: this.idiomaOrigen() } : {}),
     };
     await this.enviar(payload);
   }

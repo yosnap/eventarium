@@ -1058,7 +1058,8 @@
       "vacio": "Todavía no hay categorías. Añade la primera.",
       "nota": "Las categorías no se borran: al desactivar una, deja de poder asignarse y de mostrarse en la web pública, pero los eventos que ya la tienen la conservan.",
       "datosInvalidos": "Escribe un nombre y un orden entero entre 0 y 10000.",
-      "error": "No hemos podido completar la operación."
+      "error": "No hemos podido completar la operación.",
+      "nombreEn": "Nombre en {{ idioma }}"
     },
     "organizacion": {
       "titulo": "Organización",
@@ -1107,6 +1108,12 @@
         "libreUrl": "Otro enlace: dirección",
         "libreIncompleto": "El otro enlace necesita nombre y dirección.",
         "urlInvalida": "El enlace de {{red}} tiene que empezar por https://"
+      },
+      "idiomas": {
+        "titulo": "Idiomas del contenido",
+        "ayuda": "Los idiomas en que publica la organización. Sus páginas, eventos y textos se ofrecen en cada uno; lo que no esté traducido se muestra en el original.",
+        "origen": "Idioma en que escribe la organización",
+        "origenAyuda": "El idioma original de los textos que son de la organización, como la descripción, las etiquetas o las políticas."
       }
     },
     "branding": {
@@ -1340,7 +1347,8 @@
       "cabeceraInicio": "Tu perfil y tus credenciales,",
       "cabeceraMarca": "en una sola página",
       "ficha": {
-        "titulo": "Mi ficha de {{rol}}"
+        "titulo": "Mi ficha de {{rol}}",
+        "avisoTraduccion": "Si la organización publica en varios idiomas, tu biografía y tu titular podrán traducirse automáticamente con IA para mostrarlos en esos idiomas."
       }
     },
     "events": {
@@ -1453,7 +1461,10 @@
           "public": "Aparece en la página de tu organización, en el directorio de eventos y en los buscadores.",
           "hidden": "Lo abre quien tenga el enlace, pero no sale en ningún listado ni en los buscadores. No es secreto: no lo uses para información confidencial.",
           "private": "Nadie puede abrirlo, ni con el enlace. Quien ya esté inscrito conserva su entrada, pero no podrá ver la ficha."
-        }
+        },
+        "idioma": "Idioma del evento",
+        "idiomaAyuda": "El idioma en que escribes los textos del evento. Los demás idiomas se traducen desde este.",
+        "idiomaDeLaOrganizacion": "El de la organización"
       },
       "agenda": {
         "titulo": "Agenda",
@@ -3055,6 +3066,49 @@
       "sinPermiso": "Tu rol no permite conectar asistentes. Pide al dueño de la organización el permiso «Conectar asistentes por MCP».",
       "error": "No hemos podido completar la operación.",
       "pide": "El asistente pide:"
+    }
+  },
+  "traducciones": {
+    "pestanas": "Idiomas del contenido",
+    "original": "original",
+    "sinTextos": "Este contenido todavía no tiene textos que traducir.",
+    "cargando": "Cargando traducciones…",
+    "guardar": "Guardar traducciones",
+    "marcarRevisada": "Marcar como revisada",
+    "opcion": "Opción «{{ valor }}»",
+    "error": "No se han podido cargar o guardar las traducciones. Inténtalo de nuevo.",
+    "estado": {
+      "al_dia": "Al día",
+      "desactualizada": "Desactualizada",
+      "pendiente": "Sin traducir"
+    },
+    "origen": {
+      "ia": "Traducida con IA",
+      "manual": "Escrita a mano",
+      "revisada": "Revisada"
+    },
+    "campos": {
+      "title": "Título",
+      "summary": "Resumen",
+      "description": "Descripción",
+      "location_name": "Nombre del lugar",
+      "cancellation_reason": "Motivo de la cancelación",
+      "room": "Sala",
+      "name": "Nombre",
+      "label": "Pregunta",
+      "benefits": "Ventajas",
+      "contribution_description": "Descripción de la aportación",
+      "notes": "Notas",
+      "content": "Texto",
+      "bio": "Biografía",
+      "titular": "Titular",
+      "curriculum": "Currículum",
+      "organizer_blurb": "Presentación del organizador"
+    },
+    "resumen": {
+      "titulo": "Traducciones",
+      "linea": "{{ idioma }}: {{ al_dia }} de {{ total }} textos al día",
+      "ayuda": "Tradúcelos desde la pestaña de cada idioma en los formularios."
     }
   }
 }
