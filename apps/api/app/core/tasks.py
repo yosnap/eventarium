@@ -45,6 +45,7 @@ from app.modules.roles import models as _role_models  # noqa: F401
 from app.modules.sponsors import models as _sponsor_models  # noqa: F401
 from app.modules.tickets import models as _ticket_models  # noqa: F401
 from app.modules.tickets.service import adjunto_qr
+from app.modules.translations import models as _translation_models  # noqa: F401
 from app.modules.users import models as _user_models  # noqa: F401
 
 _settings = get_settings()

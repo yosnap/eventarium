@@ -57,6 +57,11 @@ class EventCategory(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(80), nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Nombre por idioma (`{"en-US": "Workshops"}`). El de `name` es el original,
+    # en el idioma por defecto de la plataforma; un idioma que falte cae a él.
+    name_i18n: Mapped[dict[str, str]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
+    )
 
 
 class Event(Base, TimestampMixin):
@@ -111,6 +116,11 @@ class Event(Base, TimestampMixin):
     # Etiquetas libres, normalizadas en minúsculas (máx. 10; ver `normalizar_etiquetas`).
     tags: Mapped[list[str]] = mapped_column(
         ARRAY(Text), nullable=False, default=list, server_default=text("'{}'")
+    )
+    # Idioma en que el organizador escribe el evento: el de las columnas de texto.
+    # Las demás versiones están en `content_translations`.
+    source_locale: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="es-ES", server_default="es-ES"
     )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
