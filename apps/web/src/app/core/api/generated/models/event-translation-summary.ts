@@ -7,6 +7,7 @@ import { LocaleProgress } from '../models/locale-progress';
  * «Inglés: 12/14 campos al día» en la ficha del evento.
  */
 export interface EventTranslationSummary {
+  auto_translation_available?: boolean;
   locales: Array<LocaleProgress>;
   source_locale: 'es-ES' | 'en-US';
 }

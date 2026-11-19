@@ -18,5 +18,6 @@ export interface PublicSpeakerProfile {
   served_locale?: 'es-ES' | 'en-US';
   social_links: Array<SocialLinkResponse>;
   source_locale?: 'es-ES' | 'en-US';
+  translating?: boolean;
   up_to_date_locales?: Array<'es-ES' | 'en-US'>;
 }

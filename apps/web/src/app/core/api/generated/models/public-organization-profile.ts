@@ -23,6 +23,7 @@ export interface PublicOrganizationProfile {
   slug: string;
   social_links: Array<PublicSocialLink>;
   source_locale?: 'es-ES' | 'en-US';
+  translating?: boolean;
   up_to_date_locales?: Array<'es-ES' | 'en-US'>;
   website: (string | null);
 }

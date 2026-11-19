@@ -43,5 +43,6 @@ export interface PublicEventSummary {
   ticket_sales_opens_at?: (string | null);
   timezone: string;
   title: string;
+  translating?: boolean;
   up_to_date_locales?: Array<'es-ES' | 'en-US'>;
 }

@@ -28,6 +28,7 @@ export interface PublicSessionDetail {
   starts_at: string;
   theme?: (PublicTheme | null);
   title: string;
+  translating?: boolean;
   type: SessionTypeRef;
   up_to_date_locales?: Array<'es-ES' | 'en-US'>;
   venue_id: (string | null);
