@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.audit import registrar_auditoria
 from app.core.deps import SCOPE_SESION, CurrentUser, get_maintenance_db, require_superadmin
 from app.core.email import invalidar_branding_en_cache
+from app.core.locale import DEFAULT_LOCALE, Locale
 from app.core.storage import (
     build_platform_object_key,
     get_storage,
@@ -447,9 +448,9 @@ async def list_platform_media_folders(
     response_model=PlatformLegalPagesResponse,
 )
 async def get_platform_legal_pages(
-    _: Superadmin, session: MaintenanceDb
+    _: Superadmin, session: MaintenanceDb, idioma: Locale = DEFAULT_LOCALE
 ) -> PlatformLegalPagesResponse:
-    return await platform_service.legal_pages_publicas(session)
+    return await platform_service.legal_pages_publicas(session, idioma)
 
 
 @router.patch(
@@ -464,7 +465,7 @@ async def get_platform_legal_pages(
 async def update_platform_legal_pages(
     datos: PlatformLegalPagesUpdate, superadmin: Superadmin, session: MaintenanceDb
 ) -> PlatformLegalPagesResponse:
-    cambios = datos.model_dump(exclude_unset=True)
+    cambios = datos.model_dump(exclude_unset=True, exclude={"locale"})
 
     for clave, campo in _CAMPOS_DE_PAGINA.items():
         if campo not in cambios:
@@ -472,12 +473,12 @@ async def update_platform_legal_pages(
         valor = cambios[campo]
         limpio = valor.strip() if isinstance(valor, str) else None
 
-        fila = await platform_repository.get_platform_legal_page(session, clave)
+        fila = await platform_repository.get_platform_legal_page(session, clave, datos.locale)
         if fila is None:
-            # Sin fila y sin contenido: ya estaba en plantilla, no hay nada que
-            # restaurar ni que crear (una fila vacía sería lo mismo con ruido).
+            # Sin fila y sin contenido: ya estaba en plantilla (o, en otro idioma, ya
+            # se servía la española), no hay nada que restaurar ni que crear.
             if limpio:
-                session.add(PlatformLegalPage(kind=clave, content=limpio))
+                session.add(PlatformLegalPage(kind=clave, content=limpio, locale=datos.locale))
         else:
             fila.content = limpio or None
 
@@ -490,6 +491,6 @@ async def update_platform_legal_pages(
         action="platform_legal_pages.updated",
         entity_type="platform_legal_page",
         entity_id=None,
-        detail={"campos": sorted(cambios)},
+        detail={"campos": sorted(cambios), "idioma": datos.locale},
     )
-    return await platform_service.legal_pages_publicas(session)
+    return await platform_service.legal_pages_publicas(session, datos.locale)

@@ -11,7 +11,7 @@ from __future__ import annotations
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.locale import LOCALES
+from app.core.locale import DEFAULT_LOCALE, LOCALES, Locale
 from app.core.storage import get_storage, public_url_versionada
 from app.modules.media.models import PlatformMedia
 from app.modules.platform import repository
@@ -107,18 +107,44 @@ def _sitio_de_la_instalacion() -> str:
     return get_settings().web_base_url.split("://", 1)[-1]
 
 
-async def legal_pages_publicas(session: AsyncSession) -> PlatformLegalPagesResponse:
-    """Las cuatro páginas legales de plataforma, con su contenido efectivo."""
+async def legal_pages_publicas(
+    session: AsyncSession, locale: Locale = DEFAULT_LOCALE
+) -> PlatformLegalPagesResponse:
+    """Las cuatro páginas legales de plataforma en `locale`, con su contenido efectivo.
+
+    La española cae a la plantilla por defecto si no se ha editado. En otro idioma
+    solo hay versión si el superadmin la ha escrito a mano (el legal no pasa por la
+    IA); si falta, se sirve la española y `served_locale` lo indica.
+    """
     branding: PlatformBranding = await repository.get_platform_branding(session)
     sitio = _sitio_de_la_instalacion()
+    con_version = await repository.idiomas_con_version_legal(session)
 
     items: dict[str, PlatformLegalPageItem] = {}
     for clave in PLATFORM_LEGAL_PAGE_KINDS:
+        # La española existe siempre (plantilla o editada); las demás, si se escribieron.
+        disponibles = [
+            idioma
+            for idioma in LOCALES
+            if idioma == DEFAULT_LOCALE or (clave, idioma) in con_version
+        ]
+        if locale != DEFAULT_LOCALE:
+            traducida = await repository.get_platform_legal_page(session, clave, locale)
+            if traducida is not None and traducida.content:
+                items[ATRIBUTO_DE_PAGINA[clave]] = PlatformLegalPageItem(
+                    content=traducida.content,
+                    is_custom=True,
+                    served_locale=locale,
+                    available_locales=disponibles,
+                )
+                continue
         fila = await repository.get_platform_legal_page(session, clave)
         contenido_editado = fila.content if fila is not None else None
         items[ATRIBUTO_DE_PAGINA[clave]] = PlatformLegalPageItem(
             content=resolve_platform_legal_page(branding, sitio, clave, contenido_editado),
-            is_custom=bool(contenido_editado),
+            is_custom=bool(contenido_editado) and locale == DEFAULT_LOCALE,
+            served_locale=DEFAULT_LOCALE,
+            available_locales=disponibles,
         )
 
     return PlatformLegalPagesResponse(**items)

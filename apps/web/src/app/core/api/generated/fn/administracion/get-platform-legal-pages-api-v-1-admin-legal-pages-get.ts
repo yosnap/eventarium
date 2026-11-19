@@ -10,11 +10,13 @@ import { RequestBuilder } from '../../request-builder';
 import { PlatformLegalPagesResponse } from '../../models/platform-legal-pages-response';
 
 export interface GetPlatformLegalPagesApiV1AdminLegalPagesGet$Params {
+  idioma?: 'es-ES' | 'en-US';
 }
 
 export function getPlatformLegalPagesApiV1AdminLegalPagesGet(http: HttpClient, rootUrl: string, params?: GetPlatformLegalPagesApiV1AdminLegalPagesGet$Params, context?: HttpContext): Observable<StrictHttpResponse<PlatformLegalPagesResponse>> {
   const rb = new RequestBuilder(rootUrl, getPlatformLegalPagesApiV1AdminLegalPagesGet.PATH, 'get');
   if (params) {
+    rb.query('idioma', params.idioma, {});
   }
 
   return http.request(

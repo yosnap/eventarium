@@ -146,6 +146,16 @@ async def abrir(
     organizacion = await session.get(Organization, usuario.organization_id)
     if organizacion is None:  # pragma: no cover - la sesión del panel la garantiza
         raise NotFoundError("No existe.")
+    return await entidad_de(session, organizacion, tipo, fila)
+
+
+async def entidad_de(
+    session: AsyncSession,
+    organizacion: Organization,
+    tipo: TipoDeEntidad,
+    fila: Any,  # noqa: ANN401 - fila de cualquier modelo traducible
+) -> Entidad:
+    """`fila`, ya cargada bajo RLS y con el permiso comprobado, con sus idiomas."""
     event_id: uuid.UUID | None
     if tipo == "event":
         event_id = fila.id
@@ -260,6 +270,45 @@ async def estado(
             }
         )
     return resultado
+
+
+#: Lo que cuelga de un evento y se traduce con él.
+HIJOS_DEL_EVENTO: tuple[tuple[TipoDeEntidad, Any], ...] = (
+    ("session", EventSession),
+    ("venue", EventVenue),
+    ("ticket_type", EventTicketType),
+    ("question", EventRegistrationQuestion),
+    ("sponsor", Sponsor),
+    ("nearby_place", EventNearbyPlace),
+)
+
+
+async def progreso_del_evento(
+    session: AsyncSession, evento: Entidad
+) -> dict[Locale, tuple[int, int]]:
+    """Por cada idioma de destino, cuántos textos del evento (y de lo que cuelga
+    de él) hay que traducir y cuántos están al día."""
+    entidades = [evento]
+    for tipo, modelo in HIJOS_DEL_EVENTO:
+        filas: Any = await session.scalars(
+            select(modelo).where(
+                modelo.organization_id == evento.fila.organization_id,
+                modelo.event_id == evento.fila.id,
+            )
+        )
+        entidades += [
+            Entidad(
+                tipo=tipo,
+                fila=fila,
+                event_id=evento.fila.id,
+                origen=evento.origen,
+                origen_organizacion=evento.origen_organizacion,
+                activos=evento.activos,
+            )
+            for fila in filas
+        ]
+    destinos = [locale for locale in evento.activos if locale != evento.origen]
+    return await progreso(session, entidades, destinos)
 
 
 async def progreso(

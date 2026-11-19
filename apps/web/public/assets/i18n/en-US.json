@@ -2394,7 +2394,10 @@
         "guardado": "Legal pages updated.",
         "errorCarga": "We couldn't load the platform's legal pages.",
         "errorGuardar": "We couldn't save the legal pages.",
-        "rotulo": "Legal documents"
+        "rotulo": "Legal documents",
+        "idioma": "Text language",
+        "aMano": "Legal text is never translated by AI: write the translation here by hand. An empty field serves the Spanish version with a notice.",
+        "sinVersion": "No version in this language: the Spanish one is served with a notice."
       },
       "analitica": {
         "titulo": "Cookies and external analytics",

@@ -6,5 +6,15 @@
  * Contenido efectivo (editado o de plantilla) de una página legal.
  */
 export interface LegalPageResponse {
+
+  /**
+   * Idiomas con versión propia: los que la página anuncia a los buscadores.
+   */
+  available_locales?: Array<'es-ES' | 'en-US'>;
   content: string;
+
+  /**
+   * Idioma del texto servido: `es-ES` si no hay versión en el idioma pedido.
+   */
+  served_locale?: 'es-ES' | 'en-US';
 }

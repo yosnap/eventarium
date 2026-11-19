@@ -25,6 +25,7 @@ from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import SessionDep
+from app.core.locale import IdiomaDep, Locale
 from app.core.ratelimit import COOKIE_CONSENT_POR_IP, LEGAL_PAGES_POR_IP, limit_per_ip
 from app.modules.legal.models import CookieConsent
 from app.modules.legal.schemas import CookieConsentCreate, LegalPageResponse
@@ -35,9 +36,14 @@ router_public = APIRouter(prefix="/public/legal", tags=["público"])
 router_cookie_consent = APIRouter(prefix="/public", tags=["público"])
 
 
-async def _pagina_publica(session: AsyncSession, clave: str) -> LegalPageResponse:
-    paginas = await platform_service.legal_pages_publicas(session)
-    return LegalPageResponse(content=getattr(paginas, _ATRIBUTO_DE_PAGINA[clave]).content)
+async def _pagina_publica(session: AsyncSession, clave: str, idioma: Locale) -> LegalPageResponse:
+    paginas = await platform_service.legal_pages_publicas(session, idioma)
+    pagina = getattr(paginas, _ATRIBUTO_DE_PAGINA[clave])
+    return LegalPageResponse(
+        content=pagina.content,
+        served_locale=pagina.served_locale,
+        available_locales=pagina.available_locales,
+    )
 
 
 @router_public.get(
@@ -46,8 +52,8 @@ async def _pagina_publica(session: AsyncSession, clave: str) -> LegalPageRespons
     response_model=LegalPageResponse,
     dependencies=[limit_per_ip("legal-aviso-legal", LEGAL_PAGES_POR_IP)],
 )
-async def public_legal_notice(session: SessionDep) -> LegalPageResponse:
-    return await _pagina_publica(session, "aviso-legal")
+async def public_legal_notice(session: SessionDep, idioma: IdiomaDep) -> LegalPageResponse:
+    return await _pagina_publica(session, "aviso-legal", idioma)
 
 
 @router_public.get(
@@ -56,8 +62,8 @@ async def public_legal_notice(session: SessionDep) -> LegalPageResponse:
     response_model=LegalPageResponse,
     dependencies=[limit_per_ip("legal-privacidad", LEGAL_PAGES_POR_IP)],
 )
-async def public_privacy_policy(session: SessionDep) -> LegalPageResponse:
-    return await _pagina_publica(session, "privacidad")
+async def public_privacy_policy(session: SessionDep, idioma: IdiomaDep) -> LegalPageResponse:
+    return await _pagina_publica(session, "privacidad", idioma)
 
 
 @router_public.get(
@@ -66,8 +72,8 @@ async def public_privacy_policy(session: SessionDep) -> LegalPageResponse:
     response_model=LegalPageResponse,
     dependencies=[limit_per_ip("legal-cookies", LEGAL_PAGES_POR_IP)],
 )
-async def public_cookies_policy(session: SessionDep) -> LegalPageResponse:
-    return await _pagina_publica(session, "cookies")
+async def public_cookies_policy(session: SessionDep, idioma: IdiomaDep) -> LegalPageResponse:
+    return await _pagina_publica(session, "cookies", idioma)
 
 
 @router_public.get(
@@ -76,8 +82,8 @@ async def public_cookies_policy(session: SessionDep) -> LegalPageResponse:
     response_model=LegalPageResponse,
     dependencies=[limit_per_ip("legal-condiciones-inscripcion", LEGAL_PAGES_POR_IP)],
 )
-async def public_registration_terms(session: SessionDep) -> LegalPageResponse:
-    return await _pagina_publica(session, "condiciones-de-inscripcion")
+async def public_registration_terms(session: SessionDep, idioma: IdiomaDep) -> LegalPageResponse:
+    return await _pagina_publica(session, "condiciones-de-inscripcion", idioma)
 
 
 @router_cookie_consent.post(

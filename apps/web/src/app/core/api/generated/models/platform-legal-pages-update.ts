@@ -11,6 +11,11 @@
 export interface PlatformLegalPagesUpdate {
   cookies_policy_content?: (string | null);
   legal_notice_content?: (string | null);
+
+  /**
+   * Idioma de la versión que se edita. Con `null` en otro idioma, se borra esa versión y vuelve a servirse la española con aviso.
+   */
+  locale?: 'es-ES' | 'en-US';
   privacy_policy_content?: (string | null);
   registration_terms_content?: (string | null);
 }

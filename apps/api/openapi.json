@@ -3974,6 +3974,22 @@
         ],
         "summary": "Páginas legales de la plataforma",
         "operationId": "get_platform_legal_pages_api_v1_admin_legal_pages_get",
+        "parameters": [
+          {
+            "name": "idioma",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "default": "es-ES",
+              "title": "Idioma"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3981,6 +3997,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PlatformLegalPagesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -3995,14 +4021,14 @@
         "description": "Un campo ausente no se toca; un campo presente con `null` restaura la plantilla por defecto de esa página.",
         "operationId": "update_platform_legal_pages_api_v1_admin_legal_pages_patch",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/PlatformLegalPagesUpdate"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -19434,6 +19460,28 @@
           "content": {
             "type": "string",
             "title": "Content"
+          },
+          "served_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Served Locale",
+            "description": "Idioma del texto servido: `es-ES` si no hay versión en el idioma pedido.",
+            "default": "es-ES"
+          },
+          "available_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Available Locales",
+            "description": "Idiomas con versión propia: los que la página anuncia a los buscadores."
           }
         },
         "type": "object",
@@ -22497,7 +22545,29 @@
           "is_custom": {
             "type": "boolean",
             "title": "Is Custom",
-            "description": "`true` si el admin ha editado esta página."
+            "description": "`true` si el admin ha editado esta página en el idioma pedido."
+          },
+          "served_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Served Locale",
+            "description": "Idioma del texto servido. Si se pidió otro y no hay versión escrita a mano, es `es-ES` y la web muestra el aviso de contenido original.",
+            "default": "es-ES"
+          },
+          "available_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Available Locales",
+            "description": "Idiomas con versión propia de esta página (el español, siempre)."
           }
         },
         "type": "object",
@@ -22582,6 +22652,16 @@
               }
             ],
             "title": "Registration Terms Content"
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Locale",
+            "description": "Idioma de la versión que se edita. Con `null` en otro idioma, se borra esa versión y vuelve a servirse la española con aviso.",
+            "default": "es-ES"
           }
         },
         "type": "object",

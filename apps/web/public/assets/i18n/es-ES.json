@@ -2394,7 +2394,10 @@
         "guardado": "Páginas legales actualizadas.",
         "errorCarga": "No hemos podido cargar las páginas legales de la plataforma.",
         "errorGuardar": "No hemos podido guardar las páginas legales.",
-        "rotulo": "Documentos legales"
+        "rotulo": "Documentos legales",
+        "idioma": "Idioma del texto",
+        "aMano": "El legal no pasa por la IA: escribe aquí la traducción a mano. Un campo vacío sirve la versión española con un aviso.",
+        "sinVersion": "Sin versión en este idioma: se sirve la española con un aviso."
       },
       "analitica": {
         "titulo": "Cookies y analítica externa",
