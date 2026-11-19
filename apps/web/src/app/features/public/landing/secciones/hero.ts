@@ -4,11 +4,12 @@ import { TranslocoDirective } from '@jsverse/transloco';
 
 import { HeroEscena, Parallax } from '../animaciones.directive';
 import { ResaltarPipe } from '../resaltar.pipe';
+import { EnlacePipe } from '../../../../core/i18n/enlace.pipe';
 
 @Component({
   selector: 'app-landing-hero',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, HeroEscena, Parallax, ResaltarPipe],
+  imports: [EnlacePipe, TranslocoDirective, RouterLink, HeroEscena, Parallax, ResaltarPipe],
   template: `
     <ng-container *transloco="let t">
       <section class="landing-hero" aria-labelledby="landing-hero-titulo" appHeroEscena>
@@ -26,10 +27,13 @@ import { ResaltarPipe } from '../resaltar.pipe';
               [innerHTML]="t('publico.landing.hero.subtitulo') | resaltar"
             ></p>
             <div class="landing-hero-acciones" data-entrada>
-              <a class="landing-cta landing-cta--primario" routerLink="/crear-organizacion">
+              <a
+                class="landing-cta landing-cta--primario"
+                [routerLink]="'/crear-organizacion' | enlace"
+              >
                 {{ t('publico.landing.hero.ctaOrganizar') }}
               </a>
-              <a class="landing-cta landing-cta--secundario" routerLink="/eventos">
+              <a class="landing-cta landing-cta--secundario" [routerLink]="'/eventos' | enlace">
                 {{ t('publico.landing.hero.ctaEventos') }}
               </a>
             </div>

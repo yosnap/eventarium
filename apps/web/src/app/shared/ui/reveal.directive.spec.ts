@@ -21,7 +21,7 @@ describe('Reveal', () => {
   beforeEach(() => {
     capturedCallback = null;
     observadoresDesconectados = 0;
-    document.documentElement.classList.remove('js-activo');
+    document.documentElement.classList.remove('js-activo', 'app-lista', 'app-tarde');
 
     class ObservadorFalso {
       constructor(callback: IntersectionObserverCallback) {
@@ -45,13 +45,21 @@ describe('Reveal', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
-    document.documentElement.classList.remove('js-activo');
+    document.documentElement.classList.remove('js-activo', 'app-lista', 'app-tarde');
   });
 
   it('marca <html> como "js-activo" al montar, para que la ocultación por CSS solo aplique con JS confirmado', async () => {
     fixture.detectChanges();
     await fixture.whenStable();
     expect(document.documentElement.classList.contains('js-activo')).toBe(true);
+  });
+
+  it('si la aplicación arrancó tarde y el contenido ya se mostró, no lo vuelve a ocultar', async () => {
+    document.documentElement.classList.add('app-tarde');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(document.documentElement.classList.contains('js-activo')).toBe(false);
+    expect(document.documentElement.classList.contains('app-lista')).toBe(true);
   });
 
   it('añade "es-visible" cuando el observador informa que el elemento entró en pantalla', async () => {

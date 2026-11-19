@@ -64,7 +64,9 @@ class _Credencial:
 def _exigir_proveedor(provider: str) -> catalogo.Proveedor:
     entrada = catalogo.obtener(provider)
     if entrada is None or descubrimiento.adaptador(provider) is None:
-        raise ProveedorDesconocido(f"El proveedor «{provider}» no existe en el catálogo.")
+        raise ProveedorDesconocido(
+            "El proveedor «{proveedor}» no existe en el catálogo.", params={"proveedor": provider}
+        )
     return entrada
 
 

@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { EnlacePipe } from '../../core/i18n/enlace.pipe';
 
 export interface BreadcrumbItem {
   readonly label: string;
@@ -20,7 +21,7 @@ export interface BreadcrumbItem {
 @Component({
   selector: 'app-breadcrumb',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink],
+  imports: [EnlacePipe, RouterLink],
   template: `
     <nav class="crumb" [attr.aria-label]="ariaLabel()">
       @for (item of items(); track $index) {
@@ -28,7 +29,9 @@ export interface BreadcrumbItem {
           <span aria-current="page">{{ item.label }}</span>
         } @else {
           @if (item.routerLink) {
-            <a [routerLink]="item.routerLink" [fragment]="item.fragment">{{ item.label }}</a>
+            <a [routerLink]="item.routerLink | enlace" [fragment]="item.fragment">{{
+              item.label
+            }}</a>
           } @else {
             <span>{{ item.label }}</span>
           }

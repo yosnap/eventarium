@@ -18,6 +18,7 @@ import {
 import { urlEvento } from '../../../core/routing/rutas-publicas';
 import { Button } from '../../../shared/ui/button';
 import { Checkbox } from '../../../shared/ui/checkbox';
+import { IdiomaService } from '../../../core/i18n/idioma.service';
 
 type EstadoDeCarga = 'cargando' | 'listo' | 'error';
 
@@ -144,14 +145,16 @@ export class RegistrationConsents {
   protected readonly politicas = signal<PoliticasPublicas | null>(null);
   protected readonly hayPoliticas = computed(() => (this.politicas()?.policies.length ?? 0) > 0);
 
+  private readonly idiomaDeLaPagina = inject(IdiomaService);
+
   protected readonly enlacePoliticas = computed(() =>
-    urlEvento(this.org(), this.slug(), 'politicas'),
+    this.idiomaDeLaPagina.enlace(urlEvento(this.org(), this.slug(), 'politicas')),
   );
   /** La privacidad del organizador si la tiene; si no, la general. */
   protected readonly enlacePrivacidad = computed(() =>
     this.politicas()?.policies.some((politica) => politica.kind === 'privacidad')
-      ? `${urlEvento(this.org(), this.slug(), 'politicas')}#privacidad`
-      : '/legal/privacidad',
+      ? `${this.enlacePoliticas()}#privacidad`
+      : this.idiomaDeLaPagina.enlace('/legal/privacidad'),
   );
 
   /** Ya se sabe qué hay que aceptar: sin esto, no se debe enviar. */

@@ -60,4 +60,5 @@ def parse_permission(valor: str) -> Permission:
     try:
         return Permission(valor)
     except ValueError as exc:  # pragma: no cover - mensaje explícito
+        # mensaje interno: error técnico que no llega a una persona.
         raise ValueError(f"Permiso desconocido: {valor}") from exc

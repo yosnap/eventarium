@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  input,
+  LOCALE_ID,
+} from '@angular/core';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
 import { Panel } from '../../../shared/ui/panel';
@@ -37,9 +44,9 @@ interface LineaConsumo {
               role="img"
               [attr.aria-label]="
                 t('admin.events.accounting.contingencia.aria', {
-                  consumido: euros(consumidoCents()),
-                  fondo: euros(fundCents()!),
-                  disponible: euros(disponibleCents() ?? 0),
+                  consumido: this.euros(consumidoCents()),
+                  fondo: this.euros(fundCents()!),
+                  disponible: this.euros(disponibleCents() ?? 0),
                 })
               "
             >
@@ -55,14 +62,14 @@ interface LineaConsumo {
               <span class="num consumo">
                 {{
                   t('admin.events.accounting.contingencia.consumidos', {
-                    importe: euros(consumidoCents()),
+                    importe: this.euros(consumidoCents()),
                   })
                 }}
               </span>
               <span class="num">
                 {{
                   t('admin.events.accounting.contingencia.libres', {
-                    importe: euros(disponibleCents() ?? 0),
+                    importe: this.euros(disponibleCents() ?? 0),
                   })
                 }}
               </span>
@@ -72,15 +79,15 @@ interface LineaConsumo {
               <span>{{
                 t('admin.events.accounting.contingencia.dotacionInicial', {
                   porcentaje: porcentaje(),
-                  total: euros(totalPresupuestadoCents()),
+                  total: this.euros(totalPresupuestadoCents()),
                 })
               }}</span>
-              <span class="num">{{ euros(fundCents()!) }} €</span>
+              <span class="num">{{ this.euros(fundCents()!) }} €</span>
             </div>
             @for (linea of desglose(); track linea.texto) {
               <div class="linea">
                 <span>{{ linea.texto }}</span>
-                <span class="num consumo">− {{ euros(linea.importeCents) }} €</span>
+                <span class="num consumo">− {{ this.euros(linea.importeCents) }} €</span>
               </div>
             }
           }
@@ -90,7 +97,7 @@ interface LineaConsumo {
           <ng-container pie>
             <span>{{ t('admin.events.accounting.contingencia.disponibleAhora') }}</span>
             <strong>{{
-              disponibleCents() !== null ? euros(disponibleCents()!) + ' €' : '—'
+              disponibleCents() !== null ? this.euros(disponibleCents()!) + ' €' : '—'
             }}</strong>
           </ng-container>
         }
@@ -160,7 +167,8 @@ export class AccountingContingencyPanel {
 
   private readonly transloco = inject(TranslocoService);
 
-  protected readonly euros = euros;
+  private readonly idioma = inject(LOCALE_ID);
+  protected readonly euros = (cents: number): string => euros(cents, this.idioma);
 
   protected readonly porcentaje = computed(() => this.fundPercent());
 
@@ -182,8 +190,8 @@ export class AccountingContingencyPanel {
       .map((linea) => ({
         texto: this.transloco.translate('admin.events.accounting.contingencia.consumoDePartida', {
           nombre: nombreDePartida(lineas, linea.budget_line_id, etiquetaSinPartida),
-          presupuesto: euros(linea.budgeted_cents),
-          ejecutado: euros(linea.ejecutado_cents),
+          presupuesto: this.euros(linea.budgeted_cents),
+          ejecutado: this.euros(linea.ejecutado_cents),
         }),
         importeCents: linea.exceso_cents,
       }));

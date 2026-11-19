@@ -11,6 +11,8 @@ import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 import { TurnstileWidget } from '../../../shared/ui/turnstile-widget';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
+import { IdiomaService } from '../../../core/i18n/idioma.service';
 
 type Estado = 'comprobando' | 'exito' | 'error';
 
@@ -26,6 +28,7 @@ type Estado = 'comprobando' | 'exito' | 'error';
   selector: 'app-verify-email-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    EnlacePipe,
     TranslocoDirective,
     RouterLink,
     AuthFrame,
@@ -50,7 +53,9 @@ type Estado = 'comprobando' | 'exito' | 'error';
                   <app-alert tone="exito" [title]="t('verificarCorreo.exitoTitulo')">
                     {{ t('verificarCorreo.exitoDetalle') }}
                     <p>
-                      <a routerLink="/crear-organizacion">{{ t('verificarCorreo.continuar') }}</a>
+                      <a [routerLink]="'/crear-organizacion' | enlace">{{
+                        t('verificarCorreo.continuar')
+                      }}</a>
                     </p>
                   </app-alert>
                 }
@@ -106,6 +111,7 @@ export class VerifyEmailPage {
   private readonly auth = inject(AuthService);
   private readonly ruta = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly idioma = inject(IdiomaService);
   private readonly transloco = inject(TranslocoService);
 
   protected readonly estado = signal<Estado>('comprobando');
@@ -131,7 +137,10 @@ export class VerifyEmailPage {
       // Breve pausa para que el mensaje de éxito sea legible antes de continuar:
       // desaparecer la pantalla al instante no daría tiempo a leerlo, y menos aún a
       // quien usa un lector de pantalla.
-      setTimeout(() => void this.router.navigateByUrl('/crear-organizacion'), 1500);
+      setTimeout(
+        () => void this.router.navigateByUrl(this.idioma.enlace('/crear-organizacion')),
+        1500,
+      );
     } catch {
       this.estado.set('error');
     }

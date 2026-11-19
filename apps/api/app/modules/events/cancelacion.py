@@ -306,7 +306,7 @@ async def _avisar_lote(organization_id: uuid.UUID, event_id: uuid.UUID) -> int:
         avisos = []
         for inscripcion in lote:
             inscripcion.event_cancellation_notified_at = ahora
-            avisos.append((inscripcion.email, inscripcion.id in con_reembolso))
+            avisos.append((inscripcion.email, inscripcion.id in con_reembolso, inscripcion.locale))
         titulo, motivo = evento.title, evento.cancellation_reason
         await session.commit()
 
@@ -314,10 +314,10 @@ async def _avisar_lote(organization_id: uuid.UUID, event_id: uuid.UUID) -> int:
     # bloqueadas. Si el proceso muere entre el `commit` y aquí, esas personas
     # se quedan sin aviso: es el precio de no mandarlo dos veces ni retener
     # bloqueos, y se ve en el log.
-    for email, con_reembolso_propio in avisos:
+    for email, con_reembolso_propio, idioma in avisos:
         try:
             await send_event_cancelled_email.kiq(
-                email, str(organization_id), titulo, motivo, con_reembolso_propio
+                email, str(organization_id), titulo, motivo, con_reembolso_propio, locale=idioma
             )
         except Exception:  # pragma: no cover - Redis caído
             logger.exception("No se pudo encolar el aviso de cancelación del evento %s", event_id)

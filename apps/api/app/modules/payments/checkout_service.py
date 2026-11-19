@@ -32,6 +32,9 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SessionApp, maintenance_session, set_organization_context
+from app.core.fechas import fecha_y_hora
+from app.core.locale import Locale, normalizar_locale, ruta_web
+from app.core.mensajes import t
 from app.core.tenant import base_url_de_organizacion
 from app.core.tras_commit import despachar_tras_commit
 from app.modules.events.models import Event
@@ -40,6 +43,7 @@ from app.modules.payments import refunds_service, repository
 from app.modules.payments import service as payments_service
 from app.modules.payments import stripe_client as stripe_gateway
 from app.modules.payments.models import EventPayment, OrganizationStripeAccount
+from app.modules.registrations import avisos as registrations_avisos
 from app.modules.registrations import service as registrations_service
 from app.modules.registrations.models import EventRegistration
 from app.modules.registrations.schemas import RegistrationAnswerInput
@@ -158,12 +162,16 @@ async def iniciar_compra(
                         session, event.organization_id, codigo.id
                     )
                 if codigo is None:
-                    raise ValidationDomainError(payments_service.MENSAJE_CODIGO_NO_VALIDO)
+                    raise ValidationDomainError(
+                        payments_service.MENSAJE_CODIGO_NO_VALIDO
+                    )  # mensaje marcado
                 usos = await repository.count_used_discount_code(
                     session, event.organization_id, codigo.id
                 )
                 if not payments_service.validar_codigo_vigente(codigo, tipo, usos, ahora):
-                    raise ValidationDomainError(payments_service.MENSAJE_CODIGO_NO_VALIDO)
+                    raise ValidationDomainError(
+                        payments_service.MENSAJE_CODIGO_NO_VALIDO
+                    )  # mensaje marcado
                 discount_type = codigo.discount_type
                 discount_value = codigo.discount_value
                 discount_code_id = codigo.id
@@ -199,6 +207,7 @@ async def iniciar_compra(
 
             payment_id = pago.id
             estado_resultante = inscripcion.status
+            idioma = normalizar_locale(inscripcion.locale)
         # --- fin de T1 (`session.begin()` ha hecho commit al salir del `with`):
         # la fila del pago ya persiste sin ningún bloqueo de fila abierto ---
         await despachar_tras_commit(session)
@@ -228,14 +237,20 @@ async def iniciar_compra(
             # así que hay que volver a fijarlo — T1 ya hizo `commit` y lo
             # perdió.
             await set_organization_context(session, event.organization_id)
-            checkout_url = await crear_sesion_de_pago(session, payment_id=payment_id)
+            checkout_url = await crear_sesion_de_pago(session, payment_id=payment_id, locale=idioma)
         return ResultadoCompra(message=MENSAJE_GENERICO, checkout_url=checkout_url)
 
 
-async def crear_sesion_de_pago(session: AsyncSession, *, payment_id: uuid.UUID) -> str | None:
+async def crear_sesion_de_pago(
+    session: AsyncSession, *, payment_id: uuid.UUID, locale: Locale
+) -> str | None:
     """T2: crea la Checkout Session en Stripe y persiste la URL — nunca bajo
     bloqueos de fila. La reutilizan la compra y
     `dispatch_pending_payment_links_task` (caminos 2, 3 y 4).
+
+    `locale` es el idioma de la inscripción, explícito: desde la tarea de
+    enlaces diferidos no hay petición de la que sacarlo, y Stripe devolvería a
+    la persona a la web en el idioma por defecto.
 
     Devuelve `None` (idempotente, no crea una segunda sesión) si el pago ya
     no está en `pending` o si ya tiene el enlace entregado.
@@ -299,12 +314,15 @@ async def crear_sesion_de_pago(session: AsyncSession, *, payment_id: uuid.UUID) 
     )
     expires_at_epoch = int((limite + _MARGEN_TECNICO).timestamp())
 
+    # Se vuelve a la web en el idioma en que se hizo la inscripción.
+    retorno = ruta_web(locale, "pago/retorno")
+    cancelado = ruta_web(locale, "pago/cancelado")
     creada = await stripe_gateway.crear_sesion_checkout(
         cuenta,
         linea=stripe_gateway.LineaDePrecioAdHoc(
             currency=pago.currency,
             unit_amount_cents=pago.amount_cents,
-            product_name=tipo.name if tipo is not None else "Entrada",
+            product_name=tipo.name if tipo is not None else t("Entrada", locale),
         ),
         # `slug` viaja en la URL porque el endpoint de estado
         # (`GET /public/organizations/{org}/events/{slug}/checkout/{registration_id}/status`) está
@@ -312,10 +330,10 @@ async def crear_sesion_de_pago(session: AsyncSession, *, payment_id: uuid.UUID) 
         # pantalla de retorno no podría ni siquiera preguntar por el estado
         # real del pago.
         success_url=(
-            f"{base}/pago/retorno?registration_id={pago.registration_id}&org={org_slug}&slug={evento_slug}"
+            f"{base}{retorno}?registration_id={pago.registration_id}&org={org_slug}&slug={evento_slug}"
         ),
         cancel_url=(
-            f"{base}/pago/cancelado?registration_id={pago.registration_id}&org={org_slug}&slug={evento_slug}"
+            f"{base}{cancelado}?registration_id={pago.registration_id}&org={org_slug}&slug={evento_slug}"
         ),
         expires_at_epoch=expires_at_epoch,
         idempotency_key=f"checkout_{pago.id}_{pago.checkout_attempts}",
@@ -405,13 +423,13 @@ async def confirmar_pago_y_registro(
         pago.stripe_payment_intent_id = stripe_payment_intent_id
     inscripcion.status = "confirmed"
     inscripcion.confirmed_at = datetime.now(UTC)
-    await registrations_service._enviar_email_por_estado(session, inscripcion)  # noqa: SLF001
+    await registrations_avisos._enviar_email_por_estado(session, inscripcion)  # noqa: SLF001
     # El aviso al organizador de una inscripción de pago sale aquí, al cobrarse,
     # no al abrir el checkout. Quien llega al pago desde la lista de espera o
     # tras aprobarse ya se avisó al inscribirse: no se le avisa dos veces.
     ya_avisada = inscripcion.waitlist_promoted_at is not None or inscripcion.approved_at is not None
     if not ya_avisada:
-        await registrations_service.avisar_al_organizador(session, inscripcion, pagada=True)
+        await registrations_avisos.avisar_al_organizador(session, inscripcion, pagada=True)
     return "processed"
 
 
@@ -432,7 +450,7 @@ async def dispatch_pending_payment_links() -> None:
     llegara a persistir.
     """
     from app.core.tasks import send_registration_payment_link_email
-    from app.modules.registrations.service import _generar_token_cancelacion  # noqa: SLF001
+    from app.modules.registrations.avisos import _generar_token_cancelacion  # noqa: SLF001
 
     async with maintenance_session() as session:
         pagos = await repository.pagos_sin_enlace_entregado(session)
@@ -440,25 +458,32 @@ async def dispatch_pending_payment_links() -> None:
     for payment_id in pagos:
         try:
             async with maintenance_session() as session:
-                url = await crear_sesion_de_pago(session, payment_id=payment_id)
-                if url is None:
-                    continue
-
                 pago = await session.get(EventPayment, payment_id)
                 if pago is None or pago.registration_id is None:
                     continue
                 inscripcion = await session.get(EventRegistration, pago.registration_id)
                 if inscripcion is None:
                     continue
+                idioma = normalizar_locale(inscripcion.locale)
 
+                url = await crear_sesion_de_pago(session, payment_id=payment_id, locale=idioma)
+                if url is None:
+                    continue
+
+                evento = await session.get(Event, pago.event_id)
                 cancel_token = await _generar_token_cancelacion(inscripcion.id)
-                expira_el = pago.expires_at.strftime("%d/%m/%Y %H:%M") if pago.expires_at else ""
+                # En la hora del evento y con el formato del idioma de la persona.
+                expira_el = (
+                    fecha_y_hora(pago.expires_at, evento.timezone if evento else None, idioma)
+                    if pago.expires_at
+                    else ""
+                )
                 email = inscripcion.email
                 organization_id = str(inscripcion.organization_id)
             # --- commit de la sesión de este pago: solo ahora se encola el
             # correo, con la URL y el token ya persistidos ---
             await send_registration_payment_link_email.kiq(
-                email, organization_id, url, cancel_token, expira_el
+                email, organization_id, url, cancel_token, expira_el, locale=idioma
             )
         except ExternalServiceError:
             logger.warning("No se pudo crear la sesión de pago %s; se reintentará.", payment_id)

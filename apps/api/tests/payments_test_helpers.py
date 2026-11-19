@@ -19,8 +19,9 @@ from httpx import AsyncClient
 from app.core.config import Settings
 from app.core.database import SessionMaintenance
 from app.modules.events import service as events_service
+from app.modules.events.models import Event
 from app.modules.payments import stripe_client
-from app.modules.payments.models import OrganizationStripeAccount
+from app.modules.payments.models import EventTicketType, OrganizationStripeAccount
 from tests.conftest import OrganizacionDePrueba, iniciar_sesion
 
 EVENTS = "/api/v1/events"
@@ -187,3 +188,29 @@ async def _estado_inscripcion(event_id: str, email: str) -> str | None:
             )
         )
         return fila.status if fila is not None else None
+
+
+async def _fabricar_evento_de_pago_directo(
+    organizacion: OrganizacionDePrueba, *, capacity: int | None
+) -> tuple[uuid.UUID, uuid.UUID]:
+    async with SessionMaintenance() as session:
+        evento = Event(
+            organization_id=organizacion.id,
+            slug=f"evento-directo-{uuid.uuid4().hex[:8]}",
+            title="Evento directo",
+            status="published",
+            visibility="public",
+            starts_at=AHORA,
+            ends_at=AHORA + timedelta(days=1),
+            location_mode="online",
+            registration_mode="paid",
+            capacity=capacity,
+        )
+        session.add(evento)
+        await session.flush()
+        tipo = EventTicketType(
+            organization_id=organizacion.id, event_id=evento.id, name="General", price_cents=1000
+        )
+        session.add(tipo)
+        await session.commit()
+        return evento.id, tipo.id

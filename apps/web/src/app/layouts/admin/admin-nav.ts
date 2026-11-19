@@ -68,6 +68,11 @@ export const PLATFORM_NAV_LINKS: readonly AdminNavLink[] = [
     labelKey: 'admin.plataforma.identidad.titulo',
     soloSuperadmin: true,
   },
+  {
+    path: ['/admin/idiomas'],
+    labelKey: 'admin.plataforma.idiomas.titulo',
+    soloSuperadmin: true,
+  },
   { path: ['/admin/legales'], labelKey: 'admin.plataforma.legales.titulo', soloSuperadmin: true },
   // Cookies y analítica externa: lectura para todo el personal de plataforma
   // (fase 3 del plan de cookies) — sin `soloSuperadmin`, visible también para

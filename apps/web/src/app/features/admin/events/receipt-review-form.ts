@@ -12,6 +12,7 @@ import {
   signal,
   untracked,
   viewChild,
+  LOCALE_ID,
 } from '@angular/core';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
@@ -69,8 +70,8 @@ function fechaParaElCampo(texto: string | null): string {
   return texto && /^\d{4}-\d{2}-\d{2}$/.test(texto) ? texto : '';
 }
 
-function importeParaElCampo(cents: number | null): string {
-  return cents === null ? '' : euros(cents);
+function importeParaElCampo(cents: number | null, idioma: string): string {
+  return cents === null ? '' : euros(cents, idioma);
 }
 
 /**
@@ -358,6 +359,7 @@ function importeParaElCampo(cents: number | null): string {
   `,
 })
 export class ReceiptReviewForm {
+  private readonly idioma = inject(LOCALE_ID);
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
@@ -410,7 +412,7 @@ export class ReceiptReviewForm {
    * segunda confirmación. */
   protected readonly totalConfirmable = computed(() => {
     const cents = aCents(this.total());
-    return cents === null ? '0,00' : euros(cents);
+    return cents === null ? euros(0, this.idioma) : euros(cents, this.idioma);
   });
 
   constructor() {
@@ -492,9 +494,9 @@ export class ReceiptReviewForm {
     const campos: CamposExtraidos = borrador.extracted_fields;
     const proveedor = campos.provider_name ?? '';
     const fecha = fechaParaElCampo(campos.expense_date);
-    const base = importeParaElCampo(campos.base_cents);
-    const iva = importeParaElCampo(campos.vat_cents);
-    const total = importeParaElCampo(campos.total_cents);
+    const base = importeParaElCampo(campos.base_cents, this.idioma);
+    const iva = importeParaElCampo(campos.vat_cents, this.idioma);
+    const total = importeParaElCampo(campos.total_cents, this.idioma);
 
     this.proveedor.set(proveedor);
     this.fecha.set(fecha);
@@ -651,7 +653,7 @@ export class ReceiptReviewForm {
     }
     const esperado = baseCents + (ivaCents ?? 0);
     if (totalCents !== esperado) {
-      return this.rechazar(`${base}totalNoCuadra`, { esperado: euros(esperado) });
+      return this.rechazar(`${base}totalNoCuadra`, { esperado: euros(esperado, this.idioma) });
     }
 
     return {

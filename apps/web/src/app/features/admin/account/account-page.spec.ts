@@ -10,6 +10,7 @@ import { AuthService, UsuarioAutenticado } from '../../../core/auth/auth.service
 import { ApiError } from '../../../core/api/error.interceptor';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../../testing/axe';
 import es from '../../../../../public/assets/i18n/es-ES.json';
+import { elegirEnSelect } from '../../../../testing/select';
 
 const USUARIO: UsuarioAutenticado = {
   id: 'u1',
@@ -110,6 +111,21 @@ describe('AccountPage', () => {
       lastName: 'Propietaria',
       notifySimilarEvents: true,
     });
+  });
+
+  it('cambiar el idioma lo envía a updateMe', async () => {
+    const fixture = TestBed.createComponent(AccountPage);
+    await fixture.whenStable();
+    const auth = TestBed.inject(AuthService);
+
+    elegirEnSelect(fixture, 'cuenta-idioma', 'en-US');
+    await fixture.whenStable();
+    (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
+      new Event('submit'),
+    );
+    await fixture.whenStable();
+
+    expect(auth.updateMe).toHaveBeenCalledWith(expect.objectContaining({ locale: 'en-US' }));
   });
 
   it('solicitar el cambio de correo exige contraseña actual', async () => {

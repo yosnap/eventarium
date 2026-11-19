@@ -8,6 +8,7 @@ import {
   input,
   signal,
   viewChildren,
+  LOCALE_ID,
 } from '@angular/core';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 
@@ -221,7 +222,8 @@ export class AccountingMovementsPanel {
 
   protected readonly MOVIMIENTOS = MOVIMIENTOS;
   protected readonly pestana = signal<Movimiento>('ingresos');
-  protected readonly euros = euros;
+  private readonly idioma = inject(LOCALE_ID);
+  protected readonly euros = (cents: number): string => euros(cents, this.idioma);
 
   protected readonly totalIngresosCents = computed(() =>
     this.ingresosCombinados().reduce((acc, l) => acc + l.importe_cents, 0),

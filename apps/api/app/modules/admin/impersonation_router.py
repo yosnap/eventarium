@@ -33,6 +33,8 @@ from app.core.deps import (
     get_token_claims,
     require_platform_staff,
 )
+from app.core.locale import normalizar_locale
+from app.core.mensajes import t
 from app.core.ratelimit import IMPERSONATION_POR_IP, limit_per_ip
 from app.core.security import (
     AccessTokenClaims,
@@ -145,11 +147,13 @@ async def impersonate(
     # cualquier caso. Es su única vía de enterarse: el registro de auditoría no
     # está a su alcance.
     organizacion = await session.get(Organization, datos.organization_id)
+    idioma = normalizar_locale(objetivo.locale)
     await send_impersonation_notice.kiq(
         objetivo.email,
         reason=datos.reason,
         minutos=_TTL_MINUTOS,
-        organizacion=organizacion.name if organizacion else "la plataforma",
+        organizacion=organizacion.name if organizacion else t("la plataforma", idioma),
+        locale=idioma,
     )
 
     return ImpersonationResponse(

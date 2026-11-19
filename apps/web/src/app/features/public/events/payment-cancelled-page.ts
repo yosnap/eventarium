@@ -7,6 +7,7 @@ import { seoDePagina } from '../../../core/seo/meta.service';
 import { Alert } from '../../../shared/ui/alert';
 import { Card } from '../../../shared/ui/card';
 import { Reveal } from '../../../shared/ui/reveal.directive';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 
 /**
  * Pantalla de `cancel_url` de la Checkout Session de Stripe (fase 6 del PRD,
@@ -19,7 +20,7 @@ import { Reveal } from '../../../shared/ui/reveal.directive';
 @Component({
   selector: 'app-payment-cancelled-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Card, Reveal],
+  imports: [EnlacePipe, TranslocoDirective, RouterLink, Alert, Card, Reveal],
   template: `
     <ng-container *transloco="let t">
       <div class="pagina">
@@ -27,7 +28,7 @@ import { Reveal } from '../../../shared/ui/reveal.directive';
           <app-alert tone="info">{{ t('pago.cancelado.detalle') }}</app-alert>
           @if (slug) {
             <p>
-              <a [routerLink]="volverAlEvento(org, slug)">{{
+              <a [routerLink]="volverAlEvento(org, slug) | enlace">{{
                 t('pago.cancelado.volverAlEvento')
               }}</a>
             </p>
@@ -60,6 +61,6 @@ export class PaymentCancelledPage {
   protected readonly volverAlEvento = rutaDeVueltaAlEvento;
 
   constructor() {
-    this.seo.set({ title: this.transloco.translate('pago.cancelado.titulo') });
+    this.seo.set({ title: this.transloco.translate('pago.cancelado.titulo'), noIndexar: true });
   }
 }

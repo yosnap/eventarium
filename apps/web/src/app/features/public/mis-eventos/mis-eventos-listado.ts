@@ -16,6 +16,7 @@ import type { MyRegistrationItem } from '../../../core/registrations/registratio
 import { rutaEvento } from '../../../core/routing/rutas-publicas';
 import { AddToCalendar } from '../../../shared/ui/add-to-calendar';
 import { formatearFecha } from '../../../shared/text/formatear-fecha';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 
 type Pestana = 'proximos' | 'pasados';
 const PESTANAS: readonly Pestana[] = ['proximos', 'pasados'];
@@ -48,7 +49,7 @@ function claveDeEstado(valor: string): string {
 @Component({
   selector: 'app-mis-eventos-listado',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, TranslocoDirective, AddToCalendar],
+  imports: [EnlacePipe, RouterLink, TranslocoDirective, AddToCalendar],
   template: `
     <ng-container *transloco="let t">
       <div class="pestanas" role="tablist" [attr.aria-label]="t('publico.misEventos.pestanasAria')">
@@ -85,14 +86,14 @@ function claveDeEstado(valor: string): string {
             <p class="vacio">
               {{ t('publico.misEventos.vacio.' + pestana) }}
               @if (pestana === 'proximos') {
-                <a routerLink="/eventos">{{ t('publico.misEventos.verEventos') }}</a>
+                <a [routerLink]="'/eventos' | enlace">{{ t('publico.misEventos.verEventos') }}</a>
               }
             </p>
           } @else {
             <ul class="listado" [class.listado--pasado]="pestana === 'pasados'">
               @for (fila of filas; track fila.organization.slug + fila.event_slug + fila.status) {
                 <li>
-                  <a [routerLink]="rutaEvento(fila.organization.slug, fila.event_slug)">{{
+                  <a [routerLink]="rutaEvento(fila.organization.slug, fila.event_slug) | enlace">{{
                     fila.event_title
                   }}</a>
                   <span class="detalle">

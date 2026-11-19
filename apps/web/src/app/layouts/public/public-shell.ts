@@ -17,6 +17,9 @@ import { AccessMenu } from '../../shared/ui/access-menu';
 import { BrandLockup } from '../../shared/ui/brand-lockup';
 import { Button } from '../../shared/ui/button';
 import { ThemeToggle } from '../../shared/ui/theme-toggle';
+import { EnlacePipe } from '../../core/i18n/enlace.pipe';
+import { SelectorIdioma } from '../../shared/ui/selector-idioma';
+import { AvisoIdioma } from './aviso-idioma';
 
 /**
  * Estructura de la web pública: cabecera con la marca de la organización, contenido y
@@ -27,6 +30,9 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
   selector: 'app-public-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    AvisoIdioma,
+    SelectorIdioma,
+    EnlacePipe,
     RouterOutlet,
     RouterLink,
     TranslocoDirective,
@@ -40,17 +46,19 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
     <ng-container *transloco="let t">
       <a class="skip-link" href="#contenido">{{ t('comun.saltarAlContenido') }}</a>
 
+      <app-aviso-idioma />
+
       <header #cabecera>
         <div class="ancho-maximo header-en">
-          <a routerLink="/" class="marca">
+          <a [routerLink]="'/' | enlace" class="marca">
             <app-brand-lockup />
           </a>
           <div class="bloque-derecho">
             <nav [attr.aria-label]="t('publico.navegacion')">
               <!-- Sin «Inicio»: el logo ya enlaza a la raíz (la landing de la
                    instalación); aquí solo van el directorio y «Mis eventos». -->
-              <a routerLink="/eventos">{{ t('publico.eventos.listadoTitulo') }}</a>
-              <a routerLink="/mis-eventos">{{ t('publico.misEventos.enlaceNav') }}</a>
+              <a [routerLink]="'/eventos' | enlace">{{ t('publico.eventos.listadoTitulo') }}</a>
+              <a [routerLink]="'/mis-eventos' | enlace">{{ t('publico.misEventos.enlaceNav') }}</a>
             </nav>
             <div class="controles-usuario">
               <!-- Mismo destino con o sin sesión: el guard del panel manda a
@@ -59,6 +67,7 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
               <a routerLink="/dashboard/events/nuevo" class="crear-evento">
                 {{ t('publico.crearEvento') }}
               </a>
+              <app-selector-idioma [compacto]="true" />
               <app-theme-toggle />
               <app-access-menu />
             </div>
@@ -96,21 +105,22 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
           <nav [attr.aria-label]="t('publico.enlacesLegales')" class="enlaces-legales">
             <ul>
               <li>
-                <a routerLink="/legal/aviso-legal">{{ t('legal.avisoLegal') }}</a>
+                <a [routerLink]="'/legal/aviso-legal' | enlace">{{ t('legal.avisoLegal') }}</a>
               </li>
               <li>
-                <a routerLink="/legal/privacidad">{{ t('legal.privacidad') }}</a>
+                <a [routerLink]="'/legal/privacidad' | enlace">{{ t('legal.privacidad') }}</a>
               </li>
               <li>
-                <a routerLink="/legal/cookies">{{ t('legal.cookies') }}</a>
+                <a [routerLink]="'/legal/cookies' | enlace">{{ t('legal.cookies') }}</a>
               </li>
               <li>
-                <a routerLink="/legal/condiciones-de-inscripcion">
+                <a [routerLink]="'/legal/condiciones-de-inscripcion' | enlace">
                   {{ t('legal.condicionesInscripcion') }}
                 </a>
               </li>
             </ul>
           </nav>
+          <app-selector-idioma />
           <app-button variant="terciario" [compacto]="true" (pulsado)="gestionarCookies()">
             {{ t('cookies.gestionar') }}
           </app-button>

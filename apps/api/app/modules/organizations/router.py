@@ -189,12 +189,14 @@ async def update_branding(
             theme_template_id = uuid.UUID(datos.theme_template_id)
         except ValueError as exc:
             raise ValidationDomainError(
-                f"«{datos.theme_template_id}» no es un identificador válido de plantilla."
+                "«{plantilla}» no es un identificador válido de plantilla.",
+                params={"plantilla": datos.theme_template_id},
             ) from exc
         plantilla = await theme_templates_repository.get_theme_template(session, theme_template_id)
         if plantilla is None:
             raise ValidationDomainError(
-                f"No existe ninguna plantilla de tema con el id «{datos.theme_template_id}»."
+                "No existe ninguna plantilla de tema con el id «{plantilla}».",
+                params={"plantilla": datos.theme_template_id},
             )
 
     branding = await repository.get_branding(session, usuario.organization_id)
@@ -493,7 +495,12 @@ async def _encolar_correo_de_invitacion(
     if organizacion is None or rol is None:  # pragma: no cover - garantizado por las FK
         return
     await send_invitation_email.kiq(
-        invitacion.email, token, str(organization_id), organizacion.name, rol.name
+        invitacion.email,
+        token,
+        str(organization_id),
+        organizacion.name,
+        rol.name,
+        locale=await invitations_service.idioma_de_la_invitacion(invitacion.email),
     )
 
 

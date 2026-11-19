@@ -87,7 +87,9 @@ async def crear(
     datos: dict[str, Any],
 ) -> EventNearbyPlace:
     if await _contar(session, organization_id, event_id) >= MAXIMO_POR_EVENTO:
-        raise ValidationDomainError(f"Un evento admite hasta {MAXIMO_POR_EVENTO} sitios cercanos.")
+        raise ValidationDomainError(
+            "Un evento admite hasta {maximo} sitios cercanos.", params={"maximo": MAXIMO_POR_EVENTO}
+        )
     sitio = EventNearbyPlace(
         organization_id=organization_id,
         event_id=event_id,
@@ -176,7 +178,9 @@ async def copiar_de_otro_evento(
         raise NotFoundError("El evento de origen no existe.")
     origen = await listar(session, organization_id, origen_id)
     if await _contar(session, organization_id, event_id) + len(origen) > MAXIMO_POR_EVENTO:
-        raise ValidationDomainError(f"Un evento admite hasta {MAXIMO_POR_EVENTO} sitios cercanos.")
+        raise ValidationDomainError(
+            "Un evento admite hasta {maximo} sitios cercanos.", params={"maximo": MAXIMO_POR_EVENTO}
+        )
     orden = await _siguiente_orden(session, organization_id, event_id)
     for desplazamiento, sitio in enumerate(origen):
         session.add(

@@ -13,6 +13,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, model_validator
 
+from app.core.mensajes import ErrorDeValidacion
 from app.modules.registrations.schemas import EventCalendarInfo
 
 DiscountType = Literal["percentage", "fixed_amount"]
@@ -28,7 +29,10 @@ def _prohibir_null_explicito(instancia: BaseModel, campos: tuple[str, ...]) -> N
         if campo in instancia.model_fields_set and getattr(instancia, campo) is None
     ]
     if enviados_a_null:
-        raise ValueError(f"Los campos {', '.join(enviados_a_null)} no admiten «null» explícito.")
+        raise ErrorDeValidacion(
+            "Los campos {campos} no admiten «null» explícito: omítelos para no cambiarlos.",
+            params={"campos": ", ".join(enviados_a_null)},
+        )
 
 
 def _validar_rango_de_descuento(discount_type: str, discount_value: int) -> None:

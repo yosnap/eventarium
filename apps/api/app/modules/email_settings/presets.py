@@ -15,7 +15,7 @@ from __future__ import annotations
 import asyncio
 import socket
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from app.modules.ai_gateway.validacion import ip_es_insegura
 from app.shared.errors import ValidationDomainError
@@ -77,8 +77,8 @@ class ConfiguracionDeCorreoInvalida(ValidationDomainError):
 
     code = "configuracion_de_correo_invalida"
 
-    def __init__(self, detail: str) -> None:
-        super().__init__(detail, extra={"code": self.code})
+    def __init__(self, detail: str, *, params: dict[str, Any] | None = None) -> None:
+        super().__init__(detail, params=params, extra={"code": self.code})
 
 
 def modo_tls_por_puerto(port: int) -> ModoTls:
@@ -121,9 +121,8 @@ def validar_puerto(port: int, *, es_produccion: bool) -> None:
     permitidos = PUERTOS_PERMITIDOS if es_produccion else PUERTOS_PERMITIDOS | PUERTOS_DE_DESARROLLO
     if port not in permitidos:
         raise ConfiguracionDeCorreoInvalida(
-            "Puerto no permitido. Usa uno de: "
-            + ", ".join(str(p) for p in sorted(permitidos))
-            + "."
+            "Puerto no permitido. Usa uno de: {puertos}.",
+            params={"puertos": ", ".join(str(p) for p in sorted(permitidos))},
         )
 
 

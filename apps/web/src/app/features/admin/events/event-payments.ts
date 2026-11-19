@@ -8,6 +8,7 @@ import {
   input,
   signal,
   viewChild,
+  LOCALE_ID,
 } from '@angular/core';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
@@ -56,8 +57,8 @@ function euros(cents: number): string {
 }
 
 /**
- * Formato de SOLO presentación para la tabla y el diálogo: es-ES con
- * separador de miles («21.470,00»), mismo criterio que `euros()` de
+ * Formato de SOLO presentación para la tabla y el diálogo, en el idioma del panel
+ * y con separador de miles («21.470,00»), mismo criterio que `euros()` de
  * `accounting-types.ts` (informe 261002, H3).
  *
  * NO se usa en el `<input type="number">` ni en su `max`: ese campo y sus
@@ -66,13 +67,11 @@ function euros(cents: number): string {
  * plano en un importe que se muestra formateado a su lado se compensa con
  * `inputmode="decimal"` y la ayuda del diálogo.
  */
-const FORMATO_EURO_PLANO = new Intl.NumberFormat('es-ES', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-function eurosFormateado(cents: number): string {
-  return FORMATO_EURO_PLANO.format(cents / 100);
+function eurosFormateado(cents: number, idioma: string): string {
+  return new Intl.NumberFormat(idioma, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(cents / 100);
 }
 
 function pendiente(pago: Payment): number {
@@ -311,8 +310,10 @@ export class EventPayments implements OnInit {
   protected readonly confirmando = signal(false);
   protected readonly errorDialogo = signal<string | null>(null);
 
+  private readonly idioma = inject(LOCALE_ID);
   protected readonly euros = euros;
-  protected readonly eurosFormateado = eurosFormateado;
+  protected readonly eurosFormateado = (cents: number): string =>
+    eurosFormateado(cents, this.idioma);
   protected readonly pendiente = pendiente;
   protected readonly tieneReembolsoEnCurso = tieneReembolsoEnCurso;
   protected readonly tieneReembolsoAgotado = tieneReembolsoAgotado;

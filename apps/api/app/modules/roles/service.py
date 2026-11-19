@@ -38,7 +38,9 @@ async def get_role(session: AsyncSession, organization_id: uuid.UUID, role_id: u
 def _campos_desde_plantilla(clave: str) -> list[ProfileFieldInput]:
     plantilla = TEMPLATES_BY_KEY.get(clave)
     if plantilla is None:
-        raise ValidationDomainError(f"No existe la plantilla de rol «{clave}».")
+        raise ValidationDomainError(
+            "No existe la plantilla de rol «{plantilla}».", params={"plantilla": clave}
+        )
     return [
         ProfileFieldInput(
             key=campo.key,
@@ -70,7 +72,10 @@ async def create_role(
     if datos.from_template:
         plantilla = TEMPLATES_BY_KEY.get(datos.from_template)
         if plantilla is None:
-            raise ValidationDomainError(f"No existe la plantilla de rol «{datos.from_template}».")
+            raise ValidationDomainError(
+                "No existe la plantilla de rol «{plantilla}».",
+                params={"plantilla": datos.from_template},
+            )
         permisos |= set(plantilla.permissions)
         campos = _campos_desde_plantilla(datos.from_template) + campos
 
@@ -80,7 +85,7 @@ async def create_role(
         select(Role).where(Role.organization_id == organization_id, Role.key == datos.key)
     )
     if existente is not None:
-        raise ConflictError(f"Ya existe un rol con la clave «{datos.key}».")
+        raise ConflictError("Ya existe un rol con la clave «{clave}».", params={"clave": datos.key})
 
     rol = Role(
         organization_id=organization_id,
@@ -116,7 +121,9 @@ def _añadir_campos(
     vistos: set[str] = set()
     for campo in campos:
         if campo.key in vistos:
-            raise ValidationDomainError(f"El campo «{campo.key}» está repetido.")
+            raise ValidationDomainError(
+                "El campo «{campo}» está repetido.", params={"campo": campo.key}
+            )
         vistos.add(campo.key)
         session.add(
             RoleProfileField(

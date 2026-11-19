@@ -24,6 +24,45 @@ Locale = Literal["es-ES", "en-US"]
 DEFAULT_LOCALE: Locale = "es-ES"
 LOCALES: Final[tuple[Locale, ...]] = get_args(Locale)
 
+#: Primer segmento de las URL públicas de la web en cada idioma; el de por defecto va
+#: sin prefijo. Espejo de `PREFIJO_DE_IDIOMA` en `core/i18n/idioma.ts`.
+PREFIJO_DE_URL: Final[dict[Locale, str]] = {"es-ES": "", "en-US": "en"}
+
+
+def prefijo_de_url(locale: Locale) -> str:
+    """Prefijo de ruta (`/en`, o vacío) para enlazar a la web en `locale`."""
+    prefijo = PREFIJO_DE_URL[locale]
+    return f"/{prefijo}" if prefijo else ""
+
+
+#: Rutas de la web que enlaza la API, traducidas por idioma (espejo parcial de
+#: `core/i18n/rutas-traducidas.ts`; un test comprueba que coinciden).
+RUTAS_WEB: Final[dict[Locale, dict[str, str]]] = {
+    "en-US": {
+        "pago/retorno": "payment/return",
+        "pago/cancelado": "payment/cancelled",
+        "verificar-correo": "verify-email",
+        "recuperar-contrasena/nueva": "forgot-password/new",
+        "invitacion": "invitation",
+        "cuenta/confirmar-correo": "account/confirm-email",
+        "verificar-inscripcion": "verify-registration",
+        "confirmar-promocion": "confirm-promotion",
+        "cancelar-inscripcion": "cancel-registration",
+        "mi-entrada": "my-ticket",
+        "mis-eventos/ver": "my-events/view",
+        "legal/aviso-legal": "legal/legal-notice",
+        "legal/privacidad": "legal/privacy",
+        "legal/cookies": "legal/cookies",
+    },
+}
+
+
+def ruta_web(locale: Locale, ruta: str) -> str:
+    """`/pago/retorno` en `locale`, con su prefijo: `/en/payment/return`."""
+    traducida = RUTAS_WEB.get(locale, {}).get(ruta, ruta)
+    return f"{prefijo_de_url(locale)}/{traducida}"
+
+
 #: Idioma de la petición en curso. Fuera de una petición (tareas de taskiq, scripts)
 #: vale el idioma por defecto. Las `BackgroundTasks` de FastAPI sí lo heredan de la
 #: petición que las lanzó, que no tiene por qué ser el de quien recibe el aviso: todo

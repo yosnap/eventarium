@@ -65,7 +65,10 @@ def hex_a_oklch(hex_color: str) -> tuple[float, float, float]:
         # `None` aquí es un error de programación, no una entrada de
         # usuario (mismo criterio que `ColorNoParseableError` en
         # `contrast.py`).
-        raise ValueError(f"«{hex_color}» no es un hex válido tras pasar la validación de formato.")
+        raise ValueError(
+            f"«{hex_color}» no es un hex válido tras pasar la validación de formato."
+            # mensaje interno: error técnico que no llega a una persona.
+        )
 
     def lineal(canal_0_255: float) -> float:
         proporcion = canal_0_255 / 255

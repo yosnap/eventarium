@@ -39,6 +39,8 @@ async def branding(session: SessionDep) -> BrandingResponse:
             favicon_url=plataforma.favicon_url,
             social_links=[dict(enlace) for enlace in plataforma.social_links],
             theme_template_id=plataforma.theme_template_id,
+            enabled_locales=plataforma.enabled_locales,
+            language_switcher_visible=plataforma.language_switcher_visible,
             theme=(
                 ResolvedTheme(
                     id=plataforma.theme.id,

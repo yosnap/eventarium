@@ -5,6 +5,7 @@ import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { seoDePagina } from '../../core/seo/meta.service';
 import { NotFoundStatusService } from '../../core/ssr/not-found-status.service';
 import { Alert } from '../../shared/ui/alert';
+import { EnlacePipe } from '../../core/i18n/enlace.pipe';
 
 /**
  * Destino del comodín: una URL que no es de ninguna página. Responde 404 real
@@ -13,14 +14,14 @@ import { Alert } from '../../shared/ui/alert';
 @Component({
   selector: 'app-pagina-no-encontrada',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Alert, RouterLink, TranslocoDirective],
+  imports: [EnlacePipe, Alert, RouterLink, TranslocoDirective],
   template: `
     <main class="pagina-no-encontrada" *transloco="let t">
       <app-alert tone="error">{{
         transitorio ? t('publico.noEncontrada.temporal') : t('publico.noEncontrada.mensaje')
       }}</app-alert>
       <p>
-        <a routerLink="/">{{ t('publico.noEncontrada.volver') }}</a>
+        <a [routerLink]="'/' | enlace">{{ t('publico.noEncontrada.volver') }}</a>
       </p>
     </main>
   `,

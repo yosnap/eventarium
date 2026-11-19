@@ -395,7 +395,9 @@ async def update_public_profile(
     try:
         await session.flush()
     except IntegrityError as exc:
-        raise ConflictError(f"El identificador «{slug_limpio}» ya está en uso.") from exc
+        raise ConflictError(
+            "El identificador «{slug}» ya está en uso.", params={"slug": slug_limpio}
+        ) from exc
 
     return await get_public_profile(usuario, session)
 

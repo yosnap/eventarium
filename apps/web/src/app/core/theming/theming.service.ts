@@ -7,6 +7,7 @@ import { ApiService } from '../api/api.service';
 import { Branding, PlatformBranding } from './branding.model';
 import { ThemeModeService } from './theme-mode.service';
 import { applyTokensDePlataforma } from './apply-tokens';
+import { IDIOMAS, Idioma } from '../i18n/idioma';
 
 /** El branding resuelto en SSR viaja al navegador para no repetir la petición. */
 const CLAVE_BRANDING = makeStateKey<Branding>('branding');
@@ -34,6 +35,20 @@ export class ThemingService {
 
   /** Nombre que muestra el chrome: siempre el de la plataforma. */
   readonly nombreDeMarca = computed(() => this.plataforma()?.name ?? '');
+
+  /**
+   * Idiomas que ofrece la web pública (`/admin/idiomas`). Sin identidad cargada,
+   * todos los del catálogo: es lo que guarda la plataforma por defecto.
+   */
+  readonly idiomasActivos = computed<readonly Idioma[]>(() => {
+    const activos = this.plataforma()?.enabled_locales;
+    return activos ? IDIOMAS.filter((idioma) => activos.includes(idioma)) : IDIOMAS;
+  });
+
+  /** Si la cabecera y el pie muestran el selector de idioma. */
+  readonly selectorDeIdiomaVisible = computed(
+    () => this.plataforma()?.language_switcher_visible ?? true,
+  );
 
   /**
    * Carga la identidad pública de la instalación.

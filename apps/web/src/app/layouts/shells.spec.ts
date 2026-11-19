@@ -17,6 +17,7 @@ import { brandingDePrueba } from '../../testing/branding.fixture';
 import es from '../../../public/assets/i18n/es-ES.json';
 import { themingDePrueba } from '../../testing/theming.fixture';
 import { TODOS_LOS_PERMISOS } from '../../testing/auth';
+import { IDIOMAS } from '../core/i18n/idioma';
 
 /**
  * Los shells contienen los landmarks, el enlace de salto y la navegación: son la parte
@@ -84,6 +85,8 @@ describe('shells', () => {
           useValue: {
             branding: theming.estado.asReadonly(),
             error: signal(null),
+            idiomasActivos: signal(IDIOMAS),
+            selectorDeIdiomaVisible: signal(true),
             plataforma: computed(() => theming.estado().platform),
             nombreDeMarca: computed(() => theming.estado().platform.name),
           },

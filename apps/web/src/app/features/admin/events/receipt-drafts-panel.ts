@@ -9,6 +9,7 @@ import {
   input,
   output,
   signal,
+  LOCALE_ID,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
@@ -123,7 +124,7 @@ const ERRORES_CONOCIDOS: readonly ErrorDeExtraccion[] = [
                     <span class="meta">{{ motor(draft) }}</span>
                     <span class="meta">{{
                       t('admin.events.accounting.justificantes.bandeja.subidoEl', {
-                        fecha: fechaRelativa(draft.created_at),
+                        fecha: fechaRelativa(draft.created_at, idioma),
                       })
                     }}</span>
                   </li>
@@ -153,7 +154,7 @@ const ERRORES_CONOCIDOS: readonly ErrorDeExtraccion[] = [
                     <span class="meta">{{ motor(draft) }}</span>
                     <span class="meta">{{
                       t('admin.events.accounting.justificantes.bandeja.subidoEl', {
-                        fecha: fechaRelativa(draft.created_at),
+                        fecha: fechaRelativa(draft.created_at, idioma),
                       })
                     }}</span>
                     <span class="acciones">
@@ -295,6 +296,7 @@ export class ReceiptDraftsPanel implements OnInit {
   protected readonly draftAEnfocar = signal<string | null>(null);
 
   protected readonly fechaRelativa = fechaRelativa;
+  protected readonly idioma = inject(LOCALE_ID);
 
   private temporizador: ReturnType<typeof setTimeout> | null = null;
   private pasoDeEspera = 0;

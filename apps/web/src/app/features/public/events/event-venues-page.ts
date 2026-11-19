@@ -34,6 +34,7 @@ import { type EstiloDeSede, estiloDeSede } from './venue-colors';
 import { VenueGridSection } from './sections/venue-grid-section';
 import { VenueListSection } from './sections/venue-list-section';
 import { DirectionsLink } from '../../../shared/ui/directions-link';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 
 /** Día de programa ya agrupado: fecha calendario en la zona del evento. */
 interface DiaDePrograma {
@@ -67,6 +68,7 @@ function fechaEnZona(iso: string, zona: string): string {
   selector: 'app-event-venues-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    EnlacePipe,
     DatePipe,
     DirectionsLink,
     RouterLink,
@@ -227,7 +229,7 @@ function fechaEnZona(iso: string, zona: string): string {
                 />
               }
               <p>
-                <a [routerLink]="ruta()"> {{ t('publico.eventos.agenda') }} → </a>
+                <a [routerLink]="ruta() | enlace"> {{ t('publico.eventos.agenda') }} → </a>
               </p>
             </div>
           </section>
@@ -575,6 +577,7 @@ export class EventVenuesPage implements OnInit {
     this.aplicarTema(evento.theme);
     this.sedesVisibles.set(evento.venues.map((sede) => sede.id));
     this.seo.set({
+      contenidoDelOrganizador: true,
       title: `${evento.title} · ${this.traducir('publico.eventos.multisede.rotulo')}`,
       description: evento.summary ?? this.traducir('publico.eventos.sinResumen'),
       image: evento.cover_url,

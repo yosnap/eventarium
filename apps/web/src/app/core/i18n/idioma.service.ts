@@ -9,7 +9,43 @@ import {
   leerIdiomaDeCookie,
   resolverIdioma,
   serializarCookieDeIdioma,
+  sigueIdiomaDeCuenta,
+  urlEnIdioma,
 } from './idioma';
+
+/**
+ * Implementación de `IdiomaService.enlace`, sin inyección para poder probarla
+ * aislada: traduce los segmentos fijos y antepone el prefijo del idioma.
+ */
+export function conPrefijo<T>(
+  ruta: string | readonly T[],
+  idioma: Idioma,
+): string | (T | string)[] {
+  if (idioma === IDIOMA_POR_DEFECTO) {
+    return typeof ruta === 'string' ? ruta : [...ruta];
+  }
+  if (typeof ruta === 'string') {
+    if (!ruta.startsWith('/') || ruta.startsWith('//') || sigueIdiomaDeCuenta(ruta)) {
+      return ruta;
+    }
+    return urlEnIdioma(ruta, idioma);
+  }
+  const [primero, ...resto] = ruta;
+  if (typeof primero !== 'string' || !primero.startsWith('/')) {
+    return [...ruta];
+  }
+  if (resto.some((segmento) => typeof segmento !== 'string' && typeof segmento !== 'number')) {
+    return [...ruta];
+  }
+  const comoUrl = `${primero === '/' ? '' : primero}/${resto.map(String).join('/')}`.replace(
+    /\/$/,
+    '',
+  );
+  if (sigueIdiomaDeCuenta(comoUrl || '/')) {
+    return [...ruta];
+  }
+  return [urlEnIdioma(comoUrl || '/', idioma)];
+}
 
 function rutaDeLaPeticion(url: string): string {
   try {
@@ -55,6 +91,17 @@ export class IdiomaService {
   /** Prefijo de URL del idioma activo, vacío para el idioma por defecto. */
   prefijo(): string {
     return PREFIJO_DE_IDIOMA[this.activo];
+  }
+
+  /**
+   * La misma ruta en el idioma activo: antepone el prefijo (`/en/…`) a las rutas
+   * absolutas de la parte pública. Las relativas y las de los paneles no cambian.
+   * Acepta una URL (`'/eventos'`) o los comandos de `routerLink` (`['/', org, evento]`).
+   */
+  enlace(ruta: string): string;
+  enlace<T>(ruta: readonly T[]): (T | string)[];
+  enlace<T>(ruta: string | readonly T[]): string | (T | string)[] {
+    return conPrefijo(ruta, this.activo);
   }
 
   /**

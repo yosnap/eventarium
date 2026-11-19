@@ -517,7 +517,7 @@ async def completar(
         # taskiq, por ejemplo— imprimiera esa clave al renderizar el
         # `__cause__`. No se pierde diagnóstico: el `error_code` queda en la
         # fila y el mensaje saneado ya está en el log de arriba.
-        raise ErrorDeProveedor(codigo) from None
+        raise ErrorDeProveedor(error_code=codigo) from None
 
     latencia = int((time.monotonic() - arranque) * 1000)
     coste, auditable = _coste_liquidado(respuesta, reserva.coste_estimado_usd)

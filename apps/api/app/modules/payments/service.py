@@ -29,6 +29,7 @@ from typing import Any, Literal
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.mensajes import marcar
 from app.core.tenant import base_url_de_organizacion
 from app.modules.payments import repository
 from app.modules.payments import stripe_client as stripe_gateway
@@ -46,7 +47,7 @@ logger = logging.getLogger(__name__)
 # o de otro tipo de entrada) — Success Criteria de la fase 3 de trabajo: un
 # oráculo que distinguiera el motivo permitiría enumerar códigos por fuerza
 # bruta. El motivo exacto solo se registra en el log del servidor.
-MENSAJE_CODIGO_NO_VALIDO = "Este código no es válido para esta entrada."
+MENSAJE_CODIGO_NO_VALIDO = marcar("Este código no es válido para esta entrada.")
 
 # Ambas rutas vuelven al panel de conexión de Stripe. `refresh` distingue el
 # caso «el enlace ha caducado» del retorno normal, aunque las dos disparan la
@@ -143,6 +144,7 @@ def calcular_precio_final(
     elif discount_type == "fixed_amount":
         descuento = discount_value
     else:
+        # mensaje interno: error técnico que no llega a una persona.
         raise ValueError(f"discount_type desconocido: {discount_type!r}")
     return max(price_cents - descuento, 0)
 
@@ -285,7 +287,8 @@ async def create_ticket_type(
         )
     except IntegrityError as exc:
         raise ConflictError(
-            f"Ya existe un tipo de entrada llamado «{datos.get('name')}» en este evento."
+            "Ya existe un tipo de entrada llamado «{nombre}» en este evento.",
+            params={"nombre": datos.get("name")},
         ) from exc
 
 
@@ -308,7 +311,8 @@ async def update_ticket_type(
         await session.flush()
     except IntegrityError as exc:
         raise ConflictError(
-            f"Ya existe un tipo de entrada llamado «{datos.get('name', tipo.name)}» en este evento."
+            "Ya existe un tipo de entrada llamado «{nombre}» en este evento.",
+            params={"nombre": datos.get("name", tipo.name)},
         ) from exc
     return tipo
 
@@ -388,7 +392,9 @@ async def create_discount_code(
             session, organization_id=organization_id, event_id=event_id, datos=datos
         )
     except IntegrityError as exc:
-        raise ConflictError(f"Ya existe un código «{datos['code']}» en este evento.") from exc
+        raise ConflictError(
+            "Ya existe un código «{codigo}» en este evento.", params={"codigo": datos["code"]}
+        ) from exc
 
 
 async def update_discount_code(
@@ -417,7 +423,8 @@ async def update_discount_code(
         await session.flush()
     except IntegrityError as exc:
         raise ConflictError(
-            f"Ya existe un código «{datos.get('code', codigo.code)}» en este evento."
+            "Ya existe un código «{codigo}» en este evento.",
+            params={"codigo": datos.get("code", codigo.code)},
         ) from exc
     return codigo
 
@@ -503,7 +510,7 @@ async def calcular_presupuesto(
                 code_normalizado,
                 event_id,
             )
-            raise ValidationDomainError(MENSAJE_CODIGO_NO_VALIDO)
+            raise ValidationDomainError(MENSAJE_CODIGO_NO_VALIDO)  # mensaje marcado
 
         usos = await repository.count_used_discount_code(session, organization_id, codigo.id)
         if not validar_codigo_vigente(codigo, tipo, usos, ahora):
@@ -519,7 +526,7 @@ async def calcular_presupuesto(
                 codigo.valid_until,
                 codigo.ticket_type_id,
             )
-            raise ValidationDomainError(MENSAJE_CODIGO_NO_VALIDO)
+            raise ValidationDomainError(MENSAJE_CODIGO_NO_VALIDO)  # mensaje marcado
 
         discount_type = codigo.discount_type
         discount_value = codigo.discount_value

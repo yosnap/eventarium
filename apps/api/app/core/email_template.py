@@ -35,6 +35,9 @@ from __future__ import annotations
 import html
 import re
 
+from app.core.locale import idioma_actual, ruta_web
+from app.core.mensajes import t
+
 #: Teal de marca (acento de la cabecera y del botón).
 TEAL_MARCA = "#1B94A5"
 #: Gris del pie de página (discreto, no compite con el cuerpo).
@@ -109,7 +112,17 @@ def pie_texto_plano(*, base_url: str) -> str:
 
     El cuerpo llega intacto; esto solo añade las tres URLs legales por debajo.
     """
-    return f"—\n{base_url}/legal/aviso-legal\n{base_url}/legal/privacidad\n{base_url}/legal/cookies"
+    return "—\n" + "\n".join(_enlaces_legales(base_url))
+
+
+def _enlaces_legales(base_url: str) -> tuple[str, ...]:
+    """Aviso legal, privacidad y cookies en el idioma del correo (el del contexto,
+    que fija la tarea de envío con `fijar_idioma`)."""
+    idioma = idioma_actual()
+    return tuple(
+        f"{base_url}{ruta_web(idioma, ruta)}"
+        for ruta in ("legal/aviso-legal", "legal/privacidad", "legal/cookies")
+    )
 
 
 def _boton(url: str) -> str:
@@ -123,7 +136,8 @@ def _boton(url: str) -> str:
         f'<a href="{seguro}" '
         'style="display:inline-block;padding:14px 28px;background-color:#1B94A5;'
         "color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;"
-        'font-size:16px;font-weight:bold;border-radius:6px;">Abrir</a>'
+        'font-size:16px;font-weight:bold;border-radius:6px;">'
+        f"{html.escape(t('Abrir'))}</a>"
     )
 
 
@@ -156,11 +170,7 @@ def _rótulo(url: str) -> str:
 
 def _pie_html(base_url: str) -> str:
     """Pie: tres enlaces legales en gris, centrados."""
-    enlaces = (
-        f"{base_url}/legal/aviso-legal",
-        f"{base_url}/legal/privacidad",
-        f"{base_url}/legal/cookies",
-    )
+    enlaces = _enlaces_legales(base_url)
     items = " &middot; ".join(
         f'<a href="{html.escape(u, quote=True)}" '
         f'style="color:{GRIS_PIE};text-decoration:none;">'

@@ -207,8 +207,9 @@ async def borrar(session: AsyncSession, organization_id: uuid.UUID, tipo_id: uui
     )
     if en_uso:
         raise ConflictError(
-            f"Lo usan {en_uso} sesión(es): desactívalo para que no se ofrezca en las nuevas; "
-            "las que ya lo tienen lo conservan."
+            "Lo usan {en_uso} sesión(es): desactívalo para que no se ofrezca en las nuevas; "
+            "las que ya lo tienen lo conservan.",
+            params={"en_uso": en_uso},
         )
     if tipo.is_active and not await _queda_otro_activo(session, organization_id, tipo.id):
         raise ConflictError("Tiene que quedar al menos un tipo de sesión activo.")
@@ -260,7 +261,8 @@ async def resolver_para_sesion(
         tipo = await obtener(session, organization_id, tipo_id)
         if not tipo.is_active and tipo.id != actual:
             raise ValidationDomainError(
-                f"El tipo «{tipo.name}» está desactivado: actívalo o elige otro."
+                "El tipo «{tipo}» está desactivado: actívalo o elige otro.",
+                params={"tipo": tipo.name},
             )
         return tipo
     if clave is not None:
@@ -326,7 +328,8 @@ async def por_texto(session: AsyncSession, organization_id: uuid.UUID, texto: st
                 return tipo
     disponibles = ", ".join(f"«{tipo.name}»" for tipo in candidatos) or "ninguno"
     raise ValidationDomainError(
-        f"No hay ningún tipo de sesión activo «{buscado}». Disponibles: {disponibles}."
+        "No hay ningún tipo de sesión activo «{buscado}». Disponibles: {disponibles}.",
+        params={"buscado": buscado, "disponibles": disponibles},
     )
 
 

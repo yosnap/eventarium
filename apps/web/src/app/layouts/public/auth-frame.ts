@@ -4,6 +4,8 @@ import { TranslocoDirective } from '@jsverse/transloco';
 
 import { BrandLockup } from '../../shared/ui/brand-lockup';
 import { ThemeToggle } from '../../shared/ui/theme-toggle';
+import { EnlacePipe } from '../../core/i18n/enlace.pipe';
+import { SelectorIdioma } from '../../shared/ui/selector-idioma';
 
 /**
  * Marco mínimo para las 10 pantallas públicas que no viven dentro de
@@ -24,17 +26,20 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
 @Component({
   selector: 'app-auth-frame',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, TranslocoDirective, ThemeToggle, BrandLockup],
+  imports: [SelectorIdioma, EnlacePipe, RouterLink, TranslocoDirective, ThemeToggle, BrandLockup],
   template: `
     <ng-container *transloco="let t">
       <a class="skip-link" href="#contenido">{{ t('comun.saltarAlContenido') }}</a>
 
       <header>
         <div class="ancho-maximo header-en">
-          <a routerLink="/" class="marca">
+          <a [routerLink]="'/' | enlace" class="marca">
             <app-brand-lockup />
           </a>
-          <app-theme-toggle />
+          <div class="controles">
+            <app-selector-idioma [compacto]="true" />
+            <app-theme-toggle />
+          </div>
         </div>
       </header>
 
@@ -49,13 +54,13 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
         <nav [attr.aria-label]="t('publico.enlacesLegales')">
           <ul>
             <li>
-              <a routerLink="/legal/aviso-legal">{{ t('legal.avisoLegal') }}</a>
+              <a [routerLink]="'/legal/aviso-legal' | enlace">{{ t('legal.avisoLegal') }}</a>
             </li>
             <li>
-              <a routerLink="/legal/privacidad">{{ t('legal.privacidad') }}</a>
+              <a [routerLink]="'/legal/privacidad' | enlace">{{ t('legal.privacidad') }}</a>
             </li>
             <li>
-              <a routerLink="/legal/cookies">{{ t('legal.cookies') }}</a>
+              <a [routerLink]="'/legal/cookies' | enlace">{{ t('legal.cookies') }}</a>
             </li>
           </ul>
         </nav>
@@ -63,6 +68,11 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
     </ng-container>
   `,
   styles: `
+    .controles {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2, 0.5rem);
+    }
     :host {
       display: grid;
       grid-template-rows: auto 1fr auto;

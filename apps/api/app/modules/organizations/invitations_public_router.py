@@ -41,7 +41,9 @@ router = APIRouter(prefix="/public/invitations", tags=["invitaciones"])
 async def get_invitation(token: str, session: SessionDep) -> InvitationPublicResponse:
     resuelto = await invitations_service.resolve_invitation_token(session, token)
     if resuelto.state != InvitationTokenState.VALIDA:
-        raise NotFoundError(invitations_service.mensaje_de_estado(resuelto.state))
+        raise NotFoundError(
+            invitations_service.mensaje_de_estado(resuelto.state)
+        )  # mensaje marcado
     return InvitationPublicResponse(
         organization_name=resuelto.organization_name or "",
         role_name=resuelto.role_name or "",

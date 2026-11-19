@@ -14,6 +14,7 @@ from typing import cast
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.locale import LOCALES
 from app.modules.platform.models import NOMBRE_PLATAFORMA, PlatformBranding, PlatformLegalPage
 from app.modules.theme_templates.models import ThemeTemplate
 
@@ -28,7 +29,15 @@ async def get_platform_branding(session: AsyncSession) -> PlatformBranding:
     permiso de escritura sobre esta tabla.
     """
     fila = await session.scalar(select(PlatformBranding).limit(1))
-    return fila if fila is not None else PlatformBranding(name=NOMBRE_PLATAFORMA)
+    if fila is not None:
+        return fila
+    # Los `default` del modelo solo se aplican al insertar: aquí se fijan a mano.
+    return PlatformBranding(
+        name=NOMBRE_PLATAFORMA,
+        social_links=[],
+        enabled_locales=list(LOCALES),
+        language_switcher_visible=True,
+    )
 
 
 async def get_platform_legal_page(session: AsyncSession, kind: str) -> PlatformLegalPage | None:

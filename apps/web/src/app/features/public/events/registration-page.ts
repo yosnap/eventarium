@@ -46,6 +46,7 @@ import { AvisoVentaEntradas, avisoDeVenta } from './aviso-venta-entradas';
 import { precioDelResumen, precioEnEuros } from './precio-de-inscripcion';
 import { RegistrationConsents } from './registration-consents';
 import { CODIGO_POLITICAS_CAMBIADAS } from '../../../core/policies/public-policies.service';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -79,6 +80,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   selector: 'app-registration-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    EnlacePipe,
     AvisoVentaEntradas,
     DatePipe,
     TranslocoDirective,
@@ -317,7 +319,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
             @if (enviado() || noEncontrado()) {
               <p>
-                <a [routerLink]="rutaAlEvento()">{{ t('inscripcion.volverAlEvento') }}</a>
+                <a [routerLink]="rutaAlEvento() | enlace">{{ t('inscripcion.volverAlEvento') }}</a>
               </p>
             }
           </div>
@@ -704,7 +706,7 @@ export class RegistrationPage implements OnInit {
     // Antes de pedir el evento: si la petición falla, la página no debe
     // quedarse con el título y las OG del evento del que se venía.
     const titulo = this.transloco.translate('inscripcion.seoTitulo');
-    this.seo.set({ title: titulo });
+    this.seo.set({ title: titulo, contenidoDelOrganizador: true });
     try {
       const evento = await firstValueFrom(
         this.http.get<PublicEventDetail>(this.api.url(apiEvento(this.org(), this.slug())), {
@@ -714,6 +716,7 @@ export class RegistrationPage implements OnInit {
       this.evento.set(evento);
       this.aplicarTema(evento.theme);
       this.seo.set({
+        contenidoDelOrganizador: true,
         title: `${titulo} · ${evento.title}`,
         description: evento.summary ?? this.transloco.translate('publico.eventos.sinResumen'),
         image: evento.cover_url,

@@ -8,6 +8,7 @@ import { AuthFrame } from './auth-frame';
 import { ThemingService } from '../../core/theming/theming.service';
 import { esperarSinViolacionesDeAccesibilidad } from '../../../testing/axe';
 import es from '../../../../public/assets/i18n/es-ES.json';
+import { IDIOMAS } from '../../core/i18n/idioma';
 
 /** Anfitrión con contenido proyectado real, como usan las 10 pantallas sueltas. */
 @Component({
@@ -34,6 +35,8 @@ describe('AuthFrame', () => {
           useValue: {
             branding: signal(null),
             error: signal(null),
+            idiomasActivos: signal(IDIOMAS),
+            selectorDeIdiomaVisible: signal(true),
             plataforma: signal({
               name: organizationName,
               logo_url: null,

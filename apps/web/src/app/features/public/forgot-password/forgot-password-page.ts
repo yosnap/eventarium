@@ -11,6 +11,7 @@ import { Card } from '../../../shared/ui/card';
 import { Input } from '../../../shared/ui/input';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 import { TurnstileWidget } from '../../../shared/ui/turnstile-widget';
+import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -24,6 +25,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   selector: 'app-forgot-password-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    EnlacePipe,
     TranslocoDirective,
     RouterLink,
     AuthFrame,
@@ -66,7 +68,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
               </form>
             }
             <p>
-              <a routerLink="/acceder">{{ t('registro.yaTengoCuenta') }}</a>
+              <a [routerLink]="'/acceder' | enlace">{{ t('registro.yaTengoCuenta') }}</a>
             </p>
           </app-card>
         </div>

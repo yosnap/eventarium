@@ -8,6 +8,8 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "e2e": "playwright test",
+    "i18n:traducir": "cd ../api && uv run python -m app.cli traducir-interfaz",
+    "i18n:comprobar": "node scripts/i18n-comprobar.mjs",
     "serve:ssr:web": "node dist/web/server/server.mjs",
     "lint": "ng lint",
     "format": "prettier --write \"src/**/*.{ts,html,css,json}\"",

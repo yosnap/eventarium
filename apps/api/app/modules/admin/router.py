@@ -292,7 +292,9 @@ async def create_theme_template(
 
     existente = await theme_templates_repository.get_theme_template_by_key(session, datos.key)
     if existente is not None:
-        raise ConflictError(f"Ya existe una plantilla con la clave «{datos.key}».")
+        raise ConflictError(
+            "Ya existe una plantilla con la clave «{clave}».", params={"clave": datos.key}
+        )
 
     if datos.is_default:
         await theme_templates_repository.clear_default(session)

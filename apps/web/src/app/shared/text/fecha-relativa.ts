@@ -14,28 +14,28 @@ const DIA = 24 * HORA;
 const MES = 30 * DIA;
 const ANIO = 12 * MES;
 
-export function fechaRelativa(iso: string, ahora: Date = new Date()): string {
+export function fechaRelativa(iso: string, idioma: string, ahora: Date = new Date()): string {
   const fecha = new Date(iso);
   if (Number.isNaN(fecha.getTime())) {
     return '';
   }
   const delta = ahora.getTime() - fecha.getTime();
   if (delta < MINUTO) {
-    return 'ahora';
+    return new Intl.RelativeTimeFormat(idioma, { numeric: 'auto' }).format(0, 'second');
   }
+  const corto = new Intl.RelativeTimeFormat(idioma, { style: 'short', numeric: 'always' });
+  const largo = new Intl.RelativeTimeFormat(idioma, { numeric: 'always' });
   if (delta < HORA) {
-    return `hace ${Math.floor(delta / MINUTO)} min`;
+    return corto.format(-Math.floor(delta / MINUTO), 'minute');
   }
   if (delta < DIA) {
-    return `hace ${Math.floor(delta / HORA)} h`;
+    return corto.format(-Math.floor(delta / HORA), 'hour');
   }
   if (delta < MES) {
-    return `hace ${Math.floor(delta / DIA)} d`;
+    return largo.format(-Math.floor(delta / DIA), 'day');
   }
   if (delta < ANIO) {
-    const meses = Math.floor(delta / MES);
-    return meses === 1 ? 'hace 1 mes' : `hace ${meses} meses`;
+    return largo.format(-Math.floor(delta / MES), 'month');
   }
-  const anios = Math.floor(delta / ANIO);
-  return anios === 1 ? 'hace 1 año' : `hace ${anios} años`;
+  return largo.format(-Math.floor(delta / ANIO), 'year');
 }
