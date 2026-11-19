@@ -4,7 +4,9 @@ import { TranslocoDirective } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../../../core/api/api.service';
-import { NOMBRE_DEL_IDIOMA, type Idioma } from '../../../core/i18n/idioma';
+import { AuthService } from '../../../core/auth/auth.service';
+import type { Idioma } from '../../../core/i18n/idioma';
+import { AvisoClavePropia } from '../../../shared/ui/aviso-clave-propia';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Dialog } from '../../../shared/ui/dialog';
@@ -24,19 +26,23 @@ interface Estimacion {
 @Component({
   selector: 'app-oferta-traducir-publicados',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Dialog],
+  imports: [TranslocoDirective, Alert, AvisoClavePropia, Button, Dialog],
   template: `
     <ng-container *transloco="let t; prefix: 'admin.organizacion.ofertaTraducir'">
-      <app-dialog #dialogo>
+      <app-dialog #dialogo [etiqueta]="t('titulo', { idioma: t('idiomas.' + idioma()) })">
         @if (estimacion(); as e) {
-          <h2>{{ t('titulo', { idioma: nombre() }) }}</h2>
-          <p>{{ t('texto', { eventos: e.events, textos: e.texts }) }}</p>
-          @if (e.estimated_cost_usd) {
-            <p>
-              <strong>{{ t('coste', { coste: e.estimated_cost_usd }) }}</strong>
-            </p>
+          <h2>{{ t('titulo', { idioma: t('idiomas.' + idioma()) }) }}</h2>
+          @if (!e.auto_translation_available) {
+            <app-aviso-clave-propia />
+          } @else {
+            <p>{{ t('texto', { eventos: e.events, textos: e.texts }) }}</p>
+            @if (e.estimated_cost_usd) {
+              <p>
+                <strong>{{ t('coste', { coste: e.estimated_cost_usd }) }}</strong>
+              </p>
+            }
+            <p class="nota">{{ t('nota') }}</p>
           }
-          <p class="nota">{{ t('nota') }}</p>
           @if (error()) {
             <app-alert tone="error">{{ t('error') }}</app-alert>
           }
@@ -44,9 +50,11 @@ interface Estimacion {
         <app-button pie variant="secundario" (pulsado)="dialogo.cerrar()">{{
           t('ahoraNo')
         }}</app-button>
-        <app-button pie [loading]="enviando()" (pulsado)="traducir()">{{
-          t('traducir')
-        }}</app-button>
+        @if (estimacion()?.auto_translation_available) {
+          <app-button pie [loading]="enviando()" (pulsado)="traducir()">{{
+            t('traducir')
+          }}</app-button>
+        }
       </app-dialog>
     </ng-container>
   `,
@@ -69,11 +77,8 @@ export class OfertaTraducirPublicados {
   protected readonly estimacion = signal<Estimacion | null>(null);
   protected readonly enviando = signal(false);
   protected readonly error = signal(false);
-  private readonly idioma = signal<Idioma>('en-US');
-
-  protected nombre(): string {
-    return NOMBRE_DEL_IDIOMA[this.idioma()];
-  }
+  private readonly auth = inject(AuthService);
+  protected readonly idioma = signal<Idioma>('en-US');
 
   /** Pide la estimación y abre el diálogo si hay algo que traducir con IA. */
   async ofrecer(idioma: Idioma): Promise<void> {
@@ -83,7 +88,10 @@ export class OfertaTraducirPublicados {
           params: { locale: idioma },
         }),
       );
-      if (!estimacion.auto_translation_available || estimacion.texts === 0) {
+      // Sin clave propia se avisa (el idioma no se traducirá solo); con clave,
+      // solo si hay algo que traducir y quien guarda puede pedirlo.
+      const puedeTraducir = this.auth.permisos()?.includes('events:write') ?? false;
+      if (estimacion.auto_translation_available && (estimacion.texts === 0 || !puedeTraducir)) {
         return;
       }
       this.idioma.set(idioma);

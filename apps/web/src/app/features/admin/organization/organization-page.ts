@@ -388,6 +388,10 @@ export class OrganizationPage {
       this.idiomasGuardados = this.contentLocales();
       if (nuevo) {
         void this.ofertaTraducir()?.ofrecer(nuevo);
+        // Las pestañas de idioma vuelven a preguntar con los idiomas nuevos.
+        const id = this.organizacionId();
+        this.organizacionId.set(null);
+        queueMicrotask(() => this.organizacionId.set(id));
       }
     } catch (error) {
       this.error.set(

@@ -130,11 +130,13 @@ const CLAVE_AGENDA = 'eventarium-agenda';
                 }
               </span>
               <h1>
-                <app-en-traduccion [traduciendo]="traduciendo()">{{
+                <app-en-traduccion [traduciendo]="traduccion.bloque('title')" [anunciar]="true">{{
                   sesion.title
                 }}</app-en-traduccion>
               </h1>
-              <app-aviso-contenido-original [servido]="sesion.served_locale" />
+              @if (!traduccion.activa()) {
+                <app-aviso-contenido-original [servido]="sesion.served_locale" />
+              }
 
               <div class="cuando">
                 <span
@@ -150,7 +152,7 @@ const CLAVE_AGENDA = 'eventarium-agenda';
               </div>
 
               @if (sesion.description) {
-                <app-en-traduccion [traduciendo]="traduciendo()" [lineas]="3">
+                <app-en-traduccion [traduciendo]="traduccion.bloque('description')" [lineas]="3">
                   <p class="prosa">{{ sesion.description }}</p>
                 </app-en-traduccion>
               }
@@ -460,10 +462,11 @@ export class SessionPage implements OnInit {
 
   protected readonly sesion = signal<PublicSessionDetail | null>(null);
   /** Mientras la IA traduce lo pendiente: esqueleto en vez del original. */
-  protected readonly traduciendo = traduccionEnVivo({
+  protected readonly traduccion = traduccionEnVivo({
     ruta: () => apiEvento(this.org(), this.slug()),
     pendiente: () => this.sesion()?.translating ?? false,
-    recargar: () => this.cargar(),
+    campos: () => this.sesion()?.translating_fields ?? [],
+    recargar: () => this.cargar(true),
   });
   protected readonly cargando = signal(true);
   protected readonly noEncontrado = signal(false);
@@ -574,7 +577,8 @@ export class SessionPage implements OnInit {
     this.guardada.set(indice === -1);
   }
 
-  private async cargar(): Promise<void> {
+  /** `silencioso`: recarga tras traducir; si falla, se queda lo que ya se ve. */
+  private async cargar(silencioso = false): Promise<void> {
     const clave = makeStateKey<PublicSessionDetail>(
       `public-session:${this.org()}:${this.slug()}:${this.sessionId()}`,
     );
@@ -598,6 +602,9 @@ export class SessionPage implements OnInit {
         this.transferState.set(clave, sesion);
       }
     } catch (error) {
+      if (silencioso) {
+        return;
+      }
       if (error instanceof ApiError && error.status === 404) {
         this.noEncontrado.set(true);
         this.notFound.mark();

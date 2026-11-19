@@ -1117,12 +1117,16 @@
       },
       "ofertaTraducir": {
         "titulo": "¿Traducimos tus eventos al {{ idioma }}?",
-        "texto": "Tienes {{ eventos }} eventos publicados con {{ textos }} textos sin traducir a este idioma. Podemos traducirlos ahora con tu clave de IA.",
+        "texto": "Eventos publicados: {{ eventos }}. Textos sin traducir a este idioma: {{ textos }}. Podemos traducirlos ahora con tu clave de IA.",
         "coste": "Coste estimado: {{ coste }} USD",
         "nota": "Se traducen poco a poco, dentro de tus límites de gasto. Si prefieres esperar, cada evento se traducirá cuando alguien lo visite en ese idioma.",
         "ahoraNo": "Ahora no",
         "traducir": "Traducir ahora",
-        "error": "No se ha podido pedir la traducción. Inténtalo de nuevo."
+        "error": "No se ha podido pedir la traducción. Inténtalo de nuevo.",
+        "idiomas": {
+          "es-ES": "español",
+          "en-US": "inglés"
+        }
       }
     },
     "branding": {
@@ -3124,7 +3128,8 @@
       "titulo": "Traducción automática no disponible",
       "texto": "Para traducir tus eventos automáticamente necesitas tu propia clave de IA. Mientras tanto puedes escribir las traducciones a mano.",
       "configurar": "Configurar la clave de IA",
-      "comoHacerlo": "Cómo hacerlo, paso a paso"
+      "comoHacerlo": "Cómo hacerlo, paso a paso",
+      "pideloAlPropietario": "Pídele al propietario de la organización que configure la clave de IA."
     }
   },
   "ayuda": {

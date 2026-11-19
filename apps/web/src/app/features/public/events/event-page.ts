@@ -166,11 +166,13 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                   <img class="portada" [src]="evento.cover_url" [alt]="evento.title" />
                 }
                 <h1>
-                  <app-en-traduccion [traduciendo]="traduciendo()">{{
+                  <app-en-traduccion [traduciendo]="traduccion.bloque('title')" [anunciar]="true">{{
                     evento.title
                   }}</app-en-traduccion>
                 </h1>
-                <app-aviso-contenido-original [servido]="evento.served_locale" />
+                @if (!traduccion.activa()) {
+                  <app-aviso-contenido-original [servido]="evento.served_locale" />
+                }
                 @if (evento.category || (evento.tags && evento.tags.length > 0)) {
                   <nav class="clasificacion" [attr.aria-label]="t('publico.eventos.clasificacion')">
                     @if (evento.category; as categoria) {
@@ -192,7 +194,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                   </nav>
                 }
                 @if (evento.summary) {
-                  <app-en-traduccion [traduciendo]="traduciendo()" [lineas]="2">
+                  <app-en-traduccion [traduciendo]="traduccion.bloque('summary')" [lineas]="2">
                     <p class="hero__lede">{{ evento.summary }}</p>
                   </app-en-traduccion>
                 }
@@ -200,7 +202,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                   <!-- Markdown del editor del panel, saneado: nunca [innerHTML]
                        directo con texto de la organización. Los saltos simples
                        se respetan por las descripciones escritas en texto plano. -->
-                  <app-en-traduccion [traduciendo]="traduciendo()" [lineas]="4">
+                  <app-en-traduccion [traduciendo]="traduccion.bloque('description')" [lineas]="4">
                     <app-markdown-seguro
                       class="hero__descripcion"
                       [texto]="evento.description"
@@ -498,10 +500,11 @@ export class EventPage implements OnInit {
 
   protected readonly evento = signal<PublicEventDetail | null>(null);
   /** Mientras la IA traduce lo pendiente: esqueleto en vez del original. */
-  protected readonly traduciendo = traduccionEnVivo({
+  protected readonly traduccion = traduccionEnVivo({
     ruta: () => (this.eventId() ? null : apiEvento(this.org() ?? '', this.slug() ?? '')),
     pendiente: () => this.evento()?.translating ?? false,
-    recargar: () => this.cargar(),
+    campos: () => this.evento()?.translating_fields ?? [],
+    recargar: () => this.cargar(true),
   });
   protected readonly cargando = signal(true);
   protected readonly noEncontrado = signal(false);
@@ -674,7 +677,8 @@ export class EventPage implements OnInit {
     void this.tareasPendientes.run(() => this.cargar());
   }
 
-  private async cargar(): Promise<void> {
+  /** `silencioso`: recarga tras traducir; si falla, se queda lo que ya se ve. */
+  private async cargar(silencioso = false): Promise<void> {
     const eventId = this.eventId();
     if (eventId) {
       await this.cargarVistaPrevia(eventId);
@@ -703,6 +707,9 @@ export class EventPage implements OnInit {
         this.transferState.set(clave, evento);
       }
     } catch (error) {
+      if (silencioso) {
+        return;
+      }
       if (error instanceof ApiError && error.status === 404) {
         this.noEncontrado.set(true);
         this.notFound.mark();

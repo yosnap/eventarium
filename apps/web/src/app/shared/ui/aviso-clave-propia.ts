@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 
+import { AuthService } from '../../core/auth/auth.service';
 import { Alert } from './alert';
 
 /**
@@ -20,8 +21,13 @@ import { Alert } from './alert';
       [title]="t('titulo')"
     >
       <p>{{ t('texto') }}</p>
+      @if (!esPropietario()) {
+        <p>{{ t('pideloAlPropietario') }}</p>
+      }
       <p class="enlaces">
-        <a routerLink="/dashboard/ia">{{ t('configurar') }}</a>
+        @if (esPropietario()) {
+          <a routerLink="/dashboard/ia">{{ t('configurar') }}</a>
+        }
         <a routerLink="/dashboard/ayuda/traduccion">{{ t('comoHacerlo') }}</a>
       </p>
     </app-alert>
@@ -38,4 +44,8 @@ import { Alert } from './alert';
     }
   `,
 })
-export class AvisoClavePropia {}
+export class AvisoClavePropia {
+  private readonly auth = inject(AuthService);
+  /** La configuración de IA solo la abre el propietario de la organización. */
+  protected readonly esPropietario = computed(() => this.auth.roles()?.includes('owner') ?? false);
+}

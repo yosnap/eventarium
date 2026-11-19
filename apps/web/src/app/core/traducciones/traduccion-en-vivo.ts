@@ -25,13 +25,23 @@ export interface OpcionesDeTraduccionEnVivo {
   readonly ruta: () => string | null;
   /** La API dice que la IA va a traducir lo pendiente (`translating`). */
   readonly pendiente: () => boolean;
+  /** Campos principales que se están traduciendo (`translating_fields`). */
+  readonly campos: () => readonly string[];
   /** Vuelve a pedir los datos de la página, ya traducidos. */
   readonly recargar: () => Promise<void>;
 }
 
+/** Estado de la traducción al vuelo de una página. */
+export interface TraduccionEnVivo {
+  /** Se está traduciendo algo de la página. */
+  readonly activa: Signal<boolean>;
+  /** Este bloque (`title`, `description`…) se está traduciendo: esqueleto. */
+  bloque(campo: string): boolean;
+}
+
 /**
- * Traducción al vuelo de una página pública. Devuelve `true` mientras se
- * traduce: la página enseña un esqueleto en lugar del texto original.
+ * Traducción al vuelo de una página pública. Mientras se traduce, cada bloque
+ * pendiente enseña un esqueleto en lugar del texto original.
  *
  * - En el servidor no hace nada: el SSR pinta el esqueleto y el navegador
  *   continúa (así no salta de original a esqueleto).
@@ -40,7 +50,7 @@ export interface OpcionesDeTraduccionEnVivo {
  * - Al terminar recarga los datos; si falla o pasa el límite, se queda el
  *   original. Nunca deja un bloque vacío.
  */
-export function traduccionEnVivo(opciones: OpcionesDeTraduccionEnVivo): Signal<boolean> {
+export function traduccionEnVivo(opciones: OpcionesDeTraduccionEnVivo): TraduccionEnVivo {
   const http = inject(HttpClient);
   const api = inject(ApiService);
   const idioma = inject(IdiomaService).idioma();
@@ -81,7 +91,11 @@ export function traduccionEnVivo(opciones: OpcionesDeTraduccionEnVivo): Signal<b
           http.get<{ in_progress: boolean }>(api.url(`${ruta}/translations/status`), parametros),
         );
         if (!estado.in_progress) {
-          await opciones.recargar();
+          // Si el visitante ya se fue de la página, no se recarga: la respuesta
+          // pisaría el título y el SEO de la página nueva.
+          if (!cancelada) {
+            await opciones.recargar();
+          }
           return;
         }
       }
@@ -107,5 +121,10 @@ export function traduccionEnVivo(opciones: OpcionesDeTraduccionEnVivo): Signal<b
     });
   });
 
-  return computed(() => opciones.pendiente() && !terminada());
+  // Sin ruta (la vista previa del panel) no se pide nada: nunca hay esqueleto.
+  const activa = computed(() => opciones.ruta() !== null && opciones.pendiente() && !terminada());
+  return {
+    activa,
+    bloque: (campo: string) => activa() && opciones.campos().includes(campo),
+  };
 }

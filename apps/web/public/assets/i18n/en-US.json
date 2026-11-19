@@ -1117,12 +1117,16 @@
       },
       "ofertaTraducir": {
         "titulo": "Shall we translate your events into {{ idioma }}?",
-        "texto": "You have {{ eventos }} published events with {{ textos }} texts not translated into this language. We can translate them now with your AI key.",
+        "texto": "Published events: {{ eventos }}. Texts not translated into this language: {{ textos }}. We can translate them now with your AI key.",
         "coste": "Estimated cost: {{ coste }} USD",
         "nota": "They are translated gradually, within your spending limits. If you prefer to wait, each event will be translated when someone visits it in that language.",
         "ahoraNo": "Not now",
         "traducir": "Translate now",
-        "error": "The translation could not be requested. Please try again."
+        "error": "The translation could not be requested. Please try again.",
+        "idiomas": {
+          "es-ES": "Spanish",
+          "en-US": "English"
+        }
       }
     },
     "branding": {
@@ -3124,7 +3128,8 @@
       "titulo": "Automatic translation not available",
       "texto": "To translate your events automatically you need your own AI key. Meanwhile you can write the translations by hand.",
       "configurar": "Set up the AI key",
-      "comoHacerlo": "How to do it, step by step"
+      "comoHacerlo": "How to do it, step by step",
+      "pideloAlPropietario": "Ask the organisation owner to set up the AI key."
     }
   },
   "ayuda": {

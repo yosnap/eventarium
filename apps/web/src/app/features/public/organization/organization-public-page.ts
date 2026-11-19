@@ -147,9 +147,15 @@ interface EstadoTransferido {
             <div class="cabecera__datos">
               <p class="etiqueta-acento">{{ t('publico.organizacion.rotulo') }}</p>
               <h1>{{ p.name }}</h1>
-              <app-aviso-contenido-original [servido]="p.served_locale" />
+              @if (!traduccion.activa()) {
+                <app-aviso-contenido-original [servido]="p.served_locale" />
+              }
               @if (p.description) {
-                <app-en-traduccion [traduciendo]="traduciendo()" [lineas]="3">
+                <app-en-traduccion
+                  [traduciendo]="traduccion.bloque('description')"
+                  [anunciar]="true"
+                  [lineas]="3"
+                >
                   <p class="cabecera__descripcion">{{ p.description }}</p>
                 </app-en-traduccion>
               }
@@ -468,10 +474,11 @@ export class OrganizationPublicPage implements OnInit {
   protected readonly rutaEvento = rutaEvento;
   protected readonly perfil = signal<PerfilPublico | null>(null);
   /** Mientras la IA traduce lo pendiente: esqueleto en vez del original. */
-  protected readonly traduciendo = traduccionEnVivo({
+  protected readonly traduccion = traduccionEnVivo({
     ruta: () => `/public/organizations/${this.org()}`,
     pendiente: () => this.perfil()?.translating ?? false,
-    recargar: () => this.cargar(),
+    campos: () => this.perfil()?.translating_fields ?? [],
+    recargar: () => this.cargar(true),
   });
   protected readonly proximos = signal<PaginaDeEventos>({ items: [], total: 0 });
   protected readonly pasados = signal<PaginaDeEventos>({ items: [], total: 0 });
@@ -548,7 +555,8 @@ export class OrganizationPublicPage implements OnInit {
     );
   }
 
-  private async cargar(): Promise<void> {
+  /** `silencioso`: recarga tras traducir; si falla, se queda lo que ya se ve. */
+  private async cargar(silencioso = false): Promise<void> {
     const clave = makeStateKey<EstadoTransferido>(`organizacion-publica:${this.org()}`);
     const transferido = this.transferState.get(clave, null);
     if (transferido) {
@@ -573,6 +581,9 @@ export class OrganizationPublicPage implements OnInit {
         this.transferState.set(clave, estado);
       }
     } catch (error) {
+      if (silencioso) {
+        return;
+      }
       this.noEncontrado.set(true);
       if ((error as { status?: number }).status === 404) {
         this.notFound.mark();

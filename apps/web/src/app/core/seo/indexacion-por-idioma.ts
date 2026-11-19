@@ -89,6 +89,8 @@ export interface IdiomasDeLaRespuesta {
   readonly served_locale?: string;
   /** La IA va a traducir lo pendiente: la página espera con un esqueleto. */
   readonly translating?: boolean;
+  /** Campos principales que se están traduciendo: esqueleto solo en esos bloques. */
+  readonly translating_fields?: readonly string[];
 }
 
 /**

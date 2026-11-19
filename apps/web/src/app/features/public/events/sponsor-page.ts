@@ -128,7 +128,9 @@ const CLAVE_TIPO_APORTACION: Record<ContributionType, string> = {
                 }
                 <div>
                   <h1>{{ patrocinador.name }}</h1>
-                  <app-aviso-contenido-original [servido]="patrocinador.served_locale" />
+                  @if (!traduccion.activa()) {
+                    <app-aviso-contenido-original [servido]="patrocinador.served_locale" />
+                  }
                   <div class="rol">
                     <span class="nivel"
                       >{{ t('publico.patrocinador.nivel') }} {{ patrocinador.tier_name }}</span
@@ -136,7 +138,11 @@ const CLAVE_TIPO_APORTACION: Record<ContributionType, string> = {
                     <app-chip tone="neutro">{{ t(claveTipo(patrocinador)) }}</app-chip>
                   </div>
                   @if (patrocinador.contribution_description; as descripcion) {
-                    <app-en-traduccion [traduciendo]="traduciendo()" [lineas]="3">
+                    <app-en-traduccion
+                      [traduciendo]="traduccion.bloque('contribution_description')"
+                      [anunciar]="true"
+                      [lineas]="3"
+                    >
                       <p class="prosa">{{ descripcion }}</p>
                     </app-en-traduccion>
                   }
@@ -377,10 +383,11 @@ export class SponsorPage implements OnInit {
 
   protected readonly patrocinador = signal<PublicSponsorDetail | null>(null);
   /** Mientras la IA traduce lo pendiente: esqueleto en vez del original. */
-  protected readonly traduciendo = traduccionEnVivo({
+  protected readonly traduccion = traduccionEnVivo({
     ruta: () => apiEvento(this.org(), this.slug()),
     pendiente: () => this.patrocinador()?.translating ?? false,
-    recargar: () => this.cargar(),
+    campos: () => this.patrocinador()?.translating_fields ?? [],
+    recargar: () => this.cargar(true),
   });
   protected readonly cargando = signal(true);
   protected readonly noEncontrado = signal(false);
@@ -419,7 +426,8 @@ export class SponsorPage implements OnInit {
     void this.tareasPendientes.run(() => this.cargar());
   }
 
-  private async cargar(): Promise<void> {
+  /** `silencioso`: recarga tras traducir; si falla, se queda lo que ya se ve. */
+  private async cargar(silencioso = false): Promise<void> {
     const clave = makeStateKey<PublicSponsorDetail>(
       `public-sponsor:${this.org()}:${this.slug()}:${this.sponsorId()}`,
     );
@@ -443,6 +451,9 @@ export class SponsorPage implements OnInit {
         this.transferState.set(clave, patrocinador);
       }
     } catch (error) {
+      if (silencioso) {
+        return;
+      }
       if (error instanceof ApiError && error.status === 404) {
         this.noEncontrado.set(true);
         this.notFound.mark();

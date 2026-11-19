@@ -11,8 +11,10 @@ import { TranslocoDirective } from '@jsverse/transloco';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [TranslocoDirective],
   template: `
-    <div class="esqueleto" role="status" *transloco="let t">
-      <span class="visually-hidden">{{ t('traducciones.traduciendo') }}</span>
+    <div class="esqueleto" [attr.role]="anunciar() ? 'status' : null" *transloco="let t">
+      @if (anunciar()) {
+        <span class="sr-only">{{ t('traducciones.traduciendo') }}</span>
+      }
       @for (linea of lineasArray(); track $index) {
         <span class="linea" [style.width]="linea" aria-hidden="true"></span>
       }
@@ -50,6 +52,8 @@ import { TranslocoDirective } from '@jsverse/transloco';
 export class Esqueleto {
   /** Número de líneas; la última, más corta, como un párrafo real. */
   readonly lineas = input(1);
+  /** Solo un bloque por página lo anuncia a los lectores de pantalla. */
+  readonly anunciar = input(false);
   protected readonly lineasArray = computed(() =>
     Array.from({ length: this.lineas() }, (_, i) =>
       i === this.lineas() - 1 && this.lineas() > 1 ? '60%' : '100%',
@@ -64,7 +68,7 @@ export class Esqueleto {
   imports: [Esqueleto],
   template: `
     @if (traduciendo()) {
-      <app-esqueleto [lineas]="lineas()" />
+      <app-esqueleto [lineas]="lineas()" [anunciar]="anunciar()" />
     } @else {
       <ng-content />
     }
@@ -78,4 +82,5 @@ export class Esqueleto {
 export class EnTraduccion {
   readonly traduciendo = input(false);
   readonly lineas = input(1);
+  readonly anunciar = input(false);
 }
