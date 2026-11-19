@@ -11,6 +11,7 @@ export interface OrganizationUpdate {
   address_public?: (boolean | null);
   city?: (string | null);
   contact_email?: (string | null);
+  content_locales?: (Array<'es-ES' | 'en-US'> | null);
   description?: (string | null);
   legal_name?: (string | null);
   name?: (string | null);
@@ -18,5 +19,6 @@ export interface OrganizationUpdate {
   province?: (string | null);
   public_page_enabled?: (boolean | null);
   social_links?: (Array<SocialLinkInput> | null);
+  source_locale?: ('es-ES' | 'en-US' | null);
   website?: (string | null);
 }

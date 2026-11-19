@@ -23,6 +23,7 @@ export interface EventUpdate {
   registration_opens_at?: (string | null);
   reminder_enabled?: (boolean | null);
   reminder_hours_before?: (2 | 6 | 12 | 24 | 48 | 72 | null);
+  source_locale?: ('es-ES' | 'en-US' | null);
   starts_at?: (string | null);
   status?: ('draft' | 'published' | 'archived' | null);
   summary?: (string | null);
