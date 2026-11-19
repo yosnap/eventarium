@@ -33,6 +33,32 @@ export interface ChangelogVersion {
 
 export const CHANGELOG: readonly ChangelogVersion[] = [
   {
+    version: '0.32.0',
+    fecha: '2026-11-19',
+    secciones: [
+      {
+        categoria: 'agregado',
+        items: [
+          {
+            titulo: 'Web pública en inglés',
+            descripcion:
+              'Las páginas públicas tienen versión en inglés bajo /en/, con las rutas traducidas, un selector de idioma y un aviso que ofrece el inglés a quien lo tiene configurado en el navegador. El contenido que escribe el organizador todavía se muestra en su idioma original.',
+          },
+          {
+            titulo: 'Idiomas de la plataforma',
+            descripcion:
+              'Desde «Idiomas» en el panel de plataforma se eligen los idiomas activos y si se muestra el selector.',
+          },
+          {
+            titulo: 'Correos, errores y PDF en el idioma de cada persona',
+            descripcion:
+              'Cada inscripción guarda su idioma: los correos, los recordatorios, la entrada y la vuelta del pago llegan en ese idioma. Los mensajes de error de la API salen en el idioma de la petición. Los correos de cuenta usan el idioma de la cuenta.',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.30.0',
     fecha: '2026-11-13',
     secciones: [
