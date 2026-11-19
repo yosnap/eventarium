@@ -30,7 +30,12 @@ from app.modules.translations.schemas import (
     TranslationReview,
     TranslationSave,
 )
-from app.shared.errors import NotFoundError, PermissionDeniedError, ValidationDomainError
+from app.shared.errors import (
+    ConflictError,
+    NotFoundError,
+    PermissionDeniedError,
+    ValidationDomainError,
+)
 
 router = APIRouter(prefix="/translations", tags=["traducciones"])
 
@@ -123,9 +128,16 @@ async def save_translations(
         campo = campos.get((item.entity_type, item.entity_id, item.field))
         if campo is None:
             raise ValidationDomainError("Ese campo no se puede traducir.")
+        if entidad.origen_de(campo) == locale or locale not in entidad.activos:
+            raise ValidationDomainError("La organización no publica en ese idioma.")
         if not (item.value or "").strip():
             await service.borrar_campos(
-                session, usuario.organization_id, campo.tipo, campo.entity_id, [campo.campo]
+                session,
+                usuario.organization_id,
+                campo.tipo,
+                campo.entity_id,
+                [campo.campo],
+                locale=locale,
             )
             continue
         await service.guardar_manual(
@@ -178,6 +190,11 @@ async def review_translation(
     )
     if campo is None:
         raise ValidationDomainError("Ese campo no se puede traducir.")
+    if datos.original is not None and datos.original != campo.original:
+        # El original cambió mientras se revisaba: se revisaría contra otro texto.
+        raise ConflictError(
+            "El texto original ha cambiado mientras lo revisabas. Recarga y vuelve a revisarlo."
+        )
     await service.marcar_revisada(
         session,
         organization_id=usuario.organization_id,
@@ -234,17 +251,10 @@ async def event_translation_summary(
             )
             for fila in filas
         ]
-    progreso = []
-    for locale in evento.activos:
-        if locale == evento.origen:
-            continue
-        total = al_dia = 0
-        for entidad in entidades:
-            campos = [
-                c for c in await panel.campos_de(session, entidad) if entidad.origen_de(c) != locale
-            ]
-            for item in await panel.estado(session, entidad, campos, locale):
-                total += 1
-                al_dia += item["status"] == "al_dia"
-        progreso.append(LocaleProgress(locale=locale, total=total, up_to_date=al_dia))
+    destinos = [locale for locale in evento.activos if locale != evento.origen]
+    cuentas = await panel.progreso(session, entidades, destinos)
+    progreso = [
+        LocaleProgress(locale=locale, total=cuentas[locale][0], up_to_date=cuentas[locale][1])
+        for locale in destinos
+    ]
     return EventTranslationSummary(source_locale=evento.origen, locales=progreso)

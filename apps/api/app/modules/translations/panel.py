@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import CurrentUser
@@ -20,11 +20,7 @@ from app.core.locale import Locale, normalizar_locale
 from app.core.permissions import Permission
 from app.modules.events.models import Event, EventSession, EventVenue, SessionType
 from app.modules.nearby.models import EventNearbyPlace
-from app.modules.organizations.models import (
-    Organization,
-    OrganizationBranding,
-    OrganizationMember,
-)
+from app.modules.organizations.models import Organization, OrganizationMember
 from app.modules.payments.models import EventTicketType
 from app.modules.policies.models import OrganizationPolicyVersion
 from app.modules.registrations.models import EventRegistrationQuestion
@@ -189,8 +185,13 @@ async def campos_de(session: AsyncSession, entidad: Entidad) -> list[Campo]:
             anadir(tipo, fila.id, clave, (fila.profile_data or {}).get(clave))
     elif tipo == "organization":
         anadir(tipo, fila.id, "description", fila.description)
-        branding = await session.get(OrganizationBranding, fila.id)
-        anadir(tipo, fila.id, "organizer_blurb", branding.organizer_blurb if branding else None)
+        # Las etiquetas son de la organización: aquí se traducen a todos sus
+        # idiomas, también al de un evento escrito en otro idioma.
+        etiquetas = await session.scalars(
+            select(func.unnest(Event.tags)).where(Event.organization_id == fila.id).distinct()
+        )
+        for etiqueta in sorted(etiquetas.all()):
+            anadir("tag", fila.id, etiqueta, etiqueta)
     elif tipo == "question":
         anadir(tipo, fila.id, "label", fila.label)
         for opcion in fila.options or []:
@@ -204,32 +205,49 @@ async def campos_de(session: AsyncSession, entidad: Entidad) -> list[Campo]:
     return campos
 
 
+def _estado_de(fila: ContentTranslation | None, original: str) -> str:
+    """`al_dia` si la traducción vale para el original actual; `desactualizada`
+    si se hizo sobre otro; `pendiente` si no hay ninguna utilizable (tampoco
+    las que la IA tiene en curso o con error)."""
+    if fila is None or fila.status not in ("al_dia", "desactualizada"):
+        return "pendiente"
+    if fila.status == "al_dia" and fila.source_hash == huella(original):
+        return "al_dia"
+    return "desactualizada"
+
+
+async def _filas(
+    session: AsyncSession,
+    organization_id: uuid.UUID,
+    campos: Sequence[Campo],
+    locales: Sequence[Locale],
+) -> dict[tuple[str, uuid.UUID, str, str], ContentTranslation]:
+    """Las traducciones de unos campos en unos idiomas, en una sola consulta."""
+    if not campos or not locales:
+        return {}
+    filas = await session.scalars(
+        select(ContentTranslation).where(
+            ContentTranslation.organization_id == organization_id,
+            ContentTranslation.locale.in_(list(locales)),
+            ContentTranslation.entity_id.in_({campo.entity_id for campo in campos}),
+        )
+    )
+    return {(f.entity_type, f.entity_id, f.field, f.locale): f for f in filas}
+
+
+def _organizacion_de(entidad: Entidad) -> uuid.UUID:
+    fila = entidad.fila
+    return fila.id if isinstance(fila, Organization) else fila.organization_id
+
+
 async def estado(
     session: AsyncSession, entidad: Entidad, campos: Sequence[Campo], locale: Locale
 ) -> list[dict[str, Any]]:
     """Cada campo con su traducción en `locale`, su origen y si está al día."""
-    if not campos:
-        return []
-    filas = (
-        await session.scalars(
-            select(ContentTranslation).where(
-                ContentTranslation.organization_id == entidad.fila.organization_id
-                if not isinstance(entidad.fila, Organization)
-                else ContentTranslation.organization_id == entidad.fila.id,
-                ContentTranslation.locale == locale,
-                ContentTranslation.entity_id.in_({campo.entity_id for campo in campos}),
-            )
-        )
-    ).all()
-    por_clave = {(f.entity_type, f.entity_id, f.field): f for f in filas}
+    por_clave = await _filas(session, _organizacion_de(entidad), campos, [locale])
     resultado = []
     for campo in campos:
-        fila = por_clave.get((campo.tipo, campo.entity_id, campo.campo))
-        al_dia = (
-            fila is not None
-            and fila.status == "al_dia"
-            and fila.source_hash == huella(campo.original)
-        )
+        fila = por_clave.get((campo.tipo, campo.entity_id, campo.campo, locale))
         resultado.append(
             {
                 "entity_type": campo.tipo,
@@ -238,9 +256,31 @@ async def estado(
                 "original": campo.original,
                 "value": fila.value if fila else None,
                 "origin": fila.origin if fila else None,
-                "status": (
-                    "al_dia" if al_dia else ("desactualizada" if fila is not None else "pendiente")
-                ),
+                "status": _estado_de(fila, campo.original),
             }
         )
+    return resultado
+
+
+async def progreso(
+    session: AsyncSession, entidades: Sequence[Entidad], locales: Sequence[Locale]
+) -> dict[Locale, tuple[int, int]]:
+    """Por idioma, cuántos textos hay que traducir y cuántos están al día, con
+    una sola consulta de traducciones para todas las entidades."""
+    if not entidades:
+        return {}
+    campos_por_entidad = [(e, await campos_de(session, e)) for e in entidades]
+    todos = [campo for _, campos in campos_por_entidad for campo in campos]
+    filas = await _filas(session, _organizacion_de(entidades[0]), todos, locales)
+    resultado: dict[Locale, tuple[int, int]] = {}
+    for locale in locales:
+        total = al_dia = 0
+        for entidad, campos in campos_por_entidad:
+            for campo in campos:
+                if entidad.origen_de(campo) == locale:
+                    continue
+                total += 1
+                fila = filas.get((campo.tipo, campo.entity_id, campo.campo, locale))
+                al_dia += _estado_de(fila, campo.original) == "al_dia"
+        resultado[locale] = (total, al_dia)
     return resultado

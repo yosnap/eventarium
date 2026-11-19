@@ -7,6 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Request, UploadFile, status
 from sqlalchemy import inspect as sa_inspect
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.base import NO_VALUE
 
@@ -15,6 +16,7 @@ from app.core.locale import DEFAULT_LOCALE, LOCALES, normalizar_locale
 from app.core.permissions import Permission
 from app.core.storage import build_object_key, get_storage, validate_upload
 from app.core.tasks import send_invitation_email
+from app.modules.events.models import Event
 from app.modules.media import service as media_service
 from app.modules.organizations import (
     invitations_service,
@@ -142,17 +144,44 @@ def organization_response(organizacion: Organization) -> OrganizationResponse:
     )
 
 
-async def _validar_idiomas(session: DbDep, idiomas: list[str], origen: str) -> None:
-    """Los idiomas de la organización son de los activos en la plataforma, e
-    incluyen el idioma en que escribe."""
+async def _validar_idiomas(
+    session: DbDep, organizacion: Organization, idiomas: list[str], origen: str
+) -> None:
+    """Valida los idiomas que pide la organización.
+
+    - Un idioma nuevo tiene que estar activo en la plataforma. Los que ya tenía
+      se conservan aunque la plataforma los haya desactivado: no bloquean guardar.
+    - El idioma en que escribe la organización está entre los suyos.
+    - No se quita un idioma en que está escrito alguno de sus eventos.
+    """
     plataforma = await platform_repository.get_platform_branding(session)
     activos = set(plataforma.enabled_locales or [DEFAULT_LOCALE])
-    if not set(idiomas) <= activos:
+    previos = set(organizacion.content_locales or [])
+    if not set(idiomas) <= activos | previos:
         raise ValidationDomainError("La plataforma no tiene activo alguno de esos idiomas.")
     if origen not in idiomas:
         raise ValidationDomainError(
             "El idioma en que escribe la organización tiene que estar entre sus idiomas."
         )
+    retirados = previos - set(idiomas)
+    if retirados:
+        titulos = (
+            await session.scalars(
+                select(Event.title)
+                .where(
+                    Event.organization_id == organizacion.id,
+                    Event.source_locale.in_(retirados),
+                )
+                .order_by(Event.starts_at.desc())
+                .limit(5)
+            )
+        ).all()
+        if titulos:
+            raise ValidationDomainError(
+                "No puedes quitar un idioma en que están escritos tus eventos: {eventos}. "
+                "Cambia antes su idioma.",
+                params={"eventos": ", ".join(titulos)},
+            )
 
 
 @router.patch(
@@ -171,6 +200,7 @@ async def update_me(
     if "content_locales" in cambios or "source_locale" in cambios:
         await _validar_idiomas(
             session,
+            organizacion,
             cambios.get("content_locales", organizacion.content_locales),
             cambios.get("source_locale", organizacion.source_locale),
         )

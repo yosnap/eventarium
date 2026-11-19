@@ -63,6 +63,8 @@ class TranslationReview(BaseModel):
     entity_type: str = Field(max_length=30)
     entity_id: str = Field(max_length=36)
     field: str = Field(max_length=200)
+    # El original que vio quien revisa: si ya no es el actual, 409.
+    original: str | None = Field(default=None, max_length=50_000)
 
 
 class LocaleProgress(BaseModel):

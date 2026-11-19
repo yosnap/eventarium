@@ -4,7 +4,10 @@ permisos, aislamiento y los idiomas de la organización y del evento."""
 from __future__ import annotations
 
 from httpx import AsyncClient
+from sqlalchemy import update
 
+from app.core.database import SessionMaintenance
+from app.modules.platform.models import PlatformBranding
 from tests.conftest import OrganizacionDePrueba, crear_miembro, iniciar_sesion, iniciar_sesion_con
 from tests.test_events_public import EVENTOS_DE_ACME, EVENTS, _crear_evento, _publicar
 
@@ -187,6 +190,16 @@ async def test_idiomas_de_la_organizacion_y_del_evento_se_validan(
     assert en_ingles.status_code == 200, en_ingles.text
     assert en_ingles.json()["source_locale"] == "en-US"
 
+    # No se quita un idioma en que está escrito un evento: el error lo nombra.
+    bloqueado = await cliente.patch(
+        ORGANIZACION, headers=cabeceras, json={"content_locales": ["es-ES"]}
+    )
+    assert bloqueado.status_code == 422
+    assert "Jornada" in bloqueado.json()["detail"]
+
+    await cliente.patch(
+        f"{EVENTS}/{evento['id']}", headers=cabeceras, json={"source_locale": "es-ES"}
+    )
     solo_espanol = await cliente.patch(
         ORGANIZACION, headers=cabeceras, json={"content_locales": ["es-ES"]}
     )
@@ -195,3 +208,81 @@ async def test_idiomas_de_la_organizacion_y_del_evento_se_validan(
         f"{EVENTS}/{evento['id']}", headers=cabeceras, json={"source_locale": "en-US"}
     )
     assert no_publica.status_code == 422
+
+
+async def test_un_idioma_que_la_plataforma_desactiva_no_bloquea_guardar(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    cabeceras, _ = await _bilingue(cliente, organizacion)
+    async with SessionMaintenance() as session, session.begin():
+        await session.execute(update(PlatformBranding).values(enabled_locales=["es-ES"]))
+
+    guardado = await cliente.patch(
+        ORGANIZACION,
+        headers=cabeceras,
+        json={"name": "Otro nombre", "content_locales": ["es-ES", "en-US"]},
+    )
+    assert guardado.status_code == 200, guardado.text
+
+
+async def test_revisar_contra_un_original_que_ya_cambio_da_conflicto(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    cabeceras, evento = await _bilingue(cliente, organizacion)
+    item = {"entity_type": "event", "entity_id": evento["id"], "field": "title"}
+    await cliente.put(
+        _url("event", evento["id"]),
+        headers=cabeceras,
+        params=EN,
+        json={"items": [{**item, "value": "Day"}]},
+    )
+
+    respuesta = await cliente.post(
+        f"{_url('event', evento['id'])}/review",
+        headers=cabeceras,
+        params=EN,
+        json={**item, "original": "Un texto que ya no es el original"},
+    )
+    assert respuesta.status_code == 409
+
+
+async def test_las_etiquetas_se_traducen_desde_la_organizacion(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    cabeceras, _ = await _bilingue(cliente, organizacion)
+
+    editor = (
+        await cliente.get(_url("organization", str(organizacion.id)), headers=cabeceras, params=EN)
+    ).json()
+    assert ("tag", "ia") in {(i["entity_type"], i["field"]) for i in editor["items"]}
+
+
+async def test_el_titular_traduce_su_propia_ficha(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    await _bilingue(cliente, organizacion)
+    ponente = await crear_miembro(organizacion, "speaker")
+    _, cabeceras = await iniciar_sesion_con(cliente, organizacion, ponente.email, ponente.password)
+    await cliente.patch(
+        f"{ORGANIZACION}/members/{ponente.member_id}/profile",
+        headers=cabeceras,
+        json={"profile_data": {"bio": "Investigadora"}},
+    )
+
+    guardado = await cliente.put(
+        _url("member_profile", str(ponente.member_id)),
+        headers=cabeceras,
+        params=EN,
+        json={
+            "items": [
+                {
+                    "entity_type": "member_profile",
+                    "entity_id": str(ponente.member_id),
+                    "field": "bio",
+                    "value": "Researcher",
+                }
+            ]
+        },
+    )
+    assert guardado.status_code == 200, guardado.text
+    assert guardado.json()["items"][0]["status"] == "al_dia"
