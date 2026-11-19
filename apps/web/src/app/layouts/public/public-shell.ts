@@ -1,9 +1,8 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  DestroyRef,
   ElementRef,
-  afterNextRender,
+  afterRenderEffect,
   inject,
   viewChild,
 } from '@angular/core';
@@ -240,16 +239,16 @@ import { AvisoIdioma } from './aviso-idioma';
     /* Móvil: el bloque derecho no cabe en una línea (en 360 px medía 362 y
        empujaba el menú de acceso fuera de la pantalla, con scroll lateral en
        todo el sitio). Dos filas que siguen el orden del marcado (y del foco):
-       marca + enlaces arriba; «Crear evento», tema y acceso debajo, a la
+       marca + enlaces arriba; «Crear evento», idioma, tema y acceso debajo, a la
        derecha. \`display: contents\` deja a los hijos de los dos grupos
        colocarse en la rejilla sin tocar el marcado. */
     @media (max-width: 40rem) {
       .header-en {
         display: grid;
-        grid-template-columns: auto minmax(0, 1fr) auto auto;
+        grid-template-columns: auto minmax(0, 1fr) auto auto auto;
         grid-template-areas:
-          'marca nav nav nav'
-          '. crear tema acceso';
+          'marca nav nav nav nav'
+          '. crear idioma tema acceso';
         column-gap: 0.5rem;
         row-gap: 0.25rem;
         padding-block: 0.5rem;
@@ -272,9 +271,18 @@ import { AvisoIdioma } from './aviso-idioma';
       header nav a {
         white-space: nowrap;
       }
+      /* En otros idiomas el texto es más largo: se parte en dos líneas en vez
+         de empujar los controles fuera de la pantalla. */
       .crear-evento {
         grid-area: crear;
         justify-self: end;
+        min-width: 0;
+        white-space: normal;
+        text-align: center;
+        line-height: 1.15;
+      }
+      app-selector-idioma {
+        grid-area: idioma;
       }
       app-theme-toggle {
         grid-area: tema;
@@ -331,7 +339,7 @@ import { AvisoIdioma } from './aviso-idioma';
 export class PublicShell {
   protected readonly theming = inject(ThemingService);
   private readonly consentimiento = inject(CookieConsentService);
-  private readonly cabecera = viewChild.required<ElementRef<HTMLElement>>('cabecera');
+  private readonly cabecera = viewChild<ElementRef<HTMLElement>>('cabecera');
 
   constructor() {
     // Publica el alto real de la cabecera fija en `--alto-cabecera-publica`
@@ -339,9 +347,15 @@ export class PublicShell {
     // ocupa dos filas, o tres si los enlaces se parten: un valor fijo en CSS
     // dejaría el contenido pegado tapado por la cabecera. Solo en el
     // navegador; en el servidor manda el valor por defecto del CSS.
-    const destroyRef = inject(DestroyRef);
-    afterNextRender(() => {
-      const cabecera = this.cabecera().nativeElement;
+    //
+    // Se vuelve a enganchar cada vez que cambia el elemento: `*transloco`
+    // recrea la vista al cargar los textos, y un observador sobre la cabecera
+    // anterior (ya fuera del documento) publicaría 0 px para siempre.
+    afterRenderEffect((alLimpiar) => {
+      const cabecera = this.cabecera()?.nativeElement;
+      if (!cabecera) {
+        return;
+      }
       const publicar = (): void =>
         document.documentElement.style.setProperty(
           '--alto-cabecera-publica',
@@ -353,7 +367,7 @@ export class PublicShell {
       }
       const observador = new ResizeObserver(publicar);
       observador.observe(cabecera);
-      destroyRef.onDestroy(() => observador.disconnect());
+      alLimpiar(() => observador.disconnect());
     });
   }
 
