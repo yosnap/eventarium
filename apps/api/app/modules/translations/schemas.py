@@ -45,6 +45,8 @@ class TranslationEditor(BaseModel):
     # Idiomas en que publica la organización: sin un segundo idioma no hay pestañas.
     locales: list[Locale]
     items: list[TranslationItem]
+    # La organización tiene clave de IA propia: sin ella no hay traducción automática.
+    auto_translation_available: bool = False
 
 
 class TranslationInput(BaseModel):
@@ -78,3 +80,18 @@ class EventTranslationSummary(BaseModel):
 
     source_locale: Locale
     locales: list[LocaleProgress]
+    auto_translation_available: bool = False
+
+
+class PublishedTranslationEstimate(BaseModel):
+    """Lo que costaría traducir ahora los eventos publicados a un idioma."""
+
+    events: int
+    texts: int
+    # Orientativo; `None` si no hay clave propia de IA.
+    estimated_cost_usd: str | None
+    auto_translation_available: bool
+
+
+class PublishedTranslationQueued(BaseModel):
+    events: int

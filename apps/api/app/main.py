@@ -80,6 +80,7 @@ from app.modules.tickets.router import router as tickets_router
 from app.modules.translations.cola import instalar_encolado_automatico
 from app.modules.translations.public_router import router as translations_public_router
 from app.modules.translations.router import router as translations_router
+from app.modules.translations.router import router_publicados as translations_published_router
 from app.modules.users.router import router as users_router
 from app.shared.errors import DomainError, register_exception_handlers
 
@@ -234,6 +235,7 @@ def create_app() -> FastAPI:
     api.include_router(legal_public_router)
     api.include_router(cookie_consent_router)
     api.include_router(accounting_router)
+    api.include_router(translations_published_router)
     api.include_router(translations_router)
     api.include_router(translations_public_router)
     api.include_router(accounting_drafts_router)

@@ -356,6 +356,69 @@ async def _escribir(
             )
 
 
+async def pendientes(
+    session: AsyncSession, organizacion: Organization, ambito: Ambito
+) -> list[tuple[panel.Campo, Locale]]:
+    """Los textos del ámbito que la IA traduciría ahora, con su idioma de origen
+    (sin reservarlos). Para estimar el coste antes de pedir la traducción."""
+    entidades = await _entidades(session, organizacion, ambito.event_id)
+    if not entidades:
+        return []
+    ahora = datetime.now(UTC)
+    campos = [
+        (entidad, campo)
+        for entidad in entidades
+        if ambito.locale in entidad.activos
+        for campo in await panel.campos_de(session, entidad)
+        if entidad.origen_de(campo) != ambito.locale
+    ]
+    existentes = await panel._filas(  # noqa: SLF001
+        session, ambito.organization_id, [c for _, c in campos], [ambito.locale]
+    )
+    vistos: set[tuple[str, uuid.UUID, str]] = set()
+    resultado = []
+    for entidad, campo in campos:
+        clave = (campo.tipo, campo.entity_id, campo.campo)
+        if clave in vistos:
+            continue
+        vistos.add(clave)
+        if _necesita(existentes.get((*clave, ambito.locale)), campo.original, ahora):
+            resultado.append((campo, entidad.origen_de(campo)))
+    return resultado
+
+
+async def coste_estimado(
+    session: AsyncSession,
+    organization_id: uuid.UUID,
+    textos: Sequence[tuple[panel.Campo, Locale]],
+    destino: Locale,
+) -> Decimal | None:
+    """Coste orientativo de traducir `textos` con el modelo de la organización,
+    o `None` si no hay configuración usable."""
+    config = await ai_service.resolver_config_efectiva(session, organization_id)
+    if not config.usable or config.provider is None or config.default_model is None:
+        return None
+    from app.modules.ai_gateway import client as ai_client
+
+    modelo = ai_client.modelo_de_litellm(config.provider, config.default_model)
+    total = Decimal(0)
+    for origen in {o for _, o in textos}:
+        lista = [
+            ia.Texto(f"t{i}", c.original, ia.es_de_una_linea(c.tipo, c.campo))
+            for i, (c, o) in enumerate(textos)
+            if o == origen
+        ]
+        for lote in ia.lotes(lista):
+            caracteres = sum(len(t.original) for t in lote)
+            total += ai_client.estimar_coste(
+                model_litellm=modelo,
+                messages=ia.mensajes(lote, origen, destino, []),
+                # La salida ronda la entrada: unos 3-4 caracteres por token.
+                max_tokens=caracteres // 3 + 50,
+            )
+    return total
+
+
 # ── Procesado de un ámbito ──────────────────────────────────────────────────
 
 

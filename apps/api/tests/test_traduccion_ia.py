@@ -309,3 +309,45 @@ async def test_al_vuelo_respeta_el_tope_diario(
 
     assert respuesta.json() == {"queued": False}
     encolar.assert_not_awaited()
+
+
+async def test_traducir_lo_publicado_estima_el_coste_y_lo_encola(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    cifrado: str,
+) -> None:
+    evento = await _evento_bilingue(cliente, organizacion)
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+
+    sin_clave = (
+        await cliente.get(
+            "/api/v1/translations/published/estimate", headers=cabeceras, params={"locale": "en-US"}
+        )
+    ).json()
+    assert sin_clave["auto_translation_available"] is False
+    assert sin_clave["estimated_cost_usd"] is None
+    rechazado = await cliente.post(
+        "/api/v1/translations/published", headers=cabeceras, params={"locale": "en-US"}
+    )
+    assert rechazado.status_code == 422
+
+    await configurar_organizacion(organizacion.id)
+    estimacion = (
+        await cliente.get(
+            "/api/v1/translations/published/estimate", headers=cabeceras, params={"locale": "en-US"}
+        )
+    ).json()
+    assert estimacion["events"] == 1
+    assert estimacion["texts"] >= 2
+    assert Decimal(estimacion["estimated_cost_usd"]) > 0
+
+    encolado = await cliente.post(
+        "/api/v1/translations/published", headers=cabeceras, params={"locale": "en-US"}
+    )
+    assert encolado.json() == {"events": 1}
+    async with SessionMaintenance() as session:
+        ambitos = {
+            (p.event_id, p.locale) for p in await session.scalars(select(TranslationRequest))
+        }
+    assert (uuid.UUID(evento["id"]), "en-US") in ambitos
+    assert (None, "en-US") in ambitos
