@@ -25,8 +25,15 @@ import { Chip } from '../../../shared/ui/chip';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 import { ICONOS_REDES } from '../../../shared/ui/share-links-iconos';
 import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
+import {
+  IdiomasDeLaRespuesta,
+  idiomasDeLaRespuesta,
+} from '../../../core/seo/indexacion-por-idioma';
+import { AvisoContenidoOriginal } from '../../../shared/ui/aviso-contenido-original';
+import { traduccionEnVivo } from '../../../core/traducciones/traduccion-en-vivo';
+import { EnTraduccion } from '../../../shared/ui/esqueleto';
 
-interface PerfilPublico {
+interface PerfilPublico extends IdiomasDeLaRespuesta {
   readonly slug: string;
   readonly name: string;
   readonly description: string | null;
@@ -48,6 +55,8 @@ interface EventoDeLaOrganizacion {
   readonly cancelled?: boolean;
   readonly category?: { readonly slug: string; readonly name: string } | null;
   readonly tags?: readonly string[];
+  /** Texto de cada etiqueta en el idioma de la página (solo las que cambian). */
+  readonly tag_labels?: Readonly<Record<string, string>>;
   readonly organization: { readonly slug: string };
   readonly title: string;
   readonly summary: string | null;
@@ -101,7 +110,18 @@ interface EstadoTransferido {
 @Component({
   selector: 'app-organization-public-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [EnlacePipe, TranslocoDirective, DatePipe, RouterLink, Alert, Button, Chip, Reveal],
+  imports: [
+    EnTraduccion,
+    AvisoContenidoOriginal,
+    EnlacePipe,
+    TranslocoDirective,
+    DatePipe,
+    RouterLink,
+    Alert,
+    Button,
+    Chip,
+    Reveal,
+  ],
   template: `
     <ng-container *transloco="let t">
       @if (cargando()) {
@@ -127,8 +147,17 @@ interface EstadoTransferido {
             <div class="cabecera__datos">
               <p class="etiqueta-acento">{{ t('publico.organizacion.rotulo') }}</p>
               <h1>{{ p.name }}</h1>
+              @if (!traduccion.activa()) {
+                <app-aviso-contenido-original [servido]="p.served_locale" />
+              }
               @if (p.description) {
-                <p class="cabecera__descripcion">{{ p.description }}</p>
+                <app-en-traduccion
+                  [traduciendo]="traduccion.bloque('description')"
+                  [anunciar]="true"
+                  [lineas]="3"
+                >
+                  <p class="cabecera__descripcion">{{ p.description }}</p>
+                </app-en-traduccion>
               }
               <dl class="ficha">
                 @if (p.website) {
@@ -243,7 +272,7 @@ interface EstadoTransferido {
                               <strong>{{ evento.category.name }}</strong>
                             }
                             @for (etiqueta of evento.tags ?? []; track etiqueta) {
-                              #{{ etiqueta }}
+                              #{{ evento.tag_labels?.[etiqueta] ?? etiqueta }}
                             }
                           </span>
                         }
@@ -444,6 +473,13 @@ export class OrganizationPublicPage implements OnInit {
 
   protected readonly rutaEvento = rutaEvento;
   protected readonly perfil = signal<PerfilPublico | null>(null);
+  /** Mientras la IA traduce lo pendiente: esqueleto en vez del original. */
+  protected readonly traduccion = traduccionEnVivo({
+    ruta: () => `/public/organizations/${this.org()}`,
+    pendiente: () => this.perfil()?.translating ?? false,
+    campos: () => this.perfil()?.translating_fields ?? [],
+    recargar: () => this.cargar(true),
+  });
   protected readonly proximos = signal<PaginaDeEventos>({ items: [], total: 0 });
   protected readonly pasados = signal<PaginaDeEventos>({ items: [], total: 0 });
   protected readonly cargando = signal(true);
@@ -519,7 +555,8 @@ export class OrganizationPublicPage implements OnInit {
     );
   }
 
-  private async cargar(): Promise<void> {
+  /** `silencioso`: recarga tras traducir; si falla, se queda lo que ya se ve. */
+  private async cargar(silencioso = false): Promise<void> {
     const clave = makeStateKey<EstadoTransferido>(`organizacion-publica:${this.org()}`);
     const transferido = this.transferState.get(clave, null);
     if (transferido) {
@@ -544,6 +581,9 @@ export class OrganizationPublicPage implements OnInit {
         this.transferState.set(clave, estado);
       }
     } catch (error) {
+      if (silencioso) {
+        return;
+      }
       this.noEncontrado.set(true);
       if ((error as { status?: number }).status === 404) {
         this.notFound.mark();
@@ -562,6 +602,7 @@ export class OrganizationPublicPage implements OnInit {
     this.pasados.set(estado.pasados);
     this.seo.set({
       contenidoDelOrganizador: true,
+      ...idiomasDeLaRespuesta(estado.perfil),
       title: estado.perfil.name,
       description:
         estado.perfil.description ??

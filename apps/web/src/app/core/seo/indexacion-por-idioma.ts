@@ -1,4 +1,4 @@
-import { IDIOMAS, Idioma, IDIOMA_POR_DEFECTO, urlEnIdioma } from '../i18n/idioma';
+import { IDIOMAS, Idioma, IDIOMA_POR_DEFECTO, esIdioma, urlEnIdioma } from '../i18n/idioma';
 
 /** Lo que una página sabe de sí misma para decidir cómo se indexa en cada idioma. */
 export interface EntradaDeIndexacion {
@@ -78,5 +78,31 @@ export function decidirIndexacion(entrada: EntradaDeIndexacion): DecisionDeIndex
     ogLocaleAlternativos: disponibles
       .filter((idioma) => idioma !== entrada.activo)
       .map(comoOgLocale),
+  };
+}
+
+/** Campos de idioma que añade la API a las respuestas con contenido del organizador. */
+export interface IdiomasDeLaRespuesta {
+  readonly source_locale?: string;
+  readonly up_to_date_locales?: readonly string[];
+  /** Idioma en que llega el contenido: el de la página o, sin traducir, el original. */
+  readonly served_locale?: string;
+  /** La IA va a traducir lo pendiente: la página espera con un esqueleto. */
+  readonly translating?: boolean;
+  /** Campos principales que se están traduciendo: esqueleto solo en esos bloques. */
+  readonly translating_fields?: readonly string[];
+}
+
+/**
+ * `idiomaOrigen` e `idiomasAlDia` para `SeoMetaService.set` a partir de la
+ * respuesta de la API. Los valores que la web no conoce se descartan.
+ */
+export function idiomasDeLaRespuesta(
+  respuesta: IdiomasDeLaRespuesta,
+): Pick<EntradaDeIndexacion, 'idiomaOrigen' | 'idiomasAlDia'> {
+  const origen = respuesta.source_locale;
+  return {
+    idiomaOrigen: esIdioma(origen) ? origen : undefined,
+    idiomasAlDia: (respuesta.up_to_date_locales ?? []).filter(esIdioma),
   };
 }

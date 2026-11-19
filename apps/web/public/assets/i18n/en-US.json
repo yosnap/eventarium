@@ -465,7 +465,9 @@
         "reembolsos": "Refund policy",
         "privacidad": "Privacy policy",
         "otras": "Other conditions"
-      }
+      },
+      "traduccionOrientativa": "This is an indicative translation: the legally binding text is the original.",
+      "verOriginal": "View the original"
     },
     "compartir": {
       "titulo": "Share",
@@ -481,7 +483,8 @@
       "recargar": "Ticket sales have changed since you opened the page.",
       "error": "We could not load the tickets.",
       "botonRecargar": "Reload page"
-    }
+    },
+    "contenidoOriginal": "This content is shown in its original language."
   },
   "registro": {
     "titulo": "Create an account",
@@ -1055,7 +1058,8 @@
       "vacio": "No categories yet. Add the first one.",
       "nota": "Categories are not deleted: when you deactivate one, it can no longer be assigned or shown on the public website, but events that already have it will keep it.",
       "datosInvalidos": "Enter a name and an integer order between 0 and 10000.",
-      "error": "We couldn't complete the operation."
+      "error": "We couldn't complete the operation.",
+      "nombreEn": "Name in {{ idioma }}"
     },
     "organizacion": {
       "titulo": "Organization",
@@ -1104,6 +1108,25 @@
         "libreUrl": "Other link: URL",
         "libreIncompleto": "The other link requires a name and URL.",
         "urlInvalida": "The {{red}} link must start with https://"
+      },
+      "idiomas": {
+        "titulo": "Content languages",
+        "ayuda": "The languages the organisation publishes in. Its pages, events and texts are offered in each of them; anything not translated is shown in the original.",
+        "origen": "Language the organisation writes in",
+        "origenAyuda": "The original language of the texts that belong to the organisation, such as the description, tags or policies."
+      },
+      "ofertaTraducir": {
+        "titulo": "Shall we translate your events into {{ idioma }}?",
+        "texto": "Published events: {{ eventos }}. Texts not translated into this language: {{ textos }}. We can translate them now with your AI key.",
+        "coste": "Estimated cost: {{ coste }} USD",
+        "nota": "They are translated gradually, within your spending limits. If you prefer to wait, each event will be translated when someone visits it in that language.",
+        "ahoraNo": "Not now",
+        "traducir": "Translate now",
+        "error": "The translation could not be requested. Please try again.",
+        "idiomas": {
+          "es-ES": "Spanish",
+          "en-US": "English"
+        }
       }
     },
     "branding": {
@@ -1337,7 +1360,8 @@
       "cabeceraInicio": "Your profile and credentials,",
       "cabeceraMarca": "on a single page",
       "ficha": {
-        "titulo": "My {{rol}} profile"
+        "titulo": "My {{rol}} profile",
+        "avisoTraduccion": "If the organisation publishes in several languages, your biography and headline may be translated automatically with AI to show them in those languages."
       }
     },
     "events": {
@@ -1450,7 +1474,10 @@
           "public": "Appears on your organization's page, in the event directory, and in search engines.",
           "hidden": "Anyone with the link can open it, but it won't appear in any lists or search engines. It's not a secret: do not use it for confidential information.",
           "private": "No one can open it, even with the link. Those already registered will keep their ticket, but won't be able to view the event details."
-        }
+        },
+        "idioma": "Event language",
+        "idiomaAyuda": "The language you write the event texts in. Other languages are translated from it.",
+        "idiomaDeLaOrganizacion": "The organisation's language"
       },
       "agenda": {
         "titulo": "Schedule",
@@ -3052,6 +3079,89 @@
       "sinPermiso": "Your role does not allow connecting assistants. Ask the organization owner for the 'Connect assistants via MCP' permission.",
       "error": "We couldn't complete the operation.",
       "pide": "The assistant is requesting:"
+    }
+  },
+  "traducciones": {
+    "pestanas": "Content languages",
+    "original": "original",
+    "sinTextos": "This content has no texts to translate yet.",
+    "cargando": "Loading translations…",
+    "guardar": "Save translations",
+    "marcarRevisada": "Mark as reviewed",
+    "opcion": "Option “{{ valor }}”",
+    "error": "The translations could not be loaded or saved. Please try again.",
+    "estado": {
+      "al_dia": "Up to date",
+      "desactualizada": "Outdated",
+      "pendiente": "Not translated"
+    },
+    "origen": {
+      "ia": "Translated with AI",
+      "manual": "Written by hand",
+      "revisada": "Reviewed"
+    },
+    "campos": {
+      "title": "Title",
+      "summary": "Summary",
+      "description": "Description",
+      "location_name": "Venue name",
+      "cancellation_reason": "Cancellation reason",
+      "room": "Room",
+      "name": "Name",
+      "label": "Question",
+      "benefits": "Benefits",
+      "contribution_description": "Contribution description",
+      "notes": "Notes",
+      "content": "Text",
+      "bio": "Biography",
+      "titular": "Headline",
+      "curriculum": "CV",
+      "organizer_blurb": "Organiser introduction"
+    },
+    "resumen": {
+      "titulo": "Translations",
+      "linea": "{{ idioma }}: {{ al_dia }} of {{ total }} texts up to date",
+      "ayuda": "Translate them from each language tab in the forms."
+    },
+    "traduciendo": "Translating…",
+    "clavePropia": {
+      "titulo": "Automatic translation not available",
+      "texto": "To translate your events automatically you need your own AI key. Meanwhile you can write the translations by hand.",
+      "configurar": "Set up the AI key",
+      "comoHacerlo": "How to do it, step by step",
+      "pideloAlPropietario": "Ask the organisation owner to set up the AI key."
+    }
+  },
+  "ayuda": {
+    "traduccion": {
+      "rotulo": "Help",
+      "titulo": "Automatic translation of your events",
+      "intro": "Eventarium uses AI to translate your events into the languages you enable for your organisation. It uses your own AI key, so you control the provider and the spending.",
+      "paso1": {
+        "titulo": "1. Get an AI key",
+        "texto": "Create an account with one of these providers and generate an API key:",
+        "openrouter": "OpenRouter (openrouter.ai → Keys): many models with a single key.",
+        "openai": "OpenAI (platform.openai.com → API keys).",
+        "anthropic": "Anthropic (console.anthropic.com → API Keys).",
+        "gemini": "Google Gemini (aistudio.google.com → Get API key)."
+      },
+      "paso2": {
+        "titulo": "2. Paste it into Eventarium",
+        "texto": "In your organisation's AI settings choose the provider and the model, paste the key and save. You can set a monthly spending limit.",
+        "enlace": "Open the AI settings"
+      },
+      "paso3": {
+        "titulo": "3. Enable the languages",
+        "texto": "In your organisation's profile, under “Content languages”, tick the languages you want to publish in. When you enable a new one we will offer to translate the events already published, with the estimated cost."
+      },
+      "paso4": {
+        "titulo": "4. Done",
+        "texto": "Every time you publish or edit an event it will be translated in the background. You can review and correct any translation in each language tab of the forms."
+      },
+      "costeTitulo": "How much does it cost?",
+      "coste": "It depends on the provider and the model. With an affordable model, translating a whole event usually costs a few cents. Translation never spends more than half of your monthly AI limit, so the other features keep their budget.",
+      "sinClaveTitulo": "And without a key?",
+      "sinClave": "You can write the translations yourself in each language tab. Anything not translated is shown in the original language."
     }
   }
 }

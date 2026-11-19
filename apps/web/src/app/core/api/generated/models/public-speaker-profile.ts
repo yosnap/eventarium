@@ -13,6 +13,12 @@ export interface PublicSpeakerProfile {
 [key: string]: any;
 };
   history: Array<PublicSpeakerHistoryItem>;
+  pending_fields?: number;
   public_slug: string;
+  served_locale?: 'es-ES' | 'en-US';
   social_links: Array<SocialLinkResponse>;
+  source_locale?: 'es-ES' | 'en-US';
+  translating?: boolean;
+  translating_fields?: Array<string>;
+  up_to_date_locales?: Array<'es-ES' | 'en-US'>;
 }

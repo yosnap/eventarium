@@ -21,6 +21,7 @@ import { DatetimePicker } from '../../../shared/ui/datetime-picker';
 import { Input } from '../../../shared/ui/input';
 import { Select, type SelectOption } from '../../../shared/ui/select';
 import { isoAValorLocal } from './datetime-local';
+import { PestanasDeIdioma } from '../../../shared/ui/pestanas-de-idioma';
 
 type VideoPlatform = '' | 'youtube' | 'vimeo' | 'twitch' | 'other';
 
@@ -92,114 +93,129 @@ function vacio(): {
 @Component({
   selector: 'app-session-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, RouterLink, Alert, Button, DatetimePicker, Input, Select],
+  imports: [
+    PestanasDeIdioma,
+    TranslocoDirective,
+    RouterLink,
+    Alert,
+    Button,
+    DatetimePicker,
+    Input,
+    Select,
+  ],
   template: `
     <ng-container *transloco="let t">
-      <form (submit)="guardar($event)" novalidate class="formulario">
-        <h3>
-          {{
-            editandoId()
-              ? t('admin.events.agenda.editarSesion')
-              : t('admin.events.agenda.anadirSesion')
-          }}
-        </h3>
-
-        <app-select
-          fieldId="sesion-tipo"
-          [label]="t('admin.events.agenda.tipo')"
-          [options]="opcionesDeTipo()"
-          [hint]="ayudaDeTipo()"
-          [(value)]="tipo"
-        />
-        <!-- Otra pestaña: navegar aquí perdería lo escrito en el formulario. -->
-        <a
-          class="gestionar-tipos"
-          routerLink="/dashboard/session-types"
-          target="_blank"
-          [attr.aria-label]="t('admin.events.agenda.gestionarTiposAria')"
-        >
-          <span aria-hidden="true">＋</span> {{ t('admin.events.agenda.gestionarTipos') }}
-        </a>
-
-        <app-input
-          fieldId="sesion-titulo"
-          [label]="t('admin.events.agenda.tituloSesion')"
-          [required]="true"
-          [(value)]="titulo"
-        />
-        <app-datetime-picker
-          fieldId="sesion-inicio"
-          [label]="t('admin.events.agenda.inicio')"
-          [required]="true"
-          [min]="limitesActivos().min"
-          [max]="limitesActivos().max"
-          [(value)]="inicio"
-        />
-        <app-datetime-picker
-          fieldId="sesion-fin"
-          [label]="t('admin.events.agenda.fin')"
-          [required]="true"
-          [min]="limitesActivos().min"
-          [max]="limitesActivos().max"
-          [error]="errorDeFin()"
-          [(value)]="fin"
-        />
-        <app-input fieldId="sesion-sala" [label]="t('admin.events.agenda.sala')" [(value)]="sala" />
-
-        @if (sedes().length > 0) {
-          <app-select
-            fieldId="sesion-sede"
-            [label]="t('admin.events.agenda.sede')"
-            [options]="opcionesDeSede()"
-            [(value)]="venueId"
-          />
-        }
-
-        <app-select
-          fieldId="sesion-video"
-          [label]="t('admin.events.agenda.plataformaVideo')"
-          [options]="opcionesDeVideoPlatform()"
-          [(value)]="videoPlatform"
-        />
-        @if (videoPlatform()) {
-          <app-input
-            fieldId="sesion-video-url"
-            type="url"
-            [label]="t('admin.events.agenda.enlaceVideo')"
-            [(value)]="videoUrl"
-          />
-        }
-
-        <div class="campo-materiales">
-          <label for="sesion-materiales">{{ t('admin.events.agenda.materiales') }}</label>
-          <textarea
-            id="sesion-materiales"
-            rows="3"
-            [value]="materiales()"
-            (input)="materiales.set(alTextarea($event))"
-          ></textarea>
-          <p class="ayuda">{{ t('admin.events.agenda.materialesAyuda') }}</p>
-        </div>
-
-        @if (formError(); as mensaje) {
-          <app-alert tone="error">{{ mensaje }}</app-alert>
-        }
-
-        <div class="acciones-finales">
-          @if (editandoId()) {
-            <app-button variant="secundario" type="button" (pulsado)="cancelar()">
-              {{ t('admin.roles.cancelar') }}
-            </app-button>
-          }
-          <app-button type="submit" [loading]="guardando()">
+      <app-pestanas-de-idioma tipo="session" [entityId]="editandoId()">
+        <form (submit)="guardar($event)" novalidate class="formulario">
+          <h3>
             {{
               editandoId()
-                ? t('admin.events.agenda.guardarCambios')
+                ? t('admin.events.agenda.editarSesion')
                 : t('admin.events.agenda.anadirSesion')
             }}
-          </app-button>
-        </div>
-      </form>
+          </h3>
+
+          <app-select
+            fieldId="sesion-tipo"
+            [label]="t('admin.events.agenda.tipo')"
+            [options]="opcionesDeTipo()"
+            [hint]="ayudaDeTipo()"
+            [(value)]="tipo"
+          />
+          <!-- Otra pestaña: navegar aquí perdería lo escrito en el formulario. -->
+          <a
+            class="gestionar-tipos"
+            routerLink="/dashboard/session-types"
+            target="_blank"
+            [attr.aria-label]="t('admin.events.agenda.gestionarTiposAria')"
+          >
+            <span aria-hidden="true">＋</span> {{ t('admin.events.agenda.gestionarTipos') }}
+          </a>
+
+          <app-input
+            fieldId="sesion-titulo"
+            [label]="t('admin.events.agenda.tituloSesion')"
+            [required]="true"
+            [(value)]="titulo"
+          />
+          <app-datetime-picker
+            fieldId="sesion-inicio"
+            [label]="t('admin.events.agenda.inicio')"
+            [required]="true"
+            [min]="limitesActivos().min"
+            [max]="limitesActivos().max"
+            [(value)]="inicio"
+          />
+          <app-datetime-picker
+            fieldId="sesion-fin"
+            [label]="t('admin.events.agenda.fin')"
+            [required]="true"
+            [min]="limitesActivos().min"
+            [max]="limitesActivos().max"
+            [error]="errorDeFin()"
+            [(value)]="fin"
+          />
+          <app-input
+            fieldId="sesion-sala"
+            [label]="t('admin.events.agenda.sala')"
+            [(value)]="sala"
+          />
+
+          @if (sedes().length > 0) {
+            <app-select
+              fieldId="sesion-sede"
+              [label]="t('admin.events.agenda.sede')"
+              [options]="opcionesDeSede()"
+              [(value)]="venueId"
+            />
+          }
+
+          <app-select
+            fieldId="sesion-video"
+            [label]="t('admin.events.agenda.plataformaVideo')"
+            [options]="opcionesDeVideoPlatform()"
+            [(value)]="videoPlatform"
+          />
+          @if (videoPlatform()) {
+            <app-input
+              fieldId="sesion-video-url"
+              type="url"
+              [label]="t('admin.events.agenda.enlaceVideo')"
+              [(value)]="videoUrl"
+            />
+          }
+
+          <div class="campo-materiales">
+            <label for="sesion-materiales">{{ t('admin.events.agenda.materiales') }}</label>
+            <textarea
+              id="sesion-materiales"
+              rows="3"
+              [value]="materiales()"
+              (input)="materiales.set(alTextarea($event))"
+            ></textarea>
+            <p class="ayuda">{{ t('admin.events.agenda.materialesAyuda') }}</p>
+          </div>
+
+          @if (formError(); as mensaje) {
+            <app-alert tone="error">{{ mensaje }}</app-alert>
+          }
+
+          <div class="acciones-finales">
+            @if (editandoId()) {
+              <app-button variant="secundario" type="button" (pulsado)="cancelar()">
+                {{ t('admin.roles.cancelar') }}
+              </app-button>
+            }
+            <app-button type="submit" [loading]="guardando()">
+              {{
+                editandoId()
+                  ? t('admin.events.agenda.guardarCambios')
+                  : t('admin.events.agenda.anadirSesion')
+              }}
+            </app-button>
+          </div>
+        </form>
+      </app-pestanas-de-idioma>
     </ng-container>
   `,
   styles: `

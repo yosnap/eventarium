@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
@@ -19,6 +19,10 @@ import {
   OrganizationSocialLinks,
   nombreDeRed,
 } from './organization-social-links';
+import type { Idioma } from '../../../core/i18n/idioma';
+import { PestanasDeIdioma } from '../../../shared/ui/pestanas-de-idioma';
+import { OfertaTraducirPublicados } from './oferta-traducir-publicados';
+import { OrganizationLanguages } from './organization-languages';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -38,6 +42,8 @@ interface Organizacion {
   readonly social_links: readonly EnlaceSocial[];
   readonly public_page_enabled: boolean;
   readonly is_active: boolean;
+  readonly content_locales?: readonly Idioma[];
+  readonly source_locale?: Idioma;
 }
 
 type Campo = 'name' | 'contactEmail' | 'website';
@@ -58,7 +64,10 @@ const WEB_RE = /^https?:\/\/\S+$/;
     Card,
     Checkbox,
     Input,
+    OfertaTraducirPublicados,
+    OrganizationLanguages,
     OrganizationSocialLinks,
+    PestanasDeIdioma,
     Textarea,
     PageHeader,
     RouterLink,
@@ -83,10 +92,12 @@ const WEB_RE = /^https?:\/\/\S+$/;
               (blurred)="validar('name')"
             />
             <app-input [label]="t('admin.organizacion.nombreLegal')" [(value)]="legalName" />
-            <app-textarea
-              [label]="t('admin.organizacion.descripcionCampo')"
-              [(value)]="description"
-            />
+            <app-pestanas-de-idioma tipo="organization" [entityId]="organizacionId()">
+              <app-textarea
+                [label]="t('admin.organizacion.descripcionCampo')"
+                [(value)]="description"
+              />
+            </app-pestanas-de-idioma>
             <app-input
               [label]="t('admin.organizacion.web')"
               type="url"
@@ -162,6 +173,9 @@ const WEB_RE = /^https?:\/\/\S+$/;
 
             <app-organization-social-links [(enlaces)]="socialLinks" />
 
+            <app-organization-languages [(idiomas)]="contentLocales" [(origen)]="sourceLocale" />
+            <app-oferta-traducir-publicados #ofertaTraducir />
+
             @if (guardado()) {
               <app-alert tone="exito">{{ t('admin.organizacion.guardado') }}</app-alert>
             }
@@ -233,6 +247,11 @@ export class OrganizationPage {
   protected readonly name = signal('');
   protected readonly legalName = signal('');
   protected readonly description = signal('');
+  protected readonly organizacionId = signal<string | null>(null);
+  protected readonly contentLocales = signal<readonly Idioma[]>(['es-ES']);
+  private idiomasGuardados: readonly Idioma[] = ['es-ES'];
+  private readonly ofertaTraducir = viewChild<OfertaTraducirPublicados>('ofertaTraducir');
+  protected readonly sourceLocale = signal<Idioma>('es-ES');
   protected readonly website = signal('');
   protected readonly contactEmail = signal('');
   protected readonly address = signal('');
@@ -263,6 +282,10 @@ export class OrganizationPage {
       this.name.set(organizacion.name);
       this.legalName.set(organizacion.legal_name ?? '');
       this.description.set(organizacion.description ?? '');
+      this.organizacionId.set(organizacion.id);
+      this.contentLocales.set(organizacion.content_locales ?? ['es-ES']);
+      this.idiomasGuardados = organizacion.content_locales ?? ['es-ES'];
+      this.sourceLocale.set(organizacion.source_locale ?? 'es-ES');
       this.website.set(organizacion.website ?? '');
       this.contactEmail.set(organizacion.contact_email ?? '');
       this.address.set(organizacion.address ?? '');
@@ -351,6 +374,8 @@ export class OrganizationPage {
           address_public: this.addressPublic(),
           social_links: this.socialLinks(),
           public_page_enabled: this.publicPageEnabled(),
+          content_locales: this.contentLocales(),
+          source_locale: this.sourceLocale(),
         }),
       );
       this.paginaActiva.set(this.publicPageEnabled());
@@ -358,6 +383,16 @@ export class OrganizationPage {
       // en la portada viene de `ThemingService`, resuelto por host, no de este PATCH.
       await this.theming.load();
       this.guardado.set(true);
+      // Un idioma recién activado: se ofrece traducir lo ya publicado.
+      const nuevo = this.contentLocales().find((idioma) => !this.idiomasGuardados.includes(idioma));
+      this.idiomasGuardados = this.contentLocales();
+      if (nuevo) {
+        void this.ofertaTraducir()?.ofrecer(nuevo);
+        // Las pestañas de idioma vuelven a preguntar con los idiomas nuevos.
+        const id = this.organizacionId();
+        this.organizacionId.set(null);
+        queueMicrotask(() => this.organizacionId.set(id));
+      }
     } catch (error) {
       this.error.set(
         error instanceof ApiError

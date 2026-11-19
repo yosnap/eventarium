@@ -1,5 +1,6 @@
 import type { OrganizacionPublica } from '../../../shared/ui/migas-de-evento';
 import type { PlantillaDeTema } from '../../../core/theming/theme-template.model';
+import type { IdiomasDeLaRespuesta } from '../../../core/seo/indexacion-por-idioma';
 
 /**
  * Formas de datos de `GET /public/organizations/{org}/events/{slug}`, compartidas entre
@@ -76,7 +77,7 @@ export interface PublicVenue {
   readonly longitude: number | null;
 }
 
-export interface PublicEventDetail {
+export interface PublicEventDetail extends IdiomasDeLaRespuesta {
   readonly nearby_places?: readonly PublicNearbyPlace[];
   /** `hidden` = «solo con enlace»: se marca `noindex`. */
   readonly visibility?: 'public' | 'hidden' | 'private';
@@ -84,6 +85,8 @@ export interface PublicEventDetail {
   /** Categoría activa del catálogo; `null` si no tiene o está desactivada. */
   readonly category?: { readonly slug: string; readonly name: string } | null;
   readonly tags?: readonly string[];
+  /** Texto de cada etiqueta en el idioma de la página (solo las que cambian). */
+  readonly tag_labels?: Readonly<Record<string, string>>;
   /** Plantilla propia del evento; `null` es que hereda la de su organización. */
   readonly theme?: PlantillaDeTema | null;
   readonly slug: string;

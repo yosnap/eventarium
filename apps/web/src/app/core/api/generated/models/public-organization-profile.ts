@@ -16,9 +16,15 @@ export interface PublicOrganizationProfile {
   description: (string | null);
   logo_url: (string | null);
   name: string;
+  pending_fields?: number;
   postal_code?: (string | null);
   province?: (string | null);
+  served_locale?: 'es-ES' | 'en-US';
   slug: string;
   social_links: Array<PublicSocialLink>;
+  source_locale?: 'es-ES' | 'en-US';
+  translating?: boolean;
+  translating_fields?: Array<string>;
+  up_to_date_locales?: Array<'es-ES' | 'en-US'>;
   website: (string | null);
 }

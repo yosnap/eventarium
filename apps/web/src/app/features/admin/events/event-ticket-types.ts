@@ -20,6 +20,7 @@ import { Input } from '../../../shared/ui/input';
 import { Textarea } from '../../../shared/ui/textarea';
 import { PageHeader } from '../../../shared/ui/page-header';
 import { isoAValorLocal } from './datetime-local';
+import { PestanasDeIdioma } from '../../../shared/ui/pestanas-de-idioma';
 
 type RegistrationMode = 'free' | 'approval' | 'paid';
 
@@ -72,7 +73,17 @@ function precioAEuros(cents: number): string {
 @Component({
   selector: 'app-event-ticket-types',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, DatetimePicker, Input, Textarea, PageHeader],
+  imports: [
+    PestanasDeIdioma,
+    TranslocoDirective,
+    Alert,
+    Button,
+    Card,
+    DatetimePicker,
+    Input,
+    Textarea,
+    PageHeader,
+  ],
   template: `
     <ng-container *transloco="let t">
       <app-page-header [rotulo]="t('admin.events.ticketTypes.titulo')">
@@ -156,88 +167,90 @@ function precioAEuros(cents: number): string {
             </ul>
           }
 
-          <form (submit)="guardar($event)" novalidate class="formulario">
-            <h3>
-              {{
-                editandoId()
-                  ? t('admin.events.ticketTypes.editarTipo')
-                  : t('admin.events.ticketTypes.anadirTipo')
-              }}
-            </h3>
-
-            <app-input
-              fieldId="tipo-nombre"
-              [label]="t('admin.events.ticketTypes.nombre')"
-              [required]="true"
-              [(value)]="nombre"
-            />
-            <app-textarea
-              fieldId="tipo-descripcion"
-              [label]="t('admin.events.ticketTypes.descripcion')"
-              [(value)]="descripcion"
-            />
-
-            <div class="campo-numero">
-              <label for="tipo-precio">{{ t('admin.events.ticketTypes.precio') }}</label>
-              <input
-                id="tipo-precio"
-                type="text"
-                inputmode="decimal"
-                [value]="precio()"
-                [attr.aria-describedby]="'tipo-precio-ayuda'"
-                (input)="precio.set(alTexto($event))"
-              />
-              <p id="tipo-precio-ayuda" class="ayuda">
-                {{ t('admin.events.ticketTypes.precioAyuda') }}
-              </p>
-            </div>
-
-            <div class="campo-numero">
-              <label for="tipo-cupo">{{ t('admin.events.ticketTypes.cupoMaximo') }}</label>
-              <input
-                id="tipo-cupo"
-                type="number"
-                inputmode="numeric"
-                min="1"
-                [value]="maxCantidad()"
-                [attr.aria-describedby]="'tipo-cupo-ayuda'"
-                (input)="maxCantidad.set(alTexto($event))"
-              />
-              <p id="tipo-cupo-ayuda" class="ayuda">
-                {{ t('admin.events.ticketTypes.cupoAyuda') }}
-              </p>
-            </div>
-
-            <app-datetime-picker
-              fieldId="tipo-inicio-venta"
-              [label]="t('admin.events.ticketTypes.inicioVenta')"
-              [(value)]="inicioVenta"
-            />
-            <app-datetime-picker
-              fieldId="tipo-fin-venta"
-              [label]="t('admin.events.ticketTypes.finVenta')"
-              [(value)]="finVenta"
-            />
-
-            @if (formError(); as mensaje) {
-              <app-alert tone="error">{{ mensaje }}</app-alert>
-            }
-
-            <div class="acciones-finales">
-              @if (editandoId()) {
-                <app-button variant="secundario" type="button" (pulsado)="cancelarEdicion()">
-                  {{ t('comun.cancelar') }}
-                </app-button>
-              }
-              <app-button type="submit" [loading]="guardando()">
+          <app-pestanas-de-idioma tipo="ticket_type" [entityId]="editandoId()">
+            <form (submit)="guardar($event)" novalidate class="formulario">
+              <h3>
                 {{
                   editandoId()
-                    ? t('admin.events.ticketTypes.guardarCambios')
+                    ? t('admin.events.ticketTypes.editarTipo')
                     : t('admin.events.ticketTypes.anadirTipo')
                 }}
-              </app-button>
-            </div>
-          </form>
+              </h3>
+
+              <app-input
+                fieldId="tipo-nombre"
+                [label]="t('admin.events.ticketTypes.nombre')"
+                [required]="true"
+                [(value)]="nombre"
+              />
+              <app-textarea
+                fieldId="tipo-descripcion"
+                [label]="t('admin.events.ticketTypes.descripcion')"
+                [(value)]="descripcion"
+              />
+
+              <div class="campo-numero">
+                <label for="tipo-precio">{{ t('admin.events.ticketTypes.precio') }}</label>
+                <input
+                  id="tipo-precio"
+                  type="text"
+                  inputmode="decimal"
+                  [value]="precio()"
+                  [attr.aria-describedby]="'tipo-precio-ayuda'"
+                  (input)="precio.set(alTexto($event))"
+                />
+                <p id="tipo-precio-ayuda" class="ayuda">
+                  {{ t('admin.events.ticketTypes.precioAyuda') }}
+                </p>
+              </div>
+
+              <div class="campo-numero">
+                <label for="tipo-cupo">{{ t('admin.events.ticketTypes.cupoMaximo') }}</label>
+                <input
+                  id="tipo-cupo"
+                  type="number"
+                  inputmode="numeric"
+                  min="1"
+                  [value]="maxCantidad()"
+                  [attr.aria-describedby]="'tipo-cupo-ayuda'"
+                  (input)="maxCantidad.set(alTexto($event))"
+                />
+                <p id="tipo-cupo-ayuda" class="ayuda">
+                  {{ t('admin.events.ticketTypes.cupoAyuda') }}
+                </p>
+              </div>
+
+              <app-datetime-picker
+                fieldId="tipo-inicio-venta"
+                [label]="t('admin.events.ticketTypes.inicioVenta')"
+                [(value)]="inicioVenta"
+              />
+              <app-datetime-picker
+                fieldId="tipo-fin-venta"
+                [label]="t('admin.events.ticketTypes.finVenta')"
+                [(value)]="finVenta"
+              />
+
+              @if (formError(); as mensaje) {
+                <app-alert tone="error">{{ mensaje }}</app-alert>
+              }
+
+              <div class="acciones-finales">
+                @if (editandoId()) {
+                  <app-button variant="secundario" type="button" (pulsado)="cancelarEdicion()">
+                    {{ t('comun.cancelar') }}
+                  </app-button>
+                }
+                <app-button type="submit" [loading]="guardando()">
+                  {{
+                    editandoId()
+                      ? t('admin.events.ticketTypes.guardarCambios')
+                      : t('admin.events.ticketTypes.anadirTipo')
+                  }}
+                </app-button>
+              </div>
+            </form>
+          </app-pestanas-de-idioma>
         }
       </app-card>
     </ng-container>

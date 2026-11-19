@@ -23,6 +23,7 @@ import { Textarea } from '../../../shared/ui/textarea';
 import { PageHeader } from '../../../shared/ui/page-header';
 import { capitalizarClaveDeTraduccion } from '../../../shared/text/capitalizar-clave-de-traduccion';
 import { LOGO_ACEPTADOS } from '../../../shared/uploads/image-upload-constraints';
+import { PestanasDeIdioma } from '../../../shared/ui/pestanas-de-idioma';
 
 type ContributionType = 'monetaria' | 'en_especie';
 
@@ -74,6 +75,7 @@ function vacio(): {
   selector: 'app-event-sponsors',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    PestanasDeIdioma,
     TranslocoDirective,
     Alert,
     Button,
@@ -141,78 +143,80 @@ function vacio(): {
           </ul>
         }
 
-        <form (submit)="guardar($event)" novalidate class="formulario">
-          <h3>
-            {{
-              editandoId()
-                ? t('admin.events.sponsors.editarPatrocinador')
-                : t('admin.events.sponsors.anadirPatrocinador')
-            }}
-          </h3>
-
-          <app-select
-            fieldId="patrocinador-nivel"
-            [label]="t('admin.events.sponsors.nivel')"
-            [placeholder]="t('admin.events.sponsors.elegirNivel')"
-            [options]="opcionesDeNivel()"
-            [(value)]="tierId"
-          />
-
-          <app-input
-            fieldId="patrocinador-nombre"
-            [label]="t('admin.events.sponsors.nombre')"
-            [required]="true"
-            [(value)]="nombre"
-          />
-          <app-input
-            fieldId="patrocinador-web"
-            type="url"
-            [label]="t('admin.events.sponsors.web')"
-            [(value)]="website"
-          />
-
-          <app-select
-            fieldId="patrocinador-tipo"
-            [label]="t('admin.events.sponsors.tipoAportacion')"
-            [options]="opcionesDeTipoAportacion()"
-            [value]="tipoAportacion()"
-            (valueChange)="alCambiarTipo($event)"
-          />
-
-          @if (tipoAportacion() === 'monetaria') {
-            <app-input
-              fieldId="patrocinador-importe"
-              [label]="t('admin.events.sponsors.importe')"
-              [required]="true"
-              [(value)]="importe"
-            />
-          } @else {
-            <app-textarea
-              fieldId="patrocinador-descripcion"
-              [label]="t('admin.events.sponsors.descripcionAportacion')"
-              [(value)]="descripcion"
-            />
-          }
-
-          @if (formError(); as mensaje) {
-            <app-alert tone="error">{{ mensaje }}</app-alert>
-          }
-
-          <div class="acciones-finales">
-            @if (editandoId()) {
-              <app-button variant="secundario" type="button" (pulsado)="cancelarEdicion()">
-                {{ t('admin.roles.cancelar') }}
-              </app-button>
-            }
-            <app-button type="submit" [loading]="guardando()">
+        <app-pestanas-de-idioma tipo="sponsor" [entityId]="editandoId()">
+          <form (submit)="guardar($event)" novalidate class="formulario">
+            <h3>
               {{
                 editandoId()
-                  ? t('admin.events.sponsors.guardarCambios')
+                  ? t('admin.events.sponsors.editarPatrocinador')
                   : t('admin.events.sponsors.anadirPatrocinador')
               }}
-            </app-button>
-          </div>
-        </form>
+            </h3>
+
+            <app-select
+              fieldId="patrocinador-nivel"
+              [label]="t('admin.events.sponsors.nivel')"
+              [placeholder]="t('admin.events.sponsors.elegirNivel')"
+              [options]="opcionesDeNivel()"
+              [(value)]="tierId"
+            />
+
+            <app-input
+              fieldId="patrocinador-nombre"
+              [label]="t('admin.events.sponsors.nombre')"
+              [required]="true"
+              [(value)]="nombre"
+            />
+            <app-input
+              fieldId="patrocinador-web"
+              type="url"
+              [label]="t('admin.events.sponsors.web')"
+              [(value)]="website"
+            />
+
+            <app-select
+              fieldId="patrocinador-tipo"
+              [label]="t('admin.events.sponsors.tipoAportacion')"
+              [options]="opcionesDeTipoAportacion()"
+              [value]="tipoAportacion()"
+              (valueChange)="alCambiarTipo($event)"
+            />
+
+            @if (tipoAportacion() === 'monetaria') {
+              <app-input
+                fieldId="patrocinador-importe"
+                [label]="t('admin.events.sponsors.importe')"
+                [required]="true"
+                [(value)]="importe"
+              />
+            } @else {
+              <app-textarea
+                fieldId="patrocinador-descripcion"
+                [label]="t('admin.events.sponsors.descripcionAportacion')"
+                [(value)]="descripcion"
+              />
+            }
+
+            @if (formError(); as mensaje) {
+              <app-alert tone="error">{{ mensaje }}</app-alert>
+            }
+
+            <div class="acciones-finales">
+              @if (editandoId()) {
+                <app-button variant="secundario" type="button" (pulsado)="cancelarEdicion()">
+                  {{ t('admin.roles.cancelar') }}
+                </app-button>
+              }
+              <app-button type="submit" [loading]="guardando()">
+                {{
+                  editandoId()
+                    ? t('admin.events.sponsors.guardarCambios')
+                    : t('admin.events.sponsors.anadirPatrocinador')
+                }}
+              </app-button>
+            </div>
+          </form>
+        </app-pestanas-de-idioma>
       </app-card>
     </ng-container>
   `,

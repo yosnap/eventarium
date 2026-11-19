@@ -168,7 +168,12 @@ describe('EventCategoriesPage', () => {
     botonPorTexto(raiz, 'Guardar').click();
     const peticion = http.expectOne('/api/v1/admin/event-categories/c1');
     expect(peticion.request.method).toBe('PATCH');
-    expect(peticion.request.body).toEqual({ name: 'Taller', display_order: 1, is_active: false });
+    expect(peticion.request.body).toEqual({
+      name: 'Taller',
+      display_order: 1,
+      is_active: false,
+      name_i18n: {},
+    });
     peticion.flush({ ...CATEGORIAS[0], is_active: false });
     await avanzar(fixture);
 

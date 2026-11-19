@@ -11386,6 +11386,717 @@
         }
       }
     },
+    "/api/v1/translations/published/estimate": {
+      "get": {
+        "tags": [
+          "traducciones"
+        ],
+        "summary": "Coste orientativo de traducir los eventos publicados a un idioma",
+        "operationId": "estimate_published_translation_api_v1_translations_published_estimate_get",
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "description": "Idioma de la traducción",
+              "title": "Locale"
+            },
+            "description": "Idioma de la traducción"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedTranslationEstimate"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/translations/published": {
+      "post": {
+        "tags": [
+          "traducciones"
+        ],
+        "summary": "Traducir los eventos publicados a un idioma",
+        "description": "Los encola; se traducen poco a poco, dentro de los topes de coste.",
+        "operationId": "translate_published_api_v1_translations_published_post",
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "description": "Idioma de la traducción",
+              "title": "Locale"
+            },
+            "description": "Idioma de la traducción"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedTranslationQueued"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/translations/{entity_type}/{entity_id}": {
+      "get": {
+        "tags": [
+          "traducciones"
+        ],
+        "summary": "Textos de una entidad en un idioma",
+        "operationId": "get_translations_api_v1_translations__entity_type___entity_id__get",
+        "parameters": [
+          {
+            "name": "entity_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Entity Type"
+            }
+          },
+          {
+            "name": "entity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Entity Id"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "description": "Idioma de la traducción",
+              "title": "Locale"
+            },
+            "description": "Idioma de la traducción"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationEditor"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "traducciones"
+        ],
+        "summary": "Guardar las traducciones escritas a mano",
+        "operationId": "save_translations_api_v1_translations__entity_type___entity_id__put",
+        "parameters": [
+          {
+            "name": "entity_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Entity Type"
+            }
+          },
+          {
+            "name": "entity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Entity Id"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "description": "Idioma de la traducción",
+              "title": "Locale"
+            },
+            "description": "Idioma de la traducción"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TranslationSave"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationEditor"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/translations/{entity_type}/{entity_id}/review": {
+      "post": {
+        "tags": [
+          "traducciones"
+        ],
+        "summary": "Marcar una traducción como revisada",
+        "operationId": "review_translation_api_v1_translations__entity_type___entity_id__review_post",
+        "parameters": [
+          {
+            "name": "entity_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Entity Type"
+            }
+          },
+          {
+            "name": "entity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Entity Id"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "description": "Idioma de la traducción",
+              "title": "Locale"
+            },
+            "description": "Idioma de la traducción"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TranslationReview"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationEditor"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/translations/events/{event_id}/summary": {
+      "get": {
+        "tags": [
+          "traducciones"
+        ],
+        "summary": "Cuántos textos del evento están al día en cada idioma",
+        "operationId": "event_translation_summary_api_v1_translations_events__event_id__summary_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventTranslationSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/organizations/{org_slug}/events/{slug}/translations": {
+      "post": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Pedir la traducción al vuelo de un evento",
+        "operationId": "request_event_translation_api_v1_public_organizations__org_slug__events__slug__translations_post",
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "description": "Idioma de la página",
+              "title": "Locale"
+            },
+            "description": "Idioma de la página"
+          },
+          {
+            "name": "org_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationRequestResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/organizations/{org_slug}/events/{slug}/translations/status": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Si la traducción al vuelo de un evento sigue en marcha",
+        "operationId": "event_translation_status_api_v1_public_organizations__org_slug__events__slug__translations_status_get",
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "description": "Idioma de la página",
+              "title": "Locale"
+            },
+            "description": "Idioma de la página"
+          },
+          {
+            "name": "org_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/organizations/{org_slug}/translations": {
+      "post": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Pedir la traducción al vuelo de la página de una organización",
+        "operationId": "request_organization_translation_api_v1_public_organizations__org_slug__translations_post",
+        "parameters": [
+          {
+            "name": "org_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Org Slug"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "description": "Idioma de la página",
+              "title": "Locale"
+            },
+            "description": "Idioma de la página"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationRequestResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/organizations/{org_slug}/translations/status": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Si la traducción al vuelo de una organización sigue en marcha",
+        "operationId": "organization_translation_status_api_v1_public_organizations__org_slug__translations_status_get",
+        "parameters": [
+          {
+            "name": "org_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Org Slug"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "description": "Idioma de la página",
+              "title": "Locale"
+            },
+            "description": "Idioma de la página"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/speakers/{public_slug}/translations": {
+      "post": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Pedir la traducción al vuelo del perfil de un ponente",
+        "operationId": "request_speaker_translation_api_v1_public_speakers__public_slug__translations_post",
+        "parameters": [
+          {
+            "name": "public_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Public Slug"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "description": "Idioma de la página",
+              "title": "Locale"
+            },
+            "description": "Idioma de la página"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationRequestResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/speakers/{public_slug}/translations/status": {
+      "get": {
+        "tags": [
+          "público"
+        ],
+        "summary": "Si la traducción al vuelo del perfil de un ponente sigue en marcha",
+        "operationId": "speaker_translation_status_api_v1_public_speakers__public_slug__translations_status_get",
+        "parameters": [
+          {
+            "name": "public_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Public Slug"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "description": "Idioma de la página",
+              "title": "Locale"
+            },
+            "description": "Idioma de la página"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/accounting/events/{event_id}/expense-drafts": {
       "post": {
         "tags": [
@@ -15193,6 +15904,20 @@
             "type": "boolean",
             "title": "Is Active",
             "default": true
+          },
+          "name_i18n": {
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "propertyNames": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "object",
+            "title": "Name I18N"
           }
         },
         "type": "object",
@@ -15223,6 +15948,19 @@
           "is_active": {
             "type": "boolean",
             "title": "Is Active"
+          },
+          "name_i18n": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "object",
+            "title": "Name I18N"
           }
         },
         "type": "object",
@@ -15274,6 +16012,27 @@
               }
             ],
             "title": "Is Active"
+          },
+          "name_i18n": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string",
+                  "maxLength": 80
+                },
+                "propertyNames": {
+                  "enum": [
+                    "es-ES",
+                    "en-US"
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name I18N"
           }
         },
         "type": "object",
@@ -15294,6 +16053,21 @@
             "maxLength": 200,
             "minLength": 1,
             "title": "Title"
+          },
+          "source_locale": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "es-ES",
+                  "en-US"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Locale"
           },
           "summary": {
             "anyOf": [
@@ -15564,6 +16338,15 @@
             },
             "type": "array",
             "title": "Tags"
+          },
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale",
+            "default": "es-ES"
           },
           "title": {
             "type": "string",
@@ -16085,6 +16868,15 @@
             },
             "type": "array",
             "title": "Tags"
+          },
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale",
+            "default": "es-ES"
           },
           "title": {
             "type": "string",
@@ -16850,12 +17642,58 @@
         "title": "EventSpeakersViewOut",
         "description": "Vista agregada de ponentes, con el total de sesiones del evento."
       },
+      "EventTranslationSummary": {
+        "properties": {
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale"
+          },
+          "locales": {
+            "items": {
+              "$ref": "#/components/schemas/LocaleProgress"
+            },
+            "type": "array",
+            "title": "Locales"
+          },
+          "auto_translation_available": {
+            "type": "boolean",
+            "title": "Auto Translation Available",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_locale",
+          "locales"
+        ],
+        "title": "EventTranslationSummary",
+        "description": "«Inglés: 12/14 campos al día» en la ficha del evento."
+      },
       "EventUpdate": {
         "properties": {
           "mover_sesiones": {
             "type": "boolean",
             "title": "Mover Sesiones",
             "default": false
+          },
+          "source_locale": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "es-ES",
+                  "en-US"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Locale"
           },
           "title": {
             "anyOf": [
@@ -18605,6 +19443,33 @@
         "title": "LegalPageResponse",
         "description": "Contenido efectivo (editado o de plantilla) de una página legal."
       },
+      "LocaleProgress": {
+        "properties": {
+          "locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Locale"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "up_to_date": {
+            "type": "integer",
+            "title": "Up To Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "locale",
+          "total",
+          "up_to_date"
+        ],
+        "title": "LocaleProgress"
+      },
       "LoginRequest": {
         "properties": {
           "email": {
@@ -20231,6 +21096,26 @@
           "is_active": {
             "type": "boolean",
             "title": "Is Active"
+          },
+          "content_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Content Locales"
+          },
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale",
+            "default": "es-ES"
           }
         },
         "type": "object",
@@ -20443,6 +21328,40 @@
               }
             ],
             "title": "Public Page Enabled"
+          },
+          "content_locales": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "es-ES",
+                    "en-US"
+                  ]
+                },
+                "type": "array",
+                "minItems": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Locales"
+          },
+          "source_locale": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "es-ES",
+                  "en-US"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Locale"
           }
         },
         "type": "object",
@@ -22393,6 +23312,52 @@
       },
       "PublicEventDetail": {
         "properties": {
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale",
+            "default": "es-ES"
+          },
+          "up_to_date_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Up To Date Locales"
+          },
+          "served_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Served Locale",
+            "default": "es-ES"
+          },
+          "pending_fields": {
+            "type": "integer",
+            "title": "Pending Fields",
+            "default": 0
+          },
+          "translating": {
+            "type": "boolean",
+            "title": "Translating",
+            "default": false
+          },
+          "translating_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Translating Fields"
+          },
           "slug": {
             "type": "string",
             "title": "Slug"
@@ -22416,6 +23381,13 @@
             },
             "type": "array",
             "title": "Tags"
+          },
+          "tag_labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Tag Labels"
           },
           "cancelled": {
             "type": "boolean",
@@ -22725,6 +23697,52 @@
       },
       "PublicEventPolicies": {
         "properties": {
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale",
+            "default": "es-ES"
+          },
+          "up_to_date_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Up To Date Locales"
+          },
+          "served_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Served Locale",
+            "default": "es-ES"
+          },
+          "pending_fields": {
+            "type": "integer",
+            "title": "Pending Fields",
+            "default": 0
+          },
+          "translating": {
+            "type": "boolean",
+            "title": "Translating",
+            "default": false
+          },
+          "translating_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Translating Fields"
+          },
           "organization_name": {
             "type": "string",
             "title": "Organization Name"
@@ -22735,6 +23753,20 @@
             },
             "type": "array",
             "title": "Policies"
+          },
+          "translated": {
+            "type": "boolean",
+            "title": "Translated",
+            "default": false
+          },
+          "original_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Original Locale",
+            "default": "es-ES"
           },
           "theme": {
             "anyOf": [
@@ -22880,6 +23912,52 @@
       },
       "PublicEventSummary": {
         "properties": {
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale",
+            "default": "es-ES"
+          },
+          "up_to_date_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Up To Date Locales"
+          },
+          "served_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Served Locale",
+            "default": "es-ES"
+          },
+          "pending_fields": {
+            "type": "integer",
+            "title": "Pending Fields",
+            "default": 0
+          },
+          "translating": {
+            "type": "boolean",
+            "title": "Translating",
+            "default": false
+          },
+          "translating_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Translating Fields"
+          },
           "slug": {
             "type": "string",
             "title": "Slug"
@@ -22903,6 +23981,13 @@
             },
             "type": "array",
             "title": "Tags"
+          },
+          "tag_labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Tag Labels"
           },
           "cancelled": {
             "type": "boolean",
@@ -23185,6 +24270,52 @@
       },
       "PublicOrganizationProfile": {
         "properties": {
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale",
+            "default": "es-ES"
+          },
+          "up_to_date_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Up To Date Locales"
+          },
+          "served_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Served Locale",
+            "default": "es-ES"
+          },
+          "pending_fields": {
+            "type": "integer",
+            "title": "Pending Fields",
+            "default": 0
+          },
+          "translating": {
+            "type": "boolean",
+            "title": "Translating",
+            "default": false
+          },
+          "translating_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Translating Fields"
+          },
           "slug": {
             "type": "string",
             "title": "Slug"
@@ -23447,6 +24578,52 @@
       },
       "PublicSessionDetail": {
         "properties": {
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale",
+            "default": "es-ES"
+          },
+          "up_to_date_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Up To Date Locales"
+          },
+          "served_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Served Locale",
+            "default": "es-ES"
+          },
+          "pending_fields": {
+            "type": "integer",
+            "title": "Pending Fields",
+            "default": 0
+          },
+          "translating": {
+            "type": "boolean",
+            "title": "Translating",
+            "default": false
+          },
+          "translating_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Translating Fields"
+          },
           "id": {
             "type": "string",
             "title": "Id"
@@ -23677,6 +24854,52 @@
       },
       "PublicSpeakerProfile": {
         "properties": {
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale",
+            "default": "es-ES"
+          },
+          "up_to_date_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Up To Date Locales"
+          },
+          "served_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Served Locale",
+            "default": "es-ES"
+          },
+          "pending_fields": {
+            "type": "integer",
+            "title": "Pending Fields",
+            "default": 0
+          },
+          "translating": {
+            "type": "boolean",
+            "title": "Translating",
+            "default": false
+          },
+          "translating_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Translating Fields"
+          },
           "display_name": {
             "type": "string",
             "title": "Display Name"
@@ -23782,6 +25005,52 @@
       },
       "PublicSponsorDetail": {
         "properties": {
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale",
+            "default": "es-ES"
+          },
+          "up_to_date_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Up To Date Locales"
+          },
+          "served_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Served Locale",
+            "default": "es-ES"
+          },
+          "pending_fields": {
+            "type": "integer",
+            "title": "Pending Fields",
+            "default": 0
+          },
+          "translating": {
+            "type": "boolean",
+            "title": "Translating",
+            "default": false
+          },
+          "translating_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Translating Fields"
+          },
           "id": {
             "type": "string",
             "title": "Id"
@@ -24106,6 +25375,74 @@
         ],
         "title": "PublicVenue",
         "description": "Sede tal y como se muestra en la página pública del evento, sin campos\nde auditoría (`display_order`/`geocoded_at` son detalle interno)."
+      },
+      "PublishedTranslationEstimate": {
+        "properties": {
+          "events": {
+            "type": "integer",
+            "title": "Events"
+          },
+          "texts": {
+            "type": "integer",
+            "title": "Texts"
+          },
+          "estimated_cost_usd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Cost Usd"
+          },
+          "auto_translation_available": {
+            "type": "boolean",
+            "title": "Auto Translation Available"
+          }
+        },
+        "type": "object",
+        "required": [
+          "events",
+          "texts",
+          "estimated_cost_usd",
+          "auto_translation_available"
+        ],
+        "title": "PublishedTranslationEstimate",
+        "description": "Lo que costaría traducir ahora los eventos publicados a un idioma."
+      },
+      "PublishedTranslationQueued": {
+        "properties": {
+          "events": {
+            "type": "integer",
+            "title": "Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "events"
+        ],
+        "title": "PublishedTranslationQueued"
+      },
+      "QuestionChoice": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "QuestionChoice",
+        "description": "Una opción de respuesta: `value` es el original, el que se envía y se\nguarda; `label`, el texto que se muestra en el idioma servido."
       },
       "RedireccionOut": {
         "properties": {
@@ -24711,6 +26048,20 @@
               }
             ],
             "title": "Options"
+          },
+          "choices": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/QuestionChoice"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Choices"
           },
           "sort_order": {
             "type": "integer",
@@ -27629,6 +28980,244 @@
         ],
         "title": "TokenResponse",
         "description": "Access token. El refresh viaja en una cookie `HttpOnly` y no se expone aquí."
+      },
+      "TranslationEditor": {
+        "properties": {
+          "locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Locale"
+          },
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale"
+          },
+          "locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Locales"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TranslationItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "auto_translation_available": {
+            "type": "boolean",
+            "title": "Auto Translation Available",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "locale",
+          "source_locale",
+          "locales",
+          "items"
+        ],
+        "title": "TranslationEditor",
+        "description": "Los textos de una entidad en un idioma, para su pestaña del formulario."
+      },
+      "TranslationInput": {
+        "properties": {
+          "entity_type": {
+            "type": "string",
+            "maxLength": 30,
+            "title": "Entity Type"
+          },
+          "entity_id": {
+            "type": "string",
+            "maxLength": 36,
+            "title": "Entity Id"
+          },
+          "field": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Field"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entity_type",
+          "entity_id",
+          "field"
+        ],
+        "title": "TranslationInput"
+      },
+      "TranslationItem": {
+        "properties": {
+          "entity_type": {
+            "type": "string",
+            "title": "Entity Type"
+          },
+          "entity_id": {
+            "type": "string",
+            "title": "Entity Id"
+          },
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "original": {
+            "type": "string",
+            "title": "Original"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ia",
+                  "manual",
+                  "revisada"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "al_dia",
+              "desactualizada",
+              "pendiente"
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entity_type",
+          "entity_id",
+          "field",
+          "original",
+          "status"
+        ],
+        "title": "TranslationItem",
+        "description": "Un texto traducible tal como lo ve el panel."
+      },
+      "TranslationRequestResult": {
+        "properties": {
+          "queued": {
+            "type": "boolean",
+            "title": "Queued"
+          }
+        },
+        "type": "object",
+        "required": [
+          "queued"
+        ],
+        "title": "TranslationRequestResult",
+        "description": "`queued`: hay traducción en marcha y merece la pena consultar el estado."
+      },
+      "TranslationReview": {
+        "properties": {
+          "entity_type": {
+            "type": "string",
+            "maxLength": 30,
+            "title": "Entity Type"
+          },
+          "entity_id": {
+            "type": "string",
+            "maxLength": 36,
+            "title": "Entity Id"
+          },
+          "field": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Field"
+          },
+          "original": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entity_type",
+          "entity_id",
+          "field"
+        ],
+        "title": "TranslationReview"
+      },
+      "TranslationSave": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TranslationInput"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "TranslationSave"
+      },
+      "TranslationStatus": {
+        "properties": {
+          "in_progress": {
+            "type": "boolean",
+            "title": "In Progress"
+          }
+        },
+        "type": "object",
+        "required": [
+          "in_progress"
+        ],
+        "title": "TranslationStatus"
       },
       "UserMeUpdate": {
         "properties": {

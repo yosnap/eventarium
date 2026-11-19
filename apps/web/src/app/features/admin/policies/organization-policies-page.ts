@@ -67,6 +67,7 @@ import { PolicyResponsibilityNotice } from './policy-responsibility-notice';
             @if (puedeEditar()) {
               <app-policy-editor
                 [etiqueta]="t('admin.politicas.tipos.' + politica.kind)"
+                [versionId]="politica.current?.version_id ?? null"
                 [valor]="politica.current?.content ?? ''"
                 [guardando]="guardandoTipo() === politica.kind"
                 [error]="errores()[politica.kind] ?? null"

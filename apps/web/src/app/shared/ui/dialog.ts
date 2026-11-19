@@ -34,6 +34,7 @@ import {
     <dialog
       #elemento
       [class.ancho]="tamano() === 'ancho'"
+      [attr.aria-label]="etiqueta()"
       (cancel)="cerrar()"
       (close)="procesarCierre()"
       (click)="alClic($event)"
@@ -120,6 +121,8 @@ export class Dialog {
   /** `'normal'` (por defecto): 28.75rem, el ancho de siempre. `'ancho'`:
    * 64rem, para contenido de dos columnas. */
   readonly tamano = input<'normal' | 'ancho'>('normal');
+  /** Nombre accesible del diálogo, si no lo da otro elemento. */
+  readonly etiqueta = input<string | null>(null);
 
   /** Se emite al cerrar, por cualquier vía (Escape, fondo, `cerrar()`). */
   readonly cerrado = output<void>();

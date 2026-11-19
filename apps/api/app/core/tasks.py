@@ -7,6 +7,7 @@ no puede desaparecer sin rastro.
 
 from __future__ import annotations
 
+import logging
 import uuid
 
 from taskiq import TaskiqEvents, TaskiqState
@@ -45,9 +46,15 @@ from app.modules.roles import models as _role_models  # noqa: F401
 from app.modules.sponsors import models as _sponsor_models  # noqa: F401
 from app.modules.tickets import models as _ticket_models  # noqa: F401
 from app.modules.tickets.service import adjunto_qr
+from app.modules.translations import models as _translation_models  # noqa: F401
+from app.modules.translations.cola import instalar_encolado_automatico
 from app.modules.users import models as _user_models  # noqa: F401
 
 _settings = get_settings()
+
+# El worker también guarda textos (p. ej. al cerrar procesos): sus cambios piden
+# traducción igual que los de la API.
+instalar_encolado_automatico()
 
 result_backend: RedisAsyncResultBackend[object] = RedisAsyncResultBackend(
     redis_url=_settings.redis_url,
@@ -811,6 +818,61 @@ async def purge_ai_usage_records_task() -> None:
         await ai_repository.purgar_usos_antiguos(
             session, dias=get_settings().ai_usage_retention_days
         )
+
+
+@broker.task(retry_on_error=False)
+async def traducir_contenido_task(organization_id: str, event_id: str | None, locale: str) -> None:
+    """Traduce con IA lo pendiente de un ámbito (un evento, o lo de la
+    organización si `event_id` es `None`) a un idioma.
+
+    Sin reintentos de taskiq: los decide el dominio (`error` con espera en cada
+    campo). Un reintento ciego podría gastar presupuesto de IA de más."""
+    from app.core.locale import normalizar_locale
+    from app.core.redis_client import get_redis
+    from app.modules.translations import cola
+
+    ambito = cola.Ambito(
+        uuid.UUID(organization_id),
+        uuid.UUID(event_id) if event_id else None,
+        normalizar_locale(locale),
+    )
+    try:
+        await cola.procesar(ambito)
+    finally:
+        # La web deja de esperar en cuanto termina, haya salido bien o no.
+        try:
+            await get_redis().delete(cola.marca_en_cola(ambito))
+        except Exception:
+            logging.getLogger(__name__).warning(
+                "No se ha podido borrar la marca de traducción en cola."
+            )
+
+
+@broker.task(schedule=[{"cron": "* * * * *"}])
+async def barrer_traducciones_task() -> None:
+    """Cada minuto: encola las peticiones de traducción que llevan un rato
+    quietas, con un tope por barrido para mantener un ritmo asumible."""
+    from app.modules.translations import cola
+
+    async def encolar(ambito: cola.Ambito) -> None:
+        await traducir_contenido_task.kiq(
+            str(ambito.organization_id),
+            str(ambito.event_id) if ambito.event_id else None,
+            ambito.locale,
+        )
+
+    await cola.barrer(encolar)
+
+
+@broker.task(schedule=[{"cron": "45 3 * * *"}])
+async def purge_unused_tag_translations_task() -> None:
+    """Diaria: borra las traducciones de etiquetas que ya no lleva ningún evento
+    de su organización. Las demás traducciones se borran con su fila."""
+    from app.core.database import maintenance_session
+    from app.modules.translations import service as translations_service
+
+    async with maintenance_session() as session:
+        await translations_service.borrar_etiquetas_sin_uso(session)
 
 
 @broker.task(retry_on_error=True, max_retries=5)

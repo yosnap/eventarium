@@ -17,12 +17,14 @@ from pydantic import (
     model_validator,
 )
 
+from app.core.locale import DEFAULT_LOCALE, Locale
 from app.core.mensajes import marcar
 from app.modules.events.categories import normalizar_etiquetas
 from app.modules.nearby.schemas import PublicNearbyPlace
 from app.modules.organizations.schemas import SLUG_PATTERN, PublicOrganizationRef
 from app.modules.sponsors.schemas import PublicSponsorTier
 from app.modules.theme_templates.schemas import PublicTheme, validar_theme_overrides
+from app.modules.translations.schemas import ContentLocaleInfo
 
 EventStatus = Literal["draft", "published", "archived", "cancelled"]
 # Lo que se acepta al crear o editar: `cancelled` no está porque solo se llega
@@ -108,6 +110,8 @@ class EventCategoryOut(BaseModel):
     name: str
     display_order: int
     is_active: bool
+    # Nombre en otros idiomas; uno que falte cae a `name`.
+    name_i18n: dict[Locale, str] = Field(default_factory=dict)
 
 
 class PublicCategoryRef(BaseModel):
@@ -122,6 +126,7 @@ class EventCategoryCreate(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=80)]
     display_order: Annotated[int, Field(ge=0, le=10000)] = 0
     is_active: bool = True
+    name_i18n: dict[Locale, Annotated[str, Field(max_length=80)]] = Field(default_factory=dict)
 
 
 class EventCategoryUpdate(BaseModel):
@@ -130,6 +135,7 @@ class EventCategoryUpdate(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=80)] | None = None
     display_order: Annotated[int, Field(ge=0, le=10000)] | None = None
     is_active: bool | None = None
+    name_i18n: dict[Locale, Annotated[str, Field(max_length=80)]] | None = None
 
 
 def _etiquetas_normalizadas(valor: list[str]) -> list[str]:
@@ -153,6 +159,8 @@ class EventCreate(BaseModel):
 
     slug: Annotated[str, Field(min_length=2, max_length=160, pattern=SLUG_PATTERN)]
     title: Annotated[str, Field(min_length=1, max_length=200)]
+    # Idioma en que se escribe; sin él, el de la organización.
+    source_locale: Locale | None = None
     summary: str | None = None
     description: DescripcionDeEvento | None = None
     # Id de una categoría **activa** del catálogo, o `None` (sin categoría).
@@ -207,6 +215,7 @@ class EventUpdate(BaseModel):
     # intervalo que el inicio. Sin él, si alguna quedara fuera, la API responde
     # 409 (`sesiones_fuera_de_rango`) para que el panel pregunte.
     mover_sesiones: bool = False
+    source_locale: Locale | None = None
 
     title: Annotated[str, Field(min_length=1, max_length=200)] | None = None
     summary: str | None = None
@@ -296,6 +305,7 @@ class EventResponse(BaseModel):
     # panel la muestra igualmente para no borrarla al guardar.
     category: EventCategoryOut | None = None
     tags: list[str] = Field(default_factory=list)
+    source_locale: Locale = DEFAULT_LOCALE
     title: str
     summary: str | None
     description: str | None
@@ -607,7 +617,7 @@ class PublicParticipant(BaseModel):
     ref: str
 
 
-class PublicEventSummary(BaseModel):
+class PublicEventSummary(ContentLocaleInfo):
     """Evento tal y como aparece en el listado público.
 
     `reserved_count` es el número de plazas realmente reservadas: `confirmed` +
@@ -621,6 +631,9 @@ class PublicEventSummary(BaseModel):
     organization: PublicOrganizationRef
     category: PublicCategoryRef | None = None
     tags: list[str] = Field(default_factory=list)
+    # Texto que se muestra de cada etiqueta en el idioma servido, solo de las que
+    # cambian; `tags` sigue llevando el original, que es el que filtra.
+    tag_labels: dict[str, str] = Field(default_factory=dict)
     # El evento está cancelado: en la página de su organización sigue apareciendo,
     # marcado. El directorio general no lista los cancelados.
     cancelled: bool = False
@@ -679,7 +692,7 @@ class PublicEventSession(BaseModel):
     participants: list[PublicParticipant]
 
 
-class PublicSessionDetail(PublicEventSession):
+class PublicSessionDetail(PublicEventSession, ContentLocaleInfo):
     """La misma sesión, con el enlace a su evento padre para la página propia."""
 
     event_slug: str
@@ -704,7 +717,7 @@ class PublicVenue(BaseModel):
     longitude: float | None
 
 
-class PublicEventDetail(BaseModel):
+class PublicEventDetail(ContentLocaleInfo):
     """Evento publicado con su agenda completa, para la página pública de detalle.
 
     También sirve a un evento cancelado, que sigue visible con su aviso:
@@ -715,6 +728,9 @@ class PublicEventDetail(BaseModel):
     organization: PublicOrganizationRef
     category: PublicCategoryRef | None = None
     tags: list[str] = Field(default_factory=list)
+    # Texto que se muestra de cada etiqueta en el idioma servido, solo de las que
+    # cambian; `tags` sigue llevando el original, que es el que filtra.
+    tag_labels: dict[str, str] = Field(default_factory=dict)
     cancelled: bool = False
     cancellation_reason: str | None = None
     # `hidden` = «solo con enlace»: la web lo marca `noindex` en todas sus páginas.

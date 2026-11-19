@@ -24,6 +24,7 @@ import {
   type RegistrationQuestionResponse,
   type RegistrationQuestionType,
 } from './registration-types';
+import { PestanasDeIdioma } from '../../../shared/ui/pestanas-de-idioma';
 
 const TIPOS_DISPONIBLES: readonly RegistrationQuestionType[] = [
   'short_text',
@@ -49,7 +50,17 @@ function vacio(): {
 @Component({
   selector: 'app-registration-questions',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, NgTemplateOutlet, Alert, Button, Card, Checkbox, Input, Select],
+  imports: [
+    PestanasDeIdioma,
+    TranslocoDirective,
+    NgTemplateOutlet,
+    Alert,
+    Button,
+    Card,
+    Checkbox,
+    Input,
+    Select,
+  ],
   template: `
     <ng-container *transloco="let t">
       <app-card [heading]="t('admin.events.registrationQuestions.titulo')">
@@ -139,69 +150,71 @@ function vacio(): {
       </app-card>
 
       <ng-template #formulario let-idEnEdicion>
-        <form (submit)="guardar($event, idEnEdicion)" novalidate class="formulario">
-          <h3>
-            {{
-              idEnEdicion
-                ? t('admin.events.registrationQuestions.editarPregunta')
-                : t('admin.events.registrationQuestions.anadirPregunta')
-            }}
-          </h3>
-
-          <app-select
-            [fieldId]="'pregunta-tipo-' + (idEnEdicion ?? 'nueva')"
-            [label]="t('admin.events.registrationQuestions.tipo')"
-            [options]="opcionesDeTipo()"
-            [(value)]="tipo"
-          />
-
-          <app-input
-            [fieldId]="'pregunta-etiqueta-' + (idEnEdicion ?? 'nueva')"
-            [label]="t('admin.events.registrationQuestions.etiqueta')"
-            [required]="true"
-            [(value)]="etiqueta"
-          />
-
-          <app-checkbox
-            [label]="t('admin.events.registrationQuestions.obligatoria')"
-            [checked]="obligatoria()"
-            (checkedChange)="alCambiarObligatoria($event)"
-          />
-
-          @if (tipo() !== 'short_text') {
-            <div class="campo-materiales">
-              <label [for]="'pregunta-opciones-' + (idEnEdicion ?? 'nueva')">
-                {{ t('admin.events.registrationQuestions.opciones') }}
-              </label>
-              <textarea
-                [id]="'pregunta-opciones-' + (idEnEdicion ?? 'nueva')"
-                rows="4"
-                [value]="opciones()"
-                (input)="opciones.set(alTextarea($event))"
-              ></textarea>
-              <p class="ayuda">{{ t('admin.events.registrationQuestions.opcionesAyuda') }}</p>
-            </div>
-          }
-
-          @if (formError(); as mensaje) {
-            <app-alert tone="error">{{ mensaje }}</app-alert>
-          }
-
-          <div class="acciones-finales">
-            @if (idEnEdicion) {
-              <app-button variant="secundario" type="button" (pulsado)="cancelarEdicion()">
-                {{ t('comun.cancelar') }}
-              </app-button>
-            }
-            <app-button type="submit" [loading]="guardando()">
+        <app-pestanas-de-idioma tipo="question" [entityId]="editandoId()">
+          <form (submit)="guardar($event, idEnEdicion)" novalidate class="formulario">
+            <h3>
               {{
                 idEnEdicion
-                  ? t('admin.events.registrationQuestions.guardarCambios')
-                  : t('admin.events.registrationQuestions.anadir')
+                  ? t('admin.events.registrationQuestions.editarPregunta')
+                  : t('admin.events.registrationQuestions.anadirPregunta')
               }}
-            </app-button>
-          </div>
-        </form>
+            </h3>
+
+            <app-select
+              [fieldId]="'pregunta-tipo-' + (idEnEdicion ?? 'nueva')"
+              [label]="t('admin.events.registrationQuestions.tipo')"
+              [options]="opcionesDeTipo()"
+              [(value)]="tipo"
+            />
+
+            <app-input
+              [fieldId]="'pregunta-etiqueta-' + (idEnEdicion ?? 'nueva')"
+              [label]="t('admin.events.registrationQuestions.etiqueta')"
+              [required]="true"
+              [(value)]="etiqueta"
+            />
+
+            <app-checkbox
+              [label]="t('admin.events.registrationQuestions.obligatoria')"
+              [checked]="obligatoria()"
+              (checkedChange)="alCambiarObligatoria($event)"
+            />
+
+            @if (tipo() !== 'short_text') {
+              <div class="campo-materiales">
+                <label [for]="'pregunta-opciones-' + (idEnEdicion ?? 'nueva')">
+                  {{ t('admin.events.registrationQuestions.opciones') }}
+                </label>
+                <textarea
+                  [id]="'pregunta-opciones-' + (idEnEdicion ?? 'nueva')"
+                  rows="4"
+                  [value]="opciones()"
+                  (input)="opciones.set(alTextarea($event))"
+                ></textarea>
+                <p class="ayuda">{{ t('admin.events.registrationQuestions.opcionesAyuda') }}</p>
+              </div>
+            }
+
+            @if (formError(); as mensaje) {
+              <app-alert tone="error">{{ mensaje }}</app-alert>
+            }
+
+            <div class="acciones-finales">
+              @if (idEnEdicion) {
+                <app-button variant="secundario" type="button" (pulsado)="cancelarEdicion()">
+                  {{ t('comun.cancelar') }}
+                </app-button>
+              }
+              <app-button type="submit" [loading]="guardando()">
+                {{
+                  idEnEdicion
+                    ? t('admin.events.registrationQuestions.guardarCambios')
+                    : t('admin.events.registrationQuestions.anadir')
+                }}
+              </app-button>
+            </div>
+          </form>
+        </app-pestanas-de-idioma>
       </ng-template>
     </ng-container>
   `,

@@ -23,18 +23,27 @@ export interface PublicEventSummary {
   location_mode: 'in_person' | 'online' | 'hybrid';
   location_name: (string | null);
   organization: PublicOrganizationRef;
+  pending_fields?: number;
   price_currency: (string | null);
   price_from_cents: (number | null);
   price_multiple: boolean;
   registration_mode: 'free' | 'approval' | 'paid';
   registration_opens_at: (string | null);
   reserved_count: number;
+  served_locale?: 'es-ES' | 'en-US';
   slug: string;
+  source_locale?: 'es-ES' | 'en-US';
   starts_at: string;
   summary: (string | null);
+  tag_labels?: {
+[key: string]: string;
+};
   tags?: Array<string>;
   ticket_sales?: ('open' | 'upcoming' | 'closed' | null);
   ticket_sales_opens_at?: (string | null);
   timezone: string;
   title: string;
+  translating?: boolean;
+  translating_fields?: Array<string>;
+  up_to_date_locales?: Array<'es-ES' | 'en-US'>;
 }

@@ -46,6 +46,8 @@ interface PublicEventSummary {
   readonly organization: OrganizacionPublica;
   readonly category?: CategoriaPublica | null;
   readonly tags?: readonly string[];
+  /** Texto de cada etiqueta en el idioma de la página (solo las que cambian). */
+  readonly tag_labels?: Readonly<Record<string, string>>;
   readonly slug: string;
   readonly title: string;
   readonly summary: string | null;
@@ -356,7 +358,9 @@ function normalizarCiudad(ciudad: string): string {
                             etiqueta of evento.tags.slice(0, etiquetasEnTarjeta);
                             track etiqueta
                           ) {
-                            <span class="ev-etiqueta">#{{ etiqueta }}</span>
+                            <span class="ev-etiqueta"
+                              >#{{ evento.tag_labels?.[etiqueta] ?? etiqueta }}</span
+                            >
                           }
                           @if (evento.tags.length > etiquetasEnTarjeta) {
                             <span class="ev-etiqueta">

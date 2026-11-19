@@ -37,6 +37,7 @@ from app.modules.media import service as media_service
 from app.modules.media.models import Media
 from app.modules.organizations import repository as organizations_repository
 from app.modules.organizations import service as organizations_service
+from app.modules.organizations.models import Organization
 from app.modules.organizations.schemas import PublicOrganizationRef
 from app.modules.payments import repository as payments_repository
 from app.modules.payments import service as payments_service
@@ -166,6 +167,11 @@ async def _sincronizar_geocodificacion_evento(
     evento.latitude, evento.longitude, evento.geocoded_at = resultado
 
 
+def _validar_idioma_de_origen(organizacion: Organization, idioma: str) -> None:
+    if idioma not in (organizacion.content_locales or []):
+        raise ValidationDomainError("La organización no publica en ese idioma.")
+
+
 async def create_event(
     session: AsyncSession, *, organization_id: uuid.UUID, datos: dict[str, Any]
 ) -> Event:
@@ -185,6 +191,15 @@ async def create_event(
             **datos,
             "reminder_hours_before": 48 if datos.get("registration_mode") == "paid" else 24,
         }
+    organizacion = await session.get(Organization, organization_id)
+    if datos.get("source_locale") is None:
+        # El evento se escribe, por defecto, en el idioma de su organización.
+        datos = {
+            **datos,
+            "source_locale": organizacion.source_locale if organizacion else "es-ES",
+        }
+    elif organizacion is not None:
+        _validar_idioma_de_origen(organizacion, datos["source_locale"])
     evento = Event(organization_id=organization_id, **datos)
     try:
         # Punto de guardado: tras un `IntegrityError` la transacción sigue
@@ -361,6 +376,13 @@ async def update_event(
         raise NotFoundError("El evento no existe.")
     if evento.status == "cancelled":
         raise ValidationDomainError("Un evento cancelado no puede volver a editarse.")
+    if "source_locale" in datos:
+        if datos["source_locale"] is None:
+            datos.pop("source_locale")
+        else:
+            organizacion = await session.get(Organization, organization_id)
+            if organizacion is not None:
+                _validar_idioma_de_origen(organizacion, datos["source_locale"])
 
     nuevo_slug = datos.get("slug")
     if nuevo_slug is not None and nuevo_slug != evento.slug:

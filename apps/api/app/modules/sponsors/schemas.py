@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field, model_validator
 from app.core.mensajes import ErrorDeValidacion, marcar
 from app.modules.organizations.schemas import PublicOrganizationRef
 from app.modules.theme_templates.schemas import PublicTheme
+from app.modules.translations.schemas import ContentLocaleInfo
 
 LogoSize = Literal["large", "medium", "small"]
 ContributionType = Literal["monetaria", "en_especie"]
@@ -189,7 +190,7 @@ class PublicSponsorHistoryItem(BaseModel):
     tier_name: str
 
 
-class PublicSponsorDetail(BaseModel):
+class PublicSponsorDetail(ContentLocaleInfo):
     """Ficha pública de un patrocinador concreto."""
 
     id: str

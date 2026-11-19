@@ -23,6 +23,14 @@ RegistrationStatus = Literal[
 RegistrationQuestionType = Literal["short_text", "single_choice", "multiple_choice"]
 
 
+class QuestionChoice(BaseModel):
+    """Una opción de respuesta: `value` es el original, el que se envía y se
+    guarda; `label`, el texto que se muestra en el idioma servido."""
+
+    value: str
+    label: str
+
+
 class RegistrationQuestionPublic(BaseModel):
     """Pregunta personalizada tal como la ve el formulario público."""
 
@@ -31,7 +39,10 @@ class RegistrationQuestionPublic(BaseModel):
     type: str
     label: str
     required: bool
+    # Valores originales, los que valida la inscripción.
     options: list[str] | None = None
+    # Las mismas opciones con su texto en el idioma servido.
+    choices: list[QuestionChoice] | None = None
     sort_order: int
 
 

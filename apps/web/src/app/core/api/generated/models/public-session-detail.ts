@@ -20,12 +20,18 @@ export interface PublicSessionDetail {
 }>;
   organization: PublicOrganizationRef;
   participants: Array<PublicParticipant>;
+  pending_fields?: number;
   room: (string | null);
+  served_locale?: 'es-ES' | 'en-US';
   session_type: string;
+  source_locale?: 'es-ES' | 'en-US';
   starts_at: string;
   theme?: (PublicTheme | null);
   title: string;
+  translating?: boolean;
+  translating_fields?: Array<string>;
   type: SessionTypeRef;
+  up_to_date_locales?: Array<'es-ES' | 'en-US'>;
   venue_id: (string | null);
   video_platform: ('youtube' | 'vimeo' | 'twitch' | 'other' | null);
   video_url: (string | null);

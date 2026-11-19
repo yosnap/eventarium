@@ -17,6 +17,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request, status
 
 from app.core.deps import SessionDep, VerifiedUserDep, get_token_claims
+from app.core.locale import idioma_actual
 from app.core.mensajes import marcar, t
 from app.core.ratelimit import (
     CANCELACION_INSCRIPCION_POR_IP,
@@ -46,12 +47,14 @@ from app.modules.registrations.schemas import (
     MisEventosSolicitarRequest,
     MisEventosVerRequest,
     MyRegistrationsResponse,
+    QuestionChoice,
     RegistrationMessageResponse,
     RegistrationQuestionPublic,
     SubmitRegistrationRequest,
     VerifyRegistrationRequest,
     VerifyRegistrationResponse,
 )
+from app.modules.translations.service import traductor_de_evento
 from app.shared.errors import ConflictError, PermissionDeniedError
 
 router = APIRouter(prefix="/public", tags=["público"])
@@ -79,17 +82,26 @@ async def list_registration_questions(
     session: SessionDep,
 ) -> list[RegistrationQuestionPublic]:
     preguntas = await repository.get_questions(session, evento.organization_id, evento.id)
-    return [
-        RegistrationQuestionPublic(
-            id=str(pregunta.id),
-            type=pregunta.type,
-            label=pregunta.label,
-            required=pregunta.required,
-            options=pregunta.options,
-            sort_order=pregunta.sort_order,
+    tr = await traductor_de_evento(session, evento, idioma_actual())
+    respuesta: list[RegistrationQuestionPublic] = []
+    for pregunta in preguntas:
+        opciones = tr.opciones(pregunta.id, pregunta.options)
+        respuesta.append(
+            RegistrationQuestionPublic(
+                id=str(pregunta.id),
+                type=pregunta.type,
+                label=tr.campo("question", pregunta.id, "label", pregunta.label) or pregunta.label,
+                required=pregunta.required,
+                options=pregunta.options,
+                choices=(
+                    [QuestionChoice(value=valor, label=texto) for valor, texto in opciones]
+                    if opciones is not None
+                    else None
+                ),
+                sort_order=pregunta.sort_order,
+            )
         )
-        for pregunta in preguntas
-    ]
+    return respuesta
 
 
 @ruta_de_evento(

@@ -26,6 +26,13 @@ import { Breadcrumb, type BreadcrumbItem } from '../../../shared/ui/breadcrumb';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 import { rolLegible } from './event-page.types';
 import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
+import {
+  IdiomasDeLaRespuesta,
+  idiomasDeLaRespuesta,
+} from '../../../core/seo/indexacion-por-idioma';
+import { AvisoContenidoOriginal } from '../../../shared/ui/aviso-contenido-original';
+import { traduccionEnVivo } from '../../../core/traducciones/traduccion-en-vivo';
+import { EnTraduccion } from '../../../shared/ui/esqueleto';
 
 interface SocialLink {
   readonly kind: string;
@@ -42,7 +49,7 @@ interface HistoryItem {
   readonly role_key: string;
 }
 
-interface PublicSpeakerProfile {
+interface PublicSpeakerProfile extends IdiomasDeLaRespuesta {
   readonly display_name: string;
   readonly public_slug: string;
   readonly fields: Record<string, string>;
@@ -95,7 +102,16 @@ function etiquetaEnlace(kind: string, traducir: (clave: string) => string): stri
 @Component({
   selector: 'app-speaker-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [EnlacePipe, RouterLink, TranslocoDirective, Alert, Breadcrumb, Reveal],
+  imports: [
+    EnTraduccion,
+    AvisoContenidoOriginal,
+    EnlacePipe,
+    RouterLink,
+    TranslocoDirective,
+    Alert,
+    Breadcrumb,
+    Reveal,
+  ],
   template: `
     <ng-container *transloco="let t">
       @if (cargando()) {
@@ -114,6 +130,9 @@ function etiquetaEnlace(kind: string, traducir: (clave: string) => string): stri
                 <div class="mono-mark" aria-hidden="true">{{ iniciales(perfil.display_name) }}</div>
                 <div>
                   <h1>{{ perfil.display_name }}</h1>
+                  @if (!traduccion.activa()) {
+                    <app-aviso-contenido-original [servido]="perfil.served_locale" />
+                  }
                   @if (perfil.fields['titular']; as titular) {
                     <p class="titular">{{ titular }}</p>
                   }
@@ -182,7 +201,13 @@ function etiquetaEnlace(kind: string, traducir: (clave: string) => string): stri
           @if (perfil.fields['bio']; as bio) {
             <section appReveal>
               <h2>{{ t('publico.ponentes.bio') }}</h2>
-              <p class="prosa">{{ bio }}</p>
+              <app-en-traduccion
+                [traduciendo]="traduccion.bloque('bio')"
+                [anunciar]="true"
+                [lineas]="4"
+              >
+                <p class="prosa">{{ bio }}</p>
+              </app-en-traduccion>
             </section>
           }
 
@@ -466,6 +491,13 @@ export class SpeakerPage implements OnInit {
   private readonly transloco = inject(TranslocoService);
 
   protected readonly perfil = signal<PublicSpeakerProfile | null>(null);
+  /** Mientras la IA traduce lo pendiente: esqueleto en vez del original. */
+  protected readonly traduccion = traduccionEnVivo({
+    ruta: () => `/public/speakers/${this.publicSlug()}`,
+    pendiente: () => this.perfil()?.translating ?? false,
+    campos: () => this.perfil()?.translating_fields ?? [],
+    recargar: () => this.cargar(true),
+  });
   protected readonly cargando = signal(true);
   protected readonly noEncontrado = signal(false);
 
@@ -550,7 +582,8 @@ export class SpeakerPage implements OnInit {
     return futuras[0] ?? null;
   }
 
-  private async cargar(): Promise<void> {
+  /** `silencioso`: recarga tras traducir; si falla, se queda lo que ya se ve. */
+  private async cargar(silencioso = false): Promise<void> {
     const clave = makeStateKey<PublicSpeakerProfile>(`public-speaker:${this.publicSlug()}`);
     const transferido = this.transferState.get(clave, null);
     if (transferido) {
@@ -571,6 +604,9 @@ export class SpeakerPage implements OnInit {
         this.transferState.set(clave, perfil);
       }
     } catch (error) {
+      if (silencioso) {
+        return;
+      }
       if (error instanceof ApiError && error.status === 404) {
         this.noEncontrado.set(true);
         this.notFound.mark();
@@ -586,6 +622,7 @@ export class SpeakerPage implements OnInit {
     this.perfil.set(perfil);
     this.seo.set({
       contenidoDelOrganizador: true,
+      ...idiomasDeLaRespuesta(perfil),
       title: perfil.display_name,
       description: perfil.fields['bio'] ?? this.transloco.translate('publico.eventos.sinResumen'),
     });

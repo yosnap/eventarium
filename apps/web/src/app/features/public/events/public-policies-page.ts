@@ -25,6 +25,8 @@ import { seoDePagina } from '../../../core/seo/meta.service';
 import { MarkdownSeguro } from '../../../shared/legal/markdown-seguro';
 import { Alert } from '../../../shared/ui/alert';
 import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
+import { esIdioma, urlEnIdioma } from '../../../core/i18n/idioma';
+import { urlActual } from '../../../core/i18n/url-actual';
 
 /**
  * Políticas y condiciones de un evento, tal como las fija su organizador.
@@ -74,6 +76,14 @@ import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
                 <app-markdown-seguro [texto]="politica.content" />
               </section>
             }
+            @if (d.translated && enlaceAlOriginal(); as enlace) {
+              <p class="nota-traduccion" role="note">
+                {{ t('publico.politicas.traduccionOrientativa') }}
+                <a [href]="enlace" [attr.hreflang]="d.original_locale">{{
+                  t('publico.politicas.verOriginal')
+                }}</a>
+              </p>
+            }
             <p class="pie">
               {{ t('publico.politicas.pie', { organizacion: d.organization_name }) }}
             </p>
@@ -105,6 +115,11 @@ import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
     .pie {
       margin-top: var(--space-lg);
     }
+    .nota-traduccion {
+      margin-top: var(--space-lg);
+      color: var(--muted);
+      font-size: var(--fs-sm);
+    }
   `,
 })
 export class PublicPoliciesPage implements OnInit {
@@ -120,6 +135,12 @@ export class PublicPoliciesPage implements OnInit {
   private readonly transloco = inject(TranslocoService);
 
   protected readonly rutaAlEvento = computed(() => rutaEvento(this.org(), this.slug()));
+  private readonly urlDeLaPagina = urlActual();
+  /** La misma página en el idioma de los originales, que son los que valen. */
+  protected readonly enlaceAlOriginal = computed(() => {
+    const original = this.datos()?.original_locale;
+    return esIdioma(original) ? urlEnIdioma(this.urlDeLaPagina(), original) : null;
+  });
   protected readonly datos = signal<PoliticasPublicas | null>(null);
   protected readonly cargando = signal(true);
   protected readonly error = signal(false);

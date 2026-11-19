@@ -4,9 +4,11 @@ titular o quien gestiona miembros y podría conceder ese rol."""
 from __future__ import annotations
 
 from httpx import AsyncClient
-from sqlalchemy import text
+from sqlalchemy import func, select, text
 
 from app.core.database import SessionMaintenance
+from app.modules.translations.campos import huella
+from app.modules.translations.models import ContentTranslation
 from tests.conftest import (
     OrganizacionDePrueba,
     crear_miembro,
@@ -210,3 +212,46 @@ async def test_un_correo_de_contacto_tiene_tope(
 
     assert respuesta.status_code == 422
     assert "254" in respuesta.text
+
+
+async def test_vaciar_un_campo_de_la_ficha_borra_su_traduccion(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    ponente = await crear_miembro(organizacion, "speaker")
+    _, cabeceras = await iniciar_sesion_con(cliente, organizacion, ponente.email, ponente.password)
+    titular = "Investigadora"
+    await cliente.patch(
+        _url(ponente.member_id),
+        headers=cabeceras,
+        json={"profile_data": {"bio": BIO, "titular": titular}},
+    )
+    async with SessionMaintenance() as session, session.begin():
+        session.add(
+            ContentTranslation(
+                organization_id=organizacion.id,
+                event_id=None,
+                entity_type="member_profile",
+                entity_id=ponente.member_id,
+                field="titular",
+                locale="en-US",
+                value="Researcher",
+                origin="manual",
+                status="al_dia",
+                source_hash=huella(titular),
+            )
+        )
+
+    vaciada = await cliente.patch(
+        _url(ponente.member_id),
+        headers=cabeceras,
+        json={"profile_data": {"bio": BIO, "titular": ""}},
+    )
+
+    assert vaciada.status_code == 200, vaciada.text
+    async with SessionMaintenance() as session:
+        quedan = await session.scalar(
+            select(func.count())
+            .select_from(ContentTranslation)
+            .where(ContentTranslation.entity_id == ponente.member_id)
+        )
+    assert quedan == 0

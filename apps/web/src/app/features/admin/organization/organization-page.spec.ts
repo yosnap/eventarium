@@ -52,7 +52,14 @@ describe('OrganizationPage', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
-        { provide: ThemingService, useValue: { load: vi.fn().mockResolvedValue(undefined) } },
+        {
+          provide: ThemingService,
+          useValue: {
+            load: vi.fn().mockResolvedValue(undefined),
+            plataforma: () => null,
+            idiomasActivos: () => ['es-ES'],
+          },
+        },
       ],
     });
     http = TestBed.inject(HttpTestingController);

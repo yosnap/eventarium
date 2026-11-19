@@ -116,7 +116,10 @@ test.describe('Invitaciones a ponentes en el móvil', () => {
     await expect(page.getByText('¡Ya formas parte del equipo!')).toBeVisible();
 
     await page.goto(`/dashboard/events/${eventoId}/ponentes`);
-    await expect(page.getByText(ponente), 'el ponente aceptando aparece en el roster').toBeVisible();
+    await expect(
+      page.getByText(ponente),
+      'el ponente aceptando aparece en el roster',
+    ).toBeVisible();
   });
 
   test('la navegación se repliega al pulsar un enlace', async ({ page }) => {

@@ -5,5 +5,8 @@ export interface EventCategoryCreate {
   display_order?: number;
   is_active?: boolean;
   name: string;
+  name_i18n?: {
+[key: string]: string;
+};
   slug: string;
 }
