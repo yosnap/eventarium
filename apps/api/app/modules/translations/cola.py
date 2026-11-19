@@ -53,7 +53,13 @@ from app.modules.policies.models import OrganizationPolicyVersion
 from app.modules.registrations.models import EventRegistrationQuestion
 from app.modules.sponsors.models import Sponsor, SponsorTier
 from app.modules.translations import ia, panel
-from app.modules.translations.campos import CAMPOS, TIPOS_DE_ORGANIZACION, TipoDeEntidad, huella
+from app.modules.translations.campos import (
+    CAMPOS,
+    CARACTERES_MAXIMOS_IA,
+    TIPOS_DE_ORGANIZACION,
+    TipoDeEntidad,
+    huella,
+)
 from app.modules.translations.models import ContentTranslation, TranslationRequest
 from app.modules.translations.service import idiomas_de_contenido
 
@@ -67,9 +73,6 @@ DEBOUNCE = timedelta(seconds=60)
 PETICIONES_POR_BARRIDO = 20
 #: Y como mucho tantas de una misma organización: ninguna acapara la cola.
 PETICIONES_POR_ORGANIZACION = 2
-#: Textos más largos que esto no se traducen con IA (la salida no cabría en una
-#: respuesta y se pagaría cada intento fallido): quedan para traducción manual.
-CARACTERES_MAXIMOS_IA = 20_000
 #: Tipos que van en su propio lote, uno por entidad: los escribe otra persona
 #: (la biografía, el propio ponente) o tienen efecto legal (las políticas), y no
 #: deben compartir llamada con el resto para que un texto no altere a otro.
@@ -403,7 +406,9 @@ async def pendientes(
         if clave in vistos:
             continue
         vistos.add(clave)
-        if _necesita(existentes.get((*clave, ambito.locale)), campo.original, ahora):
+        if len(campo.original) <= CARACTERES_MAXIMOS_IA and _necesita(
+            existentes.get((*clave, ambito.locale)), campo.original, ahora
+        ):
             resultado.append((campo, entidad.origen_de(campo)))
     return resultado
 
@@ -526,7 +531,7 @@ async def _volver_a_pedir_si_queda_algo(ambito: Ambito) -> None:
         await set_organization_context(session, ambito.organization_id)
         organizacion = await session.get(Organization, ambito.organization_id)
         quedan = await pendientes(session, organizacion, ambito) if organizacion is not None else []
-    if any(len(campo.original) <= CARACTERES_MAXIMOS_IA for campo, _ in quedan):
+    if quedan:
         await pedir(ambito.organization_id, ambito.event_id, [ambito.locale])
 
 

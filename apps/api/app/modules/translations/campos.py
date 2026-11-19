@@ -84,6 +84,10 @@ TRANSICIONES: Final[dict[Estado, frozenset[Estado]]] = {
 ORIGENES_PROTEGIDOS: Final[frozenset[Origen]] = frozenset({"manual", "revisada"})
 
 
+#: Textos más largos que esto no se traducen con IA (la salida no cabría en una
+#: respuesta y se pagaría cada intento fallido): quedan para traducción manual.
+CARACTERES_MAXIMOS_IA: Final = 20_000
+
 #: Las opciones de una pregunta se traducen una a una: `option:<valor original>`.
 PREFIJO_OPCION: Final = "option:"
 

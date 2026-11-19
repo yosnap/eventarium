@@ -35,6 +35,7 @@ CAMPOS_PUBLICOS = {
     "served_locale",
     "pending_fields",
     "translating",
+    "translating_fields",
 }
 
 
