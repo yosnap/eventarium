@@ -46,7 +46,23 @@ export function pseudoTraduccion(traduccion: Translation): Translation {
   );
 }
 
-/** Solo en el navegador y con `?pseudo` en la URL. Quien llama lo limita a desarrollo. */
+/** Clave de `localStorage` con la que los e2e piden el pseudo-idioma en todas las páginas. */
+export const CLAVE_PSEUDO_IDIOMA = 'eventarium-pseudo-idioma';
+
+/**
+ * Solo en el navegador, con `?pseudo` en la URL o la clave de `localStorage`
+ * (la fijan los e2e con `E2E_PSEUDO=1`). Quien llama lo limita a desarrollo.
+ */
 export function pseudoIdiomaPedido(): boolean {
-  return typeof location !== 'undefined' && new URLSearchParams(location.search).has('pseudo');
+  if (typeof location === 'undefined') {
+    return false;
+  }
+  if (new URLSearchParams(location.search).has('pseudo')) {
+    return true;
+  }
+  try {
+    return localStorage.getItem(CLAVE_PSEUDO_IDIOMA) === '1';
+  } catch {
+    return false;
+  }
 }

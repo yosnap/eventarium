@@ -1,5 +1,14 @@
 import { defineConfig } from '@playwright/test';
 
+const BASE_URL = process.env['E2E_BASE_URL'] ?? 'http://localhost:4200';
+
+/**
+ * `E2E_PSEUDO=1` pasa toda la interfaz al pseudo-idioma (textos un 40 % más
+ * largos) para que los tests de desbordamiento lo comprueben con textos largos.
+ * La clave es la de `core/i18n/pseudo-idioma.ts`.
+ */
+const PSEUDO = process.env['E2E_PSEUDO'] === '1';
+
 /**
  * Pruebas e2e contra el entorno de desarrollo ya levantado (`make dev`):
  * frontend en 4200 con su proxy a la API, Mailpit en 8025 y los datos de
@@ -13,8 +22,19 @@ export default defineConfig({
   workers: 1,
   reporter: [['list']],
   use: {
-    baseURL: process.env['E2E_BASE_URL'] ?? 'http://localhost:4200',
+    baseURL: BASE_URL,
     trace: 'retain-on-failure',
+    ...(PSEUDO && {
+      storageState: {
+        cookies: [],
+        origins: [
+          {
+            origin: new URL(BASE_URL).origin,
+            localStorage: [{ name: 'eventarium-pseudo-idioma', value: '1' }],
+          },
+        ],
+      },
+    }),
   },
   projects: [
     {
