@@ -354,6 +354,9 @@ async def test_el_bloqueo_no_se_retiene_durante_la_llamada_de_red(
     total está mucho más cerca de una sola llamada que de dos encadenadas.
     """
     await configurar_plataforma()
+    # La primera llamada del proceso carga LiteLLM (varias décimas de segundo):
+    # se hace antes de medir para que el tiempo solo cuente las dos llamadas.
+    await _completar(organizacion)
     proveedor_simulado.retardo_s = 0.4
 
     arranque = time.monotonic()
