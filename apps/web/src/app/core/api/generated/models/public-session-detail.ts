@@ -29,6 +29,7 @@ export interface PublicSessionDetail {
   theme?: (PublicTheme | null);
   title: string;
   translating?: boolean;
+  translating_fields?: Array<string>;
   type: SessionTypeRef;
   up_to_date_locales?: Array<'es-ES' | 'en-US'>;
   venue_id: (string | null);

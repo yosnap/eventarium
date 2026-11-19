@@ -17,5 +17,6 @@ export interface PublicEventPolicies {
   theme?: (PublicTheme | null);
   translated?: boolean;
   translating?: boolean;
+  translating_fields?: Array<string>;
   up_to_date_locales?: Array<'es-ES' | 'en-US'>;
 }

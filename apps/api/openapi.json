@@ -23351,6 +23351,13 @@
             "title": "Translating",
             "default": false
           },
+          "translating_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Translating Fields"
+          },
           "slug": {
             "type": "string",
             "title": "Slug"
@@ -23729,6 +23736,13 @@
             "title": "Translating",
             "default": false
           },
+          "translating_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Translating Fields"
+          },
           "organization_name": {
             "type": "string",
             "title": "Organization Name"
@@ -23936,6 +23950,13 @@
             "type": "boolean",
             "title": "Translating",
             "default": false
+          },
+          "translating_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Translating Fields"
           },
           "slug": {
             "type": "string",
@@ -24288,6 +24309,13 @@
             "title": "Translating",
             "default": false
           },
+          "translating_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Translating Fields"
+          },
           "slug": {
             "type": "string",
             "title": "Slug"
@@ -24589,6 +24617,13 @@
             "title": "Translating",
             "default": false
           },
+          "translating_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Translating Fields"
+          },
           "id": {
             "type": "string",
             "title": "Id"
@@ -24858,6 +24893,13 @@
             "title": "Translating",
             "default": false
           },
+          "translating_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Translating Fields"
+          },
           "display_name": {
             "type": "string",
             "title": "Display Name"
@@ -25001,6 +25043,13 @@
             "type": "boolean",
             "title": "Translating",
             "default": false
+          },
+          "translating_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Translating Fields"
           },
           "id": {
             "type": "string",
