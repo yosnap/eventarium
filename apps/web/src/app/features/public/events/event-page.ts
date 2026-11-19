@@ -46,6 +46,8 @@ import { EventNearbySection } from './sections/event-nearby-section';
 import { AvisoVentaEntradas, avisoDeVenta } from './aviso-venta-entradas';
 import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
 import { IdiomaService } from '../../../core/i18n/idioma.service';
+import { idiomasDeLaRespuesta } from '../../../core/seo/indexacion-por-idioma';
+import { AvisoContenidoOriginal } from '../../../shared/ui/aviso-contenido-original';
 
 /** `starts_at` (UTC) al día calendario en la zona del evento, sin arrastrar la
  * zona horaria del entorno de ejecución (navegador o SSR) al agrupar por fecha:
@@ -92,6 +94,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
   selector: 'app-event-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    AvisoContenidoOriginal,
     EnlacePipe,
     AvisoVentaEntradas,
     DatePipe,
@@ -160,6 +163,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                   <img class="portada" [src]="evento.cover_url" [alt]="evento.title" />
                 }
                 <h1>{{ evento.title }}</h1>
+                <app-aviso-contenido-original [servido]="evento.served_locale" />
                 @if (evento.category || (evento.tags && evento.tags.length > 0)) {
                   <nav class="clasificacion" [attr.aria-label]="t('publico.eventos.clasificacion')">
                     @if (evento.category; as categoria) {
@@ -175,7 +179,7 @@ const CLAVES_REGISTRO: Record<RegistrationMode, { clave: string; tono: ChipTone 
                         class="clasificacion__etiqueta"
                         [routerLink]="'/eventos' | enlace"
                         [queryParams]="{ etiqueta: etiqueta }"
-                        >#{{ etiqueta }}</a
+                        >#{{ evento.tag_labels?.[etiqueta] ?? etiqueta }}</a
                       >
                     }
                   </nav>
@@ -969,6 +973,7 @@ export class EventPage implements OnInit {
     this.aplicarTema(evento.theme);
     this.seo.set({
       contenidoDelOrganizador: true,
+      ...idiomasDeLaRespuesta(evento),
       title: evento.title,
       description: evento.summary ?? this.transloco.translate('publico.eventos.sinResumen'),
       image: evento.cover_url,

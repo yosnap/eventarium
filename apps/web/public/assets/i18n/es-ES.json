@@ -481,7 +481,8 @@
       "recargar": "La venta de entradas ha cambiado desde que abriste la página.",
       "error": "No hemos podido cargar las entradas.",
       "botonRecargar": "Recargar la página"
-    }
+    },
+    "contenidoOriginal": "Este contenido se muestra en su idioma original."
   },
   "registro": {
     "titulo": "Crear una cuenta",

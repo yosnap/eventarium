@@ -11,8 +11,21 @@ export interface RegistrationQuestion {
   readonly type: 'short_text' | 'single_choice' | 'multiple_choice';
   readonly label: string;
   readonly required: boolean;
+  /** Valores originales: los que se envían y valida la inscripción. */
   readonly options: readonly string[] | null;
+  /** Las mismas opciones con el texto en el idioma de la página. */
+  readonly choices?: readonly { readonly value: string; readonly label: string }[] | null;
   readonly sort_order: number;
+}
+
+/** Opciones de una pregunta como pares valor original / texto que se muestra. */
+export function opcionesDePregunta(
+  pregunta: RegistrationQuestion,
+): { readonly valor: string; readonly etiqueta: string }[] {
+  if (pregunta.choices) {
+    return pregunta.choices.map((opcion) => ({ valor: opcion.value, etiqueta: opcion.label }));
+  }
+  return (pregunta.options ?? []).map((opcion) => ({ valor: opcion, etiqueta: opcion }));
 }
 
 export interface RegistrationAnswerInput {

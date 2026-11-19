@@ -18,9 +18,13 @@ export interface PublicSponsorDetail {
   logo_url: (string | null);
   name: string;
   organization: PublicOrganizationRef;
+  pending_fields?: number;
+  served_locale?: 'es-ES' | 'en-US';
+  source_locale?: 'es-ES' | 'en-US';
   theme?: (PublicTheme | null);
   tier_benefits: (string | null);
   tier_name: string;
+  up_to_date_locales?: Array<'es-ES' | 'en-US'>;
   visibility?: 'public' | 'hidden' | 'private';
   website: (string | null);
 }

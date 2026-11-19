@@ -22393,6 +22393,40 @@
       },
       "PublicEventDetail": {
         "properties": {
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale",
+            "default": "es-ES"
+          },
+          "up_to_date_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Up To Date Locales"
+          },
+          "served_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Served Locale",
+            "default": "es-ES"
+          },
+          "pending_fields": {
+            "type": "integer",
+            "title": "Pending Fields",
+            "default": 0
+          },
           "slug": {
             "type": "string",
             "title": "Slug"
@@ -22416,6 +22450,13 @@
             },
             "type": "array",
             "title": "Tags"
+          },
+          "tag_labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Tag Labels"
           },
           "cancelled": {
             "type": "boolean",
@@ -22725,6 +22766,40 @@
       },
       "PublicEventPolicies": {
         "properties": {
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale",
+            "default": "es-ES"
+          },
+          "up_to_date_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Up To Date Locales"
+          },
+          "served_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Served Locale",
+            "default": "es-ES"
+          },
+          "pending_fields": {
+            "type": "integer",
+            "title": "Pending Fields",
+            "default": 0
+          },
           "organization_name": {
             "type": "string",
             "title": "Organization Name"
@@ -22880,6 +22955,40 @@
       },
       "PublicEventSummary": {
         "properties": {
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale",
+            "default": "es-ES"
+          },
+          "up_to_date_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Up To Date Locales"
+          },
+          "served_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Served Locale",
+            "default": "es-ES"
+          },
+          "pending_fields": {
+            "type": "integer",
+            "title": "Pending Fields",
+            "default": 0
+          },
           "slug": {
             "type": "string",
             "title": "Slug"
@@ -22903,6 +23012,13 @@
             },
             "type": "array",
             "title": "Tags"
+          },
+          "tag_labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Tag Labels"
           },
           "cancelled": {
             "type": "boolean",
@@ -23185,6 +23301,40 @@
       },
       "PublicOrganizationProfile": {
         "properties": {
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale",
+            "default": "es-ES"
+          },
+          "up_to_date_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Up To Date Locales"
+          },
+          "served_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Served Locale",
+            "default": "es-ES"
+          },
+          "pending_fields": {
+            "type": "integer",
+            "title": "Pending Fields",
+            "default": 0
+          },
           "slug": {
             "type": "string",
             "title": "Slug"
@@ -23447,6 +23597,40 @@
       },
       "PublicSessionDetail": {
         "properties": {
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale",
+            "default": "es-ES"
+          },
+          "up_to_date_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Up To Date Locales"
+          },
+          "served_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Served Locale",
+            "default": "es-ES"
+          },
+          "pending_fields": {
+            "type": "integer",
+            "title": "Pending Fields",
+            "default": 0
+          },
           "id": {
             "type": "string",
             "title": "Id"
@@ -23677,6 +23861,40 @@
       },
       "PublicSpeakerProfile": {
         "properties": {
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale",
+            "default": "es-ES"
+          },
+          "up_to_date_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Up To Date Locales"
+          },
+          "served_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Served Locale",
+            "default": "es-ES"
+          },
+          "pending_fields": {
+            "type": "integer",
+            "title": "Pending Fields",
+            "default": 0
+          },
           "display_name": {
             "type": "string",
             "title": "Display Name"
@@ -23782,6 +24000,40 @@
       },
       "PublicSponsorDetail": {
         "properties": {
+          "source_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Source Locale",
+            "default": "es-ES"
+          },
+          "up_to_date_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Up To Date Locales"
+          },
+          "served_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Served Locale",
+            "default": "es-ES"
+          },
+          "pending_fields": {
+            "type": "integer",
+            "title": "Pending Fields",
+            "default": 0
+          },
           "id": {
             "type": "string",
             "title": "Id"
@@ -24106,6 +24358,25 @@
         ],
         "title": "PublicVenue",
         "description": "Sede tal y como se muestra en la página pública del evento, sin campos\nde auditoría (`display_order`/`geocoded_at` son detalle interno)."
+      },
+      "QuestionChoice": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "QuestionChoice",
+        "description": "Una opción de respuesta: `value` es el original, el que se envía y se\nguarda; `label`, el texto que se muestra en el idioma servido."
       },
       "RedireccionOut": {
         "properties": {
@@ -24711,6 +24982,20 @@
               }
             ],
             "title": "Options"
+          },
+          "choices": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/QuestionChoice"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Choices"
           },
           "sort_order": {
             "type": "integer",

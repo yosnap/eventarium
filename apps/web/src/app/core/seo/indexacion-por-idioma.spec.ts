@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { decidirIndexacion } from './indexacion-por-idioma';
+import { decidirIndexacion, idiomasDeLaRespuesta } from './indexacion-por-idioma';
 
 describe('decidirIndexacion', () => {
   it('las páginas de la plataforma se ofrecen en todos los idiomas', () => {
@@ -72,5 +72,14 @@ describe('decidirIndexacion', () => {
     expect(decision.canonica).toBe('/eventos');
     expect(decision.alternativas).toEqual([]);
     expect(decision.ogLocaleAlternativos).toEqual([]);
+  });
+});
+
+describe('idiomasDeLaRespuesta', () => {
+  it('pasa los idiomas de la API y descarta los que la web no conoce', () => {
+    expect(
+      idiomasDeLaRespuesta({ source_locale: 'en-US', up_to_date_locales: ['en-US', 'fr-FR'] }),
+    ).toEqual({ idiomaOrigen: 'en-US', idiomasAlDia: ['en-US'] });
+    expect(idiomasDeLaRespuesta({})).toEqual({ idiomaOrigen: undefined, idiomasAlDia: [] });
   });
 });

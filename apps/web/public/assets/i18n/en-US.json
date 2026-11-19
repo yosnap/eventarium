@@ -481,7 +481,8 @@
       "recargar": "Ticket sales have changed since you opened the page.",
       "error": "We could not load the tickets.",
       "botonRecargar": "Reload page"
-    }
+    },
+    "contenidoOriginal": "This content is shown in its original language."
   },
   "registro": {
     "titulo": "Create an account",

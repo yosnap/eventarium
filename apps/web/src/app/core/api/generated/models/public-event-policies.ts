@@ -9,6 +9,10 @@ import { PublicTheme } from '../models/public-theme';
  */
 export interface PublicEventPolicies {
   organization_name: string;
+  pending_fields?: number;
   policies: Array<PolicyVersionOut>;
+  served_locale?: 'es-ES' | 'en-US';
+  source_locale?: 'es-ES' | 'en-US';
   theme?: (PublicTheme | null);
+  up_to_date_locales?: Array<'es-ES' | 'en-US'>;
 }

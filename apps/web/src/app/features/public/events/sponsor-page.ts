@@ -29,6 +29,11 @@ import { Chip } from '../../../shared/ui/chip';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 import { migasDeEvento, type OrganizacionPublica } from '../../../shared/ui/migas-de-evento';
 import { EnlacePipe } from '../../../core/i18n/enlace.pipe';
+import {
+  IdiomasDeLaRespuesta,
+  idiomasDeLaRespuesta,
+} from '../../../core/seo/indexacion-por-idioma';
+import { AvisoContenidoOriginal } from '../../../shared/ui/aviso-contenido-original';
 
 type ContributionType = 'monetaria' | 'en_especie';
 
@@ -40,7 +45,7 @@ interface PublicSponsorHistoryItem {
   readonly tier_name: string;
 }
 
-interface PublicSponsorDetail {
+interface PublicSponsorDetail extends IdiomasDeLaRespuesta {
   /** `hidden` = «solo con enlace»: se marca `noindex`. */
   readonly visibility?: 'public' | 'hidden' | 'private';
   readonly id: string;
@@ -81,7 +86,17 @@ const CLAVE_TIPO_APORTACION: Record<ContributionType, string> = {
 @Component({
   selector: 'app-sponsor-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [EnlacePipe, DatePipe, RouterLink, TranslocoDirective, Alert, Breadcrumb, Chip, Reveal],
+  imports: [
+    AvisoContenidoOriginal,
+    EnlacePipe,
+    DatePipe,
+    RouterLink,
+    TranslocoDirective,
+    Alert,
+    Breadcrumb,
+    Chip,
+    Reveal,
+  ],
   template: `
     <ng-container *transloco="let t">
       @if (cargando()) {
@@ -110,6 +125,7 @@ const CLAVE_TIPO_APORTACION: Record<ContributionType, string> = {
                 }
                 <div>
                   <h1>{{ patrocinador.name }}</h1>
+                  <app-aviso-contenido-original [servido]="patrocinador.served_locale" />
                   <div class="rol">
                     <span class="nivel"
                       >{{ t('publico.patrocinador.nivel') }} {{ patrocinador.tier_name }}</span
@@ -432,6 +448,7 @@ export class SponsorPage implements OnInit {
     this.aplicarTema(patrocinador.theme);
     this.seo.set({
       contenidoDelOrganizador: true,
+      ...idiomasDeLaRespuesta(patrocinador),
       title: `${patrocinador.name} · ${patrocinador.event_title}`,
       description: this.transloco.translate('publico.patrocinador.rotulo'),
       noIndexar: patrocinador.visibility === 'hidden',
