@@ -5,6 +5,8 @@
   `event_id` agrupa lo que cuelga de un evento: la ficha carga sus traducciones en
   una sola consulta, y la traducción con IA trabaja evento a evento.
 - `organizations.content_locales`: idiomas en que publica la organización.
+- `organizations.source_locale`: idioma en que escribe la organización lo que no
+  cuelga de un evento (etiquetas, tipos de sesión, niveles, políticas, perfiles).
 - `events.source_locale`: idioma en que se escribe el evento.
 - `event_categories.name_i18n`: nombre de cada categoría por idioma. Las categorías
   son de toda la instalación, no de una organización, y las edita el superadmin.
@@ -181,6 +183,11 @@ def upgrade() -> None:
         f"cardinality(content_locales) >= 1 AND content_locales <@ {_ARRAY_IDIOMAS}",
     )
     op.add_column(
+        "organizations",
+        sa.Column("source_locale", sa.String(10), nullable=False, server_default="es-ES"),
+    )
+    op.create_check_constraint("source_locale", "organizations", f"source_locale IN {_IDIOMAS}")
+    op.add_column(
         "events",
         sa.Column("source_locale", sa.String(10), nullable=False, server_default="es-ES"),
     )
@@ -200,6 +207,8 @@ def downgrade() -> None:
     op.drop_column("event_categories", "name_i18n")
     op.execute("ALTER TABLE events DROP CONSTRAINT IF EXISTS ck_events_source_locale")
     op.drop_column("events", "source_locale")
+    op.execute("ALTER TABLE organizations DROP CONSTRAINT IF EXISTS ck_organizations_source_locale")
+    op.execute("ALTER TABLE organizations DROP COLUMN IF EXISTS source_locale")
     op.execute(
         "ALTER TABLE organizations DROP CONSTRAINT IF EXISTS ck_organizations_content_locales"
     )

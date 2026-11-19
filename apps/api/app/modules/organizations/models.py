@@ -42,6 +42,11 @@ class Organization(Base, TimestampMixin):
         default=lambda: ["es-ES"],
         server_default=text("ARRAY['es-ES']::varchar[]"),
     )
+    # Idioma en que escribe la organización lo que no cuelga de un evento
+    # (etiquetas, tipos de sesión, niveles de patrocinio, políticas y perfiles).
+    source_locale: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="es-ES", server_default="es-ES"
+    )
     website: Mapped[str | None] = mapped_column(String(300), nullable=True)
     contact_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     # Calle y número; código postal, ciudad y provincia van aparte.

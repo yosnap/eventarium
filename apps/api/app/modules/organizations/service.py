@@ -198,12 +198,18 @@ async def public_profile(
     # Import local: `translations` importa los modelos de este módulo.
     from app.modules.translations.service import traductor_de_organizacion
 
-    tr = await traductor_de_organizacion(session, organizacion, idioma_actual())
+    tr = await traductor_de_organizacion(
+        session, organizacion, idioma_actual(), de_organizacion={"organization": [organizacion.id]}
+    )
     return PublicOrganizationProfile(
         slug=organizacion.slug,
         name=organizacion.name,
         description=tr.campo(
-            "organization", organizacion.id, "description", organizacion.description
+            "organization",
+            organizacion.id,
+            "description",
+            organizacion.description,
+            principal=True,
         ),
         website=organizacion.website,
         address=organizacion.address if publica else None,

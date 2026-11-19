@@ -22811,6 +22811,20 @@
             "type": "array",
             "title": "Policies"
           },
+          "translated": {
+            "type": "boolean",
+            "title": "Translated",
+            "default": false
+          },
+          "original_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Original Locale",
+            "default": "es-ES"
+          },
           "theme": {
             "anyOf": [
               {

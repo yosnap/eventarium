@@ -16,16 +16,16 @@ organización (la resolución pública del evento lo hace).
 
 from __future__ import annotations
 
-import json
 import uuid
-from collections.abc import Iterable, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import and_, any_, delete, or_, select
+from sqlalchemy import and_, any_, delete, or_, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.core.database import set_organization_context
 from app.core.locale import DEFAULT_LOCALE, LOCALES, Locale, normalizar_locale
@@ -33,6 +33,7 @@ from app.modules.events.models import Event, EventCategory
 from app.modules.organizations.models import Organization
 from app.modules.platform import repository as platform_repository
 from app.modules.translations.campos import (
+    PREFIJO_OPCION,
     TIPOS_DE_ORGANIZACION,
     TipoDeEntidad,
     campo_valido,
@@ -55,47 +56,104 @@ async def idiomas_de_contenido(
     return tuple(locale for locale in LOCALES if locale in propios and locale in activos_plataforma)
 
 
+#: Tipos cuyo original está escrito en el idioma de la organización y no en el
+#: del evento: lo que es de toda la organización y sus textos legales.
+TIPOS_CON_ORIGEN_DE_ORGANIZACION: frozenset[TipoDeEntidad] = TIPOS_DE_ORGANIZACION | {
+    "policy_version"
+}
+
+#: Qué cargar de lo que no cuelga de un evento: tipo → ids concretos, o `None`
+#: para todas las filas de ese tipo.
+DeOrganizacion = Mapping[TipoDeEntidad, Collection[uuid.UUID] | None]
+
+
 @dataclass
 class Traductor:
     """Traducciones de una página en todos sus idiomas activos.
 
-    `idioma` es el pedido; `origen`, el idioma en que está escrito el original.
+    `idioma` es el pedido. `origen` es el idioma original de la página (el del
+    evento, o el de la organización en sus propias páginas); lo que es de la
+    organización usa `origen_organizacion`.
     """
 
     idioma: Locale
     origen: Locale
     activos: tuple[Locale, ...]
+    origen_organizacion: Locale | None = None
     _filas: dict[_Clave, tuple[str, str]] = field(default_factory=dict)
     _pendientes: dict[Locale, set[tuple[str, uuid.UUID, str]]] = field(default_factory=dict)
+    _principal_visto: bool = False
+    _principal_pendiente: bool = False
+    _tipos_servidos: set[str] = field(default_factory=set)
+
+    def origen_de(self, tipo: TipoDeEntidad) -> Locale:
+        """Idioma en que está escrito el original de `tipo`."""
+        if tipo in TIPOS_CON_ORIGEN_DE_ORGANIZACION and self.origen_organizacion:
+            return self.origen_organizacion
+        return self.origen
 
     @property
     def destinos(self) -> tuple[Locale, ...]:
-        """Idiomas activos distintos del de origen: los que necesitan traducción."""
-        return tuple(locale for locale in self.activos if locale != self.origen)
+        """Idiomas activos que necesitan traducción en algún tipo."""
+        origenes = {self.origen, self.origen_organizacion or self.origen}
+        return tuple(locale for locale in self.activos if len(origenes - {locale}) > 0)
 
     def _traduccion(
-        self, tipo: TipoDeEntidad, entity_id: uuid.UUID, campo: str, original: str
+        self,
+        tipo: TipoDeEntidad,
+        entity_id: uuid.UUID,
+        campo: str,
+        original: str,
+        *,
+        contar: bool,
+        principal: bool,
     ) -> str | None:
-        """Registra si `campo` está al día en cada destino y devuelve su valor en
-        el idioma pedido, o `None` si hay que servir el original."""
+        """Registra si `campo` está al día en cada idioma y devuelve su valor en
+        el pedido, o `None` si hay que servir el original."""
+        origen = self.origen_de(tipo)
         firma = huella(original)
         servido: str | None = None
-        for locale in self.destinos:
+        falta_en_el_pedido = False
+        for locale in self.activos:
+            if locale == origen:
+                continue
             fila = self._filas.get((tipo, entity_id, campo, locale))
-            if fila is not None and fila[1] == firma:
-                if locale == self.idioma:
-                    servido = fila[0]
-            else:
-                self._pendientes.setdefault(locale, set()).add((tipo, entity_id, campo))
+            al_dia = fila is not None and fila[1] == firma
+            if al_dia and locale == self.idioma:
+                servido = fila[0]  # type: ignore[index]
+            if not al_dia:
+                falta_en_el_pedido = falta_en_el_pedido or locale == self.idioma
+                if contar:
+                    self._pendientes.setdefault(locale, set()).add((tipo, entity_id, campo))
+        if principal:
+            self._principal_visto = True
+            self._principal_pendiente = self._principal_pendiente or falta_en_el_pedido
+        if servido is not None:
+            self._tipos_servidos.add(tipo)
         return servido
 
     def campo(
-        self, tipo: TipoDeEntidad, entity_id: uuid.UUID, campo: str, original: str | None
+        self,
+        tipo: TipoDeEntidad,
+        entity_id: uuid.UUID,
+        campo: str,
+        original: str | None,
+        *,
+        principal: bool = False,
+        contar: bool = True,
     ) -> str | None:
-        """`original` en el idioma pedido, con caída al original."""
+        """`original` en el idioma pedido, con caída al original.
+
+        `principal` marca el contenido principal de la página (título,
+        descripción): el aviso de «idioma original» solo depende de él.
+        `contar=False` traduce sin que el campo cuente para saber si la página
+        está al día (el historial, que es de otras páginas).
+        """
         if not original:
             return original
-        traducido = self._traduccion(tipo, entity_id, campo, original)
+        traducido = self._traduccion(
+            tipo, entity_id, campo, original, contar=contar, principal=principal
+        )
         return traducido if traducido is not None else original
 
     def opciones(
@@ -103,29 +161,24 @@ class Traductor:
     ) -> list[tuple[str, str]] | None:
         """Opciones de una pregunta como pares `(valor original, etiqueta)`.
 
-        La traducción guarda un mapa `{valor_original: etiqueta}`. Una opción que
-        falte en el mapa se muestra con su valor original.
+        Cada opción se traduce aparte (campo `option:<valor>`): añadir o
+        reordenar opciones no invalida las traducciones de las demás.
         """
         if originales is None:
             return None
-        lista = list(originales)
-        if not lista:
-            return []
-        traducido = self._traduccion("question", entity_id, "options", json.dumps(lista))
-        etiquetas: dict[str, str] = {}
-        if traducido is not None:
-            try:
-                cargado = json.loads(traducido)
-            except ValueError:
-                cargado = {}
-            if isinstance(cargado, dict):
-                etiquetas = {str(k): str(v) for k, v in cargado.items()}
-        return [(valor, etiquetas.get(valor) or valor) for valor in lista]
+        return [
+            (valor, self.campo("question", entity_id, campo_de_opcion(valor), valor) or valor)
+            for valor in originales
+        ]
 
     def etiqueta(self, organization_id: uuid.UUID, valor: str) -> str:
         """Una etiqueta del evento tal como se muestra; el valor sigue siendo el
         identificador de filtros y URLs."""
         return self.campo("tag", organization_id, valor, valor) or valor
+
+    def sirvio(self, tipo: TipoDeEntidad) -> bool:
+        """Se ha servido al menos un campo de `tipo` traducido."""
+        return tipo in self._tipos_servidos
 
     @property
     def idiomas_al_dia(self) -> list[Locale]:
@@ -139,7 +192,13 @@ class Traductor:
 
     @property
     def idioma_servido(self) -> Locale:
-        """El idioma pedido si la página está entera en él; si no, el de origen."""
+        """El idioma pedido si el contenido principal de la página está en él; si
+        la página no marca contenido principal, si está entera en él. Si no, el
+        de origen."""
+        if self.idioma == self.origen or self.idioma not in self.activos:
+            return self.origen
+        if self._principal_visto:
+            return self.origen if self._principal_pendiente else self.idioma
         return self.idioma if self.idioma in self.idiomas_al_dia else self.origen
 
     @property
@@ -161,24 +220,37 @@ class Traductor:
         }
 
 
+def campo_de_opcion(valor: str) -> str:
+    """Campo de la traducción de una opción de pregunta."""
+    return f"{PREFIJO_OPCION}{valor}"
+
+
 async def _cargar_filas(
     session: AsyncSession,
     organization_id: uuid.UUID,
     locales: Iterable[Locale],
     *,
-    event_ids: Sequence[uuid.UUID] = (),
-    con_organizacion: bool = True,
+    event_ids: Collection[uuid.UUID] = (),
+    de_organizacion: DeOrganizacion | None = None,
 ) -> dict[_Clave, tuple[str, str]]:
-    """Traducciones al día de los eventos indicados y, si se pide, de lo que es
-    de la organización (perfiles, etiquetas, tipos de sesión, niveles…)."""
+    """Traducciones al día de los eventos indicados y de lo que se pida de la
+    organización. Nunca carga más tipos de los que la página va a mostrar."""
     locales = tuple(locales)
     if not locales:
         return {}
-    ambitos = []
+    ambitos: list[ColumnElement[bool]] = []
     if event_ids:
-        ambitos.append(ContentTranslation.event_id.in_(event_ids))
-    if con_organizacion:
-        ambitos.append(ContentTranslation.event_id.is_(None))
+        ambitos.append(ContentTranslation.event_id.in_(list(event_ids)))
+    for tipo, ids in (de_organizacion or {}).items():
+        condiciones = [
+            ContentTranslation.event_id.is_(None),
+            ContentTranslation.entity_type == tipo,
+        ]
+        if ids is not None:
+            if not ids:
+                continue
+            condiciones.append(ContentTranslation.entity_id.in_(list(ids)))
+        ambitos.append(and_(*condiciones))
     if not ambitos:
         return {}
     filas = await session.execute(
@@ -199,46 +271,93 @@ async def _cargar_filas(
     return {(t, e, f, loc): (valor, firma) for t, e, f, loc, valor, firma in filas}
 
 
-async def traductor_de_evento(session: AsyncSession, evento: Event, idioma: Locale) -> Traductor:
-    """Traductor de la ficha de un evento y de todo lo que cuelga de él."""
-    organizacion = await session.get(Organization, evento.organization_id)
+async def _traductor(
+    session: AsyncSession,
+    organizacion: Organization | None,
+    idioma: Locale,
+    origen: Locale,
+) -> Traductor:
     activos = await idiomas_de_contenido(session, organizacion) if organizacion else ()
-    origen = normalizar_locale(evento.source_locale)
-    if origen not in activos:
-        activos = (origen, *activos)
-    traductor = Traductor(idioma=idioma, origen=origen, activos=activos)
+    origen_org = normalizar_locale(organizacion.source_locale) if organizacion else DEFAULT_LOCALE
+    for necesario in (origen_org, origen):
+        if necesario not in activos:
+            activos = (necesario, *activos)
+    return Traductor(idioma=idioma, origen=origen, activos=activos, origen_organizacion=origen_org)
+
+
+async def traductor_de_evento(
+    session: AsyncSession,
+    evento: Event,
+    idioma: Locale,
+    *,
+    de_organizacion: DeOrganizacion | None = None,
+    otros_eventos: Collection[uuid.UUID] = (),
+) -> Traductor:
+    """Traductor de una página de un evento y de lo que cuelga de él.
+
+    `de_organizacion` dice qué tipos de la organización muestra la página;
+    `otros_eventos`, de qué otros eventos de la misma organización enseña algo
+    (el historial).
+    """
+    organizacion = await session.get(Organization, evento.organization_id)
+    traductor = await _traductor(
+        session, organizacion, idioma, normalizar_locale(evento.source_locale)
+    )
     traductor._filas = await _cargar_filas(
-        session, evento.organization_id, traductor.destinos, event_ids=[evento.id]
+        session,
+        evento.organization_id,
+        traductor.destinos,
+        event_ids={evento.id, *otros_eventos},
+        de_organizacion=de_organizacion,
     )
     return traductor
 
 
 async def traductor_de_organizacion(
-    session: AsyncSession, organizacion: Organization, idioma: Locale
+    session: AsyncSession,
+    organizacion: Organization,
+    idioma: Locale,
+    *,
+    de_organizacion: DeOrganizacion,
+    event_ids: Collection[uuid.UUID] = (),
 ) -> Traductor:
-    """Traductor de lo que no cuelga de un evento: la página de la organización,
-    el perfil de un ponente o las políticas generales. El idioma de origen es el
-    primero de los que publica la organización."""
-    activos = await idiomas_de_contenido(session, organizacion)
-    origen: Locale = activos[0] if activos else DEFAULT_LOCALE
-    traductor = Traductor(idioma=idioma, origen=origen, activos=activos or (origen,))
-    traductor._filas = await _cargar_filas(session, organizacion.id, traductor.destinos)
+    """Traductor de las páginas de la organización: su perfil o el de un
+    ponente. El idioma de origen es el de la organización."""
+    traductor = await _traductor(
+        session, organizacion, idioma, normalizar_locale(organizacion.source_locale)
+    )
+    traductor._filas = await _cargar_filas(
+        session,
+        organizacion.id,
+        traductor.destinos,
+        event_ids=event_ids,
+        de_organizacion=de_organizacion,
+    )
     return traductor
 
 
+_LEER_CONTEXTO = text(
+    "SELECT current_setting('app.organization_id', true), current_setting('app.user_id', true)"
+)
+
+
+def _uuid_o_none(valor: str | None) -> uuid.UUID | None:
+    try:
+        return uuid.UUID(valor) if valor else None
+    except ValueError:
+        return None
+
+
 async def traductores_de_listado(
-    session: AsyncSession,
-    eventos: Sequence[Event],
-    idioma: Locale,
-    *,
-    contexto_previo: uuid.UUID | None = None,
+    session: AsyncSession, eventos: Sequence[Event], idioma: Locale
 ) -> dict[uuid.UUID, Traductor]:
     """Un traductor por evento de un listado, de una o varias organizaciones.
 
     Agrupa por organización y fija el contexto de cada una antes de leer, así la
-    lectura sigue bajo RLS. Al terminar deja el contexto que había
-    (`contexto_previo`; vacío en el directorio público).
+    lectura sigue bajo RLS. Al terminar restaura el contexto que había
+    (organización y usuario).
     """
+    organizacion_previa, usuario_previo = (await session.execute(_LEER_CONTEXTO)).one()
     por_organizacion: dict[uuid.UUID, list[Event]] = {}
     for evento in eventos:
         por_organizacion.setdefault(evento.organization_id, []).append(evento)
@@ -247,24 +366,28 @@ async def traductores_de_listado(
         for organization_id, propios in por_organizacion.items():
             await set_organization_context(session, organization_id)
             organizacion = await session.get(Organization, organization_id)
-            activos = await idiomas_de_contenido(session, organizacion) if organizacion else ()
+            base = await _traductor(session, organizacion, idioma, DEFAULT_LOCALE)
             filas = await _cargar_filas(
                 session,
                 organization_id,
-                activos,
+                base.activos,
                 event_ids=[evento.id for evento in propios],
+                de_organizacion={"tag": None},
             )
             for evento in propios:
                 origen = normalizar_locale(evento.source_locale)
                 traductor = Traductor(
                     idioma=idioma,
                     origen=origen,
-                    activos=activos if origen in activos else (origen, *activos),
+                    activos=base.activos if origen in base.activos else (origen, *base.activos),
+                    origen_organizacion=base.origen_organizacion,
                 )
                 traductor._filas = filas
                 traductores[evento.id] = traductor
     finally:
-        await set_organization_context(session, contexto_previo)
+        await set_organization_context(
+            session, _uuid_o_none(organizacion_previa), _uuid_o_none(usuario_previo)
+        )
     return traductores
 
 
@@ -371,6 +494,25 @@ async def marcar_revisada(
     fila.updated_by = user_id
     fila.updated_at = datetime.now(UTC)
     return fila
+
+
+async def borrar_campos(
+    session: AsyncSession,
+    organization_id: uuid.UUID,
+    tipo: TipoDeEntidad,
+    entity_id: uuid.UUID,
+    campos: Collection[str],
+) -> None:
+    """Borra las traducciones de unos campos de una entidad, en todos los
+    idiomas: cuando el original se vacía, su traducción no se conserva."""
+    await session.execute(
+        delete(ContentTranslation).where(
+            ContentTranslation.organization_id == organization_id,
+            ContentTranslation.entity_type == tipo,
+            ContentTranslation.entity_id == entity_id,
+            ContentTranslation.field.in_(list(campos)),
+        )
+    )
 
 
 async def borrar_etiquetas_sin_uso(session: AsyncSession) -> int:

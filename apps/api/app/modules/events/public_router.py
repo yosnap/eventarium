@@ -98,6 +98,7 @@ from app.modules.sponsors.schemas import (
 from app.modules.translations.campos import campo_valido
 from app.modules.translations.service import (
     Traductor,
+    nombre_de_categoria,
     traductor_de_evento,
     traductor_de_organizacion,
     traductores_de_listado,
@@ -272,7 +273,7 @@ async def _sedes_publicas(
 )
 async def list_public_event_categories(session: SessionDep) -> list[PublicCategoryRef]:
     return [
-        PublicCategoryRef(slug=c.slug, name=c.name)
+        PublicCategoryRef(slug=c.slug, name=nombre_de_categoria(c, idioma_actual()))
         for c in await categories.list_categories(session, solo_activas=True)
     ]
 
@@ -383,7 +384,12 @@ async def detalle_publico(session: AsyncSession, evento: Event) -> PublicEventDe
     ya resuelto y nunca lo resuelve dentro: la vista previa trabaja con el
     contexto RLS de quien la pide, que una resolución pública sobrescribiría."""
     idioma = idioma_actual()
-    tr = await traductor_de_evento(session, evento, idioma)
+    tr = await traductor_de_evento(
+        session,
+        evento,
+        idioma,
+        de_organizacion={"tag": None, "session_type": None, "sponsor_tier": None},
+    )
     sesiones = await _sesiones_publicas(session, evento.organization_id, evento.id, tr)
     sedes = await _sedes_publicas(session, evento.organization_id, evento.id, tr)
     cercanos = await nearby_service.listar(session, evento.organization_id, evento.id)
@@ -423,9 +429,9 @@ async def detalle_publico(session: AsyncSession, evento: Event) -> PublicEventDe
         cancellation_reason=tr.campo(
             "event", evento.id, "cancellation_reason", evento.cancellation_reason
         ),
-        title=tr.campo("event", evento.id, "title", evento.title) or evento.title,
-        summary=tr.campo("event", evento.id, "summary", evento.summary),
-        description=tr.campo("event", evento.id, "description", evento.description),
+        title=tr.campo("event", evento.id, "title", evento.title, principal=True) or evento.title,
+        summary=tr.campo("event", evento.id, "summary", evento.summary, principal=True),
+        description=tr.campo("event", evento.id, "description", evento.description, principal=True),
         cover_url=await _cover_url(session, evento),
         timezone=evento.timezone,
         starts_at=evento.starts_at,
@@ -487,7 +493,6 @@ async def get_public_sponsor(
     if nivel is None:
         raise NotFoundError("El patrocinador no existe.")
 
-    tr = await traductor_de_evento(session, evento, idioma_actual())
     organizacion = await organizations_service.public_ref(session, evento.organization_id)
     filas_historial = (
         await session.execute(
@@ -496,6 +501,15 @@ async def get_public_sponsor(
             )
         )
     ).all()
+    tr = await traductor_de_evento(
+        session,
+        evento,
+        idioma_actual(),
+        de_organizacion={
+            "sponsor_tier": {nivel.id, *(otro_nivel.id for _, otro_nivel in filas_historial)}
+        },
+        otros_eventos={otro_evento.id for otro_evento, _ in filas_historial},
+    )
 
     return PublicSponsorDetail(
         visibility=evento.visibility,  # type: ignore[arg-type]
@@ -509,6 +523,7 @@ async def get_public_sponsor(
             patrocinador.id,
             "contribution_description",
             patrocinador.contribution_description,
+            principal=True,
         ),
         tier_name=tr.campo("sponsor_tier", nivel.id, "name", nivel.name) or nivel.name,
         tier_benefits=tr.campo("sponsor_tier", nivel.id, "benefits", nivel.benefits),
@@ -519,9 +534,15 @@ async def get_public_sponsor(
             PublicSponsorHistoryItem(
                 event_slug=otro_evento.slug,
                 organization=organizacion,
-                event_title=otro_evento.title,
+                event_title=tr.campo(
+                    "event", otro_evento.id, "title", otro_evento.title, contar=False
+                )
+                or otro_evento.title,
                 starts_at=otro_evento.starts_at,
-                tier_name=otro_nivel.name,
+                tier_name=tr.campo(
+                    "sponsor_tier", otro_nivel.id, "name", otro_nivel.name, contar=False
+                )
+                or otro_nivel.name,
             )
             for otro_evento, otro_nivel in filas_historial
         ],
@@ -560,7 +581,9 @@ async def get_public_session(
     )
     if sesion is None:
         raise NotFoundError("La sesión no existe.")
-    tr = await traductor_de_evento(session, evento, idioma_actual())
+    tr = await traductor_de_evento(
+        session, evento, idioma_actual(), de_organizacion={"session_type": [sesion.tipo.id]}
+    )
 
     # El panel usa la misma consulta sin filtrar; aquí, solo cuentas activas.
     consulta = repository.session_participants_query(evento.organization_id, sesion.id).where(
@@ -586,8 +609,10 @@ async def get_public_session(
         id=str(sesion.id),
         session_type=sesion.session_type,
         type=_tipo_de_sesion(sesion.tipo, tr),
-        title=tr.campo("session", sesion.id, "title", sesion.title) or sesion.title,
-        description=tr.campo("session", sesion.id, "description", sesion.description),
+        title=tr.campo("session", sesion.id, "title", sesion.title, principal=True) or sesion.title,
+        description=tr.campo(
+            "session", sesion.id, "description", sesion.description, principal=True
+        ),
         starts_at=sesion.starts_at,
         ends_at=sesion.ends_at,
         room=tr.campo("session", sesion.id, "room", sesion.room),
@@ -652,11 +677,19 @@ async def get_public_speaker(public_slug: str, session: SessionDep) -> PublicSpe
     entidad_org = await session.get(Organization, organization_id)
     if entidad_org is None:  # pragma: no cover - la resolvió la función SECURITY DEFINER
         raise NotFoundError("El ponente no existe.")
-    tr = await traductor_de_organizacion(session, entidad_org, idioma_actual())
+    tr = await traductor_de_organizacion(
+        session,
+        entidad_org,
+        idioma_actual(),
+        de_organizacion={"member_profile": [miembro.id]},
+        event_ids={evento.id for _, _, evento in historial_filas},
+    )
     campos = filter_public_profile_fields(miembro.profile_data)
     for clave, valor in campos.items():
         if isinstance(valor, str) and campo_valido("member_profile", clave):
-            campos[clave] = tr.campo("member_profile", miembro.id, clave, valor)
+            campos[clave] = tr.campo(
+                "member_profile", miembro.id, clave, valor, principal=clave == "bio"
+            )
     return PublicSpeakerProfile(
         display_name=_display_name(persona),
         public_slug=perfil.public_slug,
@@ -665,10 +698,12 @@ async def get_public_speaker(public_slug: str, session: SessionDep) -> PublicSpe
         history=[
             PublicSpeakerHistoryItem(
                 event_slug=evento.slug,
-                event_title=evento.title,
+                event_title=tr.campo("event", evento.id, "title", evento.title, contar=False)
+                or evento.title,
                 organization=organizacion,
                 session_id=str(sesion.id),
-                session_title=sesion.title,
+                session_title=tr.campo("session", sesion.id, "title", sesion.title, contar=False)
+                or sesion.title,
                 starts_at=sesion.starts_at,
                 role_key=participacion.role_key,
             )

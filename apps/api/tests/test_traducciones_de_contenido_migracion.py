@@ -35,7 +35,8 @@ async def _estado() -> dict[str, object]:
                 text(
                     "SELECT table_name, column_name FROM information_schema.columns "
                     "WHERE (table_name, column_name) IN (('organizations', 'content_locales'), "
-                    "('events', 'source_locale'), ('event_categories', 'name_i18n'))"
+                    "('organizations', 'source_locale'), ('events', 'source_locale'), "
+                    "('event_categories', 'name_i18n'))"
                 )
             )
         }
@@ -52,7 +53,7 @@ async def test_downgrade_quita_la_tabla_y_las_columnas_y_upgrade_las_devuelve() 
         _correr_alembic("upgrade", "head")
     estado = await _estado()
     assert estado["tabla"] is not None
-    assert len(estado["columnas"]) == 3  # type: ignore[arg-type]
+    assert len(estado["columnas"]) == 4  # type: ignore[arg-type]
 
 
 async def test_la_tabla_tiene_rls_forzado() -> None:

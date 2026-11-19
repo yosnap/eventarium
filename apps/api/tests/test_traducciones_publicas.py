@@ -3,7 +3,6 @@ y dicen en qué idiomas está al día cada página."""
 
 from __future__ import annotations
 
-import json
 import re
 import uuid
 from datetime import timedelta
@@ -13,6 +12,7 @@ from httpx import AsyncClient
 from sqlalchemy import update
 
 from app.core.database import SessionApp, SessionMaintenance, set_organization_context
+from app.modules.events.models import EventCategory
 from app.modules.organizations.models import Organization
 from app.modules.translations import service
 from app.modules.translations.campos import TIPOS, TipoDeEntidad
@@ -140,15 +140,10 @@ async def test_traducido_entero_se_sirve_en_ingles_y_queda_al_dia_en_los_dos(
     assert [e["title"] for e in listado if e["slug"] == "bilingue"] == ["AI Day"]
 
     # Las opciones de la pregunta: el valor sigue siendo el original.
-    await _traducir(
-        organizacion,
-        evento["id"],
-        "question",
-        pregunta["id"],
-        "options",
-        json.dumps(["Pequeña", "Grande"]),
-        json.dumps({"Pequeña": "Small", "Grande": "Large"}),
-    )
+    for valor, texto in (("Pequeña", "Small"), ("Grande", "Large")):
+        await _traducir(
+            organizacion, evento["id"], "question", pregunta["id"], f"option:{valor}", valor, texto
+        )
     preguntas = (
         await cliente.get(f"{EVENTOS_DE_ACME}/bilingue/registration-questions", headers=INGLES)
     ).json()
@@ -209,3 +204,88 @@ def test_todos_los_tipos_se_superponen_en_alguna_respuesta() -> None:
     usados |= {"question"} if "tr.opciones(" in codigo else set()
     usados |= {"tag"} if "tr.etiqueta(" in codigo else set()
     assert set(TIPOS) <= usados, set(TIPOS) - usados
+
+
+async def test_politicas_traducidas_avisan_de_que_vale_el_original(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba
+) -> None:
+    cabeceras, evento, _, _ = await _evento_con_contenido(cliente, organizacion)
+    general = await cliente.put(
+        "/api/v1/organizations/me/policies/condiciones",
+        json={"content": "Condiciones generales"},
+        headers=cabeceras,
+    )
+    assert general.status_code == 200, general.text
+    version = next(
+        p["current"]["version_id"] for p in general.json()["items"] if p["kind"] == "condiciones"
+    )
+    url = f"{EVENTOS_DE_ACME}/bilingue/policies"
+
+    sin_traducir = (await cliente.get(url, headers=INGLES)).json()
+    assert sin_traducir["translated"] is False
+
+    async with SessionApp() as session, session.begin():
+        await set_organization_context(session, organizacion.id)
+        await service.guardar_manual(
+            session,
+            organization_id=organizacion.id,
+            event_id=None,
+            tipo="policy_version",
+            entity_id=uuid.UUID(version),
+            campo="content",
+            locale="en-US",
+            valor="General terms",
+            original="Condiciones generales",
+            origen_del_contenido="es-ES",
+            idiomas_activos=("es-ES", "en-US"),
+            user_id=organizacion.owner_id,
+        )
+    traducidas = (await cliente.get(url, headers=INGLES)).json()
+    assert [p["content"] for p in traducidas["policies"]] == ["General terms"]
+    assert traducidas["translated"] is True
+    assert (await cliente.get(url)).json()["translated"] is False
+
+
+async def test_el_directorio_traduce_eventos_de_varias_organizaciones(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    otra_organizacion: OrganizacionDePrueba,
+) -> None:
+    _, evento, _, _ = await _evento_con_contenido(cliente, organizacion)
+    await _traducir(
+        organizacion, evento["id"], "event", evento["id"], "title", "Jornada de IA", "AI Day"
+    )
+    _, cabeceras_rival = await iniciar_sesion(cliente, otra_organizacion)
+    ajeno = await _crear_evento(cliente, cabeceras_rival, slug="rival-evento", title="Feria")
+    await _publicar(cliente, cabeceras_rival, ajeno["id"])
+    async with SessionMaintenance() as session, session.begin():
+        await session.execute(
+            update(Organization)
+            .where(Organization.id == otra_organizacion.id)
+            .values(content_locales=["es-ES", "en-US"])
+        )
+    await _traducir(otra_organizacion, ajeno["id"], "event", ajeno["id"], "title", "Feria", "Fair")
+
+    listado = (await cliente.get("/api/v1/public/events", headers=INGLES)).json()
+    titulos = {e["slug"]: e["title"] for e in listado}
+    assert titulos["bilingue"] == "AI Day"
+    assert titulos["rival-evento"] == "Fair"
+
+
+async def test_el_filtro_de_categorias_usa_el_nombre_traducido(cliente: AsyncClient) -> None:
+    slug = "talleres-traducidos"
+    async with SessionMaintenance() as session, session.begin():
+        session.add(
+            EventCategory(
+                slug=slug,
+                name="Talleres",
+                name_i18n={"en-US": "Workshops"},
+                display_order=99,
+                is_active=True,
+            )
+        )
+
+    ingles = (await cliente.get("/api/v1/public/event-categories", headers=INGLES)).json()
+    espanol = (await cliente.get("/api/v1/public/event-categories")).json()
+    assert next(c["name"] for c in ingles if c["slug"] == slug) == "Workshops"
+    assert next(c["name"] for c in espanol if c["slug"] == slug) == "Talleres"

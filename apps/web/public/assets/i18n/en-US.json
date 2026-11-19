@@ -465,7 +465,9 @@
         "reembolsos": "Refund policy",
         "privacidad": "Privacy policy",
         "otras": "Other conditions"
-      }
+      },
+      "traduccionOrientativa": "This is an indicative translation: the legally binding text is the original.",
+      "verOriginal": "View the original"
     },
     "compartir": {
       "titulo": "Share",

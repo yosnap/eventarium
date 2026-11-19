@@ -66,7 +66,6 @@ async def list_public_organization_events(
         session,
         [evento for evento, *_ in filas],
         idioma_actual(),
-        contexto_previo=organizacion.id,
     )
     return Page(
         items=[

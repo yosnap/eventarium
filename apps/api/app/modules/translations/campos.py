@@ -34,7 +34,7 @@ CAMPOS: Final[dict[TipoDeEntidad, frozenset[str]]] = {
     "session_type": frozenset({"name", "description"}),
     "venue": frozenset({"name"}),
     "ticket_type": frozenset({"name", "description"}),
-    "question": frozenset({"label", "options"}),
+    "question": frozenset({"label"}),
     "sponsor_tier": frozenset({"name", "benefits"}),
     "sponsor": frozenset({"name", "contribution_description"}),
     "member_profile": frozenset({"bio", "titular", "curriculum"}),
@@ -84,8 +84,14 @@ TRANSICIONES: Final[dict[Estado, frozenset[Estado]]] = {
 ORIGENES_PROTEGIDOS: Final[frozenset[Origen]] = frozenset({"manual", "revisada"})
 
 
+#: Las opciones de una pregunta se traducen una a una: `option:<valor original>`.
+PREFIJO_OPCION: Final = "option:"
+
+
 def campo_valido(tipo: TipoDeEntidad, campo: str) -> bool:
     """`campo` es traducible en `tipo`."""
+    if tipo == "question" and campo.startswith(PREFIJO_OPCION):
+        return len(campo) > len(PREFIJO_OPCION) and len(campo) <= 200
     if tipo == "tag":
         return 0 < len(campo) <= 200 and campo == campo.strip().lower()
     return campo in CAMPOS[tipo]

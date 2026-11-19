@@ -3,7 +3,6 @@ entre organizaciones y el borrado junto con la entidad."""
 
 from __future__ import annotations
 
-import json
 import uuid
 
 import pytest
@@ -78,18 +77,52 @@ def test_en_el_idioma_de_origen_no_hay_pendientes() -> None:
     assert traductor.idiomas_al_dia == ["es-ES"]
 
 
-def test_opciones_como_pares_valor_etiqueta() -> None:
-    originales = ["Sí", "No"]
+def test_opciones_como_pares_valor_etiqueta_traducidas_una_a_una() -> None:
     traductor = service.Traductor(idioma="en-US", origen="es-ES", activos=("es-ES", "en-US"))
     traductor._filas = {
-        ("question", ID, "options", "en-US"): (
-            json.dumps({"Sí": "Yes"}),
-            huella(json.dumps(originales)),
-        )
+        ("question", ID, "option:Sí", "en-US"): ("Yes", huella("Sí")),
     }
 
-    assert traductor.opciones(ID, originales) == [("Sí", "Yes"), ("No", "No")]
+    # Añadir «Quizá» no invalida la traducción de «Sí».
+    assert traductor.opciones(ID, ["Sí", "No", "Quizá"]) == [
+        ("Sí", "Yes"),
+        ("No", "No"),
+        ("Quizá", "Quizá"),
+    ]
     assert traductor.opciones(ID, None) is None
+
+
+def test_el_aviso_solo_depende_del_contenido_principal() -> None:
+    traductor = _traductor(title=("Hola", "Hello"))
+    traductor.campo("event", ID, "title", "Hola", principal=True)
+    traductor.campo("event", ID, "location_name", "Sala 1")
+
+    # Falta la sala: la página no está al día, pero lo principal sí se sirve en inglés.
+    assert traductor.idioma_servido == "en-US"
+    assert traductor.idiomas_al_dia == ["es-ES"]
+
+
+def test_lo_de_la_organizacion_usa_su_propio_idioma_de_origen() -> None:
+    """Evento escrito en inglés en una organización que escribe en español."""
+    traductor = service.Traductor(
+        idioma="en-US", origen="en-US", activos=("es-ES", "en-US"), origen_organizacion="es-ES"
+    )
+    traductor._filas = {
+        ("tag", ID, "ia", "en-US"): ("ai", huella("ia")),
+        ("event", ID, "title", "es-ES"): ("Hola", huella("Hello")),
+    }
+
+    assert traductor.etiqueta(ID, "ia") == "ai"
+    assert traductor.campo("event", ID, "title", "Hello") == "Hello"
+    assert traductor.idiomas_al_dia == ["es-ES", "en-US"]
+    assert traductor.idioma_servido == "en-US"
+
+
+def test_el_historial_se_traduce_sin_contar_para_la_pagina() -> None:
+    traductor = _traductor()
+    traductor.campo("event", uuid.uuid4(), "title", "Otro evento", contar=False)
+
+    assert traductor.idiomas_al_dia == ["es-ES", "en-US"]
 
 
 def test_los_campos_y_las_transiciones_son_coherentes() -> None:
@@ -97,6 +130,8 @@ def test_los_campos_y_las_transiciones_son_coherentes() -> None:
     assert set(TABLAS) | {"event", "organization", "tag"} == set(TIPOS)
     assert TIPOS_DE_ORGANIZACION <= set(TIPOS)
     assert campo_valido("event", "title")
+    assert campo_valido("question", "option:Grande")
+    assert not campo_valido("question", "options")
     assert not campo_valido("event", "slug")
     assert campo_valido("member_profile", "bio")
     assert not campo_valido("member_profile", "web")

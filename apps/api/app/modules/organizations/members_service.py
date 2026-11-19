@@ -299,6 +299,14 @@ async def update_member_profile(
     anteriores = dict(miembro.profile_data or {})
     miembro.profile_data = datos
     await session.flush()
+    # Un campo que se vacía no deja su traducción guardada (biografía, titular…).
+    vaciados = [clave for clave, valor in anteriores.items() if valor and not datos.get(clave)]
+    if vaciados:
+        from app.modules.translations import service as translations_service
+
+        await translations_service.borrar_campos(
+            session, organization_id, "member_profile", miembro.id, vaciados
+        )
     await session.refresh(miembro)
 
     if not es_titular:

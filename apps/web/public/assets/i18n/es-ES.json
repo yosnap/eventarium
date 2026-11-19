@@ -465,7 +465,9 @@
         "reembolsos": "Política de reembolsos",
         "privacidad": "Política de privacidad",
         "otras": "Otras condiciones"
-      }
+      },
+      "traduccionOrientativa": "Traducción orientativa: el texto que vale legalmente es el original.",
+      "verOriginal": "Ver el original"
     },
     "compartir": {
       "titulo": "Compartir",
