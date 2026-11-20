@@ -82,6 +82,12 @@ class PlatformAiSettingsUpdate(BaseModel):
     api_key: ClaveDeApi | None = None
     #: Techo de gasto mensual de la instalación. `null` explícito = sin techo.
     monthly_ceiling_usd: ImporteUsd | None = None
+    #: Tope mensual de la traducción del contenido de la plataforma. Obligatorio:
+    #: no admite `null` ni cero.
+    translation_monthly_cap_usd: (
+        Annotated[Decimal, Field(gt=Decimal("0"), le=IMPORTE_USD_MAXIMO, decimal_places=6)] | None
+    ) = None
+    translation_daily_calls: Annotated[int, Field(gt=0, le=10_000)] | None = None
 
 
 class OrganizationAiSettingsUpdate(BaseModel):
@@ -113,6 +119,11 @@ class PlatformAiSettingsOut(BaseModel):
     #: Últimos caracteres de la clave **de plataforma**. Solo lo ve el admin.
     api_key_hint: str | None
     monthly_ceiling_usd: Decimal | None
+    #: Traducción del legal y las categorías con esta IA: tope mensual, máximo de
+    #: llamadas al día y lo gastado este mes (lo paga la plataforma).
+    translation_monthly_cap_usd: Decimal
+    translation_daily_calls: int
+    translation_spent_usd: Decimal = Decimal("0")
     updated_at: datetime | None
 
 

@@ -26,8 +26,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import registrar_auditoria
 from app.core.deps import SCOPE_SESION, CurrentUser, get_maintenance_db, require_superadmin
+from app.modules.ai_gateway import plataforma
 from app.modules.ai_gateway import repository as ai_repository
 from app.modules.ai_gateway import service as ai_service
+from app.modules.ai_gateway.models import PlatformAiSettings
 from app.modules.ai_gateway.schemas import (
     OrganizationServiceOut,
     OrganizationServicesUpdate,
@@ -57,7 +59,16 @@ Superadmin = Annotated[CurrentUser, Depends(require_superadmin)]
     response_model=PlatformAiSettingsOut,
 )
 async def get_platform_ai_settings(_: Superadmin, session: MaintenanceDb) -> PlatformAiSettingsOut:
-    return ai_service.vista_de_plataforma(await ai_repository.get_platform_settings(session))
+    return await _vista(session, await ai_repository.get_platform_settings(session))
+
+
+async def _vista(session: AsyncSession, fila: PlatformAiSettings | None) -> PlatformAiSettingsOut:
+    """La vista del admin, con lo gastado este mes en traducir el contenido de
+    la plataforma."""
+    vista = ai_service.vista_de_plataforma(fila)
+    return vista.model_copy(
+        update={"translation_spent_usd": await plataforma.gasto_del_mes(session)}
+    )
 
 
 @router.put(
@@ -90,9 +101,11 @@ async def update_platform_ai_settings(
             "provider": fila.provider,
             "default_model": fila.default_model,
             "has_key": fila.api_key_encrypted is not None,
+            "translation_monthly_cap_usd": str(fila.translation_monthly_cap_usd),
+            "translation_daily_calls": fila.translation_daily_calls,
         },
     )
-    return ai_service.vista_de_plataforma(fila)
+    return await _vista(session, fila)
 
 
 @router.get(

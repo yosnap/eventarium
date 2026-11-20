@@ -39,7 +39,12 @@ from app.modules.ai_gateway.errores import (
     ProveedorRequerido,
     ServicioDesconocido,
 )
-from app.modules.ai_gateway.models import OrganizationAiSettings, PlatformAiSettings
+from app.modules.ai_gateway.models import (
+    LLAMADAS_DIARIAS_TRADUCCION_PLATAFORMA,
+    TOPE_TRADUCCION_PLATAFORMA_USD,
+    OrganizationAiSettings,
+    PlatformAiSettings,
+)
 from app.modules.ai_gateway.schemas import (
     AiUsageErrorOut,
     AiUsageOut,
@@ -209,6 +214,8 @@ def vista_de_plataforma(fila: PlatformAiSettings | None) -> PlatformAiSettingsOu
             has_key=False,
             api_key_hint=None,
             monthly_ceiling_usd=None,
+            translation_monthly_cap_usd=TOPE_TRADUCCION_PLATAFORMA_USD,
+            translation_daily_calls=LLAMADAS_DIARIAS_TRADUCCION_PLATAFORMA,
             updated_at=None,
         )
     proveedor = catalogo.obtener(fila.provider) if fila.provider else None
@@ -220,6 +227,8 @@ def vista_de_plataforma(fila: PlatformAiSettings | None) -> PlatformAiSettingsOu
         has_key=fila.api_key_encrypted is not None,
         api_key_hint=fila.api_key_hint,
         monthly_ceiling_usd=fila.monthly_ceiling_usd,
+        translation_monthly_cap_usd=fila.translation_monthly_cap_usd,
+        translation_daily_calls=fila.translation_daily_calls,
         updated_at=fila.updated_at,
     )
 
@@ -575,6 +584,10 @@ async def guardar_config_de_plataforma(
 
     if "monthly_ceiling_usd" in enviados:
         fila.monthly_ceiling_usd = datos.monthly_ceiling_usd
+    if datos.translation_monthly_cap_usd is not None:
+        fila.translation_monthly_cap_usd = datos.translation_monthly_cap_usd
+    if datos.translation_daily_calls is not None:
+        fila.translation_daily_calls = datos.translation_daily_calls
 
     await session.flush()
     # La credencial de plataforma la comparten todas las organizaciones que

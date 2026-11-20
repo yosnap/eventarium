@@ -174,3 +174,31 @@ async def test_las_categorias_se_rellenan_con_ia_sin_tocar_lo_escrito_a_mano(
     catalogo = {c["slug"]: c for c in (await cliente.get(CATEGORIAS, headers=cabeceras)).json()}
     assert catalogo["con-mano"]["name_i18n"] == {"en-US": "Workshops"}
     assert catalogo["sin-mano"]["name_i18n"] == {"en-US": "EN: Ponencias"}
+
+
+async def test_el_superadmin_ve_y_cambia_el_tope_pero_no_puede_quitarlo(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    cifrado: str,
+    proveedor_simulado: ProveedorSimulado,
+) -> None:
+    await configurar_plataforma()
+    _traducir_todo(proveedor_simulado)
+    await traduccion.traducir_legal()
+    cabeceras = await _superadmin(cliente, organizacion)
+
+    vista = (await cliente.get("/api/v1/admin/ai-settings", headers=cabeceras)).json()
+    assert Decimal(vista["translation_monthly_cap_usd"]) == Decimal("5")
+    assert vista["translation_daily_calls"] == 200
+    assert Decimal(vista["translation_spent_usd"]) > 0
+
+    cambiado = await cliente.put(
+        "/api/v1/admin/ai-settings",
+        headers=cabeceras,
+        json={"translation_monthly_cap_usd": "12.5", "translation_daily_calls": 50},
+    )
+    assert cambiado.status_code == 200, cambiado.text
+    assert Decimal(cambiado.json()["translation_monthly_cap_usd"]) == Decimal("12.5")
+    for invalido in ({"translation_monthly_cap_usd": "0"}, {"translation_daily_calls": 0}):
+        rechazado = await cliente.put("/api/v1/admin/ai-settings", headers=cabeceras, json=invalido)
+        assert rechazado.status_code == 422
