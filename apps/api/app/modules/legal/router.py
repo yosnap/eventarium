@@ -43,6 +43,7 @@ async def _pagina_publica(session: AsyncSession, clave: str, idioma: Locale) -> 
         content=pagina.content,
         served_locale=pagina.served_locale,
         available_locales=pagina.available_locales,
+        machine_translated=pagina.machine_translated,
     )
 
 

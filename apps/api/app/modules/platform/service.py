@@ -15,14 +15,20 @@ from app.core.locale import DEFAULT_LOCALE, LOCALES, Locale
 from app.core.storage import get_storage, public_url_versionada
 from app.modules.media.models import PlatformMedia
 from app.modules.platform import repository
-from app.modules.platform.models import PLATFORM_LEGAL_PAGE_KINDS, PlatformBranding
+from app.modules.platform.models import (
+    PLATFORM_LEGAL_PAGE_KINDS,
+    PlatformBranding,
+    PlatformLegalPage,
+)
 from app.modules.platform.schemas import (
     PlatformBrandingResponse,
     PlatformLegalPageItem,
     PlatformLegalPagesResponse,
+    PlatformLegalTranslation,
     ThemeResolved,
 )
 from app.modules.platform.templates import resolve_platform_legal_page
+from app.modules.translations.campos import huella
 
 #: Mapea la clave pública de página con el nombre del campo en el schema de
 #: actualización.
@@ -97,7 +103,7 @@ async def branding_publico(session: AsyncSession) -> PlatformBrandingResponse:
     )
 
 
-def _sitio_de_la_instalacion() -> str:
+def sitio_de_la_instalacion() -> str:
     """El único sitio que opera la plataforma, para los textos legales.
 
     Sin dominio por organización, ya no hay una lista de hosts registrados
@@ -107,47 +113,100 @@ def _sitio_de_la_instalacion() -> str:
     return get_settings().web_base_url.split("://", 1)[-1]
 
 
+#: Versiones traducidas que escribió o revisó el superadmin: la IA no las toca.
+ORIGENES_A_MANO = ("manual", "revisada")
+
+
+async def espanoles_efectivos(session: AsyncSession) -> dict[str, str]:
+    """Por página, el texto español que se sirve (editado o plantilla)."""
+    branding: PlatformBranding = await repository.get_platform_branding(session)
+    sitio = sitio_de_la_instalacion()
+    resultado: dict[str, str] = {}
+    for clave in PLATFORM_LEGAL_PAGE_KINDS:
+        fila = await repository.get_platform_legal_page(session, clave)
+        editado = fila.content if fila is not None else None
+        resultado[clave] = resolve_platform_legal_page(branding, sitio, clave, editado)
+    return resultado
+
+
+def estado_de_version(fila: PlatformLegalPage | None, firma: str) -> str | None:
+    """Estado de una versión traducida respecto al español actual (`firma` es su
+    huella), o `None` si no hay. Solo `al_dia` se sirve."""
+    if fila is None or (fila.origin is None and fila.status is None):
+        return None
+    if fila.content and fila.source_hash == firma and fila.status == "al_dia":
+        return "al_dia"
+    if fila.origin in ORIGENES_A_MANO:
+        return "desactualizada" if fila.content else "pendiente"
+    if fila.status in ("en_curso", "error"):
+        return fila.status
+    return "pendiente"
+
+
 async def legal_pages_publicas(
     session: AsyncSession, locale: Locale = DEFAULT_LOCALE
 ) -> PlatformLegalPagesResponse:
     """Las cuatro páginas legales de plataforma en `locale`, con su contenido efectivo.
 
     La española cae a la plantilla por defecto si no se ha editado. En otro idioma
-    solo hay versión si el superadmin la ha escrito a mano (el legal no pasa por la
-    IA); si falta, se sirve la española y `served_locale` lo indica.
+    se sirve la versión traducida solo si está al día con el español efectivo; si
+    no hay o está desfasada, se sirve la española y `served_locale` lo indica. La
+    traducida por IA sin revisar sale marcada (`machine_translated`) y no se anuncia
+    a los buscadores (`available_locales` solo lleva las escritas o revisadas a mano).
     """
-    branding: PlatformBranding = await repository.get_platform_branding(session)
-    sitio = _sitio_de_la_instalacion()
-    con_version = await repository.idiomas_con_version_legal(session)
+    espanoles = await espanoles_efectivos(session)
+    traducidas = await repository.versiones_legales_traducidas(session)
+    editadas = await repository.paginas_legales_editadas(session)
 
     items: dict[str, PlatformLegalPageItem] = {}
     for clave in PLATFORM_LEGAL_PAGE_KINDS:
-        # La española existe siempre (plantilla o editada); las demás, si se escribieron.
-        disponibles = [
+        firma = huella(espanoles[clave])
+        al_dia = {
+            idioma: fila
+            for (pagina, idioma), fila in traducidas.items()
+            if pagina == clave and estado_de_version(fila, firma) == "al_dia"
+        }
+        disponibles: list[Locale] = [
             idioma
             for idioma in LOCALES
-            if idioma == DEFAULT_LOCALE or (clave, idioma) in con_version
+            if idioma == DEFAULT_LOCALE
+            or (idioma in al_dia and al_dia[idioma].origin in ORIGENES_A_MANO)
         ]
-        if locale != DEFAULT_LOCALE:
-            traducida = await repository.get_platform_legal_page(session, clave, locale)
-            if traducida is not None and traducida.content:
-                items[ATRIBUTO_DE_PAGINA[clave]] = PlatformLegalPageItem(
-                    content=traducida.content,
-                    is_custom=True,
-                    served_locale=locale,
-                    available_locales=disponibles,
-                )
-                continue
-        fila = await repository.get_platform_legal_page(session, clave)
-        contenido_editado = fila.content if fila is not None else None
+        version = traducidas.get((clave, locale)) if locale != DEFAULT_LOCALE else None
+        traduccion = (
+            PlatformLegalTranslation(
+                content=version.content,
+                origin=version.origin,
+                status=estado_de_version(version, firma),
+            )
+            if version is not None and estado_de_version(version, firma) is not None
+            else None
+        )
+        servida = al_dia.get(locale)
+        if servida is not None and servida.content:
+            items[ATRIBUTO_DE_PAGINA[clave]] = PlatformLegalPageItem(
+                content=servida.content,
+                is_custom=servida.origin in ORIGENES_A_MANO,
+                served_locale=locale,
+                available_locales=disponibles,
+                machine_translated=servida.origin == "ia",
+                translation=traduccion,
+            )
+            continue
         items[ATRIBUTO_DE_PAGINA[clave]] = PlatformLegalPageItem(
-            content=resolve_platform_legal_page(branding, sitio, clave, contenido_editado),
-            is_custom=bool(contenido_editado) and locale == DEFAULT_LOCALE,
+            content=espanoles[clave],
+            is_custom=clave in editadas and locale == DEFAULT_LOCALE,
             served_locale=DEFAULT_LOCALE,
             available_locales=disponibles,
+            translation=traduccion,
         )
 
     return PlatformLegalPagesResponse(**items)
+
+
+def clave_de_atributo(atributo: str) -> str:
+    """Clave de página (`aviso-legal`…) de un atributo de la respuesta (`legal_notice`…)."""
+    return next(clave for clave, valor in ATRIBUTO_DE_PAGINA.items() if valor == atributo)
 
 
 def campo_de_pagina(clave: str) -> str:

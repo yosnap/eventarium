@@ -119,6 +119,29 @@ def _plataforma_tiene_credencial(fila: PlatformAiSettings | None) -> bool:
     )
 
 
+def config_de_la_plataforma(plataforma: PlatformAiSettings | None) -> ConfigEfectiva | None:
+    """La configuración de plataforma, tal como la hereda una organización sin la
+    suya, o `None` si la plataforma no tiene credencial completa."""
+    if plataforma is None or not _plataforma_tiene_credencial(plataforma):
+        return None
+    clave = plataforma.provider or ""
+    proveedor = catalogo.obtener(clave)
+    techo = plataforma.monthly_ceiling_usd
+    return ConfigEfectiva(
+        origen="heredada",
+        provider=plataforma.provider,
+        default_model=plataforma.default_model,
+        api_base=catalogo.api_base_efectivo(clave, plataforma.api_base),
+        api_base_editable=proveedor.api_base_editable if proveedor else False,
+        api_key_encrypted=plataforma.api_key_encrypted,
+        api_key_hint=None,
+        monthly_limit_usd=None,
+        monthly_ceiling_usd=techo,
+        limite_efectivo_usd=techo,
+        updated_at=plataforma.updated_at,
+    )
+
+
 async def resolver_config_efectiva(
     session: AsyncSession, organization_id: uuid.UUID
 ) -> ConfigEfectiva:
@@ -148,22 +171,9 @@ async def resolver_config_efectiva(
             updated_at=propia.updated_at,
         )
 
-    if plataforma is not None and _plataforma_tiene_credencial(plataforma):
-        clave = plataforma.provider or ""
-        proveedor = catalogo.obtener(clave)
-        return ConfigEfectiva(
-            origen="heredada",
-            provider=plataforma.provider,
-            default_model=plataforma.default_model,
-            api_base=catalogo.api_base_efectivo(clave, plataforma.api_base),
-            api_base_editable=proveedor.api_base_editable if proveedor else False,
-            api_key_encrypted=plataforma.api_key_encrypted,
-            api_key_hint=None,
-            monthly_limit_usd=None,
-            monthly_ceiling_usd=techo,
-            limite_efectivo_usd=techo,
-            updated_at=plataforma.updated_at,
-        )
+    heredada = config_de_la_plataforma(plataforma)
+    if heredada is not None:
+        return heredada
 
     # Sin override propio y sin credencial de plataforma: es el estado al que
     # degrada borrar la configuración de plataforma (V-12). Estado explícito,

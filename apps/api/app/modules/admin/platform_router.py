@@ -26,6 +26,7 @@ from app.core.storage import (
     public_url_versionada,
     validate_upload,
 )
+from app.core.tras_commit import encolar_tras_commit
 from app.modules.media import platform_service as platform_media_service
 from app.modules.media.models import PlatformMedia, PlatformMediaFolder
 from app.modules.media.schemas import (
@@ -41,11 +42,13 @@ from app.modules.platform.models import PlatformLegalPage
 from app.modules.platform.schemas import (
     PlatformBrandingResponse,
     PlatformBrandingUpdate,
+    PlatformLegalPageReview,
     PlatformLegalPagesResponse,
     PlatformLegalPagesUpdate,
 )
 from app.modules.theme_templates import repository as theme_templates_repository
-from app.shared.errors import ValidationDomainError
+from app.modules.translations.campos import huella
+from app.shared.errors import ConflictError, ValidationDomainError
 from app.shared.pagination import Page, PageParams, page_params
 
 router = APIRouter(prefix="/admin", tags=["administración"])
@@ -466,6 +469,9 @@ async def update_platform_legal_pages(
     datos: PlatformLegalPagesUpdate, superadmin: Superadmin, session: MaintenanceDb
 ) -> PlatformLegalPagesResponse:
     cambios = datos.model_dump(exclude_unset=True, exclude={"locale"})
+    traducida = datos.locale != DEFAULT_LOCALE
+    # La huella de la versión traducida es la del español que se sirve ahora.
+    espanoles = await platform_service.espanoles_efectivos(session) if traducida else {}
 
     for clave, campo in _CAMPOS_DE_PAGINA.items():
         if campo not in cambios:
@@ -474,15 +480,38 @@ async def update_platform_legal_pages(
         limpio = valor.strip() if isinstance(valor, str) else None
 
         fila = await platform_repository.get_platform_legal_page(session, clave, datos.locale)
-        if fila is None:
-            # Sin fila y sin contenido: ya estaba en plantilla (o, en otro idioma, ya
-            # se servía la española), no hay nada que restaurar ni que crear.
+        if traducida:
+            if fila is None:
+                fila = PlatformLegalPage(kind=clave, locale=datos.locale)
+                session.add(fila)
+            if limpio:
+                # Escrita a mano: la IA ya no la toca.
+                fila.content = limpio
+                fila.origin = "manual"
+                fila.status = "al_dia"
+                fila.source_hash = huella(espanoles[clave])
+            else:
+                # Vacía: vuelve a la traducción automática.
+                fila.content = None
+                fila.origin = "ia"
+                fila.status = "pendiente"
+                fila.source_hash = None
+            fila.error_count = 0
+            fila.retry_after = None
+        elif fila is None:
+            # Sin fila y sin contenido: ya estaba en plantilla, no hay nada que
+            # restaurar ni que crear.
             if limpio:
                 session.add(PlatformLegalPage(kind=clave, content=limpio, locale=datos.locale))
         else:
             fila.content = limpio or None
 
+    if not traducida and cambios:
+        # Cambia el español: las versiones de la IA se rehacen desde cero, sin la
+        # espera de errores anteriores.
+        await platform_repository.reiniciar_errores_de_traduccion_legal(session)
     await session.flush()
+    encolar_tras_commit(session, _traducir_contenido_de_plataforma)
 
     await registrar_auditoria(
         session,
@@ -492,5 +521,45 @@ async def update_platform_legal_pages(
         entity_type="platform_legal_page",
         entity_id=None,
         detail={"campos": sorted(cambios), "idioma": datos.locale},
+    )
+    return await platform_service.legal_pages_publicas(session, datos.locale)
+
+
+async def _traducir_contenido_de_plataforma() -> None:
+    from app.core.tasks import traducir_contenido_de_plataforma_task
+
+    await traducir_contenido_de_plataforma_task.kiq()
+
+
+@router.post(
+    "/legal-pages/review",
+    summary="Marcar como revisada la traducción automática de una página legal",
+    description=(
+        "La versión traducida por IA que está al día pasa a `revisada`: se sirve sin el "
+        "aviso de traducción automática, se anuncia a los buscadores y la IA ya no la toca."
+    ),
+    response_model=PlatformLegalPagesResponse,
+)
+async def review_platform_legal_page(
+    datos: PlatformLegalPageReview, superadmin: Superadmin, session: MaintenanceDb
+) -> PlatformLegalPagesResponse:
+    clave = platform_service.clave_de_atributo(datos.page)
+    fila = await platform_repository.get_platform_legal_page(session, clave, datos.locale)
+    espanoles = await platform_service.espanoles_efectivos(session)
+    if (
+        fila is None
+        or platform_service.estado_de_version(fila, huella(espanoles[clave])) != "al_dia"
+    ):
+        raise ConflictError("Solo se puede revisar una traducción al día con el español actual.")
+    fila.origin = "revisada"
+    await session.flush()
+    await registrar_auditoria(
+        session,
+        actor_user_id=superadmin.id,
+        organization_id=None,
+        action="platform_legal_pages.reviewed",
+        entity_type="platform_legal_page",
+        entity_id=None,
+        detail={"pagina": clave, "idioma": datos.locale},
     )
     return await platform_service.legal_pages_publicas(session, datos.locale)

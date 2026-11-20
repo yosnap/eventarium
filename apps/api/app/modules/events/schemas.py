@@ -112,6 +112,8 @@ class EventCategoryOut(BaseModel):
     is_active: bool
     # Nombre en otros idiomas; uno que falte cae a `name`.
     name_i18n: dict[Locale, str] = Field(default_factory=dict)
+    # Quién escribió cada idioma: `ia` (la IA de la plataforma) o `manual`.
+    name_i18n_origin: dict[Locale, str] = Field(default_factory=dict)
 
 
 class PublicCategoryRef(BaseModel):
