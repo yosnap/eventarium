@@ -2699,6 +2699,9 @@
         "topeTraduccion": "Monthly cap for translating the platform's content (USD)",
         "topeTraduccionAyuda": "The platform's AI translates the legal pages and the category names; the platform pays for it. When the cap is reached it stops and the Spanish version is served. Spent this month: {{gastado}} USD.",
         "topeTraduccionInvalido": "The translation cap must be an amount greater than zero.",
+        "llamadasTraduccion": "Maximum calls per day for translating the platform's content",
+        "llamadasTraduccionAyuda": "A safety cap on top of the monthly spending: when reached, it stops until the next day.",
+        "llamadasTraduccionInvalido": "The maximum calls per day must be a whole number between 1 and 10000.",
         "guardado": "The platform AI configuration has been saved."
       },
       "servicios": {

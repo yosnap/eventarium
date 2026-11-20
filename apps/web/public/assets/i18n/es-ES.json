@@ -2699,6 +2699,9 @@
         "topeTraduccion": "Tope mensual para traducir el contenido de la plataforma (USD)",
         "topeTraduccionAyuda": "La IA de la plataforma traduce las páginas legales y los nombres de las categorías; lo paga la plataforma. Al llegar al tope se para y se sirve el español. Este mes van {{gastado}} USD.",
         "topeTraduccionInvalido": "El tope de traducción tiene que ser un importe mayor que cero.",
+        "llamadasTraduccion": "Máximo de llamadas al día para traducir el contenido de la plataforma",
+        "llamadasTraduccionAyuda": "Tope de seguridad además del gasto mensual: al llegar a él, se para hasta el día siguiente.",
+        "llamadasTraduccionInvalido": "El máximo de llamadas al día tiene que ser un número entero entre 1 y 10000.",
         "guardado": "Se ha guardado la configuración de IA de la plataforma."
       },
       "servicios": {

@@ -301,4 +301,24 @@ describe('AiSettingsPage', () => {
     http.expectOne(USO_URL).flush(USO);
     await guardando;
   });
+
+  it('el máximo de llamadas al día se edita y se valida', async () => {
+    const fixture = await crearYCargar();
+    expect(fixture.componentInstance.llamadasTraduccion()).toBe('200');
+
+    fixture.componentInstance.llamadasTraduccion.set('0');
+    await fixture.componentInstance.guardar(new Event('submit'));
+    http.expectNone({ method: 'PUT', url: AJUSTES_URL });
+    expect(fixture.componentInstance.error()).toContain('entre 1 y 10000');
+
+    fixture.componentInstance.llamadasTraduccion.set('50');
+    const guardando = fixture.componentInstance.guardar(new Event('submit'));
+    await avanzar(fixture);
+    const peticion = http.expectOne({ method: 'PUT', url: AJUSTES_URL });
+    expect(peticion.request.body).toEqual({ translation_daily_calls: '50' });
+    peticion.flush({ ...AJUSTES, translation_daily_calls: 50 });
+    await avanzar(fixture);
+    http.expectOne(USO_URL).flush(USO);
+    await guardando;
+  });
 });
