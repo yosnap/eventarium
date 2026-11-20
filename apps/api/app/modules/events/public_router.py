@@ -4,7 +4,7 @@ Prefijo fijado a `/public/...`: no es una decisión abierta de implementación, 
 tomó el plan tras el red-team. Sin autenticación (son lecturas). Sin dominio
 por organización (fase 2 del plan de organización sin dominio), el detalle de
 un evento (`GET /events/{slug}` y todo lo que cuelga de él) resuelve su
-organización desde el propio evento (`events.service.resolve_public_event_by_slug`,
+organización desde el propio evento (`events.publico.resolve_public_event_by_slug`,
 `SessionDep`, sin ningún contexto RLS previo), igual que ya hace
 `checkout_service.iniciar_compra` con `event.organization_id` — no por host.
 
@@ -12,7 +12,7 @@ organización desde el propio evento (`events.service.resolve_public_event_by_sl
 eventos publicados de **toda la instalación** (fase 6 del plan de
 organización sin dominio, corrección de comportamiento: seguía resolviendo
 por host, lo que en producción sin dominio por organización eran 404 sin
-más — ver `list_public_events_across_organizations` en `events/service.py`
+más — ver `list_public_events_across_organizations` en `events/publico.py`
 para el porqué de la resolución organización a organización).
 
 El filtro de publicación (`published` y, por URL, `public` o `hidden`; en listados solo
@@ -49,8 +49,8 @@ from app.core.ratelimit import PUBLICO_POR_IP, limit_per_ip
 from app.core.storage import get_storage, public_url_versionada
 from app.modules.events import (
     categories,
+    publico,
     repository,
-    service,
     session_types,
     speakers_repository,
 )
@@ -308,7 +308,7 @@ async def list_public_events(
             ) from exc
         # Qué etiqueta falla, y si es por su longitud o por sus caracteres.
         raise ValidationDomainError(exc.plantilla, params=exc.params) from exc  # mensaje marcado
-    filas, total = await service.list_public_events_across_organizations(
+    filas, total = await publico.list_public_events_across_organizations(
         session, category_slug=categoria, tags=etiquetas, limit=limit, offset=offset
     )
     # El total que cumple los filtros, para paginar sin cambiar la forma de la respuesta.
@@ -399,7 +399,7 @@ async def detalle_publico(session: AsyncSession, evento: Event) -> PublicEventDe
     reservadas = await registrations_repository.count_reserved_registrations(
         session, evento.organization_id, evento.id
     )
-    tema = await service.tema_publico_del_evento(session, evento)
+    tema = await publico.tema_publico_del_evento(session, evento)
     venta = None
     if evento.registration_mode == "paid":
         ventas = await payments_service.get_public_sales(
@@ -546,7 +546,7 @@ async def get_public_sponsor(
             )
             for otro_evento, otro_nivel in filas_historial
         ],
-        theme=await service.tema_publico_del_evento(session, evento),
+        theme=await publico.tema_publico_del_evento(session, evento),
         **tr.metadatos(),
     )
 
@@ -624,7 +624,7 @@ async def get_public_session(
         event_slug=evento.slug,
         event_title=tr.campo("event", evento.id, "title", evento.title) or evento.title,
         organization=await organizations_service.public_ref(session, evento.organization_id),
-        theme=await service.tema_publico_del_evento(session, evento),
+        theme=await publico.tema_publico_del_evento(session, evento),
         **tr.metadatos(),
     )
 

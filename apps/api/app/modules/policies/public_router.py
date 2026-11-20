@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends
 from app.core.deps import SessionDep
 from app.core.locale import idioma_actual
 from app.core.ratelimit import PUBLICO_POR_IP
-from app.modules.events import service as events_service
+from app.modules.events import publico as events_publico
 from app.modules.events.models import Event
 from app.modules.events.public_deps import EVENTO_PARA_MOSTRAR, ruta_de_evento
 from app.modules.organizations.models import Organization
@@ -66,6 +66,6 @@ async def get_public_event_policies(
         # traducción es orientativa.
         translated=tr.sirvio("policy_version"),
         original_locale=tr.origen_de("policy_version"),
-        theme=await events_service.tema_publico_del_evento(session, evento),
+        theme=await events_publico.tema_publico_del_evento(session, evento),
         **tr.metadatos(),
     )

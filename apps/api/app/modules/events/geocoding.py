@@ -18,6 +18,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from datetime import UTC, datetime
+from decimal import Decimal
 
 import httpx
 
@@ -81,3 +83,15 @@ async def geocode_address(address: str) -> tuple[float, float] | None:
     except (KeyError, TypeError, ValueError):
         logger.warning("Respuesta de Nominatim con forma inesperada; se continúa (fail-open).")
         return None
+
+
+async def geocodificar_para_guardar(address: str) -> tuple[Decimal, Decimal, datetime] | None:
+    """Geocodifica `address` y empaqueta el resultado listo para persistir, o
+    `None` si Nominatim no devolvió coordenadas (fallo de red, sin resultados,
+    respuesta inesperada — `geocode_address` ya absorbe esos casos, aquí solo
+    se traduce a los tipos de columna)."""
+    resultado = await geocode_address(address)
+    if resultado is None:
+        return None
+    latitud, longitud = resultado
+    return (Decimal(str(latitud)), Decimal(str(longitud)), datetime.now(UTC))

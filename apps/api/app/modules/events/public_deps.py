@@ -17,7 +17,7 @@ from fastapi import APIRouter, Request
 
 from app.core.deps import SessionDep
 from app.core.ratelimit import limit_per_ip
-from app.modules.events import service
+from app.modules.events import publico
 from app.modules.events.models import Event
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -26,7 +26,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 def evento_publico(*, para_mostrar: bool) -> Callable[[Request, SessionDep], Awaitable[Event]]:
     async def dependencia(request: Request, session: SessionDep) -> Event:
         parametros = request.path_params
-        return await service.resolve_public_event_by_slug(
+        return await publico.resolve_public_event_by_slug(
             session,
             parametros["org_slug"],
             parametros["slug"],

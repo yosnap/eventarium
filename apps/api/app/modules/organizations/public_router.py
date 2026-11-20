@@ -16,7 +16,7 @@ from fastapi import APIRouter, Query
 from app.core.deps import SessionDep
 from app.core.locale import idioma_actual
 from app.core.ratelimit import PUBLICO_POR_IP, limit_per_ip
-from app.modules.events import service as events_service
+from app.modules.events import publico as events_publico
 from app.modules.events.public_summary import resumen_publico
 from app.modules.events.schemas import PublicEventSummary
 from app.modules.organizations import service
@@ -58,7 +58,7 @@ async def list_public_organization_events(
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> Page[PublicEventSummary]:
     organizacion = await service.resolve_public_organization(session, org_slug)
-    filas, total = await events_service.list_public_events_of_organization(
+    filas, total = await events_publico.list_public_events_of_organization(
         session, organizacion.id, upcoming=when == "upcoming", limit=limit, offset=offset
     )
     referencia = await service.public_ref(session, organizacion.id)

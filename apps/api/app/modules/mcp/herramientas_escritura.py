@@ -37,8 +37,10 @@ from app.core.config import get_settings
 from app.core.database import maintenance_session
 from app.core.permissions import Permission
 from app.core.storage import get_storage
+from app.modules.events import agenda as events_agenda
 from app.modules.events import cancelacion, session_types
 from app.modules.events import categories as events_categories
+from app.modules.events import sedes as events_sedes
 from app.modules.events import service as events_service
 from app.modules.events.models import EventSession
 from app.modules.events.schemas import (
@@ -434,7 +436,7 @@ def registrar(mcp: MCPServer) -> None:
             if tipo:
                 elegido = await session_types.por_texto(session, contexto.organization_id, tipo)
                 datos["session_type_id"] = str(elegido.id)
-            nueva = await events_service.create_session(
+            nueva = await events_agenda.create_session(
                 session, organization_id=contexto.organization_id, event_id=evento.id, datos=datos
             )
             respuesta = _sesion_out(nueva)
@@ -481,7 +483,7 @@ def registrar(mcp: MCPServer) -> None:
                 elegido = await session_types.por_texto(session, contexto.organization_id, tipo)
                 datos["session_type_id"] = str(elegido.id)
             if datos:
-                cambiada = await events_service.update_session(
+                cambiada = await events_agenda.update_session(
                     session,
                     organization_id=contexto.organization_id,
                     event_id=evento.id,
@@ -509,7 +511,7 @@ def registrar(mcp: MCPServer) -> None:
         contexto.exigir_ambito(Ambito.EVENTOS_EDITAR)
         async with sesion(contexto) as session:
             evento = await _evento_permitido(session, contexto, event_id)
-            await events_service.delete_session(
+            await events_agenda.delete_session(
                 session,
                 organization_id=contexto.organization_id,
                 event_id=evento.id,
@@ -539,7 +541,7 @@ def registrar(mcp: MCPServer) -> None:
         async with sesion(contexto) as session:
             evento = await _evento_permitido(session, contexto, event_id)
             idiomas.exigir_idioma_original(locale, evento)
-            sede = await events_service.create_venue(
+            sede = await events_sedes.create_venue(
                 session, organization_id=contexto.organization_id, event_id=evento.id, datos=datos
             )
             respuesta = schemas.Sede(

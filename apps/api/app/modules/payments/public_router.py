@@ -3,7 +3,7 @@
 Mismo patrón que `registrations/public_router.py`: sin autenticación, sin
 dominio por organización (fase 2 del plan de organización sin dominio) — la
 organización se resuelve desde el propio evento
-(`events.service.resolve_public_event_by_slug`), no por host. Un presupuesto
+(`events.publico.resolve_public_event_by_slug`), no por host. Un presupuesto
 es puramente informativo — **nunca** reserva cupo ni consume un uso de
 código, ver `service.calcular_presupuesto` — así que este router no crea
 nada, solo lee.

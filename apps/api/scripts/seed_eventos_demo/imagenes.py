@@ -97,7 +97,7 @@ def _sin_acentos(texto: str) -> str:
 async def _geocode_por_tabla(address: str | None) -> tuple[float, float] | None:
     """Devuelve las coordenadas de la ciudad que aparezca en `address`, sin red.
 
-    Reemplaza a `events_service.geocode_address` (Nominatim) durante el seed: el
+    Reemplaza a `events.geocoding.geocode_address` (Nominatim) durante el seed: el
     resultado es determinista, no depende de Internet y no consume el límite de
     1 petición/segundo. Si no reconoce ninguna ciudad, devuelve `None`, que el
     servicio traduce a «sin coordenadas» — exactamente el mismo contrato.

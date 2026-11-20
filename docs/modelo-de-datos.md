@@ -295,7 +295,7 @@ nunca ninguno. Se valida en el esquema Pydantic para el alta
 (`SponsorCreate`) y se revalida en el servicio para el `PATCH` parcial
 (`update_sponsor`), donde la combinación final solo se conoce tras fusionar
 con lo que el patrocinador ya tenía guardado — mismo motivo que
-`events/service.py:update_session` con `video_platform`/`video_url`.
+`events/agenda.py:update_session` con `video_platform`/`video_url`.
 
 **El bloque público nunca expone la aportación.** El endpoint público de
 detalle de evento (`GET /public/organizations/{org}/events/{slug}`) agrupa los patrocinadores por

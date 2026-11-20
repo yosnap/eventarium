@@ -257,7 +257,7 @@ async def test_la_resolucion_publica_por_evento_no_filtra_datos_de_otra_organiza
     from unittest.mock import AsyncMock, patch
 
     with patch(
-        "app.modules.events.service.geocode_address",
+        "app.modules.events.geocoding.geocode_address",
         new=AsyncMock(return_value=(39.4699, -0.3763)),
     ):
         sede_a = (
@@ -685,7 +685,7 @@ async def test_el_detalle_publico_expone_sedes_y_venue_id_de_la_sesion(
     evento = await _crear_evento(cliente, cabeceras, slug="con-sedes")
 
     with patch(
-        "app.modules.events.service.geocode_address",
+        "app.modules.events.geocoding.geocode_address",
         new=AsyncMock(return_value=(39.4699, -0.3763)),
     ):
         sede = (
