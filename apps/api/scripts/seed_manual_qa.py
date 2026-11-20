@@ -30,6 +30,7 @@ from app.core.config import get_settings
 from app.core.database import maintenance_session
 from app.core.security import hash_password
 from app.modules.auth.verification import PROPOSITO_CANCELACION_INSCRIPCION, generate_token
+from app.modules.events import agenda as events_agenda
 from app.modules.events import repository as events_repository
 from app.modules.events import service as events_service
 from app.modules.events.models import (
@@ -162,7 +163,7 @@ async def _get_or_create_session(
     )
     if existente is not None:
         return existente
-    return await events_service.create_session(
+    return await events_agenda.create_session(
         session,
         organization_id=organization_id,
         event_id=event_id,

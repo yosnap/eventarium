@@ -20,8 +20,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.security import hash_password
 from app.core.storage import build_object_key
+from app.modules.events import agenda as events_agenda
 from app.modules.events import categories as event_categories
 from app.modules.events import repository as events_repository
+from app.modules.events import sedes as events_sedes
 from app.modules.events import service as events_service
 from app.modules.events.models import (
     Event,
@@ -201,12 +203,12 @@ async def _get_or_create_sede(
     )
     if existente is not None:
         if existente.geocoded_at is None and existente.address:
-            await events_service._sincronizar_geocodificacion_sede(
+            await events_sedes._sincronizar_geocodificacion_sede(
                 existente, address=existente.address, direccion_anterior=None
             )
             await session.flush()
         return existente.id
-    sede = await events_service.create_venue(
+    sede = await events_sedes.create_venue(
         session,
         organization_id=organization_id,
         event_id=event_id,
@@ -242,7 +244,7 @@ async def _get_or_create_sesion(
     dias, hora, minuto, duracion_horas, duracion_minutos = spec["starts_offset"]
     inicio = _inicio_de_sesion(inicio_evento, dias, hora, minuto, zona)
     fin = inicio + timedelta(hours=duracion_horas, minutes=duracion_minutos)
-    return await events_service.create_session(
+    return await events_agenda.create_session(
         session,
         organization_id=organization_id,
         event_id=event_id,
@@ -294,7 +296,7 @@ async def _get_or_create_miembro_evento(
     )
     if existente is not None:
         return existente
-    return await events_service.add_event_member(
+    return await events_agenda.add_event_member(
         session,
         organization_id=organization_id,
         event_id=event_id,

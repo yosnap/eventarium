@@ -34,7 +34,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.core.database import maintenance_session
 from app.core.storage import get_storage
-from app.modules.events import service as events_service
+from app.modules.events import geocoding as events_geocoding
 from app.modules.events.models import SpeakerPublicProfile
 from app.modules.organizations.models import Organization, OrganizationMember
 from app.modules.roles.models import Role
@@ -82,7 +82,7 @@ async def main(slug_organizacion: str) -> None:
 
         # La geocodificación se sustituye por la tabla local durante todo el
         # sembrado: sin red, determinista y sin límite de peticiones.
-        with patch.object(events_service, "geocode_address", _geocode_por_tabla):
+        with patch.object(events_geocoding, "geocode_address", _geocode_por_tabla):
             eventos = [
                 await _sembrar_evento(
                     session,
