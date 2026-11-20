@@ -6,10 +6,10 @@ import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../../core/api/api.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import type { Idioma } from '../../../core/i18n/idioma';
-import { AvisoClavePropia } from '../../../shared/ui/aviso-clave-propia';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Dialog } from '../../../shared/ui/dialog';
+import { AsistenteClaveTraduccion } from './asistente-clave-traduccion';
 
 interface Estimacion {
   readonly events: number;
@@ -26,14 +26,17 @@ interface Estimacion {
 @Component({
   selector: 'app-oferta-traducir-publicados',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, AvisoClavePropia, Button, Dialog],
+  imports: [TranslocoDirective, Alert, AsistenteClaveTraduccion, Button, Dialog],
   template: `
     <ng-container *transloco="let t; prefix: 'admin.organizacion.ofertaTraducir'">
       <app-dialog #dialogo [etiqueta]="t('titulo', { idioma: t('idiomas.' + idioma()) })">
         @if (estimacion(); as e) {
           <h2>{{ t('titulo', { idioma: t('idiomas.' + idioma()) }) }}</h2>
           @if (!e.auto_translation_available) {
-            <app-aviso-clave-propia />
+            <app-asistente-clave-traduccion
+              (configurada)="trasConfigurar()"
+              (descartado)="dialogo.cerrar()"
+            />
           } @else {
             <p>{{ t('texto', { eventos: e.events, textos: e.texts }) }}</p>
             @if (e.estimated_cost_usd) {
@@ -47,10 +50,10 @@ interface Estimacion {
             <app-alert tone="error">{{ t('error') }}</app-alert>
           }
         }
-        <app-button pie variant="secundario" (pulsado)="dialogo.cerrar()">{{
-          t('ahoraNo')
-        }}</app-button>
         @if (estimacion()?.auto_translation_available) {
+          <app-button pie variant="secundario" (pulsado)="dialogo.cerrar()">{{
+            t('ahoraNo')
+          }}</app-button>
           <app-button pie [loading]="enviando()" (pulsado)="traducir()">{{
             t('traducir')
           }}</app-button>
@@ -80,16 +83,13 @@ export class OfertaTraducirPublicados {
   private readonly auth = inject(AuthService);
   protected readonly idioma = signal<Idioma>('en-US');
 
-  /** Pide la estimación y abre el diálogo si hay algo que traducir con IA. */
+  /** Pide la estimación y abre el diálogo: sin clave propia, con el asistente
+   * para configurarla; con clave, si hay algo que traducir con IA. */
   async ofrecer(idioma: Idioma): Promise<void> {
     try {
-      const estimacion = await firstValueFrom(
-        this.http.get<Estimacion>(this.api.url('/translations/published/estimate'), {
-          params: { locale: idioma },
-        }),
-      );
-      // Sin clave propia se avisa (el idioma no se traducirá solo); con clave,
-      // solo si hay algo que traducir y quien guarda puede pedirlo.
+      const estimacion = await this.estimar(idioma);
+      // Sin clave propia se abre el asistente (el idioma no se traducirá solo);
+      // con clave, solo si hay algo que traducir y quien guarda puede pedirlo.
       const puedeTraducir = this.auth.permisos()?.includes('events:write') ?? false;
       if (estimacion.auto_translation_available && (estimacion.texts === 0 || !puedeTraducir)) {
         return;
@@ -101,6 +101,28 @@ export class OfertaTraducirPublicados {
     } catch {
       // Sin estimación no se ofrece: los eventos se traducirán al vuelo.
     }
+  }
+
+  /** Clave recién probada y guardada: se ofrece traducir con el coste estimado. */
+  protected async trasConfigurar(): Promise<void> {
+    try {
+      const estimacion = await this.estimar(this.idioma());
+      if (estimacion.texts === 0) {
+        this.dialogo().cerrar();
+        return;
+      }
+      this.estimacion.set(estimacion);
+    } catch {
+      this.dialogo().cerrar();
+    }
+  }
+
+  private estimar(idioma: Idioma): Promise<Estimacion> {
+    return firstValueFrom(
+      this.http.get<Estimacion>(this.api.url('/translations/published/estimate'), {
+        params: { locale: idioma },
+      }),
+    );
   }
 
   protected async traducir(): Promise<void> {

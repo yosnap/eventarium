@@ -1117,7 +1117,18 @@
         "origen": "Idioma en que escribe la organización",
         "origenAyuda": "El idioma original de los textos que son de la organización, como la descripción, las etiquetas o las políticas."
       },
-      "ofertaTraducir": {
+      "asistenteClave": {
+      "pregunta": "¿Quieres que tus eventos se traduzcan automáticamente con IA a este idioma?",
+      "sinClave": "Para eso hace falta tu propia clave de IA. Si prefieres no usarla, el idioma queda activo y puedes escribir las traducciones a mano.",
+      "aMano": "No, traduciré a mano",
+      "configurar": "Sí, configurar mi clave",
+      "ayuda": "Elige el proveedor (OpenRouter, OpenAI, un modelo propio compatible con OpenAI, Anthropic, Gemini…), el modelo y pega tu clave. Antes de guardarla haremos una traducción de prueba con ella, de unos céntimos.",
+      "otrasFunciones": "Esta clave se usará también para las demás funciones de IA de tu organización, como leer justificantes, y su gasto corre de tu cuenta con el proveedor.",
+      "probarYGuardar": "Probar y guardar",
+      "faltanDatos": "Elige proveedor y modelo y pega la clave.",
+      "error": "No hemos podido guardar la clave. Inténtalo de nuevo."
+    },
+    "ofertaTraducir": {
         "titulo": "¿Traducimos tus eventos al {{ idioma }}?",
         "texto": "Eventos publicados: {{ eventos }}. Textos sin traducir a este idioma: {{ textos }}. Podemos traducirlos ahora con tu clave de IA.",
         "coste": "Coste estimado: {{ coste }} USD",

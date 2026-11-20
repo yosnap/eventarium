@@ -1117,7 +1117,18 @@
         "origen": "Language the organisation writes in",
         "origenAyuda": "The original language of the texts that belong to the organisation, such as the description, tags or policies."
       },
-      "ofertaTraducir": {
+      "asistenteClave": {
+      "pregunta": "Do you want your events to be translated automatically with AI into this language?",
+      "sinClave": "That needs your own AI key. If you'd rather not use one, the language stays active and you can write the translations by hand.",
+      "aMano": "No, I'll translate by hand",
+      "configurar": "Yes, set up my key",
+      "ayuda": "Choose the provider (OpenRouter, OpenAI, your own OpenAI-compatible model, Anthropic, Gemini…), the model, and paste your key. Before saving it we'll run a test translation with it, costing a few cents.",
+      "otrasFunciones": "This key will also be used for your organization's other AI features, such as reading receipts, and its cost is billed to your account with the provider.",
+      "probarYGuardar": "Test and save",
+      "faltanDatos": "Choose a provider and model and paste the key.",
+      "error": "We couldn't save the key. Please try again."
+    },
+    "ofertaTraducir": {
         "titulo": "Shall we translate your events into {{ idioma }}?",
         "texto": "Published events: {{ eventos }}. Texts not translated into this language: {{ textos }}. We can translate them now with your AI key.",
         "coste": "Estimated cost: {{ coste }} USD",
