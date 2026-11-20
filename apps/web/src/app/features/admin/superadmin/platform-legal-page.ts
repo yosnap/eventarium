@@ -18,11 +18,20 @@ import { Textarea } from '../../../shared/ui/textarea';
 import { PageHeader } from '../../../shared/ui/page-header';
 import { SegmentedFilter } from '../../../shared/ui/segmented-filter';
 
+interface Traduccion {
+  content: string | null;
+  origin: 'ia' | 'manual' | 'revisada' | null;
+  status: 'al_dia' | 'desactualizada' | 'pendiente' | 'en_curso' | 'error' | null;
+}
+
 interface PaginaLegal {
   content: string;
   is_custom: boolean;
   served_locale?: Idioma;
+  translation?: Traduccion | null;
 }
+
+type Atributo = 'legal_notice' | 'privacy_policy' | 'cookies_policy' | 'registration_terms';
 
 interface PaginasLegales {
   legal_notice: PaginaLegal;
@@ -77,7 +86,16 @@ const CLAVE_LEGALES = '/admin/legal-pages';
       } @else {
         <form (submit)="guardar($event)">
           <app-card [heading]="t('admin.plataforma.legales.avisoLegal')">
-            <p class="estado">{{ estadoDe(avisoEsPersonalizado()) }}</p>
+            <p class="estado">{{ estadoDe(avisoEsPersonalizado(), 'legal_notice') }}</p>
+            @if (revisable('legal_notice')) {
+              <app-button
+                variant="terciario"
+                [compacto]="true"
+                [disabled]="guardando()"
+                (pulsado)="revisar('legal_notice')"
+                >{{ t('admin.plataforma.legales.marcarRevisada') }}</app-button
+              >
+            }
             <app-textarea
               [label]="t('admin.plataforma.legales.avisoLegal')"
               [rows]="10"
@@ -86,7 +104,16 @@ const CLAVE_LEGALES = '/admin/legal-pages';
           </app-card>
 
           <app-card [heading]="t('admin.plataforma.legales.privacidad')">
-            <p class="estado">{{ estadoDe(privacidadEsPersonalizada()) }}</p>
+            <p class="estado">{{ estadoDe(privacidadEsPersonalizada(), 'privacy_policy') }}</p>
+            @if (revisable('privacy_policy')) {
+              <app-button
+                variant="terciario"
+                [compacto]="true"
+                [disabled]="guardando()"
+                (pulsado)="revisar('privacy_policy')"
+                >{{ t('admin.plataforma.legales.marcarRevisada') }}</app-button
+              >
+            }
             <app-textarea
               [label]="t('admin.plataforma.legales.privacidad')"
               [rows]="10"
@@ -95,7 +122,16 @@ const CLAVE_LEGALES = '/admin/legal-pages';
           </app-card>
 
           <app-card [heading]="t('admin.plataforma.legales.cookies')">
-            <p class="estado">{{ estadoDe(cookiesEsPersonalizada()) }}</p>
+            <p class="estado">{{ estadoDe(cookiesEsPersonalizada(), 'cookies_policy') }}</p>
+            @if (revisable('cookies_policy')) {
+              <app-button
+                variant="terciario"
+                [compacto]="true"
+                [disabled]="guardando()"
+                (pulsado)="revisar('cookies_policy')"
+                >{{ t('admin.plataforma.legales.marcarRevisada') }}</app-button
+              >
+            }
             <app-textarea
               [label]="t('admin.plataforma.legales.cookies')"
               [rows]="10"
@@ -104,7 +140,16 @@ const CLAVE_LEGALES = '/admin/legal-pages';
           </app-card>
 
           <app-card [heading]="t('admin.plataforma.legales.condicionesDeInscripcion')">
-            <p class="estado">{{ estadoDe(condicionesEsPersonalizada()) }}</p>
+            <p class="estado">{{ estadoDe(condicionesEsPersonalizada(), 'registration_terms') }}</p>
+            @if (revisable('registration_terms')) {
+              <app-button
+                variant="terciario"
+                [compacto]="true"
+                [disabled]="guardando()"
+                (pulsado)="revisar('registration_terms')"
+                >{{ t('admin.plataforma.legales.marcarRevisada') }}</app-button
+              >
+            }
             <app-textarea
               [label]="t('admin.plataforma.legales.condicionesDeInscripcion')"
               [rows]="10"
@@ -174,18 +219,63 @@ export class PlatformLegalPage {
   readonly cookiesEsPersonalizada = signal(false);
   readonly condicionesEsPersonalizada = signal(false);
 
+  /** En otro idioma, la versión traducida guardada de cada página. */
+  protected readonly traducciones = signal<Partial<Record<Atributo, Traduccion | null>>>({});
+  /** Lo cargado en cada campo, para enviar solo lo que se ha cambiado. */
+  private cargado: Partial<Record<Atributo, string>> = {};
+
   constructor() {
     void this.cargar();
   }
 
-  estadoDe(esPersonalizada: boolean): string {
+  estadoDe(esPersonalizada: boolean, atributo?: Atributo): string {
+    if (this.enOtroIdioma() && atributo) {
+      const traduccion = this.traducciones()[atributo];
+      const estado =
+        !traduccion || !traduccion.status
+          ? 'sinVersion'
+          : traduccion.status === 'al_dia'
+            ? `alDia.${traduccion.origin ?? 'ia'}`
+            : traduccion.status;
+      return this.transloco.translate(`admin.plataforma.legales.estado.${estado}`);
+    }
     return this.transloco.translate(
       esPersonalizada
         ? 'admin.plataforma.legales.personalizada'
-        : this.enOtroIdioma()
-          ? 'admin.plataforma.legales.sinVersion'
-          : 'admin.plataforma.legales.plantillaPorDefecto',
+        : 'admin.plataforma.legales.plantillaPorDefecto',
     );
+  }
+
+  /** Traducción automática al día y sin revisar: se puede marcar como revisada. */
+  protected revisable(atributo: Atributo): boolean {
+    const traduccion = this.traducciones()[atributo];
+    return this.enOtroIdioma() && traduccion?.origin === 'ia' && traduccion.status === 'al_dia';
+  }
+
+  protected async revisar(atributo: Atributo): Promise<void> {
+    const idioma = this.idioma();
+    this.guardando.set(true);
+    this.error.set(null);
+    try {
+      const paginas = await firstValueFrom(
+        this.http.post<PaginasLegales>(
+          this.api.url(`${CLAVE_LEGALES}/review`),
+          { page: atributo, locale: idioma },
+          { headers: this.api.serverForwardHeaders() },
+        ),
+      );
+      if (idioma === this.idioma()) {
+        this.volcar(paginas);
+      }
+    } catch (fallo) {
+      this.error.set(
+        fallo instanceof ApiError
+          ? fallo.message
+          : this.transloco.translate('admin.plataforma.legales.errorGuardar'),
+      );
+    } finally {
+      this.guardando.set(false);
+    }
   }
 
   protected cambiarIdioma(idioma: Idioma): void {
@@ -225,14 +315,27 @@ export class PlatformLegalPage {
     // El contenido que llega es el **efectivo** (editado o plantilla): se carga
     // en el campo para poder editarlo, y `is_custom` indica si hoy es una
     // edición propia o la plantilla por defecto.
-    // En otro idioma, sin versión propia la API devuelve la española: el campo se
-    // deja vacío para escribir la traducción, no para editar el texto español.
+    // En otro idioma el campo lleva la versión traducida guardada (aunque esté
+    // desfasada, para poder actualizarla), nunca el texto español que se sirve
+    // mientras falta.
     const texto = (pagina: PaginaLegal): string =>
-      this.enOtroIdioma() && pagina.served_locale !== this.idioma() ? '' : pagina.content;
-    this.avisoLegal.set(texto(paginas.legal_notice));
-    this.privacidad.set(texto(paginas.privacy_policy));
-    this.cookies.set(texto(paginas.cookies_policy));
-    this.condicionesDeInscripcion.set(texto(paginas.registration_terms));
+      this.enOtroIdioma() ? (pagina.translation?.content ?? '') : pagina.content;
+    this.cargado = {
+      legal_notice: texto(paginas.legal_notice),
+      privacy_policy: texto(paginas.privacy_policy),
+      cookies_policy: texto(paginas.cookies_policy),
+      registration_terms: texto(paginas.registration_terms),
+    };
+    this.avisoLegal.set(this.cargado.legal_notice ?? '');
+    this.privacidad.set(this.cargado.privacy_policy ?? '');
+    this.cookies.set(this.cargado.cookies_policy ?? '');
+    this.condicionesDeInscripcion.set(this.cargado.registration_terms ?? '');
+    this.traducciones.set({
+      legal_notice: paginas.legal_notice.translation ?? null,
+      privacy_policy: paginas.privacy_policy.translation ?? null,
+      cookies_policy: paginas.cookies_policy.translation ?? null,
+      registration_terms: paginas.registration_terms.translation ?? null,
+    });
 
     this.avisoEsPersonalizado.set(paginas.legal_notice.is_custom);
     this.privacidadEsPersonalizada.set(paginas.privacy_policy.is_custom);
@@ -254,19 +357,25 @@ export class PlatformLegalPage {
     };
 
     const idioma = this.idioma();
+    const campos: Record<Atributo, string> = {
+      legal_notice: this.avisoLegal(),
+      privacy_policy: this.privacidad(),
+      cookies_policy: this.cookies(),
+      registration_terms: this.condicionesDeInscripcion(),
+    };
+    // En otro idioma solo se envía lo cambiado: reenviar una traducción de la IA
+    // sin tocarla la convertiría en «escrita a mano».
+    const cuerpo: Record<string, string | null> = { locale: idioma };
+    for (const [atributo, valor] of Object.entries(campos) as [Atributo, string][]) {
+      if (!this.enOtroIdioma() || valor !== this.cargado[atributo]) {
+        cuerpo[`${atributo}_content`] = aTexto(valor);
+      }
+    }
     try {
       const paginas = await firstValueFrom(
-        this.http.patch<PaginasLegales>(
-          this.api.url(CLAVE_LEGALES),
-          {
-            legal_notice_content: aTexto(this.avisoLegal()),
-            privacy_policy_content: aTexto(this.privacidad()),
-            cookies_policy_content: aTexto(this.cookies()),
-            registration_terms_content: aTexto(this.condicionesDeInscripcion()),
-            locale: idioma,
-          },
-          { headers: this.api.serverForwardHeaders() },
-        ),
+        this.http.patch<PaginasLegales>(this.api.url(CLAVE_LEGALES), cuerpo, {
+          headers: this.api.serverForwardHeaders(),
+        }),
       );
       if (idioma === this.idioma()) {
         this.volcar(paginas);

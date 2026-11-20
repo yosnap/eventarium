@@ -14,4 +14,5 @@ export interface OrganizationAiSettingsUpdate {
   default_model?: (string | null);
   monthly_limit_usd?: (number | string | null);
   provider?: ('nan_builders' | 'openrouter' | 'cheaper_inference' | 'anthropic' | 'openai' | 'gemini' | 'custom' | null);
+  verify_translation?: boolean;
 }

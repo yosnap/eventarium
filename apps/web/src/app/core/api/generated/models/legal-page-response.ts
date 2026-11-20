@@ -14,6 +14,11 @@ export interface LegalPageResponse {
   content: string;
 
   /**
+   * Traducción automática sin revisar: la web avisa de que prevalece el español y no la ofrece a los buscadores.
+   */
+  machine_translated?: boolean;
+
+  /**
    * Idioma del texto servido: `es-ES` si no hay versión en el idioma pedido.
    */
   served_locale?: 'es-ES' | 'en-US';

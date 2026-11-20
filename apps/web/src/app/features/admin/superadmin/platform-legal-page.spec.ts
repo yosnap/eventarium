@@ -103,33 +103,60 @@ describe('PlatformLegalPage', () => {
     expect(fixture.componentInstance.guardado()).toBe(true);
   });
 
-  it('en inglés, sin versión propia deja el campo vacío y guarda con su idioma', async () => {
+  it('en inglés carga la traducción guardada, envía solo lo cambiado y revisa la de la IA', async () => {
     const fixture = await crearYCargar();
-    const espanola = (content: string) => ({ content, is_custom: false, served_locale: 'es-ES' });
+    const espanola = (content: string, translation: unknown = null) => ({
+      content,
+      is_custom: false,
+      served_locale: 'es-ES',
+      translation,
+    });
 
     fixture.componentInstance['cambiarIdioma']('en-US');
     await avanzar(fixture);
     http.expectOne(`${LEGALES_URL}?idioma=en-US`).flush({
-      legal_notice: { content: 'Legal notice', is_custom: true, served_locale: 'en-US' },
-      privacy_policy: espanola('Privacidad de Eventarium'),
+      legal_notice: {
+        content: 'Legal notice',
+        is_custom: false,
+        served_locale: 'en-US',
+        translation: { content: 'Legal notice', origin: 'ia', status: 'al_dia' },
+      },
+      // Escrita a mano para un español que ya cambió: no se sirve, pero se edita.
+      privacy_policy: espanola('Privacidad de Eventarium', {
+        content: 'Old privacy',
+        origin: 'manual',
+        status: 'desactualizada',
+      }),
       cookies_policy: espanola('Cookies de Eventarium'),
       registration_terms: espanola('Condiciones de inscripción de Eventarium'),
     });
     await avanzar(fixture);
 
     expect(fixture.componentInstance.avisoLegal()).toBe('Legal notice');
-    expect(fixture.componentInstance.privacidad()).toBe('');
+    expect(fixture.componentInstance.privacidad()).toBe('Old privacy');
+    expect(fixture.componentInstance.cookies()).toBe('');
+    const texto = fixture.nativeElement.textContent as string;
+    expect(texto).toContain('no se sirve hasta que la actualices');
+    expect(texto).toContain('Marcar como revisada');
 
+    fixture.componentInstance.privacidad.set('New privacy');
     const guardado = fixture.componentInstance.guardar(new Event('submit'));
     await avanzar(fixture);
     const peticion = http.expectOne((r) => r.url === LEGALES_URL && r.method === 'PATCH');
-    expect(peticion.request.body).toMatchObject({
+    // La traducción de la IA sin tocar no se reenvía (se volvería «escrita a mano»).
+    expect(peticion.request.body).toEqual({
       locale: 'en-US',
-      legal_notice_content: 'Legal notice',
-      privacy_policy_content: null,
+      privacy_policy_content: 'New privacy',
     });
     peticion.flush(SIN_EDITAR);
     await guardado;
+
+    const revisada = fixture.componentInstance['revisar']('legal_notice');
+    await avanzar(fixture);
+    const revision = http.expectOne(`${LEGALES_URL}/review`);
+    expect(revision.request.body).toEqual({ page: 'legal_notice', locale: 'en-US' });
+    revision.flush(SIN_EDITAR);
+    await revisada;
   });
 
   it('mientras se guarda no cambia de idioma, para no mezclar versiones', async () => {

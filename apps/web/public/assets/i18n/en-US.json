@@ -2396,8 +2396,20 @@
         "errorGuardar": "We couldn't save the legal pages.",
         "rotulo": "Legal documents",
         "idioma": "Text language",
-        "aMano": "Legal text is never translated by AI: write the translation here by hand. An empty field serves the Spanish version with a notice.",
-        "sinVersion": "No version in this language: the Spanish one is served with a notice."
+        "aMano": "The platform's AI translates each page when the Spanish version is saved. You can correct it here: whatever you write by hand is no longer touched by the AI. An empty field goes back to the automatic translation.",
+        "marcarRevisada": "Mark as reviewed",
+        "estado": {
+          "sinVersion": "Not translated yet: the Spanish version is served with a notice.",
+          "pendiente": "Waiting to be translated: meanwhile, the Spanish version is served with a notice.",
+          "en_curso": "Being translated now: meanwhile, the Spanish version is served with a notice.",
+          "error": "The automatic translation failed and will be retried. Meanwhile, the Spanish version is served; you can also write it by hand.",
+          "desactualizada": "The Spanish version has changed: this translation is not served until you update it.",
+          "alDia": {
+            "ia": "Translated automatically: shown with a notice and not offered to search engines until you review it.",
+            "revisada": "Automatic translation reviewed.",
+            "manual": "Written by hand."
+          }
+        }
       },
       "analitica": {
         "titulo": "Cookies and external analytics",
@@ -3006,7 +3018,8 @@
     "cookies": "Cookie policy",
     "condicionesInscripcion": "Registration terms",
     "cargando": "Loading…",
-    "error": "We couldn't load this page."
+    "error": "We couldn't load this page.",
+    "traduccionAutomatica": "Automatic translation. In case of doubt, the Spanish version prevails."
   },
   "direccionMapa": {
     "buscando": "Searching for addresses…",
