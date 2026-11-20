@@ -719,5 +719,11 @@ idioma. `translation_requests` (migración `0075`) es la cola de traducción con
 fila por organización, evento e idioma, sin acceso para `app_user`.
 
 `platform_legal_pages` tiene una fila por página e idioma (`locale`, migración `0076`,
-única por `kind` y `locale`). La versión en otro idioma la escribe a mano el superadmin;
-si falta, se sirve la española. El funcionamiento completo está en [i18n.md](i18n.md).
+única por `kind` y `locale`). Las versiones en otro idioma llevan `origin`, `status`,
+`source_hash`, `error_count` y `retry_after` (migración `0077`), como `content_translations`.
+`event_categories.name_i18n_origin` dice quién escribió cada idioma del nombre.
+
+`platform_ai_usage` (migración `0077`) es el uso de IA de la propia plataforma (traducir su
+contenido), aparte de `ai_usage_records`: sin organización, sin RLS y sin acceso para
+`app_user`. `platform_ai_settings` suma `translation_monthly_cap_usd` y
+`translation_daily_calls`, obligatorios. El funcionamiento completo está en [i18n.md](i18n.md).
