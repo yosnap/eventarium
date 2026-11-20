@@ -42,7 +42,7 @@ async def test_crear_listar_editar_y_borrar_una_sede(
     evento = await _crear_evento(cliente, cabeceras)
 
     with patch(
-        "app.modules.events.service.geocode_address",
+        "app.modules.events.geocoding.geocode_address",
         new=AsyncMock(return_value=(39.4699, -0.3763)),
     ):
         alta = await cliente.post(
@@ -86,7 +86,7 @@ async def test_geocodificacion_fallida_no_bloquea_crear_la_sede(
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     evento = await _crear_evento(cliente, cabeceras)
 
-    with patch("app.modules.events.service.geocode_address", new=AsyncMock(return_value=None)):
+    with patch("app.modules.events.geocoding.geocode_address", new=AsyncMock(return_value=None)):
         respuesta = await cliente.post(
             f"{EVENTS}/{evento['id']}/venues",
             headers=cabeceras,
@@ -109,7 +109,7 @@ async def test_una_sede_sin_direccion_no_geocodifica(
     evento = await _crear_evento(cliente, cabeceras)
 
     with patch(
-        "app.modules.events.service.geocode_address", new=AsyncMock(return_value=(1.0, 2.0))
+        "app.modules.events.geocoding.geocode_address", new=AsyncMock(return_value=(1.0, 2.0))
     ) as mock_geocode:
         respuesta = await cliente.post(
             f"{EVENTS}/{evento['id']}/venues",
@@ -166,7 +166,7 @@ async def test_evento_geocodifica_su_direccion_simple(
     cliente: AsyncClient, organizacion: OrganizacionDePrueba
 ) -> None:
     with patch(
-        "app.modules.events.service.geocode_address",
+        "app.modules.events.geocoding.geocode_address",
         new=AsyncMock(return_value=(40.4168, -3.7038)),
     ):
         _, cabeceras = await iniciar_sesion(cliente, organizacion)
@@ -189,7 +189,7 @@ async def test_evento_online_no_geocodifica_aunque_haya_direccion(
 ) -> None:
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     with patch(
-        "app.modules.events.service.geocode_address", new=AsyncMock(return_value=(1.0, 2.0))
+        "app.modules.events.geocoding.geocode_address", new=AsyncMock(return_value=(1.0, 2.0))
     ) as mock_geocode:
         respuesta = await cliente.post(
             EVENTS,
@@ -210,7 +210,7 @@ async def test_editar_la_direccion_regeocodifica_solo_si_cambia(
 ) -> None:
     _, cabeceras = await iniciar_sesion(cliente, organizacion)
     with patch(
-        "app.modules.events.service.geocode_address",
+        "app.modules.events.geocoding.geocode_address",
         new=AsyncMock(return_value=(41.3851, 2.1734)),
     ):
         evento = await _crear_evento(
@@ -218,7 +218,7 @@ async def test_editar_la_direccion_regeocodifica_solo_si_cambia(
         )
 
     with patch(
-        "app.modules.events.service.geocode_address", new=AsyncMock(return_value=(1.0, 1.0))
+        "app.modules.events.geocoding.geocode_address", new=AsyncMock(return_value=(1.0, 1.0))
     ) as mock_geocode:
         sin_cambios = await cliente.patch(
             f"{EVENTS}/{evento['id']}", headers=cabeceras, json={"title": "Otro título"}
@@ -228,7 +228,7 @@ async def test_editar_la_direccion_regeocodifica_solo_si_cambia(
     assert sin_cambios.json()["latitude"] == 41.3851
 
     with patch(
-        "app.modules.events.service.geocode_address",
+        "app.modules.events.geocoding.geocode_address",
         new=AsyncMock(return_value=(48.8566, 2.3522)),
     ) as mock_geocode:
         con_cambios = await cliente.patch(

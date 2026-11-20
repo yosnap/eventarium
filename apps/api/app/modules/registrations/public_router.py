@@ -3,7 +3,7 @@
 Mismo patrón que `events/public_router.py`: sin autenticación, sin dominio por
 organización (fase 2 del plan de organización sin dominio). La inscripción a
 un evento resuelve la organización desde el propio evento
-(`events.service.resolve_public_event_by_slug`); verificar, cancelar o
+(`events.publico.resolve_public_event_by_slug`); verificar, cancelar o
 promover una inscripción por su token resuelve la organización desde la
 propia inscripción (`app_resolve_registration_organization`, SECURITY
 DEFINER), no por host — el `id` ya viene autorizado por el propio token de un

@@ -120,7 +120,7 @@ async def update_sponsor(
 
     # `PATCH` parcial: la exclusividad importe/descripción solo se conoce tras
     # fusionar con lo que el patrocinador ya tenía guardado (mismo motivo que
-    # `events/service.py:update_session` con `video_platform`/`video_url`).
+    # `events/agenda.py:update_session` con `video_platform`/`video_url`).
     tipo_final = datos.get("contribution_type", patrocinador.contribution_type)
     importe_final = datos.get("contribution_amount", patrocinador.contribution_amount)
     descripcion_final = datos.get("contribution_description", patrocinador.contribution_description)

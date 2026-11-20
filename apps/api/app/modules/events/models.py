@@ -310,7 +310,7 @@ class EventSession(Base, TimestampMixin):
             ondelete="CASCADE",
         ),
         # Sin `ondelete=CASCADE`: borrar una sede con sesiones que la referencian
-        # se bloquea explícitamente en `service.delete_venue` con un 409 legible
+        # se bloquea explícitamente en `sedes.delete_venue` con un 409 legible
         # (ver justificación ahí). `ondelete=SET NULL` es la red de seguridad de
         # base de datos para el único camino que se salta esa comprobación de
         # servicio: borrar la sede directamente en base de datos (rol de
