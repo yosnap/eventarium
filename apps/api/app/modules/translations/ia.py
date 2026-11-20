@@ -8,6 +8,7 @@ que llega es contenido a traducir. La salida se valida antes de guardarla.
 from __future__ import annotations
 
 import json
+import logging
 import re
 import uuid
 from collections.abc import Awaitable, Callable, Sequence
@@ -17,11 +18,17 @@ from typing import Any
 from app.core.locale import Locale
 from app.modules.ai_gateway import client as ai_client
 
+logger = logging.getLogger(__name__)
+
 USE_CASE = "traduccion_contenido"
 #: Caracteres de texto original por llamada: lotes que caben holgados en el contexto.
 CARACTERES_POR_LOTE = 6000
 #: Techo de salida por llamada: lo admiten los modelos habituales.
 MAX_TOKENS_SALIDA = 16_000
+#: Margen para los modelos que razonan antes de contestar (gemma, o1, R1…): sus
+#: tokens de razonamiento cuentan contra `max_tokens`, y sin margen agotan el
+#: presupuesto y devuelven la respuesta vacía o cortada.
+MARGEN_DE_RAZONAMIENTO = 4000
 
 _NOMBRE_DEL_IDIOMA: dict[str, str] = {"es-ES": "Spanish (Spain)", "en-US": "English (US)"}
 
@@ -62,9 +69,10 @@ def lotes(textos: Sequence[Texto]) -> list[list[Texto]]:
 
 def tokens_de_salida(textos: Sequence[Texto]) -> int:
     """Salida que cabe la traducción del lote con holgura (unos 3 caracteres
-    por token, y algo más para el JSON), sin pasar del techo."""
+    por token, algo más para el JSON y el margen de razonamiento), sin pasar
+    del techo. Es solo un techo: se paga lo que el modelo genera."""
     caracteres = sum(len(t.original) for t in textos)
-    return min(MAX_TOKENS_SALIDA, caracteres // 2 + 500)
+    return min(MAX_TOKENS_SALIDA, caracteres // 2 + 500 + MARGEN_DE_RAZONAMIENTO)
 
 
 def mensajes(
@@ -141,9 +149,10 @@ async def traducir_con(
 ) -> dict[str, str | None]:
     """Traduce un lote con la llamada de pasarela que se le dé (la de una
     organización o la de la plataforma), con el mismo prompt y validación."""
+    techo = tokens_de_salida(textos)
     resultado = await completar(
         messages=mensajes(textos, origen, destino, no_traducir),
-        max_tokens=tokens_de_salida(textos),
+        max_tokens=techo,
         temperature=0.2,
         response_format={"type": "json_object"},
     )
@@ -151,6 +160,14 @@ async def traducir_con(
         datos = json.loads(resultado.contenido)
     except ValueError:
         datos = {}
-    if not isinstance(datos, dict):
+    if not isinstance(datos, dict) or not datos:
+        # Sin el texto (puede ser contenido de la organización): solo la pista
+        # para distinguir un presupuesto agotado de una respuesta mal formada.
+        logger.warning(
+            "La IA no devolvió un objeto JSON válido (%s caracteres, %s de %s tokens de salida).",
+            len(resultado.contenido),
+            resultado.output_tokens,
+            techo,
+        )
         datos = {}
     return {texto.clave: validar(texto, datos.get(texto.clave)) for texto in textos}

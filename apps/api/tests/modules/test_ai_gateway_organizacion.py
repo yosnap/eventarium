@@ -17,6 +17,7 @@ from app.modules.ai_gateway import client as ai_client
 from app.modules.ai_gateway.models import OrganizationAiSettings, PlatformAiSettings
 from app.modules.ai_gateway.service import limite_efectivo
 from app.modules.organizations.models import OrganizationMember
+from app.modules.translations import ia
 from tests.ai_gateway_test_helpers import (
     CLAVE_DE_PROVEEDOR,
     cabeceras_de_superadmin,
@@ -403,6 +404,8 @@ async def test_con_verificacion_la_clave_solo_se_guarda_si_traduce_de_verdad(
     # La prueba salió al proveedor con la clave nueva.
     assert llamada.await_count == 2
     assert llamada.await_args.args[0].api_key == CLAVE_PROPIA
+    # Con margen para los modelos que razonan antes de contestar.
+    assert llamada.await_args.kwargs["max_tokens"] >= ia.MARGEN_DE_RAZONAMIENTO
 
     # Pedir verificación sin clave nueva no se ignora en silencio.
     sin_clave = await cliente.put(

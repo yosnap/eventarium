@@ -621,7 +621,7 @@ async def probar_traduccion(
         respuesta = await client._llamar_proveedor(  # noqa: SLF001
             argumentos,
             messages=ia.mensajes([texto], "es-ES", "en-US", []),
-            max_tokens=200,
+            max_tokens=ia.tokens_de_salida([texto]),
             temperature=0.2,
             response_format={"type": "json_object"},
             timeout=30,
