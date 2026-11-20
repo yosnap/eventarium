@@ -5,9 +5,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -450,6 +452,28 @@ def test_los_textos_aislados_y_largos_no_comparten_lote() -> None:
     assert ia.tokens_de_salida([ia.Texto("t0", "x" * 100_000, False)]) == ia.MAX_TOKENS_SALIDA
     assert cola.CARACTERES_MAXIMOS_IA < 100_000
     assert {"member_profile", "policy_version"} <= cola.TIPOS_AISLADOS
+
+
+def test_el_techo_de_salida_deja_margen_para_los_modelos_que_razonan() -> None:
+    # Una página corta de 800 caracteres: un modelo que razona gastó 897 tokens
+    # pensando y devolvió el contenido vacío cuando el techo era 897.
+    techo = ia.tokens_de_salida([ia.Texto("t0", "x" * 800, False)])
+    assert techo >= 800 // 2 + 500 + ia.MARGEN_DE_RAZONAMIENTO
+
+
+async def test_una_respuesta_vacia_deja_aviso_sin_el_texto(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    async def completar(**argumentos: object) -> object:
+        return SimpleNamespace(contenido="", output_tokens=897)
+
+    with caplog.at_level(logging.WARNING, logger=ia.__name__):
+        resultado = await ia.traducir_con(
+            completar, [ia.Texto("t0", "Texto secreto", False)], "es-ES", "en-US", []
+        )
+    assert resultado == {"t0": None}
+    assert "897" in caplog.text
+    assert "Texto secreto" not in caplog.text
 
 
 async def test_la_ficha_avisa_de_que_se_va_a_traducir_solo_con_clave_propia(

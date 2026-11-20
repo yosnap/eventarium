@@ -33,6 +33,22 @@ export interface ChangelogVersion {
 
 export const CHANGELOG: readonly ChangelogVersion[] = [
   {
+    version: '0.34.1',
+    fecha: '2026-11-20',
+    secciones: [
+      {
+        categoria: 'corregido',
+        items: [
+          {
+            titulo: 'Traducción con modelos que razonan antes de contestar',
+            descripcion:
+              'Con modelos como Gemma 4, el razonamiento agotaba el presupuesto de respuesta y la traducción llegaba vacía: el legal y las categorías no se traducían y la prueba de clave del asistente podía fallar. Ahora cada traducción deja margen para ese razonamiento, sin pasar del límite que admite el modelo.',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.34.0',
     fecha: '2026-11-20',
     secciones: [
