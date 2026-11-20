@@ -184,6 +184,21 @@ def _tokens_de_entrada_estimados(messages: list[dict[str, Any]]) -> int:
     return max(1, caracteres // CARACTERES_POR_TOKEN)
 
 
+def techo_de_salida(model_litellm: str, max_tokens: int | None) -> int | None:
+    """`max_tokens` recortado al límite de salida que LiteLLM conoce del
+    modelo: pedir más de lo que admite (Gemini 2.0, por ejemplo, 8192) es un
+    400 del proveedor. Fuera del mapa de LiteLLM se deja tal cual."""
+    if max_tokens is None:
+        return None
+    try:
+        limite = _litellm().get_model_info(model_litellm).get("max_output_tokens")
+    except Exception:  # noqa: BLE001 - LiteLLM lanza `Exception` pelada si no lo conoce
+        return max_tokens
+    if isinstance(limite, int) and limite > 0:
+        return min(max_tokens, limite)
+    return max_tokens
+
+
 def estimar_coste(
     *, model_litellm: str, messages: list[dict[str, Any]], max_tokens: int | None
 ) -> Decimal:
@@ -196,7 +211,8 @@ def estimar_coste(
     gasto no limitaría nada.
     """
     entrada = _tokens_de_entrada_estimados(messages)
-    salida = max_tokens if max_tokens is not None else TOKENS_DE_SALIDA_ESTIMADOS
+    techo = techo_de_salida(model_litellm, max_tokens)
+    salida = techo if techo is not None else TOKENS_DE_SALIDA_ESTIMADOS
     try:
         coste_entrada, coste_salida = _litellm().cost_per_token(
             model=model_litellm, prompt_tokens=entrada, completion_tokens=salida
@@ -393,8 +409,9 @@ async def _llamar_proveedor(
         "api_base": argumentos.api_base,
         "timeout": timeout,
     }
-    if max_tokens is not None:
-        opciones["max_tokens"] = max_tokens
+    techo = techo_de_salida(argumentos.model, max_tokens)
+    if techo is not None:
+        opciones["max_tokens"] = techo
     if temperature is not None:
         opciones["temperature"] = temperature
     if response_format is not None:

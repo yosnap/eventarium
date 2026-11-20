@@ -646,6 +646,25 @@ def test_la_estimacion_nunca_es_cero() -> None:
     assert dentro > Decimal("0")
 
 
+def test_el_techo_de_salida_no_pasa_del_limite_conocido_del_modelo(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Pedir más salida de la que admite el modelo es un 400 del proveedor."""
+    litellm = ai_client._litellm()
+
+    def info(modelo: str) -> dict[str, int]:
+        if modelo == "gemini/limitado":
+            return {"max_output_tokens": 8192}
+        raise Exception("modelo desconocido")  # noqa: TRY002 - como LiteLLM
+
+    monkeypatch.setattr(litellm, "get_model_info", info)
+
+    assert ai_client.techo_de_salida("gemini/limitado", 12_000) == 8192
+    assert ai_client.techo_de_salida("gemini/limitado", 500) == 500
+    assert ai_client.techo_de_salida("openai/gemma4", 12_000) == 12_000
+    assert ai_client.techo_de_salida("gemini/limitado", None) is None
+
+
 def test_un_coste_cero_de_litellm_no_degrada_la_reserva(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

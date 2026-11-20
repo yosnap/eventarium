@@ -439,8 +439,9 @@ async def coste_estimado(
             total += ai_client.estimar_coste(
                 model_litellm=modelo,
                 messages=ia.mensajes(lote, origen, destino, []),
-                # La salida ronda la entrada: unos 3-4 caracteres por token.
-                max_tokens=caracteres // 3 + 50,
+                # La salida ronda la entrada (unos 3-4 caracteres por token),
+                # más lo que razone el modelo antes de contestar.
+                max_tokens=caracteres // 3 + 50 + ia.MARGEN_DE_RAZONAMIENTO,
             )
     return total
 
