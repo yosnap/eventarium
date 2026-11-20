@@ -16,6 +16,7 @@ apagado globalmente no se reactiva por organización.
 
 from __future__ import annotations
 
+import json
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
@@ -38,6 +39,7 @@ from app.modules.ai_gateway.errores import (
     ProveedorDesconocido,
     ProveedorRequerido,
     ServicioDesconocido,
+    TraduccionDePruebaFallida,
 )
 from app.modules.ai_gateway.models import (
     LLAMADAS_DIARIAS_TRADUCCION_PLATAFORMA,
@@ -596,6 +598,47 @@ async def guardar_config_de_plataforma(
     return fila
 
 
+async def probar_traduccion(
+    proveedor: catalogo.Proveedor, modelo: str, *, api_key: str, api_base: str | None
+) -> None:
+    """Traduce una frase corta con esas credenciales y comprueba el JSON.
+
+    No pasa por la reserva de gasto: la clave todavía no es de nadie y el coste
+    (céntimos) lo paga ella misma en su proveedor. Lanza
+    `TraduccionDePruebaFallida` si el proveedor falla o la respuesta no vale.
+    """
+    from app.modules.ai_gateway import client
+    from app.modules.translations import ia
+
+    texto = ia.Texto("t0", "Bienvenida al evento", True)
+    argumentos = client.ArgumentosDeLlamada(
+        model=client.modelo_de_litellm(proveedor.clave, modelo),
+        api_key=api_key,
+        api_base=catalogo.api_base_efectivo(proveedor.clave, api_base),
+    )
+    try:
+        await client._validar_destino(argumentos.api_base)  # noqa: SLF001
+        respuesta = await client._llamar_proveedor(  # noqa: SLF001
+            argumentos,
+            messages=ia.mensajes([texto], "es-ES", "en-US", []),
+            max_tokens=200,
+            temperature=0.2,
+            response_format={"type": "json_object"},
+            timeout=30,
+        )
+        datos = json.loads(client._contenido(respuesta))  # noqa: SLF001
+    except Exception:
+        raise TraduccionDePruebaFallida(
+            "La clave o el modelo no han podido traducir una frase de prueba. Revisa que la "
+            "clave sea correcta, que tenga saldo y que el modelo admita respuestas en JSON."
+        ) from None
+    if not isinstance(datos, dict) or ia.validar(texto, datos.get("t0")) is None:
+        raise TraduccionDePruebaFallida(
+            "El modelo ha respondido, pero no con una traducción válida. Prueba con otro "
+            "modelo que admita respuestas en JSON."
+        )
+
+
 async def guardar_override_de_organizacion(
     session: AsyncSession, organization_id: uuid.UUID, datos: OrganizationAiSettingsUpdate
 ) -> OrganizationAiSettings:
@@ -631,6 +674,8 @@ async def guardar_override_de_organizacion(
         # tocar la red.
         cifrada = cifrar_clave(en_claro)
         await _validar_modelo_en_vivo(proveedor, modelo, api_key=en_claro, api_base=api_base)
+        if datos.verify_translation:
+            await probar_traduccion(proveedor, modelo, api_key=en_claro, api_base=api_base)
 
         if fila is None:
             fila = OrganizationAiSettings(

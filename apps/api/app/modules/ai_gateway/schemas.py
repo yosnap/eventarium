@@ -103,6 +103,9 @@ class OrganizationAiSettingsUpdate(BaseModel):
     api_key: ClaveDeApi | None = None
     #: Límite propio. `null` explícito = sin límite propio.
     monthly_limit_usd: ImporteUsd | None = None
+    #: Antes de guardar una clave nueva, traducir de verdad una frase de prueba
+    #: con ella (el asistente de traducción lo pide). Si falla, no se guarda.
+    verify_translation: bool = False
 
 
 class PlatformAiSettingsOut(BaseModel):

@@ -97,6 +97,14 @@ class ApiBaseRequerido(ErrorDeConfiguracionDeIa):
     code = "api_base_requerido"
 
 
+class TraduccionDePruebaFallida(ErrorDeConfiguracionDeIa):
+    """La clave o el modelo no han traducido bien una frase de prueba: no se
+    guarda la configuración. Un listado de modelos correcto no basta (en
+    OpenRouter es público y una clave sin saldo también lista)."""
+
+    code = "traduccion_de_prueba_fallida"
+
+
 class ClaveRequerida(ErrorDeConfiguracionDeIa):
     """Override parcial: la resolución es todo-o-nada por fila (V-5).
 
