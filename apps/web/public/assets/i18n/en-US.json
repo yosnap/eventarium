@@ -1059,7 +1059,9 @@
       "nota": "Categories are not deleted: when you deactivate one, it can no longer be assigned or shown on the public website, but events that already have it will keep it.",
       "datosInvalidos": "Enter a name and an integer order between 0 and 10000.",
       "error": "We couldn't complete the operation.",
-      "nombreEn": "Name in {{ idioma }}"
+      "nombreEn": "Name in {{ idioma }}",
+      "traducidoConIa": "Translated by the platform's AI. If you change it, it counts as written by hand.",
+      "seTraduciraConIa": "Empty: the platform's AI will translate it."
     },
     "organizacion": {
       "titulo": "Organization",
@@ -2682,6 +2684,9 @@
         "configuracion": "Default configuration",
         "techo": "Monthly spending cap (USD)",
         "techoAyuda": "Maximum the installation can spend each month. Leave it blank to not set one. No organization can exceed it, regardless of the limit set.",
+        "topeTraduccion": "Monthly cap for translating the platform's content (USD)",
+        "topeTraduccionAyuda": "The platform's AI translates the legal pages and the category names; the platform pays for it. When the cap is reached it stops and the Spanish version is served. Spent this month: {{gastado}} USD.",
+        "topeTraduccionInvalido": "The translation cap must be an amount greater than zero.",
         "guardado": "The platform AI configuration has been saved."
       },
       "servicios": {

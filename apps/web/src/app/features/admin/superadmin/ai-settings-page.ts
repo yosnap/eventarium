@@ -91,6 +91,28 @@ const USO = '/admin/ai-usage';
                 </p>
               </div>
 
+              <div class="campo">
+                <label for="ia-plataforma-tope-traduccion">{{
+                  t('admin.ia.plataforma.topeTraduccion')
+                }}</label>
+                <input
+                  id="ia-plataforma-tope-traduccion"
+                  type="text"
+                  inputmode="decimal"
+                  autocomplete="off"
+                  aria-describedby="ia-plataforma-tope-traduccion-ayuda"
+                  [value]="topeTraduccion()"
+                  (input)="topeTraduccion.set(alTexto($event))"
+                />
+                <p class="ayuda" id="ia-plataforma-tope-traduccion-ayuda">
+                  {{
+                    t('admin.ia.plataforma.topeTraduccionAyuda', {
+                      gastado: ajustes()?.translation_spent_usd ?? '0',
+                    })
+                  }}
+                </p>
+              </div>
+
               <app-button type="submit" [loading]="guardando()">{{
                 t('comun.guardar')
               }}</app-button>
@@ -209,6 +231,8 @@ export class AiSettingsPage {
   /** Siempre vacío al cargar: la clave guardada no vuelve nunca al formulario. */
   readonly apiKey = signal('');
   readonly techo = signal('');
+  /** Tope mensual de la traducción del legal y las categorías (obligatorio). */
+  readonly topeTraduccion = signal('');
 
   constructor() {
     void this.cargar();
@@ -241,6 +265,7 @@ export class AiSettingsPage {
     this.defaultModel.set(ajustes.default_model ?? '');
     this.apiBase.set(ajustes.api_base_editable ? (ajustes.api_base ?? '') : '');
     this.techo.set(ajustes.monthly_ceiling_usd ?? '');
+    this.topeTraduccion.set(ajustes.translation_monthly_cap_usd ?? '');
     this.apiKey.set('');
   }
 
@@ -322,6 +347,16 @@ export class AiSettingsPage {
         return null;
       }
       cuerpo['monthly_ceiling_usd'] = techo === '' ? null : techo;
+    }
+
+    const tope = this.topeTraduccion().trim();
+    if (tope !== (guardado?.translation_monthly_cap_usd ?? '')) {
+      // Obligatorio y positivo: la traducción de la plataforma no tiene «sin tope».
+      if (!(Number(tope) > 0)) {
+        this.error.set(this.transloco.translate('admin.ia.plataforma.topeTraduccionInvalido'));
+        return null;
+      }
+      cuerpo['translation_monthly_cap_usd'] = tope;
     }
     return cuerpo;
   }
