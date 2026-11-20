@@ -11,7 +11,7 @@ from __future__ import annotations
 import uuid
 from typing import cast
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.locale import LOCALES
@@ -40,11 +40,48 @@ async def get_platform_branding(session: AsyncSession) -> PlatformBranding:
     )
 
 
-async def get_platform_legal_page(session: AsyncSession, kind: str) -> PlatformLegalPage | None:
-    """Texto editado de una página legal de plataforma, o `None` si no hay."""
+async def versiones_legales_traducidas(
+    session: AsyncSession,
+) -> dict[tuple[str, str], PlatformLegalPage]:
+    """Las versiones de las páginas legales en otros idiomas, por (página, idioma)."""
+    filas = await session.scalars(
+        select(PlatformLegalPage).where(PlatformLegalPage.locale != "es-ES")
+    )
+    return {(fila.kind, fila.locale): fila for fila in filas}
+
+
+async def reiniciar_errores_de_traduccion_legal(session: AsyncSession) -> None:
+    """Quita la espera tras errores de las versiones de la IA."""
+    await session.execute(
+        update(PlatformLegalPage)
+        .where(PlatformLegalPage.origin == "ia")
+        .values(error_count=0, retry_after=None)
+    )
+
+
+async def paginas_legales_editadas(session: AsyncSession) -> set[str]:
+    """Páginas cuyo español se ha editado (no es la plantilla)."""
+    filas = await session.scalars(
+        select(PlatformLegalPage.kind).where(
+            PlatformLegalPage.locale == "es-ES",
+            PlatformLegalPage.content.is_not(None),
+            PlatformLegalPage.content != "",
+        )
+    )
+    return set(filas)
+
+
+async def get_platform_legal_page(
+    session: AsyncSession, kind: str, locale: str = "es-ES"
+) -> PlatformLegalPage | None:
+    """Texto editado de una página legal de plataforma en `locale`, o `None` si no hay."""
     return cast(
         "PlatformLegalPage | None",
-        await session.scalar(select(PlatformLegalPage).where(PlatformLegalPage.kind == kind)),
+        await session.scalar(
+            select(PlatformLegalPage).where(
+                PlatformLegalPage.kind == kind, PlatformLegalPage.locale == locale
+            )
+        ),
     )
 
 

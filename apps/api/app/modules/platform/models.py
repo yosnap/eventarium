@@ -14,9 +14,19 @@ ni los textos legales que se sirven a toda la instalación. Solo
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, String, Text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy import text as sa_text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
@@ -107,12 +117,30 @@ class PlatformLegalPage(Base, TimestampMixin):
             "kind IN ('aviso-legal', 'privacidad', 'cookies', 'condiciones-de-inscripcion')",
             name="ck_platform_legal_pages_kind",
         ),
-        Index("uq_platform_legal_pages_kind", "kind", unique=True),
+        CheckConstraint("locale IN ('es-ES', 'en-US')", name="locale"),
+        CheckConstraint("origin IS NULL OR origin IN ('ia', 'manual', 'revisada')", name="origin"),
+        CheckConstraint(
+            "status IS NULL OR status IN ('pendiente', 'en_curso', 'al_dia', 'error')",
+            name="status",
+        ),
+        UniqueConstraint("kind", "locale", name="uq_platform_legal_pages_kind_locale"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=new_uuid7)
     kind: Mapped[str] = mapped_column(String(40), nullable=False)
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Idioma de esta versión. La española cae a la plantilla si falta; las demás
+    # las traduce la IA de la plataforma o las escribe el superadmin.
+    locale: Mapped[str] = mapped_column(String(10), nullable=False, server_default="es-ES")
+    # Solo en las versiones de otro idioma: quién la escribió (`ia`, `manual`,
+    # `revisada`), en qué punto está la de IA y la huella del español efectivo
+    # (plantilla incluida) que se tradujo. Si la huella no coincide con el
+    # español actual, la versión no se sirve.
+    origin: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    source_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    error_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    retry_after: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class PlatformAnalyticsSettings(Base, TimestampMixin):

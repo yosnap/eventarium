@@ -15,9 +15,11 @@ import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../../../core/api/api.service';
+import type { Idioma } from '../../../core/i18n/idioma';
 import { seoDePagina } from '../../../core/seo/meta.service';
 import { MarkdownSeguro } from '../../../shared/legal/markdown-seguro';
 import { Alert } from '../../../shared/ui/alert';
+import { AvisoContenidoOriginal } from '../../../shared/ui/aviso-contenido-original';
 import { Reveal } from '../../../shared/ui/reveal.directive';
 
 /** Ruta pública → título traducible y ruta de la API. */
@@ -35,6 +37,12 @@ type ClavePagina = keyof typeof PAGINAS;
 
 interface LegalPageResponse {
   readonly content: string;
+  /** `es-ES` si no hay versión escrita a mano en el idioma de la página. */
+  readonly served_locale?: Idioma;
+  /** Idiomas con versión propia: los que se anuncian a los buscadores (hreflang). */
+  readonly available_locales?: readonly Idioma[];
+  /** Traducción automática sin revisar: se avisa de que prevalece el español. */
+  readonly machine_translated?: boolean;
 }
 
 /**
@@ -51,7 +59,7 @@ interface LegalPageResponse {
 @Component({
   selector: 'app-legal-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Reveal, MarkdownSeguro],
+  imports: [TranslocoDirective, Alert, AvisoContenidoOriginal, Reveal, MarkdownSeguro],
   template: `
     <ng-container *transloco="let t">
       <div class="ancho-maximo" appReveal>
@@ -62,6 +70,10 @@ interface LegalPageResponse {
         } @else if (error()) {
           <app-alert tone="error">{{ t('legal.error') }}</app-alert>
         } @else {
+          <app-aviso-contenido-original [servido]="servido()" />
+          @if (automatica()) {
+            <p class="aviso" role="note">{{ t('legal.traduccionAutomatica') }}</p>
+          }
           <app-markdown-seguro [texto]="contenidoBruto() ?? ''" />
         }
       </div>
@@ -70,6 +82,11 @@ interface LegalPageResponse {
   styles: `
     .ancho-maximo {
       padding: var(--space-lg) 0;
+    }
+    .aviso {
+      margin: 0 0 var(--space-md);
+      font-size: var(--fs-sm);
+      color: var(--muted);
     }
     h1 {
       margin-top: 0;
@@ -87,6 +104,8 @@ export class LegalPage implements OnInit {
   private readonly transloco = inject(TranslocoService);
 
   protected readonly contenidoBruto = signal<string | null>(null);
+  protected readonly servido = signal<Idioma | null>(null);
+  protected readonly automatica = signal(false);
   protected readonly cargando = signal(true);
   protected readonly error = signal(false);
 
@@ -125,12 +144,18 @@ export class LegalPage implements OnInit {
   }
 
   private aplicar(respuesta: LegalPageResponse): void {
+    const servido = respuesta.served_locale ?? 'es-ES';
     this.contenidoBruto.set(respuesta.content);
-    // El texto legal lo escribe la plataforma en su idioma y aún no tiene traducción:
-    // como el contenido del organizador, solo se ofrece en su idioma de origen.
+    this.servido.set(servido);
+    this.automatica.set(respuesta.machine_translated === true);
+    // El texto legal lo escribe la plataforma en español y el equipo lo traduce a
+    // mano: solo se indexa en los idiomas que tienen versión propia.
     this.seo.set({
       title: this.transloco.translate(this.tituloClave()),
       contenidoDelOrganizador: true,
+      idiomaOrigen: 'es-ES',
+      // Las dos versiones se anuncian una a otra (hreflang recíproco).
+      idiomasAlDia: respuesta.available_locales ?? ['es-ES'],
     });
   }
 }

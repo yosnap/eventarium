@@ -13,5 +13,8 @@ export interface PlatformAiSettingsOut {
   has_key: boolean;
   monthly_ceiling_usd: (string | null);
   provider: (string | null);
+  translation_daily_calls: number;
+  translation_monthly_cap_usd: string;
+  translation_spent_usd?: string;
   updated_at: (string | null);
 }

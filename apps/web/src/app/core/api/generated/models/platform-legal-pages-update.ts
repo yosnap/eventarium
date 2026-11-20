@@ -11,6 +11,11 @@
 export interface PlatformLegalPagesUpdate {
   cookies_policy_content?: (string | null);
   legal_notice_content?: (string | null);
+
+  /**
+   * Idioma de la versión que se edita. En otro idioma, un texto la guarda como escrita a mano; `null` la devuelve a la traducción automática.
+   */
+  locale?: 'es-ES' | 'en-US';
   privacy_policy_content?: (string | null);
   registration_terms_content?: (string | null);
 }

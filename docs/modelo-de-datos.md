@@ -701,3 +701,29 @@ tipo cerrado (`linkedin | instagram | x | facebook | youtube | tiktok | other`, 
 `other` lleva `label`) y se editan con `PATCH /organizations/me`; `PUT
 /organizations/me/branding` ya no las toca.
 
+### Traducciones del contenido (migraciones `0074` a `0076`)
+
+Las columnas de siempre guardan el original; las traducciones van en
+`content_translations`, una fila por entidad, campo e idioma (`entity_type`, `entity_id`,
+`field`, `locale`), con `value`, `status` (`pendiente | en_curso | al_dia | error |
+desactualizada`), `origin` (`ia | manual | revisada`) y `source_hash`, la huella del
+original cuando se tradujo. Una traducción solo se sirve si está `al_dia` y su huella
+coincide con el original actual, así que editar el original la deja fuera sin tocarla.
+RLS forzada por `organization_id`. Un trigger genérico (`app_borrar_traducciones`) en cada
+tabla con fila propia borra sus traducciones en la misma transacción que la fila.
+
+`organizations.content_locales` (idiomas en que publica), `organizations.source_locale` y
+`events.source_locale` (idioma del original) deciden qué se traduce y a qué.
+`event_categories.name_i18n` (JSONB) guarda el nombre de cada categoría del catálogo por
+idioma. `translation_requests` (migración `0075`) es la cola de traducción con IA: una
+fila por organización, evento e idioma, sin acceso para `app_user`.
+
+`platform_legal_pages` tiene una fila por página e idioma (`locale`, migración `0076`,
+única por `kind` y `locale`). Las versiones en otro idioma llevan `origin`, `status`,
+`source_hash`, `error_count` y `retry_after` (migración `0077`), como `content_translations`.
+`event_categories.name_i18n_origin` dice quién escribió cada idioma del nombre.
+
+`platform_ai_usage` (migración `0077`) es el uso de IA de la propia plataforma (traducir su
+contenido), aparte de `ai_usage_records`: sin organización, sin RLS y sin acceso para
+`app_user`. `platform_ai_settings` suma `translation_monthly_cap_usd` y
+`translation_daily_calls`, obligatorios. El funcionamiento completo está en [i18n.md](i18n.md).

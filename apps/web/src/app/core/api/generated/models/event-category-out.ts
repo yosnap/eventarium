@@ -13,5 +13,8 @@ export interface EventCategoryOut {
   name_i18n?: {
 [key: string]: string;
 };
+  name_i18n_origin?: {
+[key: string]: string;
+};
   slug: string;
 }

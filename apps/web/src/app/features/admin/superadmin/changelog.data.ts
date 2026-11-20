@@ -33,6 +33,32 @@ export interface ChangelogVersion {
 
 export const CHANGELOG: readonly ChangelogVersion[] = [
   {
+    version: '0.34.0',
+    fecha: '2026-11-20',
+    secciones: [
+      {
+        categoria: 'agregado',
+        items: [
+          {
+            titulo: 'Páginas legales y categorías traducidas por la IA de la plataforma',
+            descripcion:
+              'La IA de la plataforma traduce el legal y los nombres de las categorías al guardarlos, con su propio tope mensual de gasto en «IA». El legal traducido se muestra con un aviso de traducción automática y no se ofrece a los buscadores hasta que el superadmin lo revisa en «Documentos legales», donde también puede corregirlo a mano. Si el español cambia, una traducción que ya no corresponde no se sirve.',
+          },
+          {
+            titulo: 'Asistente para la clave de IA al activar un idioma',
+            descripcion:
+              'Cuando una organización sin clave propia activa un idioma, se le pregunta si quiere traducción automática y, si sí, elige proveedor, modelo y clave. La clave se prueba con una traducción real antes de guardarla.',
+          },
+          {
+            titulo: 'Idioma en el servidor MCP',
+            descripcion:
+              'Los asistentes conectados pueden leer los eventos en otro idioma y escribir traducciones a mano con el parámetro «idioma». La herramienta nueva «traducir_evento» consulta cuánto falta por traducir y lanza la traducción con la IA propia de la organización.',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.33.0',
     fecha: '2026-11-19',
     secciones: [

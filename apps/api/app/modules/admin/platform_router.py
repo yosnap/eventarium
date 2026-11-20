@@ -14,17 +14,20 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import registrar_auditoria
 from app.core.deps import SCOPE_SESION, CurrentUser, get_maintenance_db, require_superadmin
 from app.core.email import invalidar_branding_en_cache
+from app.core.locale import DEFAULT_LOCALE, Locale
 from app.core.storage import (
     build_platform_object_key,
     get_storage,
     public_url_versionada,
     validate_upload,
 )
+from app.core.tras_commit import encolar_tras_commit
 from app.modules.media import platform_service as platform_media_service
 from app.modules.media.models import PlatformMedia, PlatformMediaFolder
 from app.modules.media.schemas import (
@@ -40,11 +43,12 @@ from app.modules.platform.models import PlatformLegalPage
 from app.modules.platform.schemas import (
     PlatformBrandingResponse,
     PlatformBrandingUpdate,
+    PlatformLegalPageReview,
     PlatformLegalPagesResponse,
     PlatformLegalPagesUpdate,
 )
 from app.modules.theme_templates import repository as theme_templates_repository
-from app.shared.errors import ValidationDomainError
+from app.shared.errors import ConflictError, ValidationDomainError
 from app.shared.pagination import Page, PageParams, page_params
 
 router = APIRouter(prefix="/admin", tags=["administración"])
@@ -447,9 +451,9 @@ async def list_platform_media_folders(
     response_model=PlatformLegalPagesResponse,
 )
 async def get_platform_legal_pages(
-    _: Superadmin, session: MaintenanceDb
+    _: Superadmin, session: MaintenanceDb, idioma: Locale = DEFAULT_LOCALE
 ) -> PlatformLegalPagesResponse:
-    return await platform_service.legal_pages_publicas(session)
+    return await platform_service.legal_pages_publicas(session, idioma)
 
 
 @router.patch(
@@ -464,7 +468,11 @@ async def get_platform_legal_pages(
 async def update_platform_legal_pages(
     datos: PlatformLegalPagesUpdate, superadmin: Superadmin, session: MaintenanceDb
 ) -> PlatformLegalPagesResponse:
-    cambios = datos.model_dump(exclude_unset=True)
+    cambios = datos.model_dump(exclude_unset=True, exclude={"locale"})
+    traducida = datos.locale != DEFAULT_LOCALE
+    # La huella de la versión traducida es la del español que se sirve ahora.
+    espanoles = await platform_service.espanoles_efectivos(session) if traducida else {}
+    plantillas = await platform_service.plantillas_legales(session) if not traducida else {}
 
     for clave, campo in _CAMPOS_DE_PAGINA.items():
         if campo not in cambios:
@@ -472,16 +480,43 @@ async def update_platform_legal_pages(
         valor = cambios[campo]
         limpio = valor.strip() if isinstance(valor, str) else None
 
-        fila = await platform_repository.get_platform_legal_page(session, clave)
-        if fila is None:
-            # Sin fila y sin contenido: ya estaba en plantilla, no hay nada que
-            # restaurar ni que crear (una fila vacía sería lo mismo con ruido).
+        fila = await platform_repository.get_platform_legal_page(session, clave, datos.locale)
+        if traducida:
+            if fila is None:
+                fila = PlatformLegalPage(kind=clave, locale=datos.locale)
+                session.add(fila)
             if limpio:
-                session.add(PlatformLegalPage(kind=clave, content=limpio))
+                # Escrita a mano: la IA ya no la toca.
+                fila.content = limpio
+                fila.origin = "manual"
+                fila.status = "al_dia"
+                fila.source_hash = platform_service.firma_legal(espanoles[clave])
+            else:
+                # Vacía: vuelve a la traducción automática.
+                fila.content = None
+                fila.origin = "ia"
+                fila.status = "pendiente"
+                fila.source_hash = None
+            fila.error_count = 0
+            fila.retry_after = None
         else:
-            fila.content = limpio or None
+            # Guardar la plantilla tal cual no la convierte en texto propio: seguiría
+            # sin recoger un cambio de nombre o de dominio de la plataforma.
+            if limpio is not None and limpio == plantillas[clave].strip():
+                limpio = None
+            if fila is None:
+                # Sin fila y sin contenido: ya estaba en plantilla, nada que crear.
+                if limpio:
+                    session.add(PlatformLegalPage(kind=clave, content=limpio, locale=datos.locale))
+            else:
+                fila.content = limpio or None
 
+    if not traducida and cambios:
+        # Cambia el español: las versiones de la IA se rehacen desde cero, sin la
+        # espera de errores anteriores.
+        await platform_repository.reiniciar_errores_de_traduccion_legal(session)
     await session.flush()
+    encolar_tras_commit(session, _traducir_contenido_de_plataforma)
 
     await registrar_auditoria(
         session,
@@ -490,6 +525,65 @@ async def update_platform_legal_pages(
         action="platform_legal_pages.updated",
         entity_type="platform_legal_page",
         entity_id=None,
-        detail={"campos": sorted(cambios)},
+        detail={"campos": sorted(cambios), "idioma": datos.locale},
     )
-    return await platform_service.legal_pages_publicas(session)
+    return await platform_service.legal_pages_publicas(session, datos.locale)
+
+
+async def _traducir_contenido_de_plataforma() -> None:
+    from app.core.tasks import traducir_contenido_de_plataforma_task
+
+    await traducir_contenido_de_plataforma_task.kiq()
+
+
+@router.post(
+    "/legal-pages/review",
+    summary="Marcar como revisada la traducción automática de una página legal",
+    description=(
+        "La versión traducida por IA que está al día pasa a `revisada`: se sirve sin el "
+        "aviso de traducción automática, se anuncia a los buscadores y la IA ya no la toca."
+    ),
+    response_model=PlatformLegalPagesResponse,
+)
+async def review_platform_legal_page(
+    datos: PlatformLegalPageReview, superadmin: Superadmin, session: MaintenanceDb
+) -> PlatformLegalPagesResponse:
+    clave = platform_service.clave_de_atributo(datos.page)
+    espanoles = await platform_service.espanoles_efectivos(session)
+    firma = platform_service.firma_legal(espanoles[clave])
+    fila = await platform_repository.get_platform_legal_page(session, clave, datos.locale)
+    estado = platform_service.estado_de_version(fila, firma)
+    # Solo se confirma el texto que el superadmin tiene delante: si la IA lo ha
+    # rehecho mientras tanto, no se marca como revisado algo que nadie ha leído.
+    if fila is None or not fila.content or fila.content != datos.content.strip():
+        raise ConflictError("La traducción ha cambiado: vuelve a cargarla antes de revisarla.")
+    if estado == "al_dia" and fila.origin == "ia":
+        valores: dict[str, object] = {"origin": "revisada"}
+    elif estado == "desactualizada":
+        # Escrita a mano para un español anterior: el superadmin confirma que sigue valiendo.
+        valores = {"status": "al_dia", "source_hash": firma}
+    else:
+        raise ConflictError("Solo se puede revisar una traducción al día con el español actual.")
+    resultado = await session.execute(
+        update(PlatformLegalPage)
+        .where(
+            PlatformLegalPage.id == fila.id,
+            PlatformLegalPage.content == fila.content,
+            PlatformLegalPage.status != "en_curso",
+        )
+        .values(**valores)
+    )
+    if not getattr(resultado, "rowcount", 0):
+        raise ConflictError("La traducción ha cambiado: vuelve a cargarla antes de revisarla.")
+    await session.flush()
+    session.expire_all()
+    await registrar_auditoria(
+        session,
+        actor_user_id=superadmin.id,
+        organization_id=None,
+        action="platform_legal_pages.reviewed",
+        entity_type="platform_legal_page",
+        entity_id=None,
+        detail={"pagina": clave, "idioma": datos.locale},
+    )
+    return await platform_service.legal_pages_publicas(session, datos.locale)

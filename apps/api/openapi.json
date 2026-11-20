@@ -3974,6 +3974,22 @@
         ],
         "summary": "Páginas legales de la plataforma",
         "operationId": "get_platform_legal_pages_api_v1_admin_legal_pages_get",
+        "parameters": [
+          {
+            "name": "idioma",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ],
+              "type": "string",
+              "default": "es-ES",
+              "title": "Idioma"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3981,6 +3997,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PlatformLegalPagesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -3995,10 +4021,52 @@
         "description": "Un campo ausente no se toca; un campo presente con `null` restaura la plantilla por defecto de esa página.",
         "operationId": "update_platform_legal_pages_api_v1_admin_legal_pages_patch",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/PlatformLegalPagesUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformLegalPagesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/legal-pages/review": {
+      "post": {
+        "tags": [
+          "administración"
+        ],
+        "summary": "Marcar como revisada la traducción automática de una página legal",
+        "description": "La versión traducida por IA que está al día pasa a `revisada`: se sirve sin el aviso de traducción automática, se anuncia a los buscadores y la IA ya no la toca.",
+        "operationId": "review_platform_legal_page_api_v1_admin_legal_pages_review_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformLegalPageReview"
               }
             }
           },
@@ -12376,7 +12444,7 @@
           "organizaciones"
         ],
         "summary": "Sobrescribir la configuración de IA de la organización",
-        "description": "Guarda la configuración propia (proveedor, modelo, clave y, en un proveedor personalizado, su dirección) y el límite de gasto propio, que no puede superar el techo de la plataforma (422). La configuración se guarda **entera**: enviar proveedor o dirección exige enviar también la clave, y enviar la clave exige proveedor y modelo.",
+        "description": "Guarda la configuración propia (proveedor, modelo, clave y, en un proveedor personalizado, su dirección) y el límite de gasto propio, que no puede superar el techo de la plataforma (422). La configuración se guarda **entera**: enviar proveedor o dirección exige enviar también la clave, y enviar la clave exige proveedor y modelo. Con `verify_translation`, antes de guardar se traduce de verdad una frase de prueba con la clave nueva.",
         "operationId": "update_my_ai_settings_api_v1_organizations_me_ai_settings_put",
         "requestBody": {
           "content": {
@@ -15961,6 +16029,19 @@
             },
             "type": "object",
             "title": "Name I18N"
+          },
+          "name_i18n_origin": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "object",
+            "title": "Name I18N Origin"
           }
         },
         "type": "object",
@@ -19434,6 +19515,34 @@
           "content": {
             "type": "string",
             "title": "Content"
+          },
+          "served_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Served Locale",
+            "description": "Idioma del texto servido: `es-ES` si no hay versión en el idioma pedido.",
+            "default": "es-ES"
+          },
+          "available_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Available Locales",
+            "description": "Idiomas con versión propia: los que la página anuncia a los buscadores."
+          },
+          "machine_translated": {
+            "type": "boolean",
+            "title": "Machine Translated",
+            "description": "Traducción automática sin revisar: la web avisa de que prevalece el español y no la ofrece a los buscadores.",
+            "default": false
           }
         },
         "type": "object",
@@ -20820,6 +20929,11 @@
               }
             ],
             "title": "Monthly Limit Usd"
+          },
+          "verify_translation": {
+            "type": "boolean",
+            "title": "Verify Translation",
+            "default": false
           }
         },
         "type": "object",
@@ -21957,6 +22071,21 @@
             ],
             "title": "Monthly Ceiling Usd"
           },
+          "translation_monthly_cap_usd": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Translation Monthly Cap Usd"
+          },
+          "translation_daily_calls": {
+            "type": "integer",
+            "title": "Translation Daily Calls"
+          },
+          "translation_spent_usd": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Translation Spent Usd",
+            "default": "0"
+          },
           "updated_at": {
             "anyOf": [
               {
@@ -21979,6 +22108,8 @@
           "has_key",
           "api_key_hint",
           "monthly_ceiling_usd",
+          "translation_monthly_cap_usd",
+          "translation_daily_calls",
           "updated_at"
         ],
         "title": "PlatformAiSettingsOut",
@@ -22065,6 +22196,36 @@
               }
             ],
             "title": "Monthly Ceiling Usd"
+          },
+          "translation_monthly_cap_usd": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 99999999.999999,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d{0,6}0*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Translation Monthly Cap Usd"
+          },
+          "translation_daily_calls": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10000.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Translation Daily Calls"
           }
         },
         "type": "object",
@@ -22497,7 +22658,46 @@
           "is_custom": {
             "type": "boolean",
             "title": "Is Custom",
-            "description": "`true` si el admin ha editado esta página."
+            "description": "`true` si el admin ha editado esta página en el idioma pedido."
+          },
+          "served_locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Served Locale",
+            "description": "Idioma del texto servido. Si se pidió otro y no hay versión escrita a mano, es `es-ES` y la web muestra el aviso de contenido original.",
+            "default": "es-ES"
+          },
+          "available_locales": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "es-ES",
+                "en-US"
+              ]
+            },
+            "type": "array",
+            "title": "Available Locales",
+            "description": "Idiomas que se anuncian a los buscadores: el español y las versiones escritas o revisadas a mano que están al día."
+          },
+          "machine_translated": {
+            "type": "boolean",
+            "title": "Machine Translated",
+            "description": "El texto servido es una traducción automática sin revisar.",
+            "default": false
+          },
+          "translation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlatformLegalTranslation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "La versión guardada en el idioma pedido (para el editor)."
           }
         },
         "type": "object",
@@ -22507,6 +22707,42 @@
         ],
         "title": "PlatformLegalPageItem",
         "description": "Una página legal de plataforma, con su contenido efectivo."
+      },
+      "PlatformLegalPageReview": {
+        "properties": {
+          "page": {
+            "type": "string",
+            "enum": [
+              "legal_notice",
+              "privacy_policy",
+              "cookies_policy",
+              "registration_terms"
+            ],
+            "title": "Page"
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Locale"
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 20000,
+            "title": "Content",
+            "description": "El texto que se confirma, tal como lo ve el superadmin."
+          }
+        },
+        "type": "object",
+        "required": [
+          "page",
+          "locale",
+          "content"
+        ],
+        "title": "PlatformLegalPageReview",
+        "description": "Qué versión traducida se marca como revisada."
       },
       "PlatformLegalPagesResponse": {
         "properties": {
@@ -22582,11 +22818,68 @@
               }
             ],
             "title": "Registration Terms Content"
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "es-ES",
+              "en-US"
+            ],
+            "title": "Locale",
+            "description": "Idioma de la versión que se edita. En otro idioma, un texto la guarda como escrita a mano; `null` la devuelve a la traducción automática.",
+            "default": "es-ES"
           }
         },
         "type": "object",
         "title": "PlatformLegalPagesUpdate",
         "description": "Actualización parcial de las páginas legales de plataforma.\n\nUn campo ausente no se toca; presente con `null` restaura la plantilla\npor defecto."
+      },
+      "PlatformLegalTranslation": {
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin",
+            "description": "`ia`, `manual` o `revisada`."
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status",
+            "description": "`al_dia` (se sirve), `desactualizada` (escrita a mano para un español que ya cambió), `pendiente`, `en_curso` o `error`."
+          }
+        },
+        "type": "object",
+        "required": [
+          "content",
+          "origin",
+          "status"
+        ],
+        "title": "PlatformLegalTranslation",
+        "description": "La versión traducida guardada de una página, aunque no se sirva (para el\neditor del superadmin)."
       },
       "PlatformMediaFolderCreate": {
         "properties": {

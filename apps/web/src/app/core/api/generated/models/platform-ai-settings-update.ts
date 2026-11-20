@@ -15,4 +15,6 @@ export interface PlatformAiSettingsUpdate {
   default_model?: (string | null);
   monthly_ceiling_usd?: (number | string | null);
   provider?: ('nan_builders' | 'openrouter' | 'cheaper_inference' | 'anthropic' | 'openai' | 'gemini' | 'custom' | null);
+  translation_daily_calls?: (number | null);
+  translation_monthly_cap_usd?: (number | string | null);
 }

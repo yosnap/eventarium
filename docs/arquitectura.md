@@ -574,6 +574,15 @@ que decida la persona, clasificado como necesario en la página de cookies (ver
 dummy-analytics.js`) solo se inyecta en el DOM tras consentimiento explícito,
 para probar de verdad el bloqueo hasta que exista un script analítico real.
 
+## Idiomas
+
+La web y la API se ofrecen en español y en inglés. El texto de la interfaz, de los correos
+y de los PDF vive en catálogos JSON. El contenido de cada organización se traduce a mano o
+con la IA de su propia clave (`app/modules/translations/`): las columnas guardan el
+original y `content_translations` las traducciones, que se sirven solo si están al día. La
+cola de IA se rellena al guardar y la procesa un barrido por minuto de taskiq. Detalle en
+[i18n.md](i18n.md).
+
 ## Estructura
 
 ```

@@ -62,6 +62,11 @@ class EventCategory(Base, TimestampMixin):
     name_i18n: Mapped[dict[str, str]] = mapped_column(
         JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
     )
+    # Quién escribió cada idioma de `name_i18n` (`ia` o `manual`): la IA de la
+    # plataforma solo rellena o rehace los suyos.
+    name_i18n_origin: Mapped[dict[str, str]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
+    )
 
 
 class Event(Base, TimestampMixin):

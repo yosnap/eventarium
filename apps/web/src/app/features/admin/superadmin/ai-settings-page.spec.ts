@@ -53,6 +53,9 @@ const AJUSTES = {
   has_key: true,
   api_key_hint: 'zk29',
   monthly_ceiling_usd: '50.000000',
+  translation_monthly_cap_usd: '5.000000',
+  translation_daily_calls: 200,
+  translation_spent_usd: '0.120000',
   updated_at: '2026-09-19T10:00:00Z',
 };
 
@@ -273,6 +276,47 @@ describe('AiSettingsPage', () => {
     const peticion = http.expectOne({ method: 'PUT', url: AJUSTES_URL });
     expect(peticion.request.body).toEqual({ monthly_ceiling_usd: null });
     peticion.flush({ ...AJUSTES, monthly_ceiling_usd: null });
+    await avanzar(fixture);
+    http.expectOne(USO_URL).flush(USO);
+    await guardando;
+  });
+
+  it('el tope de traducción de la plataforma es obligatorio y se envía al cambiarlo', async () => {
+    const fixture = await crearYCargar();
+    expect(fixture.componentInstance.topeTraduccion()).toBe('5.000000');
+    expect(fixture.nativeElement.textContent).toContain('0.120000');
+
+    fixture.componentInstance.topeTraduccion.set('0');
+    await fixture.componentInstance.guardar(new Event('submit'));
+    http.expectNone({ method: 'PUT', url: AJUSTES_URL });
+    expect(fixture.componentInstance.error()).toContain('mayor que cero');
+
+    fixture.componentInstance.topeTraduccion.set('12');
+    const guardando = fixture.componentInstance.guardar(new Event('submit'));
+    await avanzar(fixture);
+    const peticion = http.expectOne({ method: 'PUT', url: AJUSTES_URL });
+    expect(peticion.request.body).toEqual({ translation_monthly_cap_usd: '12' });
+    peticion.flush({ ...AJUSTES, translation_monthly_cap_usd: '12.000000' });
+    await avanzar(fixture);
+    http.expectOne(USO_URL).flush(USO);
+    await guardando;
+  });
+
+  it('el máximo de llamadas al día se edita y se valida', async () => {
+    const fixture = await crearYCargar();
+    expect(fixture.componentInstance.llamadasTraduccion()).toBe('200');
+
+    fixture.componentInstance.llamadasTraduccion.set('0');
+    await fixture.componentInstance.guardar(new Event('submit'));
+    http.expectNone({ method: 'PUT', url: AJUSTES_URL });
+    expect(fixture.componentInstance.error()).toContain('entre 1 y 10000');
+
+    fixture.componentInstance.llamadasTraduccion.set('50');
+    const guardando = fixture.componentInstance.guardar(new Event('submit'));
+    await avanzar(fixture);
+    const peticion = http.expectOne({ method: 'PUT', url: AJUSTES_URL });
+    expect(peticion.request.body).toEqual({ translation_daily_calls: '50' });
+    peticion.flush({ ...AJUSTES, translation_daily_calls: 50 });
     await avanzar(fixture);
     http.expectOne(USO_URL).flush(USO);
     await guardando;

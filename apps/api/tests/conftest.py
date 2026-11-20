@@ -166,6 +166,8 @@ TABLAS = (
     # se listan por el mismo criterio que el resto.
     "ai_usage_records",
     "ai_usage_periods",
+    # Uso de IA de la propia plataforma: de instalación, sin organización.
+    "platform_ai_usage",
     # Políticas propias del organizador. Cascadean desde `organizations` y
     # `events`, pero se listan por el mismo criterio que el resto.
     "organization_policy_versions",

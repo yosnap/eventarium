@@ -1,20 +1,37 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../../../core/api/api.service';
 import { ApiError } from '../../../core/api/error.interceptor';
+import {
+  IDIOMAS,
+  IDIOMA_POR_DEFECTO,
+  NOMBRE_DEL_IDIOMA,
+  type Idioma,
+} from '../../../core/i18n/idioma';
 import { Alert } from '../../../shared/ui/alert';
 import { Button } from '../../../shared/ui/button';
 import { Card } from '../../../shared/ui/card';
 import { Textarea } from '../../../shared/ui/textarea';
 import { PageHeader } from '../../../shared/ui/page-header';
+import { SegmentedFilter } from '../../../shared/ui/segmented-filter';
+
+interface Traduccion {
+  content: string | null;
+  origin: 'ia' | 'manual' | 'revisada' | null;
+  status: 'al_dia' | 'desactualizada' | 'pendiente' | 'en_curso' | 'error' | null;
+}
 
 interface PaginaLegal {
   content: string;
   is_custom: boolean;
+  served_locale?: Idioma;
+  translation?: Traduccion | null;
 }
+
+type Atributo = 'legal_notice' | 'privacy_policy' | 'cookies_policy' | 'registration_terms';
 
 interface PaginasLegales {
   legal_notice: PaginaLegal;
@@ -36,7 +53,7 @@ const CLAVE_LEGALES = '/admin/legal-pages';
 @Component({
   selector: 'app-platform-legal-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslocoDirective, Alert, Button, Card, Textarea, PageHeader],
+  imports: [TranslocoDirective, Alert, Button, Card, Textarea, PageHeader, SegmentedFilter],
   template: `
     <ng-container *transloco="let t">
       <app-page-header [rotulo]="t('admin.plataforma.legales.rotulo')">
@@ -52,12 +69,33 @@ const CLAVE_LEGALES = '/admin/legal-pages';
         </app-alert>
       }
 
+      <div class="idioma">
+        <app-segmented-filter
+          [opciones]="opcionesDeIdioma"
+          [valor]="idioma()"
+          [etiqueta]="t('admin.plataforma.legales.idioma')"
+          (cambio)="cambiarIdioma($event)"
+        />
+        @if (idioma() !== idiomaPorDefecto) {
+          <p class="estado">{{ t('admin.plataforma.legales.aMano') }}</p>
+        }
+      </div>
+
       @if (cargando()) {
         <p>{{ t('comun.cargando') }}</p>
       } @else {
         <form (submit)="guardar($event)">
           <app-card [heading]="t('admin.plataforma.legales.avisoLegal')">
-            <p class="estado">{{ estadoDe(avisoEsPersonalizado()) }}</p>
+            <p class="estado">{{ estadoDe(avisoEsPersonalizado(), 'legal_notice') }}</p>
+            @if (revisable('legal_notice')) {
+              <app-button
+                variant="terciario"
+                [compacto]="true"
+                [disabled]="guardando()"
+                (pulsado)="revisar('legal_notice')"
+                >{{ etiquetaDeRevision('legal_notice') }}</app-button
+              >
+            }
             <app-textarea
               [label]="t('admin.plataforma.legales.avisoLegal')"
               [rows]="10"
@@ -66,7 +104,16 @@ const CLAVE_LEGALES = '/admin/legal-pages';
           </app-card>
 
           <app-card [heading]="t('admin.plataforma.legales.privacidad')">
-            <p class="estado">{{ estadoDe(privacidadEsPersonalizada()) }}</p>
+            <p class="estado">{{ estadoDe(privacidadEsPersonalizada(), 'privacy_policy') }}</p>
+            @if (revisable('privacy_policy')) {
+              <app-button
+                variant="terciario"
+                [compacto]="true"
+                [disabled]="guardando()"
+                (pulsado)="revisar('privacy_policy')"
+                >{{ etiquetaDeRevision('privacy_policy') }}</app-button
+              >
+            }
             <app-textarea
               [label]="t('admin.plataforma.legales.privacidad')"
               [rows]="10"
@@ -75,7 +122,16 @@ const CLAVE_LEGALES = '/admin/legal-pages';
           </app-card>
 
           <app-card [heading]="t('admin.plataforma.legales.cookies')">
-            <p class="estado">{{ estadoDe(cookiesEsPersonalizada()) }}</p>
+            <p class="estado">{{ estadoDe(cookiesEsPersonalizada(), 'cookies_policy') }}</p>
+            @if (revisable('cookies_policy')) {
+              <app-button
+                variant="terciario"
+                [compacto]="true"
+                [disabled]="guardando()"
+                (pulsado)="revisar('cookies_policy')"
+                >{{ etiquetaDeRevision('cookies_policy') }}</app-button
+              >
+            }
             <app-textarea
               [label]="t('admin.plataforma.legales.cookies')"
               [rows]="10"
@@ -84,7 +140,16 @@ const CLAVE_LEGALES = '/admin/legal-pages';
           </app-card>
 
           <app-card [heading]="t('admin.plataforma.legales.condicionesDeInscripcion')">
-            <p class="estado">{{ estadoDe(condicionesEsPersonalizada()) }}</p>
+            <p class="estado">{{ estadoDe(condicionesEsPersonalizada(), 'registration_terms') }}</p>
+            @if (revisable('registration_terms')) {
+              <app-button
+                variant="terciario"
+                [compacto]="true"
+                [disabled]="guardando()"
+                (pulsado)="revisar('registration_terms')"
+                >{{ etiquetaDeRevision('registration_terms') }}</app-button
+              >
+            }
             <app-textarea
               [label]="t('admin.plataforma.legales.condicionesDeInscripcion')"
               [rows]="10"
@@ -112,6 +177,11 @@ const CLAVE_LEGALES = '/admin/legal-pages';
       display: grid;
       gap: 1.5rem;
     }
+    .idioma {
+      display: grid;
+      gap: 0.5rem;
+      margin-block-end: 1.5rem;
+    }
     .estado {
       color: var(--muted);
       font-size: 0.875rem;
@@ -129,6 +199,15 @@ export class PlatformLegalPage {
   readonly guardado = signal(false);
   readonly error = signal<string | null>(null);
 
+  /** Idioma de la versión que se edita. El legal no pasa por la IA. */
+  readonly idioma = signal<Idioma>(IDIOMA_POR_DEFECTO);
+  protected readonly idiomaPorDefecto = IDIOMA_POR_DEFECTO;
+  protected readonly opcionesDeIdioma = IDIOMAS.map((valor) => ({
+    valor,
+    etiqueta: NOMBRE_DEL_IDIOMA[valor],
+  }));
+  private readonly enOtroIdioma = computed(() => this.idioma() !== IDIOMA_POR_DEFECTO);
+
   /** Contenido editable por página. Vacío = volver a la plantilla por defecto. */
   readonly avisoLegal = signal('');
   readonly privacidad = signal('');
@@ -140,11 +219,26 @@ export class PlatformLegalPage {
   readonly cookiesEsPersonalizada = signal(false);
   readonly condicionesEsPersonalizada = signal(false);
 
+  /** En otro idioma, la versión traducida guardada de cada página. */
+  protected readonly traducciones = signal<Partial<Record<Atributo, Traduccion | null>>>({});
+  /** Lo cargado en cada campo, para enviar solo lo que se ha cambiado. */
+  private cargado: Partial<Record<Atributo, string>> = {};
+
   constructor() {
     void this.cargar();
   }
 
-  estadoDe(esPersonalizada: boolean): string {
+  estadoDe(esPersonalizada: boolean, atributo?: Atributo): string {
+    if (this.enOtroIdioma() && atributo) {
+      const traduccion = this.traducciones()[atributo];
+      const estado =
+        !traduccion || !traduccion.status
+          ? 'sinVersion'
+          : traduccion.status === 'al_dia'
+            ? `alDia.${traduccion.origin ?? 'ia'}`
+            : traduccion.status;
+      return this.transloco.translate(`admin.plataforma.legales.estado.${estado}`);
+    }
     return this.transloco.translate(
       esPersonalizada
         ? 'admin.plataforma.legales.personalizada'
@@ -152,15 +246,85 @@ export class PlatformLegalPage {
     );
   }
 
-  private async cargar(): Promise<void> {
+  /** Traducción automática al día sin revisar, o escrita a mano para un español
+   * anterior: el superadmin puede confirmar que vale. */
+  protected revisable(atributo: Atributo): boolean {
+    const traduccion = this.traducciones()[atributo];
+    if (!this.enOtroIdioma() || !traduccion?.content) {
+      return false;
+    }
+    return (
+      (traduccion.origin === 'ia' && traduccion.status === 'al_dia') ||
+      traduccion.status === 'desactualizada'
+    );
+  }
+
+  protected etiquetaDeRevision(atributo: Atributo): string {
+    return this.transloco.translate(
+      this.traducciones()[atributo]?.status === 'desactualizada'
+        ? 'admin.plataforma.legales.confirmarVigente'
+        : 'admin.plataforma.legales.marcarRevisada',
+    );
+  }
+
+  protected async revisar(atributo: Atributo): Promise<void> {
+    const idioma = this.idioma();
+    this.guardando.set(true);
+    this.error.set(null);
     try {
-      this.volcar(
-        await firstValueFrom(
-          this.http.get<PaginasLegales>(this.api.url(CLAVE_LEGALES), {
-            headers: this.api.serverForwardHeaders(),
-          }),
+      const paginas = await firstValueFrom(
+        this.http.post<PaginasLegales>(
+          this.api.url(`${CLAVE_LEGALES}/review`),
+          // El texto guardado que se confirma: si la IA lo rehízo mientras tanto, la
+          // API lo rechaza en vez de dar por revisado algo que nadie ha leído.
+          {
+            page: atributo,
+            locale: idioma,
+            content: this.traducciones()[atributo]?.content ?? '',
+          },
+          { headers: this.api.serverForwardHeaders() },
         ),
       );
+      if (idioma === this.idioma()) {
+        this.volcar(paginas);
+      }
+    } catch (fallo) {
+      this.error.set(
+        fallo instanceof ApiError
+          ? fallo.message
+          : this.transloco.translate('admin.plataforma.legales.errorGuardar'),
+      );
+    } finally {
+      this.guardando.set(false);
+    }
+  }
+
+  protected cambiarIdioma(idioma: Idioma): void {
+    // Mientras se guarda no se cambia: la respuesta del guardado es de otro idioma
+    // y acabaría en los campos del nuevo (p. ej. el texto inglés como español).
+    if (idioma === this.idioma() || this.guardando()) {
+      return;
+    }
+    this.idioma.set(idioma);
+    this.guardado.set(false);
+    this.error.set(null);
+    this.cargando.set(true);
+    void this.cargar();
+  }
+
+  private async cargar(): Promise<void> {
+    const idioma = this.idioma();
+    try {
+      const paginas = await firstValueFrom(
+        this.http.get<PaginasLegales>(this.api.url(CLAVE_LEGALES), {
+          headers: this.api.serverForwardHeaders(),
+          params: { idioma },
+        }),
+      );
+      // Una respuesta de un idioma que ya no es el elegido se descarta.
+      if (idioma === this.idioma()) {
+        this.volcar(paginas);
+      }
     } catch {
       this.error.set(this.transloco.translate('admin.plataforma.legales.errorCarga'));
     } finally {
@@ -172,10 +336,27 @@ export class PlatformLegalPage {
     // El contenido que llega es el **efectivo** (editado o plantilla): se carga
     // en el campo para poder editarlo, y `is_custom` indica si hoy es una
     // edición propia o la plantilla por defecto.
-    this.avisoLegal.set(paginas.legal_notice.content);
-    this.privacidad.set(paginas.privacy_policy.content);
-    this.cookies.set(paginas.cookies_policy.content);
-    this.condicionesDeInscripcion.set(paginas.registration_terms.content);
+    // En otro idioma el campo lleva la versión traducida guardada (aunque esté
+    // desfasada, para poder actualizarla), nunca el texto español que se sirve
+    // mientras falta.
+    const texto = (pagina: PaginaLegal): string =>
+      this.enOtroIdioma() ? (pagina.translation?.content ?? '') : pagina.content;
+    this.cargado = {
+      legal_notice: texto(paginas.legal_notice),
+      privacy_policy: texto(paginas.privacy_policy),
+      cookies_policy: texto(paginas.cookies_policy),
+      registration_terms: texto(paginas.registration_terms),
+    };
+    this.avisoLegal.set(this.cargado.legal_notice ?? '');
+    this.privacidad.set(this.cargado.privacy_policy ?? '');
+    this.cookies.set(this.cargado.cookies_policy ?? '');
+    this.condicionesDeInscripcion.set(this.cargado.registration_terms ?? '');
+    this.traducciones.set({
+      legal_notice: paginas.legal_notice.translation ?? null,
+      privacy_policy: paginas.privacy_policy.translation ?? null,
+      cookies_policy: paginas.cookies_policy.translation ?? null,
+      registration_terms: paginas.registration_terms.translation ?? null,
+    });
 
     this.avisoEsPersonalizado.set(paginas.legal_notice.is_custom);
     this.privacidadEsPersonalizada.set(paginas.privacy_policy.is_custom);
@@ -196,21 +377,31 @@ export class PlatformLegalPage {
       return limpio === '' ? null : limpio;
     };
 
+    const idioma = this.idioma();
+    const campos: Record<Atributo, string> = {
+      legal_notice: this.avisoLegal(),
+      privacy_policy: this.privacidad(),
+      cookies_policy: this.cookies(),
+      registration_terms: this.condicionesDeInscripcion(),
+    };
+    // Solo se envía lo cambiado: reenviar una traducción de la IA sin tocarla la
+    // convertiría en «escrita a mano», y reenviar una plantilla española la
+    // congelaría y cambiaría la huella de la que dependen sus traducciones.
+    const cuerpo: Record<string, string | null> = { locale: idioma };
+    for (const [atributo, valor] of Object.entries(campos) as [Atributo, string][]) {
+      if (valor !== this.cargado[atributo]) {
+        cuerpo[`${atributo}_content`] = aTexto(valor);
+      }
+    }
     try {
-      this.volcar(
-        await firstValueFrom(
-          this.http.patch<PaginasLegales>(
-            this.api.url(CLAVE_LEGALES),
-            {
-              legal_notice_content: aTexto(this.avisoLegal()),
-              privacy_policy_content: aTexto(this.privacidad()),
-              cookies_policy_content: aTexto(this.cookies()),
-              registration_terms_content: aTexto(this.condicionesDeInscripcion()),
-            },
-            { headers: this.api.serverForwardHeaders() },
-          ),
-        ),
+      const paginas = await firstValueFrom(
+        this.http.patch<PaginasLegales>(this.api.url(CLAVE_LEGALES), cuerpo, {
+          headers: this.api.serverForwardHeaders(),
+        }),
       );
+      if (idioma === this.idioma()) {
+        this.volcar(paginas);
+      }
       this.guardado.set(true);
     } catch (fallo) {
       this.error.set(
