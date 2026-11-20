@@ -203,7 +203,7 @@ async def test_el_superadmin_ve_y_cambia_el_tope_pero_no_puede_quitarlo(
     cambiado = await cliente.put(
         "/api/v1/admin/ai-settings",
         headers=cabeceras,
-        json={"translation_monthly_cap_usd": "12.5", "translation_daily_calls": 50},
+        json={"translation_monthly_cap_usd": "12.5", "translation_daily_calls": "50"},
     )
     assert cambiado.status_code == 200, cambiado.text
     assert Decimal(cambiado.json()["translation_monthly_cap_usd"]) == Decimal("12.5")
