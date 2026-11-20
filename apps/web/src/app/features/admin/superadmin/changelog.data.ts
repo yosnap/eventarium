@@ -40,9 +40,14 @@ export const CHANGELOG: readonly ChangelogVersion[] = [
         categoria: 'agregado',
         items: [
           {
-            titulo: 'Páginas legales de la plataforma en inglés',
+            titulo: 'Páginas legales y categorías traducidas por la IA de la plataforma',
             descripcion:
-              'En «Documentos legales» se elige el idioma y se escribe a mano la versión en inglés de cada página; el legal nunca pasa por la IA. Mientras falte, la web en inglés muestra la española con un aviso y no la ofrece a los buscadores en inglés.',
+              'La IA de la plataforma traduce el legal y los nombres de las categorías al guardarlos, con su propio tope mensual de gasto en «IA». El legal traducido se muestra con un aviso de traducción automática y no se ofrece a los buscadores hasta que el superadmin lo revisa en «Documentos legales», donde también puede corregirlo a mano. Si el español cambia, una traducción que ya no corresponde no se sirve.',
+          },
+          {
+            titulo: 'Asistente para la clave de IA al activar un idioma',
+            descripcion:
+              'Cuando una organización sin clave propia activa un idioma, se le pregunta si quiere traducción automática y, si sí, elige proveedor, modelo y clave. La clave se prueba con una traducción real antes de guardarla.',
           },
           {
             titulo: 'Idioma en el servidor MCP',

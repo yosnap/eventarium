@@ -22,6 +22,8 @@ interface Categoria {
   readonly display_order: number;
   readonly is_active: boolean;
   readonly name_i18n?: Readonly<Record<string, string>>;
+  /** Quién escribió cada idioma: `ia` (la IA de la plataforma) o `manual`. */
+  readonly name_i18n_origin?: Readonly<Record<string, string>>;
 }
 
 /** Copia editable de una categoría: los campos de la fila mientras se edita. */
@@ -88,6 +90,7 @@ interface FilaEditable {
                   <app-input
                     [label]="t('nombreEn', { idioma: nombreDelIdioma(idioma) })"
                     [value]="fila.traducciones[idioma] || ''"
+                    [hint]="pistaDeTraduccion(fila, idioma)"
                     (valueChange)="traducir(fila.categoria.id, idioma, $event)"
                   />
                 }
@@ -232,6 +235,19 @@ export class EventCategoriesPage {
         f.categoria.id === id ? { ...f, traducciones: { ...f.traducciones, [idioma]: valor } } : f,
       ),
     );
+  }
+
+  /** «Traducido por IA» mientras el nombre sea el que puso la IA; vacío, lo
+   * rellenará ella al guardar. */
+  protected pistaDeTraduccion(fila: FilaEditable, idioma: string): string | null {
+    const guardado = fila.categoria.name_i18n?.[idioma];
+    const escrito = fila.traducciones[idioma] ?? '';
+    if (!escrito) {
+      return this.transloco.translate('admin.categorias.seTraduciraConIa');
+    }
+    return guardado === escrito && fila.categoria.name_i18n_origin?.[idioma] === 'ia'
+      ? this.transloco.translate('admin.categorias.traducidoConIa')
+      : null;
   }
 
   protected nombreDelIdioma(idioma: Idioma): string {

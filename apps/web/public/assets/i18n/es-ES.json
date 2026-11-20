@@ -1059,7 +1059,9 @@
       "nota": "Las categorías no se borran: al desactivar una, deja de poder asignarse y de mostrarse en la web pública, pero los eventos que ya la tienen la conservan.",
       "datosInvalidos": "Escribe un nombre y un orden entero entre 0 y 10000.",
       "error": "No hemos podido completar la operación.",
-      "nombreEn": "Nombre en {{ idioma }}"
+      "nombreEn": "Nombre en {{ idioma }}",
+      "traducidoConIa": "Traducido por la IA de la plataforma. Si lo cambias, queda como escrito a mano.",
+      "seTraduciraConIa": "Vacío: lo traducirá la IA de la plataforma, si está configurada."
     },
     "organizacion": {
       "titulo": "Organización",
@@ -1115,7 +1117,18 @@
         "origen": "Idioma en que escribe la organización",
         "origenAyuda": "El idioma original de los textos que son de la organización, como la descripción, las etiquetas o las políticas."
       },
-      "ofertaTraducir": {
+      "asistenteClave": {
+      "pregunta": "¿Quieres que tus eventos se traduzcan automáticamente con IA a este idioma?",
+      "sinClave": "Para eso hace falta tu propia clave de IA. Si prefieres no usarla, el idioma queda activo y puedes escribir las traducciones a mano.",
+      "aMano": "No, traduciré a mano",
+      "configurar": "Sí, configurar mi clave",
+      "ayuda": "Elige el proveedor (OpenRouter, OpenAI, un modelo propio compatible con OpenAI, Anthropic, Gemini…), el modelo y pega tu clave. Antes de guardarla haremos una traducción de prueba con ella, de unos céntimos.",
+      "otrasFunciones": "Esta clave se usará también para las demás funciones de IA de tu organización, como leer justificantes, y su gasto corre de tu cuenta con el proveedor.",
+      "probarYGuardar": "Probar y guardar",
+      "faltanDatos": "Elige proveedor y modelo y pega la clave.",
+      "error": "No hemos podido guardar la clave. Inténtalo de nuevo."
+    },
+    "ofertaTraducir": {
         "titulo": "¿Traducimos tus eventos al {{ idioma }}?",
         "texto": "Eventos publicados: {{ eventos }}. Textos sin traducir a este idioma: {{ textos }}. Podemos traducirlos ahora con tu clave de IA.",
         "coste": "Coste estimado: {{ coste }} USD",
@@ -2396,8 +2409,21 @@
         "errorGuardar": "No hemos podido guardar las páginas legales.",
         "rotulo": "Documentos legales",
         "idioma": "Idioma del texto",
-        "aMano": "El legal no pasa por la IA: escribe aquí la traducción a mano. Un campo vacío sirve la versión española con un aviso.",
-        "sinVersion": "Sin versión en este idioma: se sirve la española con un aviso."
+        "aMano": "La IA de la plataforma traduce cada página al guardar la versión española. Puedes corregirla aquí: lo que escribas a mano ya no lo toca la IA. Un campo vacío vuelve a la traducción automática.",
+        "marcarRevisada": "Marcar como revisada",
+        "confirmarVigente": "Sigue siendo válida",
+        "estado": {
+          "sinVersion": "Aún sin traducir: se sirve la versión española con un aviso.",
+          "pendiente": "Pendiente de traducir: mientras, se sirve la versión española con un aviso.",
+          "en_curso": "Traduciéndose ahora: mientras, se sirve la versión española con un aviso.",
+          "error": "La traducción automática ha fallado. Se reintenta sola unas cuantas veces; si sigue fallando, revisa la IA de la plataforma, vuelve a guardar la versión española o escríbela a mano. Mientras, se sirve la española.",
+          "desactualizada": "La versión española ha cambiado: esta traducción no se sirve hasta que la actualices.",
+          "alDia": {
+            "ia": "Traducida automáticamente: se muestra con un aviso y no se ofrece a los buscadores hasta que la revises.",
+            "revisada": "Traducción automática revisada.",
+            "manual": "Escrita a mano."
+          }
+        }
       },
       "analitica": {
         "titulo": "Cookies y analítica externa",
@@ -2670,6 +2696,12 @@
         "configuracion": "Configuración por defecto",
         "techo": "Techo de gasto mensual (USD)",
         "techoAyuda": "Máximo que puede gastar la instalación cada mes. Déjalo vacío para no fijar ninguno. Ninguna organización puede superarlo, fije el límite que fije.",
+        "topeTraduccion": "Tope mensual para traducir el contenido de la plataforma (USD)",
+        "topeTraduccionAyuda": "La IA de la plataforma traduce las páginas legales y los nombres de las categorías; lo paga la plataforma. Al llegar al tope se para y se sirve el español. Este mes van {{gastado}} USD.",
+        "topeTraduccionInvalido": "El tope de traducción tiene que ser un importe mayor que cero.",
+        "llamadasTraduccion": "Máximo de llamadas al día para traducir el contenido de la plataforma",
+        "llamadasTraduccionAyuda": "Tope de seguridad además del gasto mensual: al llegar a él, se para hasta el día siguiente.",
+        "llamadasTraduccionInvalido": "El máximo de llamadas al día tiene que ser un número entero entre 1 y 10000.",
         "guardado": "Se ha guardado la configuración de IA de la plataforma."
       },
       "servicios": {
@@ -3006,7 +3038,8 @@
     "cookies": "Política de cookies",
     "condicionesInscripcion": "Condiciones de inscripción",
     "cargando": "Cargando…",
-    "error": "No hemos podido cargar esta página."
+    "error": "No hemos podido cargar esta página.",
+    "traduccionAutomatica": "Traducción automática. En caso de duda, prevalece la versión en español."
   },
   "direccionMapa": {
     "buscando": "Buscando direcciones…",

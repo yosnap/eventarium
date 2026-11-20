@@ -13,7 +13,7 @@ export interface PlatformLegalPagesUpdate {
   legal_notice_content?: (string | null);
 
   /**
-   * Idioma de la versión que se edita. Con `null` en otro idioma, se borra esa versión y vuelve a servirse la española con aviso.
+   * Idioma de la versión que se edita. En otro idioma, un texto la guarda como escrita a mano; `null` la devuelve a la traducción automática.
    */
   locale?: 'es-ES' | 'en-US';
   privacy_policy_content?: (string | null);

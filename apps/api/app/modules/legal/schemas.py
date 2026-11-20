@@ -26,6 +26,13 @@ class LegalPageResponse(BaseModel):
         default_factory=lambda: [DEFAULT_LOCALE],
         description="Idiomas con versión propia: los que la página anuncia a los buscadores.",
     )
+    machine_translated: bool = Field(
+        default=False,
+        description=(
+            "Traducción automática sin revisar: la web avisa de que prevalece el español y "
+            "no la ofrece a los buscadores."
+        ),
+    )
 
 
 class CookieConsentCreate(BaseModel):

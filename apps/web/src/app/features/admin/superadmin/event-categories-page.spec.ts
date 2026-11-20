@@ -179,4 +179,26 @@ describe('EventCategoriesPage', () => {
 
     expect(botonPorTexto(raiz, 'Guardar').disabled).toBe(true);
   });
+
+  it('marca el nombre que puso la IA y avisa de que un hueco lo rellenará ella', async () => {
+    const fixture = await abrir();
+    const pagina = fixture.componentInstance as unknown as {
+      pistaDeTraduccion(fila: object, idioma: string): string | null;
+    };
+    const categoria = {
+      id: 'c1',
+      slug: 'taller',
+      name: 'Taller',
+      display_order: 0,
+      is_active: true,
+      name_i18n: { 'en-US': 'Workshop' },
+      name_i18n_origin: { 'en-US': 'ia' },
+    };
+    const fila = (traduccion: string) => ({ categoria, traducciones: { 'en-US': traduccion } });
+
+    expect(pagina.pistaDeTraduccion(fila('Workshop'), 'en-US')).toContain('IA de la plataforma');
+    expect(pagina.pistaDeTraduccion(fila(''), 'en-US')).toContain('lo traducirá');
+    // Cambiado a mano: ya no es de la IA.
+    expect(pagina.pistaDeTraduccion(fila('Hands-on'), 'en-US')).toBeNull();
+  });
 });

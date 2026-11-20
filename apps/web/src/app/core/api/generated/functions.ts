@@ -271,6 +271,8 @@ export type { GetPlatformLegalPagesApiV1AdminLegalPagesGet$Params as GetPlatform
 export { getPlatformLegalPagesApiV1AdminLegalPagesGet as getPlatformLegalPagesApiV1AdminLegalPagesGet } from './fn/administracion/get-platform-legal-pages-api-v-1-admin-legal-pages-get';
 export type { UpdatePlatformLegalPagesApiV1AdminLegalPagesPatch$Params as UpdatePlatformLegalPagesApiV1AdminLegalPagesPatch$Params } from './fn/administracion/update-platform-legal-pages-api-v-1-admin-legal-pages-patch';
 export { updatePlatformLegalPagesApiV1AdminLegalPagesPatch as updatePlatformLegalPagesApiV1AdminLegalPagesPatch } from './fn/administracion/update-platform-legal-pages-api-v-1-admin-legal-pages-patch';
+export type { ReviewPlatformLegalPageApiV1AdminLegalPagesReviewPost$Params as ReviewPlatformLegalPageApiV1AdminLegalPagesReviewPost$Params } from './fn/administracion/review-platform-legal-page-api-v-1-admin-legal-pages-review-post';
+export { reviewPlatformLegalPageApiV1AdminLegalPagesReviewPost as reviewPlatformLegalPageApiV1AdminLegalPagesReviewPost } from './fn/administracion/review-platform-legal-page-api-v-1-admin-legal-pages-review-post';
 export type { ImpersonateApiV1AdminImpersonatePost$Params as ImpersonateApiV1AdminImpersonatePost$Params } from './fn/administracion/impersonate-api-v-1-admin-impersonate-post';
 export { impersonateApiV1AdminImpersonatePost as impersonateApiV1AdminImpersonatePost } from './fn/administracion/impersonate-api-v-1-admin-impersonate-post';
 export type { StopImpersonatingApiV1AdminImpersonateStopPost$Params as StopImpersonatingApiV1AdminImpersonateStopPost$Params } from './fn/administracion/stop-impersonating-api-v-1-admin-impersonate-stop-post';

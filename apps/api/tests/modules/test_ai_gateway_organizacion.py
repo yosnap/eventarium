@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 from decimal import Decimal
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from httpx import AsyncClient
@@ -11,6 +13,7 @@ from sqlalchemy import delete, select
 
 from app.core.audit import AuditLog
 from app.core.database import SessionApp, SessionMaintenance, set_organization_context
+from app.modules.ai_gateway import client as ai_client
 from app.modules.ai_gateway.models import OrganizationAiSettings, PlatformAiSettings
 from app.modules.ai_gateway.service import limite_efectivo
 from app.modules.organizations.models import OrganizationMember
@@ -369,3 +372,46 @@ async def test_volver_a_heredar_queda_auditado(
     assert filas[0].actor_user_id == organizacion.owner_id
     assert filas[0].organization_id == organizacion.id
     assert filas[0].detail == {"habia_configuracion": True}
+
+
+def _respuesta(contenido: str) -> SimpleNamespace:
+    return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=contenido))])
+
+
+async def test_con_verificacion_la_clave_solo_se_guarda_si_traduce_de_verdad(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    cifrado: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, cabeceras = await iniciar_sesion(cliente, organizacion)
+    cuerpo = {**CONFIG_PROPIA, "verify_translation": True}
+    llamada = AsyncMock(return_value=_respuesta("Welcome to the event"))
+    monkeypatch.setattr(ai_client, "_llamar_proveedor", llamada)
+
+    # El proveedor responde, pero no con el JSON de una traducción: no se guarda.
+    rechazada = await cliente.put(MIS_AJUSTES, headers=cabeceras, json=cuerpo)
+    assert rechazada.status_code == 422, rechazada.text
+    assert rechazada.json()["code"] == "traduccion_de_prueba_fallida"
+    async with SessionMaintenance() as session:
+        assert await session.scalar(select(OrganizationAiSettings)) is None
+
+    llamada.return_value = _respuesta(json.dumps({"t0": "Welcome to the event"}))
+    guardada = await cliente.put(MIS_AJUSTES, headers=cabeceras, json=cuerpo)
+    assert guardada.status_code == 200, guardada.text
+    assert guardada.json()["origen"] == "propia"
+    # La prueba salió al proveedor con la clave nueva.
+    assert llamada.await_count == 2
+    assert llamada.await_args.args[0].api_key == CLAVE_PROPIA
+
+    # Pedir verificación sin clave nueva no se ignora en silencio.
+    sin_clave = await cliente.put(
+        MIS_AJUSTES, headers=cabeceras, json={"verify_translation": True, "monthly_limit_usd": "5"}
+    )
+    assert sin_clave.status_code == 422
+
+    # Sin verificación (la configuración de IA de siempre) no se llama.
+    llamada.reset_mock()
+    sin_verificar = await cliente.put(MIS_AJUSTES, headers=cabeceras, json=CONFIG_PROPIA)
+    assert sin_verificar.status_code == 200
+    llamada.assert_not_awaited()

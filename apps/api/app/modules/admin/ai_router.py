@@ -26,8 +26,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import registrar_auditoria
 from app.core.deps import SCOPE_SESION, CurrentUser, get_maintenance_db, require_superadmin
+from app.core.tras_commit import encolar_tras_commit
+from app.modules.ai_gateway import plataforma
 from app.modules.ai_gateway import repository as ai_repository
 from app.modules.ai_gateway import service as ai_service
+from app.modules.ai_gateway.models import PlatformAiSettings
 from app.modules.ai_gateway.schemas import (
     OrganizationServiceOut,
     OrganizationServicesUpdate,
@@ -38,6 +41,7 @@ from app.modules.ai_gateway.schemas import (
     ServiceOut,
 )
 from app.modules.organizations.models import Organization
+from app.modules.platform import repository as platform_repository
 from app.shared.errors import NotFoundError
 
 router = APIRouter(prefix="/admin", tags=["administración"])
@@ -57,7 +61,24 @@ Superadmin = Annotated[CurrentUser, Depends(require_superadmin)]
     response_model=PlatformAiSettingsOut,
 )
 async def get_platform_ai_settings(_: Superadmin, session: MaintenanceDb) -> PlatformAiSettingsOut:
-    return ai_service.vista_de_plataforma(await ai_repository.get_platform_settings(session))
+    return await _vista(session, await ai_repository.get_platform_settings(session))
+
+
+async def _reintentar_traduccion_de_plataforma() -> None:
+    from app.core.tasks import traducir_contenido_de_plataforma_task
+    from app.modules.platform.traduccion import olvidar_esperas_de_categorias
+
+    await olvidar_esperas_de_categorias()
+    await traducir_contenido_de_plataforma_task.kiq()
+
+
+async def _vista(session: AsyncSession, fila: PlatformAiSettings | None) -> PlatformAiSettingsOut:
+    """La vista del admin, con lo gastado este mes en traducir el contenido de
+    la plataforma."""
+    vista = ai_service.vista_de_plataforma(fila)
+    return vista.model_copy(
+        update={"translation_spent_usd": await plataforma.gasto_del_mes(session)}
+    )
 
 
 @router.put(
@@ -77,6 +98,9 @@ async def update_platform_ai_settings(
     datos: PlatformAiSettingsUpdate, superadmin: Superadmin, session: MaintenanceDb
 ) -> PlatformAiSettingsOut:
     fila = await ai_service.guardar_config_de_plataforma(session, datos)
+    # Con otra clave, modelo o tope, lo que falló antes merece otra oportunidad.
+    await platform_repository.reiniciar_errores_de_traduccion_legal(session)
+    encolar_tras_commit(session, _reintentar_traduccion_de_plataforma)
     await registrar_auditoria(
         session,
         actor_user_id=superadmin.id,
@@ -90,9 +114,11 @@ async def update_platform_ai_settings(
             "provider": fila.provider,
             "default_model": fila.default_model,
             "has_key": fila.api_key_encrypted is not None,
+            "translation_monthly_cap_usd": str(fila.translation_monthly_cap_usd),
+            "translation_daily_calls": fila.translation_daily_calls,
         },
     )
-    return ai_service.vista_de_plataforma(fila)
+    return await _vista(session, fila)
 
 
 @router.get(

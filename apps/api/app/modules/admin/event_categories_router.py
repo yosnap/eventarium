@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.audit import registrar_auditoria
 from app.core.deps import SCOPE_SESION, CurrentUser, get_maintenance_db, require_superadmin
 from app.core.locale import LOCALES, Locale
+from app.core.tras_commit import encolar_tras_commit
 from app.modules.events import categories
 from app.modules.events.models import EventCategory
 from app.modules.events.schemas import (
@@ -43,7 +44,48 @@ def _out(categoria: EventCategory) -> EventCategoryOut:
         display_order=categoria.display_order,
         is_active=categoria.is_active,
         name_i18n=_traducciones(categoria.name_i18n),
+        name_i18n_origin={
+            locale: origen
+            for locale, origen in (categoria.name_i18n_origin or {}).items()
+            if locale in LOCALES and locale in (categoria.name_i18n or {})
+        },
     )
+
+
+def _aplicar_nombres(
+    categoria: EventCategory, nombre: str | None, nombres: Mapping[Any, str] | None
+) -> None:
+    """Fija el nombre y sus traducciones llevando la cuenta de quién escribió cada
+    idioma: lo que llega distinto de lo guardado es del superadmin (`manual`); lo
+    que no cambia conserva su origen. Si cambia el nombre original, los idiomas
+    que puso la IA se quitan para que los rehaga. Un idioma vacío lo rellena la IA."""
+    anteriores = dict(categoria.name_i18n or {})
+    origenes = dict(categoria.name_i18n_origin or {})
+    renombrada = nombre is not None and nombre != categoria.name
+    if nombre is not None:
+        categoria.name = nombre
+    nuevos = _traducciones(nombres) if nombres is not None else dict(anteriores)
+    resultado: dict[str, str] = {}
+    origen_resultado: dict[str, str] = {}
+    for locale, texto in nuevos.items():
+        if texto == anteriores.get(locale):
+            origen = origenes.get(locale, "manual")
+            if renombrada and origen == "ia":
+                continue
+        else:
+            origen = "manual"
+        resultado[locale] = texto
+        origen_resultado[locale] = origen
+    categoria.name_i18n = resultado
+    categoria.name_i18n_origin = origen_resultado
+
+
+async def _traducir_contenido_de_plataforma() -> None:
+    from app.core.tasks import traducir_contenido_de_plataforma_task
+    from app.modules.platform.traduccion import olvidar_esperas_de_categorias
+
+    await olvidar_esperas_de_categorias()
+    await traducir_contenido_de_plataforma_task.kiq()
 
 
 def _traducciones(valor: Mapping[Any, str] | None) -> dict[Locale, str]:
@@ -83,8 +125,10 @@ async def create_event_category(
         name=datos.name,
         display_order=datos.display_order,
         is_active=datos.is_active,
-        name_i18n=_traducciones(datos.name_i18n),
     )
+    categoria.name_i18n = {}
+    categoria.name_i18n_origin = {}
+    _aplicar_nombres(categoria, None, datos.name_i18n)
     session.add(categoria)
     try:
         await session.flush()
@@ -102,6 +146,7 @@ async def create_event_category(
         entity_id=str(categoria.id),
         detail={"slug": categoria.slug, "is_active": categoria.is_active},
     )
+    encolar_tras_commit(session, _traducir_contenido_de_plataforma)
     return _out(categoria)
 
 
@@ -124,9 +169,15 @@ async def update_event_category(
     categoria = await categories.get_category(session, category_id)
     if categoria is None:
         raise NotFoundError("La categoría no existe.")
-    for campo, valor in datos.model_dump(exclude_unset=True).items():
+    cambios = datos.model_dump(exclude_unset=True)
+    nombre = cambios.pop("name", None)
+    nombres = cambios.pop("name_i18n", None)
+    if nombre is not None or nombres is not None:
+        _aplicar_nombres(categoria, nombre, nombres)
+        encolar_tras_commit(session, _traducir_contenido_de_plataforma)
+    for campo, valor in cambios.items():
         if valor is not None:
-            setattr(categoria, campo, _traducciones(valor) if campo == "name_i18n" else valor)
+            setattr(categoria, campo, valor)
     await session.flush()
     await registrar_auditoria(
         session,

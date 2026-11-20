@@ -10,8 +10,9 @@ from __future__ import annotations
 import json
 import re
 import uuid
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 from app.core.locale import Locale
 from app.modules.ai_gateway import client as ai_client
@@ -113,19 +114,38 @@ async def traducir(
     destino: Locale,
     no_traducir: Sequence[str],
 ) -> dict[str, str | None]:
-    """Traduce un lote. Devuelve, por clave, la traducción válida o `None`.
+    """Traduce un lote con la clave propia de la organización. Devuelve, por
+    clave, la traducción válida o `None`.
 
     Las excepciones de la pasarela (servicio apagado, sin presupuesto,
     proveedor caído) se propagan: quien llama decide qué hacer con el lote.
     """
-    resultado = await ai_client.completar(
-        organization_id=organization_id,
-        use_case=USE_CASE,
+
+    async def completar(**argumentos: Any) -> ai_client.Resultado:  # noqa: ANN401
+        return await ai_client.completar(
+            organization_id=organization_id,
+            use_case=USE_CASE,
+            exigir_clave_propia=True,
+            **argumentos,
+        )
+
+    return await traducir_con(completar, textos, origen, destino, no_traducir)
+
+
+async def traducir_con(
+    completar: Callable[..., Awaitable[ai_client.Resultado]],
+    textos: Sequence[Texto],
+    origen: Locale,
+    destino: Locale,
+    no_traducir: Sequence[str],
+) -> dict[str, str | None]:
+    """Traduce un lote con la llamada de pasarela que se le dé (la de una
+    organización o la de la plataforma), con el mismo prompt y validación."""
+    resultado = await completar(
         messages=mensajes(textos, origen, destino, no_traducir),
         max_tokens=tokens_de_salida(textos),
         temperature=0.2,
         response_format={"type": "json_object"},
-        exigir_clave_propia=True,
     )
     try:
         datos = json.loads(resultado.contenido)

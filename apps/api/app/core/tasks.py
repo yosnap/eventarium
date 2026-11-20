@@ -764,9 +764,12 @@ async def sweep_stuck_ai_reservations_task() -> None:
     va estrechando sin que nadie sepa por qué. El barrido la marca `fallido`
     con `reserva_abandonada`: el gasto se cuenta como potencialmente
     consumido —nunca se ignora— y queda dicho que nadie confirmó qué pasó."""
+    from app.modules.ai_gateway import plataforma
     from app.modules.ai_gateway.client import cerrar_reservas_abandonadas
 
-    await cerrar_reservas_abandonadas(minutos=get_settings().ai_reservation_stuck_minutes)
+    minutos = get_settings().ai_reservation_stuck_minutes
+    await cerrar_reservas_abandonadas(minutos=minutos)
+    await plataforma.cerrar_reservas_abandonadas(minutos=minutos)
 
 
 @broker.task(retry_on_error=False)
@@ -940,3 +943,16 @@ async def send_speaker_bio_request_email(
             enlace=enlace,
         ),
     )
+
+
+@broker.task(schedule=[{"cron": "*/15 * * * *"}])
+async def traducir_contenido_de_plataforma_task() -> None:
+    """El legal y los nombres de categoría con la IA de la plataforma.
+
+    Se encola al guardar el legal o una categoría y, además, cada 15 minutos
+    recoge lo que quedara pendiente, en espera tras un error o desfasado (un
+    cambio de nombre de la plataforma cambia la plantilla legal sin guardar
+    nada). Sin nada que hacer, solo lee. Con su tope mensual y diario."""
+    from app.modules.platform.traduccion import traducir_contenido
+
+    await traducir_contenido()

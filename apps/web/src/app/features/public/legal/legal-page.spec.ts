@@ -54,6 +54,21 @@ describe('LegalPage', () => {
     await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
   });
 
+  it('avisa de que el texto es una traducción automática solo cuando lo es', async () => {
+    const fixture = TestBed.createComponent(LegalPage);
+    fixture.componentRef.setInput('page', 'privacidad');
+    fixture.detectChanges();
+
+    http
+      .expectOne((peticion) => peticion.url === '/api/v1/public/legal/privacidad')
+      .flush({ content: 'Privacy.', served_locale: 'es-ES', machine_translated: true });
+    await avanzar(fixture);
+    await avanzar(fixture);
+
+    expect(fixture.nativeElement.textContent).toContain('Traducción automática');
+    await esperarSinViolacionesDeAccesibilidad(fixture.nativeElement);
+  });
+
   it('muestra el contenido de la plantilla y pide la ruta correcta, sin violaciones de accesibilidad', async () => {
     const fixture = TestBed.createComponent(LegalPage);
     fixture.componentRef.setInput('page', 'privacidad');

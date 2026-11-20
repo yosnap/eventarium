@@ -16,6 +16,7 @@ apagado globalmente no se reactiva por organización.
 
 from __future__ import annotations
 
+import json
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
@@ -38,8 +39,14 @@ from app.modules.ai_gateway.errores import (
     ProveedorDesconocido,
     ProveedorRequerido,
     ServicioDesconocido,
+    TraduccionDePruebaFallida,
 )
-from app.modules.ai_gateway.models import OrganizationAiSettings, PlatformAiSettings
+from app.modules.ai_gateway.models import (
+    LLAMADAS_DIARIAS_TRADUCCION_PLATAFORMA,
+    TOPE_TRADUCCION_PLATAFORMA_USD,
+    OrganizationAiSettings,
+    PlatformAiSettings,
+)
 from app.modules.ai_gateway.schemas import (
     AiUsageErrorOut,
     AiUsageOut,
@@ -119,6 +126,29 @@ def _plataforma_tiene_credencial(fila: PlatformAiSettings | None) -> bool:
     )
 
 
+def config_de_la_plataforma(plataforma: PlatformAiSettings | None) -> ConfigEfectiva | None:
+    """La configuración de plataforma, tal como la hereda una organización sin la
+    suya, o `None` si la plataforma no tiene credencial completa."""
+    if plataforma is None or not _plataforma_tiene_credencial(plataforma):
+        return None
+    clave = plataforma.provider or ""
+    proveedor = catalogo.obtener(clave)
+    techo = plataforma.monthly_ceiling_usd
+    return ConfigEfectiva(
+        origen="heredada",
+        provider=plataforma.provider,
+        default_model=plataforma.default_model,
+        api_base=catalogo.api_base_efectivo(clave, plataforma.api_base),
+        api_base_editable=proveedor.api_base_editable if proveedor else False,
+        api_key_encrypted=plataforma.api_key_encrypted,
+        api_key_hint=None,
+        monthly_limit_usd=None,
+        monthly_ceiling_usd=techo,
+        limite_efectivo_usd=techo,
+        updated_at=plataforma.updated_at,
+    )
+
+
 async def resolver_config_efectiva(
     session: AsyncSession, organization_id: uuid.UUID
 ) -> ConfigEfectiva:
@@ -148,22 +178,9 @@ async def resolver_config_efectiva(
             updated_at=propia.updated_at,
         )
 
-    if plataforma is not None and _plataforma_tiene_credencial(plataforma):
-        clave = plataforma.provider or ""
-        proveedor = catalogo.obtener(clave)
-        return ConfigEfectiva(
-            origen="heredada",
-            provider=plataforma.provider,
-            default_model=plataforma.default_model,
-            api_base=catalogo.api_base_efectivo(clave, plataforma.api_base),
-            api_base_editable=proveedor.api_base_editable if proveedor else False,
-            api_key_encrypted=plataforma.api_key_encrypted,
-            api_key_hint=None,
-            monthly_limit_usd=None,
-            monthly_ceiling_usd=techo,
-            limite_efectivo_usd=techo,
-            updated_at=plataforma.updated_at,
-        )
+    heredada = config_de_la_plataforma(plataforma)
+    if heredada is not None:
+        return heredada
 
     # Sin override propio y sin credencial de plataforma: es el estado al que
     # degrada borrar la configuración de plataforma (V-12). Estado explícito,
@@ -199,6 +216,8 @@ def vista_de_plataforma(fila: PlatformAiSettings | None) -> PlatformAiSettingsOu
             has_key=False,
             api_key_hint=None,
             monthly_ceiling_usd=None,
+            translation_monthly_cap_usd=TOPE_TRADUCCION_PLATAFORMA_USD,
+            translation_daily_calls=LLAMADAS_DIARIAS_TRADUCCION_PLATAFORMA,
             updated_at=None,
         )
     proveedor = catalogo.obtener(fila.provider) if fila.provider else None
@@ -210,6 +229,8 @@ def vista_de_plataforma(fila: PlatformAiSettings | None) -> PlatformAiSettingsOu
         has_key=fila.api_key_encrypted is not None,
         api_key_hint=fila.api_key_hint,
         monthly_ceiling_usd=fila.monthly_ceiling_usd,
+        translation_monthly_cap_usd=fila.translation_monthly_cap_usd,
+        translation_daily_calls=fila.translation_daily_calls,
         updated_at=fila.updated_at,
     )
 
@@ -565,12 +586,57 @@ async def guardar_config_de_plataforma(
 
     if "monthly_ceiling_usd" in enviados:
         fila.monthly_ceiling_usd = datos.monthly_ceiling_usd
+    if datos.translation_monthly_cap_usd is not None:
+        fila.translation_monthly_cap_usd = datos.translation_monthly_cap_usd
+    if datos.translation_daily_calls is not None:
+        fila.translation_daily_calls = datos.translation_daily_calls
 
     await session.flush()
     # La credencial de plataforma la comparten todas las organizaciones que
     # heredan: su catálogo en vivo cacheado ya no corresponde a esta clave.
     await cache_modelos.invalidar_ambito(None)
     return fila
+
+
+async def probar_traduccion(
+    proveedor: catalogo.Proveedor, modelo: str, *, api_key: str, api_base: str | None
+) -> None:
+    """Traduce una frase corta con esas credenciales y comprueba el JSON.
+
+    No pasa por la reserva de gasto: la clave todavía no es de nadie y el coste
+    (céntimos) lo paga ella misma en su proveedor. Lanza
+    `TraduccionDePruebaFallida` si el proveedor falla o la respuesta no vale.
+    """
+    from app.modules.ai_gateway import client
+    from app.modules.translations import ia
+
+    texto = ia.Texto("t0", "Bienvenida al evento", True)
+    argumentos = client.ArgumentosDeLlamada(
+        model=client.modelo_de_litellm(proveedor.clave, modelo),
+        api_key=api_key,
+        api_base=catalogo.api_base_efectivo(proveedor.clave, api_base),
+    )
+    try:
+        await client._validar_destino(argumentos.api_base)  # noqa: SLF001
+        respuesta = await client._llamar_proveedor(  # noqa: SLF001
+            argumentos,
+            messages=ia.mensajes([texto], "es-ES", "en-US", []),
+            max_tokens=200,
+            temperature=0.2,
+            response_format={"type": "json_object"},
+            timeout=30,
+        )
+        datos = json.loads(client._contenido(respuesta))  # noqa: SLF001
+    except Exception:
+        raise TraduccionDePruebaFallida(
+            "La clave o el modelo no han podido traducir una frase de prueba. Revisa que la "
+            "clave sea correcta, que tenga saldo y que el modelo admita respuestas en JSON."
+        ) from None
+    if not isinstance(datos, dict) or ia.validar(texto, datos.get("t0")) is None:
+        raise TraduccionDePruebaFallida(
+            "El modelo ha respondido, pero no con una traducción válida. Prueba con otro "
+            "modelo que admita respuestas en JSON."
+        )
 
 
 async def guardar_override_de_organizacion(
@@ -584,6 +650,8 @@ async def guardar_override_de_organizacion(
     enviados = set(datos.model_fields_set)
     fila = await repository.get_organization_settings(session, organization_id)
     _comprobar_coherencia(enviados, hay_credencial_previa=fila is not None)
+    if datos.verify_translation and "api_key" not in enviados:
+        raise ClaveRequerida("Para verificar la traducción hay que enviar la clave.")
 
     if fila is None and "api_key" not in enviados:
         raise ClaveRequerida(
@@ -608,6 +676,8 @@ async def guardar_override_de_organizacion(
         # tocar la red.
         cifrada = cifrar_clave(en_claro)
         await _validar_modelo_en_vivo(proveedor, modelo, api_key=en_claro, api_base=api_base)
+        if datos.verify_translation:
+            await probar_traduccion(proveedor, modelo, api_key=en_claro, api_base=api_base)
 
         if fila is None:
             fila = OrganizationAiSettings(

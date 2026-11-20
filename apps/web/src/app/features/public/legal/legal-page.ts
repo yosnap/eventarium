@@ -41,6 +41,8 @@ interface LegalPageResponse {
   readonly served_locale?: Idioma;
   /** Idiomas con versión propia: los que se anuncian a los buscadores (hreflang). */
   readonly available_locales?: readonly Idioma[];
+  /** Traducción automática sin revisar: se avisa de que prevalece el español. */
+  readonly machine_translated?: boolean;
 }
 
 /**
@@ -69,6 +71,9 @@ interface LegalPageResponse {
           <app-alert tone="error">{{ t('legal.error') }}</app-alert>
         } @else {
           <app-aviso-contenido-original [servido]="servido()" />
+          @if (automatica()) {
+            <p class="aviso" role="note">{{ t('legal.traduccionAutomatica') }}</p>
+          }
           <app-markdown-seguro [texto]="contenidoBruto() ?? ''" />
         }
       </div>
@@ -77,6 +82,11 @@ interface LegalPageResponse {
   styles: `
     .ancho-maximo {
       padding: var(--space-lg) 0;
+    }
+    .aviso {
+      margin: 0 0 var(--space-md);
+      font-size: var(--fs-sm);
+      color: var(--muted);
     }
     h1 {
       margin-top: 0;
@@ -95,6 +105,7 @@ export class LegalPage implements OnInit {
 
   protected readonly contenidoBruto = signal<string | null>(null);
   protected readonly servido = signal<Idioma | null>(null);
+  protected readonly automatica = signal(false);
   protected readonly cargando = signal(true);
   protected readonly error = signal(false);
 
@@ -136,6 +147,7 @@ export class LegalPage implements OnInit {
     const servido = respuesta.served_locale ?? 'es-ES';
     this.contenidoBruto.set(respuesta.content);
     this.servido.set(servido);
+    this.automatica.set(respuesta.machine_translated === true);
     // El texto legal lo escribe la plataforma en español y el equipo lo traduce a
     // mano: solo se indexa en los idiomas que tienen versión propia.
     this.seo.set({

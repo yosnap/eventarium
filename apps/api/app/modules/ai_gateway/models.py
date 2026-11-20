@@ -99,6 +99,11 @@ ESTADOS_DE_USO: tuple[str, ...] = (ESTADO_RESERVADO, ESTADO_LIQUIDADO, ESTADO_FA
 #: la llamada ya liquidada. `fallido` no cuenta — el proveedor no lo cobra.
 ESTADOS_QUE_GASTAN: tuple[str, ...] = (ESTADO_RESERVADO, ESTADO_LIQUIDADO)
 
+#: Valores por defecto de los topes de la traducción de plataforma (decisión del
+#: dueño, 2026-11-20).
+TOPE_TRADUCCION_PLATAFORMA_USD = Decimal("5")
+LLAMADAS_DIARIAS_TRADUCCION_PLATAFORMA = 200
+
 
 class PlatformAiSettings(Base, TimestampMixin):
     """Configuración de IA por defecto de la instalación. Una sola fila."""
@@ -115,6 +120,8 @@ class PlatformAiSettings(Base, TimestampMixin):
             "AND api_key_encrypted IS NOT NULL)",
             name="ck_platform_ai_settings_credencial_completa",
         ),
+        CheckConstraint("translation_monthly_cap_usd > 0", name="translation_monthly_cap_usd"),
+        CheckConstraint("translation_daily_calls > 0", name="translation_daily_calls"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=ID_FILA_DE_PLATAFORMA)
@@ -127,6 +134,17 @@ class PlatformAiSettings(Base, TimestampMixin):
     api_key_hint: Mapped[str | None] = mapped_column(String(LONGITUD_PISTA), nullable=True)
     #: Techo de gasto mensual de toda la instalación. `NULL` = sin techo.
     monthly_ceiling_usd: Mapped[Decimal | None] = mapped_column(_IMPORTE_USD, nullable=True)
+    #: Tope mensual y máximo diario de llamadas de la traducción del contenido de
+    #: la plataforma (legal y categorías), que paga la plataforma. Obligatorios.
+    translation_monthly_cap_usd: Mapped[Decimal] = mapped_column(
+        _IMPORTE_USD, nullable=False, default=TOPE_TRADUCCION_PLATAFORMA_USD, server_default="5"
+    )
+    translation_daily_calls: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=LLAMADAS_DIARIAS_TRADUCCION_PLATAFORMA,
+        server_default="200",
+    )
 
 
 class OrganizationAiSettings(Base, TimestampMixin):
@@ -277,6 +295,35 @@ class AiUsageRecord(Base, TimestampMixin):
     cost_usd: Mapped[Decimal] = mapped_column(_IMPORTE_USD, nullable=False)
     #: `False` cuando el importe es la estimación de la reserva porque el
     #: proveedor (o el mapa de precios de LiteLLM) no da el coste real.
+    cost_auditable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    error_code: Mapped[str | None] = mapped_column(String(LONGITUD_ERROR_CODE), nullable=True)
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class PlatformAiUsage(Base, TimestampMixin):
+    """Una llamada de IA de la propia plataforma (traducir su contenido).
+
+    Aparte de `ai_usage_records`: no es de ninguna organización, no tiene RLS y
+    solo la escribe el rol de mantenimiento. Mismos estados e importes.
+    """
+
+    __tablename__ = "platform_ai_usage"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('" + "', '".join(ESTADOS_DE_USO) + "')",
+            name="status",
+        ),
+        Index("ix_platform_ai_usage_created_at", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=new_uuid7)
+    use_case: Mapped[str] = mapped_column(String(LONGITUD_USE_CASE), nullable=False)
+    provider: Mapped[str] = mapped_column(String(LONGITUD_PROVEEDOR), nullable=False)
+    model: Mapped[str] = mapped_column(String(LONGITUD_MODELO), nullable=False)
+    status: Mapped[str] = mapped_column(String(LONGITUD_ESTADO), nullable=False)
+    input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cost_usd: Mapped[Decimal] = mapped_column(_IMPORTE_USD, nullable=False)
     cost_auditable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     error_code: Mapped[str | None] = mapped_column(String(LONGITUD_ERROR_CODE), nullable=True)
     latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)

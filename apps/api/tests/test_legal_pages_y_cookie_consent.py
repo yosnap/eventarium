@@ -128,6 +128,7 @@ async def test_la_version_en_ingles_se_escribe_a_mano_y_si_falta_se_sirve_la_esp
         "content": espanola["content"],
         "served_locale": "es-ES",
         "available_locales": ["es-ES"],
+        "machine_translated": False,
     }
 
     editar = await cliente.patch(
@@ -141,6 +142,12 @@ async def test_la_version_en_ingles_se_escribe_a_mano_y_si_falta_se_sirve_la_esp
         "is_custom": True,
         "served_locale": "en-US",
         "available_locales": ["es-ES", "en-US"],
+        "machine_translated": False,
+        "translation": {
+            "content": "Privacy policy written by hand.",
+            "origin": "manual",
+            "status": "al_dia",
+        },
     }
     # Las demás páginas siguen sin versión en inglés: se sirve la española.
     assert editar.json()["cookies_policy"]["served_locale"] == "es-ES"
@@ -153,11 +160,29 @@ async def test_la_version_en_ingles_se_escribe_a_mano_y_si_falta_se_sirve_la_esp
         "content": "Privacy policy written by hand.",
         "served_locale": "en-US",
         "available_locales": ["es-ES", "en-US"],
+        "machine_translated": False,
     }
     # La española no cambia, pero ahora anuncia también la inglesa (hreflang recíproco).
     tras_editar = (await cliente.get(f"{PUBLIC_LEGAL}/privacidad")).json()
     assert tras_editar["content"] == espanola["content"]
     assert tras_editar["available_locales"] == ["es-ES", "en-US"]
+
+    # Si cambia el español, la versión escrita a mano queda desfasada: no se sirve
+    # hasta revisarla, y el editor la marca.
+    await cliente.patch(
+        PLATFORM_LEGAL_ADMIN,
+        headers=cabeceras,
+        json={"privacy_policy_content": "Política de privacidad nueva."},
+    )
+    desfasada = await cliente.get(f"{PUBLIC_LEGAL}/privacidad?idioma=en-US")
+    assert desfasada.json()["served_locale"] == "es-ES"
+    assert desfasada.json()["content"] == "Política de privacidad nueva."
+    editor = await cliente.get(f"{PLATFORM_LEGAL_ADMIN}?idioma=en-US", headers=cabeceras)
+    assert editor.json()["privacy_policy"]["translation"] == {
+        "content": "Privacy policy written by hand.",
+        "origin": "manual",
+        "status": "desactualizada",
+    }
 
     borrar = await cliente.patch(
         PLATFORM_LEGAL_ADMIN,
