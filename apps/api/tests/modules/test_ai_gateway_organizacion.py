@@ -404,6 +404,12 @@ async def test_con_verificacion_la_clave_solo_se_guarda_si_traduce_de_verdad(
     assert llamada.await_count == 2
     assert llamada.await_args.args[0].api_key == CLAVE_PROPIA
 
+    # Pedir verificación sin clave nueva no se ignora en silencio.
+    sin_clave = await cliente.put(
+        MIS_AJUSTES, headers=cabeceras, json={"verify_translation": True, "monthly_limit_usd": "5"}
+    )
+    assert sin_clave.status_code == 422
+
     # Sin verificación (la configuración de IA de siempre) no se llama.
     llamada.reset_mock()
     sin_verificar = await cliente.put(MIS_AJUSTES, headers=cabeceras, json=CONFIG_PROPIA)

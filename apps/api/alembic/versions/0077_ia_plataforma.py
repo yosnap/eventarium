@@ -126,6 +126,12 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # El esquema anterior sirve cualquier versión con texto: las de la IA sin revisar
+    # y las desfasadas no deben quedar publicadas como si se hubieran escrito a mano.
+    op.execute(
+        f"DELETE FROM {_LEGAL} WHERE locale <> 'es-ES' AND (origin IS DISTINCT FROM 'manual' "
+        "OR status IS DISTINCT FROM 'al_dia' OR source_hash IS NULL)"
+    )
     op.drop_column("event_categories", "name_i18n_origin")
     for columna in ("retry_after", "error_count", "source_hash", "status", "origin"):
         op.execute(f"ALTER TABLE {_LEGAL} DROP COLUMN IF EXISTS {columna}")

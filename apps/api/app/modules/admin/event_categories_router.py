@@ -82,7 +82,9 @@ def _aplicar_nombres(
 
 async def _traducir_contenido_de_plataforma() -> None:
     from app.core.tasks import traducir_contenido_de_plataforma_task
+    from app.modules.platform.traduccion import olvidar_esperas_de_categorias
 
+    await olvidar_esperas_de_categorias()
     await traducir_contenido_de_plataforma_task.kiq()
 
 

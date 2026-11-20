@@ -1061,7 +1061,7 @@
       "error": "No hemos podido completar la operación.",
       "nombreEn": "Nombre en {{ idioma }}",
       "traducidoConIa": "Traducido por la IA de la plataforma. Si lo cambias, queda como escrito a mano.",
-      "seTraduciraConIa": "Vacío: lo traducirá la IA de la plataforma."
+      "seTraduciraConIa": "Vacío: lo traducirá la IA de la plataforma, si está configurada."
     },
     "organizacion": {
       "titulo": "Organización",
@@ -2411,11 +2411,12 @@
         "idioma": "Idioma del texto",
         "aMano": "La IA de la plataforma traduce cada página al guardar la versión española. Puedes corregirla aquí: lo que escribas a mano ya no lo toca la IA. Un campo vacío vuelve a la traducción automática.",
         "marcarRevisada": "Marcar como revisada",
+        "confirmarVigente": "Sigue siendo válida",
         "estado": {
           "sinVersion": "Aún sin traducir: se sirve la versión española con un aviso.",
           "pendiente": "Pendiente de traducir: mientras, se sirve la versión española con un aviso.",
           "en_curso": "Traduciéndose ahora: mientras, se sirve la versión española con un aviso.",
-          "error": "La traducción automática ha fallado y se reintentará. Mientras, se sirve la versión española; también puedes escribirla a mano.",
+          "error": "La traducción automática ha fallado. Se reintenta sola unas cuantas veces; si sigue fallando, revisa la IA de la plataforma, vuelve a guardar la versión española o escríbela a mano. Mientras, se sirve la española.",
           "desactualizada": "La versión española ha cambiado: esta traducción no se sirve hasta que la actualices.",
           "alDia": {
             "ia": "Traducida automáticamente: se muestra con un aviso y no se ofrece a los buscadores hasta que la revises.",

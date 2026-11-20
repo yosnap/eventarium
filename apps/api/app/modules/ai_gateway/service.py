@@ -650,6 +650,8 @@ async def guardar_override_de_organizacion(
     enviados = set(datos.model_fields_set)
     fila = await repository.get_organization_settings(session, organization_id)
     _comprobar_coherencia(enviados, hay_credencial_previa=fila is not None)
+    if datos.verify_translation and "api_key" not in enviados:
+        raise ClaveRequerida("Para verificar la traducción hay que enviar la clave.")
 
     if fila is None and "api_key" not in enviados:
         raise ClaveRequerida(

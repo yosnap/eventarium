@@ -26,14 +26,17 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SessionMaintenance
 from app.core.locale import DEFAULT_LOCALE, LOCALES, Locale
-from app.modules.ai_gateway import plataforma
+from app.core.redis_client import get_redis
+from app.modules.ai_gateway import errores, plataforma
 from app.modules.ai_gateway.errores import (
+    CredencialIlegible,
+    ErrorDeProveedor,
     LimiteDeGastoSuperado,
     ServicioDesactivado,
     SinConfiguracion,
@@ -41,9 +44,8 @@ from app.modules.ai_gateway.errores import (
 from app.modules.events.models import EventCategory
 from app.modules.platform import repository
 from app.modules.platform.models import PlatformLegalPage
-from app.modules.platform.service import ORIGENES_A_MANO, espanoles_efectivos
+from app.modules.platform.service import ORIGENES_A_MANO, espanoles_efectivos, firma_legal
 from app.modules.translations import ia
-from app.modules.translations.campos import huella
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +54,22 @@ USE_CASE = "traduccion_plataforma"
 MAX_ERRORES = 5
 #: Una reserva más antigua que esto se da por abandonada.
 RESERVA_CADUCADA = timedelta(minutes=15)
-#: Errores que no son de la página: se para el pase y se reintenta más tarde.
-_SIN_IA = (LimiteDeGastoSuperado, ServicioDesactivado, SinConfiguracion)
+#: Una sola tarea a la vez (candado de sesión de Postgres): dos guardados
+#: seguidos no pagan dos veces la misma traducción.
+_CANDADO = 734_027_119
+#: Fallos del proveedor que no son de lo que se traduce (clave rechazada o
+#: ilegible, caída, límite de peticiones, tiempo agotado): se para el pase sin
+#: culpar al texto y se reintenta en el siguiente.
+_CODIGOS_SIN_IA = frozenset({errores.PROVEEDOR_ERROR, errores.CLAVE_RECHAZADA})
+
+
+def _sin_ia(exc: BaseException) -> bool:
+    """La IA no está disponible ahora, sin culpa del texto."""
+    if isinstance(exc, LimiteDeGastoSuperado | ServicioDesactivado | SinConfiguracion):
+        return True
+    if isinstance(exc, CredencialIlegible):
+        return True
+    return isinstance(exc, ErrorDeProveedor) and exc.error_code in _CODIGOS_SIN_IA
 
 
 def _espera(errores: int) -> timedelta:
@@ -125,7 +141,7 @@ async def _encargos_legales(ahora: datetime) -> list[_Encargo]:
         if not destinos:
             return []
         for clave, original in (await espanoles_efectivos(session)).items():
-            firma = huella(original)
+            firma = firma_legal(original)
             for locale in destinos:
                 fila = await repository.get_platform_legal_page(session, clave, locale)
                 if fila is not None and (
@@ -182,12 +198,12 @@ async def traducir_legal(ahora: datetime | None = None) -> int:
                 encargo.locale,
                 [],
             )
-        except _SIN_IA:
-            # Sin IA o sin presupuesto: lo reservado vuelve a quedar pendiente.
-            for pendiente in encargos[indice:]:
-                await _escribir(pendiente.fila_id, {"status": "pendiente"})
-            break
-        except Exception:
+        except Exception as exc:
+            if _sin_ia(exc):
+                # Sin IA o sin presupuesto: lo reservado vuelve a quedar pendiente.
+                for pendiente in encargos[indice:]:
+                    await _escribir(pendiente.fila_id, {"status": "pendiente"})
+                break
             logger.warning("Falla la traducción de la página legal %s.", encargo.clave)
             await _fallo(encargo.fila_id, momento)
             continue
@@ -209,6 +225,43 @@ async def traducir_legal(ahora: datetime | None = None) -> int:
     return traducidas
 
 
+def _clave_espera_categorias(locale: Locale) -> str:
+    return f"traduccion-plataforma:categorias:{locale}"
+
+
+async def _categorias_en_espera(locale: Locale) -> bool:
+    """Tras un fallo de la traducción de categorías a `locale`, se espera cada
+    vez más (como el legal) para no pagar en bucle un modelo que no responde
+    bien. Sin Redis, no se espera: el tope sigue mandando."""
+    try:
+        return bool(await get_redis().exists(f"{_clave_espera_categorias(locale)}:espera"))
+    except Exception:
+        return False
+
+
+async def _anotar_fallo_de_categorias(locale: Locale) -> None:
+    clave = _clave_espera_categorias(locale)
+    try:
+        redis = get_redis()
+        fallos = int(await redis.incr(f"{clave}:fallos"))
+        await redis.expire(f"{clave}:fallos", int(timedelta(days=1).total_seconds()))
+        espera = int(_espera(fallos).total_seconds())
+        await redis.set(f"{clave}:espera", "1", ex=espera)
+    except Exception:
+        logger.warning("No se ha podido anotar la espera de la traducción de categorías.")
+
+
+async def olvidar_esperas_de_categorias() -> None:
+    """Al guardar una categoría se vuelve a intentar sin esperar."""
+    try:
+        redis = get_redis()
+        for locale in LOCALES:
+            clave = _clave_espera_categorias(locale)
+            await redis.delete(f"{clave}:fallos", f"{clave}:espera")
+    except Exception:
+        logger.warning("No se ha podido quitar la espera de la traducción de categorías.")
+
+
 async def traducir_categorias() -> int:
     """Rellena con IA los nombres de categoría que falten. Devuelve cuántos."""
     async with SessionMaintenance() as session:
@@ -219,15 +272,20 @@ async def traducir_categorias() -> int:
     rellenados = 0
     for locale in destinos:
         faltan = [c for c in categorias if not (c.name_i18n or {}).get(locale)]
-        if not faltan:
+        if not faltan or await _categorias_en_espera(locale):
             continue
         textos = [ia.Texto(str(c.id), c.name, True) for c in faltan]
         try:
             resultado = await ia.traducir_con(_completar, textos, DEFAULT_LOCALE, locale, [])
-        except _SIN_IA:
-            break
-        except Exception:
+        except Exception as exc:
+            if _sin_ia(exc):
+                break
             logger.warning("Falla la traducción de los nombres de categoría.")
+            await _anotar_fallo_de_categorias(locale)
+            continue
+        if not any(resultado.values()):
+            # El modelo respondió, pero nada valía: también es un fallo.
+            await _anotar_fallo_de_categorias(locale)
             continue
         async with SessionMaintenance() as session, session.begin():
             for categoria in faltan:
@@ -245,5 +303,11 @@ async def traducir_categorias() -> int:
 
 
 async def traducir_contenido() -> tuple[int, int]:
-    """El legal y las categorías, en ese orden."""
-    return await traducir_legal(), await traducir_categorias()
+    """El legal y las categorías, en ese orden, sin dos tareas a la vez."""
+    async with SessionMaintenance() as session:
+        if not await session.scalar(select(func.pg_try_advisory_lock(_CANDADO))):
+            return 0, 0
+        try:
+            return await traducir_legal(), await traducir_categorias()
+        finally:
+            await session.execute(select(func.pg_advisory_unlock(_CANDADO)))

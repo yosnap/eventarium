@@ -130,7 +130,7 @@ class PlatformLegalPage(Base, TimestampMixin):
     kind: Mapped[str] = mapped_column(String(40), nullable=False)
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Idioma de esta versión. La española cae a la plantilla si falta; las demás
-    # solo existen si el superadmin las ha escrito a mano.
+    # las traduce la IA de la plataforma o las escribe el superadmin.
     locale: Mapped[str] = mapped_column(String(10), nullable=False, server_default="es-ES")
     # Solo en las versiones de otro idioma: quién la escribió (`ia`, `manual`,
     # `revisada`), en qué punto está la de IA y la huella del español efectivo

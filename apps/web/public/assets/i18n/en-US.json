@@ -1061,7 +1061,7 @@
       "error": "We couldn't complete the operation.",
       "nombreEn": "Name in {{ idioma }}",
       "traducidoConIa": "Translated by the platform's AI. If you change it, it counts as written by hand.",
-      "seTraduciraConIa": "Empty: the platform's AI will translate it."
+      "seTraduciraConIa": "Empty: the platform's AI will translate it, if it is set up."
     },
     "organizacion": {
       "titulo": "Organization",
@@ -2411,11 +2411,12 @@
         "idioma": "Text language",
         "aMano": "The platform's AI translates each page when the Spanish version is saved. You can correct it here: whatever you write by hand is no longer touched by the AI. An empty field goes back to the automatic translation.",
         "marcarRevisada": "Mark as reviewed",
+        "confirmarVigente": "Still valid",
         "estado": {
           "sinVersion": "Not translated yet: the Spanish version is served with a notice.",
           "pendiente": "Waiting to be translated: meanwhile, the Spanish version is served with a notice.",
           "en_curso": "Being translated now: meanwhile, the Spanish version is served with a notice.",
-          "error": "The automatic translation failed and will be retried. Meanwhile, the Spanish version is served; you can also write it by hand.",
+          "error": "The automatic translation failed. It retries on its own a few times; if it keeps failing, check the platform AI, save the Spanish version again or write it by hand. Meanwhile, the Spanish version is served.",
           "desactualizada": "The Spanish version has changed: this translation is not served until you update it.",
           "alDia": {
             "ia": "Translated automatically: shown with a notice and not offered to search engines until you review it.",

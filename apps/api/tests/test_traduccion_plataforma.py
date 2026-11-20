@@ -13,6 +13,7 @@ from sqlalchemy import func, select, update
 from app.core.database import SessionMaintenance
 from app.modules.ai_gateway.models import AiUsageRecord, PlatformAiSettings, PlatformAiUsage
 from app.modules.platform import traduccion
+from app.modules.platform.models import PlatformLegalPage
 from tests.ai_gateway_test_helpers import (
     ProveedorSimulado,
     configurar_plataforma,
@@ -70,10 +71,17 @@ async def test_la_ia_de_plataforma_traduce_el_legal_con_aviso_y_sin_indexar(
 
     # Revisada: sin aviso, indexable, y la IA ya no la toca.
     cabeceras = await _superadmin(cliente, organizacion)
+    # Solo se confirma el texto que se tiene delante.
+    otra = await cliente.post(
+        f"{PLATFORM_LEGAL_ADMIN}/review",
+        headers=cabeceras,
+        json={"page": "privacy_policy", "locale": "en-US", "content": "Otro texto"},
+    )
+    assert otra.status_code == 409
     revisada = await cliente.post(
         f"{PLATFORM_LEGAL_ADMIN}/review",
         headers=cabeceras,
-        json={"page": "privacy_policy", "locale": "en-US"},
+        json={"page": "privacy_policy", "locale": "en-US", "content": en_ingles["content"]},
     )
     assert revisada.status_code == 200, revisada.text
     tras_revisar = (await cliente.get(f"{PUBLIC_LEGAL}/privacidad?idioma=en-US")).json()
@@ -202,3 +210,82 @@ async def test_el_superadmin_ve_y_cambia_el_tope_pero_no_puede_quitarlo(
     for invalido in ({"translation_monthly_cap_usd": "0"}, {"translation_daily_calls": 0}):
         rechazado = await cliente.put("/api/v1/admin/ai-settings", headers=cabeceras, json=invalido)
         assert rechazado.status_code == 422
+
+
+async def test_guardar_una_pagina_no_desfasa_las_traducciones_de_las_demas(
+    cliente: AsyncClient,
+    organizacion: OrganizacionDePrueba,
+    cifrado: str,
+    proveedor_simulado: ProveedorSimulado,
+) -> None:
+    """Guardar la plantilla tal cual (como hace el editor si se envía todo) no la
+    convierte en texto propio ni cambia la huella de su traducción manual."""
+    cabeceras = await _superadmin(cliente, organizacion)
+    await cliente.patch(
+        PLATFORM_LEGAL_ADMIN,
+        headers=cabeceras,
+        json={"locale": "en-US", "cookies_policy_content": "Cookies by hand."},
+    )
+    plantilla = (await cliente.get(f"{PUBLIC_LEGAL}/cookies")).json()["content"]
+
+    guardado = await cliente.patch(
+        PLATFORM_LEGAL_ADMIN,
+        headers=cabeceras,
+        json={"cookies_policy_content": plantilla.strip(), "privacy_policy_content": "Nueva."},
+    )
+    assert guardado.json()["cookies_policy"]["is_custom"] is False
+    cookies = (await cliente.get(f"{PUBLIC_LEGAL}/cookies?idioma=en-US")).json()
+    assert cookies["served_locale"] == "en-US"
+    assert cookies["content"] == "Cookies by hand."
+
+
+async def test_una_traduccion_manual_desfasada_se_puede_confirmar_sin_tocarla(
+    cliente: AsyncClient, organizacion: OrganizacionDePrueba, cifrado: str
+) -> None:
+    cabeceras = await _superadmin(cliente, organizacion)
+    await cliente.patch(
+        PLATFORM_LEGAL_ADMIN,
+        headers=cabeceras,
+        json={"locale": "en-US", "privacy_policy_content": "Privacy by hand."},
+    )
+    await cliente.patch(
+        PLATFORM_LEGAL_ADMIN, headers=cabeceras, json={"privacy_policy_content": "Cambio menor."}
+    )
+    assert (await cliente.get(f"{PUBLIC_LEGAL}/privacidad?idioma=en-US")).json()[
+        "served_locale"
+    ] == "es-ES"
+
+    confirmada = await cliente.post(
+        f"{PLATFORM_LEGAL_ADMIN}/review",
+        headers=cabeceras,
+        json={"page": "privacy_policy", "locale": "en-US", "content": "Privacy by hand."},
+    )
+    assert confirmada.status_code == 200, confirmada.text
+    servida = (await cliente.get(f"{PUBLIC_LEGAL}/privacidad?idioma=en-US")).json()
+    assert servida["served_locale"] == "en-US"
+    assert servida["available_locales"] == ["es-ES", "en-US"]
+
+
+async def test_un_fallo_del_proveedor_no_culpa_a_la_pagina(
+    cliente: AsyncClient,
+    cifrado: str,
+    proveedor_simulado: ProveedorSimulado,
+) -> None:
+    """Una caída o una clave rechazada para el pase y deja las páginas pendientes,
+    sin sumar errores que acabarían dejándolas sin reintentar."""
+    await configurar_plataforma()
+    proveedor_simulado.estado = 503
+
+    assert await traduccion.traducir_legal() == 0
+
+    async with SessionMaintenance() as session:
+        filas = list(
+            await session.scalars(
+                select(PlatformLegalPage).where(PlatformLegalPage.locale == "en-US")
+            )
+        )
+    assert {(fila.status, fila.error_count) for fila in filas} == {("pendiente", 0)}
+    # Una sola llamada (con sus reintentos internos): tras la caída no se sigue
+    # con las demás páginas.
+    usos = await _usos_de_plataforma()
+    assert [(uso.status, uso.error_code) for uso in usos] == [("fallido", "proveedor_error")]

@@ -93,10 +93,8 @@ describe('PlatformLegalPage', () => {
     const guardado = fixture.componentInstance.guardar(new Event('submit'));
     await avanzar(fixture);
     const peticion = http.expectOne((r) => r.url === LEGALES_URL && r.method === 'PATCH');
-    expect(peticion.request.body).toMatchObject({
-      legal_notice_content: null,
-      privacy_policy_content: 'Privacidad de Eventarium',
-    });
+    // Solo lo cambiado: reenviar la plantilla sin tocar la congelaría.
+    expect(peticion.request.body).toEqual({ locale: 'es-ES', legal_notice_content: null });
     peticion.flush(SIN_EDITAR);
     await guardado;
 
@@ -114,7 +112,7 @@ describe('PlatformLegalPage', () => {
 
     fixture.componentInstance['cambiarIdioma']('en-US');
     await avanzar(fixture);
-    http.expectOne(`${LEGALES_URL}?idioma=en-US`).flush({
+    const EN = {
       legal_notice: {
         content: 'Legal notice',
         is_custom: false,
@@ -129,7 +127,8 @@ describe('PlatformLegalPage', () => {
       }),
       cookies_policy: espanola('Cookies de Eventarium'),
       registration_terms: espanola('Condiciones de inscripción de Eventarium'),
-    });
+    };
+    http.expectOne(`${LEGALES_URL}?idioma=en-US`).flush(EN);
     await avanzar(fixture);
 
     expect(fixture.componentInstance.avisoLegal()).toBe('Legal notice');
@@ -138,6 +137,19 @@ describe('PlatformLegalPage', () => {
     const texto = fixture.nativeElement.textContent as string;
     expect(texto).toContain('no se sirve hasta que la actualices');
     expect(texto).toContain('Marcar como revisada');
+    // La escrita a mano para un español anterior se puede confirmar.
+    expect(texto).toContain('Sigue siendo válida');
+
+    const revisada = fixture.componentInstance['revisar']('legal_notice');
+    await avanzar(fixture);
+    const revision = http.expectOne(`${LEGALES_URL}/review`);
+    expect(revision.request.body).toEqual({
+      page: 'legal_notice',
+      locale: 'en-US',
+      content: 'Legal notice',
+    });
+    revision.flush(EN);
+    await revisada;
 
     fixture.componentInstance.privacidad.set('New privacy');
     const guardado = fixture.componentInstance.guardar(new Event('submit'));
@@ -150,13 +162,6 @@ describe('PlatformLegalPage', () => {
     });
     peticion.flush(SIN_EDITAR);
     await guardado;
-
-    const revisada = fixture.componentInstance['revisar']('legal_notice');
-    await avanzar(fixture);
-    const revision = http.expectOne(`${LEGALES_URL}/review`);
-    expect(revision.request.body).toEqual({ page: 'legal_notice', locale: 'en-US' });
-    revision.flush(SIN_EDITAR);
-    await revisada;
   });
 
   it('mientras se guarda no cambia de idioma, para no mezclar versiones', async () => {

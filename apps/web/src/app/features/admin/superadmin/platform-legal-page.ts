@@ -93,7 +93,7 @@ const CLAVE_LEGALES = '/admin/legal-pages';
                 [compacto]="true"
                 [disabled]="guardando()"
                 (pulsado)="revisar('legal_notice')"
-                >{{ t('admin.plataforma.legales.marcarRevisada') }}</app-button
+                >{{ etiquetaDeRevision('legal_notice') }}</app-button
               >
             }
             <app-textarea
@@ -111,7 +111,7 @@ const CLAVE_LEGALES = '/admin/legal-pages';
                 [compacto]="true"
                 [disabled]="guardando()"
                 (pulsado)="revisar('privacy_policy')"
-                >{{ t('admin.plataforma.legales.marcarRevisada') }}</app-button
+                >{{ etiquetaDeRevision('privacy_policy') }}</app-button
               >
             }
             <app-textarea
@@ -129,7 +129,7 @@ const CLAVE_LEGALES = '/admin/legal-pages';
                 [compacto]="true"
                 [disabled]="guardando()"
                 (pulsado)="revisar('cookies_policy')"
-                >{{ t('admin.plataforma.legales.marcarRevisada') }}</app-button
+                >{{ etiquetaDeRevision('cookies_policy') }}</app-button
               >
             }
             <app-textarea
@@ -147,7 +147,7 @@ const CLAVE_LEGALES = '/admin/legal-pages';
                 [compacto]="true"
                 [disabled]="guardando()"
                 (pulsado)="revisar('registration_terms')"
-                >{{ t('admin.plataforma.legales.marcarRevisada') }}</app-button
+                >{{ etiquetaDeRevision('registration_terms') }}</app-button
               >
             }
             <app-textarea
@@ -246,10 +246,25 @@ export class PlatformLegalPage {
     );
   }
 
-  /** Traducción automática al día y sin revisar: se puede marcar como revisada. */
+  /** Traducción automática al día sin revisar, o escrita a mano para un español
+   * anterior: el superadmin puede confirmar que vale. */
   protected revisable(atributo: Atributo): boolean {
     const traduccion = this.traducciones()[atributo];
-    return this.enOtroIdioma() && traduccion?.origin === 'ia' && traduccion.status === 'al_dia';
+    if (!this.enOtroIdioma() || !traduccion?.content) {
+      return false;
+    }
+    return (
+      (traduccion.origin === 'ia' && traduccion.status === 'al_dia') ||
+      traduccion.status === 'desactualizada'
+    );
+  }
+
+  protected etiquetaDeRevision(atributo: Atributo): string {
+    return this.transloco.translate(
+      this.traducciones()[atributo]?.status === 'desactualizada'
+        ? 'admin.plataforma.legales.confirmarVigente'
+        : 'admin.plataforma.legales.marcarRevisada',
+    );
   }
 
   protected async revisar(atributo: Atributo): Promise<void> {
@@ -260,7 +275,13 @@ export class PlatformLegalPage {
       const paginas = await firstValueFrom(
         this.http.post<PaginasLegales>(
           this.api.url(`${CLAVE_LEGALES}/review`),
-          { page: atributo, locale: idioma },
+          // El texto guardado que se confirma: si la IA lo rehízo mientras tanto, la
+          // API lo rechaza en vez de dar por revisado algo que nadie ha leído.
+          {
+            page: atributo,
+            locale: idioma,
+            content: this.traducciones()[atributo]?.content ?? '',
+          },
           { headers: this.api.serverForwardHeaders() },
         ),
       );
@@ -363,11 +384,12 @@ export class PlatformLegalPage {
       cookies_policy: this.cookies(),
       registration_terms: this.condicionesDeInscripcion(),
     };
-    // En otro idioma solo se envía lo cambiado: reenviar una traducción de la IA
-    // sin tocarla la convertiría en «escrita a mano».
+    // Solo se envía lo cambiado: reenviar una traducción de la IA sin tocarla la
+    // convertiría en «escrita a mano», y reenviar una plantilla española la
+    // congelaría y cambiaría la huella de la que dependen sus traducciones.
     const cuerpo: Record<string, string | null> = { locale: idioma };
     for (const [atributo, valor] of Object.entries(campos) as [Atributo, string][]) {
-      if (!this.enOtroIdioma() || valor !== this.cargado[atributo]) {
+      if (valor !== this.cargado[atributo]) {
         cuerpo[`${atributo}_content`] = aTexto(valor);
       }
     }

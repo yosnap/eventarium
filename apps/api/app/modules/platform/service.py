@@ -117,6 +117,22 @@ def sitio_de_la_instalacion() -> str:
 ORIGENES_A_MANO = ("manual", "revisada")
 
 
+def firma_legal(texto: str) -> str:
+    """Huella del español de una página, sin los espacios de los extremos: guardar
+    la plantilla tal cual (el editor recorta) no debe cambiarla."""
+    return huella(texto.strip())
+
+
+async def plantillas_legales(session: AsyncSession) -> dict[str, str]:
+    """Por página, la plantilla por defecto con el nombre y el dominio actuales."""
+    branding: PlatformBranding = await repository.get_platform_branding(session)
+    sitio = sitio_de_la_instalacion()
+    return {
+        clave: resolve_platform_legal_page(branding, sitio, clave, None)
+        for clave in PLATFORM_LEGAL_PAGE_KINDS
+    }
+
+
 async def espanoles_efectivos(session: AsyncSession) -> dict[str, str]:
     """Por página, el texto español que se sirve (editado o plantilla)."""
     branding: PlatformBranding = await repository.get_platform_branding(session)
@@ -160,7 +176,7 @@ async def legal_pages_publicas(
 
     items: dict[str, PlatformLegalPageItem] = {}
     for clave in PLATFORM_LEGAL_PAGE_KINDS:
-        firma = huella(espanoles[clave])
+        firma = firma_legal(espanoles[clave])
         al_dia = {
             idioma: fila
             for (pagina, idioma), fila in traducidas.items()

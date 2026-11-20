@@ -12444,7 +12444,7 @@
           "organizaciones"
         ],
         "summary": "Sobrescribir la configuración de IA de la organización",
-        "description": "Guarda la configuración propia (proveedor, modelo, clave y, en un proveedor personalizado, su dirección) y el límite de gasto propio, que no puede superar el techo de la plataforma (422). La configuración se guarda **entera**: enviar proveedor o dirección exige enviar también la clave, y enviar la clave exige proveedor y modelo.",
+        "description": "Guarda la configuración propia (proveedor, modelo, clave y, en un proveedor personalizado, su dirección) y el límite de gasto propio, que no puede superar el techo de la plataforma (422). La configuración se guarda **entera**: enviar proveedor o dirección exige enviar también la clave, y enviar la clave exige proveedor y modelo. Con `verify_translation`, antes de guardar se traduce de verdad una frase de prueba con la clave nueva.",
         "operationId": "update_my_ai_settings_api_v1_organizations_me_ai_settings_put",
         "requestBody": {
           "content": {
@@ -22727,12 +22727,19 @@
               "en-US"
             ],
             "title": "Locale"
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 20000,
+            "title": "Content",
+            "description": "El texto que se confirma, tal como lo ve el superadmin."
           }
         },
         "type": "object",
         "required": [
           "page",
-          "locale"
+          "locale",
+          "content"
         ],
         "title": "PlatformLegalPageReview",
         "description": "Qué versión traducida se marca como revisada."
@@ -22819,7 +22826,7 @@
               "en-US"
             ],
             "title": "Locale",
-            "description": "Idioma de la versión que se edita. Con `null` en otro idioma, se borra esa versión y vuelve a servirse la española con aviso.",
+            "description": "Idioma de la versión que se edita. En otro idioma, un texto la guarda como escrita a mano; `null` la devuelve a la traducción automática.",
             "default": "es-ES"
           }
         },

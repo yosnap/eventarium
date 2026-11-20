@@ -14,6 +14,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import registrar_auditoria
@@ -47,7 +48,6 @@ from app.modules.platform.schemas import (
     PlatformLegalPagesUpdate,
 )
 from app.modules.theme_templates import repository as theme_templates_repository
-from app.modules.translations.campos import huella
 from app.shared.errors import ConflictError, ValidationDomainError
 from app.shared.pagination import Page, PageParams, page_params
 
@@ -472,6 +472,7 @@ async def update_platform_legal_pages(
     traducida = datos.locale != DEFAULT_LOCALE
     # La huella de la versión traducida es la del español que se sirve ahora.
     espanoles = await platform_service.espanoles_efectivos(session) if traducida else {}
+    plantillas = await platform_service.plantillas_legales(session) if not traducida else {}
 
     for clave, campo in _CAMPOS_DE_PAGINA.items():
         if campo not in cambios:
@@ -489,7 +490,7 @@ async def update_platform_legal_pages(
                 fila.content = limpio
                 fila.origin = "manual"
                 fila.status = "al_dia"
-                fila.source_hash = huella(espanoles[clave])
+                fila.source_hash = platform_service.firma_legal(espanoles[clave])
             else:
                 # Vacía: vuelve a la traducción automática.
                 fila.content = None
@@ -498,13 +499,17 @@ async def update_platform_legal_pages(
                 fila.source_hash = None
             fila.error_count = 0
             fila.retry_after = None
-        elif fila is None:
-            # Sin fila y sin contenido: ya estaba en plantilla, no hay nada que
-            # restaurar ni que crear.
-            if limpio:
-                session.add(PlatformLegalPage(kind=clave, content=limpio, locale=datos.locale))
         else:
-            fila.content = limpio or None
+            # Guardar la plantilla tal cual no la convierte en texto propio: seguiría
+            # sin recoger un cambio de nombre o de dominio de la plataforma.
+            if limpio is not None and limpio == plantillas[clave].strip():
+                limpio = None
+            if fila is None:
+                # Sin fila y sin contenido: ya estaba en plantilla, nada que crear.
+                if limpio:
+                    session.add(PlatformLegalPage(kind=clave, content=limpio, locale=datos.locale))
+            else:
+                fila.content = limpio or None
 
     if not traducida and cambios:
         # Cambia el español: las versiones de la IA se rehacen desde cero, sin la
@@ -544,15 +549,34 @@ async def review_platform_legal_page(
     datos: PlatformLegalPageReview, superadmin: Superadmin, session: MaintenanceDb
 ) -> PlatformLegalPagesResponse:
     clave = platform_service.clave_de_atributo(datos.page)
-    fila = await platform_repository.get_platform_legal_page(session, clave, datos.locale)
     espanoles = await platform_service.espanoles_efectivos(session)
-    if (
-        fila is None
-        or platform_service.estado_de_version(fila, huella(espanoles[clave])) != "al_dia"
-    ):
+    firma = platform_service.firma_legal(espanoles[clave])
+    fila = await platform_repository.get_platform_legal_page(session, clave, datos.locale)
+    estado = platform_service.estado_de_version(fila, firma)
+    # Solo se confirma el texto que el superadmin tiene delante: si la IA lo ha
+    # rehecho mientras tanto, no se marca como revisado algo que nadie ha leído.
+    if fila is None or not fila.content or fila.content != datos.content.strip():
+        raise ConflictError("La traducción ha cambiado: vuelve a cargarla antes de revisarla.")
+    if estado == "al_dia" and fila.origin == "ia":
+        valores: dict[str, object] = {"origin": "revisada"}
+    elif estado == "desactualizada":
+        # Escrita a mano para un español anterior: el superadmin confirma que sigue valiendo.
+        valores = {"status": "al_dia", "source_hash": firma}
+    else:
         raise ConflictError("Solo se puede revisar una traducción al día con el español actual.")
-    fila.origin = "revisada"
+    resultado = await session.execute(
+        update(PlatformLegalPage)
+        .where(
+            PlatformLegalPage.id == fila.id,
+            PlatformLegalPage.content == fila.content,
+            PlatformLegalPage.status != "en_curso",
+        )
+        .values(**valores)
+    )
+    if not getattr(resultado, "rowcount", 0):
+        raise ConflictError("La traducción ha cambiado: vuelve a cargarla antes de revisarla.")
     await session.flush()
+    session.expire_all()
     await registrar_auditoria(
         session,
         actor_user_id=superadmin.id,

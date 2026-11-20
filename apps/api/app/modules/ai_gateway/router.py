@@ -258,9 +258,13 @@ async def get_my_ai_usage(usuario: OrgOwnerDep, session: DbDep) -> AiUsageOut:
         "proveedor personalizado, su dirección) y el límite de gasto propio, que "
         "no puede superar el techo de la plataforma (422). La configuración se "
         "guarda **entera**: enviar proveedor o dirección exige enviar también la "
-        "clave, y enviar la clave exige proveedor y modelo."
+        "clave, y enviar la clave exige proveedor y modelo. Con `verify_translation`, "
+        "antes de guardar se traduce de verdad una frase de prueba con la clave nueva."
     ),
     response_model=OrganizationAiSettingsOut,
+    # Guardar sale a la red (validación del modelo y, con verificación, una
+    # traducción real): con límite, para que no sirva para sondear claves.
+    dependencies=[limit_per_ip("ai-settings-put", AI_TEST_CONNECTION_POR_IP)],
 )
 async def update_my_ai_settings(
     datos: OrganizationAiSettingsUpdate,

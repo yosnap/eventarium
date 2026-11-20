@@ -109,6 +109,9 @@ class PlatformLegalPageReview(BaseModel):
 
     page: Literal["legal_notice", "privacy_policy", "cookies_policy", "registration_terms"]
     locale: Locale
+    content: Annotated[str, Field(max_length=20_000)] = Field(
+        description="El texto que se confirma, tal como lo ve el superadmin."
+    )
 
 
 class PlatformLegalPagesResponse(BaseModel):
@@ -134,7 +137,7 @@ class PlatformLegalPagesUpdate(BaseModel):
     locale: Locale = Field(
         default=DEFAULT_LOCALE,
         description=(
-            "Idioma de la versión que se edita. Con `null` en otro idioma, se borra esa "
-            "versión y vuelve a servirse la española con aviso."
+            "Idioma de la versión que se edita. En otro idioma, un texto la guarda como "
+            "escrita a mano; `null` la devuelve a la traducción automática."
         ),
     )
